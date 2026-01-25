@@ -10260,7 +10260,7 @@
                         const createdAt = r.createdAt || 0;
                         const cancelledAt = r.cancelledAt || r.completedAt || 0;
                         const timeDiff = cancelledAt - createdAt;
-                        const minutesDiff = Math.floor(timeDiff / (60 * 1900));
+                        const minutesDiff = Math.floor(timeDiff / (60 * 1000));
                         
                         if (minutesDiff <= 60 && minutesDiff >= 0) {
                             // Innerhalb 60 Min → 15% Stornogebühr
@@ -11664,7 +11664,7 @@ Funk Taxi Heringsdorf`;
             
             // 🆕 v5.90.276: newTimestamp schon oben definiert!
             const now = Date.now();
-            const minutesUntilPickup = (newTimestamp - now) / (1900 * 60);
+            const minutesUntilPickup = (newTimestamp - now) / (1000 * 60);
             const newStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
             
             const updates = {
@@ -12147,7 +12147,7 @@ Funk Taxi Heringsdorf`;
                     vehicleId: vehicleId,
                     createdAt: now,
                     active: true,
-                    expiresAt: pickupTime + (2 * 60 * 60 * 1900) // 2h nach Abholung
+                    expiresAt: pickupTime + (2 * 60 * 60 * 1000) // 2h nach Abholung
                 });
                 
                 // Link in Fahrt speichern
@@ -12261,8 +12261,8 @@ Funk Taxi Heringsdorf`;
         async function checkPendingTrackingLinks() {
             try {
                 const now = Date.now();
-                const in15Min = now + (15 * 60 * 1900);
-                const in16Min = now + (16 * 60 * 1900);
+                const in15Min = now + (15 * 60 * 1000);
+                const in16Min = now + (16 * 60 * 1000);
                 
                 // Suche Fahrten die in 15-16 Min starten UND trackingLinkPending haben
                 const snapshot = await db.ref('rides')
@@ -12293,7 +12293,7 @@ Funk Taxi Heringsdorf`;
         }
         
         // Starte automatischen Check (alle 60 Sekunden)
-        setInterval(checkPendingTrackingLinks, 60 * 1900);
+        setInterval(checkPendingTrackingLinks, 60 * 1000);
         console.log('⏰ Automatischer Tracking-Link Check gestartet (alle 60 Sek)');
         
         // ═══════════════════════════════════════════════════════════════
@@ -12785,7 +12785,7 @@ Funk Taxi Heringsdorf`;
             
             try {
                 const now = Date.now();
-                const MAX_ASSIGNED_AGE = 2 * 60 * 1900; // 2 Minuten für assigned
+                const MAX_ASSIGNED_AGE = 2 * 60 * 1000; // 2 Minuten für assigned
                 
                 // 🆕 v5.90.120: AUTO-LÖSCHUNGEN DEAKTIVIERT!
                 // Patrick will KEINE automatischen Löschungen mehr
@@ -12802,7 +12802,7 @@ Funk Taxi Heringsdorf`;
                     const assignedAge = now - (ride.assignedAt || 0);
                     
                     if (assignedAge > MAX_ASSIGNED_AGE) {
-                        console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1900)}s im assigned Status`);
+                        console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1000)}s im assigned Status`);
                         
                         // 🔧 FIX: Blacklist beibehalten UND aktuellen Fahrer hinzufügen!
                         const currentBlacklist = ride.assignmentBlacklist || [];
@@ -12857,7 +12857,7 @@ Funk Taxi Heringsdorf`;
         
         let backupDB = null;
         let backupTimer = null;
-        const BACKUP_INTERVAL = 4 * 60 * 60 * 1900; // 4 Stunden
+        const BACKUP_INTERVAL = 4 * 60 * 60 * 1000; // 4 Stunden
         const MAX_BACKUPS = 5; // Behalte letzte 5
         
         // IndexedDB für Backups initialisieren
@@ -16271,7 +16271,7 @@ Aktuell: ${currentNum}`;
             
             gpsMonitoringInterval = setInterval(() => {
                 const now = Date.now();
-                const timeSinceLastUpdate = lastGPSUpdate ? (now - lastGPSUpdate) / 1900 : null;
+                const timeSinceLastUpdate = lastGPSUpdate ? (now - lastGPSUpdate) / 1000 : null;
                 
                 // Update UI
                 updateGPSStatus(timeSinceLastUpdate);
@@ -16370,7 +16370,7 @@ Aktuell: ${currentNum}`;
                     
                     const lastUpdate = driverData.lastUpdate || 0;
                     const now = Date.now();
-                    const secondsSinceUpdate = Math.floor((now - lastUpdate) / 1900);
+                    const secondsSinceUpdate = Math.floor((now - lastUpdate) / 1000);
                     
                     if (secondsSinceUpdate < 30) {
                         // SYNC GUT!
@@ -16536,7 +16536,7 @@ Aktuell: ${currentNum}`;
                         const isStandby = !watchId && standbyIntervalId;
                         
                         if (lastUpdate) {
-                            const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1900);
+                            const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1000);
                             const accuracy = lastAccuracy ? parseInt(lastAccuracy) : null;
                             
                             if (secondsSinceUpdate < 30) {
@@ -16634,7 +16634,7 @@ Aktuell: ${currentNum}`;
                     }
                     
                     const now = Date.now();
-                    const fifteenMinutes = 15 * 60 * 1900;
+                    const fifteenMinutes = 15 * 60 * 1000;
                     
                     const myRides = rides.filter(r => {
                         if (!r || !r.vehicleId) return false;
@@ -17399,7 +17399,7 @@ Aktuell: ${currentNum}`;
             
             // Geplante Fahrten (heute, später) - AUCH accepted Fahrten die weit weg sind!
             const today = new Date().toDateString();
-            const oneHourFromNow = now + (60 * 60 * 1900);
+            const oneHourFromNow = now + (60 * 60 * 1000);
             const scheduledRides = myRides.filter(r => {
                 if (r.status === 'completed' || r.status === 'cancelled') return false;
                 
@@ -17674,8 +17674,8 @@ Aktuell: ${currentNum}`;
             
             // Zeit bis Abholung
             const timeUntil = ride.pickupTimestamp ? ride.pickupTimestamp - Date.now() : 0;
-            const hoursUntil = Math.floor(timeUntil / (1900 * 60 * 60));
-            const minutesUntil = Math.floor((timeUntil % (1900 * 60 * 60)) / (1900 * 60));
+            const hoursUntil = Math.floor(timeUntil / (1000 * 60 * 60));
+            const minutesUntil = Math.floor((timeUntil % (1000 * 60 * 60)) / (1000 * 60));
             const timeUntilStr = hoursUntil > 0 ? `${hoursUntil}h ${minutesUntil}min` : `${minutesUntil}min`;
             
             // Wer hat akzeptiert?
@@ -17816,7 +17816,7 @@ Aktuell: ${currentNum}`;
             
             // Alte Benachrichtigungs-Logik (für Kompatibilität)
             // 🆕 v5.31.6: Nur NEUE Stornierungen anzeigen (letzte 2 Min statt 10!)
-            const twoMinutesAgo = Date.now() - (2 * 60 * 1900); // ✅ Geändert von 10 auf 2 Min!
+            const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // ✅ Geändert von 10 auf 2 Min!
             const cancelledRides = myRides.filter(r => 
                 r.status === 'cancelled' && 
                 r.driverNotified === false &&
@@ -18027,7 +18027,7 @@ Aktuell: ${currentNum}`;
                     // 🎯 v5.90.107: Verbesserte Badge-Logik!
                     const isMyVehicle = (currentVehicle && r.vehicleId === currentVehicle);
                     const isAssignedToMe = r.assignedTo === currentVehicle;
-                    const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1900)) : null;
+                    const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1000)) : null;
                     
                     let assignmentBadge = '';
                     let cardStyle = '';
@@ -18186,7 +18186,7 @@ Aktuell: ${currentNum}`;
             });
             
             // 🧹 FILTERE ALTE FAHRTEN (älter als 3 Tage) AUTOMATISCH RAUS
-            const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1900);
+            const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
             allRides = allRides.filter(r => {
                 const rideTime = r.pickupTimestamp || r.createdAt || 0;
                 // Behalte nur: completed (immer), oder Fahrten von letzten 3 Tagen
@@ -18213,7 +18213,7 @@ Aktuell: ${currentNum}`;
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             // 🆕 v5.49.0: ABER NUR WENN NICHT ABGELAUFEN!
             const now = Date.now();
-            const oneHourAgo = now - (60 * 60 * 1900); // 1 Stunde
+            const oneHourAgo = now - (60 * 60 * 1000); // 1 Stunde
             
             const openRides = allRides.filter(r => {
                 const openStatuses = ['vorbestellt', 'new', 'akzeptiert', 'accepted', 'unterwegs', 'picked_up', 'angekommen'];
@@ -18282,7 +18282,7 @@ Aktuell: ${currentNum}`;
                         });
                         
                         // Zeitdifferenz berechnen
-                        const hoursUntil = Math.floor((pickupDate.getTime() - now) / (1900 * 60 * 60));
+                        const hoursUntil = Math.floor((pickupDate.getTime() - now) / (1000 * 60 * 60));
                         const daysUntil = Math.floor(hoursUntil / 24);
                         let countdownText = '';
                         if (daysUntil > 0) {
@@ -18290,7 +18290,7 @@ Aktuell: ${currentNum}`;
                         } else if (hoursUntil > 0) {
                             countdownText = `in ${hoursUntil} Stunde${hoursUntil > 1 ? 'n' : ''}`;
                         } else {
-                            const minutesUntil = Math.floor((pickupDate.getTime() - now) / (1900 * 60));
+                            const minutesUntil = Math.floor((pickupDate.getTime() - now) / (1000 * 60));
                             if (minutesUntil > 0) {
                                 countdownText = `in ${minutesUntil} Min`;
                             } else {
@@ -18433,7 +18433,7 @@ Aktuell: ${currentNum}`;
                     });
                     
                     // Berechne wie lange abgelaufen
-                    const hoursAgo = Math.floor((now - pickupDate.getTime()) / (1900 * 60 * 60));
+                    const hoursAgo = Math.floor((now - pickupDate.getTime()) / (1000 * 60 * 60));
                     const daysAgo = Math.floor(hoursAgo / 24);
                     let expiredText = '';
                     if (daysAgo > 0) {
@@ -18711,7 +18711,7 @@ Aktuell: ${currentNum}`;
                 // Fahrer ist online wenn: online = true UND letzte Aktualisierung < 2 Min
                 if (driver && driver.online) {
                     const lastUpdate = driver.timestamp || 0;
-                    const minutesSinceUpdate = (now - lastUpdate) / (1900 * 60);
+                    const minutesSinceUpdate = (now - lastUpdate) / (1000 * 60);
                     
                     // Nur als online zeigen wenn letzte Meldung < 2 Min
                     if (minutesSinceUpdate < 2) {
@@ -19733,7 +19733,7 @@ Aktuell: ${currentNum}`;
                 
                 // Finde alte Fahrten (älter als 24h)
                 const now = Date.now();
-                const oneDayAgo = now - (24 * 60 * 60 * 1900);
+                const oneDayAgo = now - (24 * 60 * 60 * 1000);
                 
                 const oldActiveRides = activeRides.filter(r => {
                     const rideTime = r.pickupTimestamp || r.timestamp || 0;
@@ -19776,7 +19776,7 @@ Aktuell: ${currentNum}`;
                 html += `<div style="background:white;border-radius:6px;padding:10px;margin-bottom:10px;max-height:300px;overflow-y:auto;">`;
                 oldActiveRides.slice(0, 10).forEach((ride, index) => {
                     const rideDate = new Date(ride.pickupTimestamp || ride.timestamp || 0);
-                    const hoursAgo = Math.floor((now - (ride.pickupTimestamp || ride.timestamp || 0)) / (1900 * 60 * 60));
+                    const hoursAgo = Math.floor((now - (ride.pickupTimestamp || ride.timestamp || 0)) / (1000 * 60 * 60));
                     
                     html += `
                         <div style="padding:10px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">
@@ -21123,7 +21123,7 @@ Aktuell: ${currentNum}`;
                     if (waypointsArray.length > 0 && route.legs) {
                         console.log('📱 v5.90.527: Route-Segmente:');
                         route.legs.forEach((leg, i) => {
-                            const legDist = (leg.distance / 1900).toFixed(1);
+                            const legDist = (leg.distance / 1000).toFixed(1);
                             const legDur = Math.round(leg.duration / 60);
                             if (i === 0) {
                                 console.log(`   Start → Stopp ${i+1}: ${legDist} km, ${legDur} Min`);
@@ -21135,8 +21135,8 @@ Aktuell: ${currentNum}`;
                         });
                     }
                     
-                    return { 
-                        distance: (route.distance / 1900).toFixed(1), 
+                    return {
+                        distance: (route.distance / 1000).toFixed(1),
                         duration: Math.round(route.duration / 60),
                         geometry: route.geometry ? route.geometry.coordinates : null,  // Route-Punkte!
                         legs: route.legs || []  // 🆕 v5.90.527: Einzelne Segmente!
@@ -21597,7 +21597,7 @@ Aktuell: ${currentNum}`;
             
             // Hole alle ÖPNV-Fahrten der letzten 10 Minuten
             const now = Date.now();
-            const tenMinutesAgo = now - (10 * 60 * 1900);
+            const tenMinutesAgo = now - (10 * 60 * 1000);
             
             // Suche in rides-Objekt (alle aktiven/letzten Fahrten)
             const recentOepnvRides = Object.values(rides).filter(r => 
@@ -21611,7 +21611,7 @@ Aktuell: ${currentNum}`;
             // Suche Duplikate
             const duplicates = recentOepnvRides.filter(existingRide => {
                 const timeDiff = Math.abs(newRide.timestamp - existingRide.timestamp);
-                const fiveMinutes = 5 * 60 * 1900;
+                const fiveMinutes = 5 * 60 * 1000;
                 
                 const sameDriver = existingRide.driverId === newRide.driverId;
                 const samePickup = existingRide.pickup === newRide.pickup;
@@ -21623,7 +21623,7 @@ Aktuell: ${currentNum}`;
                     samePickup,
                     sameDestination,
                     sameTime,
-                    timeDiff: Math.round(timeDiff / 1900) + 's'
+                    timeDiff: Math.round(timeDiff / 1000) + 's'
                 });
                 
                 return sameDriver && samePickup && sameDestination && sameTime;
@@ -21747,7 +21747,7 @@ Aktuell: ${currentNum}`;
                                 <div style="margin-top:8px;padding:8px;background:white;border-radius:4px;font-size:11px;">
                                     ${alert.duplicates.map((d, i) => {
                                         const dupDate = new Date(d.timestamp);
-                                        const timeDiff = Math.round((alert.timestamp - d.timestamp) / 1900 / 60);
+                                        const timeDiff = Math.round((alert.timestamp - d.timestamp) / 1000 / 60);
                                         return `
                                             <div style="padding:6px 0;border-top:1px solid #e5e7eb;">
                                                 <strong>Duplikat ${i+1}:</strong> Fahrt ${d.id}<br>
@@ -22177,7 +22177,7 @@ Aktuell: ${currentNum}`;
             const createdAt = ride.createdAt || 0;
             const cancelledAt = ride.cancelledAt || ride.completedAt || Date.now();
             const timeDiff = cancelledAt - createdAt;
-            const minutesDiff = Math.floor(timeDiff / (60 * 1900));
+            const minutesDiff = Math.floor(timeDiff / (60 * 1000));
             
             if (minutesDiff > 60) {
                 alert('ℹ️ Diese Stornierung war kostenfrei (mehr als 60 Min nach Buchung).');
@@ -22504,7 +22504,7 @@ Aktuell: ${currentNum}`;
                     clearInterval(adminAlarmInterval);
                     adminAlarmInterval = null;
                 }
-            }, 3 * 60 * 1900); // 3 Minuten
+            }, 3 * 60 * 1000); // 3 Minuten
         }
         
         // Modal anzeigen
@@ -24010,7 +24010,7 @@ Aktuell: ${currentNum}`;
                     
                     // Prüfe ob Abholzeit in <= 10 Minuten (Zuweisung war bei 15 Min!)
                     const pickupTime = ride.pickupTimestamp || 0;
-                    const minutesUntilPickup = (pickupTime - now) / (1900 * 60);
+                    const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
                     
                     if (minutesUntilPickup <= 10 && minutesUntilPickup > 0) {
                         // Noch nicht gewarnt? → Telegram senden!
@@ -24045,7 +24045,7 @@ Aktuell: ${currentNum}`;
                     if (activatedPrebookings.has(rideKey)) continue; // Schon aktiviert
                     
                     const pickupTime = ride.pickupTimestamp || 0;
-                    const minutesUntilPickup = (pickupTime - now) / (1900 * 60);
+                    const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
                     
                     // 🆕 v5.90.570: NUR Fahrten < 60 Min prüfen! (Performance!)
                     if (minutesUntilPickup > 60 || minutesUntilPickup < 0) {
@@ -26519,7 +26519,7 @@ Aktuell: ${currentNum}`;
             if (geocodePromises.length > 0) {
                 const startTime = Date.now();
                 const results = await Promise.all(geocodePromises);
-                const duration = ((Date.now() - startTime) / 1900).toFixed(1);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
                 console.log(`⚡ v5.90.100: ${geocodePromises.length} Geocode-Calls in ${duration} Sek (parallel!)🚀`);
                 
                 // Prüfe Ergebnisse
@@ -27166,7 +27166,7 @@ Aktuell: ${currentNum}`;
                     console.log('⏰ TIMEOUT! Fahrt nicht angenommen - weise nächstem Taxi zu');
                     
                     // 🆕 v5.25.6: TEMPORÄRE SPERRE FÜR FAHRER (3 Minuten)
-                    const blockUntil = Date.now() + (3 * 60 * 1900); // 3 Minuten
+                    const blockUntil = Date.now() + (3 * 60 * 1000); // 3 Minuten
                     await db.ref('vehicles/' + nearestVehicle.id + '/temporaryBlock').set({
                         blockedAt: Date.now(),
                         blockedUntil: blockUntil,
@@ -27230,7 +27230,7 @@ Aktuell: ${currentNum}`;
             
             const availableVehicles = [];
             const now = Date.now();
-            const MAX_GPS_AGE = 10 * 60 * 1900; // 10 Minuten
+            const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
             
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
@@ -27996,7 +27996,7 @@ Aktuell: ${currentNum}`;
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const now = new Date();
                 const minLeadTimeMinutes = 25;
-                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1900);
+                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
 
                 // Prüfe ob Termin in der Vergangenheit liegt
                 if (slotDateTime < now) {
@@ -28024,7 +28024,7 @@ Aktuell: ${currentNum}`;
                         // Frühester möglicher Termin
                         html += '<div style="margin-top:12px;">';
                         html += '<div style="color:#059669;font-weight:700;font-size:13px;">💚 Frühester möglicher Termin:</div>';
-                        const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1900);
+                        const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
                         // Runde auf nächste 5 Minuten
                         earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                         earliestTime.setSeconds(0);
@@ -28043,7 +28043,7 @@ Aktuell: ${currentNum}`;
 
                 // Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
-                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1900));
+                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1000));
                     console.log(`❌ v5.90.735: Nur ${minLeadTimeMinutes - minutesTooEarly} Min Vorlauf, brauche ${minLeadTimeMinutes} Min!`);
                     if (statusDisplay) {
                         statusDisplay.style.display = 'block';
@@ -30647,7 +30647,7 @@ Aktuell: ${currentNum}`;
                 
                 // 🆕 v5.90.323: VORBESTELLUNG BRAUCHT MINDESTENS 1 STUNDE VORLAUF!
                 const nowTime = Date.now();
-                const minTime = nowTime + (60 * 60 * 1900); // +1 Stunde
+                const minTime = nowTime + (60 * 60 * 1000); // +1 Stunde
                 
                 if (pickupTimestamp < minTime) {
                     const minDate = new Date(minTime);
@@ -30702,7 +30702,7 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
-                const daysDiff = (pickupTimestamp - Date.now()) / (1900 * 60 * 60 * 24);
+                const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
                 if (daysDiff > 7) {
                     const confirm = window.confirm(
                         `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
@@ -30713,14 +30713,14 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
-                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1900 * 60);
+                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
                 
                 // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
                 rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
             }
             
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
-            const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1900 * 60);
+            const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
             
             // 🆕 v5.31.0: Generiere EINDEUTIGE RIDE-ID
             const rideId = generateRideId();
@@ -31724,7 +31724,7 @@ Aktuell: ${currentNum}`;
                     
                     // 2. Maximal 6 Stunden Abstand (vor oder nach)
                     const timeDiff = Math.abs(r.pickupTimestamp - requestedTimestamp);
-                    const hoursDiff = timeDiff / (1900 * 60 * 60);
+                    const hoursDiff = timeDiff / (1000 * 60 * 60);
                     return hoursDiff <= 6; // Nur Fahrten innerhalb ±6h relevant
                 });
                 
@@ -31763,7 +31763,7 @@ Aktuell: ${currentNum}`;
                     
                     // Erst mal Fahrtdauer holen (aus Promise 1)
                     const estimatedDuration = ride.duration || timeslotSettings.rideDuration;
-                    const estimatedEndTime = ride.pickupTimestamp + (estimatedDuration * 60 * 1900);
+                    const estimatedEndTime = ride.pickupTimestamp + (estimatedDuration * 60 * 1000);
                     
                     // Wenn neue Buchung NACH Ende der bestehenden Fahrt:
                     if (requestedTimestamp > estimatedEndTime && ride.destCoords && pickupCoords) {
@@ -31782,7 +31782,7 @@ Aktuell: ${currentNum}`;
                 // 2. FÜHRE ALLE PARALLEL AUS! 🚀
                 const startTime = Date.now();
                 await Promise.all(routePromises);
-                const duration = ((Date.now() - startTime) / 1900).toFixed(1);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
                 console.log(`⚡ v5.90.100: ${routePromises.length} OSRM-Calls in ${duration} Sek (parallel!)🚀`);
                 
                 // 3. Jetzt Konflikte prüfen mit den gecachten Ergebnissen
@@ -31814,14 +31814,14 @@ Aktuell: ${currentNum}`;
                     const waypointCount = (ride.waypoints && Array.isArray(ride.waypoints)) ? ride.waypoints.filter(wp => wp.coords).length : 0;
                     const durationCalc = calculateTotalDuration(rideDuration, waypointCount);
                     
-                    const rideEndTime = ride.pickupTimestamp + (durationCalc.totalDuration * 60 * 1900);
+                    const rideEndTime = ride.pickupTimestamp + (durationCalc.totalDuration * 60 * 1000);
                     console.log(`   🏁 v5.90.530: Fahrt endet um ${new Date(rideEndTime).toLocaleTimeString('de-DE')}`);
                     console.log(`      Dauer-Breakdown: ${durationCalc.breakdown}`);
                     
                     // Konfliktprüfung
                     if (requestedTimestamp > rideEndTime) {
                         // Neue Buchung ist NACH Ende der bestehenden Fahrt
-                        const earliestPossible = rideEndTime + (travelTime * 60 * 1900) + (timeslotSettings.bufferTime * 60 * 1900);
+                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000);
                         
                         console.log(`   🧮 v5.90.530: BERECHNUNG:`);
                         console.log(`      Fahrt endet:     ${new Date(rideEndTime).toLocaleTimeString('de-DE')} (${durationCalc.totalDuration} Min Total)`);
@@ -31856,7 +31856,7 @@ Aktuell: ${currentNum}`;
                         return {
                             available: false,
                             conflictingRide: ride,
-                            earliestPossible: rideEndTime + (travelTime * 60 * 1900) + (timeslotSettings.bufferTime * 60 * 1900),
+                            earliestPossible: rideEndTime + (travelTime * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000),
                             reason: `Taxi ist noch ${durationCalc.totalDuration - minutesIntoRide} Min beschäftigt (inkl. Puffer)`
                         };
                     }
@@ -31919,7 +31919,7 @@ Aktuell: ${currentNum}`;
                 console.log('   Breakdown:', durationCalc.breakdown);
                 
                 // 2. Ende der konfliktierenden Fahrt (MIT PUFFERN!)
-                const rideEndTime = conflictingRide.pickupTimestamp + (durationCalc.totalDuration * 60 * 1900);
+                const rideEndTime = conflictingRide.pickupTimestamp + (durationCalc.totalDuration * 60 * 1000);
                 
                 // 3. Berechne Fahrzeit vom Ziel zum neuen Start
                 const travelTime = await calculateRouteDuration(
@@ -31930,7 +31930,7 @@ Aktuell: ${currentNum}`;
                 console.log('🚕 Fahrzeit zum neuen Start:', travelTime, 'Min');
                 
                 // 4. Frühestmögliche Zeit = Ende + Fahrzeit + Puffer
-                let earliestTime = rideEndTime + (travelTime * 60 * 1900) + (timeslotSettings.bufferTime * 60 * 1900);
+                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000);
                 
                 console.log('⏰ v5.90.530: Frühestmöglich berechnet:');
                 console.log(`   Fahrt endet: ${new Date(rideEndTime).toLocaleTimeString('de-DE')} (${durationCalc.totalDuration} Min inkl. Puffer)`);
@@ -31968,7 +31968,7 @@ Aktuell: ${currentNum}`;
                     }
                     
                     // Nächster Kandidat: +15 Min
-                    candidateTime += (15 * 60 * 1900);
+                    candidateTime += (15 * 60 * 1000);
                 }
                 
                 console.log(`💡 ${alternatives.length} verfügbare NACHHER-Slots gefunden (${attempts} geprüft)`);
@@ -32061,7 +32061,7 @@ Aktuell: ${currentNum}`;
                 console.error('💾 Fehler bei Alternativ-Berechnung:', error);
                 // Fallback: Einfach +15, +30, +45 Min zur gewünschten Zeit
                 return [15, 30, 45].map(offset => {
-                    const ts = requestedTimestamp + (offset * 60 * 1900);
+                    const ts = requestedTimestamp + (offset * 60 * 1000);
                     return {
                         timestamp: ts,
                         formatted: formatTimeForDisplay(ts)
@@ -32079,7 +32079,7 @@ Aktuell: ${currentNum}`;
             if (emailReceivedDate) {
                 const emailDate = new Date(emailReceivedDate);
                 const now = new Date();
-                const daysDiff = (now - emailDate) / (1900 * 60 * 60 * 24);
+                const daysDiff = (now - emailDate) / (1000 * 60 * 60 * 24);
                 
                 console.log('📧 Email Datum:', emailDate.toLocaleString('de-DE'));
                 console.log('📆 Tage alt:', daysDiff.toFixed(1));
@@ -32213,14 +32213,14 @@ Aktuell: ${currentNum}`;
         // Berechnet Route-Dauer via Google Maps
         // 🔧 v5.90.98: ROUTE CACHE - Vermeide doppelte OSRM-Calls!
         const routeCache = new Map();
-        const CACHE_DURATION = 60 * 60 * 1900; // 1 Stunde
+        const CACHE_DURATION = 60 * 60 * 1000; // 1 Stunde
         
         function getRouteCacheKey(fromCoords, toCoords) {
             // Runde auf 3 Dezimalstellen (~111m Genauigkeit)
-            const fromLat = Math.round(fromCoords.lat * 1900) / 1900;
-            const fromLon = Math.round((fromCoords.lon || fromCoords.lng) * 1900) / 1900;
-            const toLat = Math.round(toCoords.lat * 1900) / 1900;
-            const toLon = Math.round((toCoords.lon || toCoords.lng) * 1900) / 1900;
+            const fromLat = Math.round(fromCoords.lat * 1000) / 1000;
+            const fromLon = Math.round((fromCoords.lon || fromCoords.lng) * 1000) / 1000;
+            const toLat = Math.round(toCoords.lat * 1000) / 1000;
+            const toLon = Math.round((toCoords.lon || toCoords.lng) * 1000) / 1000;
             return `${fromLat},${fromLon}→${toLat},${toLon}`;
         }
         
@@ -32281,7 +32281,7 @@ Aktuell: ${currentNum}`;
                 const dayEnd = new Date(targetDate);
                 dayEnd.setHours(22, 0, 0, 0);    // Ende um 22:00
                 
-                for (let time = dayStart.getTime(); time <= dayEnd.getTime(); time += 15 * 60 * 1900) {
+                for (let time = dayStart.getTime(); time <= dayEnd.getTime(); time += 15 * 60 * 1000) {
                     allSlots.push({
                         timestamp: time,
                         available: true,  // Erstmal alle als frei markieren
@@ -32298,7 +32298,7 @@ Aktuell: ${currentNum}`;
                     
                     // Fahrtdauer der bestehenden Fahrt
                     const rideDuration = ride.duration || timeslotSettings.rideDuration;
-                    const rideEnd = ride.pickupTimestamp + (rideDuration * 60 * 1900);
+                    const rideEnd = ride.pickupTimestamp + (rideDuration * 60 * 1000);
                     
                     console.log(`   Dauer: ${rideDuration} Min, endet: ${new Date(rideEnd).toLocaleTimeString('de-DE')}`);
                     
@@ -32320,7 +32320,7 @@ Aktuell: ${currentNum}`;
                     for (const slot of allSlots) {
                         if (!slot.available) continue; // Schon blockiert
                         
-                        const slotEnd = slot.timestamp + (newRideDuration * 60 * 1900);
+                        const slotEnd = slot.timestamp + (newRideDuration * 60 * 1000);
                         
                         // FALL 1: Neuer Slot würde WÄHREND bestehender Fahrt liegen
                         if (slot.timestamp < rideEnd && slotEnd > ride.pickupTimestamp) {
@@ -32337,7 +32337,7 @@ Aktuell: ${currentNum}`;
                         }
                         
                         // FALL 3: Neuer Slot kurz NACH bestehender Fahrt (Fahrzeit zu kurz)
-                        const earliestAfter = rideEnd + (travelTimeToNew * 60 * 1900) + (timeslotSettings.bufferTime * 60 * 1900);
+                        const earliestAfter = rideEnd + (travelTimeToNew * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000);
                         if (slot.timestamp >= rideEnd && slot.timestamp < earliestAfter) {
                             const minutesNeeded = Math.round((earliestAfter - slot.timestamp) / 60000);
                             slot.available = false;
@@ -32346,7 +32346,7 @@ Aktuell: ${currentNum}`;
                         }
                         
                         // FALL 4: Neuer Slot VOR bestehender Fahrt (würde kollidieren)
-                        const latestBefore = ride.pickupTimestamp - (travelTimeFromNew * 60 * 1900) - (timeslotSettings.bufferTime * 60 * 1900);
+                        const latestBefore = ride.pickupTimestamp - (travelTimeFromNew * 60 * 1000) - (timeslotSettings.bufferTime * 60 * 1000);
                         if (slotEnd > latestBefore && slot.timestamp < ride.pickupTimestamp) {
                             const minutesNeeded = Math.round((ride.pickupTimestamp - slotEnd) / 60000);
                             slot.available = false;
@@ -32375,12 +32375,12 @@ Aktuell: ${currentNum}`;
                             // Neues Zeitfenster starten
                             currentWindow = {
                                 start: slot.timestamp,
-                                end: slot.timestamp + (15 * 60 * 1900),
+                                end: slot.timestamp + (15 * 60 * 1000),
                                 duration: 15
                             };
                         } else {
                             // Zeitfenster erweitern
-                            currentWindow.end = slot.timestamp + (15 * 60 * 1900);
+                            currentWindow.end = slot.timestamp + (15 * 60 * 1000);
                             currentWindow.duration += 15;
                         }
                     } else {
@@ -32486,7 +32486,7 @@ Aktuell: ${currentNum}`;
             
             // Aufrunden auf nächste 5
             const minutesToAdd = 5 - remainder;
-            return timestamp + (minutesToAdd * 60 * 1900);
+            return timestamp + (minutesToAdd * 60 * 1000);
         }
         
         // Formatiert Zeit für Anzeige
@@ -33249,7 +33249,7 @@ Aktuell: ${currentNum}`;
                     const data = JSON.parse(stored);
                     // Lösche Einträge älter als 7 Tage
                     const now = Date.now();
-                    const sevenDays = 7 * 24 * 60 * 60 * 1900;
+                    const sevenDays = 7 * 24 * 60 * 60 * 1000;
                     Object.keys(data).forEach(key => {
                         if (now - data[key] > sevenDays) {
                             delete data[key];
@@ -35681,7 +35681,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 if (isOnline && currentVehicle && gpsMode === 'standby') {
                     getStandbyPosition();
                 }
-            }, 2 * 60 * 1900); // 2 Minuten
+            }, 2 * 60 * 1000); // 2 Minuten
             
             console.log('✅ Standby-Interval gestartet (alle 2 Min)');
         }
@@ -35749,7 +35749,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 },
                 { 
                     enableHighAccuracy: false,  // 🔑 WICHTIG: Nutzt LTE/WiFi statt GPS!
-                    maximumAge: 5 * 60 * 1900,  // Akzeptiere 5 Min alte Position
+                    maximumAge: 5 * 60 * 1000,  // Akzeptiere 5 Min alte Position
                     timeout: 30000               // 30 Sek Timeout
                 }
             );
@@ -35990,7 +35990,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     warningBanner.style.display = 'block';
                     
                     // Berechne wie lange her
-                    const secondsAgo = Math.floor(timeSinceLastUpdate / 1900);
+                    const secondsAgo = Math.floor(timeSinceLastUpdate / 1000);
                     const minutesAgo = Math.floor(secondsAgo / 60);
                     
                     let timeText = '';
@@ -36178,7 +36178,7 @@ function showDiagnosticDashboard() {
                 <div style="padding-left:10px;line-height:1.6;">
                     ${gpsStatus} Updates: ${gpsPerMin}/Min (${metrics.gps.updates} total)<br>
                     ${avgAccuracy > 0 && avgAccuracy < 50 ? '✅' : '⚠️'} Genauigkeit: ${avgAccuracy}m<br>
-                    ${metrics.gps.lastUpdate ? '✅' : '❌'} Letztes Update: ${metrics.gps.lastUpdate ? 'vor ' + Math.round((Date.now() - metrics.gps.lastUpdate)/1900) + 's' : 'nie'}<br>
+                    ${metrics.gps.lastUpdate ? '✅' : '❌'} Letztes Update: ${metrics.gps.lastUpdate ? 'vor ' + Math.round((Date.now() - metrics.gps.lastUpdate)/1000) + 's' : 'nie'}<br>
                     ${metrics.gps.errors === 0 ? '✅' : '❌'} Fehler: ${metrics.gps.errors}
                 </div>
             </div>
@@ -36476,7 +36476,7 @@ function calculateBatteryDrain() {
     const last = battery.history[battery.history.length - 1];
     
     const levelDiff = first.level - last.level;
-    const timeDiff = (last.time - first.time) / 1900 / 60 / 60; // Stunden
+    const timeDiff = (last.time - first.time) / 1000 / 60 / 60; // Stunden
     
     if (timeDiff === 0) return null;
     
@@ -36497,7 +36497,7 @@ function calculateRemainingTime() {
 // Berechne Gesamt-Verbrauch seit Start
 function calculateTotalDrain() {
     const battery = window.diagnostics.battery;
-    const runtime = (Date.now() - battery.startTime) / 1900 / 60 / 60; // Stunden
+    const runtime = (Date.now() - battery.startTime) / 1000 / 60 / 60; // Stunden
     const totalDrain = battery.startLevel - battery.level;
     
     if (runtime === 0) return 0;
@@ -36565,8 +36565,8 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 );
                 const timeSince = Date.now() - lastSentPosition.timestamp;
                 
-                console.log('   Distanz seit letztem Send:', Math.round(distance * 1900), 'm');
-                console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1900), 's');
+                console.log('   Distanz seit letztem Send:', Math.round(distance * 1000), 'm');
+                console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1000), 's');
                 console.log('   🔋 Modus:', hasActiveRide ? 'AKTIVE FAHRT (10m/10s)' : 'STANDBY (50m/60s)');
                 
                 // 🆕 v5.90.636: Dynamischer Filter je nach Fahrt-Status
@@ -37061,7 +37061,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     const v = vehicles[id];
                     const hasGPS = v.lat && v.lon;
                     const isOldId = id.startsWith('tesla_') || id.startsWith('mercedes_');
-                    const gpsAge = v.timestamp ? Math.round((Date.now() - v.timestamp) / 1900) : null;
+                    const gpsAge = v.timestamp ? Math.round((Date.now() - v.timestamp) / 1000) : null;
                     
                     vehiclesHtml += `
                         <div style="background: ${isOldId ? '#fef3c7' : '#f0fdf4'}; border-left: 4px solid ${isOldId ? '#f59e0b' : '#10b981'}; padding: 12px; margin: 8px 0; border-radius: 6px;">
@@ -37411,7 +37411,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     
                     // Bestimme Status-Farbe
                     const lastActivity = mon.lastActivity?.timestamp || 0;
-                    const ageSeconds = Math.floor((Date.now() - lastActivity) / 1900);
+                    const ageSeconds = Math.floor((Date.now() - lastActivity) / 1000);
                     const isActive = ageSeconds < 30;
                     const statusColor = isActive ? '#10b981' : ageSeconds < 120 ? '#f59e0b' : '#ef4444';
                     const statusText = isActive ? '🟢 AKTIV' : ageSeconds < 120 ? '🟡 IDLE' : '🔴 OFFLINE';
@@ -37419,7 +37419,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     // GPS Status
                     const gpsStatus = mon.gpsStatus || {};
                     const hasGPS = gpsStatus.hasPosition;
-                    const gpsAge = gpsStatus.timestamp ? Math.floor((Date.now() - gpsStatus.timestamp) / 1900) : 999;
+                    const gpsAge = gpsStatus.timestamp ? Math.floor((Date.now() - gpsStatus.timestamp) / 1000) : 999;
                     
                     // Letzter Fehler
                     const lastError = mon.error || {};
@@ -37843,7 +37843,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             }
             
             // Prüfe ob Status noch aktuell (max 24h alt)
-            const ageHours = (Date.now() - state.timestamp) / (1900 * 60 * 60);
+            const ageHours = (Date.now() - state.timestamp) / (1000 * 60 * 60);
             if (ageHours > 24) {
                 console.log('⚠️ v5.90.542: Status zu alt (' + ageHours.toFixed(1) + 'h) → Lösche');
                 clearDriverState();
@@ -39379,7 +39379,7 @@ Funk Taxi Team`;
                 const activeRides = [];
                 const recentFinished = [];
                 const now = Date.now();
-                const oneHourAgo = now - (60 * 60 * 1900);
+                const oneHourAgo = now - (60 * 60 * 1000);
                 
                 for (const rideId in allRides) {
                     const ride = allRides[rideId];
@@ -40873,7 +40873,7 @@ Funk Taxi Team`;
         // 🆕 v5.90.488: TIMELINE UPDATE FUNKTION
         function updateFleetTimeline(ridesData, driversData) {
             const now = Date.now();
-            const oneHourLater = now + (60 * 60 * 1900);
+            const oneHourLater = now + (60 * 60 * 1000);
             
             // 🆕 v5.90.525: DEBUG!
             console.log('🔍 updateFleetTimeline aufgerufen!');
@@ -41448,7 +41448,7 @@ Funk Taxi Team`;
                         opacity: 0.7
                     }).addTo(fleetMapStandalone);
                     
-                    const distance = (route.distance / 1900).toFixed(1);
+                    const distance = (route.distance / 1000).toFixed(1);
                     const duration = Math.round(route.duration / 60);
                     
                     console.log('✅ Route gezeichnet:', distance, 'km,', duration, 'Min');
@@ -42971,7 +42971,7 @@ Funk Taxi Team`;
                 const upcomingRidesEl = document.getElementById('fleet-upcoming-rides');
                 if (upcomingRidesEl) {
                     const now = Date.now();
-                    const oneHourLater = now + (60 * 60 * 1900); // +1 Stunde
+                    const oneHourLater = now + (60 * 60 * 1000); // +1 Stunde
                     
                     // Hole alle Fahrten in nächster Stunde
                     const upcomingRides = [];
@@ -43374,7 +43374,7 @@ Funk Taxi Team`;
                     
                     // 🆕 v5.90.318: Keine VERGANGENEN Fahrten (älter als jetzt - 5 Min)!
                     const now = Date.now();
-                    if (rideTime < (now - 5 * 60 * 1900)) {
+                    if (rideTime < (now - 5 * 60 * 1000)) {
                         console.log(`⏰ v5.90.318: Vergangene Fahrt ausgeblendet: ${r.customerName || 'Unbekannt'} (${new Date(rideTime).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})})`);
                         return false;
                     }
@@ -43950,7 +43950,7 @@ Funk Taxi Team`;
                     
                     // 🆕 v5.90.318: Keine VERGANGENEN Fahrten!
                     const rideTime = r.pickupTimestamp || r.timestamp || 0;
-                    if (rideTime < (now - 5 * 60 * 1900)) {
+                    if (rideTime < (now - 5 * 60 * 1000)) {
                         return false;
                     }
                     
@@ -44143,7 +44143,7 @@ Funk Taxi Team`;
             
             // 📜 ZUERST: Letzte Logs laden (letzte 2 STUNDEN oder max 100)
             // 🆕 v5.21.2: Von 30 Min auf 120 Min erweitert!
-            const twoHoursAgo = Date.now() - (120 * 60 * 1900);
+            const twoHoursAgo = Date.now() - (120 * 60 * 1000);
             try {
                 const recentSnapshot = await db.ref('activityLog')
                     .orderByChild('timestamp')
@@ -50404,7 +50404,7 @@ Funk Taxi Team`;
             
             // 🆕 v5.41.1: Endzeit = Start + Routendauer + Extra-Zeit
             const totalMinutes = qbPanelRouteDuration + qbPanelExtraTime;
-            const endDate = new Date(startDate.getTime() + (totalMinutes * 60 * 1900));
+            const endDate = new Date(startDate.getTime() + (totalMinutes * 60 * 1000));
             
             // Format für datetime-local Input
             const year = endDate.getFullYear();
@@ -50521,8 +50521,8 @@ Funk Taxi Team`;
                 
                 if (data.paths && data.paths.length > 0) {
                     const path = data.paths[0];
-                    const distanceKm = (path.distance / 1900).toFixed(1);
-                    const durationMin = Math.ceil(path.time / 1900 / 60);
+                    const distanceKm = (path.distance / 1000).toFixed(1);
+                    const durationMin = Math.ceil(path.time / 1000 / 60);
                     
                     qbPanelRouteDuration = durationMin;
                     
@@ -50944,7 +50944,7 @@ Funk Taxi Team`;
                 try {
                     const startDate = new Date(startTime);
                     const endDate = new Date(endTime);
-                    const durationMinutes = Math.round((endDate - startDate) / (1900 * 60));
+                    const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
                 
                     // 🆕 v5.90.82: STELLE SICHER DASS customerPhone GESETZT IST!
                     let finalCustomerPhone = qbPanelCustomer.phone || '';
@@ -51269,7 +51269,7 @@ Funk Taxi Team`;
                     document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
                 } else if (ride.pickupTime && ride.durationMinutes) {
                     const startDate = new Date(ride.pickupTime);
-                    const endDate = new Date(startDate.getTime() + (ride.durationMinutes * 60 * 1900));
+                    const endDate = new Date(startDate.getTime() + (ride.durationMinutes * 60 * 1000));
                     document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
                 }
                 
@@ -53000,7 +53000,7 @@ Funk Taxi Team`;
                 const result = await calculateDistanceViaAPI(pickup, destination);
                 
                 if (result && result.distance) {
-                    const distanceKm = result.distance / 1900;
+                    const distanceKm = result.distance / 1000;
                     distanceInput.value = distanceKm.toFixed(1);
                     distanceInput.disabled = false;
                     
@@ -55700,7 +55700,7 @@ Funk Taxi Team`;
 
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const minLeadTimeMinutes = 25;
-                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1900);
+                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
 
                 // Prüfe ob in der Vergangenheit
                 if (slotDateTime < now) {
@@ -55709,7 +55709,7 @@ Funk Taxi Team`;
                     statusDisplay.style.color = '#dc2626';
 
                     // Berechne frühesten möglichen Termin
-                    const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1900);
+                    const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
                     earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                     earliestTime.setSeconds(0);
 
@@ -55729,7 +55729,7 @@ Funk Taxi Team`;
 
                 // 🆕 v5.90.735: Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
-                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1900));
+                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1000));
                     statusDisplay.style.background = '#fef3c7';
                     statusDisplay.style.border = '2px solid #f59e0b';
                     statusDisplay.style.color = '#92400e';
@@ -60055,8 +60055,8 @@ Stack: ${err.stack}
             
             // Berechne Distanz in Metern
             const distanceMeters = Math.round(distance);
-            const distanceText = distanceMeters >= 1900 
-                ? `${(distanceMeters / 1900).toFixed(1)} km` 
+            const distanceText = distanceMeters >= 1000
+                ? `${(distanceMeters / 1000).toFixed(1)} km`
                 : `${distanceMeters} m`;
             
             // Bestimme Icon und Text basierend auf Manöver-Typ
@@ -62583,7 +62583,7 @@ Stack: ${err.stack}
                 const rideTime = parseInt(div.getAttribute('data-ride-time'));
                 
                 // Finde die nächste Fahrt (entweder aktuell laufend oder in Zukunft)
-                if (rideTime >= now - (2 * 60 * 60 * 1900)) { // 2 Stunden Puffer für laufende Fahrten
+                if (rideTime >= now - (2 * 60 * 60 * 1000)) { // 2 Stunden Puffer für laufende Fahrten
                     if (rideTime < nextRideTime) {
                         nextRideTime = rideTime;
                         nextRide = div;
@@ -64372,7 +64372,7 @@ Stack: ${err.stack}
                 console.log('🔽 Backup-System bereit');
                 
                 // Erstes Backup nach 5 Minuten
-                setTimeout(createAutoBackup, 5 * 60 * 1900);
+                setTimeout(createAutoBackup, 5 * 60 * 1000);
                 
                 // Dann alle 4 Stunden
                 backupTimer = setInterval(createAutoBackup, BACKUP_INTERVAL);
@@ -64388,7 +64388,7 @@ Stack: ${err.stack}
                 // Cleanup alte Logs alle 5 Minuten
                 setInterval(() => {
                     cleanOldLogs();
-                }, 5 * 60 * 1900);
+                }, 5 * 60 * 1000);
                 console.log('⏰ Auto-Cleanup alle 5 Min aktiviert (Logs älter als 24h)');
             }).catch(error => {
                 console.error('💾 Log-Storage Fehler:', error);
@@ -64567,7 +64567,7 @@ Stack: ${err.stack}
                 if (!isOnline || !currentVehicle || !currentUser) return;
                 
                 const now = Date.now();
-                const timeSinceLastGps = lastGPSUpdate ? (now - lastGPSUpdate) / 1900 / 60 : 999; // in Minuten
+                const timeSinceLastGps = lastGPSUpdate ? (now - lastGPSUpdate) / 1000 / 60 : 999; // in Minuten
                 
                 console.log(`🔍 GPS-Health-Check: Letzte GPS-Sendung vor ${timeSinceLastGps.toFixed(1)} Min`);
                 console.log(`   standbyIntervalId: ${standbyIntervalId ? 'aktiv' : 'INAKTIV'}, watchId: ${watchId ? 'aktiv' : 'inaktiv'}`);
@@ -64601,7 +64601,7 @@ Stack: ${err.stack}
                 } else {
                     console.log('✅ GPS OK - läuft normal');
                 }
-            }, 5 * 60 * 1900); // Alle 5 Minuten
+            }, 5 * 60 * 1000); // Alle 5 Minuten
             
             // 📅 VORBESTELLUNGS-CHECK: Prüfe alle 60 Sek. ob Vorbestellungen aktiviert werden müssen
             setInterval(async () => {
@@ -64638,7 +64638,7 @@ Stack: ${err.stack}
                         
                         // Prüfe ob Abholzeit in ≤ 15 Min
                         if (ride.pickupTimestamp) {
-                            const minutesUntilPickup = (ride.pickupTimestamp - now) / (1900 * 60);
+                            const minutesUntilPickup = (ride.pickupTimestamp - now) / (1000 * 60);
                             
                             if (minutesUntilPickup <= 15 && minutesUntilPickup > 0) {
                                 console.log('📅 Vorbestellung wird aktiviert:', rideId, 'noch', minutesUntilPickup.toFixed(1), 'Min');
@@ -64691,7 +64691,7 @@ Stack: ${err.stack}
                     db.ref('vehicles/' + currentVehicle + '/timestamp').once('value').then(snapshot => {
                         const lastTimestamp = snapshot.val();
                         if (lastTimestamp) {
-                            const ageMinutes = (Date.now() - lastTimestamp) / (1900 * 60);
+                            const ageMinutes = (Date.now() - lastTimestamp) / (1000 * 60);
                             console.log('📱 GPS-Watchdog: Letzte Position ist', ageMinutes.toFixed(1), 'Min alt');
                             
                             if (ageMinutes > 5) {
@@ -64713,7 +64713,7 @@ Stack: ${err.stack}
                         }
                     });
                 }
-            }, 5 * 60 * 1900); // Alle 5 Minuten
+            }, 5 * 60 * 1000); // Alle 5 Minuten
             
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
@@ -67761,7 +67761,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // Prüfe 50/50 alle 5 Minuten (falls sich Zeit ändert)
-        setInterval(checkFiftyFiftyAvailability, 5 * 60 * 1900);
+        setInterval(checkFiftyFiftyAvailability, 5 * 60 * 1000);
         
         // Initial prüfen wenn Seite lädt
         document.addEventListener('DOMContentLoaded', () => {
@@ -69489,7 +69489,7 @@ Taxi kommt pünktlich!
             hotelCalendarSyncInterval = setInterval(() => {
                 console.log('⏰ Auto-Sync Timer ausgelöst...');
                 syncAllHotelCalendars();
-            }, 15 * 60 * 1900); // 15 Minuten
+            }, 15 * 60 * 1000); // 15 Minuten
         }
         
         async function syncAllHotelCalendars() {
@@ -69865,7 +69865,7 @@ Taxi kommt pünktlich!
                 // Speichere neues Token in Firebase
                 await db.ref(`hotelCalendars/${calendarId}`).update({
                     accessToken: newAccessToken,
-                    tokenExpiry: Date.now() + (3600 * 1900), // 1 Stunde
+                    tokenExpiry: Date.now() + (3600 * 1000), // 1 Stunde
                     lastTokenRefresh: Date.now()
                 });
                 
@@ -69883,7 +69883,7 @@ Taxi kommt pünktlich!
                 // Update lokales Hotel-Objekt
                 if (hotelCalendars[calendarId]) {
                     hotelCalendars[calendarId].accessToken = newAccessToken;
-                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1900);
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1000);
                 }
                 
                 return newAccessToken;
@@ -70007,7 +70007,7 @@ Taxi kommt pünktlich!
                     googleCalendarName: selectedCalendar.summary,
                     accessToken: accessToken,
                     refreshToken: refreshToken || null,
-                    tokenExpiry: Date.now() + (3600 * 1900), // 1 Stunde
+                    tokenExpiry: Date.now() + (3600 * 1000), // 1 Stunde
                     lastSync: Date.now(),
                     lastTokenRefresh: Date.now()
                 });
@@ -70020,7 +70020,7 @@ Taxi kommt pünktlich!
                     hotelCalendars[calendarId].googleCalendarName = selectedCalendar.summary;
                     hotelCalendars[calendarId].accessToken = accessToken;
                     hotelCalendars[calendarId].refreshToken = refreshToken || null;
-                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1900);
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1000);
                     hotelCalendars[calendarId].lastTokenRefresh = Date.now();
                 }
                 
@@ -70698,7 +70698,7 @@ Taxi kommt pünktlich!
                 // OAuth Tokens
                 accessToken: currentHotelOAuthFlow.accessToken,
                 refreshToken: currentHotelOAuthFlow.refreshToken,
-                tokenExpiry: Date.now() + (3600 * 1900), // 1 Stunde
+                tokenExpiry: Date.now() + (3600 * 1000), // 1 Stunde
                 
                 // Display
                 color: calendar.backgroundColor || '#3b82f6',
@@ -75092,9 +75092,9 @@ Taxi kommt pünktlich!
                 today.setHours(0, 0, 0, 0);
                 startTime = today.getTime();
             } else if (timeFilter === 'week') {
-                startTime = now - (7 * 24 * 60 * 60 * 1900);
+                startTime = now - (7 * 24 * 60 * 60 * 1000);
             } else if (timeFilter === 'month') {
-                startTime = now - (30 * 24 * 60 * 60 * 1900);
+                startTime = now - (30 * 24 * 60 * 60 * 1000);
             }
             
             try {
@@ -76605,7 +76605,7 @@ function toggleSimulation() {
 function startSimulationEngine() {
     // Haupt-Simulations-Loop (1 Sek = simSpeed Sekunden)
     simInterval = setInterval(() => {
-        simTime += simSpeed * 1900;
+        simTime += simSpeed * 1000;
         updateSimTime();
         processSimRides();
         moveVehicles();
@@ -76722,7 +76722,7 @@ async function calculateAndDrawRoute(vehicle, from, to, color) {
             vehicle.routeData = {
                 coords: coords,
                 currentIndex: 0,
-                distance: (route.distance / 1900).toFixed(1),
+                distance: (route.distance / 1000).toFixed(1),
                 duration: Math.round(route.duration / 60)
             };
             
@@ -76839,7 +76839,7 @@ function addSimRideSync() {
 
 async function addSimRide() {
     const now = simTime;
-    const pickupTime = now + (Math.random() * 20 + 5) * 60 * 1900;
+    const pickupTime = now + (Math.random() * 20 + 5) * 60 * 1000;
     
     // 🆕 v5.90.569: ECHTE KUNDENNAMEN
     const customers = ['Marion Schmidt', 'Klaus Müller', 'Anna Weber', 'Peter Fischer', 'Maria Wagner', 'Hans Becker', 'Lisa Hoffmann', 'Tom Schulz', 'Sabine Koch', 'Frank Meyer'];
@@ -76983,7 +76983,7 @@ async function showRideOnMap(index) {
         if (data.routes && data.routes[0]) {
             const route = data.routes[0];
             const coords = route.geometry.coordinates.map(c => [c[1], c[0]]); // [lon,lat] → [lat,lon]
-            const distance = (route.distance / 1900).toFixed(1);
+            const distance = (route.distance / 1000).toFixed(1);
             const duration = Math.round(route.duration / 60);
             
             // 📏 ROUTE-LINIE (Lila)
@@ -77025,7 +77025,7 @@ async function showRideOnMap(index) {
 function runAutoAssignNow() {
     simRides.forEach((ride, i) => {
         if (ride.status === 'new') {
-            setTimeout(() => runAutoAssignForRide(i), i * 1900);
+            setTimeout(() => runAutoAssignForRide(i), i * 1000);
         }
     });
 }

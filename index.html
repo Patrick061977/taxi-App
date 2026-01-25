@@ -67757,22 +67757,25 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         });
         
         // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL
+        // 🔧 v5.90.834: Log-Spam behoben - nur bei neuen Inputs loggen
         function setupWhatsAppTimeInputs() {
             const timeInputs = document.querySelectorAll('input[type="time"], input[type="datetime-local"]');
-            
+            let newInputsCount = 0;
+
             timeInputs.forEach(input => {
                 // Verhindere doppelte Listener
                 if (input.dataset.whatsappTime) return;
                 input.dataset.whatsappTime = 'true';
-                
+                newInputsCount++;
+
                 let lastHour = null;
-                
+
                 input.addEventListener('input', function(e) {
                     const value = this.value;
                     if (!value) return;
-                    
+
                     let currentHour, currentMinute;
-                    
+
                     if (this.type === 'datetime-local') {
                         const parts = value.split('T');
                         if (parts.length === 2) {
@@ -67782,11 +67785,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     } else if (this.type === 'time') {
                         [currentHour, currentMinute] = value.split(':');
                     }
-                    
+
                     // Wenn Stunde geändert → Minuten auf :00
                     if (lastHour !== null && currentHour !== lastHour) {
                         console.log('⏰ Stunde geändert:', lastHour, '→', currentHour, '→ Setze :00');
-                        
+
                         if (this.type === 'datetime-local') {
                             const datePart = value.split('T')[0];
                             this.value = `${datePart}T${currentHour}:00`;
@@ -67794,14 +67797,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             this.value = `${currentHour}:00`;
                         }
                     }
-                    
+
                     lastHour = currentHour;
                 });
-                
+
                 input.addEventListener('focus', function() {
                     const value = this.value;
                     if (!value) return;
-                    
+
                     if (this.type === 'datetime-local') {
                         const parts = value.split('T');
                         if (parts.length === 2) {
@@ -67812,19 +67815,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                 });
             });
-            
-            console.log('✅ WhatsApp-Style Zeit aktiviert für', timeInputs.length, 'Inputs');
+
+            // Nur loggen wenn tatsächlich NEUE Inputs initialisiert wurden
+            if (newInputsCount > 0) {
+                console.log('✅ WhatsApp-Style Zeit aktiviert für', newInputsCount, 'neue Inputs');
+            }
         }
-        
+
         // Reaktiviere wenn DOM sich ändert (z.B. Modals) - THROTTLED!
         let timeObserverTimeout = null;
         const timeObserver = new MutationObserver(() => {
-            // Throttle: Nur alle 500ms
+            // Throttle: Nur alle 2 Sekunden (war 500ms - zu aggressiv)
             if (timeObserverTimeout) return;
             timeObserverTimeout = setTimeout(() => {
                 setupWhatsAppTimeInputs();
                 timeObserverTimeout = null;
-            }, 500);
+            }, 2000);
         });
         timeObserver.observe(document.body, { childList: true, subtree: true });
         

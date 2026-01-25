@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.802
+    📦 VERSION: v5.90.803
     📅 BUILD: 24.01.2026 18:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.802
+    📋 CHANGELOG v5.90.803
     ═══════════════════════════════════════════════════════════════════════════
 
-    ✨ v5.90.802 (24.01.2026) - VOLLSTÄNDIGER UX-FIX!
+    ✨ v5.90.803 (24.01.2026) - VOLLSTÄNDIGER UX-FIX!
        • FIX: Passenger-Tab bekommt Zugriff auf "Vorbestellungen" (schedule)!
        • FIX: Passenger-Tab bekommt Zugriff auf "Meine Fahrten" (history)!
        • FIX: Fahrer-Tab bekommt auch schedule + history!
@@ -532,12 +532,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.802 - UX-FIX: Name + Telefon + Menü! ✅ (Build 2026-01-24_1850)');
-        console.log('✨ v5.90.802: Passenger-View zeigt jetzt Name + Telefon Felder!');
-        console.log('✨ v5.90.802: Auto-Fill aus Firebase-Login!');
-        console.log('✨ v5.90.802: Fahrgäste sehen jetzt "Vorbestellungen" im Menü!');
-        console.log('✨ v5.90.802: Fahrgäste sehen jetzt "Meine Fahrten" im Menü!');
-        console.log('✨ v5.90.802: Tab-Berechtigungen für passenger + driver erweitert!');
+        console.log('🚕 Funk Taxi App v5.90.803 - UX-FIX: Name + Telefon + Menü! ✅ (Build 2026-01-24_1850)');
+        console.log('✨ v5.90.803: Passenger-View zeigt jetzt Name + Telefon Felder!');
+        console.log('✨ v5.90.803: Auto-Fill aus Firebase-Login!');
+        console.log('✨ v5.90.803: Fahrgäste sehen jetzt "Vorbestellungen" im Menü!');
+        console.log('✨ v5.90.803: Fahrgäste sehen jetzt "Meine Fahrten" im Menü!');
+        console.log('✨ v5.90.803: Tab-Berechtigungen für passenger + driver erweitert!');
         console.log('🔧 v5.90.782: 2 Tabs im Passenger View!');
         console.log('⚡ v5.90.782: SOFORT-Tab = Jetzt buchen!');
         console.log('📅 v5.90.782: VORBESTELLEN-Tab = Liste + Neue!');
@@ -1805,7 +1805,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✨ Version 5.90.800 - UX-FIX! ✅ (Build 20260124-1930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✨ Version 5.90.800 - UX-FIX! ✅ (Build 20260125-0730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2261,7 +2261,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ✨ v5.90.802 - UX-FIX
+                        ✨ v5.90.803 - UX-FIX
                     </span>
                 </div>
             </div>
@@ -2630,9 +2630,28 @@
                     font-weight: 700;
                     font-size: 15px;
                     transition: all 0.2s;
+                    margin-bottom: 12px;
                 " onmouseover="this.style.opacity='0.9'"
                    onmouseout="this.style.opacity='1'">
                     🚕 Zurück zur Buchung
+                </div>
+
+                <!-- 🆕 v5.90.803: ABMELDEN BUTTON! -->
+                <div id="menu-logout-btn" style="display:none;" onclick="logoutFromMenu()">
+                    <div style="
+                        background: #ef4444;
+                        color: white;
+                        border-radius: 12px;
+                        padding: 15px;
+                        cursor: pointer;
+                        text-align: center;
+                        font-weight: 700;
+                        font-size: 15px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.opacity='0.9'"
+                       onmouseout="this.style.opacity='1'">
+                        🚪 Abmelden
+                    </div>
                 </div>
             </div>
         </div>
@@ -2696,24 +2715,12 @@
         <div id="booking-form">
             <!-- 🆕 v5.90.752: NEUE ÜBERSICHTLICHE STRUKTUR -->
 
-            <!-- 🆕 v5.90.802: IHRE DATEN (mit Auto-Fill!) -->
-            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:12px;margin-bottom:20px;color:white;">
-                <h4 style="margin:0 0 12px 0;font-size:15px;font-weight:700;">👤 Ihre Daten</h4>
-                
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Name:</label>
-                    <input type="text" id="customer-name" placeholder="z.B. Patrick Wydra" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
-                </div>
-                
-                <div>
-                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Telefon:</label>
-                    <input type="tel" id="customer-phone" placeholder="z.B. +49 151 27585179" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
-                </div>
-                
-                <div style="margin-top:8px;font-size:11px;opacity:0.9;">
-                    ℹ️ Ihre Daten werden automatisch ausgefüllt wenn Sie eingeloggt sind
-                </div>
-            </div>
+            <!-- 🗑️ v5.90.803: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
+            <!-- 🔧 v5.90.803: Hidden Fields für book() Funktion -->
+            <input type="hidden" id="customer-name" value="">
+            <input type="hidden" id="customer-phone" value="">
+            <input type="hidden" id="preorder-customer-name" value="">
+            <input type="hidden" id="preorder-customer-phone" value="">
 
             <!-- 📍 ABHOLORT -->
             <div class="input-group">
@@ -3937,27 +3944,10 @@
         <!-- 🆕 v5.90.782: TAB CONTENT: VORBESTELLEN -->
         <div id="tab-content-vorbestellen" style="display:none;">
             
-            <!-- 🆕 v5.90.802: GLEICHES FORMULAR WIE BEI SOFORT! -->
+            <!-- 🆕 v5.90.803: GLEICHES FORMULAR WIE BEI SOFORT! -->
             <!-- Nur mit Datum/Zeit-Picker für Vorbestellungen -->
             
-            <!-- 🆕 v5.90.802: IHRE DATEN (mit Auto-Fill!) -->
-            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:12px;margin-bottom:20px;color:white;">
-                <h4 style="margin:0 0 12px 0;font-size:15px;font-weight:700;">👤 Ihre Daten</h4>
-                
-                <div style="margin-bottom:10px;">
-                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Name:</label>
-                    <input type="text" id="preorder-customer-name" placeholder="z.B. Patrick Wydra" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
-                </div>
-                
-                <div>
-                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Telefon:</label>
-                    <input type="tel" id="preorder-customer-phone" placeholder="z.B. +49 151 27585179" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
-                </div>
-                
-                <div style="margin-top:8px;font-size:11px;opacity:0.9;">
-                    ℹ️ Ihre Daten werden automatisch ausgefüllt
-                </div>
-            </div>
+            <!-- 🗑️ v5.90.803: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
 
             <!-- 📍 ABHOLORT -->
             <div class="input-group">
@@ -4035,7 +4025,7 @@
                 </select>
             </div>
 
-            <!-- 🆕 v5.90.802: ROUTE-MAP MIT PREIS! -->
+            <!-- 🆕 v5.90.803: ROUTE-MAP MIT PREIS! -->
             <div id="preorder-route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="preorder-price-display" style="margin-bottom: 15px;"></div>
@@ -15495,19 +15485,19 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => {
                     checkPassengerAuth();
                     
-                    // 🆕 v5.90.802: AUTO-FILL Name + Telefon aus Firebase!
+                    // 🆕 v5.90.803: AUTO-FILL Name + Telefon aus Firebase!
                     if (auth.currentUser) {
                         const nameInput = document.getElementById('customer-name');
                         const phoneInput = document.getElementById('customer-phone');
                         
                         if (nameInput && auth.currentUser.displayName) {
                             nameInput.value = auth.currentUser.displayName;
-                            console.log('✅ v5.90.802: Name auto-filled:', auth.currentUser.displayName);
+                            console.log('✅ v5.90.803: Name auto-filled:', auth.currentUser.displayName);
                         }
                         
                         if (phoneInput && auth.currentUser.phoneNumber) {
                             phoneInput.value = auth.currentUser.phoneNumber;
-                            console.log('✅ v5.90.802: Telefon auto-filled:', auth.currentUser.phoneNumber);
+                            console.log('✅ v5.90.803: Telefon auto-filled:', auth.currentUser.phoneNumber);
                         }
                     }
                     
@@ -15928,6 +15918,24 @@ Aktuell: ${currentNum}`;
             switchView('passenger');
         }
         
+        // 🆕 v5.90.803: ABMELDEN AUS DEM MENÜ!
+        function logoutFromMenu() {
+            closeMenu();
+            
+            // Prüfe ob Firebase oder Quick-Login
+            if (auth.currentUser) {
+                // Firebase-Login
+                if (confirm('🚪 Möchten Sie sich wirklich abmelden?')) {
+                    logoutUser();
+                }
+            } else {
+                // Quick-Login
+                if (confirm('🚪 Möchten Sie sich wirklich abmelden?')) {
+                    logoutQuickLogin();
+                }
+            }
+        }
+        
         // 🐛 v5.46.6: Debug Panel aus Menu öffnen
         function openDebugPanelFromMenu() {
             closeMenu();
@@ -16161,8 +16169,8 @@ Aktuell: ${currentNum}`;
         function getDefaultPermissions() {
             return {
                 admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'],
-                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.802: Fahrer braucht schedule + history!
-                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.802: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
+                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.803: Fahrer braucht schedule + history!
+                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.803: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
             };
         }
         
@@ -41815,7 +41823,7 @@ Funk Taxi Team`;
                 document.getElementById('tab-content-sofort').style.display = 'none';
                 document.getElementById('tab-content-vorbestellen').style.display = 'block';
                 
-                // 🆕 v5.90.802: AUTO-FILL für Vorbestell-Tab!
+                // 🆕 v5.90.803: AUTO-FILL für Vorbestell-Tab!
                 if (auth.currentUser) {
                     const nameInput = document.getElementById('preorder-customer-name');
                     const phoneInput = document.getElementById('preorder-customer-phone');
@@ -41850,9 +41858,9 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.802: VORBESTELLUNG ABSENDEN!
+        // 🆕 v5.90.803: VORBESTELLUNG ABSENDEN!
         async function submitPreorderBooking() {
-            console.log('📅 v5.90.802: Vorbestellung wird abgesendet...');
+            console.log('📅 v5.90.803: Vorbestellung wird abgesendet...');
             
             // Hole Werte aus den Feldern
             const customerName = document.getElementById('preorder-customer-name')?.value || '';
@@ -41891,7 +41899,7 @@ Funk Taxi Team`;
                 return;
             }
             
-            // 🆕 v5.90.802: PREIS BERECHNEN wenn noch nicht gemacht!
+            // 🆕 v5.90.803: PREIS BERECHNEN wenn noch nicht gemacht!
             if (!window.preorderPriceCalculated) {
                 console.log('💰 Berechne Preis für Vorbestellung...');
                 await calculatePreorderPrice();
@@ -41956,7 +41964,7 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.802: PREIS FÜR VORBESTELLUNG BERECHNEN!
+        // 🆕 v5.90.803: PREIS FÜR VORBESTELLUNG BERECHNEN!
         async function calculatePreorderPrice() {
             const pickup = document.getElementById('preorder-pickup')?.value || '';
             const destination = document.getElementById('preorder-destination')?.value || '';
@@ -42076,7 +42084,7 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.802: GPS für Vorbestell-Tab
+        // 🆕 v5.90.803: GPS für Vorbestell-Tab
         function useMyLocationForPreorder() {
             if (!navigator.geolocation) {
                 alert('❌ GPS nicht verfügbar!\n\nIhr Gerät unterstützt keine Standortbestimmung.');
@@ -62618,15 +62626,31 @@ Stack: ${err.stack}
                     customerStats = `<div style="font-size: 9px; opacity: 0.8; margin-top: 2px;">🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''} · 📍 ${regularCustomer.favoritePickup ? regularCustomer.favoritePickup.substring(0, 20) + (regularCustomer.favoritePickup.length > 20 ? '...' : '') : 'Keine Adresse'}</div>`;
                 }
                 
+                // 🆕 v5.90.803: Willkommen-Text statt Profil-Box!
                 profileBox.innerHTML = `
-                    <div class="user-avatar">${initial}</div>
-                    <div class="user-info">
-                        <div style="font-weight: 600; font-size: 11px;">${displayName}</div>
-                        <div style="font-size: 9px; opacity: 0.75;">${subInfo}</div>
-                        ${customerStats}
+                    <div style="text-align:center;padding:10px 15px;background:rgba(255,255,255,0.1);border-radius:8px;margin-top:10px;">
+                        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">👋 Willkommen ${displayName}!</div>
+                        <div style="font-size:12px;opacity:0.9;">${subInfo}</div>
+                        ${customerStats ? `<div style="font-size:11px;margin-top:6px;opacity:0.85;">${customerStats}</div>` : ''}
                     </div>
-                    <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
+                
+                // 🆕 v5.90.803: ABMELDEN-Button im Menü anzeigen!
+                const menuLogoutBtn = document.getElementById('menu-logout-btn');
+                if (menuLogoutBtn) {
+                    menuLogoutBtn.style.display = 'block';
+                }
+                
+                // 🆕 v5.90.803: AUTO-FILL HIDDEN FIELDS!
+                const customerNameInput = document.getElementById('customer-name');
+                const customerPhoneInput = document.getElementById('customer-phone');
+                const preorderNameInput = document.getElementById('preorder-customer-name');
+                const preorderPhoneInput = document.getElementById('preorder-customer-phone');
+                
+                if (customerNameInput) customerNameInput.value = displayName;
+                if (customerPhoneInput && subInfo) customerPhoneInput.value = subInfo;
+                if (preorderNameInput) preorderNameInput.value = displayName;
+                if (preorderPhoneInput && subInfo) preorderPhoneInput.value = subInfo;
             } else {
                 // 🆕 v5.42.2: Prüfe auch Quick-Login!
                 const quickLoginPhone = localStorage.getItem('loggedInPhone');
@@ -62641,19 +62665,33 @@ Stack: ${err.stack}
                         header.appendChild(profileBox);
                     }
                     
-                    // 🆕 v5.70.0: Zeige NAME statt "Telefon-Login"!
+                    // 🆕 v5.90.803: Willkommen-Text für Quick-Login!
                     const phoneDisplay = quickLoginPhone.substring(0, 6) + '***';
                     const nameDisplay = quickLoginName || phoneDisplay;
-                    const initial = quickLoginName ? quickLoginName.charAt(0).toUpperCase() : '📱';
                     
                     profileBox.innerHTML = `
-                        <div class="user-avatar">${initial}</div>
-                        <div class="user-info">
-                            <div style="font-weight: 600; font-size: 11px;">${nameDisplay}</div>
-                            <div style="font-size: 9px; opacity: 0.75;">${phoneDisplay}</div>
+                        <div style="text-align:center;padding:10px 15px;background:rgba(255,255,255,0.1);border-radius:8px;margin-top:10px;">
+                            <div style="font-size:14px;font-weight:700;margin-bottom:4px;">👋 Willkommen ${nameDisplay}!</div>
+                            <div style="font-size:12px;opacity:0.9;">📱 ${phoneDisplay}</div>
                         </div>
-                        <button class="btn-logout" onclick="logoutQuickLogin()">Aus</button>
                     `;
+                    
+                    // 🆕 v5.90.803: ABMELDEN-Button im Menü anzeigen!
+                    const menuLogoutBtn = document.getElementById('menu-logout-btn');
+                    if (menuLogoutBtn) {
+                        menuLogoutBtn.style.display = 'block';
+                    }
+                    
+                    // 🆕 v5.90.803: AUTO-FILL HIDDEN FIELDS!
+                    const customerNameInput = document.getElementById('customer-name');
+                    const customerPhoneInput = document.getElementById('customer-phone');
+                    const preorderNameInput = document.getElementById('preorder-customer-name');
+                    const preorderPhoneInput = document.getElementById('preorder-customer-phone');
+                    
+                    if (customerNameInput) customerNameInput.value = nameDisplay;
+                    if (customerPhoneInput) customerPhoneInput.value = quickLoginPhone;
+                    if (preorderNameInput) preorderNameInput.value = nameDisplay;
+                    if (preorderPhoneInput) preorderPhoneInput.value = quickLoginPhone;
                 } else {
                     // User ist nicht eingeloggt - zeige nur Anmelden Button
                     if (!profileBox) {
@@ -78952,10 +78990,10 @@ if (document.readyState === 'loading') {
     </div>
 </div>
 
-<!-- 🆕 v5.90.802: VERSION-FOOTER unten rechts! -->>
+<!-- 🆕 v5.90.803: VERSION-FOOTER unten rechts! -->>
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ✨ v5.90.802
+        ✨ v5.90.803
     </div>
 </div>
 

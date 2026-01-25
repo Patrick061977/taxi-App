@@ -32559,6 +32559,9 @@ Aktuell: ${currentNum}`;
                 '</button>';
             }).join('');
             
+            // 🔧 v5.90.839: Schließe datetime-picker-popup ZUERST (hat höheren z-index!)
+            closeDateTimePickerPopup();
+
             // Zeige Modal
             document.getElementById('auto-booking-modal').style.display = 'block';
         }

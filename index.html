@@ -9,13 +9,23 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.782
-    📅 BUILD: 23.01.2026 17:15 Uhr
+    📦 VERSION: v5.90.802
+    📅 BUILD: 24.01.2026 18:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.782
+    📋 CHANGELOG v5.90.802
     ═══════════════════════════════════════════════════════════════════════════
+
+    ✨ v5.90.802 (24.01.2026) - VOLLSTÄNDIGER UX-FIX!
+       • FIX: Passenger-Tab bekommt Zugriff auf "Vorbestellungen" (schedule)!
+       • FIX: Passenger-Tab bekommt Zugriff auf "Meine Fahrten" (history)!
+       • FIX: Fahrer-Tab bekommt auch schedule + history!
+       • NEU: Name + Telefon Eingabefelder im Passenger-View!
+       • NEU: Auto-Fill für Name + Telefon aus Firebase-Login!
+       • UX: Schönes violettes Daten-Feld wie gewünscht!
+       • UX: User sieht jetzt seine Daten und kann sie ändern!
+       • FIX: Menü zeigt jetzt ALLE Tabs die Fahrgäste brauchen!
 
     📱 v5.90.782 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
@@ -522,8 +532,13 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.782 - SOFORT + VORBESTELLEN TABS! 🚀 (Build 2026-01-24_1730)');
-        console.log('🔄 v5.90.782: 2 Tabs im Passenger View!');
+        console.log('🚕 Funk Taxi App v5.90.802 - UX-FIX: Name + Telefon + Menü! ✅ (Build 2026-01-24_1850)');
+        console.log('✨ v5.90.802: Passenger-View zeigt jetzt Name + Telefon Felder!');
+        console.log('✨ v5.90.802: Auto-Fill aus Firebase-Login!');
+        console.log('✨ v5.90.802: Fahrgäste sehen jetzt "Vorbestellungen" im Menü!');
+        console.log('✨ v5.90.802: Fahrgäste sehen jetzt "Meine Fahrten" im Menü!');
+        console.log('✨ v5.90.802: Tab-Berechtigungen für passenger + driver erweitert!');
+        console.log('🔧 v5.90.782: 2 Tabs im Passenger View!');
         console.log('⚡ v5.90.782: SOFORT-Tab = Jetzt buchen!');
         console.log('📅 v5.90.782: VORBESTELLEN-Tab = Liste + Neue!');
         console.log('🛡️ v5.90.782: Tabs zerhauen sich nicht!');
@@ -1790,7 +1805,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.774 - TABS! ✅ (Build 20260124-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✨ Version 5.90.800 - UX-FIX! ✅ (Build 20260124-1930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2246,7 +2261,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.716 - ALLE-PLATZHALTER
+                        ✨ v5.90.802 - UX-FIX
                     </span>
                 </div>
             </div>
@@ -2680,6 +2695,25 @@
         
         <div id="booking-form">
             <!-- 🆕 v5.90.752: NEUE ÜBERSICHTLICHE STRUKTUR -->
+
+            <!-- 🆕 v5.90.802: IHRE DATEN (mit Auto-Fill!) -->
+            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:12px;margin-bottom:20px;color:white;">
+                <h4 style="margin:0 0 12px 0;font-size:15px;font-weight:700;">👤 Ihre Daten</h4>
+                
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Name:</label>
+                    <input type="text" id="customer-name" placeholder="z.B. Patrick Wydra" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
+                </div>
+                
+                <div>
+                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Telefon:</label>
+                    <input type="tel" id="customer-phone" placeholder="z.B. +49 151 27585179" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
+                </div>
+                
+                <div style="margin-top:8px;font-size:11px;opacity:0.9;">
+                    ℹ️ Ihre Daten werden automatisch ausgefüllt wenn Sie eingeloggt sind
+                </div>
+            </div>
 
             <!-- 📍 ABHOLORT -->
             <div class="input-group">
@@ -3903,21 +3937,137 @@
         <!-- 🆕 v5.90.782: TAB CONTENT: VORBESTELLEN -->
         <div id="tab-content-vorbestellen" style="display:none;">
             
-            <div style="margin-bottom:20px;">
-                <button onclick="openPreorderBookingModal()" style="width:100%;padding:16px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,0.4);display:flex;align-items:center;justify-content:center;gap:10px;">
-                    ➕ NEUE VORBESTELLUNG
+            <!-- 🆕 v5.90.802: GLEICHES FORMULAR WIE BEI SOFORT! -->
+            <!-- Nur mit Datum/Zeit-Picker für Vorbestellungen -->
+            
+            <!-- 🆕 v5.90.802: IHRE DATEN (mit Auto-Fill!) -->
+            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:12px;margin-bottom:20px;color:white;">
+                <h4 style="margin:0 0 12px 0;font-size:15px;font-weight:700;">👤 Ihre Daten</h4>
+                
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Name:</label>
+                    <input type="text" id="preorder-customer-name" placeholder="z.B. Patrick Wydra" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
+                </div>
+                
+                <div>
+                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Telefon:</label>
+                    <input type="tel" id="preorder-customer-phone" placeholder="z.B. +49 151 27585179" style="width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;box-sizing:border-box;background:white;color:#333;">
+                </div>
+                
+                <div style="margin-top:8px;font-size:11px;opacity:0.9;">
+                    ℹ️ Ihre Daten werden automatisch ausgefüllt
+                </div>
+            </div>
+
+            <!-- 📍 ABHOLORT -->
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="preorder-pickup" placeholder="z.B. Bahnhof Heringsdorf" onchange="calculatePreorderPrice()" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <button onclick="openUniversalMapPicker('preorder-pickup', '📍 Abholort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">🗺️</button>
+                    <button onclick="useMyLocationForPreorder()" style="padding:10px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">📍</button>
+                </div>
+            </div>
+
+            <!-- 🎯 ZIELORT -->
+            <div class="input-group">
+                <label style="margin:0;">🎯 Zielort</label>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="preorder-destination" placeholder="z.B. Seebrücke Ahlbeck" onchange="calculatePreorderPrice()" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <button onclick="openUniversalMapPicker('preorder-destination', '🎯 Zielort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">🗺️</button>
+                </div>
+            </div>
+
+            <!-- ⏰ DATUM & ZEIT -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">⏰ Wann möchten Sie abgeholt werden?</label>
+                
+                <div style="background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:15px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Datum:</label>
+                            <input type="date" id="preorder-date" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Uhrzeit:</label>
+                            <input type="time" id="preorder-time" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:#6b7280;text-align:center;">
+                        ℹ️ Mindestens 25 Minuten im Voraus buchen
+                    </div>
+                </div>
+            </div>
+
+            <!-- 👥 PERSONEN -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">👥 Personen</label>
+                <select id="preorder-passengers" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                    <option value="5">5 Personen (Großraumtaxi)</option>
+                    <option value="6">6 Personen (Großraumtaxi)</option>
+                    <option value="7">7 Personen (Großraumtaxi)</option>
+                    <option value="8">8 Personen (Großraumtaxi)</option>
+                </select>
+            </div>
+
+            <!-- 💬 NOTIZEN -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">💬 Notizen (optional)</label>
+                <textarea id="preorder-notes" placeholder="z.B. Kindersitz benötigt, Rollstuhl, etc." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
+            </div>
+
+            <!-- 💳 ZAHLUNGSMETHODE -->
+            <div class="input-group" style="margin-top:15px;">
+                <label>💳 Zahlungsmethode</label>
+                <select id="preorder-payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
+                    <option value="bar">💶 Bar (Bargeld)</option>
+                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
+                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
+                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
+                </select>
+            </div>
+
+            <!-- 🆕 v5.90.802: ROUTE-MAP MIT PREIS! -->
+            <div id="preorder-route-map-container" style="margin-top: 20px; display: none;">
+                <!-- PREIS DISPLAY - über der Karte -->
+                <div id="preorder-price-display" style="margin-bottom: 15px;"></div>
+                
+                <!-- KARTE -->
+                <div id="preorder-route-map" style="height: 120px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                
+                <!-- INFO -->
+                <div style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:12px;color:#1e40af;text-align:center;">
+                    ℹ️ Der Preis ist eine Schätzung basierend auf der Route
+                </div>
+            </div>
+
+            <!-- 🚀 VORBESTELLEN BUTTON -->
+            <div style="margin-top:25px;">
+                <button onclick="submitPreorderBooking()" style="width:100%;padding:18px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,0.4);">
+                    📅 TAXI VORBESTELLEN
                 </button>
             </div>
-            
-            <h4 style="margin:0 0 15px 0;font-size:16px;color:#374151;font-weight:600;">📋 Meine Vorbestellungen</h4>
-            
-            <div id="preorder-list" style="display:grid;gap:12px;">
-                <!-- Wird von JavaScript gefüllt -->
-                <div style="padding:40px;text-align:center;color:#9ca3af;background:#f9fafb;border-radius:12px;border:2px dashed #e5e7eb;">
-                    <div style="font-size:48px;margin-bottom:10px;">📅</div>
-                    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Noch keine Vorbestellungen</div>
-                    <div style="font-size:13px;">
-                        Klicke auf "+ NEUE VORBESTELLUNG" um eine Fahrt zu planen
+
+            <!-- 📋 MEINE VORBESTELLUNGEN -->
+            <div style="margin-top:40px;padding-top:30px;border-top:2px solid #e5e7eb;">
+                <h4 style="margin:0 0 15px 0;font-size:16px;color:#374151;font-weight:600;">📋 Meine Vorbestellungen</h4>
+                
+                <div id="preorder-list" style="display:grid;gap:12px;">
+                    <!-- Wird von JavaScript gefüllt -->
+                    <div style="padding:40px;text-align:center;color:#9ca3af;background:#f9fafb;border-radius:12px;border:2px dashed #e5e7eb;">
+                        <div style="font-size:48px;margin-bottom:10px;">📅</div>
+                        <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Noch keine Vorbestellungen</div>
+                        <div style="font-size:13px;">
+                            Füllen Sie das Formular oben aus um eine Fahrt zu planen
+                        </div>
                     </div>
                 </div>
             </div>
@@ -15345,6 +15495,22 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => {
                     checkPassengerAuth();
                     
+                    // 🆕 v5.90.802: AUTO-FILL Name + Telefon aus Firebase!
+                    if (auth.currentUser) {
+                        const nameInput = document.getElementById('customer-name');
+                        const phoneInput = document.getElementById('customer-phone');
+                        
+                        if (nameInput && auth.currentUser.displayName) {
+                            nameInput.value = auth.currentUser.displayName;
+                            console.log('✅ v5.90.802: Name auto-filled:', auth.currentUser.displayName);
+                        }
+                        
+                        if (phoneInput && auth.currentUser.phoneNumber) {
+                            phoneInput.value = auth.currentUser.phoneNumber;
+                            console.log('✅ v5.90.802: Telefon auto-filled:', auth.currentUser.phoneNumber);
+                        }
+                    }
+                    
                     // 🆕 v5.90.561: EXPRESS-BOOKING DATEN LADEN!
                     const expressPickup = localStorage.getItem('expressBookingPickup');
                     const expressDest = localStorage.getItem('expressBookingDestination');
@@ -15995,8 +16161,8 @@ Aktuell: ${currentNum}`;
         function getDefaultPermissions() {
             return {
                 admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'],
-                driver: ['driver'], // 🆕 v5.90.525: NUR Fahrer-Tab!
-                passenger: ['passenger', 'history']  // 🔧 v5.90.89: Nur Buchen + Meine Fahrten!
+                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.802: Fahrer braucht schedule + history!
+                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.802: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
             };
         }
         
@@ -41649,9 +41815,298 @@ Funk Taxi Team`;
                 document.getElementById('tab-content-sofort').style.display = 'none';
                 document.getElementById('tab-content-vorbestellen').style.display = 'block';
                 
+                // 🆕 v5.90.802: AUTO-FILL für Vorbestell-Tab!
+                if (auth.currentUser) {
+                    const nameInput = document.getElementById('preorder-customer-name');
+                    const phoneInput = document.getElementById('preorder-customer-phone');
+                    
+                    if (nameInput && auth.currentUser.displayName) {
+                        nameInput.value = auth.currentUser.displayName;
+                    }
+                    if (phoneInput && auth.currentUser.phoneNumber) {
+                        phoneInput.value = auth.currentUser.phoneNumber;
+                    }
+                }
+                
+                // Setze Default-Datum auf heute
+                const dateInput = document.getElementById('preorder-date');
+                if (dateInput && !dateInput.value) {
+                    const today = new Date();
+                    dateInput.value = today.toISOString().split('T')[0];
+                }
+                
+                // Setze Default-Zeit auf in 2 Stunden
+                const timeInput = document.getElementById('preorder-time');
+                if (timeInput && !timeInput.value) {
+                    const now = new Date();
+                    now.setHours(now.getHours() + 2);
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    timeInput.value = `${hours}:${minutes}`;
+                }
+                
                 // Lade Vorbestellungen
                 loadPreorderList();
             }
+        }
+        
+        // 🆕 v5.90.802: VORBESTELLUNG ABSENDEN!
+        async function submitPreorderBooking() {
+            console.log('📅 v5.90.802: Vorbestellung wird abgesendet...');
+            
+            // Hole Werte aus den Feldern
+            const customerName = document.getElementById('preorder-customer-name')?.value || '';
+            const customerPhone = document.getElementById('preorder-customer-phone')?.value || '';
+            const pickup = document.getElementById('preorder-pickup')?.value || '';
+            const destination = document.getElementById('preorder-destination')?.value || '';
+            const date = document.getElementById('preorder-date')?.value || '';
+            const time = document.getElementById('preorder-time')?.value || '';
+            const passengers = document.getElementById('preorder-passengers')?.value || '1';
+            const notes = document.getElementById('preorder-notes')?.value || '';
+            const paymentMethod = document.getElementById('preorder-payment-method')?.value || 'bar';
+            
+            // Validierung
+            if (!customerName) {
+                alert('❌ Bitte geben Sie Ihren Namen an!');
+                return;
+            }
+            if (!customerPhone) {
+                alert('❌ Bitte geben Sie Ihre Telefonnummer an!');
+                return;
+            }
+            if (!pickup) {
+                alert('❌ Bitte geben Sie einen Abholort an!');
+                return;
+            }
+            if (!destination) {
+                alert('❌ Bitte geben Sie ein Zielort an!');
+                return;
+            }
+            if (!date) {
+                alert('❌ Bitte wählen Sie ein Datum!');
+                return;
+            }
+            if (!time) {
+                alert('❌ Bitte wählen Sie eine Uhrzeit!');
+                return;
+            }
+            
+            // 🆕 v5.90.802: PREIS BERECHNEN wenn noch nicht gemacht!
+            if (!window.preorderPriceCalculated) {
+                console.log('💰 Berechne Preis für Vorbestellung...');
+                await calculatePreorderPrice();
+            }
+            
+            // Kombiniere Datum + Zeit
+            const pickupDateTime = new Date(`${date}T${time}:00`);
+            const pickupTimestamp = pickupDateTime.getTime();
+            
+            // Prüfe ob mindestens 25 Minuten in der Zukunft
+            const now = Date.now();
+            const minAdvance = 25 * 60 * 1000; // 25 Minuten
+            if (pickupTimestamp < now + minAdvance) {
+                alert('❌ Vorbestellung muss mindestens 25 Minuten im Voraus sein!');
+                return;
+            }
+            
+            // Erstelle Buchung
+            const ride = {
+                customerName: customerName,
+                customerPhone: customerPhone,
+                pickup: pickup,
+                destination: destination,
+                pickupTime: pickupDateTime.toISOString(),
+                pickupTimestamp: pickupTimestamp,
+                passengers: parseInt(passengers),
+                notes: notes,
+                paymentMethod: paymentMethod,
+                status: 'vorbestellt',
+                createdAt: Date.now(),
+                bookingType: 'preorder',
+                estimatedPrice: window.lastCalculatedPrice || 0
+            };
+            
+            try {
+                // Speichere in Firebase
+                if (isFirebaseReady && db) {
+                    const rideRef = db.ref('rides').push();
+                    await rideRef.set(ride);
+                    console.log('✅ Vorbestellung gespeichert:', rideRef.key);
+                    
+                    alert('✅ Vorbestellung erfolgreich!\n\nWir haben Ihre Buchung erhalten.');
+                    
+                    // Felder leeren
+                    document.getElementById('preorder-pickup').value = '';
+                    document.getElementById('preorder-destination').value = '';
+                    document.getElementById('preorder-notes').value = '';
+                    
+                    // Karte verstecken
+                    document.getElementById('preorder-route-map-container').style.display = 'none';
+                    window.preorderPriceCalculated = false;
+                    
+                    // Liste neu laden
+                    loadPreorderList();
+                } else {
+                    console.error('❌ Firebase nicht bereit!');
+                    alert('❌ Fehler beim Speichern der Vorbestellung!\n\nBitte versuchen Sie es erneut.');
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern der Vorbestellung!\n\n' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.802: PREIS FÜR VORBESTELLUNG BERECHNEN!
+        async function calculatePreorderPrice() {
+            const pickup = document.getElementById('preorder-pickup')?.value || '';
+            const destination = document.getElementById('preorder-destination')?.value || '';
+            
+            if (!pickup || !destination) {
+                console.log('⚠️ Abholort oder Zielort fehlt - kein Preis');
+                return;
+            }
+            
+            console.log('💰 Berechne Route und Preis für Vorbestellung...');
+            
+            try {
+                // Geocode Abholort
+                const pickupGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`);
+                const pickupData = await pickupGeo.json();
+                if (!pickupData || pickupData.length === 0) {
+                    console.error('❌ Abholort nicht gefunden');
+                    return;
+                }
+                const pickupLat = pickupData[0].lat;
+                const pickupLon = pickupData[0].lon;
+                
+                // Geocode Zielort
+                const destGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`);
+                const destData = await destGeo.json();
+                if (!destData || destData.length === 0) {
+                    console.error('❌ Zielort nicht gefunden');
+                    return;
+                }
+                const destLat = destData[0].lat;
+                const destLon = destData[0].lon;
+                
+                // Route berechnen
+                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${destLon},${destLat}?overview=full&geometries=geojson`;
+                const routeResp = await fetch(routeUrl);
+                const routeData = await routeResp.json();
+                
+                if (!routeData.routes || routeData.routes.length === 0) {
+                    console.error('❌ Route nicht gefunden');
+                    return;
+                }
+                
+                const route = routeData.routes[0];
+                const distanceKm = (route.distance / 1000).toFixed(1);
+                const durationMin = Math.ceil(route.duration / 60);
+                
+                // Preis berechnen (einfache Formel)
+                const basePrice = 5;
+                const pricePerKm = 2;
+                const price = basePrice + (parseFloat(distanceKm) * pricePerKm);
+                const finalPrice = Math.ceil(price);
+                
+                window.lastCalculatedPrice = finalPrice;
+                window.preorderPriceCalculated = true;
+                
+                // Zeige Preis
+                const priceDisplay = document.getElementById('preorder-price-display');
+                if (priceDisplay) {
+                    priceDisplay.innerHTML = `
+                        <div style="background:linear-gradient(135deg,#10b981,#059669);padding:15px;border-radius:12px;color:white;text-align:center;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                            <div style="font-size:13px;opacity:0.9;margin-bottom:5px;">Geschätzter Preis:</div>
+                            <div style="font-size:32px;font-weight:700;">${finalPrice}€</div>
+                            <div style="font-size:12px;opacity:0.8;margin-top:5px;">${distanceKm} km • ca. ${durationMin} Min</div>
+                        </div>
+                    `;
+                }
+                
+                // Zeige Karte
+                const mapContainer = document.getElementById('preorder-route-map-container');
+                if (mapContainer) {
+                    mapContainer.style.display = 'block';
+                }
+                
+                // Initialisiere Karte
+                if (!window.preorderRouteMap) {
+                    window.preorderRouteMap = L.map('preorder-route-map', {
+                        zoomControl: false,
+                        attributionControl: false,
+                        dragging: false,
+                        scrollWheelZoom: false,
+                        doubleClickZoom: false,
+                        touchZoom: false
+                    });
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.preorderRouteMap);
+                }
+                
+                // Zeichne Route
+                const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                if (window.preorderRouteLine) {
+                    window.preorderRouteMap.removeLayer(window.preorderRouteLine);
+                }
+                window.preorderRouteLine = L.polyline(coords, {
+                    color: '#3b82f6',
+                    weight: 3,
+                    opacity: 0.8
+                }).addTo(window.preorderRouteMap);
+                
+                // Marker
+                if (window.preorderPickupMarker) window.preorderRouteMap.removeLayer(window.preorderPickupMarker);
+                if (window.preorderDestMarker) window.preorderRouteMap.removeLayer(window.preorderDestMarker);
+                
+                window.preorderPickupMarker = L.marker([pickupLat, pickupLon]).addTo(window.preorderRouteMap);
+                window.preorderDestMarker = L.marker([destLat, destLon]).addTo(window.preorderRouteMap);
+                
+                // Fit bounds
+                window.preorderRouteMap.fitBounds(window.preorderRouteLine.getBounds(), {padding: [20, 20]});
+                
+                // Invalidate size
+                setTimeout(() => {
+                    window.preorderRouteMap.invalidateSize();
+                }, 100);
+                
+                console.log('✅ Preis berechnet:', finalPrice, '€');
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Preis-Berechnung:', error);
+            }
+        }
+        
+        // 🆕 v5.90.802: GPS für Vorbestell-Tab
+        function useMyLocationForPreorder() {
+            if (!navigator.geolocation) {
+                alert('❌ GPS nicht verfügbar!\n\nIhr Gerät unterstützt keine Standortbestimmung.');
+                return;
+            }
+            
+            console.log('📍 GPS wird abgerufen...');
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    // Geocode
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                        const data = await response.json();
+                        const address = data.display_name || `${lat}, ${lon}`;
+                        
+                        document.getElementById('preorder-pickup').value = address;
+                        console.log('✅ GPS-Adresse übernommen:', address);
+                    } catch (error) {
+                        console.error('❌ Geocoding-Fehler:', error);
+                        document.getElementById('preorder-pickup').value = `${lat}, ${lon}`;
+                    }
+                },
+                (error) => {
+                    console.error('❌ GPS-Fehler:', error);
+                    alert('❌ GPS-Standort konnte nicht ermittelt werden!');
+                }
+            );
         }
         
         // 🆕 v5.90.782: VORBESTELLUNGS-MODAL ÖFFNEN (Nutzt Schnellbuchungs-Modal!)
@@ -78497,10 +78952,10 @@ if (document.readyState === 'loading') {
     </div>
 </div>
 
-<!-- 🆕 v5.90.782: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.802: VERSION-FOOTER unten rechts! -->>
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.782
+        ✨ v5.90.802
     </div>
 </div>
 

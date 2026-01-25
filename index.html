@@ -22989,19 +22989,39 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.25.6: TELEGRAM AN ADMIN bei wichtigen Events
+        // 🔧 v5.90.837: Fix - Lade Admin-Chats aus Firebase statt undefinierter Variable
         async function sendTelegramToAdmin(message) {
-            if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-                console.log('⚠️ Telegram nicht konfiguriert');
+            if (!TELEGRAM_BOT_TOKEN) {
+                console.log('⚠️ Telegram Bot Token nicht konfiguriert');
                 return false;
             }
-            
+
+            if (!isFirebaseReady) {
+                console.log('⚠️ Firebase nicht bereit für Telegram');
+                return false;
+            }
+
             try {
-                // Sende an Haupt-Chat-ID (Admin)
-                const success = await sendTelegramMessage(TELEGRAM_CHAT_ID, message);
-                if (success) {
-                    console.log('📱 Admin-Telegram gesendet');
+                // Lade Admin Chat IDs aus Firebase
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+
+                if (adminChats.length === 0) {
+                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+                    return false;
                 }
-                return success;
+
+                // Sende an alle Admin-Chats
+                let successCount = 0;
+                for (const chatId of adminChats) {
+                    const success = await sendTelegramMessage(chatId, message);
+                    if (success) successCount++;
+                }
+
+                if (successCount > 0) {
+                    console.log(`📱 Admin-Telegram gesendet an ${successCount}/${adminChats.length} Chats`);
+                }
+                return successCount > 0;
             } catch (error) {
                 console.error('💾 Admin-Telegram Fehler:', error);
                 return false;
@@ -68041,6 +68061,7 @@ Funk Taxi {phone}`;
 Ankunft in wenigen Min.
 Live verfolgen:
 {link}`;
+            } else if (type === 'hotel') {
                 return `✅ {hotel} - Fahrt genehmigt!
 {date} {time}
 {from} → {to}
@@ -70930,13 +70951,22 @@ Taxi kommt pünktlich!
                     name: error.name || 'Kein Name',
                     full: JSON.stringify(error, Object.getOwnPropertyNames(error))
                 });
-                
-                // Zeige Fehler wenn Token abgelaufen
-                if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
-                    console.error('💾 Token abgelaufen! Bitte neu verbinden.');
+
+                // 🔧 v5.90.837: Bessere Fehlerbehandlung für Token-Fehler
+                const isTokenError = error.message && (
+                    error.message.includes('401') ||
+                    error.message.includes('403') ||
+                    error.message.includes('Token Refresh') ||
+                    error.message.includes('neu verbinden')
+                );
+
+                if (isTokenError) {
+                    console.error('💾 Token abgelaufen! Bitte Hotel neu verbinden.');
+                    // Token-Fehler werden nicht weitergeworfen - UI zeigt Info
+                    return { error: 'token_expired', message: 'Hotel muss neu verbunden werden' };
                 }
-                
-                // Throw error weiter damit quickSyncHotel es catchen kann
+
+                // Andere Fehler weitergeben für quickSyncHotel
                 throw error;
             }
         }

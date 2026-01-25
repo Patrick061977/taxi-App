@@ -18,9 +18,11 @@
     ═══════════════════════════════════════════════════════════════════════════
 
     🎯 v5.90.836-STABLE (25.01.2026):
-       • NEU: VOLLE SLOT-ANALYSE bei Autocomplete-Auswahl!
-       • NEU: triggerSlotCheck() wird bei Zielort-Auswahl aufgerufen (nicht nur performLiveSlotCheck)
-       • NEU: Beim Abholort → Volle Analyse wenn Ziel bereits vorhanden, sonst Live-Indikator
+       • NEU: DETAILLIERTE SLOT-ANALYSE mit Dauer-Berechnungen!
+       • FIX: triggerSlotCheck() ist jetzt GLOBAL (window.triggerSlotCheck)
+       • FIX: confirmDateTimePicker() ruft jetzt triggerSlotCheck() auf für volle Analyse
+       • NEU: Beim Zielort-Auswahl → Volle Analyse wenn Abholort da + Vorbestellung
+       • NEU: Beim Abholort → Volle Analyse wenn Ziel bereits vorhanden
        • FIX: Debug-Box und Debug-Code entfernt (sauberer Release)
        • FIX: Konsistente Slot-Prüfung für GPS, Kartenpicker UND Autocomplete
 
@@ -20895,54 +20897,16 @@ Aktuell: ${currentNum}`;
             currentRideType = 'vorbestellen';
             console.log('📅 v5.90.830: Modus gesetzt: VORBESTELLEN');
             
-            // 🆕 v5.90.830: PRÜFE SLOT DIREKT!
-            console.log('🔍 v5.90.830: Starte Auto Slot-Check...');
-            
-            // Hole Adressen
-            const pickupInput = document.getElementById('pickup');
-            const destinationInput = document.getElementById('destination');
-            
-            const pickup = pickupInput ? pickupInput.value.trim() : '';
-            const destination = destinationInput ? destinationInput.value.trim() : '';
-            
-            if (!pickup || !destination) {
-                alert('⚠️ Bitte Abholadresse und Zieladresse eingeben!');
-                return;
-            }
-            
-            // Erstelle DateTime
-            const slotDateTime = new Date(`${selectedDate}T${selectedHour}:${selectedMinute}:00`);
-
-            console.log('🔍 v5.90.833: Slot-Check Parameter:', {
-                slotDateTime: slotDateTime.toLocaleString('de-DE'),
-                pickup,
-                destination
-            });
-
-            // Lade Fahrten
-            const ridesData = {};
-            if (typeof rides !== 'undefined' && rides && Array.isArray(rides)) {
-                rides.forEach(r => {
-                    if (r.id) ridesData[r.id] = r;
-                });
-                console.log('📊 v5.90.833: Fahrten geladen:', Object.keys(ridesData).length);
-            } else {
-                console.log('⚠️ v5.90.833: Keine Fahrten geladen - Slot ist frei');
+            // 🆕 v5.90.836: SETZE time-display-btn für triggerSlotCheck!
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+            if (timeDisplayBtn) {
+                timeDisplayBtn.textContent = `${selectedHour}:${selectedMinute}`;
             }
 
-            // PRÜFE SLOT!
-            try {
-                const result = await checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData);
-                console.log('✅ v5.90.833: Slot-Check Ergebnis:', result);
-
-                // ZEIGE ERGEBNIS!
-                showSlotCheckResult(result, slotDateTime, pickup, destination);
-            } catch (error) {
-                console.error('❌ v5.90.833: Slot-Check Fehler:', error);
-
-                // Bei Fehler: Zeige "verfügbar" an (Fail-Safe)
-                showSlotCheckResult({ hasConflict: false }, slotDateTime, pickup, destination);
-            }
+            // 🆕 v5.90.836: RUFE DETAILLIERTE ANALYSE AUF!
+            // triggerSlotCheck() zeigt die komplette Admin-Analyse mit Dauer-Berechnungen!
+            console.log('🔍 v5.90.836: Starte DETAILLIERTE Slot-Analyse...');
+            await triggerSlotCheck();
         }
         
         // 🆕 v5.90.830: Zeige Slot-Check Ergebnis mit klickbaren Alternativen!
@@ -27901,7 +27865,8 @@ Aktuell: ${currentNum}`;
         
         // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN DATUM + ZEIT DA SIND!
         // 🔧 v5.90.676: FIX - Prüfe ob Zeit GÜLTIG ist (nicht "--:--" oder leer!)
-        async function triggerSlotCheck() {
+        // 🔧 v5.90.836: GLOBAL machen für Autocomplete!
+        window.triggerSlotCheck = async function() {
             const pickupInput = document.getElementById('pickup');
             const destinationInput = document.getElementById('destination');
             const dateInput = document.getElementById('custom-date');

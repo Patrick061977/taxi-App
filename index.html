@@ -1508,6 +1508,15 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
+    <!-- 🔴 DEBUG BOX - OBEN SICHTBAR! -->
+    <div id="debug-box" style="position:fixed;top:0;left:0;right:0;background:#ff0000;color:white;padding:10px;font-size:12px;z-index:999999;font-family:monospace;">
+        🔴 DEBUG MODE<br>
+        <span id="dbg-pickup">❌ Pickup: -</span><br>
+        <span id="dbg-dest">❌ Ziel: -</span><br>
+        <span id="dbg-preis">❌ Preis: -</span>
+    </div>
+    <div style="height:80px;"></div><!-- Platzhalter für Debug-Box -->
+
     <!-- 🔧 v5.90.830: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
@@ -25570,8 +25579,14 @@ Aktuell: ${currentNum}`;
 
         // 🔧 v5.90.833: GLOBAL machen für onclick!
         window.selectAddress = function(inputId, address, lat, lon) {
-            // 🔴 DEBUG ALERT - entfernen wenn es funktioniert!
-            alert('✅ selectAddress!\n\nFeld: ' + inputId + '\nAdresse: ' + address.substring(0,30) + '...');
+            // 🔴 DEBUG BOX UPDATE
+            if (inputId === 'pickup') {
+                document.getElementById('dbg-pickup').innerHTML = '✅ Pickup: ' + address.substring(0,25) + '...';
+                document.getElementById('dbg-pickup').style.color = '#00ff00';
+            } else if (inputId === 'destination') {
+                document.getElementById('dbg-dest').innerHTML = '✅ Ziel: ' + address.substring(0,25) + '...';
+                document.getElementById('dbg-dest').style.color = '#00ff00';
+            }
 
             console.log('🎯 v5.90.833: selectAddress aufgerufen!', inputId, address);
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
@@ -25651,11 +25666,12 @@ Aktuell: ${currentNum}`;
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
 
                 // 🆕 v5.90.833: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
-                // 🔴 DEBUG
-                alert('Ziel gesetzt!\n\nPickup vorhanden? ' + (window.pickupCoords ? 'JA ✅' : 'NEIN ❌'));
+                // 🔴 DEBUG BOX UPDATE
+                document.getElementById('dbg-preis').innerHTML = 'Pickup da? ' + (window.pickupCoords ? '✅ JA' : '❌ NEIN');
 
                 if (window.pickupCoords) {
-                    alert('🚀 Starte Preisberechnung in 300ms...');
+                    document.getElementById('dbg-preis').innerHTML = '⏳ Preis wird berechnet...';
+                    document.getElementById('dbg-preis').style.color = '#ffff00';
                     console.log('💰 v5.90.833: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
@@ -26462,6 +26478,10 @@ Aktuell: ${currentNum}`;
         
         // 🔧 v5.90.833: GLOBAL machen!
         window.calculatePriceAndShow = async function() {
+            // 🔴 DEBUG BOX
+            document.getElementById('dbg-preis').innerHTML = '🚀 calculatePriceAndShow läuft!';
+            document.getElementById('dbg-preis').style.color = '#00ff00';
+
             console.log('🚀 v5.90.833: calculatePriceAndShow() AUFGERUFEN!');
 
             const pickup = document.getElementById('pickup').value.trim();

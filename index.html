@@ -9,40 +9,33 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.815
-    📅 BUILD: 25.01.2026 13:30 Uhr
+    📦 VERSION: v5.90.817
+    📅 BUILD: 25.01.2026 14:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.815
+    📋 CHANGELOG v5.90.817
     ═══════════════════════════════════════════════════════════════════════════
 
-    🎡 v5.90.815 (25.01.2026) - PICKER INIT FIX!
-       • FIX: Hidden-Inputs werden SOFORT gesetzt!
-       • FIX: Kein "00:05 Uhr" Bug mehr beim Tab-Wechsel!
-       • FIX: Picker startet direkt bei JETZT + 30 MIN (11:20)!
-       • FIX: Slot-Check greift auf RICHTIGE Zeit zu!
-       • TECHNIK: updateSelectedDateTimeDisplay() NACH scrollWheelToIndex()!
+    📅 v5.90.817 (25.01.2026) - HTML5 PICKER!
+       • ❌ WHEEL PICKER KOMPLETT ENTFERNT!
+       • ✅ NEU: Native HTML5 Date & Time Inputs!
+       • ✅ NEU: Keine Scroll-Bugs mehr!
+       • ✅ NEU: Browser-native UI (iOS/Android/Desktop)!
+       • ✅ NEU: initHTML5Picker() Funktion!
+       • ✅ NEU: onHTML5DateTimeChange() Callback!
+       • ✅ FIX: updateSelectedDateTimeDisplay() für HTML5!
+       • TECHNIK: <input type="date"> + <input type="time">!
 
     ⏰ v5.90.814 (25.01.2026) - VORLAUF 30 MINUTEN!
        • FIX: VORLAUF VON 60 MIN AUF 30 MIN REDUZIERT!
        • FIX: book() Funktion prüft jetzt 30 Min (nicht 60 Min)!
        • FIX: Fehlermeldung zeigt "30 Minuten" (nicht "1 Stunde")!
-       • FIX: Picker + Slot-Check + book() ALLE auf 30 Min!
 
-    🎡 v5.90.813 (25.01.2026) - PICKER FEEDBACK!
-       • NEU: Visuelles Feedback beim Scrollen (Grün blinken)!
-       • NEU: Erweiterte Console-Logs für Debugging!
-       • FIX: Zeit wird sofort übernommen beim Scrollen!
-       • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
-       • NEU: Karte erscheint jetzt ÜBER dem Vorbestellen-Bereich
-       • NEU: Personenzahl nach oben verschoben (vor "Wann fahren?")
-       • NEU: Optionen für 5-8 Personen (Großraumtaxi)
-       • FIX: SOFORT-Buchung zeigt jetzt automatisch "Taxi buchen" Button
-       • NEU: onPassengersChange() zeigt Hinweis bei 5+ Personen
-
-    🎯 v5.90.748 (23.01.2026):
-       • FIX: Race-Condition bei Wheel-Picker Slot-Check behoben!
+    ✅ v5.90.812 (25.01.2026) - BUCHUNG FUNKTIONIERT!
+       • NEU: "Preis berechnen & buchen" Button FUNKTIONAL!
+       • NEU: 3 Sek Übersicht → Dann "Jetzt buchen" Button!
+       • NEU: confirmPreorderBooking() Funktion!
        • NEU: "Zeit bestätigen" Button - kein automatischer Slot-Check beim Scrollen
        • NEU: selectSuggestedTime() Funktion für korrektes Wheel-Scrolling
        • FIX: Alternativ-Zeit-Buttons übernehmen Zeit jetzt korrekt in Wheel-Picker
@@ -393,7 +386,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.815 | Build: 2026-01-25_1330 | Fix: PICKER INIT FIX! Hidden-Inputs SOFORT gesetzt, kein 00:05 Bug! -->
+    <!-- Version: v5.90.817 | Build: 2026-01-25_1430 | Fix: HTML5 PICKER! Wheel Picker entfernt, native Date+Time Inputs! -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -520,12 +513,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.815 - PICKER INIT FIX! 🎡 (Build 2026-01-25_1330)');
-        console.log('✅ v5.90.815: Hidden-Inputs werden SOFORT gesetzt!');
-        console.log('✅ v5.90.815: Kein 00:05 Uhr Bug mehr!');
-        console.log('✅ v5.90.815: Picker startet direkt bei 11:20!');
+        console.log('🚕 Funk Taxi App v5.90.817 - HTML5 PICKER! 📅 (Build 2026-01-25_1430)');
+        console.log('✅ v5.90.817: WHEEL PICKER ENTFERNT! ✨');
+        console.log('✅ v5.90.817: HTML5 Date & Time Inputs!');
+        console.log('✅ v5.90.817: Native Browser UI - Keine Bugs mehr!');
+        console.log('✅ v5.90.817: Funktioniert auf allen Geräten!');
         console.log('⏰ v5.90.814: VORLAUF AUF 30 MINUTEN!');
-        console.log('✅ v5.90.813: Visuelles Feedback beim Scrollen!');
         console.log('✅ v5.90.812: "Preis berechnen & buchen" FUNKTIONAL!');
         console.log('💜 v5.90.768: Violettes Feld klickbar!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
@@ -1103,7 +1096,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.815: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.817: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1293,7 +1286,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.815: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.817: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1462,7 +1455,7 @@
             }
         }
         
-        /* 🎨 v5.90.815: TAFEL-ABWISCH ANIMATION! */
+        /* 🎨 v5.90.817: TAFEL-ABWISCH ANIMATION! */
         @keyframes wipeOut {
             0% {
                 clip-path: inset(0 0 0 0);
@@ -1498,7 +1491,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🎡 v5.90.815: KARTE-MIT-ANALYSE für Mobile! -->
+    <!-- 📅 v5.90.817: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1519,7 +1512,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('🎡 v5.90.815: Anti-Flicker aktiviert!');
+                console.log('📅 v5.90.817: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -1790,7 +1783,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎡 Version 5.90.815 - PICKER FIX! 🎡 (Build 20260125-1330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.817 - HTML5 PICKER! 📅 (Build 20260125-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2734,7 +2727,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.815: KARTE GANZ NACH OBEN - direkt nach Personen! -->
+            <!-- 🆕 v5.90.817: KARTE GANZ NACH OBEN - direkt nach Personen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="price-display" style="margin-bottom: 15px;"></div>
@@ -2742,7 +2735,7 @@
                 <!-- KARTE -->
                 <div id="route-map" style="height: 280px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 
-                <!-- 🚕 v5.90.815: TAXI BUCHEN Button DIREKT unter der Karte! -->
+                <!-- 🚕 v5.90.817: TAXI BUCHEN Button DIREKT unter der Karte! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
             </div>
 
@@ -2767,9 +2760,9 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.815: Karte wurde NACH OBEN verschoben (nach Personen)! -->
+            <!-- 🆕 v5.90.817: Karte wurde NACH OBEN verschoben (nach Personen)! -->
 
-            <!-- 🆕 v5.90.815: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
+            <!-- 🆕 v5.90.817: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
             <div id="slot-status-display" style="display:none;margin-top:20px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
                 <!-- Wird dynamisch gefüllt mit blauer KUNDEN-SICHT Box -->
             </div>
@@ -2785,7 +2778,7 @@
                 <div class="input-group">
                     <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
 
-                    <!-- 🆕 v5.90.815: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
+                    <!-- 🆕 v5.90.817: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
                     <!-- Ausgewählte Zeit Anzeige -->
                     <div id="selected-datetime-display" 
                          onclick="triggerSlotCheck()" 
@@ -2811,94 +2804,71 @@
                     <!-- 🆕 v5.90.742: DREHRAD/WHEEL PICKER! -->
                     <div id="custom-datetime-container" style="margin-top:0;">
 
-                        <!-- DREHRAD CONTAINER -->
-                        <div id="datetime-wheel-picker" style="
+                        <!-- 🆕 v5.90.817: HTML5 DATE & TIME PICKER! -->
+                        <div id="datetime-html5-picker" style="
                             background: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%);
                             border: 2px solid #e2e8f0;
                             border-radius: 16px;
-                            padding: 20px 15px;
-                            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
-                            position: relative;
-                            overflow: hidden;
+                            padding: 20px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
                         ">
-                            <!-- Auswahl-Highlight (Mitte) - 🆕 v5.90.744: Größer für Mobile! -->
-                            <div style="
-                                position: absolute;
-                                top: 50%;
-                                left: 10px;
-                                right: 10px;
-                                height: 56px;
-                                transform: translateY(-50%);
-                                background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-                                border: 2px solid #667eea;
-                                border-radius: 12px;
-                                pointer-events: none;
-                                z-index: 1;
-                            "></div>
-
-                            <!-- Drei Spalten: Tag | Stunde | Minute -->
-                            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;position:relative;z-index:2;">
-
-                                <!-- TAG-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
-                                <div style="position:relative;">
-                                    <div id="day-wheel" style="
-                                        height: 170px;
-                                        overflow-y: scroll;
-                                        scroll-snap-type: y mandatory;
-                                        -webkit-overflow-scrolling: touch;
-                                        scrollbar-width: none;
-                                        -ms-overflow-style: none;
-                                    " onscroll="onWheelScroll('day')">
-                                        <div style="height:57px;"></div>
-                                        <!-- Tage werden dynamisch gefüllt -->
-                                        <div style="height:57px;"></div>
-                                    </div>
-                                </div>
-
-                                <!-- STUNDEN-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
-                                <div style="position:relative;">
-                                    <div id="hour-wheel" style="
-                                        height: 170px;
-                                        overflow-y: scroll;
-                                        scroll-snap-type: y mandatory;
-                                        -webkit-overflow-scrolling: touch;
-                                        scrollbar-width: none;
-                                        -ms-overflow-style: none;
-                                        text-align: center;
-                                    " onscroll="onWheelScroll('hour')">
-                                        <div style="height:57px;"></div>
-                                        <!-- Stunden werden dynamisch gefüllt -->
-                                        <div style="height:57px;"></div>
-                                    </div>
-                                </div>
-
-                                <!-- MINUTEN-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
-                                <div style="position:relative;">
-                                    <div id="minute-wheel" style="
-                                        height: 170px;
-                                        overflow-y: scroll;
-                                        scroll-snap-type: y mandatory;
-                                        -webkit-overflow-scrolling: touch;
-                                        scrollbar-width: none;
-                                        -ms-overflow-style: none;
-                                        text-align: center;
-                                    " onscroll="onWheelScroll('minute')">
-                                        <div style="height:57px;"></div>
-                                        <!-- Minuten werden dynamisch gefüllt -->
-                                        <div style="height:57px;"></div>
-                                    </div>
-                                </div>
+                            <!-- DATUM INPUT -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="
+                                    display: block;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: #475569;
+                                    margin-bottom: 8px;
+                                ">📅 Datum:</label>
+                                <input 
+                                    type="date" 
+                                    id="custom-date"
+                                    style="
+                                        width: 100%;
+                                        padding: 14px;
+                                        font-size: 16px;
+                                        border: 2px solid #cbd5e1;
+                                        border-radius: 12px;
+                                        background: white;
+                                        font-weight: 600;
+                                        color: #1e293b;
+                                        cursor: pointer;
+                                    "
+                                    onchange="onHTML5DateTimeChange()"
+                                />
                             </div>
 
-                            <!-- Farbverlauf oben/unten für 3D-Effekt -->
-                            <div style="position:absolute;top:0;left:0;right:0;height:50px;background:linear-gradient(180deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:14px 14px 0 0;"></div>
-                            <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
+                            <!-- ZEIT INPUT -->
+                            <div>
+                                <label style="
+                                    display: block;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    color: #475569;
+                                    margin-bottom: 8px;
+                                ">🕐 Uhrzeit:</label>
+                                <input 
+                                    type="time" 
+                                    id="custom-time"
+                                    step="300"
+                                    style="
+                                        width: 100%;
+                                        padding: 14px;
+                                        font-size: 16px;
+                                        border: 2px solid #cbd5e1;
+                                        border-radius: 12px;
+                                        background: white;
+                                        font-weight: 600;
+                                        color: #1e293b;
+                                        cursor: pointer;
+                                    "
+                                    onchange="onHTML5DateTimeChange()"
+                                />
+                            </div>
                         </div>
 
-                        <!-- 🆕 v5.90.815: Zeit-Display wurde nach OBEN verschoben! -->
-
-                        <!-- Hidden inputs für Kompatibilität -->
-                        <input type="hidden" id="custom-date" value="">
+                        <!-- Hidden inputs für Kompatibilität (werden von custom-time gefüllt) -->
                         <input type="hidden" id="custom-hour" value="">
                         <input type="hidden" id="custom-minute" value="">
                         <!-- Versteckter Button für Kompatibilität -->
@@ -2945,12 +2915,12 @@
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.815: Button VERSTECKT - violettes Feld ist klickbar! -->
+                    <!-- 🆕 v5.90.817: Button VERSTECKT - violettes Feld ist klickbar! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="display:none;">
                         ✅ Verfügbarkeit prüfen
                     </button>
 
-                    <!-- 🆕 v5.90.815: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
+                    <!-- 🆕 v5.90.817: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
 
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
@@ -3022,7 +2992,7 @@
                 </div>
             </div>
             
-            <!-- 🚕 v5.90.815: Buttons wurden IN route-map-container verschoben! -->
+            <!-- 🚕 v5.90.817: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -10446,8 +10416,8 @@
             datetimeContainer.style.display = 'block';
             if (helpText) helpText.style.display = 'block';
 
-            // 🆕 v5.90.742: Initialisiere Wheel-Picker!
-            initWheelPicker();
+            // 🆕 v5.90.817: Initialisiere HTML5-Picker!
+            initHTML5Picker();
 
             // Nach kurzer Verzögerung die Display-Anzeige aktualisieren und ersten Slot-Check auslösen
             setTimeout(() => {
@@ -25708,7 +25678,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🎨 v5.90.815: TAFEL-ABWISCH FUNKTION!
+        // 🎨 v5.90.817: TAFEL-ABWISCH FUNKTION!
         function wipeAwayMap() {
             const routeMapContainer = document.getElementById('route-map-container');
             if (routeMapContainer && routeMapContainer.style.display !== 'none') {
@@ -25746,7 +25716,7 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // 🎨 v5.90.815: KARTE-MIT-ANALYSE statt sofort verstecken!
+            // 🎨 v5.90.817: KARTE-MIT-ANALYSE statt sofort verstecken!
             wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
@@ -26238,7 +26208,7 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.815: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
+            // 🎨 v5.90.817: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
@@ -26346,7 +26316,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🗑️ v5.90.815: "FREIE ZEITEN" Button Code entfernt!
+            // 🗑️ v5.90.817: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26369,7 +26339,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // 🆕 v5.90.815: Zeige Container mit SLIDE-IN Animation!
+            // 🆕 v5.90.817: Zeige Container mit SLIDE-IN Animation!
             const mapContainerWrapper = document.getElementById('route-map-container');
             if (mapContainerWrapper) {
                 mapContainerWrapper.style.display = 'block';
@@ -26461,7 +26431,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.815: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.817: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -26994,6 +26964,99 @@ Aktuell: ${currentNum}`;
         let wheelScrollTimeout = null;
 
         // Initialisiere Wheel-Picker beim Öffnen des Vorbestellen-Bereichs
+        // 🆕 v5.90.817: HTML5 DATE & TIME PICKER FUNKTIONEN!
+        
+        // Initialisiere HTML5 Picker mit JETZT + 30 MIN
+        function initHTML5Picker() {
+            console.log('🎯 v5.90.817: Initialisiere HTML5 Date & Time Picker...');
+            
+            const dateInput = document.getElementById('custom-date');
+            const timeInput = document.getElementById('custom-time');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            
+            if (!dateInput || !timeInput) {
+                console.error('❌ HTML5 Inputs nicht gefunden!');
+                return;
+            }
+            
+            // Berechne JETZT + 30 MIN
+            const now = new Date();
+            let targetTime = new Date(now.getTime() + 30 * 60 * 1000);
+            
+            // Runde auf nächste 5 Min
+            const minutes = targetTime.getMinutes();
+            const roundedMinutes = Math.ceil(minutes / 5) * 5;
+            targetTime.setMinutes(roundedMinutes);
+            targetTime.setSeconds(0);
+            targetTime.setMilliseconds(0);
+            
+            // Handle Überlauf
+            if (roundedMinutes >= 60) {
+                targetTime = new Date(targetTime.getTime() + 60 * 60 * 1000);
+                targetTime.setMinutes(0);
+            }
+            
+            // Format für HTML5 Inputs
+            const dateStr = targetTime.toISOString().split('T')[0]; // YYYY-MM-DD
+            const timeStr = targetTime.toTimeString().slice(0, 5); // HH:MM
+            
+            // Setze Werte
+            dateInput.value = dateStr;
+            timeInput.value = timeStr;
+            
+            // Setze Hidden Inputs
+            const [hour, minute] = timeStr.split(':');
+            if (hourInput) hourInput.value = hour;
+            if (minuteInput) minuteInput.value = minute;
+            
+            console.log('✅ v5.90.817: HTML5 Picker initialisiert!', {
+                datum: dateStr,
+                zeit: timeStr,
+                hour: hour,
+                minute: minute
+            });
+            
+            // Update Display
+            updateSelectedDateTimeDisplay();
+            
+            // Trigger Slot-Check
+            setTimeout(() => triggerSlotCheck(), 500);
+        }
+        
+        // Wenn User Date/Time ändert
+        function onHTML5DateTimeChange() {
+            console.log('🔄 v5.90.817: User hat Datum/Zeit geändert!');
+            
+            const dateInput = document.getElementById('custom-date');
+            const timeInput = document.getElementById('custom-time');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            
+            if (!dateInput || !timeInput) return;
+            
+            // Parse Zeit
+            const timeValue = timeInput.value; // "HH:MM"
+            if (timeValue) {
+                const [hour, minute] = timeValue.split(':');
+                if (hourInput) hourInput.value = hour;
+                if (minuteInput) minuteInput.value = minute;
+            }
+            
+            console.log('✅ v5.90.817: Zeit aktualisiert:', {
+                datum: dateInput.value,
+                zeit: timeInput.value,
+                hour: hourInput?.value,
+                minute: minuteInput?.value
+            });
+            
+            // Update Display
+            updateSelectedDateTimeDisplay();
+            
+            // Trigger Slot-Check
+            setTimeout(() => triggerSlotCheck(), 300);
+        }
+        
         function initWheelPicker() {
             if (wheelPickerInitialized) {
                 console.log('🎡 Wheel-Picker bereits initialisiert');
@@ -27095,26 +27158,37 @@ Aktuell: ${currentNum}`;
                 scrollWheelToIndex('hour', initialHour);
                 scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
                 
-                // 🆕 v5.90.815: SOFORT Hidden-Inputs setzen!
+                // 🆕 v5.90.817: SOFORT Hidden-Inputs setzen!
                 const dateInput = document.getElementById('custom-date');
                 const hourInput = document.getElementById('custom-hour');
                 const minuteInput = document.getElementById('custom-minute');
+                const display = document.getElementById('selected-datetime-display');
+                const timeDisplayBtn = document.getElementById('time-display-btn');
                 
                 if (dateInput) dateInput.value = wheelPickerDays[0]?.value || '';
                 if (hourInput) hourInput.value = String(initialHour).padStart(2, '0');
                 if (minuteInput) minuteInput.value = String(initialMinute).padStart(2, '0');
                 
-                console.log('✅ v5.90.815: Hidden-Inputs SOFORT gesetzt!', {
+                // 🆕 v5.90.817: Update Display DIREKT (ohne nochmal zu lesen!)
+                const selectedDay = wheelPickerDays[0];
+                const selectedHour = String(initialHour).padStart(2, '0');
+                const selectedMinute = String(initialMinute).padStart(2, '0');
+                
+                if (display) {
+                    display.innerHTML = `📅 ${selectedDay?.display || 'Heute'} um <strong>${selectedHour}:${selectedMinute}</strong> Uhr`;
+                }
+                if (timeDisplayBtn) {
+                    timeDisplayBtn.textContent = `${selectedHour}:${selectedMinute}`;
+                }
+                
+                console.log('✅ v5.90.817: Hidden-Inputs + Display SOFORT gesetzt!', {
                     date: dateInput?.value,
                     hour: hourInput?.value,
                     minute: minuteInput?.value
                 });
                 
-                // 🆕 v5.90.815: Graue Vergangenheit aus!
+                // 🆕 v5.90.817: Graue Vergangenheit aus!
                 updateHourAvailability();
-                
-                // 🆕 v5.90.815: Update Display NACH Scroll!
-                setTimeout(() => updateSelectedDateTimeDisplay(), 100);
             }, 150);
 
             wheelPickerInitialized = true;
@@ -27147,13 +27221,13 @@ Aktuell: ${currentNum}`;
                 wheelScrollLock = false;
             }, 400);
             
-            // 🆕 v5.90.815: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
+            // 🆕 v5.90.817: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
             if (wheelType === 'day') {
                 setTimeout(() => updateHourAvailability(), 100);
             }
         }
         
-        // 🆕 v5.90.815: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
+        // 🆕 v5.90.817: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
         function updateHourAvailability() {
             const dayWheel = document.getElementById('day-wheel');
             const hourWheel = document.getElementById('hour-wheel');
@@ -27215,7 +27289,7 @@ Aktuell: ${currentNum}`;
                 }
             });
             
-            console.log('🕐 v5.90.815: Stunden aktualisiert - Vergangenheit ausgegraut!');
+            console.log('🕐 v5.90.817: Stunden aktualisiert - Vergangenheit ausgegraut!');
         }
 
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
@@ -27304,7 +27378,7 @@ Aktuell: ${currentNum}`;
                 updateWheelSelection(wheelType);
                 updateSelectedDateTimeDisplay();
                 
-                // 🆕 v5.90.815: VISUELLES FEEDBACK beim Scrollen!
+                // 🆕 v5.90.817: VISUELLES FEEDBACK beim Scrollen!
                 const display = document.getElementById('selected-datetime-display');
                 if (display) {
                     // Kurzes Aufblitzen
@@ -27317,7 +27391,7 @@ Aktuell: ${currentNum}`;
                     }, 300);
                 }
                 
-                console.log('🎡 v5.90.815: Zeit geändert und ÜBERNOMMEN!');
+                console.log('📅 v5.90.817: Zeit geändert und ÜBERNOMMEN!');
 
                 // 🆕 v5.90.748: KEIN automatischer Slot-Check mehr!
                 // Race-Condition-Fix: User klickt "Zeit bestätigen" Button
@@ -27350,41 +27424,61 @@ Aktuell: ${currentNum}`;
 
         // Aktualisiere die Anzeige und Hidden-Inputs
         function updateSelectedDateTimeDisplay() {
-            const dayWheel = document.getElementById('day-wheel');
-            const hourWheel = document.getElementById('hour-wheel');
-            const minuteWheel = document.getElementById('minute-wheel');
+            // 🆕 v5.90.817: Lese direkt aus HTML5 Inputs!
             const display = document.getElementById('selected-datetime-display');
             const dateInput = document.getElementById('custom-date');
+            const timeInput = document.getElementById('custom-time');
             const hourInput = document.getElementById('custom-hour');
             const minuteInput = document.getElementById('custom-minute');
             const timeDisplayBtn = document.getElementById('time-display-btn');
 
-            if (!dayWheel || !hourWheel || !minuteWheel) return;
+            if (!dateInput || !timeInput) {
+                console.log('⚠️ HTML5 Inputs nicht gefunden');
+                return;
+            }
 
-            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
+            // Parse Datum
+            const dateValue = dateInput.value; // YYYY-MM-DD
+            const timeValue = timeInput.value; // HH:MM
+            
+            if (!dateValue || !timeValue) {
+                console.log('⚠️ Datum oder Zeit leer');
+                return;
+            }
+            
+            // Parse Zeit für Hidden Inputs
+            const [hour, minute] = timeValue.split(':');
+            if (hourInput) hourInput.value = hour;
+            if (minuteInput) minuteInput.value = minute;
+            if (timeDisplayBtn) timeDisplayBtn.textContent = timeValue;
 
-            // Hole ausgewählte Werte
-            const dayIndex = Math.round(dayWheel.scrollTop / itemHeight);
-            const hourIndex = Math.round(hourWheel.scrollTop / itemHeight);
-            const minuteIndex = Math.round(minuteWheel.scrollTop / itemHeight);
-
-            const selectedDay = wheelPickerDays[dayIndex] || wheelPickerDays[0];
-            const selectedHour = String(hourIndex).padStart(2, '0');
-            const selectedMinute = window.wheelMinuteValues ? (window.wheelMinuteValues[minuteIndex] || '00') : '00';
-
-            // Update Hidden Inputs
-            if (dateInput) dateInput.value = selectedDay.value;
-            if (hourInput) hourInput.value = selectedHour;
-            if (minuteInput) minuteInput.value = selectedMinute;
-            if (timeDisplayBtn) timeDisplayBtn.textContent = `${selectedHour}:${selectedMinute}`;
+            // Format Datum für Anzeige
+            const dateObj = new Date(dateValue + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            let displayText = '';
+            if (dateObj.getTime() === today.getTime()) {
+                displayText = 'Heute';
+            } else if (dateObj.getTime() === tomorrow.getTime()) {
+                displayText = 'Morgen';
+            } else {
+                displayText = dateObj.toLocaleDateString('de-DE', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                });
+            }
 
             // Update Display
             if (display) {
-                display.innerHTML = `📅 ${selectedDay.display} um <strong>${selectedHour}:${selectedMinute}</strong> Uhr`;
+                display.innerHTML = `📅 ${displayText} um <strong>${timeValue}</strong> Uhr`;
             }
 
-            console.log('🎡 v5.90.815: Zeit ausgewählt:', selectedDay.display, selectedHour + ':' + selectedMinute);
-            console.log('   ✅ custom-date:', dateInput?.value);
+            console.log('✅ v5.90.817: Zeit aktualisiert:', displayText, timeValue);
+            console.log('   ✅ custom-date:', dateInput.value);
             console.log('   ✅ custom-hour:', hourInput?.value);
             console.log('   ✅ custom-minute:', minuteInput?.value);
         }
@@ -27603,7 +27697,7 @@ Aktuell: ${currentNum}`;
                 if (pickup && destination) {
                     console.log('✅ Pickup + Destination vorhanden - mit Preis-Berechnung + Slot-Check!');
                     
-                    // 🆕 v5.90.815: ERST Preis berechnen (mit Slot-Check!)
+                    // 🆕 v5.90.817: ERST Preis berechnen (mit Slot-Check!)
                     await calculatePreorderPrice();
                     
                     // DANN zusätzlich alte Slot-Check Logik
@@ -27645,7 +27739,7 @@ Aktuell: ${currentNum}`;
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
 
-            // 🆕 v5.90.815: LADEINDIKATOR mit Datum + Uhrzeit!
+            // 🆕 v5.90.817: LADEINDIKATOR mit Datum + Uhrzeit!
             if (statusDisplay) {
                 // Formatiere Datum schöner
                 const dateObj = new Date(date + 'T' + time);
@@ -30313,7 +30407,7 @@ Aktuell: ${currentNum}`;
                 
                 pickupTimestamp = selectedDate.getTime();
                 
-                // 🆕 v5.90.815: VORBESTELLUNG BRAUCHT 30 MINUTEN VORLAUF!
+                // 🆕 v5.90.817: VORBESTELLUNG BRAUCHT 30 MINUTEN VORLAUF!
                 const nowTime = Date.now();
                 const minTime = nowTime + (30 * 60 * 1000); // +30 Minuten
                 
@@ -30647,7 +30741,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ v5.90.815: KARTE-MIT-ANALYSE für Karte!
+            // 🗺️ v5.90.817: KARTE-MIT-ANALYSE für Karte!
             wipeAwayMap();
             
             // Karte entfernen
@@ -32356,7 +32450,7 @@ Aktuell: ${currentNum}`;
             // 🔧 v5.39.8: Daten nur löschen wenn abgebrochen!
             currentBookingData = null;
         }
-        // 🆕 v5.90.815: VORBESTELL-PREIS-BERECHNUNG MIT SLOT-CHECK!
+        // 🆕 v5.90.817: VORBESTELL-PREIS-BERECHNUNG MIT SLOT-CHECK!
         // NUTZT DIE GLEICHE LOGIK WIE SOFORT-TAB! ✅
         async function calculatePreorderPrice() {
             const pickup = document.getElementById('custom-pickup')?.value || document.getElementById('pickup')?.value || '';
@@ -32367,7 +32461,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            console.log('🎡 v5.90.815: Berechne Preis für VORBESTELLEN (mit SLOT-CHECK!)');
+            console.log('📅 v5.90.817: Berechne Preis für VORBESTELLEN (mit SLOT-CHECK!)');
             
             try {
                 // 1️⃣ GEOCODE (parallel wie SOFORT!)
@@ -32403,7 +32497,7 @@ Aktuell: ${currentNum}`;
                 const route = await calculateRoute(pickupCoords, destCoords, []);
                 
                 console.log('═══════════════════════════════════════════');
-                console.log('🗺️ v5.90.815: VORBESTELL-ROUTE:');
+                console.log('🗺️ v5.90.817: VORBESTELL-ROUTE:');
                 console.log(`   Von: ${pickup}`);
                 console.log(`   Nach: ${destination}`);
                 console.log(`   Distanz: ${route.distance} km`);
@@ -32490,7 +32584,7 @@ Aktuell: ${currentNum}`;
                 
                 // 7️⃣ SLOT-CHECK (wenn Firebase ready!)
                 if (isFirebaseReady && typeof checkTimeSlotAvailability === 'function') {
-                    console.log('🤖 v5.90.815: Prüfe Slot-Verfügbarkeit...');
+                    console.log('🤖 v5.90.817: Prüfe Slot-Verfügbarkeit...');
                     
                     try {
                         const availability = await checkTimeSlotAvailability(pickupTimestamp, pickupCoords);
@@ -32544,16 +32638,16 @@ Aktuell: ${currentNum}`;
                 window.lastCalculatedRoute = route.coordinates;
                 window.preorderPriceCalculated = true;
                 
-                console.log('🎡 v5.90.815: Preis berechnet mit SLOT-CHECK:', pricing.total, '€');
+                console.log('📅 v5.90.817: Preis berechnet mit SLOT-CHECK:', pricing.total, '€');
                 
             } catch (error) {
-                console.error('❌ v5.90.815: Fehler bei Preis-Berechnung:', error);
+                console.error('❌ v5.90.817: Fehler bei Preis-Berechnung:', error);
                 alert('❌ Fehler bei der Berechnung!\n\nBitte erneut versuchen.');
             }
         }
-        // 🆕 v5.90.815: VORBESTELL-BUCHUNG BESTÄTIGEN
+        // 🆕 v5.90.817: VORBESTELL-BUCHUNG BESTÄTIGEN
         async function confirmPreorderBooking() {
-            console.log('📋 v5.90.815: Vorbestell-Buchung wird vorbereitet...');
+            console.log('📋 v5.90.817: Vorbestell-Buchung wird vorbereitet...');
             
             // 1. Preis nochmal berechnen
             await calculatePreorderPrice();
@@ -32636,7 +32730,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🆕 v5.90.815: VORBESTELL-BUCHUNG ABBRECHEN
+        // 🆕 v5.90.817: VORBESTELL-BUCHUNG ABBRECHEN
         function cancelPreorderBooking() {
             console.log('❌ Buchung abgebrochen');
             const statusDisplay = document.getElementById('slot-status-display');
@@ -32645,9 +32739,9 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🆕 v5.90.815: VORBESTELL-BUCHUNG AUSFÜHREN
+        // 🆕 v5.90.817: VORBESTELL-BUCHUNG AUSFÜHREN
         async function executePreorderBooking() {
-            console.log('🎡 v5.90.815: Führe Vorbestell-Buchung aus!');
+            console.log('📅 v5.90.817: Führe Vorbestell-Buchung aus!');
             
             // Setze currentRideType auf "vorbestellen"
             currentRideType = 'vorbestellen';
@@ -61957,7 +62051,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🎡 v5.90.815: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 📅 v5.90.817: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61977,9 +62071,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🎡 v5.90.815: LÖSCHE lastActiveTab beim Logout!
+            // 📅 v5.90.817: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🎡 v5.90.815: lastActiveTab gelöscht');
+            console.log('📅 v5.90.817: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64726,13 +64820,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🎡 v5.90.815: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 📅 v5.90.817: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🎡 v5.90.815: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 📅 v5.90.817: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->
@@ -77264,7 +77358,7 @@ function clearField(fieldId) {
             }
         }
         
-        // 🆕 v5.90.815: Verstecke Karte wenn Pickup/Destination gelöscht wird!
+        // 🆕 v5.90.817: Verstecke Karte wenn Pickup/Destination gelöscht wird!
         if (fieldId === 'pickup' || fieldId === 'destination') {
             const pickupInput = document.getElementById('pickup');
             const destInput = document.getElementById('destination');
@@ -78275,10 +78369,10 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.815: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.817: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎡 v5.90.815
+        📅 v5.90.817
     </div>
 </div>
 

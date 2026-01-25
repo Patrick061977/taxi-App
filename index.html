@@ -24906,14 +24906,18 @@ Aktuell: ${currentNum}`;
                 
                 input.addEventListener('input', (e) => {
                     console.log('⌨️ INPUT EVENT!', id, 'Wert:', e.target.value);
-                    
-                    // Reset coords wenn User manuell tippt
+
+                    // 🔧 v5.90.832: Reset coords wenn User manuell tippt - MIT WINDOW.SCOPE!
                     if (id === 'pickup') {
+                        window.pickupCoords = null;
                         pickupCoords = null;
+                        window.pickupConfirmed = false;
                         pickupConfirmed = false;
                         updateConfirmationHint('pickup');
                     } else if (id === 'destination') {
+                        window.destCoords = null;
                         destCoords = null;
+                        window.destinationConfirmed = false;
                         destinationConfirmed = false;
                         updateConfirmationHint('destination');
                     } else if (id === 'qb-panel-pickup') {
@@ -25525,27 +25529,41 @@ Aktuell: ${currentNum}`;
             // Setze Adresse ins Feld
             document.getElementById(inputId).value = address;
             
-            // Speichere Koordinaten
+            // 🔧 v5.90.832: WINDOW.SCOPE für globale Variablen!
             if (inputId === 'pickup') {
-                pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                window.pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                pickupCoords = window.pickupCoords;
+                window.pickupConfirmed = true;
                 pickupConfirmed = true;
                 updateConfirmationHint('pickup');
-                console.log('✅ GPS-Abholort gespeichert:', address, pickupCoords);
-                
+                console.log('✅ v5.90.832: GPS-Abholort gespeichert:', address, window.pickupCoords);
+
                 // Bei Vorbestellung → Live-Slot-Check!
                 if (currentRideType === 'vorbestellen') {
                     setTimeout(() => performLiveSlotCheck(), 300);
                 }
-                
+
                 // Bei Sofort → Taxis laden!
                 if (currentRideType === 'sofort') {
                     setTimeout(() => showAvailableTaxis(), 1900);
                 }
+
+                // 🆕 v5.90.832: Auto-Preis wenn Ziel vorhanden!
+                if (window.destCoords) {
+                    setTimeout(() => calculatePriceAndShow(), 600);
+                }
             } else {
-                destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                window.destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                destCoords = window.destCoords;
+                window.destinationConfirmed = true;
                 destinationConfirmed = true;
                 updateConfirmationHint('destination');
-                console.log('✅ GPS-Zielort gespeichert:', address, destCoords);
+                console.log('✅ v5.90.832: GPS-Zielort gespeichert:', address, window.destCoords);
+
+                // 🆕 v5.90.832: Auto-Preis wenn Start vorhanden!
+                if (window.pickupCoords) {
+                    setTimeout(() => calculatePriceAndShow(), 300);
+                }
             }
         }
 
@@ -25800,7 +25818,8 @@ Aktuell: ${currentNum}`;
             }
             
             // 🆕 v5.90.324: WENN KEINE PICKUP-COORDS → ZEIGE FAHRZEUGE OHNE DISTANZ!
-            if (!pickupCoords) {
+            // 🔧 v5.90.832: WINDOW.SCOPE!
+            if (!window.pickupCoords) {
                 const html = `
                     <div class="available-taxis" style="margin-top:10px;">
                         <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;text-align:center;margin-bottom:10px;">
@@ -64271,8 +64290,9 @@ Stack: ${err.stack}
                 loadSavedVehicle();
             }, 100);
             
-            setInterval(() => { 
-                if (pickupCoords) showAvailableTaxis(); 
+            setInterval(() => {
+                // 🔧 v5.90.832: WINDOW.SCOPE!
+                if (window.pickupCoords) showAvailableTaxis(); 
                 if (myCurrentRide && myCurrentRide.status === 'accepted') showRideStatus(myCurrentRide);
                 
                 // 🔧 Wake Lock alle 30 Sek. prüfen und neu aktivieren

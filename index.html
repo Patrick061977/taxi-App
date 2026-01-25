@@ -1508,6 +1508,15 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
+    <!-- 🔴 DEBUG BOX - OBEN SICHTBAR! -->
+    <div id="debug-box" style="position:fixed;top:0;left:0;right:0;background:#ff0000;color:white;padding:10px;font-size:12px;z-index:999999;font-family:monospace;">
+        🔴 DEBUG MODE<br>
+        <span id="dbg-pickup">❌ Pickup: -</span><br>
+        <span id="dbg-dest">❌ Ziel: -</span><br>
+        <span id="dbg-preis">❌ Preis: -</span>
+    </div>
+    <div style="height:80px;"></div><!-- Platzhalter für Debug-Box -->
+
     <!-- 🔧 v5.90.830: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
@@ -25570,6 +25579,15 @@ Aktuell: ${currentNum}`;
 
         // 🔧 v5.90.833: GLOBAL machen für onclick!
         window.selectAddress = function(inputId, address, lat, lon) {
+            // 🔴 DEBUG BOX UPDATE
+            if (inputId === 'pickup') {
+                document.getElementById('dbg-pickup').innerHTML = '✅ Pickup: ' + address.substring(0,25) + '...';
+                document.getElementById('dbg-pickup').style.color = '#00ff00';
+            } else if (inputId === 'destination') {
+                document.getElementById('dbg-dest').innerHTML = '✅ Ziel: ' + address.substring(0,25) + '...';
+                document.getElementById('dbg-dest').style.color = '#00ff00';
+            }
+
             console.log('🎯 v5.90.833: selectAddress aufgerufen!', inputId, address);
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
             
@@ -25648,8 +25666,12 @@ Aktuell: ${currentNum}`;
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
 
                 // 🆕 v5.90.833: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
-                // WICHTIG: Prüfe WINDOW.pickupCoords für globalen Scope!
+                // 🔴 DEBUG BOX UPDATE
+                document.getElementById('dbg-preis').innerHTML = 'Pickup da? ' + (window.pickupCoords ? '✅ JA' : '❌ NEIN');
+
                 if (window.pickupCoords) {
+                    document.getElementById('dbg-preis').innerHTML = '⏳ Preis wird berechnet...';
+                    document.getElementById('dbg-preis').style.color = '#ffff00';
                     console.log('💰 v5.90.833: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
@@ -26456,6 +26478,10 @@ Aktuell: ${currentNum}`;
         
         // 🔧 v5.90.833: GLOBAL machen!
         window.calculatePriceAndShow = async function() {
+            // 🔴 DEBUG BOX
+            document.getElementById('dbg-preis').innerHTML = '🚀 calculatePriceAndShow läuft!';
+            document.getElementById('dbg-preis').style.color = '#00ff00';
+
             console.log('🚀 v5.90.833: calculatePriceAndShow() AUFGERUFEN!');
 
             const pickup = document.getElementById('pickup').value.trim();
@@ -64208,29 +64234,30 @@ Stack: ${err.stack}
             setupAutocomplete();
             
             // 🆕 BUTTON-LOGIK: Verstecke "Taxi buchen" wenn Felder geändert werden
+            // 🔧 v5.90.835: NUR Koordinaten des GEÄNDERTEN Feldes zurücksetzen!
             const pickupField = document.getElementById('pickup');
             const destField = document.getElementById('destination');
             const bookBtn = document.getElementById('book-btn');
-            
-            function hideBookButton() {
+
+            function hideBookButton(e) {
                 if (bookBtn) {
                     bookBtn.style.display = 'none';
                     bookBtn.style.visibility = 'hidden';
                     console.log('🔒 "Taxi buchen" versteckt (Felder geändert)');
                 }
-                
+
                 // 🆕 v5.49.8: AUCH Preis + Route verstecken!
                 const priceDisplay = document.getElementById('price-display');
                 if (priceDisplay) {
                     priceDisplay.innerHTML = '';
                     priceDisplay.style.display = 'none';
                 }
-                
+
                 const routeMap = document.getElementById('route-map');
                 if (routeMap) {
                     routeMap.style.display = 'none';
                 }
-                
+
                 // Preis-Button zurücksetzen
                 const priceBtn = document.getElementById('price-btn');
                 if (priceBtn) {
@@ -64238,18 +64265,33 @@ Stack: ${err.stack}
                     priceBtn.classList.remove('btn-danger');
                     priceBtn.classList.add('btn-primary');
                 }
-                
+
                 // Status zurücksetzen
                 priceCalculated = false;
                 window.currentPrice = null;
                 window.currentDistance = null;
                 window.currentDuration = null;
-                pickupCoords = null;
-                destCoords = null;
-                
+
+                // 🔧 v5.90.835: NUR Koordinaten des geänderten Feldes zurücksetzen!
+                // Vorher: BEIDE wurden zurückgesetzt → GPS-Abholort ging verloren!
+                const changedField = e && e.target ? e.target.id : null;
+                if (changedField === 'pickup') {
+                    window.pickupCoords = null;
+                    pickupCoords = null;
+                    window.pickupConfirmed = false;
+                    pickupConfirmed = false;
+                    console.log('🔄 Pickup-Koordinaten zurückgesetzt');
+                } else if (changedField === 'destination') {
+                    window.destCoords = null;
+                    destCoords = null;
+                    window.destinationConfirmed = false;
+                    destinationConfirmed = false;
+                    console.log('🔄 Ziel-Koordinaten zurückgesetzt');
+                }
+
                 console.log('🔄 Preis + Route zurückgesetzt (Felder geändert)');
             }
-            
+
             if (pickupField) {
                 pickupField.addEventListener('input', hideBookButton);
             }
@@ -67731,22 +67773,25 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         });
         
         // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL
+        // 🔧 v5.90.834: Log-Spam behoben - nur bei neuen Inputs loggen
         function setupWhatsAppTimeInputs() {
             const timeInputs = document.querySelectorAll('input[type="time"], input[type="datetime-local"]');
-            
+            let newInputsCount = 0;
+
             timeInputs.forEach(input => {
                 // Verhindere doppelte Listener
                 if (input.dataset.whatsappTime) return;
                 input.dataset.whatsappTime = 'true';
-                
+                newInputsCount++;
+
                 let lastHour = null;
-                
+
                 input.addEventListener('input', function(e) {
                     const value = this.value;
                     if (!value) return;
-                    
+
                     let currentHour, currentMinute;
-                    
+
                     if (this.type === 'datetime-local') {
                         const parts = value.split('T');
                         if (parts.length === 2) {
@@ -67756,11 +67801,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     } else if (this.type === 'time') {
                         [currentHour, currentMinute] = value.split(':');
                     }
-                    
+
                     // Wenn Stunde geändert → Minuten auf :00
                     if (lastHour !== null && currentHour !== lastHour) {
                         console.log('⏰ Stunde geändert:', lastHour, '→', currentHour, '→ Setze :00');
-                        
+
                         if (this.type === 'datetime-local') {
                             const datePart = value.split('T')[0];
                             this.value = `${datePart}T${currentHour}:00`;
@@ -67768,14 +67813,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             this.value = `${currentHour}:00`;
                         }
                     }
-                    
+
                     lastHour = currentHour;
                 });
-                
+
                 input.addEventListener('focus', function() {
                     const value = this.value;
                     if (!value) return;
-                    
+
                     if (this.type === 'datetime-local') {
                         const parts = value.split('T');
                         if (parts.length === 2) {
@@ -67786,19 +67831,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                 });
             });
-            
-            console.log('✅ WhatsApp-Style Zeit aktiviert für', timeInputs.length, 'Inputs');
+
+            // Nur loggen wenn tatsächlich NEUE Inputs initialisiert wurden
+            if (newInputsCount > 0) {
+                console.log('✅ WhatsApp-Style Zeit aktiviert für', newInputsCount, 'neue Inputs');
+            }
         }
-        
+
         // Reaktiviere wenn DOM sich ändert (z.B. Modals) - THROTTLED!
         let timeObserverTimeout = null;
         const timeObserver = new MutationObserver(() => {
-            // Throttle: Nur alle 500ms
+            // Throttle: Nur alle 2 Sekunden (war 500ms - zu aggressiv)
             if (timeObserverTimeout) return;
             timeObserverTimeout = setTimeout(() => {
                 setupWhatsAppTimeInputs();
                 timeObserverTimeout = null;
-            }, 500);
+            }, 2000);
         });
         timeObserver.observe(document.body, { childList: true, subtree: true });
         

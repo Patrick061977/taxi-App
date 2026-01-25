@@ -14,8 +14,15 @@
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.833-STABLE
+    📋 CHANGELOG v5.90.836-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    🎯 v5.90.836-STABLE (25.01.2026):
+       • NEU: VOLLE SLOT-ANALYSE bei Autocomplete-Auswahl!
+       • NEU: triggerSlotCheck() wird bei Zielort-Auswahl aufgerufen (nicht nur performLiveSlotCheck)
+       • NEU: Beim Abholort → Volle Analyse wenn Ziel bereits vorhanden, sonst Live-Indikator
+       • FIX: Debug-Box und Debug-Code entfernt (sauberer Release)
+       • FIX: Konsistente Slot-Prüfung für GPS, Kartenpicker UND Autocomplete
 
     🔧 v5.90.833-STABLE (25.01.2026):
        • FIX: SCOPE-BUG BEHOBEN! window.pickupCoords/destCoords statt lokaler Variablen
@@ -1508,14 +1515,6 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔴 DEBUG BOX - OBEN SICHTBAR! -->
-    <div id="debug-box" style="position:fixed;top:0;left:0;right:0;background:#ff0000;color:white;padding:10px;font-size:12px;z-index:999999;font-family:monospace;">
-        🔴 DEBUG MODE<br>
-        <span id="dbg-pickup">❌ Pickup: -</span><br>
-        <span id="dbg-dest">❌ Ziel: -</span><br>
-        <span id="dbg-preis">❌ Preis: -</span>
-    </div>
-    <div style="height:80px;"></div><!-- Platzhalter für Debug-Box -->
 
     <!-- 🔧 v5.90.830: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
@@ -25579,16 +25578,7 @@ Aktuell: ${currentNum}`;
 
         // 🔧 v5.90.833: GLOBAL machen für onclick!
         window.selectAddress = function(inputId, address, lat, lon) {
-            // 🔴 DEBUG BOX UPDATE
-            if (inputId === 'pickup') {
-                document.getElementById('dbg-pickup').innerHTML = '✅ Pickup: ' + address.substring(0,25) + '...';
-                document.getElementById('dbg-pickup').style.color = '#00ff00';
-            } else if (inputId === 'destination') {
-                document.getElementById('dbg-dest').innerHTML = '✅ Ziel: ' + address.substring(0,25) + '...';
-                document.getElementById('dbg-dest').style.color = '#00ff00';
-            }
-
-            console.log('🎯 v5.90.833: selectAddress aufgerufen!', inputId, address);
+            console.log('🎯 v5.90.836: selectAddress aufgerufen!', inputId, address);
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
             
             // 🔧 v5.90.90: WARN wenn "Beliebtes Ziel" in Adresse!
@@ -25629,12 +25619,21 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // 🆕 v5.48.0: Bei Vorbestellung → Triggere Live-Slot-Check!
-                // 🔧 v5.90.830: NUR wenn explizit VORBESTELLEN gewählt!
+                // 🔧 v5.90.836: VOLLE Analyse wenn Ziel bereits da ist!
                 if (currentRideType === 'vorbestellen') {
-                    console.log('🔍 v5.90.830: Trigger Live-Slot-Check nach Abholadresse...');
-                    setTimeout(() => {
-                        performLiveSlotCheck();
-                    }, 300);
+                    if (window.destCoords) {
+                        // Ziel bereits vorhanden → Volle Analyse!
+                        console.log('🔍 v5.90.836: Trigger VOLLE Slot-Analyse (Ziel bereits vorhanden)...');
+                        setTimeout(() => {
+                            triggerSlotCheck();
+                        }, 500);
+                    } else {
+                        // Noch kein Ziel → Nur Live-Indikator
+                        console.log('🔍 v5.90.836: Trigger Live-Slot-Check (Ziel noch nicht da)...');
+                        setTimeout(() => {
+                            performLiveSlotCheck();
+                        }, 300);
+                    }
                 } else {
                     console.log('⚡ v5.90.830: Kein Slot-Check (noch kein Modus gewählt)');
                 }
@@ -25665,17 +25664,20 @@ Aktuell: ${currentNum}`;
                 console.log('✅ v5.90.833: Zielort gespeichert:', address, window.destCoords);
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
 
-                // 🆕 v5.90.833: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
-                // 🔴 DEBUG BOX UPDATE
-                document.getElementById('dbg-preis').innerHTML = 'Pickup da? ' + (window.pickupCoords ? '✅ JA' : '❌ NEIN');
-
+                // 🆕 v5.90.836: AUTO-PREISBERECHNUNG + SLOT-ANALYSE sobald beide Adressen da sind!
                 if (window.pickupCoords) {
-                    document.getElementById('dbg-preis').innerHTML = '⏳ Preis wird berechnet...';
-                    document.getElementById('dbg-preis').style.color = '#ffff00';
-                    console.log('💰 v5.90.833: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
+                    console.log('💰 v5.90.836: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
                     }, 300);
+
+                    // 🆕 v5.90.836: Slot-Check + Analyse auch beim ZIELORT triggern!
+                    if (currentRideType === 'vorbestellen') {
+                        console.log('🔍 v5.90.836: Trigger VOLLE Slot-Analyse nach Zieladresse...');
+                        setTimeout(() => {
+                            triggerSlotCheck();
+                        }, 500);
+                    }
                 }
             } else if (inputId === 'qb-panel-pickup') {
                 // 🆕 v5.50.7: Admin-Panel Abholort!
@@ -26476,13 +26478,9 @@ Aktuell: ${currentNum}`;
             initializeLiveSlotCheck();
         }
         
-        // 🔧 v5.90.833: GLOBAL machen!
+        // 🔧 v5.90.836: GLOBAL machen!
         window.calculatePriceAndShow = async function() {
-            // 🔴 DEBUG BOX
-            document.getElementById('dbg-preis').innerHTML = '🚀 calculatePriceAndShow läuft!';
-            document.getElementById('dbg-preis').style.color = '#00ff00';
-
-            console.log('🚀 v5.90.833: calculatePriceAndShow() AUFGERUFEN!');
+            console.log('🚀 v5.90.836: calculatePriceAndShow() AUFGERUFEN!');
 
             const pickup = document.getElementById('pickup').value.trim();
             const destination = document.getElementById('destination').value.trim();

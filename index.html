@@ -64234,29 +64234,30 @@ Stack: ${err.stack}
             setupAutocomplete();
             
             // 🆕 BUTTON-LOGIK: Verstecke "Taxi buchen" wenn Felder geändert werden
+            // 🔧 v5.90.835: NUR Koordinaten des GEÄNDERTEN Feldes zurücksetzen!
             const pickupField = document.getElementById('pickup');
             const destField = document.getElementById('destination');
             const bookBtn = document.getElementById('book-btn');
-            
-            function hideBookButton() {
+
+            function hideBookButton(e) {
                 if (bookBtn) {
                     bookBtn.style.display = 'none';
                     bookBtn.style.visibility = 'hidden';
                     console.log('🔒 "Taxi buchen" versteckt (Felder geändert)');
                 }
-                
+
                 // 🆕 v5.49.8: AUCH Preis + Route verstecken!
                 const priceDisplay = document.getElementById('price-display');
                 if (priceDisplay) {
                     priceDisplay.innerHTML = '';
                     priceDisplay.style.display = 'none';
                 }
-                
+
                 const routeMap = document.getElementById('route-map');
                 if (routeMap) {
                     routeMap.style.display = 'none';
                 }
-                
+
                 // Preis-Button zurücksetzen
                 const priceBtn = document.getElementById('price-btn');
                 if (priceBtn) {
@@ -64264,18 +64265,33 @@ Stack: ${err.stack}
                     priceBtn.classList.remove('btn-danger');
                     priceBtn.classList.add('btn-primary');
                 }
-                
+
                 // Status zurücksetzen
                 priceCalculated = false;
                 window.currentPrice = null;
                 window.currentDistance = null;
                 window.currentDuration = null;
-                pickupCoords = null;
-                destCoords = null;
-                
+
+                // 🔧 v5.90.835: NUR Koordinaten des geänderten Feldes zurücksetzen!
+                // Vorher: BEIDE wurden zurückgesetzt → GPS-Abholort ging verloren!
+                const changedField = e && e.target ? e.target.id : null;
+                if (changedField === 'pickup') {
+                    window.pickupCoords = null;
+                    pickupCoords = null;
+                    window.pickupConfirmed = false;
+                    pickupConfirmed = false;
+                    console.log('🔄 Pickup-Koordinaten zurückgesetzt');
+                } else if (changedField === 'destination') {
+                    window.destCoords = null;
+                    destCoords = null;
+                    window.destinationConfirmed = false;
+                    destinationConfirmed = false;
+                    console.log('🔄 Ziel-Koordinaten zurückgesetzt');
+                }
+
                 console.log('🔄 Preis + Route zurückgesetzt (Felder geändert)');
             }
-            
+
             if (pickupField) {
                 pickupField.addEventListener('input', hideBookButton);
             }

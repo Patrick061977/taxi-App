@@ -542,8 +542,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.843 (Build 2026-01-26)');
-        console.log('🔧 v5.90.843: UX-Verbesserung - Schritt-Anleitung nach Preisberechnung!');
+        console.log('🚕 Funk Taxi App v5.90.844 (Build 2026-01-26)');
+        console.log('🔧 v5.90.844: Kunden-Sicht erweitert - Route, Preis, Zahlungsmethode (Bar/Karte/Transportschein)!');
         console.log('✅ v5.90.833: AUTO-PREIS funktioniert!');
         console.log('✅ v5.90.833: Hidden Inputs werden gesetzt!');
         console.log('✅ v5.90.833: Kein nerviger Input Listener!');
@@ -3014,6 +3014,7 @@
                 <select id="payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
                     <option value="bar">💶 Bar (Bargeld)</option>
                     <option value="karte">💳 EC-Karte / Kreditkarte</option>
+                    <option value="transportschein">🎫 Transportschein</option>
                     <option value="paypal">📱 PayPal / Digitale Zahlung</option>
                     <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
                 </select>
@@ -20591,7 +20592,7 @@ Aktuell: ${currentNum}`;
                         <div style="margin-bottom:15px;">
                             <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">ZAHLUNG</div>
                             <div style="font-size:14px;color:#1f2937;">
-                                💳 ${ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : ride.paymentMethod}
+                                💳 ${ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : ride.paymentMethod === 'transportschein' ? 'Transportschein' : ride.paymentMethod}
                             </div>
                         </div>
                         ` : ''}
@@ -22014,11 +22015,13 @@ Aktuell: ${currentNum}`;
                     'bar': 'Bar',
                     'ec': 'EC-Karte',
                     'credit': 'Kreditkarte',
+                    'karte': 'EC-Karte/Kreditkarte',
                     'paypal': 'PayPal',
                     'rechnung': 'Rechnung',
+                    'transportschein': 'Transportschein',
                     'uberweisung': 'Ueberweisung'
                 };
-                
+
                 if (invoice.paymentMethod) {
                     doc.text(`Zahlungsart: ${paymentMethodNames[invoice.paymentMethod] || invoice.paymentMethod}`, 20, yPos);
                 }
@@ -22128,6 +22131,7 @@ Aktuell: ${currentNum}`;
                 const paymentText = {
                     'bar': 'Bargeld',
                     'karte': 'EC-Karte/Kreditkarte',
+                    'transportschein': 'Transportschein',
                     'paypal': 'PayPal/Digitale Zahlung',
                     'rechnung': 'Rechnung (Firmenkunden)'
                 }[ride.paymentMethod] || ride.paymentMethod;
@@ -23266,7 +23270,7 @@ Aktuell: ${currentNum}`;
             const dateShort = pickupTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
             const distanceStr = ride.distance ? ride.distance + ' km' : '';
             const durationStr = ride.duration ? ride.duration + ' Min' : '';
-            const paymentStr = ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : (ride.paymentMethod || '');
+            const paymentStr = ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : ride.paymentMethod === 'transportschein' ? 'Transportschein' : (ride.paymentMethod || '');
             const driverStr = ride.driverName || '';
             const vehicleStr = ride.vehicle || ride.assignedVehicleName || '';
             const taxiNumStr = ride.vehicleId || ride.assignedVehicle || '';
@@ -28805,15 +28809,55 @@ Aktuell: ${currentNum}`;
                         html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
 
-                        html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #10b981;text-align:center;">';
-                        html += '<div style="font-size:20px;margin-bottom:8px;">✅</div>';
-                        html += '<div style="font-size:16px;font-weight:700;color:#10b981;margin-bottom:8px;">Termin verfügbar!</div>';
-                        html += `<div style="font-size:13px;color:#374151;margin-bottom:12px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
-                        // 🆕 v5.90.843: Button je nach Preis-Status
+                        // 🆕 v5.90.844: Erweiterte KUNDEN-SICHT mit allen Buchungsdetails
+                        html += '<div style="background:white;padding:16px;border-radius:8px;border:2px solid #10b981;">';
+
+                        // Status
+                        html += '<div style="text-align:center;margin-bottom:12px;">';
+                        html += '<div style="font-size:20px;margin-bottom:4px;">✅</div>';
+                        html += '<div style="font-size:16px;font-weight:700;color:#10b981;">Termin verfügbar!</div>';
+                        html += '</div>';
+
+                        // Route-Details
+                        html += '<div style="background:#f0fdf4;padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid #bbf7d0;">';
+                        if (pickup) {
+                            html += `<div style="font-size:13px;color:#374151;margin-bottom:4px;"><span style="font-weight:600;">📍 Von:</span> ${pickup}</div>`;
+                        }
+                        if (destination) {
+                            html += `<div style="font-size:13px;color:#374151;"><span style="font-weight:600;">🎯 Nach:</span> ${destination}</div>`;
+                        }
+                        html += '</div>';
+
+                        // Datum & Uhrzeit
+                        html += `<div style="text-align:center;font-size:14px;font-weight:600;color:#374151;margin-bottom:10px;padding:8px;background:#f9fafb;border-radius:6px;">📅 ${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
+
+                        // Preis/Distanz/Dauer (wenn berechnet)
+                        if (priceCalculated && window.currentPrice) {
+                            html += '<div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);padding:12px;border-radius:8px;margin-bottom:10px;border:2px solid #10b981;text-align:center;">';
+                            html += `<div style="font-size:28px;font-weight:800;color:#059669;margin-bottom:4px;">${window.currentPrice}€</div>`;
+                            html += '<div style="display:flex;justify-content:center;gap:16px;font-size:12px;color:#047857;">';
+                            if (window.currentDistance) html += `<span>📍 ${window.currentDistance} km</span>`;
+                            if (window.currentTotalDuration || window.currentDuration) html += `<span>⏱️ ${window.currentTotalDuration || window.currentDuration} Min</span>`;
+                            html += '</div>';
+                            html += '</div>';
+                        }
+
+                        // 🆕 v5.90.844: Zahlungsmethode (Bar, Karte, Transportschein)
+                        html += '<div style="margin-bottom:12px;">';
+                        html += '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">💳 Zahlungsmethode:</div>';
+                        const currentPayment = document.getElementById('payment-method') ? document.getElementById('payment-method').value : 'bar';
+                        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+                        html += `<button onclick="document.getElementById('payment-method').value='bar';document.querySelectorAll('.kv-pay-btn').forEach(b=>{b.style.background='#e5e7eb';b.style.color='#374151';b.style.borderColor='#d1d5db'});this.style.background='#10b981';this.style.color='white';this.style.borderColor='#10b981'" class="kv-pay-btn" style="flex:1;padding:10px 8px;border:2px solid #d1d5db;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;${currentPayment==='bar'?'background:#10b981;color:white;border-color:#10b981;':'background:#e5e7eb;color:#374151;'}">💶 Bar</button>`;
+                        html += `<button onclick="document.getElementById('payment-method').value='karte';document.querySelectorAll('.kv-pay-btn').forEach(b=>{b.style.background='#e5e7eb';b.style.color='#374151';b.style.borderColor='#d1d5db'});this.style.background='#10b981';this.style.color='white';this.style.borderColor='#10b981'" class="kv-pay-btn" style="flex:1;padding:10px 8px;border:2px solid #d1d5db;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;${currentPayment==='karte'?'background:#10b981;color:white;border-color:#10b981;':'background:#e5e7eb;color:#374151;'}">💳 Karte</button>`;
+                        html += `<button onclick="document.getElementById('payment-method').value='transportschein';document.querySelectorAll('.kv-pay-btn').forEach(b=>{b.style.background='#e5e7eb';b.style.color='#374151';b.style.borderColor='#d1d5db'});this.style.background='#10b981';this.style.color='white';this.style.borderColor='#10b981'" class="kv-pay-btn" style="flex:1;padding:10px 8px;border:2px solid #d1d5db;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;${currentPayment==='transportschein'?'background:#10b981;color:white;border-color:#10b981;':'background:#e5e7eb;color:#374151;'}">🎫 Schein</button>`;
+                        html += '</div>';
+                        html += '</div>';
+
+                        // Buchen-Button
                         if (priceCalculated) {
-                            html += '<button onclick="book()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;width:100%;">🚕 Jetzt buchen</button>';
+                            html += '<button onclick="book()" style="background:#10b981;color:white;padding:14px 24px;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;width:100%;box-shadow:0 2px 8px rgba(16,185,129,0.3);">🚕 Jetzt buchen</button>';
                         } else {
-                            html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">💰 Preis berechnen & buchen</button>';
+                            html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:14px 24px;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;width:100%;box-shadow:0 2px 8px rgba(16,185,129,0.3);">💰 Preis berechnen & buchen</button>';
                         }
                         html += '</div>';
 
@@ -54081,11 +54125,13 @@ Funk Taxi Team`;
                     'bar': 'Bar',
                     'ec': 'EC-Karte',
                     'credit': 'Kreditkarte',
+                    'karte': 'EC-Karte/Kreditkarte',
                     'paypal': 'PayPal',
                     'rechnung': 'Rechnung',
+                    'transportschein': 'Transportschein',
                     'uberweisung': 'Ueberweisung'
                 };
-                
+
                 doc.text(`Zahlungsart: ${paymentMethodNames[paymentMethod] || paymentMethod}`, 20, yPos);
                 
                 // FOOTER - Bankdaten (IMMER) - 🆕 v5.87.91: KOMPAKT NEBENEINANDER

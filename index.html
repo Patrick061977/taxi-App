@@ -31200,6 +31200,13 @@ Aktuell: ${currentNum}`;
                 liveSlotCheck.style.display = 'none';
                 liveSlotCheck.innerHTML = '';
             }
+
+            // 🆕 v5.90.848: ANALYSE/KUNDEN-SICHT VERSTECKEN
+            const slotStatusDisplay = document.getElementById('slot-status-display');
+            if (slotStatusDisplay) {
+                slotStatusDisplay.style.display = 'none';
+                slotStatusDisplay.innerHTML = '';
+            }
             
             // 🔘 "BUCHEN"-BUTTON VERSTECKEN
             const bookBtn = document.getElementById('book-btn');

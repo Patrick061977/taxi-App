@@ -542,8 +542,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.842 (Build 2026-01-26)');
-        console.log('🔧 v5.90.842: Slot-Alternativen klickbar - Auto-Slot-Check!');
+        console.log('🚕 Funk Taxi App v5.90.843 (Build 2026-01-26)');
+        console.log('🔧 v5.90.843: UX-Verbesserung - Schritt-Anleitung nach Preisberechnung!');
         console.log('✅ v5.90.833: AUTO-PREIS funktioniert!');
         console.log('✅ v5.90.833: Hidden Inputs werden gesetzt!');
         console.log('✅ v5.90.833: Kein nerviger Input Listener!');
@@ -2767,6 +2767,11 @@
                 
                 <!-- 🚕 v5.90.830: TAXI BUCHEN Button DIREKT unter der Karte! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
+
+                <!-- 🆕 v5.90.843: SCHRITT-ANLEITUNG nach Preisberechnung -->
+                <div id="step-guide" style="display:none;margin-top:15px;padding:14px 16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;text-align:center;color:white;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(102,126,234,0.3);animation:pulse 2s infinite;">
+                    👇 Wählen Sie jetzt die Abholzeit
+                </div>
             </div>
 
             <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
@@ -10402,7 +10407,15 @@
                 // Bereiche zeigen/verstecken
                 sofortBereich.style.display = 'block';
                 vorbestellenBereich.style.display = 'none';
-                
+
+                // 🆕 v5.90.843: SOFORT = Zeit gewählt → Buchen-Button sofort zeigen!
+                if (priceCalculated) {
+                    const bookBtn = document.getElementById('book-btn');
+                    const stepGuide = document.getElementById('step-guide');
+                    if (bookBtn) { bookBtn.style.display = 'block'; bookBtn.style.visibility = 'visible'; }
+                    if (stepGuide) stepGuide.style.display = 'none';
+                }
+
                 // ✅ WENN Abholadresse bereits eingegeben → Lade Taxis!
                 const pickupInput = document.getElementById('pickup');
                 const destInput = document.getElementById('destination');
@@ -26688,10 +26701,25 @@ Aktuell: ${currentNum}`;
             // 🗺️ v5.90.833: KARTE ANZEIGEN mit WINDOW.SCOPE!
             showRouteMap(route, window.pickupCoords, window.destCoords);
             
+            // 🆕 v5.90.843: book-btn NICHT sofort zeigen - erst nach Zeitwahl!
             const bookBtn = document.getElementById('book-btn');
             if (bookBtn) {
-                bookBtn.style.display = 'block';
-                bookBtn.style.visibility = 'visible';
+                bookBtn.style.display = 'none';
+            }
+            // Stattdessen Schritt-Anleitung zeigen
+            const stepGuide = document.getElementById('step-guide');
+            if (stepGuide) {
+                // Nur zeigen wenn noch keine Zeit gewählt wurde
+                if (!currentRideType) {
+                    stepGuide.style.display = 'block';
+                } else {
+                    // Zeit bereits gewählt → Buchen-Button zeigen
+                    stepGuide.style.display = 'none';
+                    if (bookBtn) {
+                        bookBtn.style.display = 'block';
+                        bookBtn.style.visibility = 'visible';
+                    }
+                }
             }
             
             // 🗑️ v5.90.830: "FREIE ZEITEN" Button Code entfernt!
@@ -28781,7 +28809,12 @@ Aktuell: ${currentNum}`;
                         html += '<div style="font-size:20px;margin-bottom:8px;">✅</div>';
                         html += '<div style="font-size:16px;font-weight:700;color:#10b981;margin-bottom:8px;">Termin verfügbar!</div>';
                         html += `<div style="font-size:13px;color:#374151;margin-bottom:12px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
-                        html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">💰 Preis berechnen & buchen</button>';
+                        // 🆕 v5.90.843: Button je nach Preis-Status
+                        if (priceCalculated) {
+                            html += '<button onclick="book()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;width:100%;">🚕 Jetzt buchen</button>';
+                        } else {
+                            html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">💰 Preis berechnen & buchen</button>';
+                        }
                         html += '</div>';
 
                         html += '</div>';
@@ -28791,8 +28824,19 @@ Aktuell: ${currentNum}`;
 
                         html += '</div>';
                         statusDisplay.innerHTML = html;
-                        
+
                         console.log('✅ Slot ist frei! Vollständige Analyse angezeigt.');
+
+                        // 🆕 v5.90.843: Buchen-Button zeigen, Schritt-Anleitung verstecken
+                        {
+                            const bookBtn = document.getElementById('book-btn');
+                            const stepGuide = document.getElementById('step-guide');
+                            if (stepGuide) stepGuide.style.display = 'none';
+                            if (priceCalculated && bookBtn) {
+                                bookBtn.style.display = 'block';
+                                bookBtn.style.visibility = 'visible';
+                            }
+                        }
 
                         // 🆕 v5.90.736: AUTOMATISCHE PREISBERECHNUNG bei verfügbarem Termin!
                         if (!priceCalculated) {

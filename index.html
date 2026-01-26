@@ -26142,17 +26142,14 @@ Aktuell: ${currentNum}`;
                     </div>
                 `;
             } else {
-                // Kein Taxi verfügbar → nur Vorbestellen anbieten
-                console.log('🚕 v5.90.851: Kein Taxi verfügbar → nur Vorbestellen');
+                // Kein Taxi sofort verfügbar → nur Vorbestellen anbieten (ohne Warnmeldung)
+                console.log('🚕 v5.90.852: Kein Taxi sofort verfügbar → nur Vorbestellen (keine Meldung)');
                 resultDiv.innerHTML = `
-                    <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:3px solid #f59e0b;border-radius:14px;overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#e0e7ff,#eef2ff);border:3px solid #667eea;border-radius:14px;overflow:hidden;">
                         <div style="padding:18px 20px;text-align:center;">
-                            <div style="font-size:32px;margin-bottom:8px;">⏰</div>
-                            <div style="font-weight:700;font-size:17px;color:#92400e;margin-bottom:4px;">
-                                Aktuell kein Taxi sofort verfügbar
-                            </div>
-                            <div style="font-size:13px;color:#78350f;">
-                                Bitte Wunschtermin vorbestellen
+                            <div style="font-size:32px;margin-bottom:8px;">📅</div>
+                            <div style="font-weight:700;font-size:17px;color:#4338ca;margin-bottom:4px;">
+                                Wunschtermin wählen
                             </div>
                         </div>
                         <div style="padding:0 16px 16px;">
@@ -30979,11 +30976,9 @@ Aktuell: ${currentNum}`;
                 const onlineDrivers = await checkOnlineDrivers();
                 
                 if (onlineDrivers.length === 0) {
-                    alert(
-                        '⏰ Aktuell kein Taxi verfügbar!\n\n' +
-                        'Bitte Vorbestellung nutzen oder anrufen:\n' +
-                        '💾 03837822022'
-                    );
+                    // v5.90.852: Keine Warnmeldung → direkt zur Vorbestellung weiterleiten
+                    console.log('🚕 v5.90.852: Kein Sofort-Taxi → leite zu Vorbestellung weiter');
+                    vorbestellenWaehlen();
                     return;
                 }
                 

@@ -2757,6 +2757,18 @@
                 </div>
             </div>
 
+            <!-- 💳 ZAHLUNGSMETHODE - direkt nach Personen -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">💳 Zahlungsmethode</label>
+                <select id="payment-method" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
+                    <option value="bar" selected>💶 Bar (Bargeld)</option>
+                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
+                    <option value="transportschein">🎫 Transportschein</option>
+                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
+                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
+                </select>
+            </div>
+
             <!-- 🆕 v5.90.830: KARTE GANZ NACH OBEN - direkt nach Personen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
@@ -3008,20 +3020,6 @@
                 </label>
             </div>
             
-            <!-- 💳 ZAHLUNGSMETHODE -->
-            <div class="input-group" style="margin-top:15px;">
-                <label>💳 Zahlungsmethode</label>
-                <select id="payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
-                    <option value="bar">💶 Bar (Bargeld)</option>
-                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
-                    <option value="transportschein">🎫 Transportschein</option>
-                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
-                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
-                </select>
-                <div style="font-size:12px;color:#666;margin-top:5px;">
-                    ℹ️ Der Fahrer sieht Ihre Zahlungsmethode
-                </div>
-            </div>
             
             <!-- 🆕 v5.88.0: 50/50 TICKET MV -->
             <div id="fifty-fifty-section" class="input-group" style="margin-top:15px;display:none;">
@@ -3325,15 +3323,6 @@
         
         <div id="history-list"></div>
         
-        <!-- 🧹 Cache-Button für alle -->
-        <div style="margin-top:30px;padding:15px;background:#f0f9ff;border-radius:8px;text-align:center;">
-            <p style="font-size:13px;color:#666;margin-bottom:10px;">
-                ⚠️ Probleme mit der App? Alte Version wird angezeigt?
-            </p>
-            <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                🧹 Cache leeren & App neu laden
-            </button>
-        </div>
     </div>
 
     <!-- 🆕 v5.90.24: RECHNUNG VIEW -->

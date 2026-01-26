@@ -542,8 +542,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.841 (Build 2026-01-26)');
-        console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG in Slot-Alternativen!');
+        console.log('🚕 Funk Taxi App v5.90.842 (Build 2026-01-26)');
+        console.log('🔧 v5.90.842: Slot-Alternativen klickbar - Auto-Slot-Check!');
         console.log('✅ v5.90.833: AUTO-PREIS funktioniert!');
         console.log('✅ v5.90.833: Hidden Inputs werden gesetzt!');
         console.log('✅ v5.90.833: Kein nerviger Input Listener!');
@@ -27551,44 +27551,9 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
         // Wird aufgerufen wenn User auf Alternativ-Zeit-Button klickt
         function selectSuggestedTime(dateStr, hourStr, minuteStr) {
-            console.log('🎯 v5.90.748: selectSuggestedTime aufgerufen:', { dateStr, hourStr, minuteStr });
+            console.log('🎯 v5.90.842: selectSuggestedTime aufgerufen:', { dateStr, hourStr, minuteStr });
 
-            // 1. Finde Tag-Index in wheelPickerDays
-            let dayIndex = 0;
-            if (wheelPickerDays && wheelPickerDays.length > 0) {
-                const foundIndex = wheelPickerDays.findIndex(day => day.value === dateStr);
-                if (foundIndex >= 0) {
-                    dayIndex = foundIndex;
-                    console.log('   ✅ Tag gefunden:', wheelPickerDays[dayIndex].display, 'Index:', dayIndex);
-                } else {
-                    console.log('   ⚠️ Tag nicht gefunden, nutze Index 0 (Heute)');
-                }
-            }
-
-            // 2. Parse Stunde
-            const hour = parseInt(hourStr, 10) || 0;
-            console.log('   ✅ Stunde:', hour);
-
-            // 3. Finde Minuten-Index in wheelMinuteValues
-            let minuteIndex = 0;
-            if (window.wheelMinuteValues && window.wheelMinuteValues.length > 0) {
-                const foundMinuteIndex = window.wheelMinuteValues.findIndex(m => m === minuteStr);
-                if (foundMinuteIndex >= 0) {
-                    minuteIndex = foundMinuteIndex;
-                } else {
-                    // Fallback: Berechne Index basierend auf 5-Minuten-Schritten
-                    const minuteNum = parseInt(minuteStr, 10) || 0;
-                    minuteIndex = Math.round(minuteNum / 5);
-                }
-                console.log('   ✅ Minute:', minuteStr, 'Index:', minuteIndex);
-            }
-
-            // 4. Scrolle alle Wheels
-            scrollWheelToIndex('day', dayIndex);
-            scrollWheelToIndex('hour', hour);
-            scrollWheelToIndex('minute', minuteIndex);
-
-            // 5. Update Hidden Inputs direkt (für book() Funktion)
+            // 1. Update Hidden Inputs direkt (für book() Funktion)
             const dateInput = document.getElementById('custom-date');
             const hourInput = document.getElementById('custom-hour');
             const minuteInput = document.getElementById('custom-minute');
@@ -27599,12 +27564,28 @@ Aktuell: ${currentNum}`;
             if (minuteInput) minuteInput.value = minuteStr;
             if (timeDisplayBtn) timeDisplayBtn.textContent = `${hourStr}:${minuteStr}`;
 
-            // 6. Update Display
-            setTimeout(() => {
-                updateSelectedDateTimeDisplay();
-            }, 450); // Nach Scroll-Animation
+            // 2. Update global booking datetime (wie confirmDateTimePicker)
+            window.selectedBookingDateTime = {
+                date: dateStr,
+                hour: hourStr,
+                minute: minuteStr
+            };
 
-            console.log('   ✅ Zeit übernommen - User kann jetzt "Zeit bestätigen" klicken');
+            // 3. Sicherstellen dass Vorbestellen-Modus aktiv ist
+            if (typeof currentRideType !== 'undefined') {
+                currentRideType = 'vorbestellen';
+            }
+
+            console.log('   ✅ Zeit übernommen:', dateStr, hourStr + ':' + minuteStr);
+
+            // 4. Starte automatisch neue Slot-Prüfung
+            // (Popup ist geschlossen - direkt prüfen statt auf "Zeit bestätigen" zu warten)
+            setTimeout(async () => {
+                console.log('🔍 v5.90.842: Auto-Slot-Check nach Alternative...');
+                if (typeof triggerSlotCheck === 'function' || typeof window.triggerSlotCheck === 'function') {
+                    await (window.triggerSlotCheck || triggerSlotCheck)();
+                }
+            }, 200);
         }
 
         // 🆕 v5.90.748: HILFSFUNKTION - Zeit aus Date-Objekt setzen
@@ -27686,6 +27667,9 @@ Aktuell: ${currentNum}`;
             const selectedDay = wheelPickerDays[dayIndex] || wheelPickerDays[0];
             const selectedHour = String(hourIndex).padStart(2, '0');
             const selectedMinute = window.wheelMinuteValues ? (window.wheelMinuteValues[minuteIndex] || '00') : '00';
+
+            // v5.90.842: Null-Check - wheelPickerDays kann leer sein wenn Picker geschlossen
+            if (!selectedDay) return;
 
             // Update Hidden Inputs
             if (dateInput) dateInput.value = selectedDay.value;

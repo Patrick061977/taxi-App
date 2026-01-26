@@ -542,7 +542,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.833-STABLE ✅🎯 (Build 2026-01-25_1700)');
+        console.log('🚕 Funk Taxi App v5.90.841 (Build 2026-01-26)');
+        console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG in Slot-Alternativen!');
         console.log('✅ v5.90.833: AUTO-PREIS funktioniert!');
         console.log('✅ v5.90.833: Hidden Inputs werden gesetzt!');
         console.log('✅ v5.90.833: Kein nerviger Input Listener!');
@@ -28996,8 +28997,8 @@ Aktuell: ${currentNum}`;
                     const latestBeforeMs = slotTime - (newRideDurationEstimate * 60000) - (5 * 60000);
                     const latestBeforeRounded = Math.floor(latestBeforeMs / (5 * 60000)) * (5 * 60000); // Auf 5 Min abrunden
 
-                    // Prüfe ob VORHER-Zeit sinnvoll ist (mindestens 15 Min in Zukunft)
-                    if (latestBeforeRounded > Date.now() + (15 * 60000)) {
+                    // 🔧 v5.90.840: Bei Vorbestellungen reicht 5 Min Vorlauf
+                    if (latestBeforeRounded > Date.now() + (5 * 60000)) {
                         // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                         // Prüfe ob VORHER-Slot frei ist (keine andere Fahrt ZUR GLEICHEN ZEIT oder WÄHREND einer Fahrt)
                         let beforeSlotFree = true;
@@ -29043,15 +29044,71 @@ Aktuell: ${currentNum}`;
                         console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
                     }
 
-                    // 🔧 v5.90.729: VERBESSERTE Alternativen-Berechnung!
-                    // Starte ab Ende der Konflikt-Fahrt + 5 Min Puffer, dann in 5-Min-Schritten suchen
+                    // 🔧 v5.90.841: RÜCKFAHRT-BERECHNUNG für Alternativen!
+                    let returnTripMinutes2 = 0;
+                    try {
+                        console.log('');
+                        console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG (exact-time)');
+                        console.log('   📍 Konflikt-Fahrt endet bei:', exactTimeConflict.destination);
+                        console.log('   📍 Neue Fahrt startet bei:', pickup);
+
+                        const isSameLocation2 = exactTimeConflict.destination.toLowerCase().trim() === pickup.toLowerCase().trim();
+
+                        if (isSameLocation2) {
+                            console.log('   ✅ Gleicher Ort - keine Rückfahrt nötig!');
+                        } else {
+                            console.log('   🚗 Verschiedene Orte - berechne Rückfahrt...');
+                            let conflictDestCoords2 = null;
+                            if (exactTimeConflict.destLat && exactTimeConflict.destLon) {
+                                conflictDestCoords2 = { lat: exactTimeConflict.destLat, lon: exactTimeConflict.destLon };
+                                console.log('   → Ziel-Coords aus Fahrt-Daten:', conflictDestCoords2);
+                            } else if (exactTimeConflict.destCoords) {
+                                conflictDestCoords2 = exactTimeConflict.destCoords;
+                                console.log('   → Ziel-Coords aus destCoords:', conflictDestCoords2);
+                            } else {
+                                conflictDestCoords2 = await geocode(exactTimeConflict.destination);
+                                console.log('   → Ziel-Coords geocoded:', conflictDestCoords2);
+                            }
+
+                            let newPickupCoords2 = null;
+                            if (window.pickupCoords && window.pickupCoords.lat && window.pickupCoords.lon) {
+                                newPickupCoords2 = window.pickupCoords;
+                                console.log('   → Pickup-Coords aus window:', newPickupCoords2);
+                            } else {
+                                newPickupCoords2 = await geocode(pickup);
+                                console.log('   → Pickup-Coords geocoded:', newPickupCoords2);
+                            }
+
+                            if (conflictDestCoords2 && newPickupCoords2) {
+                                const returnRoute2 = await calculateRoute(conflictDestCoords2, newPickupCoords2);
+                                if (returnRoute2 && returnRoute2.duration) {
+                                    returnTripMinutes2 = returnRoute2.duration;
+                                    console.log('   📏 Rückfahrt-Distanz:', returnRoute2.distance, 'km');
+                                    console.log('   ⏱️ Rückfahrt-Dauer:', returnTripMinutes2, 'Min');
+                                }
+                            } else {
+                                console.log('   ⚠️ Geocoding fehlgeschlagen - nehme 20 Min Puffer');
+                                returnTripMinutes2 = 20;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('   ❌ Fehler bei Rückfahrt-Berechnung:', err);
+                        console.log('   ⚠️ Nehme 20 Min Puffer als Fallback');
+                        returnTripMinutes2 = 20;
+                    }
+
+                    const taxiFreeAt2 = new Date(conflictEnd.getTime() + returnTripMinutes2 * 60000);
+                    console.log('   🚕 Taxi frühestens frei ab:', taxiFreeAt2.toLocaleTimeString('de-DE'));
+                    console.log('');
+
+                    // 🔧 v5.90.841: VERBESSERTE Alternativen mit Rückfahrt!
                     const alternatives = [];
-                    const earliestAfter = conflictEnd.getTime() + (5 * 60000); // 5 Min nach Ende
+                    const earliestAfter = taxiFreeAt2.getTime() + (5 * 60000); // 5 Min nach taxiFreeAt
 
                     // Auf nächste 5-Min-Grenze aufrunden
                     const roundedEarliest = Math.ceil(earliestAfter / (5 * 60000)) * (5 * 60000);
 
-                    console.log('🔧 v5.90.729: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
+                    console.log('🔧 v5.90.841: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
 
                     for (let offset = 0; offset <= 90; offset += 5) {
                         const testTime = new Date(roundedEarliest + offset * 60000);
@@ -29100,6 +29157,8 @@ Aktuell: ${currentNum}`;
                         availableTime: 0,
                         reserveMinutes: 0,
                         previousRide: exactTimeConflict,
+                        returnTripMinutes: returnTripMinutes2, // 🆕 v5.90.841
+                        taxiFreeAt: taxiFreeAt2.getTime(), // 🆕 v5.90.841
                         alternatives: alternatives,
                         alternativeBefore: alternativeBefore, // 🆕 v5.90.728: VORHER-Alternative!
                         allRidesOnDay: ridesOnSameDay
@@ -29276,15 +29335,72 @@ Aktuell: ${currentNum}`;
                 console.log('🚨 v5.90.659: NEUE FAHRT LIEGT WÄHREND VORHERIGER FAHRT!');
                 console.log('   Vorherige Fahrt:', previousStartTime.toLocaleTimeString('de-DE'), '-', previousEndTime.toLocaleTimeString('de-DE'));
                 console.log('   Neue Fahrt:', slotDateTime.toLocaleTimeString('de-DE'));
-                
-                // 🔧 v5.90.729: VERBESSERTE Alternativen-Berechnung!
+
+                // 🔧 v5.90.841: RÜCKFAHRT-BERECHNUNG für Alternativen!
+                let returnTripMinutes1 = 0;
+                try {
+                    console.log('');
+                    console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG (during-ride)');
+                    console.log('   📍 Vorherige Fahrt endet bei:', previousRide.destination);
+                    console.log('   📍 Neue Fahrt startet bei:', pickup);
+
+                    const isSameLocation1 = previousRide.destination.toLowerCase().trim() === pickup.toLowerCase().trim();
+
+                    if (isSameLocation1) {
+                        console.log('   ✅ Gleicher Ort - keine Rückfahrt nötig!');
+                    } else {
+                        console.log('   🚗 Verschiedene Orte - berechne Rückfahrt...');
+                        let prevDestCoords1 = null;
+                        if (previousRide.destLat && previousRide.destLon) {
+                            prevDestCoords1 = { lat: previousRide.destLat, lon: previousRide.destLon };
+                            console.log('   → Ziel-Coords aus Fahrt-Daten:', prevDestCoords1);
+                        } else if (previousRide.destCoords) {
+                            prevDestCoords1 = previousRide.destCoords;
+                            console.log('   → Ziel-Coords aus destCoords:', prevDestCoords1);
+                        } else {
+                            prevDestCoords1 = await geocode(previousRide.destination);
+                            console.log('   → Ziel-Coords geocoded:', prevDestCoords1);
+                        }
+
+                        let newPickupCoords1 = null;
+                        if (window.pickupCoords && window.pickupCoords.lat && window.pickupCoords.lon) {
+                            newPickupCoords1 = window.pickupCoords;
+                            console.log('   → Pickup-Coords aus window:', newPickupCoords1);
+                        } else {
+                            newPickupCoords1 = await geocode(pickup);
+                            console.log('   → Pickup-Coords geocoded:', newPickupCoords1);
+                        }
+
+                        if (prevDestCoords1 && newPickupCoords1) {
+                            const returnRoute1 = await calculateRoute(prevDestCoords1, newPickupCoords1);
+                            if (returnRoute1 && returnRoute1.duration) {
+                                returnTripMinutes1 = returnRoute1.duration;
+                                console.log('   📏 Rückfahrt-Distanz:', returnRoute1.distance, 'km');
+                                console.log('   ⏱️ Rückfahrt-Dauer:', returnTripMinutes1, 'Min');
+                            }
+                        } else {
+                            console.log('   ⚠️ Geocoding fehlgeschlagen - nehme 20 Min Puffer');
+                            returnTripMinutes1 = 20;
+                        }
+                    }
+                } catch (err) {
+                    console.error('   ❌ Fehler bei Rückfahrt-Berechnung:', err);
+                    console.log('   ⚠️ Nehme 20 Min Puffer als Fallback');
+                    returnTripMinutes1 = 20;
+                }
+
+                const taxiFreeAt1 = new Date(previousEndTime.getTime() + returnTripMinutes1 * 60000);
+                console.log('   🚕 Taxi frühestens frei ab:', taxiFreeAt1.toLocaleTimeString('de-DE'));
+                console.log('');
+
+                // 🔧 v5.90.841: VERBESSERTE Alternativen mit Rückfahrt!
                 const alternatives = [];
-                const earliestPossible = previousEndTime.getTime();
+                const earliestPossible = taxiFreeAt1.getTime();
 
                 // Auf nächste 5-Min-Grenze aufrunden
                 const roundedEarliest = Math.ceil(earliestPossible / (5 * 60000)) * (5 * 60000);
 
-                console.log('🔧 v5.90.729: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
+                console.log('🔧 v5.90.841: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
 
                 // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                 for (let offset = 0; offset <= 60; offset += 5) {
@@ -29335,6 +29451,8 @@ Aktuell: ${currentNum}`;
                     reserveMinutes: Math.floor((slotTime - previousEndTime.getTime()) / 60000),
                     previousRide: previousRide,
                     previousEndTime: previousEndTime.getTime(),
+                    returnTripMinutes: returnTripMinutes1, // 🆕 v5.90.841
+                    taxiFreeAt: taxiFreeAt1.getTime(), // 🆕 v5.90.841
                     alternatives: alternatives,
                     allRidesOnDay: ridesOnSameDay
                 };
@@ -32016,7 +32134,9 @@ Aktuell: ${currentNum}`;
                         console.log('                  - Puffer', bufferMinutes, 'Min');
 
                         // 6. Prüfe ob der Slot VOR dem Konflikt auch frei ist!
-                        if (latestStartRounded > Date.now() + (30 * 60000)) { // Mindestens 30 Min in Zukunft
+                        // 🔧 v5.90.840: Bei Vorbestellungen reicht es wenn Zeit in der Zukunft liegt
+                        // Die Berechnung (Konflikt - Leerfahrt - Fahrtdauer - Puffer) prüft bereits ob es passt
+                        if (latestStartRounded > Date.now() + (5 * 60000)) { // Nur 5 Min Mindestvorlauf
                             const beforeAvailability = await checkTimeSlotAvailability(latestStartRounded, pickupCoords);
 
                             if (beforeAvailability.available) {
@@ -32031,7 +32151,7 @@ Aktuell: ${currentNum}`;
                                 console.log('   ⚠️ VORHER-Slot ebenfalls belegt');
                             }
                         } else {
-                            console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
+                            console.log('   ⚠️ VORHER-Zeit liegt in Vergangenheit oder zu knapp');
                         }
 
                     } catch (error) {
@@ -32559,6 +32679,9 @@ Aktuell: ${currentNum}`;
                 '</button>';
             }).join('');
             
+            // 🔧 v5.90.839: Schließe datetime-picker-popup ZUERST (hat höheren z-index!)
+            closeDateTimePickerPopup();
+
             // Zeige Modal
             document.getElementById('auto-booking-modal').style.display = 'block';
         }

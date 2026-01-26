@@ -2760,7 +2760,7 @@
             <!-- 💳 ZAHLUNGSMETHODE - direkt nach Personen -->
             <div class="input-group" style="margin-top:15px;">
                 <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">💳 Zahlungsmethode</label>
-                <select id="payment-method" onchange="document.getElementById('transportschein-info').style.display=this.value==='transportschein'?'block':'none'" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
+                <select id="payment-method" onchange="var ts=this.value==='transportschein';document.getElementById('transportschein-info').style.display=ts?'block':'none';var pd=document.getElementById('price-display');if(pd)pd.style.display=ts?'none':''" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
                     <option value="bar" selected>💶 Bar (Bargeld)</option>
                     <option value="karte">💳 EC-Karte / Kreditkarte</option>
                     <option value="transportschein">🎫 Transportschein</option>
@@ -2768,7 +2768,7 @@
                     <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
                 </select>
                 <div id="transportschein-info" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;font-size:13px;color:#1e40af;">
-                    <strong>ℹ️ Transportschein:</strong> Die Abrechnung erfolgt über den Transporteur direkt mit der Krankenkasse. Bitte halten Sie Ihren Transportschein bereit.
+                    <strong>ℹ️ Transportschein:</strong> Die Abrechnung erfolgt über den Transporteur direkt mit der Krankenkasse. Bitte halten Sie Ihren Transportschein bereit. Der Preis wird nicht angezeigt.
                 </div>
             </div>
 

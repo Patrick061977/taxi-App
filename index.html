@@ -31101,18 +31101,9 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.32.5e: VORBESTELLUNGEN → Zurück zu leerem Formular!
             if (savedRide.status === 'vorbestellt') {
-                // ✅ Formular zurücksetzen
-                resetBookingForm();
-                
-                // ✅ Formular ANZEIGEN (nicht verstecken!)
-                document.getElementById('booking-form').style.display = 'block';
-                
-                // ✅ Sicherstellen dass wir im Fahrgast-Tab sind
-                if (typeof showTab === 'function') {
-                    showTab('passenger');
-                }
-                
-                console.log('✅ v5.32.5e: Vorbestellung gespeichert, Formular zurückgesetzt, bereit für nächste Buchung!');
+                // 🆕 v5.90.850: Cache leeren + Reload nach Vorbestellung!
+                console.log('🧹 v5.90.850: Cache leeren nach Vorbestellung...');
+                silentCacheClearAndReload();
                 
             } else {
                 // 🆕 v5.52.9: Hide CRM-Banner nach Buchung
@@ -33213,13 +33204,9 @@ Aktuell: ${currentNum}`;
             // Formular zurücksetzen für neue Buchung
             resetBookingForm();
             
-            // Scroll zum Formular
-            document.getElementById('booking-form').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
-            
-            console.log('✅ Zurück zur Startseite');
+            // 🆕 v5.90.850: Cache leeren + App neu laden nach Buchungsbestätigung
+            console.log('🧹 v5.90.850: Cache leeren nach Buchungsbestätigung...');
+            silentCacheClearAndReload();
         }
         
         async function executeBooking(bookingData) {
@@ -57862,6 +57849,42 @@ Funk Taxi Team`;
             }
         }
         
+        // 🆕 v5.90.850: STILLE CACHE-LÖSCHUNG nach Buchung (ohne Dialog, mit Reload)
+        async function silentCacheClearAndReload() {
+            console.log('🧹 v5.90.850: Stille Cache-Löschung nach Buchung...');
+            try {
+                // 1. Service Worker deregistrieren
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        console.log('✅ Service Worker deregistriert');
+                    }
+                }
+
+                // 2. Cache Storage leeren
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (let name of cacheNames) {
+                        await caches.delete(name);
+                        console.log('✅ Cache gelöscht:', name);
+                    }
+                }
+
+                // 3. LocalStorage NICHT löschen (Stammkunden-Daten + Login behalten!)
+
+                console.log('✅ Cache geleert! Lade App neu...');
+
+                // 4. Hard Reload
+                window.location.reload(true);
+
+            } catch (error) {
+                console.error('⚠️ Fehler beim stillen Cache leeren:', error);
+                // Kein Alert - stille Fehlerbehandlung, Reload trotzdem versuchen
+                window.location.reload(true);
+            }
+        }
+
         // 🧹 CACHE LEEREN FUNKTION
         async function clearAppCache() {
             if (!confirm('🧹 Cache leeren?\n\nDies hilft bei Problemen mit alten Versionen.\nDie App wird neu geladen.')) return;

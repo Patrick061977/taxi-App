@@ -6470,24 +6470,6 @@
                     </div>
                 </div>
                 
-                <!-- 🆕 v5.90.853: SOFORT-BUCHUNG SLOTPRÜFUNG -->
-                <div style="margin-bottom:20px;background:#eff6ff;padding:12px;border-radius:8px;border:2px solid #3b82f6;">
-                    <label style="display:block;font-weight:600;font-size:13px;color:#1e40af;margin-bottom:8px;">
-                        ⚡ Sofort-Buchung: Slot-Prüfung Puffer
-                    </label>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <input type="range" id="sofort-slot-buffer-slider" min="0" max="30" value="10"
-                            oninput="updateTimeslotSettings()"
-                            style="flex:1;height:6px;border-radius:3px;cursor:pointer;">
-                        <span id="sofort-slot-buffer-value" style="font-weight:600;color:#3b82f6;min-width:50px;text-align:right;">10 Min</span>
-                    </div>
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;">
-                        Sofort-Buchungen werden wie Vorbestellungen auf Konflikte geprüft.
-                        Der Puffer wird zur aktuellen Zeit addiert (z.B. jetzt + 10 Min).
-                        <strong>0 = Slot-Prüfung deaktiviert</strong>
-                    </div>
-                </div>
-
                 <!-- Total Buffer Anzeige -->
                 <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:12px;border-radius:8px;text-align:center;margin-bottom:15px;">
                     <div style="font-size:12px;opacity:0.9;margin-bottom:2px;">📱 Total Buffer zwischen Fahrten:</div>
@@ -31001,20 +30983,22 @@ Aktuell: ${currentNum}`;
                 }
 
                 // 🆕 v5.90.853: SLOT-PRÜFUNG FÜR SOFORT-BUCHUNGEN!
-                // Gleiche Logik wie bei Vorbestellungen, mit einstellbarem Puffer
-                const sofortBuffer = timeslotSettings.sofortSlotBuffer !== undefined ? timeslotSettings.sofortSlotBuffer : 10;
-
-                if (sofortBuffer > 0) {
+                // Gleiche Logik wie bei Vorbestellungen - System berechnet ob es passt
+                {
                     console.log('═══════════════════════════════════════════════════════════');
                     console.log('🆕 v5.90.853: SOFORT-BUCHUNG SLOT-PRÜFUNG');
-                    console.log('   Puffer:', sofortBuffer, 'Min');
                     console.log('═══════════════════════════════════════════════════════════');
 
-                    const sofortSlotTime = new Date(Date.now() + sofortBuffer * 60000);
+                    // Nutze die tatsächliche Sofort-Abholzeit (jetzt + 5 Min)
+                    const sofortSlotTime = new Date(Date.now() + 5 * 60000);
                     const pickupInput = document.getElementById('pickup');
                     const destinationInput = document.getElementById('destination');
                     const sofortPickup = pickupInput ? pickupInput.value.trim() : '';
                     const sofortDestination = destinationInput ? destinationInput.value.trim() : '';
+
+                    console.log('   Abholzeit:', sofortSlotTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}), 'Uhr');
+                    console.log('   Von:', sofortPickup);
+                    console.log('   Nach:', sofortDestination);
 
                     if (sofortPickup && sofortDestination) {
                         try {
@@ -31068,8 +31052,6 @@ Aktuell: ${currentNum}`;
                     } else {
                         console.log('ℹ️ v5.90.853: Keine Adressen - Sofort-Slot-Prüfung übersprungen');
                     }
-                } else {
-                    console.log('ℹ️ v5.90.853: Sofort-Slot-Prüfung deaktiviert (Puffer = 0)');
                 }
 
                 // SOFORT-Buchung OK!
@@ -31740,9 +31722,7 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.90.528: ZEITPUFFER FÜR EIN/AUSSTEIGEN & WAYPOINTS!
             boardingTime: 3,           // Minuten (Einsteigen am Start)
             alightingTime: 2,          // Minuten (Aussteigen am Ziel)
-            waypointStopTime: 5,       // Minuten (Wartezeit pro Waypoint)
-            // 🆕 v5.90.853: SOFORT-BUCHUNG SLOTPRÜFUNG PUFFER!
-            sofortSlotBuffer: 10       // Minuten (Puffer für Sofort-Slot-Prüfung, 0 = deaktiviert)
+            waypointStopTime: 5        // Minuten (Wartezeit pro Waypoint)
         };
         
         // 🆕 v5.90.528: BERECHNE GESAMT-DAUER MIT ZEITPUFFERN!
@@ -31851,8 +31831,6 @@ Aktuell: ${currentNum}`;
             const boardingTime = parseInt(document.getElementById('boarding-time-slider')?.value || 3);
             const alightingTime = parseInt(document.getElementById('alighting-time-slider')?.value || 2);
             const waypointStopTime = parseInt(document.getElementById('waypoint-stop-slider')?.value || 5);
-            // 🆕 v5.90.853: Sofort-Slot-Puffer!
-            const sofortSlotBuffer = parseInt(document.getElementById('sofort-slot-buffer-slider')?.value || 10);
 
             // Anzeige aktualisieren
             document.getElementById('ride-duration-value').textContent = rideDuration + ' Min';
@@ -31869,10 +31847,6 @@ Aktuell: ${currentNum}`;
             if (document.getElementById('waypoint-stop-value')) {
                 document.getElementById('waypoint-stop-value').textContent = waypointStopTime + ' Min';
             }
-            // 🆕 v5.90.853: Sofort-Slot-Puffer Anzeige!
-            if (document.getElementById('sofort-slot-buffer-value')) {
-                document.getElementById('sofort-slot-buffer-value').textContent = sofortSlotBuffer === 0 ? 'AUS' : sofortSlotBuffer + ' Min';
-            }
             
             // Total Buffer berechnen
             const totalBuffer = rideDuration + travelTime + bufferTime;
@@ -31885,7 +31859,6 @@ Aktuell: ${currentNum}`;
                 boardingTime,
                 alightingTime,
                 waypointStopTime,
-                sofortSlotBuffer,
                 totalBuffer,
                 adminOverride
             });
@@ -31902,8 +31875,6 @@ Aktuell: ${currentNum}`;
             timeslotSettings.boardingTime = parseInt(document.getElementById('boarding-time-slider')?.value || 3);
             timeslotSettings.alightingTime = parseInt(document.getElementById('alighting-time-slider')?.value || 2);
             timeslotSettings.waypointStopTime = parseInt(document.getElementById('waypoint-stop-slider')?.value || 5);
-            // 🆕 v5.90.853: Sofort-Slot-Puffer speichern!
-            timeslotSettings.sofortSlotBuffer = parseInt(document.getElementById('sofort-slot-buffer-slider')?.value || 10);
 
             // In localStorage speichern
             localStorage.setItem('timeslotSettings', JSON.stringify(timeslotSettings));
@@ -31981,14 +31952,6 @@ Aktuell: ${currentNum}`;
             if (waypointSlider) {
                 waypointSlider.value = timeslotSettings.waypointStopTime || 5;
                 document.getElementById('waypoint-stop-value').textContent = (timeslotSettings.waypointStopTime || 5) + ' Min';
-            }
-
-            // 🆕 v5.90.853: Sofort-Slot-Puffer laden!
-            const sofortSlotBufferSlider = document.getElementById('sofort-slot-buffer-slider');
-            if (sofortSlotBufferSlider) {
-                const sofortVal = timeslotSettings.sofortSlotBuffer !== undefined ? timeslotSettings.sofortSlotBuffer : 10;
-                sofortSlotBufferSlider.value = sofortVal;
-                document.getElementById('sofort-slot-buffer-value').textContent = sofortVal === 0 ? 'AUS' : sofortVal + ' Min';
             }
 
             // Total Buffer aktualisieren

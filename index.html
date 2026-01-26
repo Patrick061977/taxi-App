@@ -31013,7 +31013,14 @@ Aktuell: ${currentNum}`;
             const savedRide = await saveRide(ride);
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
-            
+
+            // 🆕 v5.90.849: KUNDEN-SICHT + ADMIN-SICHT sofort nach Buchung ausblenden!
+            const slotStatusEl = document.getElementById('slot-status-display');
+            if (slotStatusEl) {
+                slotStatusEl.style.display = 'none';
+                slotStatusEl.innerHTML = '';
+            }
+
             // 📜 PROTOKOLL: Fahrt gebucht (mit allen Details!)
             const bookingType = savedRide.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt';
             const pickupDisplay = pickupTime ? pickupTime : 'Sofort';
@@ -31131,8 +31138,11 @@ Aktuell: ${currentNum}`;
             console.log('🧹 Setze Buchungsformular zurück...');
             
             // 📝 ALLE EINGABEFELDER LEEREN
-            document.getElementById('customer-name').value = '';
-            document.getElementById('customer-phone').value = '';
+            // 🔧 v5.90.849: Null-Checks (customer-name/phone existieren nicht immer im DOM!)
+            const cnField = document.getElementById('customer-name');
+            const cpField = document.getElementById('customer-phone');
+            if (cnField) cnField.value = '';
+            if (cpField) cpField.value = '';
             document.getElementById('pickup').value = '';
             document.getElementById('destination').value = '';
             document.getElementById('passengers').value = '1';

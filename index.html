@@ -2787,6 +2787,9 @@
                 <div id="step-guide" style="display:none;margin-top:15px;padding:14px 16px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;text-align:center;color:white;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(102,126,234,0.3);animation:pulse 2s infinite;">
                     👇 Wählen Sie jetzt die Abholzeit
                 </div>
+
+                <!-- 🆕 v5.90.851: VERFÜGBARKEITS-ANZEIGE nach Start+Ziel -->
+                <div id="availability-result" style="display:none;margin-top:15px;"></div>
             </div>
 
             <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
@@ -8577,7 +8580,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.754';
+        const APP_VERSION = '5.90.851';
         const APP_BUILD = '20260123-MOBILE-KARTE-MIT-ANALYSE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -26018,6 +26021,171 @@ Aktuell: ${currentNum}`;
 
         // ═══════════════════════════════════════════════════════════════════════════
 
+        // 🆕 v5.90.851: AUTOMATISCHE VERFÜGBARKEITSPRÜFUNG nach Start+Ziel Eingabe
+        // Zeigt "Verfügbar in X Minuten" oder nur "Vorbestellen"
+        async function checkAndShowAvailability() {
+            console.log('🚕 v5.90.851: checkAndShowAvailability() aufgerufen');
+
+            const resultDiv = document.getElementById('availability-result');
+            const stepGuide = document.getElementById('step-guide');
+            const rideTypeSection = document.querySelector('#ride-type-buttons-container');
+            const rideTypeSectionParent = rideTypeSection ? rideTypeSection.closest('.input-group') : null;
+
+            if (!resultDiv) return;
+
+            // Verstecke Step-Guide und alte Ride-Type Buttons
+            if (stepGuide) stepGuide.style.display = 'none';
+            if (rideTypeSectionParent) rideTypeSectionParent.style.display = 'none';
+
+            // Zeige Lade-Anzeige
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div style="padding:16px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;text-align:center;color:white;">
+                    <div style="font-size:24px;margin-bottom:8px;">🔍</div>
+                    <div style="font-weight:600;font-size:15px;">Prüfe Taxi-Verfügbarkeit...</div>
+                </div>
+            `;
+
+            // Prüfe online & freie Fahrer (gleiche Logik wie checkDriverAvailability)
+            const onlineDrivers = Object.values(drivers).filter(d => {
+                if (!d.vehicleId && d.id) d.vehicleId = d.id;
+                if (!d.online || !d.timestamp || (Date.now() - d.timestamp) >= 120000) return false;
+                const vehicleId = d.vehicleId;
+                const hasActiveRide = rides.some(r =>
+                    (r.vehicleId === vehicleId || r.assignedTo === vehicleId) &&
+                    ['assigned', 'accepted', 'picked_up'].includes(r.status)
+                );
+                return !hasActiveRide;
+            });
+
+            console.log('🚕 v5.90.851: Online & freie Fahrer:', onlineDrivers.length);
+
+            if (onlineDrivers.length > 0 && window.pickupCoords) {
+                // Taxi verfügbar + GPS vorhanden → ETA berechnen
+                try {
+                    const taxisWithETA = await Promise.all(onlineDrivers.map(async (d) => {
+                        const route = await calculateRoute(d, window.pickupCoords);
+                        return { ...d, ...route };
+                    }));
+                    taxisWithETA.sort((a, b) => a.distance - b.distance);
+                    const nearestETA = taxisWithETA[0].duration || 5;
+
+                    console.log('🚕 v5.90.851: Nächstes Taxi in', nearestETA, 'Minuten');
+
+                    resultDiv.innerHTML = `
+                        <div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:3px solid #10b981;border-radius:14px;overflow:hidden;">
+                            <div style="padding:18px 20px;text-align:center;">
+                                <div style="font-size:32px;margin-bottom:8px;">🚕</div>
+                                <div style="font-weight:800;font-size:20px;color:#059669;margin-bottom:4px;">
+                                    Verfügbar in ca. ${nearestETA} Minuten
+                                </div>
+                                <div style="font-size:13px;color:#047857;">
+                                    ${onlineDrivers.length} ${onlineDrivers.length === 1 ? 'Taxi' : 'Taxis'} in der Nähe
+                                </div>
+                            </div>
+                            <div style="padding:0 16px 16px;">
+                                <button onclick="sofortBuchen()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                                    ⚡ Jetzt buchen
+                                </button>
+                                <button onclick="vorbestellenWaehlen()" style="width:100%;padding:12px;background:white;color:#667eea;border:2px solid #667eea;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
+                                    📅 Vorbestellen
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } catch (e) {
+                    console.error('🚕 v5.90.851: ETA-Fehler:', e);
+                    // Fallback ohne ETA
+                    resultDiv.innerHTML = `
+                        <div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:3px solid #10b981;border-radius:14px;overflow:hidden;">
+                            <div style="padding:18px 20px;text-align:center;">
+                                <div style="font-size:32px;margin-bottom:8px;">🚕</div>
+                                <div style="font-weight:800;font-size:20px;color:#059669;margin-bottom:4px;">
+                                    Taxi verfügbar!
+                                </div>
+                                <div style="font-size:13px;color:#047857;">
+                                    ${onlineDrivers.length} ${onlineDrivers.length === 1 ? 'Taxi' : 'Taxis'} bereit
+                                </div>
+                            </div>
+                            <div style="padding:0 16px 16px;">
+                                <button onclick="sofortBuchen()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                                    ⚡ Jetzt buchen
+                                </button>
+                                <button onclick="vorbestellenWaehlen()" style="width:100%;padding:12px;background:white;color:#667eea;border:2px solid #667eea;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
+                                    📅 Vorbestellen
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (onlineDrivers.length > 0) {
+                // Fahrer verfügbar aber keine Pickup-Koordinaten für ETA
+                resultDiv.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:3px solid #10b981;border-radius:14px;overflow:hidden;">
+                        <div style="padding:18px 20px;text-align:center;">
+                            <div style="font-size:32px;margin-bottom:8px;">🚕</div>
+                            <div style="font-weight:800;font-size:20px;color:#059669;margin-bottom:4px;">
+                                Taxi verfügbar!
+                            </div>
+                            <div style="font-size:13px;color:#047857;">
+                                ${onlineDrivers.length} ${onlineDrivers.length === 1 ? 'Taxi' : 'Taxis'} bereit
+                            </div>
+                        </div>
+                        <div style="padding:0 16px 16px;">
+                            <button onclick="sofortBuchen()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                                ⚡ Jetzt buchen
+                            </button>
+                            <button onclick="vorbestellenWaehlen()" style="width:100%;padding:12px;background:white;color:#667eea;border:2px solid #667eea;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
+                                📅 Vorbestellen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Kein Taxi verfügbar → nur Vorbestellen anbieten
+                console.log('🚕 v5.90.851: Kein Taxi verfügbar → nur Vorbestellen');
+                resultDiv.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:3px solid #f59e0b;border-radius:14px;overflow:hidden;">
+                        <div style="padding:18px 20px;text-align:center;">
+                            <div style="font-size:32px;margin-bottom:8px;">⏰</div>
+                            <div style="font-weight:700;font-size:17px;color:#92400e;margin-bottom:4px;">
+                                Aktuell kein Taxi sofort verfügbar
+                            </div>
+                            <div style="font-size:13px;color:#78350f;">
+                                Bitte Wunschtermin vorbestellen
+                            </div>
+                        </div>
+                        <div style="padding:0 16px 16px;">
+                            <button onclick="vorbestellenWaehlen()" style="width:100%;padding:16px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,0.3);">
+                                📅 Vorbestellen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 🆕 v5.90.851: SOFORT BUCHEN - Setzt Modus und zeigt Buchen-Button
+        function sofortBuchen() {
+            console.log('⚡ v5.90.851: sofortBuchen() aufgerufen');
+            currentRideType = 'sofort';
+
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) {
+                bookBtn.style.display = 'block';
+                bookBtn.style.visibility = 'visible';
+                bookBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // 🆕 v5.90.851: VORBESTELLEN WÄHLEN - Öffnet Datum/Zeit Picker
+        function vorbestellenWaehlen() {
+            console.log('📅 v5.90.851: vorbestellenWaehlen() aufgerufen');
+            openDateTimePickerPopup();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+
         // 🆕 v5.90.751: PERSONEN-ÄNDERUNG - zeigt Hinweis bei Großraumtaxi (5+ Personen)
         function onPassengersChange() {
             const passengersSelect = document.getElementById('passengers');
@@ -26697,29 +26865,30 @@ Aktuell: ${currentNum}`;
             // 🗺️ v5.90.833: KARTE ANZEIGEN mit WINDOW.SCOPE!
             showRouteMap(route, window.pickupCoords, window.destCoords);
             
-            // 🆕 v5.90.843: book-btn NICHT sofort zeigen - erst nach Zeitwahl!
+            // 🆕 v5.90.851: book-btn verstecken - wird durch Verfügbarkeits-Check gesteuert!
             const bookBtn = document.getElementById('book-btn');
             if (bookBtn) {
                 bookBtn.style.display = 'none';
             }
-            // Stattdessen Schritt-Anleitung zeigen
+
+            // 🆕 v5.90.851: Step-Guide verstecken - wird durch availability-result ersetzt!
             const stepGuide = document.getElementById('step-guide');
             if (stepGuide) {
-                // Nur zeigen wenn noch keine Zeit gewählt wurde
-                if (!currentRideType) {
-                    stepGuide.style.display = 'block';
-                } else {
-                    // Zeit bereits gewählt → Buchen-Button zeigen
-                    stepGuide.style.display = 'none';
-                    if (bookBtn) {
-                        bookBtn.style.display = 'block';
-                        bookBtn.style.visibility = 'visible';
-                    }
-                }
+                stepGuide.style.display = 'none';
             }
-            
-            // 🗑️ v5.90.830: "FREIE ZEITEN" Button Code entfernt!
-            
+
+            // 🆕 v5.90.851: Wenn bereits ein Ride-Type gewählt wurde, Buchen-Button zeigen
+            if (currentRideType) {
+                if (bookBtn) {
+                    bookBtn.style.display = 'block';
+                    bookBtn.style.visibility = 'visible';
+                }
+            } else {
+                // 🆕 v5.90.851: AUTOMATISCHE VERFÜGBARKEITSPRÜFUNG!
+                // Zeigt "Verfügbar in X Minuten" oder "Vorbestellen"
+                checkAndShowAvailability();
+            }
+
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
             if (priceBtn) {
@@ -31208,6 +31377,17 @@ Aktuell: ${currentNum}`;
                 slotStatusDisplay.style.display = 'none';
                 slotStatusDisplay.innerHTML = '';
             }
+
+            // 🆕 v5.90.851: VERFÜGBARKEITS-ANZEIGE ZURÜCKSETZEN
+            const availResult = document.getElementById('availability-result');
+            if (availResult) {
+                availResult.style.display = 'none';
+                availResult.innerHTML = '';
+            }
+            // Ride-Type Buttons wieder einblenden
+            const rideTypeSection = document.querySelector('#ride-type-buttons-container');
+            const rideTypeSectionParent = rideTypeSection ? rideTypeSection.closest('.input-group') : null;
+            if (rideTypeSectionParent) rideTypeSectionParent.style.display = '';
             
             // 🔘 "BUCHEN"-BUTTON VERSTECKEN
             const bookBtn = document.getElementById('book-btn');
@@ -77588,14 +77768,25 @@ function clearField(fieldId) {
             const pickupInput = document.getElementById('pickup');
             const destInput = document.getElementById('destination');
             const mapContainer = document.getElementById('route-map-container');
-            
+
             // Wenn eines der Felder leer ist, verstecke die Karte
             if (!pickupInput.value.trim() || !destInput.value.trim()) {
                 if (mapContainer) {
                     mapContainer.style.display = 'none';
                 }
             }
-            
+
+            // 🆕 v5.90.851: Verfügbarkeits-Anzeige zurücksetzen!
+            const availResult = document.getElementById('availability-result');
+            if (availResult) {
+                availResult.style.display = 'none';
+                availResult.innerHTML = '';
+            }
+            // Ride-Type Buttons wieder einblenden
+            const rideTypeSection = document.querySelector('#ride-type-buttons-container');
+            const rideTypeSectionParent = rideTypeSection ? rideTypeSection.closest('.input-group') : null;
+            if (rideTypeSectionParent) rideTypeSectionParent.style.display = '';
+
             triggerSlotCheck();
         }
     }

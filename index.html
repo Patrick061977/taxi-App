@@ -28098,16 +28098,21 @@ Aktuell: ${currentNum}`;
                         statusDisplay.style.color = '#92400e';
                         
                         // 🆕 v5.90.656: ZWEIGETEILTE ANALYSE!
+                        // 🔧 v5.90.842: Kunden-Sicht ZUERST, Admin-Sicht darunter!
                         let html = '<div style="font-size:13px;line-height:1.6;">';
-                        
+
+                        // v5.90.842: Admin-HTML separat sammeln
+                        const _htmlBase = html;
+                        html = '';
+
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        // 📊 ADMIN-BEREICH (ORANGE)
+                        // 📊 ADMIN-BEREICH (ORANGE) - wird UNTER Kunden angezeigt
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        html += '<div style="background:#f59e0b;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin:-1px -1px 0 -1px;">';
+                        html += '<div style="background:#f59e0b;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
                         html += '❌ TERMIN NICHT VERFÜGBAR';
                         html += '</div>';
                         
-                        html += '<div style="background:#fef3c7;padding:12px;border:2px solid #f59e0b;border-top:none;margin:-1px -1px 12px -1px;">';
+                        html += '<div style="background:#fef3c7;padding:12px;border:2px solid #f59e0b;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#d97706;">🔍 SYSTEM-ANALYSE (Admin-Sicht):</div>';
                         html += '<div style="font-size:11px;color:#92400e;margin-bottom:8px;">Warum der Termin nicht möglich ist:</div>';
                         
@@ -28508,14 +28513,18 @@ Aktuell: ${currentNum}`;
                         }
                         
                         html += '</div>';
-                        
+
+                        // v5.90.842: Admin-Sektion gespeichert
+                        const _adminHtml = html;
+                        html = _htmlBase;
+
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        // 👤 KUNDEN-BEREICH (BLAU)
+                        // 👤 KUNDEN-BEREICH (BLAU) - ZUERST angezeigt!
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
+                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;">';
                         html += '👤 KUNDEN-SICHT';
                         html += '</div>';
-                        
+
                         html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
 
@@ -28532,7 +28541,7 @@ Aktuell: ${currentNum}`;
                             html += `<div style="font-size:12px;color:#059669;margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;">Frühestens verfügbar: <strong>${earliestTime} Uhr</strong></div>`;
                         }
                         html += '</div>';
-                        
+
                         // Alternative Zeiten
                         if (distanceCheck.nextRideConflict && distanceCheck.latestPossibleTime) {
                             // 🆕 v5.90.661: SPEZIELLE ANZEIGE FÜR NEXT-RIDE KONFLIKT!
@@ -28542,7 +28551,7 @@ Aktuell: ${currentNum}`;
                             html += `<button onclick="selectAlternativeTime('${distanceCheck.latestPossibleTime}')" style="padding:10px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">${distanceCheck.latestPossibleTime} Uhr</button>`;
                             html += '</div>';
                             html += '</div>';
-                            
+
                             if (distanceCheck.alternativesAfter && distanceCheck.alternativesAfter.length > 0) {
                                 html += '<div style="background:white;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">';
                                 html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#374151;">💡 Nächster Termin DANACH ab:</div>';
@@ -28578,9 +28587,12 @@ Aktuell: ${currentNum}`;
                                 html += '</div>';
                             }
                         }
-                        
+
                         html += '</div>';
-                        
+
+                        // v5.90.842: Admin-Analyse UNTER Kunden-Sicht anhängen
+                        html += _adminHtml;
+
                         html += '</div>';
                         statusDisplay.innerHTML = html;
                         
@@ -28594,16 +28606,21 @@ Aktuell: ${currentNum}`;
                         statusDisplay.style.color = '#065f46';
                         
                         // 🆕 v5.90.656: ZWEIGETEILTE ANALYSE!
+                        // 🔧 v5.90.842: Kunden-Sicht ZUERST, Admin-Sicht darunter!
                         let html = '<div style="font-size:13px;line-height:1.6;">';
-                        
+
+                        // v5.90.842: Admin-HTML separat sammeln
+                        const _htmlBase2 = html;
+                        html = '';
+
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        // 📊 ADMIN-BEREICH (GRÜN)
+                        // 📊 ADMIN-BEREICH (GRÜN) - wird UNTER Kunden angezeigt
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        html += '<div style="background:#10b981;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin:-1px -1px 0 -1px;">';
+                        html += '<div style="background:#10b981;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
                         html += '✅ TERMIN VERFÜGBAR';
                         html += '</div>';
-                        
-                        html += '<div style="background:#ecfdf5;padding:12px;border:2px solid #10b981;border-top:none;margin:-1px -1px 12px -1px;">';
+
+                        html += '<div style="background:#ecfdf5;padding:12px;border:2px solid #10b981;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#059669;">🔍 SYSTEM-ANALYSE (Admin-Sicht):</div>';
                         html += '<div style="font-size:11px;color:#065f46;margin-bottom:8px;">Komplette Berechnung wie bei Routenplanung:</div>';
                         
@@ -28745,26 +28762,33 @@ Aktuell: ${currentNum}`;
                         }
                         
                         html += '</div>';
-                        
+
+                        // v5.90.842: Admin-Sektion gespeichert
+                        const _adminHtml2 = html;
+                        html = _htmlBase2;
+
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        // 👤 KUNDEN-BEREICH (BLAU)
+                        // 👤 KUNDEN-BEREICH (BLAU) - ZUERST angezeigt!
                         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
+                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;">';
                         html += '👤 KUNDEN-SICHT';
                         html += '</div>';
-                        
+
                         html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
-                        
+
                         html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #10b981;text-align:center;">';
                         html += '<div style="font-size:20px;margin-bottom:8px;">✅</div>';
                         html += '<div style="font-size:16px;font-weight:700;color:#10b981;margin-bottom:8px;">Termin verfügbar!</div>';
                         html += `<div style="font-size:13px;color:#374151;margin-bottom:12px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
                         html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">💰 Preis berechnen & buchen</button>';
                         html += '</div>';
-                        
+
                         html += '</div>';
-                        
+
+                        // v5.90.842: Admin-Analyse UNTER Kunden-Sicht anhängen
+                        html += _adminHtml2;
+
                         html += '</div>';
                         statusDisplay.innerHTML = html;
                         

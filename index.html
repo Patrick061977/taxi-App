@@ -26142,17 +26142,14 @@ Aktuell: ${currentNum}`;
                     </div>
                 `;
             } else {
-                // Kein Taxi verfügbar → nur Vorbestellen anbieten
-                console.log('🚕 v5.90.851: Kein Taxi verfügbar → nur Vorbestellen');
+                // Kein Taxi sofort verfügbar → nur Vorbestellen anbieten (ohne Warnmeldung)
+                console.log('🚕 v5.90.852: Kein Taxi sofort verfügbar → nur Vorbestellen (keine Meldung)');
                 resultDiv.innerHTML = `
-                    <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:3px solid #f59e0b;border-radius:14px;overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#e0e7ff,#eef2ff);border:3px solid #667eea;border-radius:14px;overflow:hidden;">
                         <div style="padding:18px 20px;text-align:center;">
-                            <div style="font-size:32px;margin-bottom:8px;">⏰</div>
-                            <div style="font-weight:700;font-size:17px;color:#92400e;margin-bottom:4px;">
-                                Aktuell kein Taxi sofort verfügbar
-                            </div>
-                            <div style="font-size:13px;color:#78350f;">
-                                Bitte Wunschtermin vorbestellen
+                            <div style="font-size:32px;margin-bottom:8px;">📅</div>
+                            <div style="font-weight:700;font-size:17px;color:#4338ca;margin-bottom:4px;">
+                                Wunschtermin wählen
                             </div>
                         </div>
                         <div style="padding:0 16px 16px;">
@@ -30977,16 +30974,86 @@ Aktuell: ${currentNum}`;
             if (currentRideType === 'sofort' || !currentRideType) {
                 // Prüfe ob Fahrer online sind
                 const onlineDrivers = await checkOnlineDrivers();
-                
+
                 if (onlineDrivers.length === 0) {
-                    alert(
-                        '⏰ Aktuell kein Taxi verfügbar!\n\n' +
-                        'Bitte Vorbestellung nutzen oder anrufen:\n' +
-                        '💾 03837822022'
-                    );
+                    // v5.90.852: Keine Warnmeldung → direkt zur Vorbestellung weiterleiten
+                    console.log('🚕 v5.90.852: Kein Sofort-Taxi → leite zu Vorbestellung weiter');
+                    vorbestellenWaehlen();
                     return;
                 }
-                
+
+                // 🆕 v5.90.853: SLOT-PRÜFUNG FÜR SOFORT-BUCHUNGEN!
+                // Gleiche Logik wie bei Vorbestellungen - System berechnet ob es passt
+                {
+                    console.log('═══════════════════════════════════════════════════════════');
+                    console.log('🆕 v5.90.853: SOFORT-BUCHUNG SLOT-PRÜFUNG');
+                    console.log('═══════════════════════════════════════════════════════════');
+
+                    // Nutze die tatsächliche Sofort-Abholzeit (jetzt + 5 Min)
+                    const sofortSlotTime = new Date(Date.now() + 5 * 60000);
+                    const pickupInput = document.getElementById('pickup');
+                    const destinationInput = document.getElementById('destination');
+                    const sofortPickup = pickupInput ? pickupInput.value.trim() : '';
+                    const sofortDestination = destinationInput ? destinationInput.value.trim() : '';
+
+                    console.log('   Abholzeit:', sofortSlotTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}), 'Uhr');
+                    console.log('   Von:', sofortPickup);
+                    console.log('   Nach:', sofortDestination);
+
+                    if (sofortPickup && sofortDestination) {
+                        try {
+                            const ridesSnapshot = await db.ref('rides').once('value');
+                            const ridesData = ridesSnapshot.val() || {};
+
+                            const sofortSlotCheck = await checkTravelTimeConflict(sofortSlotTime, sofortPickup, sofortDestination, ridesData);
+
+                            if (sofortSlotCheck.hasConflict) {
+                                console.log('❌ v5.90.853: Sofort-Buchung SLOT-KONFLIKT erkannt!');
+
+                                // Baue Konflikt-Nachricht
+                                let conflictMsg = '❌ Sofort-Buchung nicht möglich!\n\n';
+
+                                if (sofortSlotCheck.exactTimeConflict) {
+                                    conflictMsg += 'Um diese Zeit ist bereits eine Fahrt gebucht.\n';
+                                } else if (sofortSlotCheck.duringRideConflict) {
+                                    conflictMsg += 'Das Taxi ist gerade bei einer anderen Fahrt.\n';
+                                } else if (sofortSlotCheck.nextRideConflict) {
+                                    const nextTime = new Date(sofortSlotCheck.nextRide.pickupTimestamp || sofortSlotCheck.nextRide.pickupTime);
+                                    conflictMsg += 'Die Fahrt würde in die nächste Buchung (' + nextTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) + ' Uhr) hineinragen.\n';
+                                } else {
+                                    conflictMsg += 'Das Taxi braucht ' + sofortSlotCheck.travelTime + ' Min von der letzten Fahrt, hat aber nur ' + sofortSlotCheck.availableTime + ' Min Zeit.\n';
+                                }
+
+                                // Zeige Alternativen
+                                if (sofortSlotCheck.alternatives && sofortSlotCheck.alternatives.length > 0) {
+                                    const altTime = new Date(sofortSlotCheck.alternatives[0]);
+                                    conflictMsg += '\n💡 Frühester möglicher Termin: ' + altTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) + ' Uhr\n';
+                                    conflictMsg += '\nMöchtest du stattdessen eine Vorbestellung machen?';
+                                } else if (sofortSlotCheck.earlierAlternative) {
+                                    const earlierTime = new Date(sofortSlotCheck.earlierAlternative);
+                                    conflictMsg += '\n💡 Alternative: ' + earlierTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) + ' Uhr\n';
+                                    conflictMsg += '\nMöchtest du stattdessen eine Vorbestellung machen?';
+                                } else {
+                                    conflictMsg += '\nMöchtest du stattdessen eine Vorbestellung machen?';
+                                }
+
+                                const wantVorbestellung = confirm(conflictMsg);
+                                if (wantVorbestellung) {
+                                    vorbestellenWaehlen();
+                                }
+                                return;
+                            }
+
+                            console.log('✅ v5.90.853: Sofort-Buchung Slot-Prüfung OK - kein Konflikt!');
+                        } catch (slotError) {
+                            console.error('⚠️ v5.90.853: Sofort-Slot-Prüfung Fehler (fahre trotzdem fort):', slotError);
+                            // Bei Fehler trotzdem buchen lassen
+                        }
+                    } else {
+                        console.log('ℹ️ v5.90.853: Keine Adressen - Sofort-Slot-Prüfung übersprungen');
+                    }
+                }
+
                 // SOFORT-Buchung OK!
                 pickupTime = 'Sofort';
                 pickupTimestamp = Date.now() + 5 * 60000; // +5 Min Puffer
@@ -31764,12 +31831,12 @@ Aktuell: ${currentNum}`;
             const boardingTime = parseInt(document.getElementById('boarding-time-slider')?.value || 3);
             const alightingTime = parseInt(document.getElementById('alighting-time-slider')?.value || 2);
             const waypointStopTime = parseInt(document.getElementById('waypoint-stop-slider')?.value || 5);
-            
+
             // Anzeige aktualisieren
             document.getElementById('ride-duration-value').textContent = rideDuration + ' Min';
             document.getElementById('travel-time-value').textContent = travelTime + ' Min';
             document.getElementById('buffer-time-value').textContent = bufferTime + ' Min';
-            
+
             // 🆕 v5.90.528: Neue Anzeigen
             if (document.getElementById('boarding-time-value')) {
                 document.getElementById('boarding-time-value').textContent = boardingTime + ' Min';
@@ -31785,14 +31852,14 @@ Aktuell: ${currentNum}`;
             const totalBuffer = rideDuration + travelTime + bufferTime;
             document.getElementById('total-buffer-display').textContent = totalBuffer + ' Min';
             
-            console.log('⏰ v5.90.528: Zeitslot-Einstellungen aktualisiert:', {
-                rideDuration, 
-                travelTime, 
-                bufferTime, 
-                boardingTime, 
-                alightingTime, 
-                waypointStopTime, 
-                totalBuffer, 
+            console.log('⏰ v5.90.853: Zeitslot-Einstellungen aktualisiert:', {
+                rideDuration,
+                travelTime,
+                bufferTime,
+                boardingTime,
+                alightingTime,
+                waypointStopTime,
+                totalBuffer,
                 adminOverride
             });
         }
@@ -31808,7 +31875,7 @@ Aktuell: ${currentNum}`;
             timeslotSettings.boardingTime = parseInt(document.getElementById('boarding-time-slider')?.value || 3);
             timeslotSettings.alightingTime = parseInt(document.getElementById('alighting-time-slider')?.value || 2);
             timeslotSettings.waypointStopTime = parseInt(document.getElementById('waypoint-stop-slider')?.value || 5);
-            
+
             // In localStorage speichern
             localStorage.setItem('timeslotSettings', JSON.stringify(timeslotSettings));
             
@@ -31819,7 +31886,7 @@ Aktuell: ${currentNum}`;
                 statusDiv.innerHTML = '';
             }, 3000);
             
-            console.log('💾 v5.90.528: Zeitslot-Einstellungen gespeichert:', timeslotSettings);
+            console.log('💾 v5.90.853: Zeitslot-Einstellungen gespeichert:', timeslotSettings);
         }
         
         function loadTimeslotSettings() {
@@ -31886,7 +31953,7 @@ Aktuell: ${currentNum}`;
                 waypointSlider.value = timeslotSettings.waypointStopTime || 5;
                 document.getElementById('waypoint-stop-value').textContent = (timeslotSettings.waypointStopTime || 5) + ' Min';
             }
-            
+
             // Total Buffer aktualisieren
             const totalBuffer = timeslotSettings.rideDuration + timeslotSettings.travelTime + timeslotSettings.bufferTime;
             const totalBufferDisplay = document.getElementById('total-buffer-display');

@@ -20276,14 +20276,40 @@ Aktuell: ${currentNum}`;
                 customerSearch.value = ride.customerName;
             }
             
-            // Koordinaten übertragen (falls vorhanden)
+            // 🔧 v5.90.855: KORREKTE Koordinaten-Variable setzen (nicht window.qb... - das nutzt submitQuickBooking nicht!)
             if (ride.pickupCoords) {
-                window.qbPickupCoords = ride.pickupCoords;
+                quickBookingPickupCoords = ride.pickupCoords;
+                console.log('✅ Pickup-Koordinaten kopiert:', ride.pickupCoords);
             }
             if (ride.destCoords) {
-                window.qbDestCoords = ride.destCoords;
+                quickBookingDestCoords = ride.destCoords;
+                console.log('✅ Ziel-Koordinaten kopiert:', ride.destCoords);
             }
-            
+
+            // 🔧 v5.90.855: Gast-Name + Telefon LEEREN (Kopie = neue Fahrt, neuer Gast)!
+            const guestNameField = document.getElementById('quick-booking-guest-name');
+            if (guestNameField) {
+                guestNameField.value = '';
+                console.log('✅ Gast-Name geleert (Kopie = neue Fahrt)');
+            }
+            const guestPhoneField = document.getElementById('quick-booking-guest-phone');
+            if (guestPhoneField) {
+                guestPhoneField.value = '';
+                console.log('✅ Gast-Telefon geleert (Kopie = neue Fahrt)');
+            }
+
+            // 🔧 v5.90.855: Zeit-Button aktualisieren (zeigt sonst alte Zeit)
+            const timeBtn = document.getElementById('quick-booking-time-btn');
+            if (timeBtn) timeBtn.textContent = `${nowHours}:${nowMinutes}`;
+
+            // 🔧 v5.90.855: VERFÜGBARKEITSPRÜFUNG + DISTANZBERECHNUNG TRIGGERN!
+            setTimeout(() => {
+                console.log('🔍 v5.90.855: Starte Verfügbarkeitsprüfung nach Kopieren (Search)...');
+                if (typeof triggerQBSlotCheck === 'function') {
+                    triggerQBSlotCheck();
+                }
+            }, 500);
+
             showToast('📋 Fahrt zum Kopieren geladen!', 'success');
             console.log('✅ Felder gefüllt!');
         }
@@ -51976,8 +52002,9 @@ Funk Taxi Team`;
                 console.log('═══════════════════════════════════════');
                 console.log('📋 FAHRT KOPIEREN GESTARTET!');
                 console.log('   Von Fahrt:', rideId);
-                console.log('   ✅ Wird kopiert: Kunde, Gast, Start, Ziel, Personen, Notizen');
-                console.log('   💾 Wird NICHT kopiert: Fahrzeug, Uhrzeit');
+                console.log('   ✅ Wird kopiert: Kunde, Start, Ziel, Personen, Notizen');
+                console.log('   💾 Wird NICHT kopiert: Fahrzeug, Uhrzeit, Gast-Name/Telefon');
+                console.log('   🔍 NACH KOPIEREN: Verfügbarkeitsprüfung + Distanzberechnung!');
                 console.log('═══════════════════════════════════════');
                 
                 const snapshot = await db.ref(`rides/${rideId}`).once('value');
@@ -52006,7 +52033,7 @@ Funk Taxi Team`;
                 
                 console.log('📋 Fahrt-Daten:');
                 console.log('   ✅ Kunde:', customer ? customer.name : 'Keiner');
-                console.log('   ✅ Gast:', ride.guestName || 'Keiner');
+                console.log('   💾 Gast (Original):', ride.guestName || 'Keiner', '→ wird GELEERT');
                 console.log('   ✅ Von:', ride.pickup);
                 console.log('   ✅ Nach:', ride.destination);
                 console.log('   ✅ Personen:', ride.passengers || 1);
@@ -52055,10 +52082,16 @@ Funk Taxi Team`;
                     if (passengersInput) passengersInput.value = ride.passengers || 1;
                     if (notesInput) notesInput.value = ride.notes || '';
                     
-                    // 🆕 v5.75.1: Gast-Name kopieren wenn vorhanden!
-                    if (guestNameInput && ride.guestName) {
-                        guestNameInput.value = ride.guestName;
-                        console.log('✅ Gast-Name kopiert:', ride.guestName);
+                    // 🔧 v5.90.855: Gast-Name beim Kopieren LEEREN (neue Fahrt = neuer Gast)!
+                    if (guestNameInput) {
+                        guestNameInput.value = '';
+                        console.log('✅ Gast-Name geleert (Kopie = neue Fahrt, neuer Gast)');
+                    }
+                    // 🔧 v5.90.855: Gast-Telefon auch leeren!
+                    const guestPhoneInput = document.getElementById('quick-booking-guest-phone');
+                    if (guestPhoneInput) {
+                        guestPhoneInput.value = '';
+                        console.log('✅ Gast-Telefon geleert (Kopie = neue Fahrt)');
                     }
                     
                     // 💾 v5.75.1: FAHRZEUG WIRD NICHT MEHR KOPIERT!
@@ -52066,7 +52099,8 @@ Funk Taxi Team`;
                     
                     // Koordinaten für Route (falls vorhanden)
                     if (ride.pickupCoords) {
-                        window.quickBookingPickupCoords = ride.pickupCoords;
+                        // 🔧 v5.90.855: KORREKTE Variable setzen (nicht window. - sonst findet submitQuickBooking sie nicht!)
+                        quickBookingPickupCoords = ride.pickupCoords;
                         console.log('✅ Pickup-Koordinaten kopiert:', ride.pickupCoords);
                         
                         // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
@@ -52082,7 +52116,8 @@ Funk Taxi Team`;
                         });
                     }
                     if (ride.destCoords) {
-                        window.quickBookingDestCoords = ride.destCoords;
+                        // 🔧 v5.90.855: KORREKTE Variable setzen (nicht window. - sonst findet submitQuickBooking sie nicht!)
+                        quickBookingDestCoords = ride.destCoords;
                         console.log('✅ Ziel-Koordinaten kopiert:', ride.destCoords);
 
                         // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
@@ -52098,13 +52133,23 @@ Funk Taxi Team`;
                         });
                     }
                     
-                    console.log('✅ Fahrt-Daten kopiert (ohne Fahrzeug + Zeit)!');
-                    console.log('📋 Kopiert: Kunde, Gast, Start, Ziel, Personen, Notizen');
-                    
+                    console.log('✅ Fahrt-Daten kopiert (ohne Fahrzeug + Zeit + Gast)!');
+                    console.log('📋 Kopiert: Kunde, Start, Ziel, Personen, Notizen');
+                    console.log('🔧 v5.90.855: Gast-Name/Telefon GELEERT (neue Fahrt)');
+
+                    // 🔧 v5.90.855: VERFÜGBARKEITSPRÜFUNG + DISTANZBERECHNUNG TRIGGERN!
+                    // Warte kurz bis Reverse Geocoding fertig ist, dann prüfe Slot
+                    setTimeout(() => {
+                        console.log('🔍 v5.90.855: Starte Verfügbarkeitsprüfung nach Kopieren...');
+                        if (typeof triggerQBSlotCheck === 'function') {
+                            triggerQBSlotCheck();
+                        }
+                    }, 1500); // 1.5s warten damit Reverse Geocoding fertig wird
+
                     // Fokus auf Datum damit User direkt Zeit eingeben kann
                     const dateInput = document.getElementById('quick-booking-date');
                     if (dateInput) dateInput.focus();
-                    
+
                 }, 500);
                 
             } catch (error) {

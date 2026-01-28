@@ -8580,7 +8580,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.851';
+        const APP_VERSION = '5.90.854';
         const APP_BUILD = '20260123-MOBILE-KARTE-MIT-ANALYSE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -10774,6 +10774,33 @@
         }
         
         // 🆕 v5.90.155: POI MIT KOORDINATEN AUSWÄHLEN!
+        // 🆕 v5.90.854: ADRESSEN TAUSCHEN im Bearbeiten-Modus
+        function swapEditAddresses() {
+            const pickupInput = document.getElementById('edit-pickup');
+            const destInput = document.getElementById('edit-destination');
+            const pickupLat = document.getElementById('edit-pickup-lat');
+            const pickupLon = document.getElementById('edit-pickup-lon');
+            const destLat = document.getElementById('edit-destination-lat');
+            const destLon = document.getElementById('edit-destination-lon');
+            if (pickupInput && destInput) {
+                const tmpVal = pickupInput.value;
+                pickupInput.value = destInput.value;
+                destInput.value = tmpVal;
+                // Koordinaten tauschen
+                if (pickupLat && destLat) {
+                    const tmpLat = pickupLat.value;
+                    pickupLat.value = destLat.value;
+                    destLat.value = tmpLat;
+                }
+                if (pickupLon && destLon) {
+                    const tmpLon = pickupLon.value;
+                    pickupLon.value = destLon.value;
+                    destLon.value = tmpLon;
+                }
+                console.log('🔄 v5.90.854: Adressen getauscht (Bearbeiten-Modus)');
+            }
+        }
+
         function selectPOIForEdit(type, address, lat, lon, name) {
             console.log(`⭐ v5.90.155: POI ausgewählt für ${type}:`, name, address, lat, lon);
             
@@ -10846,41 +10873,32 @@
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">📍 Abholort</label>
                         <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;" autocomplete="off">
-                        
+
                         <!-- 🆕 v5.90.155: KOORDINATEN FÜR POI-GENAUIGKEIT -->
                         <input type="hidden" id="edit-pickup-lat" value="${ride.pickupLat || ''}">
                         <input type="hidden" id="edit-pickup-lon" value="${ride.pickupLon || ''}">
-                        
+
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
                         <div class="autocomplete-dropdown" id="edit-pickup-dropdown" style="position:relative;z-index:19001;"></div>
-                        
-                        <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
-                        <div id="edit-pickup-favorites" style="margin-top:8px;">
-                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
-                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                                <div style="font-size:12px;color:#9ca3af;padding:6px;">Lade Favoriten...</div>
-                            </div>
-                        </div>
                     </div>
-                    
+
+                    <!-- 🆕 v5.90.854: TAUSCHEN-TASTE -->
+                    <div style="text-align:center;margin:-6px 0 10px 0;">
+                        <button onclick="swapEditAddresses()" title="Abholort und Zielort tauschen" style="padding:6px 16px;background:white;border:2px solid #667eea;color:#667eea;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#667eea';this.style.color='white';" onmouseout="this.style.background='white';this.style.color='#667eea';">
+                            🔄 Tauschen
+                        </button>
+                    </div>
+
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🎯 Zielort</label>
                         <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid#e0e0e0;border-radius:6px;" autocomplete="off">
-                        
+
                         <!-- 🆕 v5.90.155: KOORDINATEN FÜR POI-GENAUIGKEIT -->
                         <input type="hidden" id="edit-destination-lat" value="${ride.destinationLat || ''}">
                         <input type="hidden" id="edit-destination-lon" value="${ride.destinationLon || ''}">
-                        
+
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
                         <div class="autocomplete-dropdown" id="edit-destination-dropdown" style="position:relative;z-index:19001;"></div>
-                        
-                        <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
-                        <div id="edit-destination-favorites" style="margin-top:8px;">
-                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
-                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                                <div style="font-size:12px;color:#9ca3af;padding:6px;">Lade Favoriten...</div>
-                            </div>
-                        </div>
                     </div>
                     
                     <div style="margin-bottom:15px;">
@@ -47014,19 +47032,20 @@ Funk Taxi Team`;
                     }
                     
                     // 🆕 v5.64.11: Abholort (mit Koordinaten!)
+                    // 🔧 v5.90.854: Sicherstellen dass address ein String ist (nicht Objekt)
                     const pickupInput = document.getElementById('quick-booking-pickup');
-                    if (pickupInput && prefilledCustomer.address) {
-                        pickupInput.value = prefilledCustomer.address;
-                        // Koordinaten nachschlagen!
-                        geocodeCustomerAddress(prefilledCustomer.address, 'quick-booking-pickup');
+                    const addrStr = typeof prefilledCustomer.address === 'string' ? prefilledCustomer.address : (prefilledCustomer.address?.address || prefilledCustomer.address?.name || '');
+                    if (pickupInput && addrStr) {
+                        pickupInput.value = addrStr;
+                        geocodeCustomerAddress(addrStr, 'quick-booking-pickup');
                     }
-                    
+
                     // 🆕 v5.64.11: Zielort (mit Koordinaten!)
                     const destInput = document.getElementById('quick-booking-destination');
-                    if (destInput && prefilledCustomer.favoriteDestination) {
-                        destInput.value = prefilledCustomer.favoriteDestination;
-                        // Koordinaten nachschlagen!
-                        geocodeCustomerAddress(prefilledCustomer.favoriteDestination, 'quick-booking-destination');
+                    const favDestStr = typeof prefilledCustomer.favoriteDestination === 'string' ? prefilledCustomer.favoriteDestination : (prefilledCustomer.favoriteDestination?.address || prefilledCustomer.favoriteDestination?.name || '');
+                    if (destInput && favDestStr) {
+                        destInput.value = favDestStr;
+                        geocodeCustomerAddress(favDestStr, 'quick-booking-destination');
                     }
                     
                     // Toast: Kundendaten übernommen!
@@ -52051,10 +52070,12 @@ Funk Taxi Team`;
                         console.log('✅ Pickup-Koordinaten kopiert:', ride.pickupCoords);
                         
                         // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
-                        reverseGeocode(ride.pickupCoords.lat, ride.pickupCoords.lon).then(address => {
-                            if (pickupInput && address) {
-                                pickupInput.value = address;
-                                console.log('✅ Pickup-Adresse via Reverse Geocoding:', address);
+                        reverseGeocode(ride.pickupCoords.lat, ride.pickupCoords.lon).then(result => {
+                            if (pickupInput && result) {
+                                // 🔧 v5.90.854: reverseGeocode gibt {name, address} zurück!
+                                const addrStr = typeof result === 'string' ? result : (result.address || result.name || '');
+                                pickupInput.value = addrStr;
+                                console.log('✅ Pickup-Adresse via Reverse Geocoding:', addrStr);
                             }
                         }).catch(err => {
                             console.error('⚠️ Reverse Geocoding Fehler (Pickup):', err);
@@ -52063,12 +52084,14 @@ Funk Taxi Team`;
                     if (ride.destCoords) {
                         window.quickBookingDestCoords = ride.destCoords;
                         console.log('✅ Ziel-Koordinaten kopiert:', ride.destCoords);
-                        
+
                         // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
-                        reverseGeocode(ride.destCoords.lat, ride.destCoords.lon).then(address => {
-                            if (destInput && address) {
-                                destInput.value = address;
-                                console.log('✅ Ziel-Adresse via Reverse Geocoding:', address);
+                        reverseGeocode(ride.destCoords.lat, ride.destCoords.lon).then(result => {
+                            if (destInput && result) {
+                                // 🔧 v5.90.854: reverseGeocode gibt {name, address} zurück!
+                                const addrStr = typeof result === 'string' ? result : (result.address || result.name || '');
+                                destInput.value = addrStr;
+                                console.log('✅ Ziel-Adresse via Reverse Geocoding:', addrStr);
                             }
                         }).catch(err => {
                             console.error('⚠️ Reverse Geocoding Fehler (Ziel):', err);
@@ -58018,6 +58041,25 @@ Funk Taxi Team`;
                     // Zur lokalen Liste hinzufügen
                     allCustomers.push(newCustomerData);
                     console.log('✅ v5.90.717: Neuer Kunde erstellt:', name);
+
+                    // 🔧 v5.90.854: Schnellbuchung-Feld aktualisieren wenn offen!
+                    const qbSearchField = document.getElementById('quick-booking-customer-search');
+                    const qbCustomerField = document.getElementById('quick-booking-customer');
+                    if (qbSearchField) {
+                        qbSearchField.value = name;
+                        qbSearchField.style.borderColor = '#10b981';
+                        qbSearchField.style.background = '#f0fdf4';
+                        console.log('✅ v5.90.854: Schnellbuchung Kunde aktualisiert:', name);
+                    }
+                    if (qbCustomerField) {
+                        qbCustomerField.value = customerId;
+                    }
+                    // Edit-Button zeigen
+                    const editBtn = document.getElementById('quick-booking-edit-customer-btn');
+                    if (editBtn) {
+                        editBtn.style.display = 'block';
+                        editBtn.dataset.customerId = customerId;
+                    }
 
                     toast.style.background = '#10b981';
                     toast.innerHTML = `✅ "${name}" erstellt!`;

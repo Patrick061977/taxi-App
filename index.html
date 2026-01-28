@@ -8580,7 +8580,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.851';
+        const APP_VERSION = '5.90.854';
         const APP_BUILD = '20260123-MOBILE-KARTE-MIT-ANALYSE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -14354,9 +14354,15 @@ Aktuell: ${currentNum}`;
                         });
                     });
                     
-                    db.ref('.info/connected').on('value', (s) => { 
+                    // 🔧 v5.90.854: .off() vor .on() um Listener-Akkumulation zu verhindern!
+                    db.ref('.info/connected').off('value');
+                    db.ref('rides').off('value');
+                    db.ref('vehicles').off('value');
+                    db.ref('cancellations').off('value');
+
+                    db.ref('.info/connected').on('value', (s) => {
                         const wasConnected = isConnected;
-                        isConnected = s.val(); 
+                        isConnected = s.val();
                         updateStatus();
                         
                         // 📜 PROTOKOLL: Verbindungsstatus geändert
@@ -21094,6 +21100,11 @@ Aktuell: ${currentNum}`;
         }
 
         async function calculateRoute(from, to, waypointsArray = []) {
+            // 🔧 v5.90.854: NULL-CHECK für Koordinaten
+            if (!from || !from.lat || !from.lon || !to || !to.lat || !to.lon) {
+                console.warn('⚠️ v5.90.854: calculateRoute - ungültige Koordinaten:', { from, to });
+                return { distance: 0, duration: 0, geometry: null, legs: [] };
+            }
             try {
                 // 🆕 v5.90.527: MULTI-STOP ROUTE!
                 let coordinates = `${from.lon},${from.lat}`;
@@ -28063,7 +28074,22 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN DATUM + ZEIT DA SIND!
         // 🔧 v5.90.676: FIX - Prüfe ob Zeit GÜLTIG ist (nicht "--:--" oder leer!)
         // 🔧 v5.90.836: GLOBAL machen für Autocomplete!
-        window.triggerSlotCheck = async function() {
+        // 🔧 v5.90.854: DEBOUNCE gegen Race Conditions!
+        let _slotCheckTimer = null;
+        let _slotCheckRunning = false;
+        window.triggerSlotCheck = function() {
+            if (_slotCheckTimer) clearTimeout(_slotCheckTimer);
+            _slotCheckTimer = setTimeout(() => _doSlotCheck(), 400);
+        };
+        async function _doSlotCheck() {
+            if (_slotCheckRunning) {
+                console.log('⏳ v5.90.854: Slot-Check läuft bereits, überspringe...');
+                return;
+            }
+            _slotCheckRunning = true;
+            try { await _slotCheckInner(); } finally { _slotCheckRunning = false; }
+        }
+        async function _slotCheckInner() {
             const pickupInput = document.getElementById('pickup');
             const destinationInput = document.getElementById('destination');
             const dateInput = document.getElementById('custom-date');
@@ -28155,6 +28181,19 @@ Aktuell: ${currentNum}`;
             }
 
             console.log('🔍 Prüfe Slot:', { date, time });
+
+            // 🔧 v5.90.854: Firebase-Ready Check
+            if (!db) {
+                console.warn('⚠️ v5.90.854: Firebase nicht bereit - Slot-Check übersprungen');
+                if (statusDisplay) {
+                    statusDisplay.style.display = 'block';
+                    statusDisplay.style.background = '#fef3c7';
+                    statusDisplay.style.border = '2px solid #f59e0b';
+                    statusDisplay.style.color = '#92400e';
+                    statusDisplay.innerHTML = '⚠️ Verbindung wird hergestellt... Bitte erneut versuchen.';
+                }
+                return;
+            }
 
             // 🆕 v5.90.639: DISTANZ-PRÜFUNG für Vorbestellungen!
             try {
@@ -29303,10 +29342,13 @@ Aktuell: ${currentNum}`;
                     try {
                         console.log('');
                         console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG (exact-time)');
-                        console.log('   📍 Konflikt-Fahrt endet bei:', exactTimeConflict.destination);
+
+                        // 🔧 v5.90.854: NULL-CHECK für destination
+                        const conflictDest2 = exactTimeConflict.destination || '';
+                        console.log('   📍 Konflikt-Fahrt endet bei:', conflictDest2);
                         console.log('   📍 Neue Fahrt startet bei:', pickup);
 
-                        const isSameLocation2 = exactTimeConflict.destination.toLowerCase().trim() === pickup.toLowerCase().trim();
+                        const isSameLocation2 = conflictDest2 && pickup && conflictDest2.toLowerCase().trim() === pickup.toLowerCase().trim();
 
                         if (isSameLocation2) {
                             console.log('   ✅ Gleicher Ort - keine Rückfahrt nötig!');
@@ -29319,8 +29361,8 @@ Aktuell: ${currentNum}`;
                             } else if (exactTimeConflict.destCoords) {
                                 conflictDestCoords2 = exactTimeConflict.destCoords;
                                 console.log('   → Ziel-Coords aus destCoords:', conflictDestCoords2);
-                            } else {
-                                conflictDestCoords2 = await geocode(exactTimeConflict.destination);
+                            } else if (conflictDest2) {
+                                conflictDestCoords2 = await geocode(conflictDest2);
                                 console.log('   → Ziel-Coords geocoded:', conflictDestCoords2);
                             }
 
@@ -29595,10 +29637,13 @@ Aktuell: ${currentNum}`;
                 try {
                     console.log('');
                     console.log('🔙 v5.90.841: RÜCKFAHRT-BERECHNUNG (during-ride)');
-                    console.log('   📍 Vorherige Fahrt endet bei:', previousRide.destination);
+
+                    // 🔧 v5.90.854: NULL-CHECK für destination
+                    const prevDest1 = previousRide.destination || '';
+                    console.log('   📍 Vorherige Fahrt endet bei:', prevDest1);
                     console.log('   📍 Neue Fahrt startet bei:', pickup);
 
-                    const isSameLocation1 = previousRide.destination.toLowerCase().trim() === pickup.toLowerCase().trim();
+                    const isSameLocation1 = prevDest1 && pickup && prevDest1.toLowerCase().trim() === pickup.toLowerCase().trim();
 
                     if (isSameLocation1) {
                         console.log('   ✅ Gleicher Ort - keine Rückfahrt nötig!');
@@ -29611,8 +29656,8 @@ Aktuell: ${currentNum}`;
                         } else if (previousRide.destCoords) {
                             prevDestCoords1 = previousRide.destCoords;
                             console.log('   → Ziel-Coords aus destCoords:', prevDestCoords1);
-                        } else {
-                            prevDestCoords1 = await geocode(previousRide.destination);
+                        } else if (prevDest1) {
+                            prevDestCoords1 = await geocode(prevDest1);
                             console.log('   → Ziel-Coords geocoded:', prevDestCoords1);
                         }
 
@@ -29724,7 +29769,9 @@ Aktuell: ${currentNum}`;
                 console.log('🗺️ GEOCODING / KOORDINATEN:');
 
                 // Ziel der vorherigen Fahrt
-                console.log('   Ziel der vorherigen Fahrt:', previousRide.destination);
+                // 🔧 v5.90.854: NULL-CHECK für destination
+                const prevDestStr = previousRide.destination || '';
+                console.log('   Ziel der vorherigen Fahrt:', prevDestStr);
                 let previousDestCoords = null;
                 // Prüfe ob vorherige Fahrt Koordinaten hat
                 if (previousRide.destLat && previousRide.destLon) {
@@ -29733,8 +29780,8 @@ Aktuell: ${currentNum}`;
                 } else if (previousRide.destCoords) {
                     previousDestCoords = previousRide.destCoords;
                     console.log('   → Aus destCoords:', previousDestCoords);
-                } else {
-                    previousDestCoords = await geocode(previousRide.destination);
+                } else if (prevDestStr) {
+                    previousDestCoords = await geocode(prevDestStr);
                     console.log('   → Geocoded:', previousDestCoords);
                 }
 
@@ -29761,7 +29808,7 @@ Aktuell: ${currentNum}`;
                 
                 // Berechne Route: Letztes Ziel → Neuer Start
                 console.log('🚗 ROUTE BERECHNUNG:');
-                console.log('   Von:', previousRide.destination);
+                console.log('   Von:', prevDestStr);
                 console.log('   Nach:', pickup);
                 const route = await calculateRoute(previousDestCoords, newPickupCoords);
                 const travelTime = route.duration; // in Minuten

@@ -49436,30 +49436,37 @@ Funk Taxi Team`;
                 // Baue Adresse
                 const address = data.address || {};
                 let displayAddress = '';
-                
+
                 if (address.road) {
                     displayAddress = address.road;
                     if (address.house_number) displayAddress += ' ' + address.house_number;
                 }
-                
-                if (address.postcode && address.village) {
+
+                // 🆕 v5.90.856: Verbesserte Ort-Erkennung mit Fallbacks
+                const ortName = address.village || address.town || address.city ||
+                               address.municipality || address.suburb || address.hamlet ||
+                               address.state_district || address.county || null;
+
+                if (address.postcode && ortName) {
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.village;
-                } else if (address.postcode && address.town) {
+                    displayAddress += address.postcode + ' ' + ortName;
+                } else if (ortName) {
+                    // Fallback: Ort ohne PLZ
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.town;
-                } else if (address.postcode && address.city) {
+                    displayAddress += ortName;
+                } else if (address.postcode) {
+                    // Fallback: PLZ ohne Ort
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.city;
+                    displayAddress += address.postcode;
                 }
-                
+
                 if (!displayAddress) {
                     displayAddress = data.display_name;
                 }
-                
+
                 // Zeige Adresse
                 addressDiv.textContent = displayAddress;
-                
+
                 // Speichere für Übernahme
                 quickBookingMapPickerMarker.pickedAddress = displayAddress;
                 quickBookingMapPickerMarker.pickedLat = lat;
@@ -49955,34 +49962,41 @@ Funk Taxi Team`;
                 const data = await response.json();
                 
                 console.log('✅ v5.90.535: Adresse geladen:', data);
-                
+
                 // Baue Adresse
                 const address = data.address || {};
                 let displayAddress = '';
-                
+
                 if (address.road) {
                     displayAddress = address.road;
                     if (address.house_number) displayAddress += ' ' + address.house_number;
                 }
-                
-                if (address.postcode && address.village) {
+
+                // 🆕 v5.90.856: Verbesserte Ort-Erkennung mit Fallbacks
+                const ortName = address.village || address.town || address.city ||
+                               address.municipality || address.suburb || address.hamlet ||
+                               address.state_district || address.county || null;
+
+                if (address.postcode && ortName) {
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.village;
-                } else if (address.postcode && address.town) {
+                    displayAddress += address.postcode + ' ' + ortName;
+                } else if (ortName) {
+                    // Fallback: Ort ohne PLZ
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.town;
-                } else if (address.postcode && address.city) {
+                    displayAddress += ortName;
+                } else if (address.postcode) {
+                    // Fallback: PLZ ohne Ort
                     if (displayAddress) displayAddress += ', ';
-                    displayAddress += address.postcode + ' ' + address.city;
+                    displayAddress += address.postcode;
                 }
-                
+
                 if (!displayAddress) {
                     displayAddress = data.display_name;
                 }
-                
+
                 // Zeige Adresse
                 addressDiv.textContent = displayAddress;
-                
+
                 // Speichere für Übernahme
                 universalMapPicker.marker.pickedAddress = displayAddress;
                 universalMapPicker.marker.pickedLat = lat;
@@ -50051,6 +50065,18 @@ Funk Taxi Team`;
                                 console.log('📞 v5.90.720: Telefonnummer ins CRM übernommen:', poi.phone);
                             } else if (phoneField && phoneField.value) {
                                 console.log('ℹ️ v5.90.720: Telefon-Feld bereits gefüllt, nicht überschrieben');
+                            }
+                        }
+
+                        // 🆕 v5.90.856: E-Mail übernehmen wenn vorhanden!
+                        if (poi.email) {
+                            const emailField = document.getElementById('edit-customer-email');
+                            if (emailField && !emailField.value) {
+                                // Nur wenn E-Mail-Feld leer ist
+                                emailField.value = poi.email;
+                                console.log('📧 v5.90.856: E-Mail ins CRM übernommen:', poi.email);
+                            } else if (emailField && emailField.value) {
+                                console.log('ℹ️ v5.90.856: E-Mail-Feld bereits gefüllt, nicht überschrieben');
                             }
                         }
                     } else {
@@ -50191,6 +50217,8 @@ Funk Taxi Team`;
 
                         // Telefonnummer
                         const phone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+                        // 🆕 v5.90.856: E-Mail
+                        const email = extratags.email || extratags['contact:email'] || null;
 
                         // Escape für onclick
                         const safeAddr = addrText.replace(/'/g, "\\'");
@@ -50207,6 +50235,9 @@ Funk Taxi Team`;
                         html += '<div style="font-size:13px;color:#374151;' + (poiName ? 'margin-top:4px;padding-left:20px;' : '') + '">' + addrText + '</div>';
                         if (phone) {
                             html += '<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:' + (poiName ? '20px' : '0') + ';font-weight:600;">📞 ' + phone + '</div>';
+                        }
+                        if (email) {
+                            html += '<div style="font-size:12px;color:#6366f1;margin-top:2px;padding-left:' + (poiName ? '20px' : '0') + ';font-weight:600;">📧 ' + email + '</div>';
                         }
                         html += '</div>';
 
@@ -50337,9 +50368,14 @@ Funk Taxi Team`;
                 const extratags = data.extratags || {};
                 const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
                 const poiWebsite = extratags.website || extratags['contact:website'] || null;
+                // 🆕 v5.90.856: Extrahiere E-Mail aus extratags
+                const poiEmail = extratags.email || extratags['contact:email'] || null;
 
                 if (poiPhone) {
                     console.log('📞 v5.90.720: Telefonnummer gefunden:', poiPhone);
+                }
+                if (poiEmail) {
+                    console.log('📧 v5.90.856: E-Mail gefunden:', poiEmail);
                 }
 
                 // Baue POI-Liste
@@ -50353,18 +50389,19 @@ Funk Taxi Team`;
                         class: data.class,
                         isMain: true,
                         phone: poiPhone,
-                        website: poiWebsite
+                        website: poiWebsite,
+                        email: poiEmail  // 🆕 v5.90.856
                     });
                 }
 
                 // 2. POI aus Adresse extrahieren
                 const addr = data.address || {};
-                if (addr.amenity) pois.push({ name: addr.amenity, type: 'amenity', phone: poiPhone, website: poiWebsite });
-                if (addr.tourism) pois.push({ name: addr.tourism, type: 'tourism', phone: poiPhone, website: poiWebsite });
-                if (addr.shop) pois.push({ name: addr.shop, type: 'shop', phone: poiPhone, website: poiWebsite });
-                if (addr.restaurant) pois.push({ name: addr.restaurant, type: 'restaurant', phone: poiPhone, website: poiWebsite });
-                if (addr.hotel) pois.push({ name: addr.hotel, type: 'hotel', phone: poiPhone, website: poiWebsite });
-                if (addr.cafe) pois.push({ name: addr.cafe, type: 'cafe', phone: poiPhone, website: poiWebsite });
+                if (addr.amenity) pois.push({ name: addr.amenity, type: 'amenity', phone: poiPhone, website: poiWebsite, email: poiEmail });
+                if (addr.tourism) pois.push({ name: addr.tourism, type: 'tourism', phone: poiPhone, website: poiWebsite, email: poiEmail });
+                if (addr.shop) pois.push({ name: addr.shop, type: 'shop', phone: poiPhone, website: poiWebsite, email: poiEmail });
+                if (addr.restaurant) pois.push({ name: addr.restaurant, type: 'restaurant', phone: poiPhone, website: poiWebsite, email: poiEmail });
+                if (addr.hotel) pois.push({ name: addr.hotel, type: 'hotel', phone: poiPhone, website: poiWebsite, email: poiEmail });
+                if (addr.cafe) pois.push({ name: addr.cafe, type: 'cafe', phone: poiPhone, website: poiWebsite, email: poiEmail });
                 
                 // 3. Straßenname als Fallback
                 if (pois.length === 0 && addr.road) {
@@ -50384,11 +50421,12 @@ Funk Taxi Team`;
                 // Speichere POIs
                 universalMapPicker.nearbyPOIs = pois;
                 
-                // Rendere POIs - 🆕 v5.90.720: Mit Telefonnummer!
+                // Rendere POIs - 🆕 v5.90.720: Mit Telefonnummer! 🆕 v5.90.856: Mit E-Mail!
                 listDiv.innerHTML = pois.map((poi, index) => {
                     const icon = getPoiIcon(poi.type);
                     const label = poi.isMain ? '<span style="background:#f59e0b;color:white;padding:1px 4px;border-radius:3px;font-size:9px;margin-left:4px;">Haupt</span>' : '';
                     const phoneDisplay = poi.phone ? `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poi.phone}</div>` : '';
+                    const emailDisplay = poi.email ? `<div style="font-size:12px;color:#6366f1;margin-top:2px;font-weight:600;">📧 ${poi.email}</div>` : '';
 
                     return `
                         <div onclick="selectPOI(${index})"
@@ -50403,6 +50441,7 @@ Funk Taxi Team`;
                                 ${poi.type}
                             </div>
                             ${phoneDisplay}
+                            ${emailDisplay}
                         </div>
                     `;
                 }).join('');

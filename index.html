@@ -9,13 +9,19 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.859-STABLE
-    📅 BUILD: 29.01.2026 14:30 Uhr
+    📦 VERSION: v5.90.860-STABLE
+    📅 BUILD: 29.01.2026 14:45 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.859-STABLE
+    📋 CHANGELOG v5.90.860-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.860-STABLE (29.01.2026):
+       • NEU: E-Mail-Button jetzt auch im Rechnungs-Tab integriert!
+       • NEU: E-Mail-Button erscheint bei Fahrten mit Rechnung und E-Mail-Adresse
+       • UX: E-Mail-Button neben PDF, WhatsApp und Bearbeiten-Buttons
+       • VOLLSTÄNDIG: E-Mail-Versand in allen Views verfügbar (Kalender, Rechnung-Tab, Einzelrechnungen)
 
     📧 v5.90.859-STABLE (29.01.2026):
        • NEU: EmailJS Integration für automatischen E-Mail-Versand!
@@ -55131,15 +55137,21 @@ Funk Taxi Team`;
                     // 🆕 v5.90.309: ERWEITERTE BUTTONS!
                     actionButton = `
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
+                            <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')"
                                     style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(139,92,246,0.3);">
                                 📥 PDF
                             </button>
-                            <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')" 
+                            <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')"
                                     style="padding:8px 12px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(37,211,102,0.3);">
                                 📱 WhatsApp
                             </button>
-                            <button onclick="openInvoiceModal('${ride.id}')" 
+                            ${ride.customerEmail ? `
+                            <button onclick="sendInvoiceViaEmail('${ride.id}')"
+                                    style="padding:8px 12px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(59,130,246,0.3);">
+                                📧 E-Mail
+                            </button>
+                            ` : ''}
+                            <button onclick="openInvoiceModal('${ride.id}')"
                                     style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">
                                 ✏️ Bearbeiten
                             </button>

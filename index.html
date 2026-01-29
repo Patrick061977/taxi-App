@@ -3795,6 +3795,10 @@
                 <div style="font-size:18px;font-weight:bold;" id="crm-favorites">0</div>
                 <div style="font-size:11px;opacity:0.9;">Favoriten</div>
             </div>
+            <div onclick="switchView('poi-management')" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:8px 12px;border-radius:8px;color:white;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(245,158,11,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <div style="font-size:18px;font-weight:bold;" id="crm-total-pois">0</div>
+                <div style="font-size:11px;opacity:0.9;">POIs 🗺️</div>
+            </div>
         </div>
         
         <!-- Suche & Filter -->
@@ -3837,9 +3841,13 @@
                 </div>
             </div>
             <input type="hidden" id="crm-filter-category" value="">
-            
+
             <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                 ➕ Neuer Kunde
+            </button>
+
+            <button onclick="switchView('poi-management')" style="padding:12px 20px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                ⭐ POIs verwalten
             </button>
         </div>
         
@@ -34682,7 +34690,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 const favorites = customers.filter(c => c.category === 'vip').length;
                 document.getElementById('crm-favorites').textContent = favorites;
-                
+
+                // 🆕 v5.90.860: POI-Anzahl aktualisieren
+                document.getElementById('crm-total-pois').textContent = allPOIs.length;
+
                 // Render Kunden-Liste
                 renderCRMCustomers(customers);
             });
@@ -69476,13 +69487,19 @@ Taxi kommt pünktlich!
                 });
                 
                 console.log(`✅ ${allPOIs.length} POIs geladen`);
-                
+
                 // 🐛 v5.90.716: DEBUG - Zeige alle POI-Namen
                 console.log('📋 v5.90.716: Geladene POIs:');
                 allPOIs.forEach((poi, i) => {
                     console.log(`   ${i+1}. "${poi.name}" (${poi.address || 'keine Adresse'})`);
                 });
-                
+
+                // 🆕 v5.90.860: Aktualisiere POI-Anzahl im CRM
+                const crmPOIsEl = document.getElementById('crm-total-pois');
+                if (crmPOIsEl) {
+                    crmPOIsEl.textContent = allPOIs.length;
+                }
+
                 renderPOIList();
                 
             } catch (error) {

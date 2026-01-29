@@ -24,7 +24,10 @@
        • NEU: lockInvoiceFields() - Rechnungsfelder nach Erstellung gesperrt
        • NEU: unlockInvoiceFields() - Entsperr-Funktion für Bearbeiten-Modus
        • NEU: toggleInvoiceEditMode() - Toggle zwischen Sperren/Entsperren
-       • WORKFLOW: Rechnung erstellen → gesperrt → Bearbeiten → gesperrt
+       • NEU: ✏️ Bearbeiten-Button im Rechnung-Modal (orange)
+       • AUTO: Felder werden bei existierender Rechnung automatisch gesperrt
+       • AUTO: Felder werden nach PDF-Erstellung automatisch gesperrt
+       • WORKFLOW: Rechnung erstellen → 🔒 gesperrt → ✏️ Bearbeiten → 💾 Speichern → 🔒 gesperrt
 
     📧 v5.90.862-STABLE (29.01.2026):
        • NEU: E-Mail-Status-Badge beim Kunden-Namen im Rechnungs-Tab!
@@ -52825,10 +52828,16 @@ Funk Taxi Team`;
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📧 Per E-Mail senden
                                     </button>
-                                    
-                                    <button onclick="shareInvoiceViaWhatsApp()" 
+
+                                    <button onclick="shareInvoiceViaWhatsApp()"
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📤 Per WhatsApp senden
+                                    </button>
+
+                                    <!-- 🆕 v5.90.863: BEARBEITEN-BUTTON -->
+                                    <button id="invoice-edit-toggle-btn" onclick="toggleInvoiceEditMode()" data-locked="true"
+                                            style="width:100%;padding:15px;background:#f59e0b;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                        ✏️ Bearbeiten
                                     </button>
                                 </div>
                                 
@@ -52853,6 +52862,15 @@ Funk Taxi Team`;
                     const shareButtons = document.getElementById('invoice-share-buttons');
                     if (shareButtons) {
                         shareButtons.style.display = 'flex';
+                    }
+
+                    // 🆕 v5.90.863: SPERRE FELDER bei existierender Rechnung!
+                    lockInvoiceFields();
+
+                    // Verstecke "PDF erstellen" Button
+                    const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
+                    if (createBtn) {
+                        createBtn.style.display = 'none';
                     }
                 }
 
@@ -54839,7 +54857,10 @@ Funk Taxi Team`;
                 if (shareButtons) {
                     shareButtons.style.display = 'flex';
                 }
-                
+
+                // 🆕 v5.90.863: SPERRE ALLE FELDER NACH ERSTELLUNG!
+                lockInvoiceFields();
+
                 // Verstecke "PDF erstellen" Button
                 const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
                 if (createBtn) {

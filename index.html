@@ -9,13 +9,25 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.862-STABLE
-    📅 BUILD: 29.01.2026 15:15 Uhr
+    📦 VERSION: v5.90.863-STABLE
+    📅 BUILD: 29.01.2026 16:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.862-STABLE
+    📋 CHANGELOG v5.90.863-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔒 v5.90.863-STABLE (29.01.2026):
+       • NEU: E-Mail wird jetzt bei Buchung aus CRM in ride gespeichert!
+       • FIX: Rechnungsnummern-Problem - keine neuen Nummern beim Bearbeiten
+       • FIX: Confirm-Dialog entfernt - Rechnung wird automatisch wiederhergestellt
+       • NEU: lockInvoiceFields() - Rechnungsfelder nach Erstellung gesperrt
+       • NEU: unlockInvoiceFields() - Entsperr-Funktion für Bearbeiten-Modus
+       • NEU: toggleInvoiceEditMode() - Toggle zwischen Sperren/Entsperren
+       • NEU: ✏️ Bearbeiten-Button im Rechnung-Modal (orange)
+       • AUTO: Felder werden bei existierender Rechnung automatisch gesperrt
+       • AUTO: Felder werden nach PDF-Erstellung automatisch gesperrt
+       • WORKFLOW: Rechnung erstellen → 🔒 gesperrt → ✏️ Bearbeiten → 💾 Speichern → 🔒 gesperrt
 
     📧 v5.90.862-STABLE (29.01.2026):
        • NEU: E-Mail-Status-Badge beim Kunden-Namen im Rechnungs-Tab!
@@ -24,6 +36,7 @@
        • NEU: E-Mail-Button wird IMMER angezeigt (aktiviert oder disabled)
        • UX: Sofort erkennbar ob E-Mail-Versand möglich ist
        • HINWEIS: Bei fehlender E-Mail wird Meldung mit CRM-Hinweis angezeigt
+       • FIX: E-Mail-Adresse wird jetzt aus customer.email UND ride.customerEmail gelesen!
 
     📧 v5.90.861-STABLE (29.01.2026):
        • FIX: E-Mail-Button im "Rechnung erstellen" Modal funktioniert jetzt korrekt!
@@ -31366,8 +31379,26 @@ Aktuell: ${currentNum}`;
             });
             
             // 📋 CRM: Kunde automatisch anlegen/aktualisieren
-            await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
-            
+            const customerId = await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
+
+            // 🆕 v5.90.862: E-MAIL AUS CRM HOLEN UND IN RIDE SPEICHERN!
+            if (customerId) {
+                try {
+                    const customerSnapshot = await db.ref(`customers/${customerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    if (customer && customer.email) {
+                        // Speichere E-Mail in ride
+                        await db.ref(`rides/${savedRide.id}`).update({
+                            customerEmail: customer.email,
+                            customerId: customerId
+                        });
+                        console.log('✅ v5.90.862: E-Mail in ride gespeichert:', customer.email);
+                    }
+                } catch (error) {
+                    console.error('⚠️ v5.90.862: Fehler beim E-Mail-Laden:', error);
+                }
+            }
+
             // 📋 CRM: Stammkunden-Daten aktualisieren wenn Checkbox aktiv
             const saveToCrmCheckbox = document.getElementById('save-to-crm');
             if (currentBookingCustomerId && saveToCrmCheckbox && saveToCrmCheckbox.checked) {
@@ -52573,8 +52604,8 @@ Funk Taxi Team`;
                 // 🆕 v5.87.90: NEUES FLEXIBLES RECHNUNGS-MODAL
                 const customerName = ride.customerName || customer?.name || 'Unbekannt';
                 const customerAddress = invoiceSelectedBillingAddress || customer?.billingAddress || customer?.address || '';
-                const customerEmail = customer?.email || '';
-                const customerPhone = customer?.phone || ride.phone || '';
+                const customerEmail = customer?.email || ride.customerEmail || ''; // 🆕 v5.90.862: Fallback zu ride.customerEmail
+                const customerPhone = customer?.phone || ride.customerPhone || ride.phone || ''; // 🆕 v5.90.862: Auch customerPhone prüfen
                 const guestName = ride.guestName || '';
                 const rideDate = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE');
                 const rideTime = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
@@ -52797,10 +52828,16 @@ Funk Taxi Team`;
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📧 Per E-Mail senden
                                     </button>
-                                    
-                                    <button onclick="shareInvoiceViaWhatsApp()" 
+
+                                    <button onclick="shareInvoiceViaWhatsApp()"
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📤 Per WhatsApp senden
+                                    </button>
+
+                                    <!-- 🆕 v5.90.863: BEARBEITEN-BUTTON -->
+                                    <button id="invoice-edit-toggle-btn" onclick="toggleInvoiceEditMode()" data-locked="true"
+                                            style="width:100%;padding:15px;background:#f59e0b;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                        ✏️ Bearbeiten
                                     </button>
                                 </div>
                                 
@@ -52826,6 +52863,15 @@ Funk Taxi Team`;
                     if (shareButtons) {
                         shareButtons.style.display = 'flex';
                     }
+
+                    // 🆕 v5.90.863: SPERRE FELDER bei existierender Rechnung!
+                    lockInvoiceFields();
+
+                    // Verstecke "PDF erstellen" Button
+                    const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
+                    if (createBtn) {
+                        createBtn.style.display = 'none';
+                    }
                 }
 
             } catch (error) {
@@ -52841,6 +52887,141 @@ Funk Taxi Team`;
             invoiceRideData = null;
             invoiceCustomerData = null;
             invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
+        }
+
+        // 🆕 v5.90.862: SPERRE/ENTSPERRE RECHNUNGS-FELDER
+        function lockInvoiceFields() {
+            console.log('🔒 v5.90.862: Sperre Rechnungs-Felder');
+
+            // Alle Input-Felder sperren
+            const fieldsToLock = [
+                'inv-customer-name', 'inv-guest-name', 'inv-address',
+                'inv-pickup', 'inv-destination', 'inv-date', 'inv-time',
+                'invoice-distance', 'invoice-vat-rate', 'invoice-payment-method',
+                'inv-delivery-date', 'inv-delivery-from', 'inv-delivery-to'
+            ];
+
+            fieldsToLock.forEach(id => {
+                const field = document.getElementById(id);
+                if (field) {
+                    field.disabled = true;
+                    field.style.backgroundColor = '#f3f4f6';
+                    field.style.cursor = 'not-allowed';
+                }
+            });
+
+            // Checkboxen sperren
+            const checkboxes = [
+                'inv-show-customer', 'inv-show-address', 'inv-show-guest',
+                'inv-show-route', 'inv-show-datetime', 'inv-show-distance', 'inv-show-vat'
+            ];
+
+            checkboxes.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.disabled = true;
+                    checkbox.style.cursor = 'not-allowed';
+                    if (checkbox.parentElement) {
+                        checkbox.parentElement.style.opacity = '0.6';
+                    }
+                }
+            });
+
+            // Positions-Buttons sperren
+            document.querySelectorAll('#invoice-positions-container button').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            });
+
+            // "Position hinzufügen" Button sperren
+            const addPosBtn = document.querySelector('button[onclick="addInvoicePosition()"]');
+            if (addPosBtn) {
+                addPosBtn.disabled = true;
+                addPosBtn.style.opacity = '0.5';
+                addPosBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        function unlockInvoiceFields() {
+            console.log('🔓 v5.90.862: Entsperre Rechnungs-Felder');
+
+            // Alle Input-Felder entsperren (AUSSER Rechnungsnummer)
+            const fieldsToUnlock = [
+                'inv-customer-name', 'inv-guest-name', 'inv-address',
+                'inv-pickup', 'inv-destination', 'inv-date', 'inv-time',
+                'invoice-distance', 'invoice-vat-rate', 'invoice-payment-method',
+                'inv-delivery-date', 'inv-delivery-from', 'inv-delivery-to'
+            ];
+
+            fieldsToUnlock.forEach(id => {
+                const field = document.getElementById(id);
+                if (field) {
+                    field.disabled = false;
+                    field.style.backgroundColor = 'white';
+                    field.style.cursor = 'text';
+                }
+            });
+
+            // Checkboxen entsperren
+            const checkboxes = [
+                'inv-show-customer', 'inv-show-address', 'inv-show-guest',
+                'inv-show-route', 'inv-show-datetime', 'inv-show-distance', 'inv-show-vat'
+            ];
+
+            checkboxes.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.disabled = false;
+                    checkbox.style.cursor = 'pointer';
+                    if (checkbox.parentElement) {
+                        checkbox.parentElement.style.opacity = '1';
+                    }
+                }
+            });
+
+            // Positions-Buttons entsperren
+            document.querySelectorAll('#invoice-positions-container button').forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+
+            // "Position hinzufügen" Button entsperren
+            const addPosBtn = document.querySelector('button[onclick="addInvoicePosition()"]');
+            if (addPosBtn) {
+                addPosBtn.disabled = false;
+                addPosBtn.style.opacity = '1';
+                addPosBtn.style.cursor = 'pointer';
+            }
+        }
+
+        function toggleInvoiceEditMode() {
+            console.log('✏️ v5.90.862: Toggle Bearbeiten-Modus');
+
+            const editBtn = document.getElementById('invoice-edit-toggle-btn');
+            if (!editBtn) return;
+
+            const isCurrentlyLocked = editBtn.getAttribute('data-locked') === 'true';
+
+            if (isCurrentlyLocked) {
+                // ENTSPERREN
+                unlockInvoiceFields();
+                editBtn.setAttribute('data-locked', 'false');
+                editBtn.innerHTML = '💾 Speichern & Sperren';
+                editBtn.style.background = '#10b981';
+            } else {
+                // SPERREN & SPEICHERN
+                const confirmSave = confirm('⚠️ Änderungen speichern?\n\nDie Rechnung wird mit den aktuellen Daten überschrieben.');
+                if (confirmSave) {
+                    // Speichern durch erneutes PDF erstellen
+                    generateInvoicePDFv2();
+                }
+                lockInvoiceFields();
+                editBtn.setAttribute('data-locked', 'true');
+                editBtn.innerHTML = '✏️ Bearbeiten';
+                editBtn.style.background = '#f59e0b';
+            }
         }
         
         // 🆕 v5.90.148: ÖFFNE KUNDEN-BEARBEITUNG AUS RECHNUNG
@@ -54336,25 +54517,10 @@ Funk Taxi Team`;
                             
                             showToast('✅ Rechnung geladen: ' + existingInvoiceNumber, 'success');
                             return; // STOPP - Modal ist jetzt gefüllt!
+                        } else {
+                            // 🆕 v5.90.862: Rechnung-Referenz existiert, aber Daten fehlen
+                            console.log('⚠️ v5.90.862: Rechnung in ride referenziert, aber nicht in /invoices - wird wiederhergestellt');
                         }
-                        
-                        // FALLBACK: Wenn Rechnung nicht in /invoices gefunden
-                        const confirmed = confirm(
-                            `⚠️ RECHNUNG EXISTIERT BEREITS!\n\n` +
-                            `Rechnungsnummer: ${existingInvoiceNumber}\n` +
-                            `Erstellt am: ${new Date(rideData.invoiceCreatedAt).toLocaleString('de-DE')}\n\n` +
-                            `Möchtest du die Rechnung NEU ERSTELLEN?\n` +
-                            `→ JA: Neue Rechnung mit GLEICHER Nummer\n` +
-                            `→ NEIN: Abbrechen`
-                        );
-                        
-                        if (!confirmed) {
-                            console.log('🛑 Rechnung-Erstellung abgebrochen (existiert bereits)');
-                            return;
-                        }
-                        
-                        // 🆕 v5.90.542: VERWENDE BESTEHENDE NUMMER!
-                        console.log('🔄 Erstelle Rechnung NEU mit bestehender Nummer:', existingInvoiceNumber);
                     }
                 }
                 
@@ -54691,7 +54857,10 @@ Funk Taxi Team`;
                 if (shareButtons) {
                     shareButtons.style.display = 'flex';
                 }
-                
+
+                // 🆕 v5.90.863: SPERRE ALLE FELDER NACH ERSTELLUNG!
+                lockInvoiceFields();
+
                 // Verstecke "PDF erstellen" Button
                 const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
                 if (createBtn) {

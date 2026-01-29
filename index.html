@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.833-STABLE
-    📅 BUILD: 25.01.2026 17:00 Uhr
+    📦 VERSION: v5.90.859-STABLE
+    📅 BUILD: 29.01.2026 14:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.836-STABLE
+    📋 CHANGELOG v5.90.859-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.859-STABLE (29.01.2026):
+       • NEU: EmailJS Integration für automatischen E-Mail-Versand!
+       • NEU: Rechnungen können direkt per E-Mail mit PDF-Anhang versendet werden
+       • NEU: E-Mail-Button im Fahrtenkalender-Modal für abgeschlossene Fahrten
+       • NEU: Automatischer E-Mail-Versand für Einzelrechnungen mit PDF
+       • FIX: Keine manuelle PDF-Anhang-Pflicht mehr - alles automatisch!
+       • NEU: E-Mail-Status wird in Firebase gespeichert (invoiceSentTo, emailSentAt)
 
     🎯 v5.90.836-STABLE (25.01.2026):
        • NEU: DETAILLIERTE SLOT-ANALYSE mit Dauer-Berechnungen!
@@ -8456,7 +8464,19 @@
     
     <!-- 📅 v5.87.23: Google Calendar API -->
     <script src="https://apis.google.com/js/api.js"></script>
-    
+
+    <!-- 📧 v5.90.858: EmailJS für automatischen E-Mail-Versand mit PDF-Anhang -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+            // EmailJS initialisieren
+            emailjs.init({
+                publicKey: "bFNJ0hR5TlYDTT6BS", // Public Key
+            });
+            console.log('📧 EmailJS initialisiert');
+        })();
+    </script>
+
     <script>
         // 🐛 DEBUG STUB - Wird später überschrieben, aber verhindert Fehler bei frühen Aufrufen
         let debugPanelLogs = [];
@@ -20641,6 +20661,8 @@ Aktuell: ${currentNum}`;
                             let buttonCount = 3; // Schließen + ID kopieren + WhatsApp
                             if (ride.status === 'cancelled') buttonCount++; // Wiederherstellen
                             if (ride.status === 'completed') buttonCount++; // Status ändern
+                            // 🆕 v5.90.858: E-Mail-Button für abgeschlossene Fahrten mit Rechnung!
+                            if (ride.status === 'completed' && ride.customerEmail && (ride.invoiceNumber || ride.invoicePdfUrl)) buttonCount++;
                             // 🆕 v5.90.270: Admin-Accept Button wenn assigned!
                             if (ride.status === 'assigned') buttonCount++;
                             // 🆕 v5.87.58: Stornieren NUR wenn KEINE Hotel-Fahrt!
@@ -20660,6 +20682,12 @@ Aktuell: ${currentNum}`;
                             ${ride.status === 'completed' && ride.firebaseId ? `
                             <button onclick="changeRideStatus('${ride.firebaseId}', '${ride.status}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 ⚙️ Status
+                            </button>
+                            ` : ''}
+                            ${ride.status === 'completed' && ride.customerEmail && (ride.invoiceNumber || ride.invoicePdfUrl) && ride.firebaseId ? `
+                            <!-- 🆕 v5.90.858: E-MAIL-BUTTON! -->
+                            <button onclick="sendInvoiceViaEmail('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                📧 E-Mail
                             </button>
                             ` : ''}
                             ${ride.status === 'assigned' && ride.firebaseId ? `
@@ -39195,54 +39223,58 @@ Funk Taxi Team`;
         async function sendInvoiceViaEmail(rideId) {
             // Schließe Modal
             document.getElementById('invoice-options-modal')?.remove();
-            
+
             // Zeige Loading
             const loadingModal = document.createElement('div');
             loadingModal.id = 'loading-modal';
             loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:190002;display:flex;align-items:center;justify-content:center;';
             loadingModal.innerHTML = `
                 <div style="text-align:center;color:white;">
-                    <div style="font-size:64px;margin-bottom:20px;">📱</div>
+                    <div style="font-size:64px;margin-bottom:20px;">📧</div>
                     <div style="font-size:20px;font-weight:700;margin-bottom:10px;" id="loading-text">Erstelle PDF...</div>
                     <div style="font-size:14px;opacity:0.8;">Bitte warten</div>
                 </div>
             `;
             document.body.appendChild(loadingModal);
-            
+
             try {
                 // Hole Fahrt-Daten
                 const rideSnapshot = await db.ref('rides/' + rideId).once('value');
                 const rideData = rideSnapshot.val();
-                
+
                 if (!rideData) {
                     throw new Error('Fahrt nicht gefunden!');
                 }
-                
-                console.log('📱 v5.90.525: Erstelle Rechnung-PDF für Email:', rideData.customerName);
-                
-                // 🆕 v5.90.525: ERSTELLE PDF MIT jsPDF!
+
+                if (!rideData.customerEmail) {
+                    throw new Error('Keine E-Mail-Adresse für diesen Kunden vorhanden!');
+                }
+
+                console.log('📧 v5.90.858: Erstelle Rechnung-PDF für Email:', rideData.customerName);
+
+                // 🆕 v5.90.858: ERSTELLE PDF MIT jsPDF!
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                
-                // Rechnung-Nummer generieren
+
+                // Rechnung-Nummer generieren (verwende bestehende oder erstelle neue)
                 const now = new Date();
-                const invoiceNumber = `RE-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-                
-                // PDF erstellen (gleicher Code wie WhatsApp)
+                const invoiceNumber = rideData.invoiceNumber || `RE-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+                // PDF erstellen
                 doc.setFontSize(20);
                 doc.setFont(undefined, 'bold');
                 doc.text('FUNK TAXI', 20, 20);
-                
+
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text('Musterstraße 123', 20, 28);
                 doc.text('12345 Musterstadt', 20, 33);
                 doc.text('Tel: 0123 456789', 20, 38);
-                
+
                 doc.setFontSize(10);
                 doc.text(`Rechnung Nr.: ${invoiceNumber}`, 20, 55);
                 doc.text(`Datum: ${now.toLocaleDateString('de-DE')}`, 20, 60);
-                
+
                 doc.setFontSize(12);
                 doc.setFont(undefined, 'bold');
                 doc.text('Kunde:', 20, 75);
@@ -39251,7 +39283,7 @@ Funk Taxi Team`;
                 if (rideData.customerPhone) {
                     doc.text(rideData.customerPhone, 20, 87);
                 }
-                
+
                 doc.setFontSize(12);
                 doc.setFont(undefined, 'bold');
                 doc.text('Fahrt-Details:', 20, 105);
@@ -39261,99 +39293,109 @@ Funk Taxi Team`;
                 doc.text(`Nach: ${rideData.destination || rideData.dropoff || '?'}`, 20, 117);
                 doc.text(`Datum: ${new Date(rideData.pickupTimestamp || rideData.timestamp).toLocaleDateString('de-DE')}`, 20, 122);
                 doc.text(`Uhrzeit: ${rideData.pickupTime || '?'}`, 20, 127);
-                
+
                 doc.setFontSize(12);
                 doc.setFont(undefined, 'bold');
                 doc.text('Positionen:', 20, 145);
-                
+
                 const price = rideData.actualPrice || rideData.estimatedPrice || rideData.price || 0;
-                const taxRate = (rideData.vatRate || 19) / 100; // 🔧 FIX v5.90.625
+                const taxRate = (rideData.vatRate || 19) / 100;
                 const netPrice = price / (1 + taxRate);
                 const taxAmount = price - netPrice;
-                
+
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text('Beschreibung', 20, 155);
                 doc.text('Betrag', 150, 155);
                 doc.line(20, 157, 190, 157);
-                
+
                 doc.text('Taxifahrt', 20, 165);
                 doc.text(`${price.toFixed(2)} €`, 150, 165);
-                
+
                 doc.line(20, 175, 190, 175);
                 doc.text('Netto:', 130, 183);
                 doc.text(`${netPrice.toFixed(2)} €`, 150, 183);
-                doc.text(`MwSt. (${(taxRate * 100).toFixed(0)}%):`, 130, 188); // 🔧 FIX v5.90.625
+                doc.text(`MwSt. (${(taxRate * 100).toFixed(0)}%):`, 130, 188);
                 doc.text(`${taxAmount.toFixed(2)} €`, 150, 188);
-                
+
                 doc.setFont(undefined, 'bold');
                 doc.text('Gesamt:', 130, 198);
                 doc.text(`${price.toFixed(2)} €`, 150, 198);
-                
+
                 doc.setFontSize(8);
                 doc.setFont(undefined, 'normal');
                 doc.text('Vielen Dank für Ihre Fahrt mit Funk Taxi!', 20, 270);
-                
-                console.log('✅ v5.90.525: PDF erstellt!');
-                
-                // 🆕 v5.90.525: UPLOAD ZU FIREBASE STORAGE!
-                document.getElementById('loading-text').textContent = 'Lade PDF hoch...';
-                
+
+                console.log('✅ v5.90.858: PDF erstellt!');
+
+                // 🆕 v5.90.858: PDF zu Base64 konvertieren für EmailJS
+                document.getElementById('loading-text').textContent = 'Bereite E-Mail vor...';
+                const pdfBase64 = doc.output('dataurlstring').split(',')[1];
+
+                // 🆕 v5.90.858: SENDE E-MAIL MIT EMAILJS!
+                document.getElementById('loading-text').textContent = 'Sende E-Mail...';
+
+                const templateParams = {
+                    to_email: rideData.customerEmail,
+                    to_name: rideData.customerName || 'Kunde',
+                    invoice_number: invoiceNumber,
+                    customer_name: rideData.customerName || 'Unbekannt',
+                    pickup: rideData.pickup || '?',
+                    destination: rideData.destination || rideData.dropoff || '?',
+                    date: new Date(rideData.pickupTimestamp || rideData.timestamp).toLocaleDateString('de-DE'),
+                    price: price.toFixed(2),
+                    pdf_attachment: pdfBase64,
+                    pdf_filename: `${invoiceNumber}.pdf`
+                };
+
+                console.log('📧 v5.90.858: Sende E-Mail an:', rideData.customerEmail);
+
+                const response = await emailjs.send(
+                    'service_w20eww8', // Service ID
+                    'template_8tpc5f8', // Template ID
+                    templateParams
+                );
+
+                console.log('✅ v5.90.858: E-Mail erfolgreich gesendet!', response);
+
+                // 🆕 v5.90.858: Optional - Upload zu Firebase Storage für Backup
+                document.getElementById('loading-text').textContent = 'Speichere PDF...';
+
                 const pdfBlob = doc.output('blob');
                 const fileName = `${invoiceNumber}.pdf`;
                 const storageRef = window.firebaseStorage.ref(`invoices/${fileName}`);
-                
-                console.log('📤 v5.90.525: Uploade PDF zu Firebase Storage...');
+
                 await storageRef.put(pdfBlob);
-                console.log('✅ v5.90.525: PDF hochgeladen!');
-                
                 const downloadURL = await storageRef.getDownloadURL();
-                console.log('🔗 v5.90.525: Download-URL:', downloadURL);
-                
+
                 await db.ref(`rides/${rideId}`).update({
                     invoiceNumber: invoiceNumber,
                     invoicePdfUrl: downloadURL,
-                    invoiceCreatedAt: Date.now()
-                });
-                
-                loadingModal.remove();
-                
-                // 🆕 v5.90.525: EMAIL-CLIENT ÖFFNEN (mailto)
-                const subject = `Rechnung ${invoiceNumber} - Funk Taxi`;
-                const body = `Hallo ${rideData.customerName || ''},
-
-Vielen Dank für Ihre Fahrt mit Funk Taxi!
-
-Hier ist Ihre Rechnung:
-${downloadURL}
-
-Fahrt-Details:
-Von: ${rideData.pickup || '?'}
-Nach: ${rideData.destination || rideData.dropoff || '?'}
-Datum: ${new Date(rideData.pickupTimestamp || rideData.timestamp).toLocaleDateString('de-DE')}
-Preis: ${price.toFixed(2)} €
-
-Mit freundlichen Grüßen
-Funk Taxi Team`;
-                
-                const mailtoUrl = `mailto:${rideData.customerEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.location.href = mailtoUrl;
-                
-                await db.ref(`rides/${rideId}`).update({
+                    invoiceCreatedAt: Date.now(),
                     invoiceSent: true,
                     invoiceSentAt: Date.now(),
-                    invoiceSentVia: 'email'
+                    invoiceSentVia: 'email',
+                    invoiceSentTo: rideData.customerEmail
                 });
-                
-                alert('✅ Rechnung erstellt & Email-Client geöffnet!\n\nPDF: ' + invoiceNumber);
-                
-                finalizeRideCompletion(rideId, rideData);
-                
+
+                loadingModal.remove();
+
+                alert(`✅ Rechnung erfolgreich per E-Mail versendet!\n\nAn: ${rideData.customerEmail}\nRechnung: ${invoiceNumber}`);
+
+                // Wenn von Invoice-Options Modal aufgerufen → finalisiere Fahrt
+                if (typeof finalizeRideCompletion === 'function') {
+                    finalizeRideCompletion(rideId, rideData);
+                }
+
             } catch (error) {
-                console.error('💾 v5.90.525: Fehler beim Email-Versand:', error);
+                console.error('❌ v5.90.858: Fehler beim Email-Versand:', error);
                 loadingModal?.remove();
-                alert('💾 Fehler beim Erstellen der Rechnung:\n\n' + error.message);
-                skipInvoiceNow(rideId);
+                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message + '\n\nBitte prüfen Sie die E-Mail-Adresse und versuchen Sie es erneut.');
+
+                // Wenn von Invoice-Options Modal aufgerufen
+                if (typeof skipInvoiceNow === 'function') {
+                    skipInvoiceNow(rideId);
+                }
             }
         }
         
@@ -73762,25 +73804,37 @@ Taxi kommt pünktlich!
             }
         }
         
-        // 🆕 v5.90.128: EINZEL-RECHNUNG PER E-MAIL VERSENDEN
+        // 🆕 v5.90.858: EINZEL-RECHNUNG PER E-MAIL VERSENDEN (AUTOMATISCH MIT PDF)
         async function sendSingleInvoiceViaEmail(invoiceId) {
-            console.log('📧 Versende Einzel-Rechnung per E-Mail:', invoiceId);
-            
+            console.log('📧 v5.90.858: Versende Einzel-Rechnung per E-Mail:', invoiceId);
+
+            // Zeige Loading
+            const loadingModal = document.createElement('div');
+            loadingModal.id = 'loading-modal';
+            loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:190002;display:flex;align-items:center;justify-content:center;';
+            loadingModal.innerHTML = `
+                <div style="text-align:center;color:white;">
+                    <div style="font-size:64px;margin-bottom:20px;">📧</div>
+                    <div style="font-size:20px;font-weight:700;margin-bottom:10px;" id="loading-text-single">Lade Rechnung...</div>
+                    <div style="font-size:14px;opacity:0.8;">Bitte warten</div>
+                </div>
+            `;
+            document.body.appendChild(loadingModal);
+
             try {
                 // Lade Rechnung
                 const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const invoice = snapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
-                    return;
+                    throw new Error('Rechnung nicht gefunden!');
                 }
-                
+
                 // Prüfe ob Kunde eine E-Mail hat
                 let customerEmail = invoice.customerEmail;
-                console.log('📧 v5.90.152: E-Mail aus Rechnung:', customerEmail);
-                console.log('📧 v5.90.152: Customer ID:', invoice.customerId);
-                
+                console.log('📧 v5.90.858: E-Mail aus Rechnung:', customerEmail);
+                console.log('📧 v5.90.858: Customer ID:', invoice.customerId);
+
                 if (!customerEmail && invoice.customerId) {
                     console.log('🔍 Lade Kunde aus Firebase:', invoice.customerId);
                     const customerSnapshot = await db.ref(`customers/${invoice.customerId}`).once('value');
@@ -73788,38 +73842,78 @@ Taxi kommt pünktlich!
                     customerEmail = customer?.email;
                     console.log('📧 E-Mail vom Kunden geladen:', customerEmail);
                 }
-                
+
                 if (!customerEmail || customerEmail.trim() === '') {
-                    console.error('💾 Keine E-Mail gefunden!');
-                    console.error('   Invoice Customer Email:', invoice.customerEmail);
-                    console.error('   Invoice Customer ID:', invoice.customerId);
-                    console.error('   Invoice Customer Name:', invoice.customerName);
+                    loadingModal.remove();
                     alert('💾 Keine E-Mail-Adresse für diesen Kunden hinterlegt!\n\nBitte E-Mail-Adresse im CRM hinzufügen.\n\n💡 Tipp: Nutze den "✏️ CRM" Button in der Rechnungs-Liste!');
                     return;
                 }
-                
-                console.log('✅ E-Mail gefunden:', customerEmail);
-                
-                // Erstelle E-Mail mit PDF
-                const subject = `Rechnung ${invoice.invoiceNumber || invoice.id} - Taxi Heringsdorf`;
-                const body = `Sehr geehrte/r ${invoice.customerName || 'Kunde'},\n\n` +
-                             `anbei erhalten Sie Ihre Rechnung ${invoice.invoiceNumber || invoice.id}.\n\n` +
-                             `Betrag: ${(invoice.totalGross || 0).toFixed(2)}€\n` +
-                             `Status: ${invoice.status === 'bezahlt' ? 'Bezahlt' : 'Offen'}\n\n` +
-                             `Vielen Dank für Ihr Vertrauen!\n\n` +
-                             `Mit freundlichen Grüßen\n` +
-                             `Ihr Taxi-Team`;
-                
-                // Öffne E-Mail-Programm
-                const mailtoLink = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.open(mailtoLink, '_blank');
-                
-                console.log('✅ E-Mail-Programm geöffnet');
-                alert('📧 E-Mail-Programm geöffnet!\n\nBitte hängen Sie die PDF-Rechnung manuell an.');
-                
+
+                console.log('✅ v5.90.858: E-Mail gefunden:', customerEmail);
+
+                // Prüfe ob PDF-URL vorhanden ist
+                if (!invoice.pdfUrl) {
+                    loadingModal.remove();
+                    alert('💾 Keine PDF-Datei für diese Rechnung vorhanden!\n\nBitte erstellen Sie zuerst eine PDF-Rechnung.');
+                    return;
+                }
+
+                // 🆕 v5.90.858: PDF von URL laden und in Base64 konvertieren
+                document.getElementById('loading-text-single').textContent = 'Lade PDF...';
+
+                const response = await fetch(invoice.pdfUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+
+                const pdfBase64 = await new Promise((resolve, reject) => {
+                    reader.onloadend = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
+                // 🆕 v5.90.858: SENDE E-MAIL MIT EMAILJS!
+                document.getElementById('loading-text-single').textContent = 'Sende E-Mail...';
+
+                const templateParams = {
+                    to_email: customerEmail,
+                    to_name: invoice.customerName || 'Kunde',
+                    invoice_number: invoice.invoiceNumber || invoice.id,
+                    customer_name: invoice.customerName || 'Unbekannt',
+                    pickup: 'Siehe Rechnung',
+                    destination: 'Siehe Rechnung',
+                    date: new Date(invoice.createdAt || Date.now()).toLocaleDateString('de-DE'),
+                    price: (invoice.totalGross || 0).toFixed(2),
+                    pdf_attachment: pdfBase64,
+                    pdf_filename: `${invoice.invoiceNumber || invoice.id}.pdf`
+                };
+
+                console.log('📧 v5.90.858: Sende E-Mail an:', customerEmail);
+
+                const emailResponse = await emailjs.send(
+                    'service_w20eww8', // Service ID
+                    'template_8tpc5f8', // Template ID
+                    templateParams
+                );
+
+                console.log('✅ v5.90.858: E-Mail erfolgreich gesendet!', emailResponse);
+
+                // Update Invoice
+                await db.ref(`invoices/${invoiceId}`).update({
+                    emailSent: true,
+                    emailSentAt: Date.now(),
+                    emailSentTo: customerEmail
+                });
+
+                loadingModal.remove();
+                alert(`✅ Rechnung erfolgreich per E-Mail versendet!\n\nAn: ${customerEmail}\nRechnung: ${invoice.invoiceNumber || invoice.id}`);
+
             } catch (error) {
-                console.error('💾 Fehler:', error);
-                alert('💾 Fehler beim Versenden: ' + error.message);
+                console.error('❌ v5.90.858: Fehler beim E-Mail-Versand:', error);
+                loadingModal?.remove();
+                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message);
             }
         }
         

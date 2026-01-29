@@ -8635,7 +8635,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.854';
+        const APP_VERSION = '5.90.864';
         const APP_BUILD = '20260123-MOBILE-KARTE-MIT-ANALYSE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -28372,10 +28372,12 @@ Aktuell: ${currentNum}`;
                 // Hole Pickup/Destination für Distanz-Prüfung
                 const pickupInput = document.getElementById('pickup');
                 const destinationInput = document.getElementById('destination');
-                const durationInput = document.getElementById('duration'); // 🆕 v5.90.664: DURATION HOLEN!
                 const pickup = pickupInput ? pickupInput.value.trim() : '';
                 const destination = destinationInput ? destinationInput.value.trim() : '';
-                const duration = durationInput ? durationInput.value.trim() : '15'; // 🆕 v5.90.664: DEFAULT 15 MIN
+
+                // 🆕 v5.90.864: Verwende berechnete Gesamtdauer aus window.currentTotalDuration
+                // statt eines nicht-existierenden Input-Feldes
+                const duration = window.currentTotalDuration || '15'; // Fallback auf 15 Min wenn nicht berechnet
                 
                 console.log('📊 Kalender-Check:');
                 console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));

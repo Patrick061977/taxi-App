@@ -49743,15 +49743,21 @@ Funk Taxi Team`;
             }
             
             // 🆕 v5.90.653: Bestimme POI-Typ für Filter
-            function getPOIType(poiName) {
-                const name = poiName.toLowerCase();
-                
+            // 🔧 v5.90.859: Nutze jetzt category-Feld (mit Fallback auf Name-Keywords)
+            function getPOIType(poi) {
+                // Nutze gespeicherte Kategorie wenn vorhanden
+                if (poi.category) {
+                    return poi.category;
+                }
+
+                // Fallback: Keywords im Namen suchen (für alte POIs ohne category)
+                const name = poi.name.toLowerCase();
                 if (name.includes('bahnhof')) return 'bahnhof';
                 if (name.includes('hotel') || name.includes('pension')) return 'hotel';
                 if (name.includes('restaurant') || name.includes('gaststätte')) return 'restaurant';
                 if (name.includes('café') || name.includes('cafe')) return 'cafe';
                 if (name.includes('museum') || name.includes('kirche') || name.includes('seebrücke')) return 'museum';
-                
+
                 return 'other';
             }
             
@@ -49777,7 +49783,7 @@ Funk Taxi Team`;
             // Erstelle Marker für jeden POI
             visiblePOIs.forEach(poi => {
                 const icon = getPOIIcon(poi.name);
-                const poiType = getPOIType(poi.name);
+                const poiType = getPOIType(poi);
                 
                 // 🆕 v5.90.653: Filter anwenden
                 if (filterType !== 'all' && poiType !== filterType) {
@@ -69505,12 +69511,26 @@ Taxi kommt pünktlich!
             }
             
             try {
+                // 🆕 v5.90.859: Kategorie-Labels
+                const getCategoryLabel = (category) => {
+                    const categories = {
+                        'bahnhof': '🚉 Bahnhof',
+                        'hotel': '🏨 Hotel',
+                        'restaurant': '🍽️ Restaurant',
+                        'cafe': '☕ Café',
+                        'museum': '🏛️ Sehenswürdigkeit',
+                        'other': '📍 Sonstiges'
+                    };
+                    return categories[category] || '📍 Sonstiges';
+                };
+
                 container.innerHTML = `
                     <div style="display:grid;gap:10px;">
                         ${allPOIs.map(poi => {
                             const lat = poi.lat ? poi.lat.toFixed(6) : '?';
                             const lon = poi.lon ? poi.lon.toFixed(6) : '?';
                             const safeName = (poi.name || 'Unbenannt').replace(/'/g, "\\'");
+                            const categoryLabel = getCategoryLabel(poi.category);
                             return `
                             <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
                                  onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
@@ -69520,6 +69540,7 @@ Taxi kommt pünktlich!
                                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                                             <div style="font-size:20px;">⭐</div>
                                             <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name || 'Unbenannt'}</div>
+                                            <div style="background:#f59e0b;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">${categoryLabel}</div>
                                             ${poi.showOnMap !== false
                                                 ? '<div style="background:#10b981;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🗺️ Sichtbar</div>'
                                                 : '<div style="background:#6b7280;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">👁️ Ausgeblendet</div>'}
@@ -69581,7 +69602,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="poi-name" placeholder="z.B. Bahnhof Heringsdorf"
                                    style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="poi-category" style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof">🚉 Bahnhof</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="restaurant">🍽️ Restaurant</option>
+                                <option value="cafe">☕ Café</option>
+                                <option value="museum">🏛️ Sehenswürdigkeit</option>
+                                <option value="other" selected>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -69781,6 +69814,7 @@ Taxi kommt pünktlich!
         
         async function savePOI() {
             const name = document.getElementById('poi-name').value.trim();
+            const category = document.getElementById('poi-category').value;
             const address = document.getElementById('poi-address').value.trim();
             const lat = parseFloat(document.getElementById('poi-lat').value);
             const lon = parseFloat(document.getElementById('poi-lon').value);
@@ -69806,6 +69840,7 @@ Taxi kommt pünktlich!
 
                 await db.ref('pois').push({
                     name,
+                    category,
                     address,
                     lat,
                     lon,
@@ -69876,7 +69911,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="edit-poi-name" value="${poi.name.replace(/"/g, '&quot;')}"
                                    style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="edit-poi-category" style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof" ${poi.category === 'bahnhof' ? 'selected' : ''}>🚉 Bahnhof</option>
+                                <option value="hotel" ${poi.category === 'hotel' ? 'selected' : ''}>🏨 Hotel</option>
+                                <option value="restaurant" ${poi.category === 'restaurant' ? 'selected' : ''}>🍽️ Restaurant</option>
+                                <option value="cafe" ${poi.category === 'cafe' ? 'selected' : ''}>☕ Café</option>
+                                <option value="museum" ${poi.category === 'museum' ? 'selected' : ''}>🏛️ Sehenswürdigkeit</option>
+                                <option value="other" ${!poi.category || poi.category === 'other' ? 'selected' : ''}>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -70018,6 +70065,7 @@ Taxi kommt pünktlich!
         
         async function updatePOI(id) {
             const name = document.getElementById('edit-poi-name').value.trim();
+            const category = document.getElementById('edit-poi-category').value;
             const address = document.getElementById('edit-poi-address').value.trim();
             const lat = parseFloat(document.getElementById('edit-poi-lat').value);
             const lon = parseFloat(document.getElementById('edit-poi-lon').value);
@@ -70031,6 +70079,7 @@ Taxi kommt pünktlich!
             try {
                 await db.ref('pois/' + id).update({
                     name,
+                    category,
                     address,
                     lat,
                     lon,

@@ -24,6 +24,7 @@
        • NEU: E-Mail-Button wird IMMER angezeigt (aktiviert oder disabled)
        • UX: Sofort erkennbar ob E-Mail-Versand möglich ist
        • HINWEIS: Bei fehlender E-Mail wird Meldung mit CRM-Hinweis angezeigt
+       • FIX: E-Mail-Adresse wird jetzt aus customer.email UND ride.customerEmail gelesen!
 
     📧 v5.90.861-STABLE (29.01.2026):
        • FIX: E-Mail-Button im "Rechnung erstellen" Modal funktioniert jetzt korrekt!
@@ -52573,8 +52574,8 @@ Funk Taxi Team`;
                 // 🆕 v5.87.90: NEUES FLEXIBLES RECHNUNGS-MODAL
                 const customerName = ride.customerName || customer?.name || 'Unbekannt';
                 const customerAddress = invoiceSelectedBillingAddress || customer?.billingAddress || customer?.address || '';
-                const customerEmail = customer?.email || '';
-                const customerPhone = customer?.phone || ride.phone || '';
+                const customerEmail = customer?.email || ride.customerEmail || ''; // 🆕 v5.90.862: Fallback zu ride.customerEmail
+                const customerPhone = customer?.phone || ride.customerPhone || ride.phone || ''; // 🆕 v5.90.862: Auch customerPhone prüfen
                 const guestName = ride.guestName || '';
                 const rideDate = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE');
                 const rideTime = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});

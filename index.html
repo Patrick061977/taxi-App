@@ -79310,5 +79310,31 @@ if (document.readyState === 'loading') {
         }
     </style>
 
+    <!-- 🔍 ADVANCED LOGGING SYSTEM v1.0.0 -->
+    <!-- Transaction Tracing, Performance Monitoring & Fehleranalyse -->
+    <!-- Dokumentation: LOGGING-SYSTEM-README.md -->
+    <script src="advanced-logger.js"></script>
+    <script>
+        // 🔍 Logger ist bereit - initialisiere mit Session-Info
+        console.log('🔍 Advanced Logging System geladen');
+        console.log('📊 Session ID:', window.advancedLogger?.sessionId);
+        console.log('📖 Dokumentation: LOGGING-SYSTEM-README.md');
+        console.log('🎨 Log Viewer: log-viewer.html');
+
+        // Log System-Start
+        if (window.advancedLogger && window.advancedLogger.isReady) {
+            window.advancedLogger.info(
+                LOG_CATEGORIES.SYSTEM,
+                '🚀 Taxi App gestartet',
+                {
+                    version: APP_VERSION || '5.90.859',
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language
+                }
+            );
+        }
+    </script>
+
 </body>
 </html>

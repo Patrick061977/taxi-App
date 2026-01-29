@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Advanced Log Viewer - Taxi App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filters-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select, input[type="text"], input[type="date"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        select:focus, input:focus {
+            border-color: #3b82f6;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .logs-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .logs-header {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .logs-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-entry.expanded {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .log-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .log-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .log-time {
+            color: #94a3b8;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            min-width: 120px;
+        }
+
+        .log-level {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .log-level.DEBUG { background: #374151; color: #9ca3af; }
+        .log-level.INFO { background: #065f46; color: #10b981; }
+        .log-level.WARN { background: #78350f; color: #f59e0b; }
+        .log-level.ERROR { background: #7f1d1d; color: #ef4444; }
+        .log-level.CRITICAL { background: #991b1b; color: #dc2626; }
+
+        .log-category {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        .log-message {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .log-details {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            display: none;
+        }
+
+        .log-entry.expanded .log-details {
+            display: block;
+        }
+
+        .log-details pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .transaction-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(168, 85, 247, 0.2);
+            color: #c084fc;
+            font-family: 'Courier New', monospace;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                🔍 Advanced Log Viewer
+                <span style="font-size: 14px; color: #94a3b8; font-weight: 400;">Taxi App v1.0</span>
+            </h1>
+            <div class="subtitle">
+                Vollständige Transaction-Tracing & Performance-Monitoring
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="value" id="stat-total">0</div>
+                    <div class="label">Total Logs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-transactions">0</div>
+                    <div class="label">Transactions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-errors">0</div>
+                    <div class="label">Errors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-today">0</div>
+                    <div class="label">Today</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-panel">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>🎯 Kategorie</label>
+                    <select id="filter-category">
+                        <option value="">Alle Kategorien</option>
+                        <option value="system">System</option>
+                        <option value="gps">GPS</option>
+                        <option value="route">Route</option>
+                        <option value="booking">Booking</option>
+                        <option value="payment">Payment</option>
+                        <option value="auth">Auth</option>
+                        <option value="database">Database</option>
+                        <option value="ui">UI</option>
+                        <option value="performance">Performance</option>
+                        <option value="network">Network</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>📊 Log Level</label>
+                    <select id="filter-level">
+                        <option value="">Alle Levels</option>
+                        <option value="0">DEBUG</option>
+                        <option value="1">INFO</option>
+                        <option value="2">WARN</option>
+                        <option value="3">ERROR</option>
+                        <option value="4">CRITICAL</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>📅 Von Datum</label>
+                    <input type="date" id="filter-start-date">
+                </div>
+
+                <div class="filter-group">
+                    <label>📅 Bis Datum</label>
+                    <input type="date" id="filter-end-date">
+                </div>
+
+                <div class="filter-group">
+                    <label>🔍 Transaction ID</label>
+                    <input type="text" id="filter-transaction" placeholder="txn_...">
+                </div>
+
+                <div class="filter-group">
+                    <label>🚖 Ride ID</label>
+                    <input type="text" id="filter-ride" placeholder="ride_...">
+                </div>
+
+                <div class="filter-group">
+                    <label>🔎 Suche</label>
+                    <input type="text" id="filter-search" placeholder="Suchbegriff...">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="applyFilters()">
+                    🔍 Filter anwenden
+                </button>
+                <button class="btn btn-secondary" onclick="resetFilters()">
+                    🔄 Zurücksetzen
+                </button>
+                <button class="btn btn-secondary" onclick="refreshLogs()">
+                    ♻️ Neu laden
+                </button>
+                <button class="btn btn-secondary" onclick="exportLogs('json')">
+                    💾 Export JSON
+                </button>
+                <button class="btn btn-secondary" onclick="exportLogs('csv')">
+                    📊 Export CSV
+                </button>
+                <button class="btn btn-secondary" onclick="exportLogs('txt')">
+                    📄 Export TXT
+                </button>
+                <button class="btn btn-danger" onclick="clearAllLogs()">
+                    🗑️ Logs löschen
+                </button>
+            </div>
+        </div>
+
+        <!-- Logs Container -->
+        <div class="logs-container">
+            <div class="logs-header">
+                <h2>📝 Log Einträge</h2>
+                <div id="log-count">0 Logs</div>
+            </div>
+            <div class="logs-list" id="logs-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 16px;">Lade Logs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Logger -->
+    <script src="advanced-logger.js"></script>
+
+    <script>
+        let allLogs = [];
+        let filteredLogs = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🔍 Log Viewer initialized');
+
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            document.getElementById('filter-start-date').value = weekAgo;
+            document.getElementById('filter-end-date').value = today;
+
+            // Wait for logger to be ready
+            if (!window.advancedLogger) {
+                console.error('❌ Advanced Logger not found!');
+                return;
+            }
+
+            // Wait for DB to be ready
+            let retries = 0;
+            while (!window.advancedLogger.isReady && retries < 20) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+
+            if (!window.advancedLogger.isReady) {
+                console.error('❌ Logger not ready after 2 seconds');
+            }
+
+            await loadLogs();
+        });
+
+        async function loadLogs() {
+            try {
+                allLogs = await window.advancedLogger.getLogs();
+                console.log('✅ Loaded', allLogs.length, 'logs');
+                await updateStatistics();
+                await applyFilters();
+            } catch (error) {
+                console.error('❌ Failed to load logs:', error);
+                document.getElementById('logs-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div>Fehler beim Laden der Logs</div>
+                        <div style="margin-top: 8px; font-size: 12px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function updateStatistics() {
+            const stats = await window.advancedLogger.getStatistics();
+
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-transactions').textContent = stats.transactions;
+            document.getElementById('stat-errors').textContent = stats.errors;
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('stat-today').textContent = stats.byDate[today] || 0;
+        }
+
+        async function applyFilters() {
+            const filters = {
+                category: document.getElementById('filter-category').value,
+                level: document.getElementById('filter-level').value ? parseInt(document.getElementById('filter-level').value) : undefined,
+                transactionId: document.getElementById('filter-transaction').value.trim(),
+                rideId: document.getElementById('filter-ride').value.trim(),
+                startDate: document.getElementById('filter-start-date').value,
+                endDate: document.getElementById('filter-end-date').value,
+                search: document.getElementById('filter-search').value.trim().toLowerCase()
+            };
+
+            filteredLogs = allLogs.filter(log => {
+                if (filters.category && log.category !== filters.category) return false;
+                if (filters.level !== undefined && log.level < filters.level) return false;
+                if (filters.transactionId && log.transactionId !== filters.transactionId) return false;
+                if (filters.rideId && log.context?.rideId !== filters.rideId) return false;
+                if (filters.startDate && log.date < filters.startDate) return false;
+                if (filters.endDate && log.date > filters.endDate) return false;
+                if (filters.search && !log.message.toLowerCase().includes(filters.search)) return false;
+                return true;
+            });
+
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logs-list');
+            const count = document.getElementById('log-count');
+
+            count.textContent = `${filteredLogs.length} Logs`;
+
+            if (filteredLogs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>Keine Logs gefunden</div>
+                        <div style="margin-top: 8px; font-size: 12px;">Versuche andere Filter</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by timestamp descending (newest first)
+            filteredLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+            const icons = {
+                'DEBUG': '🔍',
+                'INFO': '✅',
+                'WARN': '⚠️',
+                'ERROR': '❌',
+                'CRITICAL': '🚨'
+            };
+
+            container.innerHTML = filteredLogs.map((log, index) => {
+                const time = new Date(log.timestamp).toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    fractionalSecondDigits: 3
+                });
+
+                return `
+                    <div class="log-entry" onclick="toggleLogDetails(${index})">
+                        <div class="log-header">
+                            <span class="log-icon">${icons[log.levelName]}</span>
+                            <span class="log-time">${time}</span>
+                            <span class="log-level ${log.levelName}">${log.levelName}</span>
+                            <span class="log-category">${log.category}</span>
+                            ${log.transactionId ? `<span class="transaction-badge">${log.transactionId.substring(0, 12)}...</span>` : ''}
+                            <div class="log-message">${escapeHtml(log.message)}</div>
+                        </div>
+                        <div class="log-details">
+                            <strong>Context:</strong>
+                            <pre>${JSON.stringify(log.context, null, 2)}</pre>
+                            <strong>Session ID:</strong> ${log.sessionId}<br>
+                            ${log.transactionId ? `<strong>Transaction ID:</strong> ${log.transactionId}<br>` : ''}
+                            <strong>Timestamp:</strong> ${new Date(log.timestamp).toISOString()}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleLogDetails(index) {
+            const entries = document.querySelectorAll('.log-entry');
+            entries[index].classList.toggle('expanded');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-category').value = '';
+            document.getElementById('filter-level').value = '';
+            document.getElementById('filter-transaction').value = '';
+            document.getElementById('filter-ride').value = '';
+            document.getElementById('filter-search').value = '';
+
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            document.getElementById('filter-start-date').value = weekAgo;
+            document.getElementById('filter-end-date').value = today;
+
+            applyFilters();
+        }
+
+        async function refreshLogs() {
+            document.getElementById('logs-list').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 16px;">Lade Logs...</div>
+                </div>
+            `;
+            await loadLogs();
+        }
+
+        async function exportLogs(format) {
+            const filters = {
+                category: document.getElementById('filter-category').value,
+                level: document.getElementById('filter-level').value ? parseInt(document.getElementById('filter-level').value) : undefined,
+                transactionId: document.getElementById('filter-transaction').value.trim(),
+                rideId: document.getElementById('filter-ride').value.trim(),
+                startDate: document.getElementById('filter-start-date').value,
+                endDate: document.getElementById('filter-end-date').value
+            };
+
+            await window.advancedLogger.exportLogs(filters, format);
+        }
+
+        async function clearAllLogs() {
+            if (!confirm('🗑️ Wirklich ALLE Logs löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) {
+                return;
+            }
+
+            if (!confirm('⚠️ LETZTE WARNUNG!\n\nAlle Logs werden unwiderruflich gelöscht!')) {
+                return;
+            }
+
+            try {
+                // Clear IndexedDB
+                if (window.advancedLogger.db) {
+                    const transaction = window.advancedLogger.db.transaction(['transactions'], 'readwrite');
+                    const store = transaction.objectStore('transactions');
+                    await store.clear();
+                }
+
+                // Clear memory
+                window.advancedLogger.memoryLogs = [];
+                allLogs = [];
+                filteredLogs = [];
+
+                alert('✅ Alle Logs gelöscht!');
+                await refreshLogs();
+            } catch (error) {
+                alert('❌ Fehler beim Löschen: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.861-STABLE
-    📅 BUILD: 29.01.2026 15:00 Uhr
+    📦 VERSION: v5.90.862-STABLE
+    📅 BUILD: 29.01.2026 15:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.861-STABLE
+    📋 CHANGELOG v5.90.862-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.862-STABLE (29.01.2026):
+       • NEU: E-Mail-Status-Badge beim Kunden-Namen im Rechnungs-Tab!
+       • GRÜN "📧 E-Mail": E-Mail-Adresse ist hinterlegt
+       • ROT "❌ Keine E-Mail": Keine E-Mail-Adresse vorhanden
+       • NEU: E-Mail-Button wird IMMER angezeigt (aktiviert oder disabled)
+       • UX: Sofort erkennbar ob E-Mail-Versand möglich ist
+       • HINWEIS: Bei fehlender E-Mail wird Meldung mit CRM-Hinweis angezeigt
 
     📧 v5.90.861-STABLE (29.01.2026):
        • FIX: E-Mail-Button im "Rechnung erstellen" Modal funktioniert jetzt korrekt!
@@ -55209,7 +55217,13 @@ Funk Taxi Team`;
                                     style="padding:8px 12px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(59,130,246,0.3);">
                                 📧 E-Mail
                             </button>
-                            ` : ''}
+                            ` : `
+                            <button onclick="alert('❌ Keine E-Mail-Adresse hinterlegt!\\n\\nBitte fügen Sie eine E-Mail-Adresse im CRM hinzu.')"
+                                    style="padding:8px 12px;background:#9ca3af;color:white;border:none;border-radius:6px;font-weight:600;cursor:not-allowed;font-size:12px;opacity:0.6;"
+                                    title="Keine E-Mail-Adresse hinterlegt">
+                                📧 E-Mail
+                            </button>
+                            `}
                             <button onclick="openInvoiceModal('${ride.id}')"
                                     style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">
                                 ✏️ Bearbeiten
@@ -55260,6 +55274,7 @@ Funk Taxi Team`;
                         <div style="margin-bottom:8px;">
                             <span style="font-weight:700;font-size:16px;color:#8b5cf6;">💾 ${ride.customerName || 'Unbekannt'}</span>
                             ${ride.guestName ? `<span style="font-size:13px;color:#6b7280;margin-left:8px;">(${ride.guestName})</span>` : ''}
+                            ${ride.customerEmail ? `<span style="margin-left:8px;padding:2px 8px;background:#10b981;color:white;border-radius:12px;font-size:11px;font-weight:600;">📧 E-Mail</span>` : `<span style="margin-left:8px;padding:2px 8px;background:#ef4444;color:white;border-radius:12px;font-size:11px;font-weight:600;">❌ Keine E-Mail</span>`}
                         </div>
                         
                         <!-- Route -->

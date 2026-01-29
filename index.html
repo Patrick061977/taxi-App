@@ -22,6 +22,7 @@
        • NEU: Funktion sendCreatedInvoiceViaEmail() für bereits erstellte Rechnungen
        • FIX: Button versendet jetzt die erstellte Rechnung statt eine neue zu erstellen
        • UX: E-Mail-Button erscheint nach "PDF erstellen & speichern" mit WhatsApp-Button
+       • NEU: Bei bereits existierender Rechnung werden Share-Buttons DIREKT angezeigt!
        • WORKFLOW: 1) PDF erstellen & speichern → 2) Per E-Mail/WhatsApp senden
 
     📧 v5.90.860-STABLE (29.01.2026):
@@ -52803,19 +52804,28 @@ Funk Taxi Team`;
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(modal);
-                
+
                 // Rendere Positionen initial
                 renderInvoicePositions();
                 updateInvoiceCalculation();
-                
+
+                // 🆕 v5.90.861: Wenn Rechnung bereits existiert → Zeige Share-Buttons direkt!
+                if (existingInvoice && ride.invoiceNumber) {
+                    console.log('✅ v5.90.861: Rechnung existiert - zeige Share-Buttons direkt!');
+                    const shareButtons = document.getElementById('invoice-share-buttons');
+                    if (shareButtons) {
+                        shareButtons.style.display = 'flex';
+                    }
+                }
+
             } catch (error) {
                 console.error('💾 Fehler beim Öffnen des Rechnungsmodals:', error);
                 alert('💾 Fehler: ' + error.message);
             }
         }
-        
+
         function closeInvoiceModal() {
             const modal = document.getElementById('invoice-modal');
             if (modal) modal.remove();

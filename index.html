@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.860-STABLE
-    📅 BUILD: 29.01.2026 14:45 Uhr
+    📦 VERSION: v5.90.861-STABLE
+    📅 BUILD: 29.01.2026 15:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.860-STABLE
+    📋 CHANGELOG v5.90.861-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.861-STABLE (29.01.2026):
+       • FIX: E-Mail-Button im "Rechnung erstellen" Modal funktioniert jetzt korrekt!
+       • NEU: Funktion sendCreatedInvoiceViaEmail() für bereits erstellte Rechnungen
+       • FIX: Button versendet jetzt die erstellte Rechnung statt eine neue zu erstellen
+       • UX: E-Mail-Button erscheint nach "PDF erstellen & speichern" mit WhatsApp-Button
+       • WORKFLOW: 1) PDF erstellen & speichern → 2) Per E-Mail/WhatsApp senden
 
     📧 v5.90.860-STABLE (29.01.2026):
        • NEU: E-Mail-Button jetzt auch im Rechnungs-Tab integriert!
@@ -52777,7 +52784,7 @@ Funk Taxi Team`;
                                 
                                 <!-- ERST NACH SPEICHERN SICHTBAR! -->
                                 <div id="invoice-share-buttons" style="display:none;gap:10px;flex-direction:column;">
-                                    <button onclick="generateAndEmailInvoice()" 
+                                    <button onclick="sendCreatedInvoiceViaEmail()"
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📧 Per E-Mail senden
                                     </button>
@@ -53978,6 +53985,48 @@ Funk Taxi Team`;
             }
         }
         
+        // 🆕 v5.90.860: SENDE BEREITS ERSTELLTE RECHNUNG PER E-MAIL!
+        async function sendCreatedInvoiceViaEmail() {
+            try {
+                console.log('📧 v5.90.860: Sende erstellte Rechnung per E-Mail...');
+
+                // Hole Ride-ID aus Modal
+                const rideId = document.getElementById('invoice-ride-id').value;
+
+                if (!rideId) {
+                    alert('❌ Keine Ride-ID gefunden!\n\nBitte erstellen Sie zuerst die Rechnung mit "PDF erstellen & speichern".');
+                    return;
+                }
+
+                // Lade Ride-Daten um Rechnungsnummer zu bekommen
+                const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                const rideData = rideSnapshot.val();
+
+                if (!rideData || !rideData.invoiceNumber) {
+                    alert('❌ Keine Rechnung gefunden!\n\nBitte erstellen Sie zuerst die Rechnung mit "PDF erstellen & speichern".');
+                    return;
+                }
+
+                // Prüfe ob E-Mail-Adresse vorhanden
+                if (!rideData.customerEmail && !(invoiceCustomerData?.email)) {
+                    alert('❌ Keine E-Mail-Adresse hinterlegt!\n\nBitte fügen Sie eine E-Mail-Adresse im CRM hinzu.');
+                    return;
+                }
+
+                console.log('📧 Sende Rechnung:', rideData.invoiceNumber);
+
+                // Rufe E-Mail-Versand-Funktion auf
+                await sendInvoiceViaEmail(rideId);
+
+                // Modal kann offen bleiben, damit User weitere Aktionen machen kann
+                showToast('✅ Rechnung per E-Mail versendet!', 'success');
+
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message);
+            }
+        }
+
         // 🆕 v5.90.307: PDF ERSTELLEN & PER WHATSAPP VERSENDEN!
         async function generateInvoicePDFAndSendWhatsApp() {
             try {

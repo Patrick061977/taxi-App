@@ -49699,20 +49699,27 @@ Funk Taxi Team`;
             
             // Filtere nur echte POIs (keine Privatadressen)
             const publicPOIs = filterPublicPOIs(allPOIs);
-            
-            console.log(`🏨 ${publicPOIs.length} POIs gefiltert (${allPOIs.length} POIs + Favoriten)`);
-            
+
+            // 🆕 v5.90.858: Filtere POIs nach showOnMap-Einstellung
+            const visiblePOIs = publicPOIs.filter(poi => poi.showOnMap !== false);
+
+            console.log(`🏨 ${visiblePOIs.length} sichtbare POIs (${publicPOIs.length} öffentliche, ${allPOIs.length} gesamt)`);
+
             // 🐛 v5.90.716: DEBUG - Zeige welche POIs rausgefiltert wurden
             const filteredOut = allPOIs.filter(poi => !publicPOIs.includes(poi));
+            const hiddenPOIs = publicPOIs.filter(poi => poi.showOnMap === false);
             if (filteredOut.length > 0) {
-                console.log(`⚠️ v5.90.716: ${filteredOut.length} POIs ausgefiltert:`);
-                filteredOut.forEach(poi => {
-                    console.log(`   ❌ "${poi.name}" (kein POI-Keyword gefunden)`);
+                console.log(`⚠️ v5.90.716: ${filteredOut.length} POIs ausgefiltert (keine POI-Keywords)`);
+            }
+            if (hiddenPOIs.length > 0) {
+                console.log(`🙈 v5.90.858: ${hiddenPOIs.length} POIs ausgeblendet (showOnMap=false):`);
+                hiddenPOIs.forEach(poi => {
+                    console.log(`   👁️ "${poi.name}"`);
                 });
             }
-            
-            if (publicPOIs.length === 0) {
-                console.log('ℹ️ Keine POIs zum Anzeigen');
+
+            if (visiblePOIs.length === 0) {
+                console.log('ℹ️ Keine sichtbaren POIs zum Anzeigen');
                 return;
             }
             
@@ -49766,9 +49773,9 @@ Funk Taxi Team`;
             }
             
             console.log(`🔍 Zoom ${currentZoom} → Icon-Größe: ${iconSize}px`);
-            
+
             // Erstelle Marker für jeden POI
-            publicPOIs.forEach(poi => {
+            visiblePOIs.forEach(poi => {
                 const icon = getPOIIcon(poi.name);
                 const poiType = getPOIType(poi.name);
                 
@@ -69510,9 +69517,12 @@ Taxi kommt pünktlich!
                                  onmouseout="this.style.boxShadow='none'">
                                 <div style="display:flex;justify-content:space-between;align-items:start;">
                                     <div style="flex:1;">
-                                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                                             <div style="font-size:20px;">⭐</div>
                                             <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name || 'Unbenannt'}</div>
+                                            ${poi.showOnMap !== false
+                                                ? '<div style="background:#10b981;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🗺️ Sichtbar</div>'
+                                                : '<div style="background:#6b7280;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">👁️ Ausgeblendet</div>'}
                                         </div>
                                         <div style="font-size:13px;color:#78350f;margin-left:28px;">
                                             📍 ${poi.address || 'Keine Adresse'}
@@ -69606,7 +69616,18 @@ Taxi kommt pünktlich!
                                 <strong>ℹ️ Hinweis:</strong> Koordinaten werden automatisch gesetzt wenn du eine Adresse aus dem Dropdown wählst
                             </div>
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;background:#f0f9ff;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;">
+                            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                                <input type="checkbox" id="poi-show-on-map" checked
+                                       style="width:20px;height:20px;cursor:pointer;">
+                                <span style="font-weight:600;color:#1e40af;font-size:14px;">🗺️ Auf Karte anzeigen</span>
+                            </label>
+                            <div style="font-size:12px;color:#1e40af;margin-top:6px;margin-left:30px;">
+                                POI wird auf der interaktiven Karte im Adress-Picker angezeigt
+                            </div>
+                        </div>
+
                         <div style="display:flex;gap:10px;">
                             <button onclick="document.getElementById('add-poi-modal').remove()" 
                                     style="flex:1;padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
@@ -69763,30 +69784,32 @@ Taxi kommt pünktlich!
             const address = document.getElementById('poi-address').value.trim();
             const lat = parseFloat(document.getElementById('poi-lat').value);
             const lon = parseFloat(document.getElementById('poi-lon').value);
-            
+            const showOnMap = document.getElementById('poi-show-on-map').checked;
+
             if (!name) {
                 alert('💾 Bitte Name eingeben!');
                 return;
             }
-            
+
             if (!address) {
                 alert('💾 Bitte Adresse eingeben!');
                 return;
             }
-            
+
             if (!lat || !lon) {
                 alert('💾 Bitte Adresse aus Dropdown wählen (für Koordinaten)!');
                 return;
             }
-            
+
             try {
                 console.log('💾 Speichere POI...');
-                
+
                 await db.ref('pois').push({
                     name,
                     address,
                     lat,
                     lon,
+                    showOnMap,
                     created: Date.now()
                 });
                 
@@ -69879,7 +69902,18 @@ Taxi kommt pünktlich!
                                        style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;background:#f9fafb;box-sizing:border-box;">
                             </div>
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;background:#f0f9ff;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;">
+                            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                                <input type="checkbox" id="edit-poi-show-on-map" ${poi.showOnMap !== false ? 'checked' : ''}
+                                       style="width:20px;height:20px;cursor:pointer;">
+                                <span style="font-weight:600;color:#1e40af;font-size:14px;">🗺️ Auf Karte anzeigen</span>
+                            </label>
+                            <div style="font-size:12px;color:#1e40af;margin-top:6px;margin-left:30px;">
+                                POI wird auf der interaktiven Karte im Adress-Picker angezeigt
+                            </div>
+                        </div>
+
                         <div style="display:flex;gap:10px;">
                             <button onclick="document.getElementById('edit-poi-modal').remove()" 
                                     style="flex:1;padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
@@ -69987,18 +70021,20 @@ Taxi kommt pünktlich!
             const address = document.getElementById('edit-poi-address').value.trim();
             const lat = parseFloat(document.getElementById('edit-poi-lat').value);
             const lon = parseFloat(document.getElementById('edit-poi-lon').value);
-            
+            const showOnMap = document.getElementById('edit-poi-show-on-map').checked;
+
             if (!name || !address || !lat || !lon) {
                 alert('💾 Bitte alle Felder ausfüllen!');
                 return;
             }
-            
+
             try {
                 await db.ref('pois/' + id).update({
                     name,
                     address,
                     lat,
                     lon,
+                    showOnMap,
                     updated: Date.now()
                 });
                 

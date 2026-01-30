@@ -52872,6 +52872,22 @@ Funk Taxi Team`;
                     if (createBtn) {
                         createBtn.style.display = 'none';
                     }
+                } else if (ride.invoiceNumber && !existingInvoice) {
+                    // 🆕 v5.90.864: Rechnung-Referenz existiert, aber Daten fehlen in Firebase!
+                    console.warn('⚠️ v5.90.864: Rechnung-Referenz in Fahrt vorhanden, aber Rechnung nicht in Firebase!');
+                    console.warn('⚠️ Rechnungsnummer:', ride.invoiceNumber);
+
+                    // Zeige Warnung im Modal
+                    showToast('⚠️ Rechnung ' + ride.invoiceNumber + ' wurde referenziert, aber nicht gefunden!\nBitte Rechnung neu erstellen.', 'warning', 5000);
+
+                    // Lösche die ungültige Referenz
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: null,
+                        invoiceAmount: null,
+                        invoiceCreatedAt: null
+                    });
+
+                    console.log('✅ v5.90.864: Ungültige Rechnung-Referenz entfernt');
                 }
 
             } catch (error) {
@@ -53549,13 +53565,14 @@ Funk Taxi Team`;
         async function shareExistingInvoiceViaWhatsApp(invoiceId) {
             try {
                 console.log('📤 Teile bestehende Rechnung:', invoiceId);
-                
+
                 // Lade Rechnung aus Firebase
                 const invSnapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const invoice = invSnapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -54203,6 +54220,24 @@ Funk Taxi Team`;
 
                 if (!rideData || !rideData.invoiceNumber) {
                     alert('❌ Keine Rechnung gefunden!\n\nBitte erstellen Sie zuerst die Rechnung mit "PDF erstellen & speichern".');
+                    return;
+                }
+
+                // 🆕 v5.90.864: Prüfe ob Rechnung in Firebase existiert
+                const invoiceSnapshot = await db.ref(`invoices/${rideData.invoiceNumber}`).once('value');
+                const invoiceData = invoiceSnapshot.val();
+
+                if (!invoiceData) {
+                    console.error('⚠️ v5.90.864: Rechnung-Referenz existiert, aber Daten fehlen!');
+                    alert('❌ Rechnung ' + rideData.invoiceNumber + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht.\nBitte erstellen Sie die Rechnung neu.');
+
+                    // Lösche ungültige Referenz
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: null,
+                        invoiceAmount: null,
+                        invoiceCreatedAt: null
+                    });
+
                     return;
                 }
 
@@ -55154,9 +55189,10 @@ Funk Taxi Team`;
                 // Lade Rechnung aus DB
                 const invoiceSnapshot = await db.ref(`invoices/${invoiceNumber}`).once('value');
                 const invoice = invoiceSnapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceNumber);
+                    alert('💾 Rechnung ' + invoiceNumber + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -55648,13 +55684,14 @@ Funk Taxi Team`;
         
         async function editInvoice(invoiceId) {
             console.log('✏️ Bearbeite Rechnung:', invoiceId);
-            
+
             try {
                 const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const inv = snapshot.val();
-                
+
                 if (!inv) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -55849,9 +55886,10 @@ Funk Taxi Team`;
             try {
                 const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const inv = snapshot.val();
-                
+
                 if (!inv) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -73950,14 +73988,15 @@ Taxi kommt pünktlich!
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER E-MAIL VERSENDEN
         async function sendInvoiceViaEmail(invoiceId) {
             console.log('📧 Versende Hotel-Rechnung per E-Mail:', invoiceId);
-            
+
             try {
                 // Lade Rechnung
                 const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
                 const invoice = snapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Hotel-Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Hotel-Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -74005,14 +74044,15 @@ Taxi kommt pünktlich!
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER WHATSAPP VERSENDEN
         async function sendInvoiceViaWhatsApp(invoiceId) {
             console.log('📱 Versende Hotel-Rechnung per WhatsApp:', invoiceId);
-            
+
             try {
                 // Lade Rechnung
                 const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
                 const invoice = snapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Hotel-Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Hotel-Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -74082,7 +74122,10 @@ Taxi kommt pünktlich!
                 const invoice = snapshot.val();
 
                 if (!invoice) {
-                    throw new Error('Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    loadingModal.remove();
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
+                    return;
                 }
 
                 // Prüfe ob Kunde eine E-Mail hat

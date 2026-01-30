@@ -9,13 +9,22 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
 
-    📦 VERSION: v5.90.865-STABLE
+    📦 VERSION: v5.90.866-STABLE
     📅 BUILD: 30.01.2026 18:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.865-STABLE
+    📋 CHANGELOG v5.90.866-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.866-STABLE (30.01.2026):
+       • FIX: E-Mail-Badge zeigt jetzt korrekt "📧 E-Mail" wenn im CRM hinterlegt
+       • FIX: E-Mail-Button ist aktiviert wenn E-Mail im CRM vorhanden ist
+       • NEU: loadRidesForInvoicing() lädt automatisch E-Mail vom CRM für alle Fahrten
+       • NEU: sendInvoiceViaEmail() hat CRM-Fallback wenn customerEmail fehlt
+       • FIX: E-Mail wird jetzt aus customer.email geladen und in ride.customerEmail gespeichert
+       • DEBUGGING: Console-Logs zeigen E-Mail-Lade-Status an
+       • UX: Bessere Fehlermeldung mit Hinweis auf CRM-Button
 
     🔍 v5.90.865-STABLE (30.01.2026):
        • NEU: Advanced Logging System mit Transaction Tracing!
@@ -39396,9 +39405,26 @@ Funk Taxi Team`;
                     throw new Error('Fahrt nicht gefunden!');
                 }
 
-                if (!rideData.customerEmail) {
+                // 🆕 v5.90.865: E-Mail vom CRM holen, falls nicht direkt in Fahrt gespeichert
+                let customerEmail = rideData.customerEmail;
+                if (!customerEmail && rideData.customerId) {
+                    console.log('📧 v5.90.865: E-Mail nicht in Fahrt, lade vom CRM...');
+                    const customerSnapshot = await db.ref(`customers/${rideData.customerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    if (customer?.email) {
+                        customerEmail = customer.email;
+                        console.log('✅ v5.90.865: E-Mail vom CRM geladen:', customerEmail);
+                    }
+                }
+
+                if (!customerEmail) {
+                    loadingModal.remove();
+                    alert('❌ Keine E-Mail-Adresse hinterlegt!\n\nBitte fügen Sie eine E-Mail-Adresse im CRM hinzu.\n\n💡 Tipp: Nutze den "✏️ CRM" Button in der Rechnungs-Liste!');
                     throw new Error('Keine E-Mail-Adresse für diesen Kunden vorhanden!');
                 }
+
+                // Speichere E-Mail in rideData für weitere Verwendung
+                rideData.customerEmail = customerEmail;
 
                 console.log('📧 v5.90.858: Erstelle Rechnung-PDF für Email:', rideData.customerName);
 
@@ -55081,17 +55107,17 @@ Funk Taxi Team`;
                     .orderByChild('pickupTimestamp')
                     .limitToLast(100)  // ← 100 für bessere Detailsuche!
                     .once('value');
-                
+
                 const allRides = [];
                 snapshot.forEach(child => {
                     const ride = child.val();
-                    
+
                     // 🆕 v5.90.182: ALLE FAHRTEN DIE IM KALENDER SICHTBAR SIND!
                     // AUSNAHME: Hotel-Kalender hat eigenes Programm
-                    const isHotelRide = ride.source === 'hotel_calendar_import' 
+                    const isHotelRide = ride.source === 'hotel_calendar_import'
                                      || ride.source === 'hotel_booking'
                                      || ride.hotelBooking === true;
-                    
+
                     // Wenn NICHT Hotel-Fahrt → Zeige in Liste!
                     if (!isHotelRide) {
                         allRides.push({
@@ -55100,7 +55126,24 @@ Funk Taxi Team`;
                         });
                     }
                 });
-                
+
+                // 🆕 v5.90.865: Lade E-Mail-Adressen vom CRM für alle Fahrten mit customerId
+                console.log('📧 v5.90.865: Lade E-Mail-Adressen vom CRM...');
+                for (const ride of allRides) {
+                    if (ride.customerId && !ride.customerEmail) {
+                        try {
+                            const customerSnapshot = await db.ref(`customers/${ride.customerId}`).once('value');
+                            const customer = customerSnapshot.val();
+                            if (customer?.email) {
+                                ride.customerEmail = customer.email;
+                                console.log(`✅ E-Mail geladen für ${ride.customerName}: ${customer.email}`);
+                            }
+                        } catch (error) {
+                            console.error(`❌ Fehler beim Laden der E-Mail für Kunde ${ride.customerId}:`, error);
+                        }
+                    }
+                }
+
                 // Neueste zuerst (umgekehrt chronologisch)
                 allRides.reverse();
                 

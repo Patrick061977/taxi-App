@@ -1,8 +1,8 @@
 {
-  "version": "5.90.745",
-  "build": "20260123-1800",
-  "updated": 1737651600000,
+  "version": "5.90.866",
+  "build": "20260130-1500",
+  "updated": 1738245600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Sicherheits-Fix: Firebase-Fallback verhindert Doppelbuchungen"
+  "message": "E-Mail-Fix: CRM-Integration für korrekte E-Mail-Erkennung"
 }

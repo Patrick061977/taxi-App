@@ -8,14 +8,29 @@
     ═══════════════════════════════════════════════════════════════════════════
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
-    
-    📦 VERSION: v5.90.863-STABLE
-    📅 BUILD: 29.01.2026 16:00 Uhr
+
+    📦 VERSION: v5.90.866-STABLE
+    📅 BUILD: 30.01.2026 15:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.863-STABLE
+    📋 CHANGELOG v5.90.866-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    📧 v5.90.866-STABLE (30.01.2026):
+       • FIX: E-Mail-Badge zeigt jetzt korrekt "📧 E-Mail" wenn im CRM hinterlegt
+       • FIX: E-Mail-Button ist aktiviert wenn E-Mail im CRM vorhanden ist
+       • NEU: loadRidesForInvoicing() lädt automatisch E-Mail vom CRM für alle Fahrten
+       • NEU: sendInvoiceViaEmail() hat CRM-Fallback wenn customerEmail fehlt
+       • FIX: E-Mail wird jetzt aus customer.email geladen und in ride.customerEmail gespeichert
+       • DEBUGGING: Console-Logs zeigen E-Mail-Lade-Status an
+       • UX: Bessere Fehlermeldung mit Hinweis auf CRM-Button
+
+    📧 v5.90.865-STABLE (30.01.2026):
+       • INTERNAL: Entwicklungsversion - nicht deployed
+
+    🔒 v5.90.864-STABLE (29.01.2026):
+       • FIX: Hotel-Rechnung-Validation verbessert - keine Fehlermeldungen mehr bei existierenden Rechnungen
 
     🔒 v5.90.863-STABLE (29.01.2026):
        • NEU: E-Mail wird jetzt bei Buchung aus CRM in ride gespeichert!

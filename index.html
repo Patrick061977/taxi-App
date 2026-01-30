@@ -1523,9 +1523,17 @@
             animation: slideIn 0.4s ease-out;
         }
     </style>
-    
+
     <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
+
+    <!-- 🔍 ADVANCED LOGGING SYSTEM v1.0.0 - FRÜH LADEN! -->
+    <!-- MUSS VOR ALLEM ANDEREN SEIN, DAMIT ALLE EVENTS GELOGGT WERDEN -->
+    <script src="advanced-logger.js"></script>
+    <script>
+        // 🔍 Logger ist bereit - Session-Info wird beim vollständigen Init geloggt
+        console.log('🔍 Advanced Logger FRÜH geladen - Session:', window.advancedLogger?.sessionId);
+    </script>
 </head>
 <body>
 
@@ -7819,7 +7827,7 @@
                     cursor: pointer;
                     font-size: 14px;
                 ">
-                    📥 Storage (24h)
+                    📥 Storage (7 Tage)
                 </button>
                 <div style="flex: 1; min-width: 200px;">
                     <input type="text" id="debug-filter" placeholder="🔍 Filter logs..." onkeyup="filterDebugLogs()" style="
@@ -7828,6 +7836,61 @@
                         border: 2px solid #e5e7eb;
                         border-radius: 8px;
                         font-size: 14px;
+                    ">
+                </div>
+            </div>
+
+            <!-- 🆕 v5.90.860: Advanced Filter -->
+            <div style="padding: 15px; background: #f0f9ff; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div>
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">🎯 KATEGORIE</label>
+                    <select id="debug-category-filter" onchange="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        background: white;
+                    ">
+                        <option value="">Alle</option>
+                        <option value="SYSTEM">System</option>
+                        <option value="GPS">GPS</option>
+                        <option value="ROUTE">Route</option>
+                        <option value="BOOKING">Booking</option>
+                        <option value="PAYMENT">Payment</option>
+                        <option value="AUTH">Auth</option>
+                        <option value="DATABASE">Database</option>
+                        <option value="UI">UI</option>
+                        <option value="PERFORMANCE">Performance</option>
+                        <option value="NETWORK">Network</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">📊 LEVEL</label>
+                    <select id="debug-level-filter" onchange="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        background: white;
+                    ">
+                        <option value="">Alle</option>
+                        <option value="debug">🔍 Debug</option>
+                        <option value="info">✅ Info</option>
+                        <option value="warn">⚠️ Warn</option>
+                        <option value="error">❌ Error</option>
+                        <option value="critical">🚨 Critical</option>
+                    </select>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">🔍 TRANSACTION ID</label>
+                    <input type="text" id="debug-transaction-filter" placeholder="txn_... (zeigt alle Logs einer Transaction)" onkeyup="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
                     ">
                 </div>
             </div>
@@ -65841,52 +65904,56 @@ Stack: ${err.stack}
                 originalError.apply(console, args);
             };
             
-            // Update UI
+            // Update UI - 🆕 v5.90.860: Erweitert für alle Log-Levels
             function updateDebugUI(logEntry) {
                 const container = document.getElementById('debug-log-container');
                 if (!container) return;
-                
+
                 // Clear "Warte auf Logs" message
                 if (window.debugLogs.length === 1) {
                     container.innerHTML = '';
                 }
-                
+
                 const colors = {
+                    debug: '#6b7280',
                     info: '#10b981',
                     warn: '#f59e0b',
-                    error: '#ef4444'
+                    error: '#ef4444',
+                    critical: '#dc2626'
                 };
-                
+
                 const icons = {
+                    debug: '🔍',
                     info: '✅',
                     warn: '⚠️',
-                    error: '💾'
+                    error: '❌',
+                    critical: '🚨'
                 };
-                
+
                 const logDiv = document.createElement('div');
                 logDiv.style.cssText = `
                     padding: 10px;
                     border-bottom: 1px solid #374151;
                     margin-bottom: 5px;
                 `;
-                logDiv.className = 'debug-log-entry';
+                logDiv.className = `debug-log-entry log-${logEntry.type}`;
                 logDiv.setAttribute('data-type', logEntry.type);
-                
+
                 logDiv.innerHTML = `
                     <div style="display: flex; gap: 10px; align-items: flex-start;">
                         <span style="color: #9ca3af; font-size: 11px; white-space: nowrap;">${logEntry.timestamp}</span>
-                        <span style="color: ${colors[logEntry.type]}; font-weight: bold;">${icons[logEntry.type]}</span>
+                        <span style="color: ${colors[logEntry.type] || colors.info}; font-weight: bold;">${icons[logEntry.type] || icons.info}</span>
                         <div style="flex: 1; word-break: break-all;">
                             <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${escapeHtml(logEntry.message)}</pre>
                         </div>
                     </div>
                 `;
-                
+
                 container.appendChild(logDiv);
-                
+
                 // Auto-scroll
                 container.scrollTop = container.scrollHeight;
-                
+
                 // Update counts
                 updateCounts();
             }
@@ -65970,17 +66037,51 @@ Stack: ${err.stack}
                 alert('✅ Logs exportiert: ' + window.debugLogs.length + ' Einträge');
             };
             
-            // Filter Logs (global)
+            // Filter Logs (global) - 🆕 v5.90.860: Erweitert mit Kategorie, Level, Transaction
             window.filterDebugLogs = function() {
+                // Text-Filter
                 const filterInput = document.getElementById('debug-filter');
-                if (!filterInput) return;
-                const filter = filterInput.value.toLowerCase();
+                const textFilter = filterInput ? filterInput.value.toLowerCase() : '';
+
+                // Kategorie-Filter
+                const categorySelect = document.getElementById('debug-category-filter');
+                const categoryFilter = categorySelect ? categorySelect.value : '';
+
+                // Level-Filter
+                const levelSelect = document.getElementById('debug-level-filter');
+                const levelFilter = levelSelect ? levelSelect.value : '';
+
+                // Transaction-Filter
+                const transactionInput = document.getElementById('debug-transaction-filter');
+                const transactionFilter = transactionInput ? transactionInput.value.toLowerCase() : '';
+
                 const entries = document.querySelectorAll('.debug-log-entry');
-                
+
                 entries.forEach(entry => {
                     const text = entry.textContent.toLowerCase();
-                    entry.style.display = text.includes(filter) ? 'block' : 'none';
+
+                    // Text-Filter Check
+                    const matchesText = !textFilter || text.includes(textFilter);
+
+                    // Kategorie-Filter Check
+                    const matchesCategory = !categoryFilter || text.includes(`[${categoryFilter}]`);
+
+                    // Level-Filter Check
+                    const matchesLevel = !levelFilter || entry.classList.contains(`log-${levelFilter}`);
+
+                    // Transaction-Filter Check
+                    const matchesTransaction = !transactionFilter || text.includes(transactionFilter);
+
+                    // Zeige nur wenn ALLE Filter matchen
+                    entry.style.display = (matchesText && matchesCategory && matchesLevel && matchesTransaction) ? 'block' : 'none';
                 });
+
+                // Update Counts basierend auf sichtbaren Logs
+                const visibleEntries = Array.from(entries).filter(e => e.style.display !== 'none');
+                const totalEl = document.getElementById('debug-count-total');
+                if (totalEl) {
+                    totalEl.textContent = `${visibleEntries.length}/${entries.length}`;
+                }
             };
             
             // Refresh UI
@@ -66057,7 +66158,67 @@ Stack: ${err.stack}
             }
             
             console.log(`✅ DEBUG MONITOR bereit (${window.debugPaused ? 'pausiert' : 'recording'} - ${window.debugLogs.length} Logs geladen)`);
-            
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // 🔍 v5.90.860: ADVANCED LOGGER BRIDGE
+            // Verbindet Advanced Logger mit bestehendem Debug-View
+            // ═══════════════════════════════════════════════════════════════════════
+
+            if (window.advancedLogger) {
+                console.log('🔗 Verbinde Advanced Logger mit Debug-View...');
+
+                // Override der consoleOutput Funktion für Integration mit Debug-View
+                const originalConsoleOutput = window.advancedLogger.consoleOutput.bind(window.advancedLogger);
+
+                window.advancedLogger.consoleOutput = function(logEntry) {
+                    // Rufe die originale Console-Output-Funktion auf
+                    originalConsoleOutput(logEntry);
+
+                    // Zusätzlich: Zeige in Debug-View an
+                    if (document.getElementById('debug-log-container')) {
+                        // Konvertiere Advanced Logger Format zu Debug-View Format
+                        const debugLogEntry = {
+                            timestamp: new Date(logEntry.timestamp).toLocaleTimeString('de-DE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                fractionalSecondDigits: 3
+                            }),
+                            type: logEntry.levelName.toLowerCase(),
+                            message: `[${logEntry.category.toUpperCase()}] ${logEntry.message}`,
+                            time: logEntry.timestamp
+                        };
+
+                        // Füge zu window.debugLogs hinzu (für Kompatibilität)
+                        if (!window.debugLogs) window.debugLogs = [];
+                        window.debugLogs.push(debugLogEntry);
+
+                        // Update Debug-View UI
+                        if (typeof updateDebugUI === 'function' && !window.debugPaused) {
+                            updateDebugUI(debugLogEntry);
+                        }
+                    }
+                };
+
+                // Zeige Advanced Logger Info im Debug-View
+                if (window.advancedLogger.isReady) {
+                    window.advancedLogger.info(
+                        LOG_CATEGORIES.SYSTEM,
+                        '🔍 Advanced Logger mit Debug-View verbunden',
+                        {
+                            sessionId: window.advancedLogger.sessionId,
+                            memoryLogs: window.advancedLogger.memoryLogs.length,
+                            debugViewLogs: window.debugLogs?.length || 0
+                        }
+                    );
+                }
+
+                console.log('✅ Advanced Logger Bridge aktiviert!');
+                console.log('💡 Alle Logs erscheinen jetzt im Debug-Tab!');
+                console.log('📊 Kategorien:', Object.keys(LOG_CATEGORIES).join(', '));
+                console.log('📈 Log-Levels:', Object.keys(LOG_LEVELS).join(', '));
+            }
+
             // 🔍 v5.90.0: TAB-BUTTON CLICK LOGGER!
             console.log('═══════════════════════════════════════════════════════════');
             console.log('🔍 Installiere Tab-Button Click Logger...');
@@ -79310,30 +79471,24 @@ if (document.readyState === 'loading') {
         }
     </style>
 
-    <!-- 🔍 ADVANCED LOGGING SYSTEM v1.0.0 -->
-    <!-- Transaction Tracing, Performance Monitoring & Fehleranalyse -->
-    <!-- Dokumentation: LOGGING-SYSTEM-README.md -->
-    <script src="advanced-logger.js"></script>
+    <!-- 🔍 Advanced Logger wird im <head> geladen (siehe oben) -->
     <script>
-        // 🔍 Logger ist bereit - initialisiere mit Session-Info
-        console.log('🔍 Advanced Logging System geladen');
-        console.log('📊 Session ID:', window.advancedLogger?.sessionId);
-        console.log('📖 Dokumentation: LOGGING-SYSTEM-README.md');
-        console.log('🎨 Log Viewer: log-viewer.html');
-
-        // Log System-Start
-        if (window.advancedLogger && window.advancedLogger.isReady) {
-            window.advancedLogger.info(
-                LOG_CATEGORIES.SYSTEM,
-                '🚀 Taxi App gestartet',
-                {
-                    version: APP_VERSION || '5.90.859',
-                    userAgent: navigator.userAgent,
-                    platform: navigator.platform,
-                    language: navigator.language
-                }
-            );
-        }
+        // Log System-Start wenn alles bereit ist
+        window.addEventListener('DOMContentLoaded', function() {
+            if (window.advancedLogger && window.advancedLogger.isReady) {
+                window.advancedLogger.info(
+                    LOG_CATEGORIES.SYSTEM,
+                    '🚀 Taxi App vollständig geladen',
+                    {
+                        version: APP_VERSION || '5.90.860',
+                        userAgent: navigator.userAgent,
+                        platform: navigator.platform,
+                        language: navigator.language,
+                        totalLogs: window.advancedLogger.memoryLogs.length
+                    }
+                );
+            }
+        });
     </script>
 
 </body>

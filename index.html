@@ -29,6 +29,50 @@
        • INFO: Dokumentation in LOGGING-SYSTEM-README.md
        • INFO: Code-Beispiele in logging-integration-examples.js
 
+    🗺️ v5.90.864-STABLE (29.01.2026):
+       • NEU: POI-Kategoriesystem vollständig implementiert
+       • Kategorie wird in Firebase gespeichert
+       • Filter-Buttons nutzen jetzt echte Kategorien statt Name-Keywords
+       • Fallback auf Keyword-Suche für alle POIs ohne category-Feld
+       • POI-Liste zeigt Kategorie-Badge (orange)
+       • getOIType() Funktion angepasst für category-Feld
+       • Vorteile: Präzise Filterung, einfache Kategoriezuweisung, keine Abhängigkeit von POI-Namen
+
+    🔒 v5.90.863-STABLE (29.01.2026):
+       • NEU: E-Mail wird jetzt bei Buchung aus CRM in ride gespeichert!
+       • FIX: Rechnungsnummern-Problem - keine neuen Nummern beim Bearbeiten
+       • FIX: Confirm-Dialog entfernt - Rechnung wird automatisch wiederhergestellt
+       • NEU: lockInvoiceFields() - Rechnungsfelder nach Erstellung gesperrt
+       • NEU: unlockInvoiceFields() - Entsperr-Funktion für Bearbeiten-Modus
+       • NEU: toggleInvoiceEditMode() - Toggle zwischen Sperren/Entsperren
+       • NEU: ✏️ Bearbeiten-Button im Rechnung-Modal (orange)
+       • AUTO: Felder werden bei existierender Rechnung automatisch gesperrt
+       • AUTO: Felder werden nach PDF-Erstellung automatisch gesperrt
+       • WORKFLOW: Rechnung erstellen → 🔒 gesperrt → ✏️ Bearbeiten → 💾 Speichern → 🔒 gesperrt
+
+    📧 v5.90.862-STABLE (29.01.2026):
+       • NEU: E-Mail-Status-Badge beim Kunden-Namen im Rechnungs-Tab!
+       • GRÜN "📧 E-Mail": E-Mail-Adresse ist hinterlegt
+       • ROT "❌ Keine E-Mail": Keine E-Mail-Adresse vorhanden
+       • NEU: E-Mail-Button wird IMMER angezeigt (aktiviert oder disabled)
+       • UX: Sofort erkennbar ob E-Mail-Versand möglich ist
+       • HINWEIS: Bei fehlender E-Mail wird Meldung mit CRM-Hinweis angezeigt
+       • FIX: E-Mail-Adresse wird jetzt aus customer.email UND ride.customerEmail gelesen!
+
+    📧 v5.90.861-STABLE (29.01.2026):
+       • FIX: E-Mail-Button im "Rechnung erstellen" Modal funktioniert jetzt korrekt!
+       • NEU: Funktion sendCreatedInvoiceViaEmail() für bereits erstellte Rechnungen
+       • FIX: Button versendet jetzt die erstellte Rechnung statt eine neue zu erstellen
+       • UX: E-Mail-Button erscheint nach "PDF erstellen & speichern" mit WhatsApp-Button
+       • NEU: Bei bereits existierender Rechnung werden Share-Buttons DIREKT angezeigt!
+       • WORKFLOW: 1) PDF erstellen & speichern → 2) Per E-Mail/WhatsApp senden
+
+    📧 v5.90.860-STABLE (29.01.2026):
+       • NEU: E-Mail-Button jetzt auch im Rechnungs-Tab integriert!
+       • NEU: E-Mail-Button erscheint bei Fahrten mit Rechnung und E-Mail-Adresse
+       • UX: E-Mail-Button neben PDF, WhatsApp und Bearbeiten-Buttons
+       • VOLLSTÄNDIG: E-Mail-Versand in allen Views verfügbar (Kalender, Rechnung-Tab, Einzelrechnungen)
+
     📧 v5.90.859-STABLE (29.01.2026):
        • NEU: EmailJS Integration für automatischen E-Mail-Versand!
        • NEU: Rechnungen können direkt per E-Mail mit PDF-Anhang versendet werden
@@ -3823,6 +3867,10 @@
                 <div style="font-size:18px;font-weight:bold;" id="crm-favorites">0</div>
                 <div style="font-size:11px;opacity:0.9;">Favoriten</div>
             </div>
+            <div onclick="switchView('poi-management')" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:8px 12px;border-radius:8px;color:white;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(245,158,11,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <div style="font-size:18px;font-weight:bold;" id="crm-total-pois">0</div>
+                <div style="font-size:11px;opacity:0.9;">POIs 🗺️</div>
+            </div>
         </div>
         
         <!-- Suche & Filter -->
@@ -3865,9 +3913,13 @@
                 </div>
             </div>
             <input type="hidden" id="crm-filter-category" value="">
-            
+
             <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                 ➕ Neuer Kunde
+            </button>
+
+            <button onclick="switchView('poi-management')" style="padding:12px 20px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                ⭐ POIs verwalten
             </button>
         </div>
         
@@ -28412,10 +28464,12 @@ Aktuell: ${currentNum}`;
                 // Hole Pickup/Destination für Distanz-Prüfung
                 const pickupInput = document.getElementById('pickup');
                 const destinationInput = document.getElementById('destination');
-                const durationInput = document.getElementById('duration'); // 🆕 v5.90.664: DURATION HOLEN!
                 const pickup = pickupInput ? pickupInput.value.trim() : '';
                 const destination = destinationInput ? destinationInput.value.trim() : '';
-                const duration = durationInput ? durationInput.value.trim() : '15'; // 🆕 v5.90.664: DEFAULT 15 MIN
+
+                // 🆕 v5.90.864: Verwende berechnete Gesamtdauer aus window.currentTotalDuration
+                // statt eines nicht-existierenden Input-Feldes
+                const duration = window.currentTotalDuration || '15'; // Fallback auf 15 Min wenn nicht berechnet
                 
                 console.log('📊 Kalender-Check:');
                 console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));
@@ -31419,8 +31473,26 @@ Aktuell: ${currentNum}`;
             });
             
             // 📋 CRM: Kunde automatisch anlegen/aktualisieren
-            await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
-            
+            const customerId = await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
+
+            // 🆕 v5.90.862: E-MAIL AUS CRM HOLEN UND IN RIDE SPEICHERN!
+            if (customerId) {
+                try {
+                    const customerSnapshot = await db.ref(`customers/${customerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    if (customer && customer.email) {
+                        // Speichere E-Mail in ride
+                        await db.ref(`rides/${savedRide.id}`).update({
+                            customerEmail: customer.email,
+                            customerId: customerId
+                        });
+                        console.log('✅ v5.90.862: E-Mail in ride gespeichert:', customer.email);
+                    }
+                } catch (error) {
+                    console.error('⚠️ v5.90.862: Fehler beim E-Mail-Laden:', error);
+                }
+            }
+
             // 📋 CRM: Stammkunden-Daten aktualisieren wenn Checkbox aktiv
             const saveToCrmCheckbox = document.getElementById('save-to-crm');
             if (currentBookingCustomerId && saveToCrmCheckbox && saveToCrmCheckbox.checked) {
@@ -34785,7 +34857,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 const favorites = customers.filter(c => c.category === 'vip').length;
                 document.getElementById('crm-favorites').textContent = favorites;
-                
+
+                // 🆕 v5.90.860: POI-Anzahl aktualisieren
+                document.getElementById('crm-total-pois').textContent = allPOIs.length;
+
                 // Render Kunden-Liste
                 renderCRMCustomers(customers);
             });
@@ -49860,15 +49935,21 @@ Funk Taxi Team`;
             }
             
             // 🆕 v5.90.653: Bestimme POI-Typ für Filter
-            function getPOIType(poiName) {
-                const name = poiName.toLowerCase();
-                
+            // 🔧 v5.90.859: Nutze jetzt category-Feld (mit Fallback auf Name-Keywords)
+            function getPOIType(poi) {
+                // Nutze gespeicherte Kategorie wenn vorhanden
+                if (poi.category) {
+                    return poi.category;
+                }
+
+                // Fallback: Keywords im Namen suchen (für alte POIs ohne category)
+                const name = poi.name.toLowerCase();
                 if (name.includes('bahnhof')) return 'bahnhof';
                 if (name.includes('hotel') || name.includes('pension')) return 'hotel';
                 if (name.includes('restaurant') || name.includes('gaststätte')) return 'restaurant';
                 if (name.includes('café') || name.includes('cafe')) return 'cafe';
                 if (name.includes('museum') || name.includes('kirche') || name.includes('seebrücke')) return 'museum';
-                
+
                 return 'other';
             }
             
@@ -49894,7 +49975,7 @@ Funk Taxi Team`;
             // Erstelle Marker für jeden POI
             visiblePOIs.forEach(poi => {
                 const icon = getPOIIcon(poi.name);
-                const poiType = getPOIType(poi.name);
+                const poiType = getPOIType(poi);
                 
                 // 🆕 v5.90.653: Filter anwenden
                 if (filterType !== 'all' && poiType !== filterType) {
@@ -52626,8 +52707,8 @@ Funk Taxi Team`;
                 // 🆕 v5.87.90: NEUES FLEXIBLES RECHNUNGS-MODAL
                 const customerName = ride.customerName || customer?.name || 'Unbekannt';
                 const customerAddress = invoiceSelectedBillingAddress || customer?.billingAddress || customer?.address || '';
-                const customerEmail = customer?.email || '';
-                const customerPhone = customer?.phone || ride.phone || '';
+                const customerEmail = customer?.email || ride.customerEmail || ''; // 🆕 v5.90.862: Fallback zu ride.customerEmail
+                const customerPhone = customer?.phone || ride.customerPhone || ride.phone || ''; // 🆕 v5.90.862: Auch customerPhone prüfen
                 const guestName = ride.guestName || '';
                 const rideDate = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE');
                 const rideTime = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
@@ -52846,14 +52927,20 @@ Funk Taxi Team`;
                                 
                                 <!-- ERST NACH SPEICHERN SICHTBAR! -->
                                 <div id="invoice-share-buttons" style="display:none;gap:10px;flex-direction:column;">
-                                    <button onclick="generateAndEmailInvoice()" 
+                                    <button onclick="sendCreatedInvoiceViaEmail()"
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📧 Per E-Mail senden
                                     </button>
-                                    
-                                    <button onclick="shareInvoiceViaWhatsApp()" 
+
+                                    <button onclick="shareInvoiceViaWhatsApp()"
                                             style="width:100%;padding:15px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
                                         📤 Per WhatsApp senden
+                                    </button>
+
+                                    <!-- 🆕 v5.90.863: BEARBEITEN-BUTTON -->
+                                    <button id="invoice-edit-toggle-btn" onclick="toggleInvoiceEditMode()" data-locked="true"
+                                            style="width:100%;padding:15px;background:#f59e0b;color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                        ✏️ Bearbeiten
                                     </button>
                                 </div>
                                 
@@ -52865,19 +52952,53 @@ Funk Taxi Team`;
                         </div>
                     </div>
                 `;
-                
+
                 document.body.appendChild(modal);
-                
+
                 // Rendere Positionen initial
                 renderInvoicePositions();
                 updateInvoiceCalculation();
-                
+
+                // 🆕 v5.90.861: Wenn Rechnung bereits existiert → Zeige Share-Buttons direkt!
+                if (existingInvoice && ride.invoiceNumber) {
+                    console.log('✅ v5.90.861: Rechnung existiert - zeige Share-Buttons direkt!');
+                    const shareButtons = document.getElementById('invoice-share-buttons');
+                    if (shareButtons) {
+                        shareButtons.style.display = 'flex';
+                    }
+
+                    // 🆕 v5.90.863: SPERRE FELDER bei existierender Rechnung!
+                    lockInvoiceFields();
+
+                    // Verstecke "PDF erstellen" Button
+                    const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
+                    if (createBtn) {
+                        createBtn.style.display = 'none';
+                    }
+                } else if (ride.invoiceNumber && !existingInvoice) {
+                    // 🆕 v5.90.864: Rechnung-Referenz existiert, aber Daten fehlen in Firebase!
+                    console.warn('⚠️ v5.90.864: Rechnung-Referenz in Fahrt vorhanden, aber Rechnung nicht in Firebase!');
+                    console.warn('⚠️ Rechnungsnummer:', ride.invoiceNumber);
+
+                    // Zeige Warnung im Modal
+                    showToast('⚠️ Rechnung ' + ride.invoiceNumber + ' wurde referenziert, aber nicht gefunden!\nBitte Rechnung neu erstellen.', 'warning', 5000);
+
+                    // Lösche die ungültige Referenz
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: null,
+                        invoiceAmount: null,
+                        invoiceCreatedAt: null
+                    });
+
+                    console.log('✅ v5.90.864: Ungültige Rechnung-Referenz entfernt');
+                }
+
             } catch (error) {
                 console.error('💾 Fehler beim Öffnen des Rechnungsmodals:', error);
                 alert('💾 Fehler: ' + error.message);
             }
         }
-        
+
         function closeInvoiceModal() {
             const modal = document.getElementById('invoice-modal');
             if (modal) modal.remove();
@@ -52885,6 +53006,141 @@ Funk Taxi Team`;
             invoiceRideData = null;
             invoiceCustomerData = null;
             invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
+        }
+
+        // 🆕 v5.90.862: SPERRE/ENTSPERRE RECHNUNGS-FELDER
+        function lockInvoiceFields() {
+            console.log('🔒 v5.90.862: Sperre Rechnungs-Felder');
+
+            // Alle Input-Felder sperren
+            const fieldsToLock = [
+                'inv-customer-name', 'inv-guest-name', 'inv-address',
+                'inv-pickup', 'inv-destination', 'inv-date', 'inv-time',
+                'invoice-distance', 'invoice-vat-rate', 'invoice-payment-method',
+                'inv-delivery-date', 'inv-delivery-from', 'inv-delivery-to'
+            ];
+
+            fieldsToLock.forEach(id => {
+                const field = document.getElementById(id);
+                if (field) {
+                    field.disabled = true;
+                    field.style.backgroundColor = '#f3f4f6';
+                    field.style.cursor = 'not-allowed';
+                }
+            });
+
+            // Checkboxen sperren
+            const checkboxes = [
+                'inv-show-customer', 'inv-show-address', 'inv-show-guest',
+                'inv-show-route', 'inv-show-datetime', 'inv-show-distance', 'inv-show-vat'
+            ];
+
+            checkboxes.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.disabled = true;
+                    checkbox.style.cursor = 'not-allowed';
+                    if (checkbox.parentElement) {
+                        checkbox.parentElement.style.opacity = '0.6';
+                    }
+                }
+            });
+
+            // Positions-Buttons sperren
+            document.querySelectorAll('#invoice-positions-container button').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            });
+
+            // "Position hinzufügen" Button sperren
+            const addPosBtn = document.querySelector('button[onclick="addInvoicePosition()"]');
+            if (addPosBtn) {
+                addPosBtn.disabled = true;
+                addPosBtn.style.opacity = '0.5';
+                addPosBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        function unlockInvoiceFields() {
+            console.log('🔓 v5.90.862: Entsperre Rechnungs-Felder');
+
+            // Alle Input-Felder entsperren (AUSSER Rechnungsnummer)
+            const fieldsToUnlock = [
+                'inv-customer-name', 'inv-guest-name', 'inv-address',
+                'inv-pickup', 'inv-destination', 'inv-date', 'inv-time',
+                'invoice-distance', 'invoice-vat-rate', 'invoice-payment-method',
+                'inv-delivery-date', 'inv-delivery-from', 'inv-delivery-to'
+            ];
+
+            fieldsToUnlock.forEach(id => {
+                const field = document.getElementById(id);
+                if (field) {
+                    field.disabled = false;
+                    field.style.backgroundColor = 'white';
+                    field.style.cursor = 'text';
+                }
+            });
+
+            // Checkboxen entsperren
+            const checkboxes = [
+                'inv-show-customer', 'inv-show-address', 'inv-show-guest',
+                'inv-show-route', 'inv-show-datetime', 'inv-show-distance', 'inv-show-vat'
+            ];
+
+            checkboxes.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.disabled = false;
+                    checkbox.style.cursor = 'pointer';
+                    if (checkbox.parentElement) {
+                        checkbox.parentElement.style.opacity = '1';
+                    }
+                }
+            });
+
+            // Positions-Buttons entsperren
+            document.querySelectorAll('#invoice-positions-container button').forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+
+            // "Position hinzufügen" Button entsperren
+            const addPosBtn = document.querySelector('button[onclick="addInvoicePosition()"]');
+            if (addPosBtn) {
+                addPosBtn.disabled = false;
+                addPosBtn.style.opacity = '1';
+                addPosBtn.style.cursor = 'pointer';
+            }
+        }
+
+        function toggleInvoiceEditMode() {
+            console.log('✏️ v5.90.862: Toggle Bearbeiten-Modus');
+
+            const editBtn = document.getElementById('invoice-edit-toggle-btn');
+            if (!editBtn) return;
+
+            const isCurrentlyLocked = editBtn.getAttribute('data-locked') === 'true';
+
+            if (isCurrentlyLocked) {
+                // ENTSPERREN
+                unlockInvoiceFields();
+                editBtn.setAttribute('data-locked', 'false');
+                editBtn.innerHTML = '💾 Speichern & Sperren';
+                editBtn.style.background = '#10b981';
+            } else {
+                // SPERREN & SPEICHERN
+                const confirmSave = confirm('⚠️ Änderungen speichern?\n\nDie Rechnung wird mit den aktuellen Daten überschrieben.');
+                if (confirmSave) {
+                    // Speichern durch erneutes PDF erstellen
+                    generateInvoicePDFv2();
+                }
+                lockInvoiceFields();
+                editBtn.setAttribute('data-locked', 'true');
+                editBtn.innerHTML = '✏️ Bearbeiten';
+                editBtn.style.background = '#f59e0b';
+            }
         }
         
         // 🆕 v5.90.148: ÖFFNE KUNDEN-BEARBEITUNG AUS RECHNUNG
@@ -53412,13 +53668,14 @@ Funk Taxi Team`;
         async function shareExistingInvoiceViaWhatsApp(invoiceId) {
             try {
                 console.log('📤 Teile bestehende Rechnung:', invoiceId);
-                
+
                 // Lade Rechnung aus Firebase
                 const invSnapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const invoice = invSnapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -54047,6 +54304,66 @@ Funk Taxi Team`;
             }
         }
         
+        // 🆕 v5.90.860: SENDE BEREITS ERSTELLTE RECHNUNG PER E-MAIL!
+        async function sendCreatedInvoiceViaEmail() {
+            try {
+                console.log('📧 v5.90.860: Sende erstellte Rechnung per E-Mail...');
+
+                // Hole Ride-ID aus Modal
+                const rideId = document.getElementById('invoice-ride-id').value;
+
+                if (!rideId) {
+                    alert('❌ Keine Ride-ID gefunden!\n\nBitte erstellen Sie zuerst die Rechnung mit "PDF erstellen & speichern".');
+                    return;
+                }
+
+                // Lade Ride-Daten um Rechnungsnummer zu bekommen
+                const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                const rideData = rideSnapshot.val();
+
+                if (!rideData || !rideData.invoiceNumber) {
+                    alert('❌ Keine Rechnung gefunden!\n\nBitte erstellen Sie zuerst die Rechnung mit "PDF erstellen & speichern".');
+                    return;
+                }
+
+                // 🆕 v5.90.864: Prüfe ob Rechnung in Firebase existiert
+                const invoiceSnapshot = await db.ref(`invoices/${rideData.invoiceNumber}`).once('value');
+                const invoiceData = invoiceSnapshot.val();
+
+                if (!invoiceData) {
+                    console.error('⚠️ v5.90.864: Rechnung-Referenz existiert, aber Daten fehlen!');
+                    alert('❌ Rechnung ' + rideData.invoiceNumber + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht.\nBitte erstellen Sie die Rechnung neu.');
+
+                    // Lösche ungültige Referenz
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: null,
+                        invoiceAmount: null,
+                        invoiceCreatedAt: null
+                    });
+
+                    return;
+                }
+
+                // Prüfe ob E-Mail-Adresse vorhanden
+                if (!rideData.customerEmail && !(invoiceCustomerData?.email)) {
+                    alert('❌ Keine E-Mail-Adresse hinterlegt!\n\nBitte fügen Sie eine E-Mail-Adresse im CRM hinzu.');
+                    return;
+                }
+
+                console.log('📧 Sende Rechnung:', rideData.invoiceNumber);
+
+                // Rufe E-Mail-Versand-Funktion auf
+                await sendInvoiceViaEmail(rideId);
+
+                // Modal kann offen bleiben, damit User weitere Aktionen machen kann
+                showToast('✅ Rechnung per E-Mail versendet!', 'success');
+
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message);
+            }
+        }
+
         // 🆕 v5.90.307: PDF ERSTELLEN & PER WHATSAPP VERSENDEN!
         async function generateInvoicePDFAndSendWhatsApp() {
             try {
@@ -54338,25 +54655,10 @@ Funk Taxi Team`;
                             
                             showToast('✅ Rechnung geladen: ' + existingInvoiceNumber, 'success');
                             return; // STOPP - Modal ist jetzt gefüllt!
+                        } else {
+                            // 🆕 v5.90.862: Rechnung-Referenz existiert, aber Daten fehlen
+                            console.log('⚠️ v5.90.862: Rechnung in ride referenziert, aber nicht in /invoices - wird wiederhergestellt');
                         }
-                        
-                        // FALLBACK: Wenn Rechnung nicht in /invoices gefunden
-                        const confirmed = confirm(
-                            `⚠️ RECHNUNG EXISTIERT BEREITS!\n\n` +
-                            `Rechnungsnummer: ${existingInvoiceNumber}\n` +
-                            `Erstellt am: ${new Date(rideData.invoiceCreatedAt).toLocaleString('de-DE')}\n\n` +
-                            `Möchtest du die Rechnung NEU ERSTELLEN?\n` +
-                            `→ JA: Neue Rechnung mit GLEICHER Nummer\n` +
-                            `→ NEIN: Abbrechen`
-                        );
-                        
-                        if (!confirmed) {
-                            console.log('🛑 Rechnung-Erstellung abgebrochen (existiert bereits)');
-                            return;
-                        }
-                        
-                        // 🆕 v5.90.542: VERWENDE BESTEHENDE NUMMER!
-                        console.log('🔄 Erstelle Rechnung NEU mit bestehender Nummer:', existingInvoiceNumber);
                     }
                 }
                 
@@ -54693,7 +54995,10 @@ Funk Taxi Team`;
                 if (shareButtons) {
                     shareButtons.style.display = 'flex';
                 }
-                
+
+                // 🆕 v5.90.863: SPERRE ALLE FELDER NACH ERSTELLUNG!
+                lockInvoiceFields();
+
                 // Verstecke "PDF erstellen" Button
                 const createBtn = document.querySelector('button[onclick="generateInvoicePDFv2()"]');
                 if (createBtn) {
@@ -54987,9 +55292,10 @@ Funk Taxi Team`;
                 // Lade Rechnung aus DB
                 const invoiceSnapshot = await db.ref(`invoices/${invoiceNumber}`).once('value');
                 const invoice = invoiceSnapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceNumber);
+                    alert('💾 Rechnung ' + invoiceNumber + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -55206,15 +55512,27 @@ Funk Taxi Team`;
                     // 🆕 v5.90.309: ERWEITERTE BUTTONS!
                     actionButton = `
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
+                            <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')"
                                     style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(139,92,246,0.3);">
                                 📥 PDF
                             </button>
-                            <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')" 
+                            <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')"
                                     style="padding:8px 12px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(37,211,102,0.3);">
                                 📱 WhatsApp
                             </button>
-                            <button onclick="openInvoiceModal('${ride.id}')" 
+                            ${ride.customerEmail ? `
+                            <button onclick="sendInvoiceViaEmail('${ride.id}')"
+                                    style="padding:8px 12px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(59,130,246,0.3);">
+                                📧 E-Mail
+                            </button>
+                            ` : `
+                            <button onclick="alert('❌ Keine E-Mail-Adresse hinterlegt!\\n\\nBitte fügen Sie eine E-Mail-Adresse im CRM hinzu.')"
+                                    style="padding:8px 12px;background:#9ca3af;color:white;border:none;border-radius:6px;font-weight:600;cursor:not-allowed;font-size:12px;opacity:0.6;"
+                                    title="Keine E-Mail-Adresse hinterlegt">
+                                📧 E-Mail
+                            </button>
+                            `}
+                            <button onclick="openInvoiceModal('${ride.id}')"
                                     style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">
                                 ✏️ Bearbeiten
                             </button>
@@ -55264,6 +55582,7 @@ Funk Taxi Team`;
                         <div style="margin-bottom:8px;">
                             <span style="font-weight:700;font-size:16px;color:#8b5cf6;">💾 ${ride.customerName || 'Unbekannt'}</span>
                             ${ride.guestName ? `<span style="font-size:13px;color:#6b7280;margin-left:8px;">(${ride.guestName})</span>` : ''}
+                            ${ride.customerEmail ? `<span style="margin-left:8px;padding:2px 8px;background:#10b981;color:white;border-radius:12px;font-size:11px;font-weight:600;">📧 E-Mail</span>` : `<span style="margin-left:8px;padding:2px 8px;background:#ef4444;color:white;border-radius:12px;font-size:11px;font-weight:600;">❌ Keine E-Mail</span>`}
                         </div>
                         
                         <!-- Route -->
@@ -55468,13 +55787,14 @@ Funk Taxi Team`;
         
         async function editInvoice(invoiceId) {
             console.log('✏️ Bearbeite Rechnung:', invoiceId);
-            
+
             try {
                 const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const inv = snapshot.val();
-                
+
                 if (!inv) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -55669,9 +55989,10 @@ Funk Taxi Team`;
             try {
                 const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
                 const inv = snapshot.val();
-                
+
                 if (!inv) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -69685,13 +70006,19 @@ Taxi kommt pünktlich!
                 });
                 
                 console.log(`✅ ${allPOIs.length} POIs geladen`);
-                
+
                 // 🐛 v5.90.716: DEBUG - Zeige alle POI-Namen
                 console.log('📋 v5.90.716: Geladene POIs:');
                 allPOIs.forEach((poi, i) => {
                     console.log(`   ${i+1}. "${poi.name}" (${poi.address || 'keine Adresse'})`);
                 });
-                
+
+                // 🆕 v5.90.860: Aktualisiere POI-Anzahl im CRM
+                const crmPOIsEl = document.getElementById('crm-total-pois');
+                if (crmPOIsEl) {
+                    crmPOIsEl.textContent = allPOIs.length;
+                }
+
                 renderPOIList();
                 
             } catch (error) {
@@ -69720,12 +70047,26 @@ Taxi kommt pünktlich!
             }
             
             try {
+                // 🆕 v5.90.859: Kategorie-Labels
+                const getCategoryLabel = (category) => {
+                    const categories = {
+                        'bahnhof': '🚉 Bahnhof',
+                        'hotel': '🏨 Hotel',
+                        'restaurant': '🍽️ Restaurant',
+                        'cafe': '☕ Café',
+                        'museum': '🏛️ Sehenswürdigkeit',
+                        'other': '📍 Sonstiges'
+                    };
+                    return categories[category] || '📍 Sonstiges';
+                };
+
                 container.innerHTML = `
                     <div style="display:grid;gap:10px;">
                         ${allPOIs.map(poi => {
                             const lat = poi.lat ? poi.lat.toFixed(6) : '?';
                             const lon = poi.lon ? poi.lon.toFixed(6) : '?';
                             const safeName = (poi.name || 'Unbenannt').replace(/'/g, "\\'");
+                            const categoryLabel = getCategoryLabel(poi.category);
                             return `
                             <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
                                  onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
@@ -69735,6 +70076,7 @@ Taxi kommt pünktlich!
                                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                                             <div style="font-size:20px;">⭐</div>
                                             <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name || 'Unbenannt'}</div>
+                                            <div style="background:#f59e0b;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">${categoryLabel}</div>
                                             ${poi.showOnMap !== false
                                                 ? '<div style="background:#10b981;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🗺️ Sichtbar</div>'
                                                 : '<div style="background:#6b7280;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">👁️ Ausgeblendet</div>'}
@@ -69796,7 +70138,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="poi-name" placeholder="z.B. Bahnhof Heringsdorf"
                                    style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="poi-category" style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof">🚉 Bahnhof</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="restaurant">🍽️ Restaurant</option>
+                                <option value="cafe">☕ Café</option>
+                                <option value="museum">🏛️ Sehenswürdigkeit</option>
+                                <option value="other" selected>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -69996,6 +70350,7 @@ Taxi kommt pünktlich!
         
         async function savePOI() {
             const name = document.getElementById('poi-name').value.trim();
+            const category = document.getElementById('poi-category').value;
             const address = document.getElementById('poi-address').value.trim();
             const lat = parseFloat(document.getElementById('poi-lat').value);
             const lon = parseFloat(document.getElementById('poi-lon').value);
@@ -70021,6 +70376,7 @@ Taxi kommt pünktlich!
 
                 await db.ref('pois').push({
                     name,
+                    category,
                     address,
                     lat,
                     lon,
@@ -70091,7 +70447,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="edit-poi-name" value="${poi.name.replace(/"/g, '&quot;')}"
                                    style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="edit-poi-category" style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof" ${poi.category === 'bahnhof' ? 'selected' : ''}>🚉 Bahnhof</option>
+                                <option value="hotel" ${poi.category === 'hotel' ? 'selected' : ''}>🏨 Hotel</option>
+                                <option value="restaurant" ${poi.category === 'restaurant' ? 'selected' : ''}>🍽️ Restaurant</option>
+                                <option value="cafe" ${poi.category === 'cafe' ? 'selected' : ''}>☕ Café</option>
+                                <option value="museum" ${poi.category === 'museum' ? 'selected' : ''}>🏛️ Sehenswürdigkeit</option>
+                                <option value="other" ${!poi.category || poi.category === 'other' ? 'selected' : ''}>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -70233,6 +70601,7 @@ Taxi kommt pünktlich!
         
         async function updatePOI(id) {
             const name = document.getElementById('edit-poi-name').value.trim();
+            const category = document.getElementById('edit-poi-category').value;
             const address = document.getElementById('edit-poi-address').value.trim();
             const lat = parseFloat(document.getElementById('edit-poi-lat').value);
             const lon = parseFloat(document.getElementById('edit-poi-lon').value);
@@ -70246,6 +70615,7 @@ Taxi kommt pünktlich!
             try {
                 await db.ref('pois/' + id).update({
                     name,
+                    category,
                     address,
                     lat,
                     lon,
@@ -73868,14 +74238,15 @@ Taxi kommt pünktlich!
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER E-MAIL VERSENDEN
         async function sendInvoiceViaEmail(invoiceId) {
             console.log('📧 Versende Hotel-Rechnung per E-Mail:', invoiceId);
-            
+
             try {
                 // Lade Rechnung
                 const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
                 const invoice = snapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Hotel-Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Hotel-Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -73923,14 +74294,15 @@ Taxi kommt pünktlich!
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER WHATSAPP VERSENDEN
         async function sendInvoiceViaWhatsApp(invoiceId) {
             console.log('📱 Versende Hotel-Rechnung per WhatsApp:', invoiceId);
-            
+
             try {
                 // Lade Rechnung
                 const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
                 const invoice = snapshot.val();
-                
+
                 if (!invoice) {
-                    alert('💾 Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Hotel-Rechnung nicht in Firebase gefunden:', invoiceId);
+                    alert('💾 Hotel-Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
                     return;
                 }
                 
@@ -74000,7 +74372,10 @@ Taxi kommt pünktlich!
                 const invoice = snapshot.val();
 
                 if (!invoice) {
-                    throw new Error('Rechnung nicht gefunden!');
+                    console.error('⚠️ v5.90.864: Rechnung nicht in Firebase gefunden:', invoiceId);
+                    loadingModal.remove();
+                    alert('💾 Rechnung ' + invoiceId + ' wurde nicht gefunden!\n\nDie Rechnung wurde möglicherweise gelöscht oder existiert nicht.');
+                    return;
                 }
 
                 // Prüfe ob Kunde eine E-Mail hat

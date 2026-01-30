@@ -10,7 +10,7 @@
     ═══════════════════════════════════════════════════════════════════════════
 
     📦 VERSION: v5.90.866-STABLE
-    📅 BUILD: 30.01.2026 15:00 Uhr
+    📅 BUILD: 30.01.2026 18:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
@@ -26,11 +26,26 @@
        • DEBUGGING: Console-Logs zeigen E-Mail-Lade-Status an
        • UX: Bessere Fehlermeldung mit Hinweis auf CRM-Button
 
-    📧 v5.90.865-STABLE (30.01.2026):
-       • INTERNAL: Entwicklungsversion - nicht deployed
+    🔍 v5.90.865-STABLE (30.01.2026):
+       • NEU: Advanced Logging System mit Transaction Tracing!
+       • NEU: Logger lädt jetzt im <head> - loggt ALLE Events von Anfang an
+       • NEU: Debug-Tab erweitert mit Kategorie-Filter (GPS, Route, Booking, etc.)
+       • NEU: Filter nach Log-Level (Debug, Info, Warn, Error, Critical)
+       • NEU: Transaction-ID-Filter für komplette Workflow-Verfolgung
+       • NEU: 7 Tage Log-Retention in IndexedDB
+       • NEU: Performance-Monitoring und Kontext-basiertes Logging
+       • FIX: Keine frühen Events (Firebase, Auth, GPS) werden mehr verpasst
+       • INFO: Dokumentation in LOGGING-SYSTEM-README.md
+       • INFO: Code-Beispiele in logging-integration-examples.js
 
-    🔒 v5.90.864-STABLE (29.01.2026):
-       • FIX: Hotel-Rechnung-Validation verbessert - keine Fehlermeldungen mehr bei existierenden Rechnungen
+    🗺️ v5.90.864-STABLE (29.01.2026):
+       • NEU: POI-Kategoriesystem vollständig implementiert
+       • Kategorie wird in Firebase gespeichert
+       • Filter-Buttons nutzen jetzt echte Kategorien statt Name-Keywords
+       • Fallback auf Keyword-Suche für alle POIs ohne category-Feld
+       • POI-Liste zeigt Kategorie-Badge (orange)
+       • getOIType() Funktion angepasst für category-Feld
+       • Vorteile: Präzise Filterung, einfache Kategoriezuweisung, keine Abhängigkeit von POI-Namen
 
     🔒 v5.90.863-STABLE (29.01.2026):
        • NEU: E-Mail wird jetzt bei Buchung aus CRM in ride gespeichert!
@@ -1573,9 +1588,17 @@
             animation: slideIn 0.4s ease-out;
         }
     </style>
-    
+
     <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
+
+    <!-- 🔍 ADVANCED LOGGING SYSTEM v1.0.0 - FRÜH LADEN! -->
+    <!-- MUSS VOR ALLEM ANDEREN SEIN, DAMIT ALLE EVENTS GELOGGT WERDEN -->
+    <script src="advanced-logger.js"></script>
+    <script>
+        // 🔍 Logger ist bereit - Session-Info wird beim vollständigen Init geloggt
+        console.log('🔍 Advanced Logger FRÜH geladen - Session:', window.advancedLogger?.sessionId);
+    </script>
 </head>
 <body>
 
@@ -3853,6 +3876,10 @@
                 <div style="font-size:18px;font-weight:bold;" id="crm-favorites">0</div>
                 <div style="font-size:11px;opacity:0.9;">Favoriten</div>
             </div>
+            <div onclick="switchView('poi-management')" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:8px 12px;border-radius:8px;color:white;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(245,158,11,0.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <div style="font-size:18px;font-weight:bold;" id="crm-total-pois">0</div>
+                <div style="font-size:11px;opacity:0.9;">POIs 🗺️</div>
+            </div>
         </div>
         
         <!-- Suche & Filter -->
@@ -3895,9 +3922,13 @@
                 </div>
             </div>
             <input type="hidden" id="crm-filter-category" value="">
-            
+
             <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                 ➕ Neuer Kunde
+            </button>
+
+            <button onclick="switchView('poi-management')" style="padding:12px 20px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                ⭐ POIs verwalten
             </button>
         </div>
         
@@ -7869,7 +7900,7 @@
                     cursor: pointer;
                     font-size: 14px;
                 ">
-                    📥 Storage (24h)
+                    📥 Storage (7 Tage)
                 </button>
                 <div style="flex: 1; min-width: 200px;">
                     <input type="text" id="debug-filter" placeholder="🔍 Filter logs..." onkeyup="filterDebugLogs()" style="
@@ -7878,6 +7909,61 @@
                         border: 2px solid #e5e7eb;
                         border-radius: 8px;
                         font-size: 14px;
+                    ">
+                </div>
+            </div>
+
+            <!-- 🆕 v5.90.860: Advanced Filter -->
+            <div style="padding: 15px; background: #f0f9ff; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div>
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">🎯 KATEGORIE</label>
+                    <select id="debug-category-filter" onchange="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        background: white;
+                    ">
+                        <option value="">Alle</option>
+                        <option value="SYSTEM">System</option>
+                        <option value="GPS">GPS</option>
+                        <option value="ROUTE">Route</option>
+                        <option value="BOOKING">Booking</option>
+                        <option value="PAYMENT">Payment</option>
+                        <option value="AUTH">Auth</option>
+                        <option value="DATABASE">Database</option>
+                        <option value="UI">UI</option>
+                        <option value="PERFORMANCE">Performance</option>
+                        <option value="NETWORK">Network</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">📊 LEVEL</label>
+                    <select id="debug-level-filter" onchange="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        background: white;
+                    ">
+                        <option value="">Alle</option>
+                        <option value="debug">🔍 Debug</option>
+                        <option value="info">✅ Info</option>
+                        <option value="warn">⚠️ Warn</option>
+                        <option value="error">❌ Error</option>
+                        <option value="critical">🚨 Critical</option>
+                    </select>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 600;">🔍 TRANSACTION ID</label>
+                    <input type="text" id="debug-transaction-filter" placeholder="txn_... (zeigt alle Logs einer Transaction)" onkeyup="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 6px;
+                        font-size: 13px;
                     ">
                 </div>
             </div>
@@ -8650,8 +8736,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.854';
-        const APP_BUILD = '20260123-MOBILE-KARTE-MIT-ANALYSE';
+        const APP_VERSION = '5.90.865';
+        const APP_BUILD = '20260130-ADVANCED-LOGGING';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -28387,10 +28473,12 @@ Aktuell: ${currentNum}`;
                 // Hole Pickup/Destination für Distanz-Prüfung
                 const pickupInput = document.getElementById('pickup');
                 const destinationInput = document.getElementById('destination');
-                const durationInput = document.getElementById('duration'); // 🆕 v5.90.664: DURATION HOLEN!
                 const pickup = pickupInput ? pickupInput.value.trim() : '';
                 const destination = destinationInput ? destinationInput.value.trim() : '';
-                const duration = durationInput ? durationInput.value.trim() : '15'; // 🆕 v5.90.664: DEFAULT 15 MIN
+
+                // 🆕 v5.90.864: Verwende berechnete Gesamtdauer aus window.currentTotalDuration
+                // statt eines nicht-existierenden Input-Feldes
+                const duration = window.currentTotalDuration || '15'; // Fallback auf 15 Min wenn nicht berechnet
                 
                 console.log('📊 Kalender-Check:');
                 console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));
@@ -34778,7 +34866,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 const favorites = customers.filter(c => c.category === 'vip').length;
                 document.getElementById('crm-favorites').textContent = favorites;
-                
+
+                // 🆕 v5.90.860: POI-Anzahl aktualisieren
+                document.getElementById('crm-total-pois').textContent = allPOIs.length;
+
                 // Render Kunden-Liste
                 renderCRMCustomers(customers);
             });
@@ -49870,15 +49961,21 @@ Funk Taxi Team`;
             }
             
             // 🆕 v5.90.653: Bestimme POI-Typ für Filter
-            function getPOIType(poiName) {
-                const name = poiName.toLowerCase();
-                
+            // 🔧 v5.90.859: Nutze jetzt category-Feld (mit Fallback auf Name-Keywords)
+            function getPOIType(poi) {
+                // Nutze gespeicherte Kategorie wenn vorhanden
+                if (poi.category) {
+                    return poi.category;
+                }
+
+                // Fallback: Keywords im Namen suchen (für alte POIs ohne category)
+                const name = poi.name.toLowerCase();
                 if (name.includes('bahnhof')) return 'bahnhof';
                 if (name.includes('hotel') || name.includes('pension')) return 'hotel';
                 if (name.includes('restaurant') || name.includes('gaststätte')) return 'restaurant';
                 if (name.includes('café') || name.includes('cafe')) return 'cafe';
                 if (name.includes('museum') || name.includes('kirche') || name.includes('seebrücke')) return 'museum';
-                
+
                 return 'other';
             }
             
@@ -49904,7 +50001,7 @@ Funk Taxi Team`;
             // Erstelle Marker für jeden POI
             visiblePOIs.forEach(poi => {
                 const icon = getPOIIcon(poi.name);
-                const poiType = getPOIType(poi.name);
+                const poiType = getPOIType(poi);
                 
                 // 🆕 v5.90.653: Filter anwenden
                 if (filterType !== 'all' && poiType !== filterType) {
@@ -66183,52 +66280,56 @@ Stack: ${err.stack}
                 originalError.apply(console, args);
             };
             
-            // Update UI
+            // Update UI - 🆕 v5.90.860: Erweitert für alle Log-Levels
             function updateDebugUI(logEntry) {
                 const container = document.getElementById('debug-log-container');
                 if (!container) return;
-                
+
                 // Clear "Warte auf Logs" message
                 if (window.debugLogs.length === 1) {
                     container.innerHTML = '';
                 }
-                
+
                 const colors = {
+                    debug: '#6b7280',
                     info: '#10b981',
                     warn: '#f59e0b',
-                    error: '#ef4444'
+                    error: '#ef4444',
+                    critical: '#dc2626'
                 };
-                
+
                 const icons = {
+                    debug: '🔍',
                     info: '✅',
                     warn: '⚠️',
-                    error: '💾'
+                    error: '❌',
+                    critical: '🚨'
                 };
-                
+
                 const logDiv = document.createElement('div');
                 logDiv.style.cssText = `
                     padding: 10px;
                     border-bottom: 1px solid #374151;
                     margin-bottom: 5px;
                 `;
-                logDiv.className = 'debug-log-entry';
+                logDiv.className = `debug-log-entry log-${logEntry.type}`;
                 logDiv.setAttribute('data-type', logEntry.type);
-                
+
                 logDiv.innerHTML = `
                     <div style="display: flex; gap: 10px; align-items: flex-start;">
                         <span style="color: #9ca3af; font-size: 11px; white-space: nowrap;">${logEntry.timestamp}</span>
-                        <span style="color: ${colors[logEntry.type]}; font-weight: bold;">${icons[logEntry.type]}</span>
+                        <span style="color: ${colors[logEntry.type] || colors.info}; font-weight: bold;">${icons[logEntry.type] || icons.info}</span>
                         <div style="flex: 1; word-break: break-all;">
                             <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${escapeHtml(logEntry.message)}</pre>
                         </div>
                     </div>
                 `;
-                
+
                 container.appendChild(logDiv);
-                
+
                 // Auto-scroll
                 container.scrollTop = container.scrollHeight;
-                
+
                 // Update counts
                 updateCounts();
             }
@@ -66312,17 +66413,51 @@ Stack: ${err.stack}
                 alert('✅ Logs exportiert: ' + window.debugLogs.length + ' Einträge');
             };
             
-            // Filter Logs (global)
+            // Filter Logs (global) - 🆕 v5.90.860: Erweitert mit Kategorie, Level, Transaction
             window.filterDebugLogs = function() {
+                // Text-Filter
                 const filterInput = document.getElementById('debug-filter');
-                if (!filterInput) return;
-                const filter = filterInput.value.toLowerCase();
+                const textFilter = filterInput ? filterInput.value.toLowerCase() : '';
+
+                // Kategorie-Filter
+                const categorySelect = document.getElementById('debug-category-filter');
+                const categoryFilter = categorySelect ? categorySelect.value : '';
+
+                // Level-Filter
+                const levelSelect = document.getElementById('debug-level-filter');
+                const levelFilter = levelSelect ? levelSelect.value : '';
+
+                // Transaction-Filter
+                const transactionInput = document.getElementById('debug-transaction-filter');
+                const transactionFilter = transactionInput ? transactionInput.value.toLowerCase() : '';
+
                 const entries = document.querySelectorAll('.debug-log-entry');
-                
+
                 entries.forEach(entry => {
                     const text = entry.textContent.toLowerCase();
-                    entry.style.display = text.includes(filter) ? 'block' : 'none';
+
+                    // Text-Filter Check
+                    const matchesText = !textFilter || text.includes(textFilter);
+
+                    // Kategorie-Filter Check
+                    const matchesCategory = !categoryFilter || text.includes(`[${categoryFilter}]`);
+
+                    // Level-Filter Check
+                    const matchesLevel = !levelFilter || entry.classList.contains(`log-${levelFilter}`);
+
+                    // Transaction-Filter Check
+                    const matchesTransaction = !transactionFilter || text.includes(transactionFilter);
+
+                    // Zeige nur wenn ALLE Filter matchen
+                    entry.style.display = (matchesText && matchesCategory && matchesLevel && matchesTransaction) ? 'block' : 'none';
                 });
+
+                // Update Counts basierend auf sichtbaren Logs
+                const visibleEntries = Array.from(entries).filter(e => e.style.display !== 'none');
+                const totalEl = document.getElementById('debug-count-total');
+                if (totalEl) {
+                    totalEl.textContent = `${visibleEntries.length}/${entries.length}`;
+                }
             };
             
             // Refresh UI
@@ -66399,7 +66534,67 @@ Stack: ${err.stack}
             }
             
             console.log(`✅ DEBUG MONITOR bereit (${window.debugPaused ? 'pausiert' : 'recording'} - ${window.debugLogs.length} Logs geladen)`);
-            
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // 🔍 v5.90.860: ADVANCED LOGGER BRIDGE
+            // Verbindet Advanced Logger mit bestehendem Debug-View
+            // ═══════════════════════════════════════════════════════════════════════
+
+            if (window.advancedLogger) {
+                console.log('🔗 Verbinde Advanced Logger mit Debug-View...');
+
+                // Override der consoleOutput Funktion für Integration mit Debug-View
+                const originalConsoleOutput = window.advancedLogger.consoleOutput.bind(window.advancedLogger);
+
+                window.advancedLogger.consoleOutput = function(logEntry) {
+                    // Rufe die originale Console-Output-Funktion auf
+                    originalConsoleOutput(logEntry);
+
+                    // Zusätzlich: Zeige in Debug-View an
+                    if (document.getElementById('debug-log-container')) {
+                        // Konvertiere Advanced Logger Format zu Debug-View Format
+                        const debugLogEntry = {
+                            timestamp: new Date(logEntry.timestamp).toLocaleTimeString('de-DE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                fractionalSecondDigits: 3
+                            }),
+                            type: logEntry.levelName.toLowerCase(),
+                            message: `[${logEntry.category.toUpperCase()}] ${logEntry.message}`,
+                            time: logEntry.timestamp
+                        };
+
+                        // Füge zu window.debugLogs hinzu (für Kompatibilität)
+                        if (!window.debugLogs) window.debugLogs = [];
+                        window.debugLogs.push(debugLogEntry);
+
+                        // Update Debug-View UI
+                        if (typeof updateDebugUI === 'function' && !window.debugPaused) {
+                            updateDebugUI(debugLogEntry);
+                        }
+                    }
+                };
+
+                // Zeige Advanced Logger Info im Debug-View
+                if (window.advancedLogger.isReady) {
+                    window.advancedLogger.info(
+                        LOG_CATEGORIES.SYSTEM,
+                        '🔍 Advanced Logger mit Debug-View verbunden',
+                        {
+                            sessionId: window.advancedLogger.sessionId,
+                            memoryLogs: window.advancedLogger.memoryLogs.length,
+                            debugViewLogs: window.debugLogs?.length || 0
+                        }
+                    );
+                }
+
+                console.log('✅ Advanced Logger Bridge aktiviert!');
+                console.log('💡 Alle Logs erscheinen jetzt im Debug-Tab!');
+                console.log('📊 Kategorien:', Object.keys(LOG_CATEGORIES).join(', '));
+                console.log('📈 Log-Levels:', Object.keys(LOG_LEVELS).join(', '));
+            }
+
             // 🔍 v5.90.0: TAB-BUTTON CLICK LOGGER!
             console.log('═══════════════════════════════════════════════════════════');
             console.log('🔍 Installiere Tab-Button Click Logger...');
@@ -69854,13 +70049,19 @@ Taxi kommt pünktlich!
                 });
                 
                 console.log(`✅ ${allPOIs.length} POIs geladen`);
-                
+
                 // 🐛 v5.90.716: DEBUG - Zeige alle POI-Namen
                 console.log('📋 v5.90.716: Geladene POIs:');
                 allPOIs.forEach((poi, i) => {
                     console.log(`   ${i+1}. "${poi.name}" (${poi.address || 'keine Adresse'})`);
                 });
-                
+
+                // 🆕 v5.90.860: Aktualisiere POI-Anzahl im CRM
+                const crmPOIsEl = document.getElementById('crm-total-pois');
+                if (crmPOIsEl) {
+                    crmPOIsEl.textContent = allPOIs.length;
+                }
+
                 renderPOIList();
                 
             } catch (error) {
@@ -69889,12 +70090,26 @@ Taxi kommt pünktlich!
             }
             
             try {
+                // 🆕 v5.90.859: Kategorie-Labels
+                const getCategoryLabel = (category) => {
+                    const categories = {
+                        'bahnhof': '🚉 Bahnhof',
+                        'hotel': '🏨 Hotel',
+                        'restaurant': '🍽️ Restaurant',
+                        'cafe': '☕ Café',
+                        'museum': '🏛️ Sehenswürdigkeit',
+                        'other': '📍 Sonstiges'
+                    };
+                    return categories[category] || '📍 Sonstiges';
+                };
+
                 container.innerHTML = `
                     <div style="display:grid;gap:10px;">
                         ${allPOIs.map(poi => {
                             const lat = poi.lat ? poi.lat.toFixed(6) : '?';
                             const lon = poi.lon ? poi.lon.toFixed(6) : '?';
                             const safeName = (poi.name || 'Unbenannt').replace(/'/g, "\\'");
+                            const categoryLabel = getCategoryLabel(poi.category);
                             return `
                             <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
                                  onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
@@ -69904,6 +70119,7 @@ Taxi kommt pünktlich!
                                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                                             <div style="font-size:20px;">⭐</div>
                                             <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name || 'Unbenannt'}</div>
+                                            <div style="background:#f59e0b;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">${categoryLabel}</div>
                                             ${poi.showOnMap !== false
                                                 ? '<div style="background:#10b981;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">🗺️ Sichtbar</div>'
                                                 : '<div style="background:#6b7280;color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">👁️ Ausgeblendet</div>'}
@@ -69965,7 +70181,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="poi-name" placeholder="z.B. Bahnhof Heringsdorf"
                                    style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="poi-category" style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof">🚉 Bahnhof</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="restaurant">🍽️ Restaurant</option>
+                                <option value="cafe">☕ Café</option>
+                                <option value="museum">🏛️ Sehenswürdigkeit</option>
+                                <option value="other" selected>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -70165,6 +70393,7 @@ Taxi kommt pünktlich!
         
         async function savePOI() {
             const name = document.getElementById('poi-name').value.trim();
+            const category = document.getElementById('poi-category').value;
             const address = document.getElementById('poi-address').value.trim();
             const lat = parseFloat(document.getElementById('poi-lat').value);
             const lon = parseFloat(document.getElementById('poi-lon').value);
@@ -70190,6 +70419,7 @@ Taxi kommt pünktlich!
 
                 await db.ref('pois').push({
                     name,
+                    category,
                     address,
                     lat,
                     lon,
@@ -70260,7 +70490,19 @@ Taxi kommt pünktlich!
                             <input type="text" id="edit-poi-name" value="${poi.name.replace(/"/g, '&quot;')}"
                                    style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
-                        
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🏷️ Kategorie</label>
+                            <select id="edit-poi-category" style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;">
+                                <option value="bahnhof" ${poi.category === 'bahnhof' ? 'selected' : ''}>🚉 Bahnhof</option>
+                                <option value="hotel" ${poi.category === 'hotel' ? 'selected' : ''}>🏨 Hotel</option>
+                                <option value="restaurant" ${poi.category === 'restaurant' ? 'selected' : ''}>🍽️ Restaurant</option>
+                                <option value="cafe" ${poi.category === 'cafe' ? 'selected' : ''}>☕ Café</option>
+                                <option value="museum" ${poi.category === 'museum' ? 'selected' : ''}>🏛️ Sehenswürdigkeit</option>
+                                <option value="other" ${!poi.category || poi.category === 'other' ? 'selected' : ''}>📍 Sonstiges</option>
+                            </select>
+                        </div>
+
                         <div style="margin-bottom:15px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
                             <div style="position:relative;display:flex;gap:8px;">
@@ -70402,6 +70644,7 @@ Taxi kommt pünktlich!
         
         async function updatePOI(id) {
             const name = document.getElementById('edit-poi-name').value.trim();
+            const category = document.getElementById('edit-poi-category').value;
             const address = document.getElementById('edit-poi-address').value.trim();
             const lat = parseFloat(document.getElementById('edit-poi-lat').value);
             const lon = parseFloat(document.getElementById('edit-poi-lon').value);
@@ -70415,6 +70658,7 @@ Taxi kommt pünktlich!
             try {
                 await db.ref('pois/' + id).update({
                     name,
+                    category,
                     address,
                     lat,
                     lon,
@@ -79656,6 +79900,26 @@ if (document.readyState === 'loading') {
             display: none;
         }
     </style>
+
+    <!-- 🔍 Advanced Logger wird im <head> geladen (siehe oben) -->
+    <script>
+        // Log System-Start wenn alles bereit ist
+        window.addEventListener('DOMContentLoaded', function() {
+            if (window.advancedLogger && window.advancedLogger.isReady) {
+                window.advancedLogger.info(
+                    LOG_CATEGORIES.SYSTEM,
+                    '🚀 Taxi App vollständig geladen',
+                    {
+                        version: APP_VERSION || '5.90.865',
+                        userAgent: navigator.userAgent,
+                        platform: navigator.platform,
+                        language: navigator.language,
+                        totalLogs: window.advancedLogger.memoryLogs.length
+                    }
+                );
+            }
+        });
+    </script>
 
 </body>
 </html>

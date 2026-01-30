@@ -22056,11 +22056,20 @@ Aktuell: ${currentNum}`;
                 }
                 
                 console.log('✅ Erstelle PDF...');
-                
+
                 // Erstelle PDF mit jsPDF
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-        
+
+                // 💾 TODO: Implement receipt generation for rides without invoices
+                alert('💾 Diese Funktion ist noch nicht implementiert.\n\nBitte erstellen Sie eine Rechnung über den "Rechnung erstellen" Button.');
+
+            } catch (error) {
+                console.error('💾 Fehler in downloadReceipt:', error);
+                alert('💾 Fehler: ' + error.message);
+            }
+        }
+
         // 🆕 v5.90.11: DOWNLOAD ECHTE RECHNUNG AUS FIREBASE
         async function downloadInvoicePDF(invoiceNumber, rideId) {
             try {
@@ -74212,10 +74221,10 @@ Taxi kommt pünktlich!
                                 `}
                                 
                                 <!-- 🆕 v5.90.128: VERSAND-BUTTONS -->
-                                <button onclick="sendInvoiceViaEmail('${invoice.id}')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                <button onclick="sendHotelInvoiceViaEmail('${invoice.id}')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
                                     📧 E-Mail
                                 </button>
-                                <button onclick="sendInvoiceViaWhatsApp('${invoice.id}')" style="flex:1;padding:8px;background:#25d366;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                <button onclick="sendHotelInvoiceViaWhatsApp('${invoice.id}')" style="flex:1;padding:8px;background:#25d366;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
                                     📱 WhatsApp
                                 </button>
                                 
@@ -74279,7 +74288,7 @@ Taxi kommt pünktlich!
         }
         
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER E-MAIL VERSENDEN
-        async function sendInvoiceViaEmail(invoiceId) {
+        async function sendHotelInvoiceViaEmail(invoiceId) {
             console.log('📧 Versende Hotel-Rechnung per E-Mail:', invoiceId);
 
             try {
@@ -74335,7 +74344,7 @@ Taxi kommt pünktlich!
         }
         
         // 🆕 v5.90.128: HOTEL-RECHNUNG PER WHATSAPP VERSENDEN
-        async function sendInvoiceViaWhatsApp(invoiceId) {
+        async function sendHotelInvoiceViaWhatsApp(invoiceId) {
             console.log('📱 Versende Hotel-Rechnung per WhatsApp:', invoiceId);
 
             try {

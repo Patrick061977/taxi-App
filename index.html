@@ -9,22 +9,13 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
 
-    📦 VERSION: v5.90.867-STABLE
-    📅 BUILD: 31.01.2026 08:35 Uhr
+    📦 VERSION: v5.90.866-STABLE
+    📅 BUILD: 30.01.2026 18:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.867-STABLE
+    📋 CHANGELOG v5.90.866-STABLE
     ═══════════════════════════════════════════════════════════════════════════
-
-    🔧 v5.90.867-STABLE (31.01.2026):
-       • FIX: Hotel-Kalender Sync nach Token-Refresh funktioniert jetzt!
-       • WICHTIG: syncGoogleCalendarEvents() lädt Kalender direkt aus Firebase
-       • VORHER: Nutzte veraltete globale Variable hotelCalendars
-       • NACHHER: Immer aktueller Access Token aus Firebase
-       • NEU: Besseres Logging für Token-Status und Kalender-Daten
-       • DEBUGGING: Console zeigt jetzt "Access Token vorhanden: true/false"
-       • BUG BEHOBEN: Token erneuern + Sync klicken = funktioniert sofort!
 
     📧 v5.90.866-STABLE (30.01.2026):
        • FIX: E-Mail-Badge zeigt jetzt korrekt "📧 E-Mail" wenn im CRM hinterlegt
@@ -71945,23 +71936,10 @@ Taxi kommt pünktlich!
         
         // Sync Google Calendar Events (via API)
         async function syncGoogleCalendarEvents(calendarKey) {
-            // 🔧 v5.90.867: WICHTIG - Lade AKTUELLEN Kalender aus Firebase!
-            // Nicht aus globaler Variable (die ist veraltet nach Token-Refresh!)
-            console.log('🔄 Lade aktuellen Kalender aus Firebase:', calendarKey);
-            
-            const calendarSnap = await db.ref(`hotelCalendars/${calendarKey}`).once('value');
-            const calendar = calendarSnap.val();
-            
-            if (!calendar) {
-                console.log('⏸️ Kalender nicht gefunden:', calendarKey);
-                return;
-            }
-            
-            console.log('✅ Kalender geladen:', calendar.name);
-            console.log('🔑 Access Token vorhanden:', !!calendar.accessToken);
+            const calendar = hotelCalendars[calendarKey];
             
             // 🆕 v5.87.24: Unterstütze beide Types
-            if (calendar.type !== 'google_calendar' && calendar.type !== 'google_calendar_oauth') {
+            if (!calendar || (calendar.type !== 'google_calendar' && calendar.type !== 'google_calendar_oauth')) {
                 console.log('⏸️ Kein Google Calendar:', calendarKey);
                 return;
             }

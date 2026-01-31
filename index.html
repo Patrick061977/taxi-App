@@ -39469,8 +39469,34 @@ Funk Taxi Team`;
 
             } catch (error) {
                 console.error('❌ v5.90.858: Fehler beim Email-Versand:', error);
+                console.error('❌ v5.90.858: Error Details:', {
+                    status: error.status,
+                    text: error.text,
+                    message: error.message
+                });
                 loadingModal?.remove();
-                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message + '\n\nBitte prüfen Sie die E-Mail-Adresse und versuchen Sie es erneut.');
+
+                // 🆕 v5.90.867: Verbesserte Fehlerausgabe mit Status und Text
+                let errorMsg = '❌ Fehler beim E-Mail-Versand:\n\n';
+
+                if (error.status && error.text) {
+                    errorMsg += `Status: ${error.status}\nFehler: ${error.text}\n\n`;
+
+                    // Spezifische Hilfe für 404 Account not found
+                    if (error.status === 404 && error.text.includes('Account not found')) {
+                        errorMsg += '⚠️ EmailJS Account nicht gefunden!\n\n';
+                        errorMsg += '📋 Bitte prüfen Sie:\n';
+                        errorMsg += '1. Service ID: service_w20eww8\n';
+                        errorMsg += '2. Template ID: template_8tpc5f8\n';
+                        errorMsg += '3. Public Key: bFNJ0hR5TlYDTT6BS\n\n';
+                        errorMsg += '💡 Loggen Sie sich bei emailjs.com ein und\n';
+                        errorMsg += '   stellen Sie sicher, dass die Credentials korrekt sind.';
+                    }
+                } else {
+                    errorMsg += error.message + '\n\nBitte prüfen Sie die E-Mail-Adresse und versuchen Sie es erneut.';
+                }
+
+                alert(errorMsg);
 
                 // Wenn von Invoice-Options Modal aufgerufen
                 if (typeof skipInvoiceNow === 'function') {
@@ -74407,8 +74433,34 @@ Taxi kommt pünktlich!
 
             } catch (error) {
                 console.error('❌ v5.90.858: Fehler beim E-Mail-Versand:', error);
+                console.error('❌ v5.90.858: Error Details:', {
+                    status: error.status,
+                    text: error.text,
+                    message: error.message
+                });
                 loadingModal?.remove();
-                alert('❌ Fehler beim E-Mail-Versand:\n\n' + error.message);
+
+                // 🆕 v5.90.867: Verbesserte Fehlerausgabe mit Status und Text
+                let errorMsg = '❌ Fehler beim E-Mail-Versand:\n\n';
+
+                if (error.status && error.text) {
+                    errorMsg += `Status: ${error.status}\nFehler: ${error.text}\n\n`;
+
+                    // Spezifische Hilfe für 404 Account not found
+                    if (error.status === 404 && error.text.includes('Account not found')) {
+                        errorMsg += '⚠️ EmailJS Account nicht gefunden!\n\n';
+                        errorMsg += '📋 Bitte prüfen Sie:\n';
+                        errorMsg += '1. Service ID: service_w20eww8\n';
+                        errorMsg += '2. Template ID: template_8tpc5f8\n';
+                        errorMsg += '3. Public Key: bFNJ0hR5TlYDTT6BS\n\n';
+                        errorMsg += '💡 Loggen Sie sich bei emailjs.com ein und\n';
+                        errorMsg += '   stellen Sie sicher, dass die Credentials korrekt sind.';
+                    }
+                } else {
+                    errorMsg += error.message;
+                }
+
+                alert(errorMsg);
             }
         }
         

@@ -61,6 +61,7 @@
             this.performanceMarks = new Map();
             this.sessionId = this.generateSessionId();
             this.isReady = false;
+            this.isLogging = false; // 🔒 Prevents infinite loops
 
             this.init();
         }
@@ -142,8 +143,12 @@
                     store.add(logEntry);
                 }
 
-                // 🆕 v5.90.879: Firebase-Synchronisierung (für Fehler & Warnungen & kritische Info)
-                // Nur synchronisieren wenn: ERROR, CRITICAL, WARN oder wichtige INFO (GPS, ROUTE, BOOKING)
+                // 🔒 FIREBASE SYNC DISABLED - Caused infinite loops
+                // Firebase operations were being logged, which triggered more Firebase writes,
+                // which triggered more logs, etc. = infinite loop
+                // To re-enable: implement proper recursion detection or separate log queue
+
+                /* DISABLED - Firebase Sync
                 const shouldSyncToFirebase =
                     logEntry.level >= LOG_LEVELS.WARN ||
                     (logEntry.level === LOG_LEVELS.INFO &&
@@ -151,7 +156,6 @@
 
                 if (shouldSyncToFirebase && typeof window !== 'undefined' && window.db && window.isFirebaseReady) {
                     try {
-                        // Schreibe nach Firebase (non-blocking)
                         const firebaseEntry = {
                             timestamp: logEntry.timestamp,
                             date: logEntry.date,
@@ -171,8 +175,9 @@
                         // Ignoriere Fehler um Loops zu vermeiden
                     }
                 }
+                */
             } catch (error) {
-                console.error('💾 Failed to save log:', error);
+                // Silent fail to prevent console spam
             }
         }
 
@@ -268,43 +273,54 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         log(level, category, message, context = {}) {
-            const timestamp = Date.now();
-            const date = new Date(timestamp).toISOString().split('T')[0];
-
-            // 🆕 Hol Device-ID (falls getOrCreateDeviceId verfügbar)
-            let deviceId = null;
-            try {
-                if (typeof window.getOrCreateDeviceId === 'function') {
-                    deviceId = window.getOrCreateDeviceId();
-                }
-            } catch (e) {
-                // Funktion noch nicht verfügbar
+            // 🔒 Prevent infinite loops - if already logging, skip
+            if (this.isLogging) {
+                return null;
             }
 
-            const logEntry = {
-                timestamp,
-                date,
-                sessionId: this.sessionId,
-                deviceId,  // 🆕 Device-ID hinzufügen
-                level,
-                levelName: Object.keys(LOG_LEVELS).find(k => LOG_LEVELS[k] === level),
-                category,
-                message,
-                context: {
-                    ...context,
-                    userAgent: navigator.userAgent,
-                    url: window.location.href
-                },
-                transactionId: this.getCurrentTransactionId(context)
-            };
+            try {
+                this.isLogging = true;
 
-            // Save asynchronously
-            this.saveLog(logEntry);
+                const timestamp = Date.now();
+                const date = new Date(timestamp).toISOString().split('T')[0];
 
-            // Console output with formatting
-            this.consoleOutput(logEntry);
+                // 🆕 Hol Device-ID (falls getOrCreateDeviceId verfügbar)
+                let deviceId = null;
+                try {
+                    if (typeof window.getOrCreateDeviceId === 'function') {
+                        deviceId = window.getOrCreateDeviceId();
+                    }
+                } catch (e) {
+                    // Funktion noch nicht verfügbar
+                }
 
-            return logEntry;
+                const logEntry = {
+                    timestamp,
+                    date,
+                    sessionId: this.sessionId,
+                    deviceId,  // 🆕 Device-ID hinzufügen
+                    level,
+                    levelName: Object.keys(LOG_LEVELS).find(k => LOG_LEVELS[k] === level),
+                    category,
+                    message,
+                    context: {
+                        ...context,
+                        userAgent: navigator.userAgent,
+                        url: window.location.href
+                    },
+                    transactionId: this.getCurrentTransactionId(context)
+                };
+
+                // Save asynchronously
+                this.saveLog(logEntry);
+
+                // Console output with formatting
+                this.consoleOutput(logEntry);
+
+                return logEntry;
+            } finally {
+                this.isLogging = false;
+            }
         }
 
         debug(category, message, context = {}) {

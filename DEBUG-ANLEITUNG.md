@@ -338,6 +338,43 @@ window.debugControlPanel.monitorFunction('calculateAIPrice')
 
 ---
 
+## 📝 NEU: Change Tracker System!
+
+### Automatische Dokumentation aller Änderungen!
+
+**Öffne:** `change-viewer.html`
+
+**Features:**
+- 📝 Alle Änderungen automatisch dokumentieren
+- ✅/❌ Erfolg/Fehler-Tracking
+- 📊 Statistiken & Filter
+- 💾 CHANGELOG.md automatisch generieren
+- 🔍 Interaktive Übersicht
+
+**Quick Add:**
+```javascript
+// Feature hinzugefügt
+window.changeTracker.added('Function Explorer', 'Details', ['files'])
+
+// Bug behoben
+window.changeTracker.fixed('GPS Bug', 'Details', ['files'])
+
+// Fehler beim Versuch
+window.changeTracker.failed('API Integration', 'Error Message', ['files'])
+```
+
+**Workflow:**
+```
+1. Code ändern
+2. window.changeTracker.added/changed/fixed(...)
+3. Ende der Woche: Change Viewer → Export CHANGELOG
+4. ✅ CHANGELOG.md aktualisiert!
+```
+
+**Mehr Infos:** Siehe `CHANGE-TRACKER-ANLEITUNG.md`
+
+---
+
 **Version:** v5.90.880
 **Datum:** 2026-02-01
 **Status:** ✅ Aktiv und funktionsfähig!

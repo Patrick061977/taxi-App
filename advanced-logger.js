@@ -271,10 +271,21 @@
             const timestamp = Date.now();
             const date = new Date(timestamp).toISOString().split('T')[0];
 
+            // 🆕 Hol Device-ID (falls getOrCreateDeviceId verfügbar)
+            let deviceId = null;
+            try {
+                if (typeof window.getOrCreateDeviceId === 'function') {
+                    deviceId = window.getOrCreateDeviceId();
+                }
+            } catch (e) {
+                // Funktion noch nicht verfügbar
+            }
+
             const logEntry = {
                 timestamp,
                 date,
                 sessionId: this.sessionId,
+                deviceId,  // 🆕 Device-ID hinzufügen
                 level,
                 levelName: Object.keys(LOG_LEVELS).find(k => LOG_LEVELS[k] === level),
                 category,

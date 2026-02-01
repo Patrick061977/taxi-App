@@ -141,6 +141,36 @@
                     const store = transaction.objectStore(CONFIG.STORE_NAME);
                     store.add(logEntry);
                 }
+
+                // 🆕 v5.90.879: Firebase-Synchronisierung (für Fehler & Warnungen & kritische Info)
+                // Nur synchronisieren wenn: ERROR, CRITICAL, WARN oder wichtige INFO (GPS, ROUTE, BOOKING)
+                const shouldSyncToFirebase =
+                    logEntry.level >= LOG_LEVELS.WARN ||
+                    (logEntry.level === LOG_LEVELS.INFO &&
+                     ['gps', 'route', 'booking', 'payment', 'auth', 'database'].includes(logEntry.category));
+
+                if (shouldSyncToFirebase && typeof window !== 'undefined' && window.db && window.isFirebaseReady) {
+                    try {
+                        // Schreibe nach Firebase (non-blocking)
+                        const firebaseEntry = {
+                            timestamp: logEntry.timestamp,
+                            date: logEntry.date,
+                            sessionId: logEntry.sessionId,
+                            level: logEntry.level,
+                            levelName: logEntry.levelName,
+                            category: logEntry.category,
+                            message: logEntry.message,
+                            context: logEntry.context,
+                            transactionId: logEntry.transactionId
+                        };
+
+                        window.db.ref('advancedLogs').push(firebaseEntry).catch(() => {
+                            // Ignoriere Firebase-Fehler um Loops zu vermeiden
+                        });
+                    } catch (e) {
+                        // Ignoriere Fehler um Loops zu vermeiden
+                    }
+                }
             } catch (error) {
                 console.error('💾 Failed to save log:', error);
             }

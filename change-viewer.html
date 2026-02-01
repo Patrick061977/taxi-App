@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 Change Viewer - Taxi App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card.success .value { color: #10b981; }
+        .stat-card.failed .value { color: #ef4444; }
+        .stat-card.added .value { color: #3b82f6; }
+        .stat-card.changed .value { color: #f59e0b; }
+        .stat-card.fixed .value { color: #10b981; }
+
+        .actions-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .filters-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select, input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        select:focus, input:focus {
+            border-color: #3b82f6;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .changes-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .changes-header {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .changes-list {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .change-entry {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s;
+        }
+
+        .change-entry:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .change-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .change-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .change-content {
+            flex: 1;
+        }
+
+        .change-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 4px;
+        }
+
+        .change-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .change-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-added { background: #065f46; color: #10b981; }
+        .badge-changed { background: #78350f; color: #f59e0b; }
+        .badge-fixed { background: #065f46; color: #10b981; }
+        .badge-removed { background: #7f1d1d; color: #ef4444; }
+        .badge-success { background: #065f46; color: #10b981; }
+        .badge-failed { background: #7f1d1d; color: #ef4444; }
+
+        .change-description {
+            font-size: 14px;
+            color: #cbd5e1;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .change-files {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .file-badge {
+            padding: 4px 8px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .change-error {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            border-radius: 6px;
+            color: #fca5a5;
+            font-size: 13px;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal.open {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #60a5fa;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                📝 Change Viewer
+                <span style="font-size: 14px; color: #94a3b8; font-weight: 400;">Alle Änderungen dokumentiert</span>
+            </h1>
+            <div class="subtitle">
+                Vollständige Change-History mit Erfolg/Fehler-Tracking
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="value" id="stat-total">0</div>
+                    <div class="label">Total Changes</div>
+                </div>
+                <div class="stat-card added">
+                    <div class="value" id="stat-added">0</div>
+                    <div class="label">Added</div>
+                </div>
+                <div class="stat-card changed">
+                    <div class="value" id="stat-changed">0</div>
+                    <div class="label">Changed</div>
+                </div>
+                <div class="stat-card fixed">
+                    <div class="value" id="stat-fixed">0</div>
+                    <div class="label">Fixed</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="value" id="stat-success">0</div>
+                    <div class="label">Successful</div>
+                </div>
+                <div class="stat-card failed">
+                    <div class="value" id="stat-failed">0</div>
+                    <div class="label">Failed</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions-panel">
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="openAddChangeModal()">
+                    ➕ Neue Änderung hinzufügen
+                </button>
+                <button class="btn btn-success" onclick="downloadChangelog()">
+                    💾 CHANGELOG.md exportieren
+                </button>
+                <button class="btn btn-secondary" onclick="refreshChanges()">
+                    🔄 Aktualisieren
+                </button>
+                <button class="btn btn-secondary" onclick="window.open('function-explorer.html', '_blank')">
+                    🔍 Function Explorer
+                </button>
+                <button class="btn btn-secondary" onclick="window.open('log-viewer.html', '_blank')">
+                    📝 Log Viewer
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-panel">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Typ</label>
+                    <select id="filter-type" onchange="applyFilters()">
+                        <option value="">Alle</option>
+                        <option value="added">✅ Added</option>
+                        <option value="changed">🔧 Changed</option>
+                        <option value="fixed">🐛 Fixed</option>
+                        <option value="removed">🗑️ Removed</option>
+                        <option value="deprecated">⚠️ Deprecated</option>
+                        <option value="security">🔒 Security</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Kategorie</label>
+                    <select id="filter-category" onchange="applyFilters()">
+                        <option value="">Alle</option>
+                        <option value="booking">Booking</option>
+                        <option value="gps">GPS</option>
+                        <option value="route">Route</option>
+                        <option value="payment">Payment</option>
+                        <option value="ui">UI</option>
+                        <option value="database">Database</option>
+                        <option value="network">Network</option>
+                        <option value="auth">Auth</option>
+                        <option value="performance">Performance</option>
+                        <option value="debug">Debug</option>
+                        <option value="system">System</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select id="filter-success" onchange="applyFilters()">
+                        <option value="">Alle</option>
+                        <option value="true">✅ Erfolgreich</option>
+                        <option value="false">❌ Fehlgeschlagen</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Von Datum</label>
+                    <input type="date" id="filter-start-date" onchange="applyFilters()">
+                </div>
+
+                <div class="filter-group">
+                    <label>Bis Datum</label>
+                    <input type="date" id="filter-end-date" onchange="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Changes List -->
+        <div class="changes-container">
+            <div class="changes-header">
+                <h2>📋 Änderungen</h2>
+                <div id="change-count">0 Changes</div>
+            </div>
+            <div class="changes-list" id="changes-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 16px;">Lade Änderungen...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Change Modal -->
+    <div class="modal" id="add-change-modal">
+        <div class="modal-content">
+            <div class="modal-header">➕ Neue Änderung hinzufügen</div>
+
+            <div class="form-group">
+                <label>Typ</label>
+                <select id="new-change-type">
+                    <option value="added">✅ Added (Neue Features)</option>
+                    <option value="changed">🔧 Changed (Änderungen)</option>
+                    <option value="fixed">🐛 Fixed (Bugfixes)</option>
+                    <option value="removed">🗑️ Removed (Entfernt)</option>
+                    <option value="deprecated">⚠️ Deprecated (Veraltet)</option>
+                    <option value="security">🔒 Security (Sicherheit)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Kategorie</label>
+                <select id="new-change-category">
+                    <option value="system">System</option>
+                    <option value="booking">Booking</option>
+                    <option value="gps">GPS</option>
+                    <option value="route">Route</option>
+                    <option value="payment">Payment</option>
+                    <option value="ui">UI</option>
+                    <option value="database">Database</option>
+                    <option value="network">Network</option>
+                    <option value="auth">Auth</option>
+                    <option value="performance">Performance</option>
+                    <option value="debug">Debug</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Titel (Kurze Beschreibung)</label>
+                <input type="text" id="new-change-title" placeholder="z.B. Function Explorer hinzugefügt">
+            </div>
+
+            <div class="form-group">
+                <label>Beschreibung (Details)</label>
+                <textarea id="new-change-description" placeholder="Detaillierte Beschreibung der Änderung..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Betroffene Files (Komma-separiert)</label>
+                <input type="text" id="new-change-files" placeholder="index.html, functions.js">
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="new-change-success" checked>
+                    Erfolgreich umgesetzt
+                </label>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-success" onclick="saveNewChange()">
+                    ✅ Speichern
+                </button>
+                <button class="btn btn-secondary" onclick="closeAddChangeModal()">
+                    ❌ Abbrechen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Change Tracker -->
+    <script src="change-tracker.js"></script>
+
+    <script>
+        let allChanges = [];
+        let filteredChanges = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('📝 Change Viewer initialized');
+
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            document.getElementById('filter-start-date').value = monthAgo;
+            document.getElementById('filter-end-date').value = today;
+
+            await loadChanges();
+        });
+
+        async function loadChanges() {
+            try {
+                allChanges = await window.changeTracker.getChanges();
+                console.log('✅ Loaded', allChanges.length, 'changes');
+
+                await updateStatistics();
+                await applyFilters();
+            } catch (error) {
+                console.error('❌ Failed to load changes:', error);
+                document.getElementById('changes-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div>Fehler beim Laden der Änderungen</div>
+                        <div style="margin-top: 8px; font-size: 12px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function updateStatistics() {
+            const stats = await window.changeTracker.getStatistics();
+
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-added').textContent = stats.byType.added;
+            document.getElementById('stat-changed').textContent = stats.byType.changed;
+            document.getElementById('stat-fixed').textContent = stats.byType.fixed;
+            document.getElementById('stat-success').textContent = stats.bySuccess.successful;
+            document.getElementById('stat-failed').textContent = stats.bySuccess.failed;
+        }
+
+        async function applyFilters() {
+            const filters = {
+                type: document.getElementById('filter-type').value,
+                category: document.getElementById('filter-category').value,
+                success: document.getElementById('filter-success').value ? document.getElementById('filter-success').value === 'true' : undefined,
+                startDate: document.getElementById('filter-start-date').value,
+                endDate: document.getElementById('filter-end-date').value
+            };
+
+            filteredChanges = await window.changeTracker.getChanges(filters);
+            renderChanges();
+        }
+
+        function renderChanges() {
+            const container = document.getElementById('changes-list');
+            const count = document.getElementById('change-count');
+
+            count.textContent = `${filteredChanges.length} Changes`;
+
+            if (filteredChanges.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>Keine Änderungen gefunden</div>
+                        <div style="margin-top: 8px; font-size: 12px;">Versuche andere Filter oder füge neue Änderungen hinzu</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const typeIcons = {
+                'added': '✅',
+                'changed': '🔧',
+                'fixed': '🐛',
+                'removed': '🗑️',
+                'deprecated': '⚠️',
+                'security': '🔒'
+            };
+
+            const typeBadges = {
+                'added': 'badge-added',
+                'changed': 'badge-changed',
+                'fixed': 'badge-fixed',
+                'removed': 'badge-removed'
+            };
+
+            container.innerHTML = filteredChanges.map(change => {
+                const time = new Date(change.timestamp).toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                return `
+                    <div class="change-entry">
+                        <div class="change-header">
+                            <span class="change-icon">${typeIcons[change.type] || '📝'}</span>
+                            <div class="change-content">
+                                <div class="change-title">${escapeHtml(change.title)}</div>
+                                <div class="change-meta">
+                                    <span>${time}</span>
+                                    <span class="change-badge ${typeBadges[change.type] || ''}">${change.type}</span>
+                                    <span class="change-badge">${change.category}</span>
+                                    <span class="change-badge ${change.success ? 'badge-success' : 'badge-failed'}">
+                                        ${change.success ? '✅ Success' : '❌ Failed'}
+                                    </span>
+                                    <span>v${change.version}</span>
+                                </div>
+                                ${change.description ? `
+                                    <div class="change-description">${escapeHtml(change.description)}</div>
+                                ` : ''}
+                                ${change.files && change.files.length > 0 ? `
+                                    <div class="change-files">
+                                        ${change.files.map(f => `<span class="file-badge">${f}</span>`).join('')}
+                                    </div>
+                                ` : ''}
+                                ${!change.success && change.error ? `
+                                    <div class="change-error">
+                                        ❌ <strong>Fehler:</strong> ${escapeHtml(change.error)}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function refreshChanges() {
+            document.getElementById('changes-list').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 16px;">Lade Änderungen...</div>
+                </div>
+            `;
+            await loadChanges();
+        }
+
+        async function downloadChangelog() {
+            await window.changeTracker.downloadChangelogUpdate();
+        }
+
+        // Modal Functions
+        function openAddChangeModal() {
+            document.getElementById('add-change-modal').classList.add('open');
+        }
+
+        function closeAddChangeModal() {
+            document.getElementById('add-change-modal').classList.remove('open');
+        }
+
+        async function saveNewChange() {
+            const type = document.getElementById('new-change-type').value;
+            const category = document.getElementById('new-change-category').value;
+            const title = document.getElementById('new-change-title').value.trim();
+            const description = document.getElementById('new-change-description').value.trim();
+            const filesStr = document.getElementById('new-change-files').value.trim();
+            const success = document.getElementById('new-change-success').checked;
+
+            if (!title) {
+                alert('⚠️ Bitte einen Titel eingeben!');
+                return;
+            }
+
+            const files = filesStr ? filesStr.split(',').map(f => f.trim()) : [];
+
+            await window.changeTracker.addChange({
+                type,
+                category,
+                title,
+                description,
+                files,
+                success
+            });
+
+            // Reset form
+            document.getElementById('new-change-title').value = '';
+            document.getElementById('new-change-description').value = '';
+            document.getElementById('new-change-files').value = '';
+            document.getElementById('new-change-success').checked = true;
+
+            closeAddChangeModal();
+            await refreshChanges();
+        }
+    </script>
+</body>
+</html>

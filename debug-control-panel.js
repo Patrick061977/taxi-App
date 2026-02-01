@@ -131,6 +131,19 @@
                             ">
                                 📝 Log Viewer öffnen
                             </button>
+                            <button onclick="window.debugControlPanel.openChangeViewer()" style="
+                                background: rgba(255, 255, 255, 0.1);
+                                border: none;
+                                color: #e2e8f0;
+                                padding: 10px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 12px;
+                                font-weight: 600;
+                                transition: all 0.2s;
+                            ">
+                                📝 Change Viewer öffnen
+                            </button>
                         </div>
                     </div>
 
@@ -284,6 +297,10 @@
 
     window.debugControlPanel.openLogViewer = function() {
         window.open('log-viewer.html', '_blank', 'width=1400,height=900');
+    };
+
+    window.debugControlPanel.openChangeViewer = function() {
+        window.open('change-viewer.html', '_blank', 'width=1400,height=900');
     };
 
     window.debugControlPanel.searchFunctions = function(query) {

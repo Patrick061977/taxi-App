@@ -176,10 +176,21 @@ function startFirebaseKeepAlive(uid) {
             console.log('✅ Firebase verbunden');
         } else {
             console.warn('⚠️ Firebase-Verbindung verloren - versuche Reconnect...');
+            if (typeof debugLog === 'function') {
+                debugLog('warn', 'GPS Tracking: Firebase-Verbindung verloren - versuche Reconnect');
+            }
             setTimeout(() => {
                 firebase.database().goOnline();
                 console.log('🔄 Reconnect-Versuch gestartet');
             }, 1000);
+        }
+    }, (error) => {
+        console.error('❌ GPS Tracking: Firebase Verbindungs-Fehler:', error);
+        if (typeof debugLog === 'function') {
+            debugLog('error', 'GPS Tracking: Firebase Verbindungs-Fehler: ' + error.message);
+        }
+        if (typeof logActivity === 'function') {
+            logActivity('system', 'firebase_error', '❌ GPS Tracking Firebase Fehler: ' + error.message, { code: error.code });
         }
     });
     

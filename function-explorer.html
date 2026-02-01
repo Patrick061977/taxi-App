@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Function Explorer - Taxi App Debug Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #60a5fa;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .search-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            color: #e2e8f0;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            transition: all 0.2s;
+        }
+
+        .search-box:focus {
+            border-color: #3b82f6;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select, input[type="checkbox"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            font-family: 'Courier New', monospace;
+        }
+
+        select:focus {
+            border-color: #3b82f6;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .functions-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .functions-header {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .functions-list {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .function-entry {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .function-entry:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .function-entry.selected {
+            background: rgba(59, 130, 246, 0.2);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .function-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #60a5fa;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .async-badge {
+            background: #10b981;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .arrow-badge {
+            background: #f59e0b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .function-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .function-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .function-params {
+            font-size: 13px;
+            color: #cbd5e1;
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .function-description {
+            font-size: 13px;
+            color: #94a3b8;
+            font-style: italic;
+            line-height: 1.6;
+        }
+
+        .function-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .detail-panel {
+            position: fixed;
+            top: 0;
+            right: -600px;
+            width: 600px;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 24px;
+            overflow-y: auto;
+            transition: right 0.3s ease;
+            z-index: 1000;
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .detail-panel.open {
+            right: 0;
+        }
+
+        .detail-panel-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .detail-panel-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .highlight {
+            background: rgba(251, 191, 36, 0.3);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                🔍 Function Explorer
+                <span style="font-size: 14px; color: #94a3b8; font-weight: 400;">Taxi App Debug Control</span>
+            </h1>
+            <div class="subtitle">
+                Alle Funktionen durchsuchen, analysieren und debuggen
+            </div>
+
+            <!-- Statistics -->
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="value" id="stat-total">0</div>
+                    <div class="label">Total Functions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-async">0</div>
+                    <div class="label">Async</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-params">0</div>
+                    <div class="label">With Params</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="stat-visible">0</div>
+                    <div class="label">Filtered</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Panel -->
+        <div class="search-panel">
+            <input
+                type="text"
+                id="search-input"
+                class="search-box"
+                placeholder="🔍 Funktion suchen... (z.B. 'book', 'calculate', 'gps', 'route')"
+                autofocus
+            />
+
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Filter nach Typ</label>
+                    <select id="filter-type">
+                        <option value="">Alle</option>
+                        <option value="async">Nur Async</option>
+                        <option value="normal">Nur Normal</option>
+                        <option value="arrow">Nur Arrow</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Parameter</label>
+                    <select id="filter-params">
+                        <option value="">Alle</option>
+                        <option value="with">Mit Parametern</option>
+                        <option value="without">Ohne Parameter</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Beschreibung</label>
+                    <select id="filter-description">
+                        <option value="">Alle</option>
+                        <option value="with">Mit Beschreibung</option>
+                        <option value="without">Ohne Beschreibung</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Sortierung</label>
+                    <select id="sort-by">
+                        <option value="line">Nach Zeile</option>
+                        <option value="name">Nach Name</option>
+                        <option value="params">Nach Parametern</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Functions List -->
+        <div class="functions-container">
+            <div class="functions-header">
+                <h2>📝 Funktionen</h2>
+                <div id="function-count">0 Funktionen</div>
+            </div>
+            <div class="functions-list" id="functions-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 16px;">Lade Funktionen...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detail-panel">
+        <button class="detail-panel-close" onclick="closeDetailPanel()">×</button>
+        <div id="detail-content"></div>
+    </div>
+
+    <script>
+        let allFunctions = [];
+        let filteredFunctions = [];
+        let selectedFunction = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🔍 Function Explorer initialized');
+            await loadFunctions();
+
+            // Event Listeners
+            document.getElementById('search-input').addEventListener('input', applyFilters);
+            document.getElementById('filter-type').addEventListener('change', applyFilters);
+            document.getElementById('filter-params').addEventListener('change', applyFilters);
+            document.getElementById('filter-description').addEventListener('change', applyFilters);
+            document.getElementById('sort-by').addEventListener('change', applyFilters);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                // Ctrl/Cmd + F - Focus search
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    document.getElementById('search-input').focus();
+                }
+                // ESC - Close detail panel
+                if (e.key === 'Escape') {
+                    closeDetailPanel();
+                }
+            });
+        });
+
+        async function loadFunctions() {
+            try {
+                const response = await fetch('functions-index.json');
+                const data = await response.json();
+
+                allFunctions = data.functions || [];
+
+                // Update statistics
+                document.getElementById('stat-total').textContent = data.total_functions || allFunctions.length;
+                document.getElementById('stat-async').textContent = allFunctions.filter(f => f.async).length;
+                document.getElementById('stat-params').textContent = allFunctions.filter(f => f.parameters && f.parameters.length > 0).length;
+
+                console.log('✅ Loaded', allFunctions.length, 'functions');
+
+                await applyFilters();
+            } catch (error) {
+                console.error('❌ Failed to load functions:', error);
+                document.getElementById('functions-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div>Fehler beim Laden der Funktionen</div>
+                        <div style="margin-top: 8px; font-size: 12px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('filter-type').value;
+            const paramsFilter = document.getElementById('filter-params').value;
+            const descriptionFilter = document.getElementById('filter-description').value;
+            const sortBy = document.getElementById('sort-by').value;
+
+            filteredFunctions = allFunctions.filter(func => {
+                // Search filter
+                if (searchTerm) {
+                    const searchIn = [
+                        func.name,
+                        func.description || '',
+                        (func.parameters || []).join(' ')
+                    ].join(' ').toLowerCase();
+
+                    if (!searchIn.includes(searchTerm)) return false;
+                }
+
+                // Type filter
+                if (typeFilter === 'async' && !func.async) return false;
+                if (typeFilter === 'normal' && func.async) return false;
+                if (typeFilter === 'arrow' && func.type !== 'arrow') return false;
+
+                // Params filter
+                if (paramsFilter === 'with' && (!func.parameters || func.parameters.length === 0)) return false;
+                if (paramsFilter === 'without' && func.parameters && func.parameters.length > 0) return false;
+
+                // Description filter
+                if (descriptionFilter === 'with' && !func.description) return false;
+                if (descriptionFilter === 'without' && func.description) return false;
+
+                return true;
+            });
+
+            // Sort
+            if (sortBy === 'name') {
+                filteredFunctions.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (sortBy === 'params') {
+                filteredFunctions.sort((a, b) => {
+                    const aLen = (a.parameters || []).length;
+                    const bLen = (b.parameters || []).length;
+                    return bLen - aLen;
+                });
+            } else {
+                filteredFunctions.sort((a, b) => a.line - b.line);
+            }
+
+            // Update stats
+            document.getElementById('stat-visible').textContent = filteredFunctions.length;
+
+            renderFunctions();
+        }
+
+        function renderFunctions() {
+            const container = document.getElementById('functions-list');
+            const count = document.getElementById('function-count');
+
+            count.textContent = `${filteredFunctions.length} Funktionen`;
+
+            if (filteredFunctions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div>Keine Funktionen gefunden</div>
+                        <div style="margin-top: 8px; font-size: 12px;">Versuche andere Filter oder Suchbegriffe</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+
+            container.innerHTML = filteredFunctions.map((func, index) => {
+                const paramsStr = func.parameters && func.parameters.length > 0
+                    ? `(${func.parameters.join(', ')})`
+                    : '()';
+
+                let funcName = func.name;
+                if (searchTerm && func.name.toLowerCase().includes(searchTerm)) {
+                    funcName = highlightText(func.name, searchTerm);
+                }
+
+                return `
+                    <div class="function-entry" onclick="selectFunction(${index})">
+                        <div class="function-name">
+                            <span>${funcName}</span>
+                            ${func.async ? '<span class="async-badge">async</span>' : ''}
+                            ${func.type === 'arrow' ? '<span class="arrow-badge">arrow</span>' : ''}
+                        </div>
+                        <div class="function-meta">
+                            <span>📍 Zeile ${func.line}</span>
+                            <span>📋 ${func.parameters ? func.parameters.length : 0} Parameter</span>
+                        </div>
+                        ${func.parameters && func.parameters.length > 0 ? `
+                            <div class="function-params">
+                                ${func.async ? 'async ' : ''}function ${func.name}${paramsStr}
+                            </div>
+                        ` : ''}
+                        ${func.description ? `
+                            <div class="function-description">
+                                ${func.description}
+                            </div>
+                        ` : ''}
+                        <div class="function-actions">
+                            <button class="btn btn-primary" onclick="event.stopPropagation(); viewDetails(${index})">
+                                🔍 Details
+                            </button>
+                            <button class="btn btn-secondary" onclick="event.stopPropagation(); copyFunctionName('${func.name}')">
+                                📋 Copy Name
+                            </button>
+                            <button class="btn btn-success" onclick="event.stopPropagation(); jumpToLine(${func.line})">
+                                ➜ Zeile ${func.line}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function highlightText(text, search) {
+            const regex = new RegExp(`(${search})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        function selectFunction(index) {
+            selectedFunction = filteredFunctions[index];
+            viewDetails(index);
+        }
+
+        function viewDetails(index) {
+            const func = filteredFunctions[index];
+            const panel = document.getElementById('detail-panel');
+            const content = document.getElementById('detail-content');
+
+            const paramsStr = func.parameters && func.parameters.length > 0
+                ? `(${func.parameters.join(', ')})`
+                : '()';
+
+            content.innerHTML = `
+                <h2 style="margin-bottom: 24px; color: #60a5fa; font-family: 'Courier New', monospace;">
+                    ${func.name}
+                </h2>
+
+                <div style="background: rgba(0, 0, 0, 0.3); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
+                    <div style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">SIGNATUR</div>
+                    <div style="font-family: 'Courier New', monospace; color: #e2e8f0; font-size: 14px;">
+                        ${func.async ? 'async ' : ''}function ${func.name}${paramsStr}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 24px;">
+                    <div style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">Informationen</div>
+                    <div style="display: grid; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                            <span style="color: #94a3b8;">Zeile:</span>
+                            <span style="color: #60a5fa; font-family: 'Courier New', monospace;">${func.line}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                            <span style="color: #94a3b8;">Typ:</span>
+                            <span style="color: #60a5fa;">${func.async ? 'Async Function' : 'Function'}${func.type === 'arrow' ? ' (Arrow)' : ''}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                            <span style="color: #94a3b8;">Parameter:</span>
+                            <span style="color: #60a5fa;">${func.parameters ? func.parameters.length : 0}</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${func.parameters && func.parameters.length > 0 ? `
+                    <div style="margin-bottom: 24px;">
+                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">Parameter</div>
+                        <div style="background: rgba(0, 0, 0, 0.3); padding: 16px; border-radius: 12px;">
+                            ${func.parameters.map((param, i) => `
+                                <div style="margin-bottom: 8px; font-family: 'Courier New', monospace; color: #e2e8f0;">
+                                    ${i + 1}. <span style="color: #60a5fa;">${param}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${func.description ? `
+                    <div style="margin-bottom: 24px;">
+                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; text-transform: uppercase;">Beschreibung</div>
+                        <div style="background: rgba(0, 0, 0, 0.3); padding: 16px; border-radius: 12px; color: #cbd5e1; line-height: 1.6; font-size: 14px;">
+                            ${func.description}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div style="display: grid; gap: 12px;">
+                    <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;" onclick="jumpToLine(${func.line})">
+                        ➜ Zu Zeile ${func.line} springen
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%; justify-content: center; padding: 14px;" onclick="copyFunctionSignature('${func.name}', ${JSON.stringify(func.parameters)}, ${func.async})">
+                        📋 Signatur kopieren
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%; justify-content: center; padding: 14px;" onclick="searchRelated('${func.name}')">
+                        🔍 Ähnliche Funktionen
+                    </button>
+                </div>
+            `;
+
+            panel.classList.add('open');
+        }
+
+        function closeDetailPanel() {
+            document.getElementById('detail-panel').classList.remove('open');
+        }
+
+        function copyFunctionName(name) {
+            navigator.clipboard.writeText(name);
+            alert(`✅ "${name}" in Zwischenablage kopiert!`);
+        }
+
+        function copyFunctionSignature(name, params, isAsync) {
+            const paramsStr = params && params.length > 0 ? params.join(', ') : '';
+            const signature = `${isAsync ? 'async ' : ''}function ${name}(${paramsStr})`;
+            navigator.clipboard.writeText(signature);
+            alert(`✅ Signatur in Zwischenablage kopiert!\n\n${signature}`);
+        }
+
+        function jumpToLine(line) {
+            alert(`🔍 Öffne index.html und springe zu Zeile ${line}\n\nIn VS Code: Ctrl+G → ${line}\nIn Editor: Gehe zu Zeile ${line}`);
+            // In einer IDE-Integration könnte hier direkt zur Zeile gesprungen werden
+        }
+
+        function searchRelated(name) {
+            // Extrahiere Basis-Name (z.B. "save" aus "saveTabSettings")
+            const baseName = name.replace(/([A-Z])/g, ' $1').trim().split(' ')[0].toLowerCase();
+            document.getElementById('search-input').value = baseName;
+            applyFilters();
+            closeDetailPanel();
+        }
+    </script>
+</body>
+</html>

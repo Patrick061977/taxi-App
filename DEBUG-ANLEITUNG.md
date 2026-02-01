@@ -283,6 +283,61 @@ Bei Fragen oder Problemen:
 3. Siehe `LOGGING-SYSTEM-README.md` für erweiterte Dokumentation
 4. Siehe `logging-integration-examples.js` für Code-Beispiele
 
+---
+
+## 🆕 NEU: Function Explorer & Debug Control Panel!
+
+### 🔍 Function Explorer
+**Alle 1.286 Funktionen durchsuchen und dokumentiert!**
+
+```
+Öffne: function-explorer.html
+```
+
+**Features:**
+- 📊 Vollständige Funktions-Übersicht
+- 🔍 Intelligente Suche & Filter
+- ➜ Direkt zum Code springen
+- 📋 Parameter & Beschreibungen
+- 🏷️ Async/Normal/Arrow-Typen
+
+**Beispiel:**
+```
+Suche: "book"
+→ Findet: book(), createBooking(), bookExpressRoute(), ...
+→ Klick → Zeile 31600
+✅ Direkt beim Code!
+```
+
+### 🎯 Debug Control Panel
+**Live-Debugging direkt in der App!**
+
+```
+Shortcut: Ctrl+Shift+D
+```
+
+**Features:**
+- 🎯 Funktionen live überwachen
+- ⏱️ Performance-Tracking
+- 📜 Call-History
+- ✅/❌ Erfolg/Fehler sehen
+- 📊 Parameter & Return-Values
+
+**Beispiel:**
+```javascript
+// In Console:
+window.debugControlPanel.monitorFunction('calculateAIPrice')
+// ✅ Überwache jetzt: calculateAIPrice()
+
+// Jedes Mal wenn aufgerufen:
+// 🔍 [DEBUG] calculateAIPrice() called
+// ✅ [DEBUG] calculateAIPrice() completed in 124.5ms
+```
+
+**Mehr Infos:** Siehe `FUNCTION-EXPLORER-ANLEITUNG.md`
+
+---
+
 **Version:** v5.90.880
 **Datum:** 2026-02-01
 **Status:** ✅ Aktiv und funktionsfähig!

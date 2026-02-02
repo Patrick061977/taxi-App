@@ -371,6 +371,15 @@
             const style = `color: ${colors[logEntry.level]}; font-weight: bold;`;
 
             console.log(`%c${prefix}`, style, logEntry.message, logEntry.context);
+
+            // 🔗 BRIDGE: Send to Debug Panel if available
+            // Maps advancedLogger levels to debugLog types
+            if (typeof window.debugLog === 'function') {
+                const debugType = logEntry.level >= LOG_LEVELS.ERROR ? 'error' :
+                                 logEntry.level >= LOG_LEVELS.WARN ? 'warn' : 'info';
+                const debugMessage = `[${logEntry.category.toUpperCase()}] ${logEntry.message}`;
+                window.debugLog(debugType, debugMessage);
+            }
         }
 
         getCurrentTransactionId(context) {

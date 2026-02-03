@@ -246,34 +246,35 @@
             }
             
             // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!
-            db.ref('drivers').on('value', (driversSnapshot) => {
+            const driversRef = db.ref('drivers');
+            driversRef.on('value', (driversSnapshot) => {
                 const driversData = driversSnapshot.val() || {};
-                
+
                 console.log('📊 Live-Update: Alle Fahrer:', Object.keys(driversData));
-                
+
                 // Finde den richtigen Fahrer
                 const driver = driversData[vehicleId];
-                
+
                 if (!driver) {
                     console.error('❌ Kein Fahrer gefunden für:', vehicleId);
                     console.log('📋 Verfügbare IDs:', Object.keys(driversData));
                     showWarning('⚠️ Fahrzeug nicht gefunden');
                     return;
                 }
-                
+
                 if (!driver.lat || !driver.lon) {
                     showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
                     return;
                 }
-                
+
                 console.log('✅ Fahrer gefunden!', { lat: driver.lat, lon: driver.lon });
-                
+
                 // Status-Indikator
                 const now = Date.now();
                 const age = driver.timestamp ? (now - driver.timestamp) : 999999;
-                
+
                 const statusIndicator = document.getElementById('status-indicator');
-                
+
                 if (age < 60000) {
                     statusIndicator.className = 'status-indicator status-ok';
                     statusIndicator.title = '🟢 Live';
@@ -284,7 +285,7 @@
                     statusIndicator.className = 'status-indicator status-error';
                     statusIndicator.title = '🔴 Offline';
                 }
-                
+
                 // Custom Icon (EXAKT wie Fahrer-View!)
                 const color = '#22c55e';
                 const icon = L.divIcon({
@@ -306,25 +307,25 @@
                     iconSize: [36, 36],
                     iconAnchor: [18, 18]
                 });
-                
+
                 // Marker erstellen/aktualisieren
                 if (vehicleMarker) {
                     vehicleMarker.setLatLng([driver.lat, driver.lon]);
                 } else {
                     vehicleMarker = L.marker([driver.lat, driver.lon], { icon }).addTo(map);
-                    
+
                     // Zur Position zoomen
                     const bounds = L.latLngBounds([[driver.lat, driver.lon]]);
-                    
+
                     if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
                     if (destinationMarker) bounds.extend(destinationMarker.getLatLng());
-                    
+
                     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
                 }
-                
+
                 // Location Info
                 const timestamp = new Date(driver.timestamp || Date.now());
-                
+
                 document.getElementById('location-info').innerHTML = `
                     📍 Aktualisiert: ${timestamp.toLocaleTimeString('de-DE')}
                     <br>
@@ -332,6 +333,15 @@
                         ${driver.lat.toFixed(4)}, ${driver.lon.toFixed(4)}
                     </small>
                 `;
+            }, (error) => {
+                console.error('❌ Drivers Listener Fehler:', error);
+
+                // CRITICAL FIX: Bei PERMISSION_DENIED Listener stoppen um Endlosschleife zu vermeiden
+                if (error.code === 'PERMISSION_DENIED') {
+                    console.error('🛑 PERMISSION_DENIED - Stoppe Drivers-Listener um Endlosschleife zu vermeiden');
+                    driversRef.off();
+                    showError('❌ Keine Berechtigung für Tracking-Daten');
+                }
             });
             
             // Prüfe regelmäßig ob Tracking noch aktiv

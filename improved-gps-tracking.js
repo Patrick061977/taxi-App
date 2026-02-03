@@ -171,7 +171,8 @@ function startFirebaseKeepAlive(uid) {
     }, 30000);
     
     // Überwache Firebase-Verbindung
-    firebase.database().ref('.info/connected').on('value', (snapshot) => {
+    const connectedRef = firebase.database().ref('.info/connected');
+    connectedRef.on('value', (snapshot) => {
         if (snapshot.val() === true) {
             console.log('✅ Firebase verbunden');
         } else {
@@ -186,6 +187,16 @@ function startFirebaseKeepAlive(uid) {
         }
     }, (error) => {
         console.error('❌ GPS Tracking: Firebase Verbindungs-Fehler:', error);
+
+        // CRITICAL FIX: Bei PERMISSION_DENIED Listener stoppen um Endlosschleife zu vermeiden
+        if (error.code === 'PERMISSION_DENIED') {
+            console.error('🛑 PERMISSION_DENIED - Stoppe Connection-Listener um Endlosschleife zu vermeiden');
+            connectedRef.off();
+            if (typeof debugLog === 'function') {
+                debugLog('error', 'GPS Tracking: PERMISSION_DENIED - Connection-Listener gestoppt');
+            }
+        }
+
         if (typeof debugLog === 'function') {
             debugLog('error', 'GPS Tracking: Firebase Verbindungs-Fehler: ' + error.message);
         }

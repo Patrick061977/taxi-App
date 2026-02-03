@@ -447,22 +447,52 @@
 
         <!-- Actions -->
         <div class="actions-panel">
-            <div class="button-group">
-                <button class="btn btn-primary" onclick="openAddChangeModal()">
-                    ➕ Neue Änderung hinzufügen
-                </button>
-                <button class="btn btn-success" onclick="downloadChangelog()">
-                    💾 CHANGELOG.md exportieren
-                </button>
-                <button class="btn btn-secondary" onclick="refreshChanges()">
-                    🔄 Aktualisieren
-                </button>
-                <button class="btn btn-secondary" onclick="window.open('function-explorer.html', '_blank')">
-                    🔍 Function Explorer
-                </button>
-                <button class="btn btn-secondary" onclick="window.open('log-viewer.html', '_blank')">
-                    📝 Log Viewer
-                </button>
+            <div style="margin-bottom: 12px;">
+                <div style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">
+                    📥 Export
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="downloadChangelog()">
+                        📝 CHANGELOG.md
+                    </button>
+                    <button class="btn btn-success" onclick="exportJSON()">
+                        💾 Export JSON
+                    </button>
+                    <button class="btn btn-success" onclick="exportCSV()">
+                        📊 Export CSV
+                    </button>
+                    <button class="btn btn-success" onclick="exportTXT()">
+                        📄 Export TXT
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <div style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">
+                    🛠️ Aktionen
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="openAddChangeModal()">
+                        ➕ Neue Änderung
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshChanges()">
+                        🔄 Aktualisieren
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <div style="color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">
+                    🔗 Navigation
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="window.open('function-explorer.html', '_blank')">
+                        🔍 Function Explorer
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.open('log-viewer.html', '_blank')">
+                        📝 Log Viewer
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -761,6 +791,31 @@
 
         async function downloadChangelog() {
             await window.changeTracker.downloadChangelogUpdate();
+        }
+
+        async function exportJSON() {
+            const filters = getCurrentFilters();
+            await window.changeTracker.exportJSON(filters);
+        }
+
+        async function exportCSV() {
+            const filters = getCurrentFilters();
+            await window.changeTracker.exportCSV(filters);
+        }
+
+        async function exportTXT() {
+            const filters = getCurrentFilters();
+            await window.changeTracker.exportTXT(filters);
+        }
+
+        function getCurrentFilters() {
+            return {
+                type: document.getElementById('filter-type').value,
+                category: document.getElementById('filter-category').value,
+                success: document.getElementById('filter-success').value ? document.getElementById('filter-success').value === 'true' : undefined,
+                startDate: document.getElementById('filter-start-date').value,
+                endDate: document.getElementById('filter-end-date').value
+            };
         }
 
         // Modal Functions

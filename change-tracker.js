@@ -357,6 +357,106 @@
         this.showNotification('✅ CHANGELOG heruntergeladen!');
     };
 
+    // Export Changes to JSON
+    window.changeTracker.exportJSON = async function(filters = {}) {
+        const changes = await this.getChanges(filters);
+
+        if (changes.length === 0) {
+            alert('⚠️ Keine Changes zum Exportieren gefunden!');
+            return;
+        }
+
+        const content = JSON.stringify(changes, null, 2);
+        const filename = `change-logs-${new Date().toISOString().split('T')[0]}.json`;
+        const mimeType = 'application/json';
+
+        this.downloadFile(content, filename, mimeType);
+        this.showNotification(`✅ ${changes.length} Changes als JSON exportiert!`);
+    };
+
+    // Export Changes to CSV
+    window.changeTracker.exportCSV = async function(filters = {}) {
+        const changes = await this.getChanges(filters);
+
+        if (changes.length === 0) {
+            alert('⚠️ Keine Changes zum Exportieren gefunden!');
+            return;
+        }
+
+        // CSV Headers
+        const headers = ['Timestamp', 'Date', 'Version', 'Type', 'Category', 'Title', 'Description', 'Files', 'Success', 'Error'];
+
+        // CSV Rows
+        const rows = changes.map(c => [
+            new Date(c.timestamp).toISOString(),
+            c.date,
+            c.version,
+            c.type,
+            c.category,
+            `"${(c.title || '').replace(/"/g, '""')}"`,
+            `"${(c.description || '').replace(/"/g, '""')}"`,
+            `"${(c.files || []).join(', ')}"`,
+            c.success ? 'Yes' : 'No',
+            `"${(c.error || '').replace(/"/g, '""')}"`
+        ]);
+
+        const content = [headers, ...rows].map(row => row.join(',')).join('\n');
+        const filename = `change-logs-${new Date().toISOString().split('T')[0]}.csv`;
+        const mimeType = 'text/csv';
+
+        this.downloadFile(content, filename, mimeType);
+        this.showNotification(`✅ ${changes.length} Changes als CSV exportiert!`);
+    };
+
+    // Export Changes to TXT
+    window.changeTracker.exportTXT = async function(filters = {}) {
+        const changes = await this.getChanges(filters);
+
+        if (changes.length === 0) {
+            alert('⚠️ Keine Changes zum Exportieren gefunden!');
+            return;
+        }
+
+        const content = changes.map(c => {
+            const time = new Date(c.timestamp).toISOString();
+            const icon = this.getTypeIcon(c.type);
+            let text = `[${time}] ${icon} ${c.type.toUpperCase()} - ${c.category}\n`;
+            text += `Title: ${c.title}\n`;
+            if (c.description) {
+                text += `Description: ${c.description}\n`;
+            }
+            if (c.files && c.files.length > 0) {
+                text += `Files: ${c.files.join(', ')}\n`;
+            }
+            text += `Version: ${c.version}\n`;
+            text += `Status: ${c.success ? 'Success ✅' : 'Failed ❌'}\n`;
+            if (c.error) {
+                text += `Error: ${c.error}\n`;
+            }
+            text += '\n---\n\n';
+            return text;
+        }).join('');
+
+        const filename = `change-logs-${new Date().toISOString().split('T')[0]}.txt`;
+        const mimeType = 'text/plain';
+
+        this.downloadFile(content, filename, mimeType);
+        this.showNotification(`✅ ${changes.length} Changes als TXT exportiert!`);
+    };
+
+    // Helper: Download File
+    window.changeTracker.downloadFile = function(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     // Helper: Group by property
     window.changeTracker.groupBy = function(array, key) {
         return array.reduce((result, item) => {

@@ -377,8 +377,18 @@
             if (typeof window.debugLog === 'function') {
                 const debugType = logEntry.level >= LOG_LEVELS.ERROR ? 'error' :
                                  logEntry.level >= LOG_LEVELS.WARN ? 'warn' : 'info';
-                const debugMessage = `[${logEntry.category.toUpperCase()}] ${logEntry.message}`;
-                window.debugLog(debugType, debugMessage);
+                const debugMessage = logEntry.message;
+
+                // Übergebe auch Kontext für bessere Darstellung im Debug-Panel
+                const debugContext = {
+                    category: logEntry.category,
+                    function: context.function || null,
+                    description: context.description || null,
+                    file: context.file || 'advanced-logger.js',
+                    line: context.line || null
+                };
+
+                window.debugLog(debugType, debugMessage, debugContext);
             }
         }
 

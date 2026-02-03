@@ -382,10 +382,10 @@
                 // Übergebe auch Kontext für bessere Darstellung im Debug-Panel
                 const debugContext = {
                     category: logEntry.category,
-                    function: context.function || null,
-                    description: context.description || null,
-                    file: context.file || 'advanced-logger.js',
-                    line: context.line || null
+                    function: logEntry.context.function || null,
+                    description: logEntry.context.description || null,
+                    file: logEntry.context.file || 'advanced-logger.js',
+                    line: logEntry.context.line || null
                 };
 
                 window.debugLog(debugType, debugMessage, debugContext);

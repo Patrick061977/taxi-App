@@ -2,11 +2,15 @@
 // GPS BACKGROUND TRACKING - VERSION 7.1.0 mit KEEPALIVE SERVICE
 // ═══════════════════════════════════════════════════════════════════════════
 
-console.log('🔄 Lade improved-gps-tracking.js - VERSION 7.1.0 (mit KeepAlive)');
+if (window.debugMode) {
+    console.log('🔄 Lade improved-gps-tracking.js - VERSION 7.1.0 (mit KeepAlive)');
+}
 
 // Warte bis DOM geladen ist
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOM geladen - überschreibe GPS-Funktionen (v7.1.0)');
+    if (window.debugMode) {
+        console.log('✅ DOM geladen - überschreibe GPS-Funktionen (v7.1.0)');
+    }
     
     // Überschreibe startGPSTracking()
     window.startGPSTracking = async function() {
@@ -51,7 +55,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    console.log('✅ GPS-Funktionen erfolgreich überschrieben (v7.1.0)');
+    if (window.debugMode) {
+        console.log('✅ GPS-Funktionen erfolgreich überschrieben (v7.1.0)');
+    }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -60,9 +66,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function startNativeGPSTracking() {
     try {
-        console.log('─────────────────────────────────────────────────────────');
-        console.log('SCHRITT 1: KeepAlive Foreground Service starten');
-        console.log('─────────────────────────────────────────────────────────');
+        if (window.debugMode) {
+            console.log('─────────────────────────────────────────────────────────');
+            console.log('SCHRITT 1: KeepAlive Foreground Service starten');
+            console.log('─────────────────────────────────────────────────────────');
+        }
         
         // WICHTIG: Starte KeepAlive Service ZUERST!
         if (window.KeepAliveService) {
@@ -107,32 +115,46 @@ async function startNativeGPSTracking() {
                 }
                 
                 if (location) {
-                    console.log('📍 GPS-Update:', {
-                        lat: location.latitude.toFixed(6),
-                        lng: location.longitude.toFixed(6),
-                        accuracy: Math.round(location.accuracy) + 'm',
-                        time: new Date(location.time).toLocaleTimeString()
-                    });
-                    
-                    // Position zu Firebase senden
+                    // Throttling: Nur alle 5 Sekunden senden
+                    const now = Date.now();
+                    if (window._lastGPSUpdate && (now - window._lastGPSUpdate) < 5000) {
+                        return; // Skip - zu früh
+                    }
+                    window._lastGPSUpdate = now;
+
+                    // Nur bei Debug-Modus loggen
+                    if (window.debugMode) {
+                        console.log('📍 GPS-Update:', {
+                            lat: location.latitude.toFixed(6),
+                            lng: location.longitude.toFixed(6),
+                            accuracy: Math.round(location.accuracy) + 'm',
+                            time: new Date(location.time).toLocaleTimeString()
+                        });
+                    }
+
+                    // Position zu Firebase senden mit Error-Handling
                     firebase.database().ref('drivers/' + uid + '/location').set({
                         latitude: location.latitude,
                         longitude: location.longitude,
                         accuracy: location.accuracy,
                         timestamp: firebase.database.ServerValue.TIMESTAMP
+                    }).catch(error => {
+                        console.error('❌ GPS Firebase-Fehler:', error.code);
+                        if (typeof debugLog === 'function') {
+                            debugLog('error', 'GPS: Firebase set failed: ' + error.code);
+                        }
                     });
-                    
-                    console.log('✅ Position an Firebase gesendet');
                 }
             }
         );
         
         window.gpsWatcherId = watcherId;
-        console.log('✅ GPS Watcher gestartet! ID:', watcherId);
-        
-        console.log('─────────────────────────────────────────────────────────');
-        console.log('SCHRITT 3: Firebase Keep-Alive starten');
-        console.log('─────────────────────────────────────────────────────────');
+        if (window.debugMode) {
+            console.log('✅ GPS Watcher gestartet! ID:', watcherId);
+            console.log('─────────────────────────────────────────────────────────');
+            console.log('SCHRITT 3: Firebase Keep-Alive starten');
+            console.log('─────────────────────────────────────────────────────────');
+        }
         
         // Firebase Keep-Alive
         startFirebaseKeepAlive(uid);
@@ -158,23 +180,59 @@ async function startNativeGPSTracking() {
 
 function startFirebaseKeepAlive(uid) {
     console.log('💓 Starte Firebase Keep-Alive (Heartbeat alle 30 Sek)');
-    
+
+    // Fehler-Tracking für Exponential Backoff
+    let consecutiveErrors = 0;
+    const maxRetries = 5;
+
     // Heartbeat alle 30 Sekunden
     window.keepAliveInterval = setInterval(() => {
+        // Bei zu vielen Fehlern: Interval pausieren
+        if (consecutiveErrors >= maxRetries) {
+            if (window.debugMode) {
+                console.warn('⚠️ Heartbeat: Zu viele Fehler, pausiere für 5 Minuten');
+            }
+            consecutiveErrors = 0;
+            return;
+        }
+
         firebase.database().ref('drivers/' + uid + '/heartbeat').set({
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             status: 'online',
             version: '7.1.0',
             keepalive: true
+        }).then(() => {
+            consecutiveErrors = 0; // Reset bei Erfolg
+            if (window.debugMode) {
+                console.log('💓 Heartbeat gesendet');
+            }
+        }).catch(error => {
+            consecutiveErrors++;
+            const backoffTime = Math.min(1000 * Math.pow(2, consecutiveErrors), 60000);
+            console.error(`❌ Heartbeat-Fehler #${consecutiveErrors}:`, error.code);
+
+            if (typeof debugLog === 'function') {
+                debugLog('error', `Heartbeat failed (${consecutiveErrors}/${maxRetries}): ${error.code}`);
+            }
+
+            // Bei Permission-Fehler: Interval komplett stoppen
+            if (error.code === 'PERMISSION_DENIED') {
+                console.error('🛑 PERMISSION_DENIED - Stoppe Heartbeat komplett');
+                clearInterval(window.keepAliveInterval);
+                if (typeof debugLog === 'function') {
+                    debugLog('error', 'Heartbeat: PERMISSION_DENIED - Gestoppt');
+                }
+            }
         });
-        console.log('💓 Heartbeat gesendet');
     }, 30000);
     
     // Überwache Firebase-Verbindung
     const connectedRef = firebase.database().ref('.info/connected');
     connectedRef.on('value', (snapshot) => {
         if (snapshot.val() === true) {
-            console.log('✅ Firebase verbunden');
+            if (window.debugMode) {
+                console.log('✅ Firebase verbunden');
+            }
         } else {
             console.warn('⚠️ Firebase-Verbindung verloren - versuche Reconnect...');
             if (typeof debugLog === 'function') {
@@ -182,7 +240,9 @@ function startFirebaseKeepAlive(uid) {
             }
             setTimeout(() => {
                 firebase.database().goOnline();
-                console.log('🔄 Reconnect-Versuch gestartet');
+                if (window.debugMode) {
+                    console.log('🔄 Reconnect-Versuch gestartet');
+                }
             }, 1000);
         }
     }, (error) => {
@@ -204,8 +264,10 @@ function startFirebaseKeepAlive(uid) {
             logActivity('system', 'firebase_error', '❌ GPS Tracking Firebase Fehler: ' + error.message, { code: error.code });
         }
     });
-    
-    console.log('✅ Keep-Alive gestartet');
+
+    if (window.debugMode) {
+        console.log('✅ Keep-Alive gestartet');
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -213,7 +275,9 @@ function startFirebaseKeepAlive(uid) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function startWebGPSTracking() {
-    console.log('🌐 Starte Web-GPS (Browser-Modus)');
+    if (window.debugMode) {
+        console.log('🌐 Starte Web-GPS (Browser-Modus)');
+    }
     
     if (!navigator.geolocation) {
         console.error('❌ Geolocation wird nicht unterstützt');
@@ -224,21 +288,38 @@ function startWebGPSTracking() {
     
     window.gpsWatcherId = navigator.geolocation.watchPosition(
         function(position) {
-            console.log('📍 GPS-Update (Web):', {
-                lat: position.coords.latitude.toFixed(6),
-                lng: position.coords.longitude.toFixed(6),
-                accuracy: Math.round(position.coords.accuracy) + 'm'
-            });
-            
+            // Throttling: Nur alle 5 Sekunden senden
+            const now = Date.now();
+            if (window._lastGPSUpdate && (now - window._lastGPSUpdate) < 5000) {
+                return; // Skip - zu früh
+            }
+            window._lastGPSUpdate = now;
+
+            if (window.debugMode) {
+                console.log('📍 GPS-Update (Web):', {
+                    lat: position.coords.latitude.toFixed(6),
+                    lng: position.coords.longitude.toFixed(6),
+                    accuracy: Math.round(position.coords.accuracy) + 'm'
+                });
+            }
+
             firebase.database().ref('drivers/' + uid + '/location').set({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 accuracy: position.coords.accuracy,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).catch(error => {
+                console.error('❌ Web-GPS Firebase-Fehler:', error.code);
+                if (typeof debugLog === 'function') {
+                    debugLog('error', 'Web-GPS: Firebase set failed: ' + error.code);
+                }
             });
         },
         function(error) {
             console.error('❌ GPS-Error:', error.message);
+            if (typeof debugLog === 'function') {
+                debugLog('error', 'Web-GPS Error: ' + error.message);
+            }
         },
         {
             enableHighAccuracy: true,
@@ -246,8 +327,12 @@ function startWebGPSTracking() {
             maximumAge: 0
         }
     );
-    
-    console.log('✅ Web-GPS gestartet');
+
+    if (window.debugMode) {
+        console.log('✅ Web-GPS gestartet');
+    }
 }
 
-console.log('📦 improved-gps-tracking.js geladen (v7.1.0)');
+if (window.debugMode) {
+    console.log('📦 improved-gps-tracking.js geladen (v7.1.0)');
+}

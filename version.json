@@ -1,8 +1,8 @@
 {
-  "version": "5.90.867",
-  "build": "20260203-1400",
-  "updated": 1738591200000,
+  "version": "5.90.866",
+  "build": "20260130-1500",
+  "updated": 1738245600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Desktop Composition Fix: Kompatibilität für RPA-Tools und Systeme ohne DWM"
+  "message": "E-Mail-Fix: CRM-Integration für korrekte E-Mail-Erkennung"
 }

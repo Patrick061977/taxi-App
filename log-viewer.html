@@ -216,23 +216,6 @@
             margin-bottom: 8px;
         }
 
-        .copy-btn {
-            background: rgba(59, 130, 246, 0.2);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-left: auto;
-        }
-
-        .copy-btn:hover {
-            background: rgba(59, 130, 246, 0.3);
-            transform: translateY(-1px);
-        }
-
         .log-icon {
             font-size: 20px;
             line-height: 1;
@@ -457,9 +440,6 @@
                 <button class="btn btn-secondary" onclick="refreshLogs()">
                     ♻️ Neu laden
                 </button>
-                <button class="btn btn-secondary" onclick="copyAllLogs()">
-                    📋 Alle kopieren
-                </button>
                 <button class="btn btn-secondary" onclick="exportLogs('json')">
                     💾 Export JSON
                 </button>
@@ -525,29 +505,7 @@
             }
 
             await loadLogs();
-
-            // 🆕 Auto-Filter: Filter automatisch anwenden bei Änderung
-            document.getElementById('filter-category').addEventListener('change', applyFilters);
-            document.getElementById('filter-level').addEventListener('change', applyFilters);
-            document.getElementById('filter-start-date').addEventListener('change', applyFilters);
-            document.getElementById('filter-end-date').addEventListener('change', applyFilters);
-            document.getElementById('filter-transaction').addEventListener('input', debounce(applyFilters, 500));
-            document.getElementById('filter-ride').addEventListener('input', debounce(applyFilters, 500));
-            document.getElementById('filter-search').addEventListener('input', debounce(applyFilters, 500));
         });
-
-        // Debounce helper für Text-Inputs
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
 
         async function loadLogs() {
             try {
@@ -643,15 +601,14 @@
                 });
 
                 return `
-                    <div class="log-entry">
-                        <div class="log-header" onclick="toggleLogDetails(${index})">
+                    <div class="log-entry" onclick="toggleLogDetails(${index})">
+                        <div class="log-header">
                             <span class="log-icon">${icons[log.levelName]}</span>
                             <span class="log-time">${time}</span>
                             <span class="log-level ${log.levelName}">${log.levelName}</span>
                             <span class="log-category">${log.category}</span>
                             ${log.transactionId ? `<span class="transaction-badge">${log.transactionId.substring(0, 12)}...</span>` : ''}
                             <div class="log-message">${escapeHtml(log.message)}</div>
-                            <button class="copy-btn" onclick="copyLog(${index}, event)" title="Log kopieren">📋 Kopieren</button>
                         </div>
                         <div class="log-details">
                             <strong>Context:</strong>
@@ -674,55 +631,6 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
-        }
-
-        async function copyLog(index, event) {
-            event.stopPropagation(); // Verhindere das Aufklappen des Log-Eintrags
-
-            const log = filteredLogs[index];
-            const logText = `[${new Date(log.timestamp).toISOString()}] [${log.levelName}] [${log.category}]
-${log.message}
-
-Context: ${JSON.stringify(log.context, null, 2)}
-Session ID: ${log.sessionId}
-${log.transactionId ? `Transaction ID: ${log.transactionId}\n` : ''}Timestamp: ${new Date(log.timestamp).toISOString()}`;
-
-            try {
-                await navigator.clipboard.writeText(logText);
-
-                // Visuelles Feedback
-                const btn = event.target.closest('.copy-btn');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '✅ Kopiert!';
-                btn.style.background = 'rgba(16, 185, 129, 0.3)';
-                btn.style.color = '#10b981';
-
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.background = 'rgba(59, 130, 246, 0.2)';
-                    btn.style.color = '#60a5fa';
-                }, 2000);
-            } catch (err) {
-                alert('❌ Fehler beim Kopieren: ' + err.message);
-            }
-        }
-
-        async function copyAllLogs() {
-            if (filteredLogs.length === 0) {
-                alert('❌ Keine Logs zum Kopieren!');
-                return;
-            }
-
-            const logsText = filteredLogs.map(log =>
-                `[${new Date(log.timestamp).toISOString()}] [${log.levelName}] [${log.category}] ${log.message}`
-            ).join('\n');
-
-            try {
-                await navigator.clipboard.writeText(logsText);
-                alert(`✅ ${filteredLogs.length} Logs in die Zwischenablage kopiert!`);
-            } catch (err) {
-                alert('❌ Fehler beim Kopieren: ' + err.message);
-            }
         }
 
         function resetFilters() {
@@ -751,60 +659,16 @@ ${log.transactionId ? `Transaction ID: ${log.transactionId}\n` : ''}Timestamp: $
         }
 
         async function exportLogs(format) {
-            // Exportiere die aktuell gefilterten Logs (die im Viewer angezeigt werden)
-            if (filteredLogs.length === 0) {
-                alert('❌ Keine Logs zum Exportieren!\n\nEs werden keine Logs angezeigt. Bitte passe die Filter an.');
-                return;
-            }
+            const filters = {
+                category: document.getElementById('filter-category').value,
+                level: document.getElementById('filter-level').value ? parseInt(document.getElementById('filter-level').value) : undefined,
+                transactionId: document.getElementById('filter-transaction').value.trim(),
+                rideId: document.getElementById('filter-ride').value.trim(),
+                startDate: document.getElementById('filter-start-date').value,
+                endDate: document.getElementById('filter-end-date').value
+            };
 
-            let content, filename, mimeType;
-
-            if (format === 'json') {
-                content = JSON.stringify(filteredLogs, null, 2);
-                filename = `taxi-logs-${new Date().toISOString().split('T')[0]}.json`;
-                mimeType = 'application/json';
-            } else if (format === 'csv') {
-                content = logsToCSV(filteredLogs);
-                filename = `taxi-logs-${new Date().toISOString().split('T')[0]}.csv`;
-                mimeType = 'text/csv';
-            } else if (format === 'txt') {
-                content = filteredLogs.map(l =>
-                    `[${new Date(l.timestamp).toISOString()}] [${l.levelName}] [${l.category}] ${l.message}\n` +
-                    `  Context: ${JSON.stringify(l.context)}\n`
-                ).join('\n');
-                filename = `taxi-logs-${new Date().toISOString().split('T')[0]}.txt`;
-                mimeType = 'text/plain';
-            }
-
-            const blob = new Blob([content], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            alert(`✅ ${filteredLogs.length} Logs als ${format.toUpperCase()} exportiert!`);
-            console.log(`✅ Exported ${filteredLogs.length} logs as ${format.toUpperCase()}`);
-        }
-
-        function logsToCSV(logs) {
-            const headers = ['Timestamp', 'Date', 'Level', 'Category', 'Message', 'TransactionID', 'RideID', 'UserID', 'VehicleID'];
-            const rows = logs.map(l => [
-                new Date(l.timestamp).toISOString(),
-                l.date,
-                l.levelName,
-                l.category,
-                `"${l.message.replace(/"/g, '""')}"`,
-                l.transactionId || '',
-                l.context?.rideId || '',
-                l.context?.userId || '',
-                l.context?.vehicleId || ''
-            ]);
-
-            return [headers, ...rows].map(row => row.join(',')).join('\n');
+            await window.advancedLogger.exportLogs(filters, format);
         }
 
         async function clearAllLogs() {

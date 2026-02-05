@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.92.6] - 2026-02-05
+
+### 🔧 Behoben
+- **Fahrzeugliste repariert**:
+  - Entfernt "Unbekannt"-Einträge aus der Fahrzeugauswahl
+  - Nur noch gültige Fahrzeuge mit Namen werden angezeigt
+  - Fahrzeuge werden nach Priorität sortiert
+  - Offizielle Fahrzeuge (OFFICIAL_VEHICLES) werden immer angezeigt
+  - Verbesserte Filterung: Nur Einträge aus `vehicles` (keine `drivers` mehr)
+  - Merge von Firebase-Daten mit offiziellen Fahrzeugdaten
+
+### 📝 Technische Details
+- `editRide()` lädt jetzt nur noch aus Firebase `vehicles/` Pfad
+- Filtert ungültige Einträge ohne Namen
+- Garantiert, dass alle OFFICIAL_VEHICLES verfügbar sind
+- Sortierung nach `priority`-Feld (1-5, dann 99 für andere)
+
+---
+
 ## [3.9.3] - 2024-11-21
 
 ### ✅ Hinzugefügt

@@ -1,8 +1,8 @@
 {
-  "version": "5.92.6",
-  "build": "20260205-1200",
-  "updated": 1738760400000,
+  "version": "5.93.15",
+  "build": "20260206-0030",
+  "updated": 1738800600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🔧 FIX: Fahrzeugliste zeigt nur noch gültige Fahrzeuge (keine 'Unbekannt'-Einträge mehr)"
+  "message": "🚫 FIX: Toggle beim App-Start IMMER auf 'aus' - Fahrer muss sich BEWUSST online schalten!"
 }

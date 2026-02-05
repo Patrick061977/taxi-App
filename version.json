@@ -1,8 +1,8 @@
 {
-  "version": "5.93.15",
-  "build": "20260206-0030",
-  "updated": 1738800600000,
+  "version": "5.93.16",
+  "build": "20260206-0100",
+  "updated": 1738802400000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🚫 FIX: Toggle beim App-Start IMMER auf 'aus' - Fahrer muss sich BEWUSST online schalten!"
+  "message": "✨ VOLLSTÄNDIGE FAHRT-INFOS: Datum, Uhrzeit, Kunde, Abholung, Ziel - alles auf einen Blick!"
 }

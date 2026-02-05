@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// GPS BACKGROUND TRACKING - VERSION 7.1.0 mit KEEPALIVE SERVICE
+// GPS BACKGROUND TRACKING - VERSION 7.2.0 mit KEEPALIVE SERVICE
+// 🔧 FIX: Migration von /drivers/ zu /vehicles/ für GPS-Daten
 // ═══════════════════════════════════════════════════════════════════════════
 
-console.log('🔄 Lade improved-gps-tracking.js - VERSION 7.1.0 (mit KeepAlive)');
+console.log('🔄 Lade improved-gps-tracking.js - VERSION 7.2.0 (vehicles/ statt drivers/)');
 
 // Warte bis DOM geladen ist
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOM geladen - überschreibe GPS-Funktionen (v7.1.0)');
+    console.log('✅ DOM geladen - überschreibe GPS-Funktionen (v7.2.0)');
     
     // Überschreibe startGPSTracking()
     window.startGPSTracking = async function() {
@@ -79,9 +80,17 @@ async function startNativeGPSTracking() {
         
         const BackgroundGeolocation = window.Capacitor.Plugins.BackgroundGeolocation;
         const uid = firebase.auth().currentUser.uid;
-        
+        const vehicleId = window.currentVehicle;
+
+        if (!vehicleId) {
+            console.error('❌ Kein Fahrzeug ausgewählt! GPS kann nicht gestartet werden.');
+            alert('Bitte wählen Sie zuerst ein Fahrzeug aus!');
+            return;
+        }
+
         console.log('📱 Starte BackgroundGeolocation.addWatcher()...');
         console.log('👤 User ID:', uid);
+        console.log('🚗 Fahrzeug ID:', vehicleId);
         
         // 🔋 Dynamisches GPS-Intervall basierend auf Power-Save Modus
         const gpsInterval = window.currentGPSInterval || 10;
@@ -113,16 +122,20 @@ async function startNativeGPSTracking() {
                         accuracy: Math.round(location.accuracy) + 'm',
                         time: new Date(location.time).toLocaleTimeString()
                     });
-                    
-                    // Position zu Firebase senden
-                    firebase.database().ref('drivers/' + uid + '/location').set({
-                        latitude: location.latitude,
-                        longitude: location.longitude,
+
+                    // Position zu Firebase senden (vehicles/ statt drivers/)
+                    firebase.database().ref('vehicles/' + vehicleId).update({
+                        lat: location.latitude,
+                        lon: location.longitude,
                         accuracy: location.accuracy,
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        lastUpdate: location.time || Date.now(),
+                        online: true,
+                        userId: uid,
+                        userEmail: firebase.auth().currentUser.email || ''
                     });
-                    
-                    console.log('✅ Position an Firebase gesendet');
+
+                    console.log('✅ Position an Firebase gesendet (vehicles/' + vehicleId + ')');
                 }
             }
         );
@@ -133,9 +146,9 @@ async function startNativeGPSTracking() {
         console.log('─────────────────────────────────────────────────────────');
         console.log('SCHRITT 3: Firebase Keep-Alive starten');
         console.log('─────────────────────────────────────────────────────────');
-        
-        // Firebase Keep-Alive
-        startFirebaseKeepAlive(uid);
+
+        // Firebase Keep-Alive (übergebe vehicleId statt uid)
+        startFirebaseKeepAlive(vehicleId, uid);
         
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🎉 GPS-TRACKING VOLLSTÄNDIG GESTARTET!');
@@ -156,18 +169,20 @@ async function startNativeGPSTracking() {
 // FIREBASE KEEP-ALIVE
 // ═══════════════════════════════════════════════════════════════════════════
 
-function startFirebaseKeepAlive(uid) {
+function startFirebaseKeepAlive(vehicleId, uid) {
     console.log('💓 Starte Firebase Keep-Alive (Heartbeat alle 30 Sek)');
-    
-    // Heartbeat alle 30 Sekunden
+    console.log('🚗 Fahrzeug:', vehicleId);
+
+    // Heartbeat alle 30 Sekunden (schreibe zu vehicles/ statt drivers/)
     window.keepAliveInterval = setInterval(() => {
-        firebase.database().ref('drivers/' + uid + '/heartbeat').set({
+        firebase.database().ref('vehicles/' + vehicleId + '/heartbeat').set({
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             status: 'online',
-            version: '7.1.0',
-            keepalive: true
+            version: '7.2.0',
+            keepalive: true,
+            userId: uid
         });
-        console.log('💓 Heartbeat gesendet');
+        console.log('💓 Heartbeat gesendet (vehicles/' + vehicleId + ')');
     }, 30000);
     
     // Überwache Firebase-Verbindung
@@ -203,14 +218,24 @@ function startFirebaseKeepAlive(uid) {
 
 function startWebGPSTracking() {
     console.log('🌐 Starte Web-GPS (Browser-Modus)');
-    
+
     if (!navigator.geolocation) {
         console.error('❌ Geolocation wird nicht unterstützt');
         return;
     }
-    
+
     const uid = firebase.auth().currentUser.uid;
-    
+    const vehicleId = window.currentVehicle;
+
+    if (!vehicleId) {
+        console.error('❌ Kein Fahrzeug ausgewählt! GPS kann nicht gestartet werden.');
+        alert('Bitte wählen Sie zuerst ein Fahrzeug aus!');
+        return;
+    }
+
+    console.log('👤 User ID:', uid);
+    console.log('🚗 Fahrzeug ID:', vehicleId);
+
     window.gpsWatcherId = navigator.geolocation.watchPosition(
         function(position) {
             console.log('📍 GPS-Update (Web):', {
@@ -218,13 +243,20 @@ function startWebGPSTracking() {
                 lng: position.coords.longitude.toFixed(6),
                 accuracy: Math.round(position.coords.accuracy) + 'm'
             });
-            
-            firebase.database().ref('drivers/' + uid + '/location').set({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
+
+            // Position zu Firebase senden (vehicles/ statt drivers/)
+            firebase.database().ref('vehicles/' + vehicleId).update({
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
                 accuracy: position.coords.accuracy,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                lastUpdate: Date.now(),
+                online: true,
+                userId: uid,
+                userEmail: firebase.auth().currentUser.email || ''
             });
+
+            console.log('✅ Position an Firebase gesendet (vehicles/' + vehicleId + ')');
         },
         function(error) {
             console.error('❌ GPS-Error:', error.message);
@@ -239,4 +271,4 @@ function startWebGPSTracking() {
     console.log('✅ Web-GPS gestartet');
 }
 
-console.log('📦 improved-gps-tracking.js geladen (v7.1.0)');
+console.log('📦 improved-gps-tracking.js geladen (v7.2.0)');

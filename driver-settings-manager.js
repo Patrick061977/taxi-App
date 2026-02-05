@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// 🎛️ DRIVER SETTINGS MANAGER - v5.24.0
+// 🎛️ DRIVER SETTINGS MANAGER - v5.25.0
 // Pro-Fahrer Einstellungen für Screen-Aus, Power-Modi, etc.
+// 🔧 FIX: Migration von /drivers/ zu /vehicles/ für Einstellungen
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DriverSettingsManager = {
@@ -29,10 +30,10 @@ const DriverSettingsManager = {
         }
         
         try {
-            // Lade Einstellungen aus Firebase
-            const snapshot = await db.ref(`drivers/${vehicleId}/settings`).once('value');
+            // Lade Einstellungen aus Firebase (vehicles/ statt drivers/)
+            const snapshot = await db.ref(`vehicles/${vehicleId}/settings`).once('value');
             const settings = snapshot.val();
-            
+
             if (settings) {
                 console.log('✅ Einstellungen geladen:', settings);
                 this.currentSettings = settings;
@@ -40,7 +41,7 @@ const DriverSettingsManager = {
                 console.log('📝 Keine Einstellungen gefunden - erstelle Defaults');
                 this.currentSettings = {...this.DEFAULT_SETTINGS};
                 // Speichere Defaults in Firebase
-                await db.ref(`drivers/${vehicleId}/settings`).set(this.currentSettings);
+                await db.ref(`vehicles/${vehicleId}/settings`).set(this.currentSettings);
             }
             
             // Wende Einstellungen an
@@ -90,9 +91,9 @@ const DriverSettingsManager = {
         try {
             // Update Timestamp
             newSettings.updatedAt = Date.now();
-            
-            // Speichere in Firebase
-            await db.ref(`drivers/${currentVehicle}/settings`).update(newSettings);
+
+            // Speichere in Firebase (vehicles/ statt drivers/)
+            await db.ref(`vehicles/${currentVehicle}/settings`).update(newSettings);
             
             // Update lokal
             this.currentSettings = {...this.currentSettings, ...newSettings};
@@ -821,4 +822,4 @@ const DriverSettingsManager = {
     }
 };
 
-console.log('✅ Driver Settings Manager geladen (v5.24.0)');
+console.log('✅ Driver Settings Manager geladen (v5.25.0)');

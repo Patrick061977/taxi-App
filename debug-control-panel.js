@@ -280,6 +280,12 @@
         const panel = document.getElementById('debug-control-panel');
         const btn = document.getElementById('debug-toggle-btn');
 
+        // 🔧 FIX: Prüfe ob panel existiert, bevor wir auf .style zugreifen
+        if (!panel || !btn) {
+            console.warn('⚠️ Debug Panel noch nicht initialisiert!');
+            return;
+        }
+
         if (panel.style.display === 'none') {
             panel.style.display = 'block';
             btn.style.display = 'none';

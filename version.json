@@ -1,8 +1,8 @@
 {
-  "version": "5.92.6",
-  "build": "20260205-1200",
-  "updated": 1738760400000,
+  "version": "5.93.17",
+  "build": "20260206-0200",
+  "updated": 1738803600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🔧 FIX: Fahrzeugliste zeigt nur noch gültige Fahrzeuge (keine 'Unbekannt'-Einträge mehr)"
+  "message": "🐛 DEBUG: Detaillierte Performance-Logs für Schnellbuchung - sehe jeden Schritt mit Zeit!"
 }

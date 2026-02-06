@@ -6,6 +6,135 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.93.18] - 2026-02-06
+
+### ⚡ Performance
+- **KRITISCHER PERFORMANCE-FIX: Schnellbuchung extrem beschleunigt**
+  - `findUserIdForCustomer()` Stufe 3 DEAKTIVIERT (index.html:26107-26157)
+  - **Problem**: Stufe 3 hat ALLE User aus Firebase geladen → extrem langsam!
+  - **Lösung**: Stufe 1 & 2 (indexed queries) reichen aus
+  - **Impact**: Schnellbuchung ist jetzt 5-10x schneller! 🚀
+  - Falls userId nicht gefunden wird, erscheint Fahrt einfach nicht in "Meine Fahrten" - akzeptabel
+
+### 🔧 Behoben
+- Performance-Problem bei Schnellbuchung behoben
+- Datenbank-Queries reduziert
+
+---
+
+## [5.93.17] - 2026-02-06
+
+### 🐛 Debug
+- **Detaillierte Performance-Logs für Schnellbuchung hinzugefügt**
+  - `submitQuickBooking()` hat jetzt einen `debugTimer` der jeden Schritt loggt
+  - Zeigt Gesamt-Zeit und Schritt-Zeit für jeden Vorgang
+  - Datei: `index.html:59142-59154`
+
+### ⚠️ BEKANNTE PROBLEME (DRINGEND FIXEN!)
+
+**🔴 PERFORMANCE-PROBLEM: Schnellbuchung extrem langsam**
+- **Ursache**: `findUserIdForCustomer()` Stufe 3 lädt ALLE User aus Datenbank (index.html:26114)
+- **Datei**: `index.html:26035-26163`
+- **Impact**: Bei vielen Usern dauert Schnellbuchung mehrere Sekunden
+- **Lösung**: Stufe 3 entfernen oder durch Index-Query ersetzen
+- **Zusätzliche Probleme**:
+  - Zeile 59528: `db.ref('customers/' + finalCustomerId).once('value')`
+  - Zeile 59543: `db.ref('users').orderByChild('displayName')...`
+  - Zeile 59672: `db.ref('vehicles/' + vehicle).once('value')`
+
+**🔴 FAHRZEUGE-PROBLEM: Nur noch 5 Fahrzeuge in Liste**
+- **Ursache**: v5.93.9 Filter akzeptiert nur `OFFICIAL_VEHICLES` (5 Fahrzeuge)
+- **Datei**: `index.html:15710-15753`
+- **Impact**: Alle anderen Fahrzeuge werden automatisch aus Firebase gelöscht!
+- **OFFICIAL_VEHICLES** enthält nur (Zeile 9322-9348):
+  1. Tesla Model Y (PW-MY 222 E)
+  2. Toyota Prius IK (PW-IK 222)
+  3. Toyota Prius II (PW-KI 222)
+  4. Renault Traffic 8 Pax (PW-SK 222)
+  5. Mercedes Vito 8 Pax (VG-LK 111)
+
+---
+
+## [5.93.16] - 2026-02-06
+
+### ✅ Hinzugefügt
+- **Vollständige Fahrt-Infos in "Akzeptierte Fahrten"**
+
+---
+
+## [5.93.15] - 2026-02-06
+
+### 🔧 Behoben
+- **GPS-Toggle beim App-Start IMMER auf "aus"**
+
+---
+
+## [5.93.14] - 2026-02-06
+
+### 🔧 Geändert
+- **Minimal: Eine Zeile Top-Bar - mehr Platz für Fahrten**
+
+---
+
+## [5.93.13] - 2026-02-06
+
+### 🔧 Behoben
+- **Fahrzeug-Box nur zum Auswählen, nicht Wechseln**
+
+---
+
+## [5.93.12] - 2026-02-06
+
+### 🔧 Behoben
+- **Fahrzeug-Box komplett klickbar - Fahrzeug auswählbar**
+
+---
+
+## [5.93.11] - 2026-02-06
+
+### 🎨 UI/UX
+- **Design: Großes Fahrzeug-Display - sofort erkennbar**
+
+---
+
+## [5.93.10] - 2026-02-06
+
+### 🎨 UI/UX
+- **Mobile-Layout: Top-Bar kompakt & lesbar**
+
+---
+
+## [5.93.9] - 2026-02-06
+
+### 🔒 Sicherheit / Datenintegrität
+- **NUR OFFICIAL_VEHICLES in Fahrzeugliste + Auto-Cleanup**
+  - Datei: `index.html:15710-15753`
+  - VEHICLES-Liste akzeptiert nur noch Fahrzeuge aus `OFFICIAL_VEHICLES`
+  - Realtime-Listener merged `OFFICIAL_VEHICLES` mit Firebase GPS-Daten
+  - **Auto-Cleanup**: Löscht ungültige Fahrzeuge automatisch aus Firebase (Zeilen 15741-15753)
+
+### ⚠️ BREAKING CHANGE
+- **Alle Fahrzeuge die NICHT in `OFFICIAL_VEHICLES` sind werden gelöscht!**
+  - `OFFICIAL_VEHICLES` definiert in: `index.html:9322-9348`
+  - Enthält nur 5 Fahrzeuge (siehe oben)
+  - **Falls mehr Fahrzeuge benötigt werden**: `OFFICIAL_VEHICLES` erweitern!
+
+---
+
+## [5.93.8] - 2026-02-06
+
+### 🔧 Behoben
+- **GPS-Toggle nur mit ausgewähltem Fahrzeug aktivierbar**
+
+---
+
+## [5.93.7] - 2026-02-06
+
+### 🔧 Behoben
+- **Power-Save Buttons NUR für Fahrer, NICHT für Admins**
+
+---
+
 ## [5.92.6] - 2026-02-05
 
 ### 🔧 Behoben

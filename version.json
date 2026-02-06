@@ -1,8 +1,8 @@
 {
-  "version": "5.93.17",
-  "build": "20260206-0200",
-  "updated": 1738803600000,
+  "version": "5.93.18",
+  "build": "20260206-0300",
+  "updated": 1738807200000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🐛 DEBUG: Detaillierte Performance-Logs für Schnellbuchung - sehe jeden Schritt mit Zeit!"
+  "message": "⚡ PERFORMANCE: Schnellbuchung extrem beschleunigt! Stufe 3 User-Suche deaktiviert."
 }

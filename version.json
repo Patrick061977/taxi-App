@@ -1,8 +1,8 @@
 {
-  "version": "5.93.16",
-  "build": "20260206-0100",
-  "updated": 1738802400000,
+  "version": "5.93.17",
+  "build": "20260206-0200",
+  "updated": 1738803600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "✨ VOLLSTÄNDIGE FAHRT-INFOS: Datum, Uhrzeit, Kunde, Abholung, Ziel - alles auf einen Blick!"
+  "message": "🐛 DEBUG: Detaillierte Performance-Logs für Schnellbuchung - sehe jeden Schritt mit Zeit!"
 }

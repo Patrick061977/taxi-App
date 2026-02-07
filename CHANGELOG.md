@@ -6,6 +6,49 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.93.24] - 2026-02-07
+
+### 🚕 Fahrer-App komplett überarbeitet
+
+#### ✨ Neue Features
+- **Interaktive Status-Buttons in allen Fahrt-Phasen:**
+  - **ZUGETEILT (assigned)**: Button "✅ Fahrt akzeptieren" → Status wird `accepted`
+  - **AKZEPTIERT (accepted)**: Button "🚗 Losfahren" → Status wird `on_way`
+  - **UNTERWEGS (on_way)**: Button "👥 Kunde eingestiegen" → Status wird `picked_up`
+  - **BESETZT (picked_up)**: Button "🔄 Fahrt abschließen" → Status wird `completed` (bereits vorhanden)
+
+- **Fahrten-Historie für Fahrer** (index.html:4512-4543)
+  - Neue ausklappbare Sektion "📋 Meine Fahrten heute"
+  - Zeigt alle abgeschlossenen Fahrten des aktuellen Fahrzeugs
+  - Übersicht: Anzahl Fahrten + Gesamtumsatz heute
+  - Details: Zeit, Kunde, Abholort, Zielort, Preis
+  - Automatisch sichtbar wenn Fahrzeug ausgewählt ist
+
+#### 🔧 Neue Funktionen
+- `acceptRide(rideId)` - Akzeptiert zugeteilte Fahrt (index.html:40390-40411)
+- `startDrivingToCustomer(rideId)` - Startet Fahrt zum Kunden (index.html:40413-40434)
+- `pickUpCustomer(rideId)` - Markiert Kunde als eingestiegen (index.html:40436-40457)
+- `toggleDriverHistory()` - Blendet Historie ein/aus (index.html:40459-40474)
+- `loadDriverHistory()` - Lädt abgeschlossene Fahrten heute (index.html:40476-40526)
+- `renderDriverHistory(rides)` - Rendert Historie-Liste (index.html:40528-40589)
+
+#### 🐛 Behoben
+- **Fehlende Fahrzeuge zu Firebase hinzugefügt** (index.html:47547-47559)
+  - Problem: Nur 3 von 5 Fahrzeugen waren in Firebase gespeichert
+  - Lösung: `loadVehiclesFromFirebase()` prüft jetzt fehlende Fahrzeuge und fügt sie hinzu
+  - Betrifft: Tesla Model Y (pw-my-222-e) und Toyota Prius IK (pw-ik-222)
+- **Status-Sync-Problem zwischen PC und Fahrer-Handy gelöst**
+  - Alle Buttons aktualisieren sofort die Status-Box via `updateDriverViewIsarfunk()`
+- **Fahrt-Abschluss-Funktion** erweitert um Historie-Update (index.html:40395-40399)
+
+#### 📝 Technische Details
+- Alle Status-Änderungen schreiben Timestamps in Firebase
+- Historie wird nur bei Bedarf geladen (Toggle)
+- Historie-Sektion erscheint automatisch wenn `currentVehicle` gesetzt ist
+- Realtime-Update der Historie nach Fahrt-Abschluss
+
+---
+
 ## [5.93.19] - 2026-02-07
 
 ### 🚗 Planung

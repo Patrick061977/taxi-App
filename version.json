@@ -1,8 +1,8 @@
 {
-  "version": "5.93.19",
-  "build": "20260207-0100",
-  "updated": 1738886400000,
+  "version": "5.93.24",
+  "build": "20260207-0200",
+  "updated": 1738890000000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🚗 PLANUNG: Alle Fahrzeuge (online + offline) in Schnellbuchung! Korrekter Online-Status angezeigt."
+  "message": "🚕 FAHRER-APP: Vollständig überarbeitet! Interaktive Buttons für Fahrt-Status + Fahrten-Historie!"
 }

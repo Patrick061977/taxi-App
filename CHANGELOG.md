@@ -6,6 +6,33 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.93.19] - 2026-02-07
+
+### 🚗 Planung
+- **ALLE Fahrzeuge (online + offline) in Schnellbuchung verfügbar**
+  - `loadQuickBookingVehicles()` lädt jetzt korrekt den Online-Status (index.html:50966-51019)
+  - **Problem**: Offline-Status wurde nicht korrekt gesetzt, alle Fahrzeuge zeigten 🔴
+  - **Lösung**: Lade Fahrer-Daten parallel, setze `isOnline` Status korrekt
+  - **Anzeige**: 🟢 für online, ⚪ für offline Fahrzeuge
+  - **Wichtig**: ALLE Fahrzeuge sind auswählbar, auch offline - für Planungszwecke!
+  - Sortierung: Priorität → Online-Status → Alphabetisch
+
+### 🐛 Behoben
+- **KRITISCHER BUG: Fahrer-Daten wurden nicht geladen**
+  - `assignVehicleToRide()` lud zweimal `vehicles` statt `vehicles` + `drivers` (index.html:13182)
+  - `loadQuickBookingVehicles()` hatte denselben Bug (index.html:50974)
+  - **Impact**: Online-Status konnte nie korrekt ermittelt werden!
+  - **Lösung**: `db.ref('drivers')` statt `db.ref('vehicles')` für zweiten Snapshot
+
+### 📝 Technische Details
+- `loadQuickBookingVehicles()` ist jetzt `async` und lädt Fahrer-Daten parallel
+- `onlineVehicleIds` Set wird aus Fahrer-Daten erstellt
+- Jedes Fahrzeug erhält korrekten `isOnline` Status
+- Console-Log zeigt Anzahl online/offline Fahrzeuge
+- Identische Logik wie in `assignVehicleToRide()` (index.html:13168-13239)
+
+---
+
 ## [5.93.18] - 2026-02-06
 
 ### ⚡ Performance

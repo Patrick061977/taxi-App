@@ -1,8 +1,8 @@
 {
-  "version": "5.93.18",
-  "build": "20260206-0300",
-  "updated": 1738807200000,
+  "version": "5.93.19",
+  "build": "20260207-0100",
+  "updated": 1738886400000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "⚡ PERFORMANCE: Schnellbuchung extrem beschleunigt! Stufe 3 User-Suche deaktiviert."
+  "message": "🚗 PLANUNG: Alle Fahrzeuge (online + offline) in Schnellbuchung! Korrekter Online-Status angezeigt."
 }

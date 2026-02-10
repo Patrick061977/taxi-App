@@ -1,0 +1,56 @@
+name: Auto-Deploy zu GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # Triggert bei jedem Push auf main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Version-Info einfügen
+        run: |
+          # Git Commit Hash
+          COMMIT_HASH=$(git rev-parse HEAD)
+          SHORT_HASH=$(git rev-parse --short HEAD)
+
+          # Build-Datum (Deutschland-Zeit)
+          BUILD_DATE=$(TZ=Europe/Berlin date '+%d.%m.%Y %H:%M')
+
+          # Ersetze Platzhalter in index.html
+          sed -i "s/GIT_COMMIT_HASH/$COMMIT_HASH/g" index.html
+          sed -i "s/BUILD_DATE/$BUILD_DATE/g" index.html
+
+          echo "✅ Version-Info eingefügt:"
+          echo "   Commit: $SHORT_HASH"
+          echo "   Datum:  $BUILD_DATE"
+
+      - name: 📦 GitHub Pages Setup
+        uses: actions/configure-pages@v4
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: 🚀 Deploy zu GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: ✅ Deployment Info
+        run: |
+          echo "🎉 Deployment erfolgreich!"
+          echo "URL: ${{ steps.deployment.outputs.page_url }}"

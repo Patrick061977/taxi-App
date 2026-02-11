@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Admin Log Viewer - All Devices</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filters {
+            padding: 30px;
+            background: white;
+            border-bottom: 2px solid #e5e7eb;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .actions {
+            padding: 20px 30px;
+            background: white;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .devices-list {
+            padding: 30px;
+            background: white;
+        }
+
+        .device-card {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .device-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .device-card.selected {
+            border-color: #667eea;
+            background: #eef2ff;
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .device-id {
+            font-weight: 700;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        .device-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .logs-container {
+            padding: 30px;
+            background: #f9fafb;
+        }
+
+        .log-entry {
+            background: white;
+            border-left: 4px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .log-entry.level-DEBUG { border-left-color: #9ca3af; }
+        .log-entry.level-INFO { border-left-color: #10b981; }
+        .log-entry.level-WARN { border-left-color: #f59e0b; }
+        .log-entry.level-ERROR { border-left-color: #ef4444; }
+        .log-entry.level-CRITICAL { border-left-color: #dc2626; }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .log-level {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .log-level.DEBUG { background: #f3f4f6; color: #6b7280; }
+        .log-level.INFO { background: #d1fae5; color: #065f46; }
+        .log-level.WARN { background: #fef3c7; color: #92400e; }
+        .log-level.ERROR { background: #fee2e2; color: #991b1b; }
+        .log-level.CRITICAL { background: #fecaca; color: #7f1d1d; }
+
+        .log-time {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .log-category {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #eef2ff;
+            color: #4f46e5;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .log-message {
+            font-size: 15px;
+            color: #1f2937;
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .log-context {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #374151;
+            overflow-x: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 Admin Log Viewer</h1>
+            <p>Zentrale Ansicht aller Geräte-Logs</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-devices">0</div>
+                <div class="stat-label">Geräte</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-errors">0</div>
+                <div class="stat-label">Fehler</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-today">0</div>
+                <div class="stat-label">Heute</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>📱 Gerät</label>
+                <select id="filter-device">
+                    <option value="">Alle Geräte</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>📂 Kategorie</label>
+                <select id="filter-category">
+                    <option value="">Alle Kategorien</option>
+                    <option value="system">System</option>
+                    <option value="gps">GPS</option>
+                    <option value="route">Route</option>
+                    <option value="booking">Booking</option>
+                    <option value="payment">Payment</option>
+                    <option value="auth">Auth</option>
+                    <option value="database">Database</option>
+                    <option value="ui">UI</option>
+                    <option value="performance">Performance</option>
+                    <option value="network">Network</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>📊 Level</label>
+                <select id="filter-level">
+                    <option value="">Alle Levels</option>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARN">WARN</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>📅 Datum</label>
+                <input type="date" id="filter-date">
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="loadLogs()">🔄 Aktualisieren</button>
+            <button class="btn btn-secondary" onclick="exportLogs()">💾 Exportieren</button>
+            <button class="btn btn-danger" onclick="clearOldLogs()">🗑️ Alte Logs löschen</button>
+            <button class="btn btn-secondary" onclick="toggleAutoRefresh()">⏱️ Auto-Refresh: <span id="auto-refresh-status">Aus</span></button>
+        </div>
+
+        <div id="logs-container" class="logs-container">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Lade Logs von Firebase...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // Firebase Config - REPLACE WITH YOUR CONFIG!
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            console.log('✅ Firebase initialized');
+        } catch (error) {
+            console.error('❌ Firebase init failed:', error);
+        }
+
+        // State
+        let allLogs = [];
+        let filteredLogs = [];
+        let devices = new Set();
+        let autoRefreshInterval = null;
+
+        /**
+         * Load all logs from Firebase
+         */
+        async function loadLogs() {
+            console.log('📥 Loading logs from Firebase...');
+
+            try {
+                const snapshot = await db.ref('logs').once('value');
+                const data = snapshot.val();
+
+                if (!data) {
+                    showEmptyState();
+                    return;
+                }
+
+                allLogs = [];
+                devices.clear();
+
+                // Parse Firebase structure
+                Object.keys(data).forEach(deviceId => {
+                    devices.add(deviceId);
+
+                    const deviceData = data[deviceId];
+                    Object.keys(deviceData).forEach(date => {
+                        const batches = deviceData[date];
+                        Object.keys(batches).forEach(batchKey => {
+                            const batch = batches[batchKey];
+                            if (batch.logs) {
+                                batch.logs.forEach(log => {
+                                    allLogs.push({
+                                        ...log,
+                                        deviceId,
+                                        date
+                                    });
+                                });
+                            }
+                        });
+                    });
+                });
+
+                // Sort by timestamp (newest first)
+                allLogs.sort((a, b) => b.timestamp - a.timestamp);
+
+                console.log(`✅ Loaded ${allLogs.length} logs from ${devices.size} devices`);
+
+                updateStats();
+                updateDeviceFilter();
+                applyFilters();
+
+            } catch (error) {
+                console.error('❌ Failed to load logs:', error);
+                alert('Fehler beim Laden der Logs: ' + error.message);
+            }
+        }
+
+        /**
+         * Update statistics
+         */
+        function updateStats() {
+            const today = new Date().toISOString().split('T')[0];
+
+            document.getElementById('stat-total').textContent = allLogs.length;
+            document.getElementById('stat-devices').textContent = devices.size;
+            document.getElementById('stat-errors').textContent =
+                allLogs.filter(l => l.level >= 3).length;
+            document.getElementById('stat-today').textContent =
+                allLogs.filter(l => l.date === today).length;
+        }
+
+        /**
+         * Update device filter dropdown
+         */
+        function updateDeviceFilter() {
+            const select = document.getElementById('filter-device');
+            const currentValue = select.value;
+
+            select.innerHTML = '<option value="">Alle Geräte</option>';
+
+            devices.forEach(deviceId => {
+                const option = document.createElement('option');
+                option.value = deviceId;
+                option.textContent = deviceId;
+                select.appendChild(option);
+            });
+
+            select.value = currentValue;
+        }
+
+        /**
+         * Apply filters
+         */
+        function applyFilters() {
+            const deviceFilter = document.getElementById('filter-device').value;
+            const categoryFilter = document.getElementById('filter-category').value;
+            const levelFilter = document.getElementById('filter-level').value;
+            const dateFilter = document.getElementById('filter-date').value;
+
+            filteredLogs = allLogs.filter(log => {
+                if (deviceFilter && log.deviceId !== deviceFilter) return false;
+                if (categoryFilter && log.category !== categoryFilter) return false;
+                if (levelFilter && log.levelName !== levelFilter) return false;
+                if (dateFilter && log.date !== dateFilter) return false;
+                return true;
+            });
+
+            renderLogs();
+        }
+
+        /**
+         * Render logs
+         */
+        function renderLogs() {
+            const container = document.getElementById('logs-container');
+
+            if (filteredLogs.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            container.innerHTML = filteredLogs.map(log => `
+                <div class="log-entry level-${log.levelName}">
+                    <div class="log-header">
+                        <span class="log-level ${log.levelName}">${log.levelName}</span>
+                        <span class="log-time">${new Date(log.timestamp).toLocaleString('de-DE')}</span>
+                    </div>
+                    <span class="log-category">${log.category}</span>
+                    <div class="log-message">${log.message}</div>
+                    ${log.context ? `
+                        <div class="log-context">${JSON.stringify(log.context, null, 2)}</div>
+                    ` : ''}
+                    <div style="margin-top: 10px; font-size: 12px; color: #9ca3af;">
+                        📱 ${log.deviceId}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * Show empty state
+         */
+        function showEmptyState() {
+            document.getElementById('logs-container').innerHTML = `
+                <div class="empty-state">
+                    <p style="font-size: 18px; margin-bottom: 10px;">📭</p>
+                    <p style="font-size: 16px; font-weight: 600;">Keine Logs gefunden</p>
+                    <p style="margin-top: 8px;">Warte auf Logs von Geräten...</p>
+                </div>
+            `;
+        }
+
+        /**
+         * Export logs
+         */
+        function exportLogs() {
+            const data = JSON.stringify(filteredLogs, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs_${new Date().toISOString()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        /**
+         * Clear old logs (older than 7 days)
+         */
+        async function clearOldLogs() {
+            if (!confirm('Möchtest du wirklich alle Logs älter als 7 Tage löschen?')) {
+                return;
+            }
+
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+            const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+            console.log('🗑️ Deleting logs older than', cutoffDateStr);
+
+            // This would require iterating through all device/date paths
+            // Implementation left as exercise (or use Cloud Functions)
+            alert('Diese Funktion erfordert Cloud Functions für sichere Implementierung');
+        }
+
+        /**
+         * Toggle auto-refresh
+         */
+        function toggleAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                document.getElementById('auto-refresh-status').textContent = 'Aus';
+            } else {
+                autoRefreshInterval = setInterval(loadLogs, 10000); // Every 10s
+                document.getElementById('auto-refresh-status').textContent = 'An (10s)';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('filter-device').addEventListener('change', applyFilters);
+        document.getElementById('filter-category').addEventListener('change', applyFilters);
+        document.getElementById('filter-level').addEventListener('change', applyFilters);
+        document.getElementById('filter-date').addEventListener('change', applyFilters);
+
+        // Auto-load on page load
+        window.addEventListener('load', loadLogs);
+    </script>
+</body>
+</html>

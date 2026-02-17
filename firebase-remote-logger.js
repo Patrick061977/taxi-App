@@ -246,8 +246,9 @@
 
             isUploading = true;
 
+            let batch = [];
             try {
-                const batch = uploadQueue.splice(0, CONFIG.MAX_BATCH_SIZE);
+                batch = uploadQueue.splice(0, CONFIG.MAX_BATCH_SIZE);
                 const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
                 console.log(`📤 Uploading ${batch.length} logs to Firebase...`);

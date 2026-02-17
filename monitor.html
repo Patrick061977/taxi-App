@@ -350,7 +350,8 @@ function recalcStats() {
         else if (lvl === 'WARN') stats.warns++;
         else if (lvl === 'INFO') stats.info++;
         knownDevices.add(log._deviceId);
-        if (log.timestamp) lastLogTime = log.timestamp;
+        const ts = log.queuedAt || log.timestamp || (log.context && log.context.timestamp);
+        if (ts) lastLogTime = ts;
     });
     updateStatsUI();
 }
@@ -430,8 +431,9 @@ function buildLogRow(log) {
     const lvl   = log.levelName || 'INFO';
     el.className = `log-entry ${lvl}`;
 
-    const ts = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('de-DE') : '??:??:??';
-    const cat = (log.category || 'system').padEnd(10).substring(0, 10);
+    const rawTs = log.queuedAt || log.timestamp || (log.context && log.context.timestamp);
+    const ts = rawTs ? new Date(rawTs).toLocaleTimeString('de-DE') : '??:??:??';
+    const cat = (log.category || 'unknown').padEnd(10).substring(0, 10);
     const dev = (log._deviceId || '').replace('device_', '').substring(0, 12);
     const msg = (log.message || '').replace(/\[.*?\]\s*/g, '').trim();
     const hasCtx = log.context && Object.keys(log.context).length > 0;
@@ -492,7 +494,8 @@ function clearDisplay() {
 
 function exportLogs() {
     const lines = displayed.map(log => {
-        const ts  = log.timestamp ? new Date(log.timestamp).toISOString() : '';
+        const rawTs = log.queuedAt || log.timestamp || (log.context && log.context.timestamp);
+        const ts  = rawTs ? new Date(rawTs).toISOString() : '';
         const lvl = log.levelName || '';
         const cat = log.category  || '';
         const msg = log.message   || '';

@@ -148,7 +148,18 @@
         async waitForFirebase() {
             return new Promise((resolve) => {
                 const checkReady = setInterval(() => {
-                    if (window.db && window.isFirebaseReady) {
+                    // Check window.db (set by main app) OR directly from firebase.apps
+                    const hasWindowDb = window.db && window.isFirebaseReady;
+                    const hasFirebaseApp = typeof firebase !== 'undefined' &&
+                        firebase.apps && firebase.apps.length > 0 &&
+                        window.isFirebaseReady;
+
+                    if (hasWindowDb || hasFirebaseApp) {
+                        // Ensure window.db is always set (fallback if main app missed it)
+                        if (!window.db && hasFirebaseApp) {
+                            window.db = firebase.database();
+                            console.log('🔧 Remote Logger: window.db selbst gesetzt (Fallback)');
+                        }
                         clearInterval(checkReady);
                         console.log('✅ Firebase connection ready');
                         resolve();
@@ -244,7 +255,12 @@
                 // Group logs by date for better organization
                 const logsByDate = {};
                 batch.forEach(log => {
-                    const logDate = new Date(log.timestamp).toISOString().split('T')[0];
+                    // FIX: timestamp kann undefined sein → Fallback auf queuedAt oder jetzt
+                    const ts = log.timestamp || log.queuedAt || Date.now();
+                    const tsNum = typeof ts === 'string' ? new Date(ts).getTime() : ts;
+                    const logDate = !isNaN(tsNum)
+                        ? new Date(tsNum).toISOString().split('T')[0]
+                        : new Date().toISOString().split('T')[0];
                     if (!logsByDate[logDate]) {
                         logsByDate[logDate] = [];
                     }
@@ -291,10 +307,11 @@
             } catch (error) {
                 console.error('❌ Failed to upload logs:', error.message);
 
-                // Put logs back in queue (at the front)
-                const failed = uploadQueue.splice(0, 0, ...uploadQueue);
+                // Put logs back in queue (at the front) - FIX: war falsch (splice gibt [] zurück)
+                // batch wurde bereits aus uploadQueue entfernt, wieder vorne einfügen
+                uploadQueue.unshift(...batch);
 
-                uploadStats.totalFailed += failed;
+                uploadStats.totalFailed += batch.length;
                 uploadStats.lastError = error.message;
 
                 // If too many failures, clear queue to prevent memory issues

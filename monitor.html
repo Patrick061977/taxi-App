@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔍 Funk Taxi Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 13px; }
+
+  /* LOGIN SCREEN */
+  #login-screen {
+    position: fixed; inset: 0; background: #0f172a;
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .login-box {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 32px; width: 320px; text-align: center;
+  }
+  .login-box h1 { font-size: 22px; margin-bottom: 8px; color: #f1f5f9; }
+  .login-box p { color: #94a3b8; margin-bottom: 24px; font-size: 12px; }
+  .login-btn {
+    background: #3b82f6; color: white; border: none; border-radius: 8px;
+    padding: 12px 24px; cursor: pointer; font-size: 14px; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .login-btn:hover { background: #2563eb; }
+  .login-error { color: #f87171; margin-top: 12px; font-size: 12px; }
+
+  /* MAIN LAYOUT */
+  #app { display: none; flex-direction: column; height: 100vh; }
+  .topbar {
+    background: #1e293b; border-bottom: 1px solid #334155;
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 15px; color: #f1f5f9; flex: 1; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .logout-btn {
+    background: #374151; border: 1px solid #4b5563; color: #9ca3af;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  }
+
+  /* STATS BAR */
+  .statsbar {
+    background: #1e293b; border-bottom: 1px solid #334155;
+    padding: 8px 16px; display: flex; gap: 16px; flex-shrink: 0; flex-wrap: wrap;
+  }
+  .stat {
+    display: flex; flex-direction: column; align-items: center;
+    background: #0f172a; border-radius: 6px; padding: 6px 12px; min-width: 70px;
+  }
+  .stat-num { font-size: 18px; font-weight: bold; }
+  .stat-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .stat.errors .stat-num { color: #f87171; }
+  .stat.warns .stat-num { color: #fbbf24; }
+  .stat.info .stat-num { color: #60a5fa; }
+  .stat.devices .stat-num { color: #a78bfa; }
+
+  /* CONTROLS */
+  .controls {
+    background: #1e293b; border-bottom: 1px solid #334155;
+    padding: 8px 16px; display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; align-items: center;
+  }
+  select, input {
+    background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    padding: 5px 8px; border-radius: 6px; font-size: 12px;
+  }
+  .btn {
+    background: #374151; border: 1px solid #4b5563; color: #d1d5db;
+    padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .btn:hover { background: #4b5563; }
+  .btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+  .spacer { flex: 1; }
+  #live-indicator { font-size: 11px; color: #22c55e; }
+
+  /* LOG LIST */
+  #log-container { flex: 1; overflow-y: auto; padding: 8px; }
+  .log-entry {
+    display: flex; gap: 8px; padding: 5px 8px; border-radius: 4px;
+    margin-bottom: 2px; border-left: 3px solid transparent; font-size: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .log-entry:hover { background: #1e293b; }
+  .log-entry.ERROR   { border-left-color: #f87171; background: rgba(248,113,113,0.05); }
+  .log-entry.CRITICAL{ border-left-color: #ef4444; background: rgba(239,68,68,0.1); }
+  .log-entry.WARN    { border-left-color: #fbbf24; background: rgba(251,191,36,0.05); }
+  .log-entry.INFO    { border-left-color: #60a5fa; }
+  .log-entry.DEBUG   { border-left-color: #334155; opacity: 0.6; }
+
+  .log-time   { color: #64748b; white-space: nowrap; flex-shrink: 0; }
+  .log-level  { font-weight: bold; width: 48px; flex-shrink: 0; font-size: 10px; }
+  .log-level.ERROR    { color: #f87171; }
+  .log-level.CRITICAL { color: #ef4444; }
+  .log-level.WARN     { color: #fbbf24; }
+  .log-level.INFO     { color: #60a5fa; }
+  .log-level.DEBUG    { color: #475569; }
+  .log-cat  { color: #a78bfa; width: 75px; flex-shrink: 0; font-size: 10px; }
+  .log-dev  { color: #94a3b8; width: 90px; flex-shrink: 0; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-msg  { color: #e2e8f0; flex: 1; word-break: break-word; }
+  .log-ctx  { color: #64748b; font-size: 11px; cursor: pointer; flex-shrink: 0; }
+
+  /* ERROR DETAIL MODAL */
+  #modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:999; align-items:center; justify-content:center; }
+  .modal-box { background:#1e293b; border:1px solid #334155; border-radius:10px; padding:20px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; }
+  .modal-box pre { background:#0f172a; padding:12px; border-radius:6px; font-size:11px; overflow-x:auto; color:#a5f3fc; }
+  .modal-close { float:right; cursor:pointer; color:#64748b; font-size:18px; }
+
+  #empty-state { text-align:center; padding:60px; color:#475569; }
+  #empty-state .icon { font-size:48px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>🔍 Taxi Monitor</h1>
+    <p>Nur für Administratoren</p>
+    <button class="login-btn" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#fff" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      Mit Google einloggen
+    </button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<!-- MODAL for context details -->
+<div id="modal" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="closeModal()">✕</span>
+    <h3 id="modal-title" style="margin-bottom:12px;color:#f1f5f9"></h3>
+    <pre id="modal-content"></pre>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="status-dot" id="conn-dot" title="Verbunden"></div>
+    <h1>🔍 Funk Taxi Monitor</h1>
+    <span id="live-indicator">● LIVE</span>
+    <button class="btn" onclick="clearDisplay()" style="margin-left:8px">🗑️ Clear</button>
+    <button class="btn" onclick="exportLogs()">📥 Export</button>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="statsbar">
+    <div class="stat errors"><span class="stat-num" id="stat-errors">0</span><span class="stat-label">FEHLER</span></div>
+    <div class="stat warns"><span class="stat-num" id="stat-warns">0</span><span class="stat-label">WARNUNGEN</span></div>
+    <div class="stat info"><span class="stat-num" id="stat-info">0</span><span class="stat-label">INFO</span></div>
+    <div class="stat devices"><span class="stat-num" id="stat-devices">0</span><span class="stat-label">GERÄTE</span></div>
+    <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-label">GESAMT</span></div>
+    <div class="stat"><span class="stat-num" id="stat-age" style="font-size:12px">-</span><span class="stat-label">LETZTER LOG</span></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn active" id="btn-live" onclick="toggleLive()">⚡ Live</button>
+    <select id="filter-level" onchange="applyFilters()">
+      <option value="">Alle Level</option>
+      <option value="CRITICAL">🔴 CRITICAL</option>
+      <option value="ERROR">❌ ERROR</option>
+      <option value="WARN">⚠️ WARN</option>
+      <option value="INFO">ℹ️ INFO</option>
+      <option value="DEBUG">🔍 DEBUG</option>
+    </select>
+    <select id="filter-cat" onchange="applyFilters()">
+      <option value="">Alle Kategorien</option>
+      <option value="auth">auth</option>
+      <option value="booking">booking</option>
+      <option value="database">database</option>
+      <option value="gps">gps</option>
+      <option value="payment">payment</option>
+      <option value="performance">performance</option>
+      <option value="route">route</option>
+      <option value="system">system</option>
+    </select>
+    <select id="filter-device" onchange="applyFilters()">
+      <option value="">Alle Geräte</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="🔍 Suche..." oninput="applyFilters()" style="width:160px">
+    <span class="spacer"></span>
+    <button class="btn" onclick="loadToday()" style="font-size:11px">Heute laden</button>
+    <button class="btn" onclick="loadYesterday()" style="font-size:11px">Gestern</button>
+  </div>
+
+  <div id="log-container">
+    <div id="empty-state">
+      <div class="icon">📡</div>
+      <div>Warte auf Logs...</div>
+      <div style="margin-top:8px;font-size:11px;color:#334155">Logs erscheinen automatisch wenn die Taxi-App Daten sendet</div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════════════
+firebase.initializeApp({
+    apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app",
+    messagingSenderId: "886448281276",
+    appId: "1:886448281276:web:1b54875801c5d89f8efcf9"
+});
+
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let allLogs     = [];       // raw log entries
+let displayed   = [];       // filtered view
+let liveMode    = true;
+let listeners   = [];       // active Firebase listeners
+let knownDevices = new Set();
+let stats = { errors: 0, warns: 0, info: 0, total: 0 };
+let lastLogTime = null;
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+const ALLOWED_EMAILS = ['funktaxi.pw@gmail.com']; // Admin-Emails
+
+auth.onAuthStateChanged(user => {
+    if (user && ALLOWED_EMAILS.includes(user.email)) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        startMonitoring();
+    } else if (user) {
+        // Eingeloggt aber kein Admin
+        auth.signOut();
+        document.getElementById('login-error').textContent = '⛔ Nur für Administratoren!';
+    }
+});
+
+function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => {
+        document.getElementById('login-error').textContent = '❌ ' + err.message;
+    });
+}
+
+function logout() {
+    stopMonitoring();
+    auth.signOut();
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+// MONITORING
+// ═══════════════════════════════════════════════════════════
+function startMonitoring() {
+    loadToday();
+
+    // Firebase connectivity
+    db.ref('.info/connected').on('value', snap => {
+        const dot = document.getElementById('conn-dot');
+        dot.style.background = snap.val() ? '#22c55e' : '#ef4444';
+    });
+}
+
+function stopMonitoring() {
+    listeners.forEach(ref => ref.off());
+    listeners = [];
+}
+
+function loadToday() {
+    const today = new Date().toISOString().split('T')[0];
+    loadDate(today);
+}
+
+function loadYesterday() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const yesterday = d.toISOString().split('T')[0];
+    loadDate(yesterday);
+}
+
+function loadDate(date) {
+    // Stop existing listeners
+    stopMonitoring();
+    allLogs = [];
+    displayed = [];
+    stats = { errors: 0, warns: 0, info: 0, total: 0 };
+    knownDevices = new Set();
+    updateStatsUI();
+    clearDisplayedLogs();
+
+    const logsRef = db.ref('logs');
+
+    // Listen for all device/date batches
+    const ref = logsRef.on('value', snapshot => {
+        if (!snapshot.exists()) return;
+
+        const newEntries = [];
+        snapshot.forEach(deviceSnap => {
+            const deviceId = deviceSnap.key;
+            const dateSnap = deviceSnap.child(date);
+            if (!dateSnap.exists()) return;
+
+            dateSnap.forEach(batchSnap => {
+                const batch = batchSnap.val();
+                if (!batch || !batch.logs) return;
+
+                batch.logs.forEach(log => {
+                    newEntries.push({
+                        ...log,
+                        _deviceId: deviceId,
+                        _batchId: batchSnap.key
+                    });
+                });
+            });
+        });
+
+        // Sort by timestamp
+        newEntries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        // Update all state
+        allLogs = newEntries;
+        recalcStats();
+        updateDeviceFilter();
+        applyFilters();
+
+        document.getElementById('empty-state').style.display = 'none';
+    }, err => {
+        console.error('Firebase read error:', err);
+    });
+
+    listeners.push({ off: () => logsRef.off('value', ref) });
+}
+
+function recalcStats() {
+    stats = { errors: 0, warns: 0, info: 0, total: allLogs.length };
+    allLogs.forEach(log => {
+        const lvl = log.levelName || '';
+        if (lvl === 'ERROR' || lvl === 'CRITICAL') stats.errors++;
+        else if (lvl === 'WARN') stats.warns++;
+        else if (lvl === 'INFO') stats.info++;
+        knownDevices.add(log._deviceId);
+        if (log.timestamp) lastLogTime = log.timestamp;
+    });
+    updateStatsUI();
+}
+
+function updateStatsUI() {
+    document.getElementById('stat-errors').textContent  = stats.errors;
+    document.getElementById('stat-warns').textContent   = stats.warns;
+    document.getElementById('stat-info').textContent    = stats.info;
+    document.getElementById('stat-total').textContent   = stats.total;
+    document.getElementById('stat-devices').textContent = knownDevices.size;
+
+    if (lastLogTime) {
+        const ago = Math.round((Date.now() - lastLogTime) / 1000);
+        document.getElementById('stat-age').textContent = ago < 60 ? ago + 's' : Math.round(ago/60) + 'm';
+    }
+}
+
+function updateDeviceFilter() {
+    const sel = document.getElementById('filter-device');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Alle Geräte</option>';
+    knownDevices.forEach(id => {
+        const short = id.replace('device_', '').substring(0, 12);
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = short;
+        if (id === current) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+// FILTERS & RENDER
+// ═══════════════════════════════════════════════════════════
+function applyFilters() {
+    const levelF  = document.getElementById('filter-level').value;
+    const catF    = document.getElementById('filter-cat').value;
+    const deviceF = document.getElementById('filter-device').value;
+    const searchF = document.getElementById('filter-search').value.toLowerCase();
+
+    displayed = allLogs.filter(log => {
+        if (levelF  && (log.levelName || '') !== levelF) return false;
+        if (catF    && (log.category  || '') !== catF)   return false;
+        if (deviceF && log._deviceId !== deviceF)         return false;
+        if (searchF && !(log.message || '').toLowerCase().includes(searchF)) return false;
+        return true;
+    });
+
+    renderLogs();
+}
+
+function clearDisplayedLogs() {
+    const c = document.getElementById('log-container');
+    c.innerHTML = '<div id="empty-state"><div class="icon">📡</div><div>Warte auf Logs...</div></div>';
+}
+
+function renderLogs() {
+    const c = document.getElementById('log-container');
+    c.innerHTML = '';
+
+    if (displayed.length === 0) {
+        c.innerHTML = '<div id="empty-state"><div class="icon">🔍</div><div>Keine Logs gefunden</div></div>';
+        return;
+    }
+
+    const frag = document.createDocumentFragment();
+    // Show last 500 to avoid DOM overload
+    const slice = displayed.slice(-500);
+    slice.forEach(log => frag.appendChild(buildLogRow(log)));
+    c.appendChild(frag);
+
+    if (liveMode) c.scrollTop = c.scrollHeight;
+}
+
+function buildLogRow(log) {
+    const el    = document.createElement('div');
+    const lvl   = log.levelName || 'INFO';
+    el.className = `log-entry ${lvl}`;
+
+    const ts = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('de-DE') : '??:??:??';
+    const cat = (log.category || 'system').padEnd(10).substring(0, 10);
+    const dev = (log._deviceId || '').replace('device_', '').substring(0, 12);
+    const msg = (log.message || '').replace(/\[.*?\]\s*/g, '').trim();
+    const hasCtx = log.context && Object.keys(log.context).length > 0;
+
+    el.innerHTML = `
+        <span class="log-time">${ts}</span>
+        <span class="log-level ${lvl}">${lvl.substring(0,4)}</span>
+        <span class="log-cat">${cat}</span>
+        <span class="log-dev" title="${log._deviceId}">${dev}</span>
+        <span class="log-msg">${escHtml(msg)}</span>
+        ${hasCtx ? `<span class="log-ctx" onclick="showContext(event, this)" data-ctx='${JSON.stringify(log.context).replace(/'/g,"&#39;")}'>📋</span>` : ''}
+    `;
+    return el;
+}
+
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function showContext(e, el) {
+    e.stopPropagation();
+    try {
+        const ctx = JSON.parse(el.dataset.ctx);
+        document.getElementById('modal-title').textContent = '📋 Kontext-Details';
+        document.getElementById('modal-content').textContent = JSON.stringify(ctx, null, 2);
+        document.getElementById('modal').style.display = 'flex';
+    } catch(err) {}
+}
+
+function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ═══════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════
+function toggleLive() {
+    liveMode = !liveMode;
+    const btn = document.getElementById('btn-live');
+    btn.classList.toggle('active', liveMode);
+    const ind = document.getElementById('live-indicator');
+    ind.style.color = liveMode ? '#22c55e' : '#64748b';
+    if (liveMode) {
+        const c = document.getElementById('log-container');
+        c.scrollTop = c.scrollHeight;
+    }
+}
+
+function clearDisplay() {
+    const c = document.getElementById('log-container');
+    c.innerHTML = '<div id="empty-state"><div class="icon">🗑️</div><div>Display geleert</div></div>';
+}
+
+function exportLogs() {
+    const lines = displayed.map(log => {
+        const ts  = log.timestamp ? new Date(log.timestamp).toISOString() : '';
+        const lvl = log.levelName || '';
+        const cat = log.category  || '';
+        const msg = log.message   || '';
+        const dev = log._deviceId || '';
+        return `${ts} [${lvl}] [${cat}] [${dev}] ${msg}`;
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `taxi-logs-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Update age every 10s
+setInterval(() => { if (lastLogTime) updateStatsUI(); }, 10000);
+</script>
+</body>
+</html>

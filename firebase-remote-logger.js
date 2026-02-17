@@ -39,16 +39,8 @@
         MIN_UPLOAD_LEVEL: 1, // INFO and above
 
         // 🔒 Categories to upload (empty = all)
-        UPLOAD_CATEGORIES: [
-            'gps',
-            'route',
-            'booking',
-            'payment',
-            'auth',
-            'database',
-            'system',
-            'performance'
-        ],
+        // 🔧 v5.96.2: Alle Kategorien hochladen damit monitor.html alles sieht
+        UPLOAD_CATEGORIES: [],
 
         // 🔥 Firebase path (NEVER READ FROM THIS PATH!)
         FIREBASE_PATH: 'logs',

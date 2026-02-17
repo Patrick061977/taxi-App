@@ -365,7 +365,31 @@ function updateStatsUI() {
 
     if (lastLogTime) {
         const ago = Math.round((Date.now() - lastLogTime) / 1000);
-        document.getElementById('stat-age').textContent = ago < 60 ? ago + 's' : Math.round(ago/60) + 'm';
+        const ageEl = document.getElementById('stat-age');
+        ageEl.textContent = ago < 60 ? ago + 's' : Math.round(ago/60) + 'm';
+        // Farbe nach Aktualität
+        if (ago < 120) {
+            ageEl.style.color = '#22c55e'; // grün: < 2 Min
+        } else if (ago < 300) {
+            ageEl.style.color = '#fbbf24'; // gelb: 2-5 Min
+        } else {
+            ageEl.style.color = '#ef4444'; // rot: > 5 Min
+        }
+        // Live-Indikator anpassen
+        const liveInd = document.getElementById('live-indicator');
+        if (ago < 120) {
+            liveInd.textContent = '● LIVE';
+            liveInd.style.color = '#22c55e';
+            liveInd.title = '';
+        } else if (ago < 300) {
+            liveInd.textContent = '⚠ LANGSAM';
+            liveInd.style.color = '#fbbf24';
+            liveInd.title = 'Kein Log seit ' + Math.round(ago/60) + ' Minuten';
+        } else {
+            liveInd.textContent = '✕ KEINE DATEN';
+            liveInd.style.color = '#ef4444';
+            liveInd.title = 'Kein Log seit ' + Math.round(ago/60) + ' Minuten – App möglicherweise offline!';
+        }
     }
 }
 
@@ -511,8 +535,8 @@ function exportLogs() {
     URL.revokeObjectURL(url);
 }
 
-// Update age every 10s
-setInterval(() => { if (lastLogTime) updateStatsUI(); }, 10000);
+// Update age every 5s
+setInterval(() => { if (lastLogTime) updateStatsUI(); }, 5000);
 </script>
 </body>
 </html>

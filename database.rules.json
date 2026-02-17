@@ -1,0 +1,104 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "rides": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "drivers": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "tracking": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "vehicles": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "settings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "bookingRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "calendarEvents": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "pois": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "shifts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "scripts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "analytics": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "customers": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "activity_log": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "callHistory": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+
+    "hotelCalendars": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "hotelInvoices": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "cancellations": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

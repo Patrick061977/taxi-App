@@ -39,8 +39,16 @@
         MIN_UPLOAD_LEVEL: 1, // INFO and above
 
         // 🔒 Categories to upload (empty = all)
-        // 🔧 v5.96.2: Alle Kategorien hochladen damit monitor.html alles sieht
-        UPLOAD_CATEGORIES: [],
+        UPLOAD_CATEGORIES: [
+            'gps',
+            'route',
+            'booking',
+            'payment',
+            'auth',
+            'database',
+            'system',
+            'performance'
+        ],
 
         // 🔥 Firebase path (NEVER READ FROM THIS PATH!)
         FIREBASE_PATH: 'logs',
@@ -132,58 +140,6 @@
                     timestamp: Date.now()
                 }
             });
-
-            // 🔧 v5.96.2: Console-Interceptor – fängt ALLE console.log/warn/error ab
-            this._interceptConsole();
-        }
-
-        /**
-         * Intercept console.log/warn/error and queue them for remote upload
-         */
-        _interceptConsole() {
-            const self = this;
-            let _intercepting = false; // Guard gegen Endlos-Schleifen
-
-            // WICHTIG: Bestehende Überschreibung (z.B. aus index.html) als Kette beibehalten
-            const originalLog = console.log;
-            const originalWarn = console.warn;
-            const originalError = console.error;
-
-            function makeInterceptor(original, level, levelName) {
-                return function(...args) {
-                    original.apply(console, args);
-                    if (_intercepting || !self.isReady) return;
-                    _intercepting = true;
-                    try {
-                        const message = args.map(a =>
-                            a === null ? 'null' :
-                            typeof a === 'object' ? JSON.stringify(a) : String(a)
-                        ).join(' ');
-                        // Eigene Logger-Meldungen nicht nochmal hochladen
-                        if (message.includes('Firebase Remote Logger') || message.includes('📤 Uploading') || message.includes('✅ Uploaded')) {
-                            return;
-                        }
-                        self.queueLog({
-                            level,
-                            levelName,
-                            category: 'console',
-                            message,
-                            queuedAt: Date.now()
-                        });
-                    } finally {
-                        _intercepting = false;
-                    }
-                };
-            }
-
-            // Nur überschreiben wenn noch nicht vom Remote Logger intercepted
-            if (!console._remoteLoggerInstalled) {
-                console.log = makeInterceptor(originalLog, 1, 'INFO');
-                console.warn = makeInterceptor(originalWarn, 2, 'WARN');
-                console.error = makeInterceptor(originalError, 3, 'ERROR');
-                console._remoteLoggerInstalled = true;
-                originalLog('🔗 v5.96.2: Console-Interceptor aktiv – alle Logs gehen an Monitor');
-            }
         }
 
         /**

@@ -1,8 +1,8 @@
 {
-  "version": "5.93.27",
-  "build": "20260218-1020",
-  "updated": 1739874000000,
+  "version": "5.93.28",
+  "build": "20260218-1030",
+  "updated": 1739874600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🟢 Fix: Kalender-Konflikt zeigt jetzt AUCH Frühestens-START nach blockierender Fahrt"
+  "message": "🕐 Fix: Konflikt-Zeiten auf 5 Min gerundet (Spätestens↓ / Frühestens↑)"
 }

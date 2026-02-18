@@ -1,8 +1,8 @@
 {
-  "version": "5.93.26",
-  "build": "20260218-1010",
-  "updated": 1739873400000,
+  "version": "5.93.27",
+  "build": "20260218-1020",
+  "updated": 1739874000000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🛑 Fix: Zwischenstopp-Adresse in Admin-Kalenderprüfung (NEUE FAHRT) jetzt sichtbar"
+  "message": "🟢 Fix: Kalender-Konflikt zeigt jetzt AUCH Frühestens-START nach blockierender Fahrt"
 }

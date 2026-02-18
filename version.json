@@ -1,8 +1,8 @@
 {
-  "version": "5.93.24",
-  "build": "20260207-0200",
-  "updated": 1738890000000,
+  "version": "5.93.25",
+  "build": "20260218-1000",
+  "updated": 1739872800000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🚕 FAHRER-APP: Vollständig überarbeitet! Interaktive Buttons für Fahrt-Status + Fahrten-Historie!"
+  "message": "🔧 Fix: Waypoint-Bug im Kalender-Check behoben + Übersichtliche Fahrtdauer-Anzeige"
 }

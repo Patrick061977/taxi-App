@@ -1,8 +1,8 @@
 {
-  "version": "5.93.25",
-  "build": "20260218-1000",
-  "updated": 1739872800000,
+  "version": "5.93.26",
+  "build": "20260218-1010",
+  "updated": 1739873400000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "🔧 Fix: Waypoint-Bug im Kalender-Check behoben + Übersichtliche Fahrtdauer-Anzeige"
+  "message": "🛑 Fix: Zwischenstopp-Adresse in Admin-Kalenderprüfung (NEUE FAHRT) jetzt sichtbar"
 }

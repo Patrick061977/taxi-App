@@ -6,6 +6,44 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.1] - 2026-02-25
+
+### 📄 Rechnung: CRM-Button öffnet jetzt Neuer-Kunde-Modal
+
+#### ✨ Neue Features
+- **CRM-Button in der neuen Rechnung** öffnet jetzt direkt "Neuer Kunde" statt eines "geh ins CRM"-Alerts:
+  - Kein Name eingegeben → Neuer Kunde Modal öffnet sich leer
+  - Name eingegeben, Kunde nicht gefunden → Neuer Kunde Modal mit vorausgefülltem Namen
+  - Kunde gefunden → Kunde bearbeiten (wie bisher)
+- **Automatische Datenübernahme nach Anlegen:** Nach dem Speichern eines neuen Kunden aus dem Rechnungskontext werden Name und Adresse automatisch in die Rechnung eingetragen
+- **Visueller Hinweis** im Modal: "💡 Nach dem Speichern werden die Daten automatisch in die Rechnung übernommen"
+- **Titel** zeigt "📄 Neuer Kunde für Rechnung" statt nur "Neuer Kunde"
+
+---
+
+## [5.99.0] - 2026-02-25
+
+### 👤 CRM: Anrede, Kundennummern & Lieferantennummern
+
+#### ✨ Neue Features
+- **Anrede-Dropdown im Kunden-Formular:**
+  - Auswahl: Herr, Frau, Divers, Dr., Prof., Prof. Dr., Firma, Keine Angabe
+  - In beiden Modals (Neuer Kunde + Bearbeiten)
+  - Anrede wird in der CRM-Liste beim Namen angezeigt
+- **Automatische Kundennummern (KD000001, KD000002, ...):**
+  - Wird automatisch beim Anlegen eines neuen Kunden (Typ = Kunde) vergeben
+  - Fortlaufend, via Firebase-Transaction (kein Duplikat möglich)
+  - Im CRM als blauer Badge sichtbar, im Edit-Modal oben angezeigt
+- **Automatische Lieferantennummern (LF000001, LF000002, ...):**
+  - Wird automatisch beim Anlegen eines neuen Lieferanten vergeben
+  - Grüner Badge im CRM
+- **Toast-Bestätigung** zeigt die vergebene Nummer direkt nach dem Erstellen
+
+#### 📋 Warum beide?
+Bisher gab es weder für Kunden noch für Lieferanten automatische Nummern (nur ein optionales manuelles Feld im Hotel-Bereich). Jetzt werden beide Typen automatisch nummeriert.
+
+---
+
 ## [5.93.24] - 2026-02-07
 
 ### 🚕 Fahrer-App komplett überarbeitet

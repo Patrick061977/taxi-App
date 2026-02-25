@@ -6,6 +6,25 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.3] - 2026-02-25
+
+### 🤖 Telegram Bot: Fahrt-Bearbeitung komplett überarbeitet
+
+#### ✨ Neue Features
+- **5 Änderungsoptionen** statt bisher 3:
+  - 📅 Datum ändern (Uhrzeit bleibt)
+  - 🕐 Uhrzeit ändern (Datum bleibt)
+  - 📍 Abholort ändern
+  - 🎯 Zielort ändern
+  - 👥 Personenzahl ändern (1–8)
+- **Lokaler Zeit/Datum-Parser** – kein API-Call mehr für einfache Eingaben:
+  - "16 Uhr", "16:30", "um 16" → direkt erkannt, kein "Fehler bei Zeitanalyse"
+  - "morgen", "übermorgen", "Freitag" → sofort verarbeitet
+  - Nur wirklich komplexe Eingaben gehen noch an die KI
+- **Robusterer KI-Fallback**: Fragt jetzt kompakt nur nach Stunde/Minute (weniger Fehlerquellen)
+
+---
+
 ## [5.99.2] - 2026-02-25
 
 ### 📄 Rechnung: Live-Suche Dropdown + Anrede kompakter

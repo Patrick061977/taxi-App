@@ -6,6 +6,33 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.100.1] - 2026-02-25
+
+### 🐛 Root-Cause-Fix: Luftlinie-Fallback nutzte Meter statt km
+
+**Einzige Ursache des Problems:** OSRM war offline → Luftlinien-Fallback sprang an.
+
+**Der eigentliche Fehler:** Zwei Funktionen mit gleichem Namen `calculateGPSDistance` im globalen Scope:
+- Zeile 35755 (zuerst definiert): gibt **km** zurück (R = 6371)
+- Zeile 46967 (danach definiert): gibt **Meter** zurück (R = 6.371.000)
+
+JavaScript überschreibt die erste mit der zweiten → der Luftlinie-Fallback rechnete z.B. 31.136 Meter als "31.136 km" → × 1,35 = **42.033 km** (statt ~42 km), Preis: **92.481 € statt ~70 €**.
+
+**Fix:** km-Version umbenannt zu `calculateGPSDistanceKm` (vervollständigt Umbenennung aus v5.90.341). Alle 6 Aufrufer der km-Version aktualisiert.
+
+---
+
+## [5.100.0] - 2026-02-25
+
+### 🛡️ Fix: Koordinaten-Plausibilitätsprüfung (Root-Cause-Fix)
+
+- **`fetchRouteWithFallback`**: Neue Validierung beim Start – Koordinaten außerhalb des europäischen Bereichs (lat 35–72, lon −30 bis 45) werden abgewiesen statt zu falschen Distanzen zu führen
+- **`geocodeCustomerAddress`**: Nominatim-Anfragen erhalten jetzt `viewbox=5.0,55.5,25.0,47.0` (Europa-Hinweis) sowie eine Post-Validierung – Koordinaten außerhalb Europa werden ignoriert
+- **Luftlinie-Fallback**: Gibt jetzt die exakten Koordinaten (`From/To`) im Warn-Log aus, damit bei zukünftigen Fehlern sofort erkennbar ist welche Koordinaten das Problem verursacht haben
+- Hintergrund: Diese Änderungen adressieren die Root-Cause des in v5.99.7 als Workaround gesicherten Problems (3023 km Luftlinie statt ~1 km durch falsche Geocoding-Koordinaten)
+
+---
+
 ## [5.99.7] - 2026-02-25
 
 ### 🛡️ Fix: Distanz-Sanity-Check bei Buchungen

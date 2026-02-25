@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.100.1] - 2026-02-25
+
+### 🐛 Root-Cause-Fix: Luftlinie-Fallback nutzte Meter statt km
+
+**Einzige Ursache des Problems:** OSRM war offline → Luftlinien-Fallback sprang an.
+
+**Der eigentliche Fehler:** Zwei Funktionen mit gleichem Namen `calculateGPSDistance` im globalen Scope:
+- Zeile 35755 (zuerst definiert): gibt **km** zurück (R = 6371)
+- Zeile 46967 (danach definiert): gibt **Meter** zurück (R = 6.371.000)
+
+JavaScript überschreibt die erste mit der zweiten → der Luftlinie-Fallback rechnete z.B. 31.136 Meter als "31.136 km" → × 1,35 = **42.033 km** (statt ~42 km), Preis: **92.481 € statt ~70 €**.
+
+**Fix:** km-Version umbenannt zu `calculateGPSDistanceKm` (vervollständigt Umbenennung aus v5.90.341). Alle 6 Aufrufer der km-Version aktualisiert.
+
+---
+
 ## [5.100.0] - 2026-02-25
 
 ### 🛡️ Fix: Koordinaten-Plausibilitätsprüfung (Root-Cause-Fix)

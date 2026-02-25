@@ -6,6 +6,18 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.7] - 2026-02-25
+
+### 🛡️ Fix: Distanz-Sanity-Check bei Buchungen
+
+- **Neuer Sicherheitscheck**: Bei berechneter Distanz > 100 km erscheint ein Bestätigungs-Dialog bevor die Buchung gespeichert wird
+- Dialog zeigt: berechnete km, berechneten Preis, Abholung und Ziel zur Prüfung
+- Nutzer kann "Abbrechen" → Buchung wird nicht gespeichert, Formular bleibt offen zur Korrektur
+- Gilt für Schnellbuchung und Fahrt-Bearbeitung
+- Hintergrund: Wenn alle Routing-APIs ausfallen (OSRM + GraphHopper), fällt das System auf Luftlinie zurück — bei falschen Geocoding-Koordinaten können dabei unrealistische Werte entstehen (z.B. 3032 km statt 5 km)
+
+---
+
 ## [5.99.6] - 2026-02-25
 
 ### ⚖️ Neues Feature: Zuteilungs-Modus (Priorität vs. Effizienz)

@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.2] - 2026-02-25
+
+### 📄 Rechnung: Live-Suche Dropdown + Anrede kompakter
+
+#### ✨ Neue Features
+- **Live-Suche im Rechnungs-Kundenfeld** wie in der Schnellbuchung:
+  - Ab 2 Zeichen erscheint ein Dropdown mit passenden Kunden (Name, Telefon, Adresse)
+  - Kunden mit Anrede + Kundennummer sichtbar im Dropdown
+  - Kunde anklicken → Name & Adresse werden automatisch übernommen, Feld grün bestätigt
+  - Kein Treffer → Button "Als neuen Kunden anlegen" direkt im Dropdown
+- **Anrede-Feld kompakter** in beiden CRM-Modals:
+  - Kleines Dropdown (120px) inline neben dem Namensfeld in einer Zeile
+  - Platz gespart, kein separates Feld mehr
+
+---
+
 ## [5.99.1] - 2026-02-25
 
 ### 📄 Rechnung: CRM-Button öffnet jetzt Neuer-Kunde-Modal

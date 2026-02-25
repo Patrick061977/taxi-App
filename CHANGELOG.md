@@ -6,6 +6,19 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.6] - 2026-02-25
+
+### ⚖️ Neues Feature: Prioritäts-Gewichtung für Auto-Zuteilung
+
+- **Konfigurierbarer Slider im Schichtplan** (Bereich "Zuteilungs-Priorität"): Einstellung von 0–60 Minuten "Prioritäts-Vorteil"
+- **0 min** = Reine faire Verteilung: Fahrzeug mit kürzester Leerfahrt bekommt die Tour, unabhängig von der Priorität
+- **60 min** = Strikte Priorität: Fahrzeug #1 gewinnt fast immer, solange es nicht mehr als 60 Min längere Leerfahrt hat als die Konkurrenz
+- **Dazwischen** (z. B. 20 min) = Gesunder Ausgleich: Fahrzeug #1 bevorzugt, aber ein deutlich günstigeres Fahrzeug kann trotzdem gewinnen
+- Einstellung wird in Firebase (`settings/pricing`) gespeichert und live übernommen
+- Scoring-Formel: `finalScore = leerfahrtMinuten + (priorität - 1) × vorteilMinuten`
+
+---
+
 ## [5.99.5] - 2026-02-25
 
 ### 🐛 Fixes

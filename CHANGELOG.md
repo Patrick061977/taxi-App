@@ -6,6 +6,24 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.6] - 2026-02-25
+
+### ⚖️ Neues Feature: Zuteilungs-Modus (Priorität vs. Effizienz)
+
+- **4 Preset-Buttons** im Schichtplan (Bereich "Zuteilungs-Priorität"):
+  - 🟢 **Fair** (0 min): Kürzeste Leerfahrt gewinnt immer — Priorität wird ignoriert
+  - 🔵 **Ausgewogen** (20 min): Fahrzeug #1 bevorzugt, außer ein anderes hat ≥20 Min kürzere Leerfahrt
+  - 🟠 **Priorität** (40 min): Fahrzeug #1 gewinnt meistens, verliert nur bei ≥40 Min Unterschied
+  - 🔴 **Strikt** (60 min): Fahrzeug #1 gewinnt fast immer
+- Einstellung wird in Firebase (`settings/pricing`) gespeichert und live übernommen
+- **Kalender "Warum dieses Fahrzeug?"** verbessert:
+  - ⬆️ Zeigt an wenn ein Fahrzeug mit höherer Priorität nicht gewählt wurde
+  - Erklärt den Grund: z. B. "Höhere Priorität – gewähltes Fahrzeug hatte X Min kürzere Leerfahrt"
+  - Footer-Note zeigt den aktuell aktiven Modus an
+- Scoring-Formel: `finalScore = leerfahrtMinuten + (priorität - 1) × vorteilMinuten`
+
+---
+
 ## [5.99.5] - 2026-02-25
 
 ### 🐛 Fixes

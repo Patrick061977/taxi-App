@@ -6,6 +6,50 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.5] - 2026-02-25
+
+### 🐛 Fixes
+
+- **Rechnungs-Modal CRM-Button**: Kein Alert mehr bei mehreren Kunden-Treffern. Der `➕ Neu`-Button öffnet jetzt immer direkt das Neu-Kunden-Modal mit dem eingetippten Namen. Suche läuft über das Live-Dropdown.
+- **Telegram Bot-Log in Firebase**: Log-Einträge werden jetzt persistent in `settings/telegram/botlog/` gespeichert (max 200 Einträge). Nach Seiten-Reload sind die letzten Einträge sofort wieder sichtbar. Timestamp wird mit Datum angezeigt.
+
+---
+
+## [5.99.4] - 2026-02-25
+
+### 🔍 Telegram Bot Log: Vollständige KI-Analyse sichtbar
+
+#### ✨ Verbesserungen
+- **KI-Analyse vollständig im Log**: Jetzt sieht man nach jeder Nachricht was Claude extrahiert hat:
+  - datetime, pickup, destination, passengers
+  - missing-Felder (was noch fehlt)
+  - Frage die gestellt wurde
+- **Kontext vor KI-Call**: Log zeigt ob Heimadresse bekannt war, ob Telefon-Pflicht, die exakte Kundennachricht
+- **"Details ▸" aufklappbar**: Alle Einträge mit Zusatzinfos haben jetzt ein aufklappbares Detail-Panel
+- **"Sitzung abgelaufen" mit Grund**: Log zeigt jetzt warum die Sitzung abgelaufen ist (hasPending, hasModifying, rideId-Mismatch)
+- **Nachricht an Kunden verbessert**: Statt "Sitzung abgelaufen" jetzt: "⏰ Sitzung abgelaufen – bitte /ändern eingeben"
+
+---
+
+## [5.99.3] - 2026-02-25
+
+### 🤖 Telegram Bot: Fahrt-Bearbeitung komplett überarbeitet
+
+#### ✨ Neue Features
+- **5 Änderungsoptionen** statt bisher 3:
+  - 📅 Datum ändern (Uhrzeit bleibt)
+  - 🕐 Uhrzeit ändern (Datum bleibt)
+  - 📍 Abholort ändern
+  - 🎯 Zielort ändern
+  - 👥 Personenzahl ändern (1–8)
+- **Lokaler Zeit/Datum-Parser** – kein API-Call mehr für einfache Eingaben:
+  - "16 Uhr", "16:30", "um 16" → direkt erkannt, kein "Fehler bei Zeitanalyse"
+  - "morgen", "übermorgen", "Freitag" → sofort verarbeitet
+  - Nur wirklich komplexe Eingaben gehen noch an die KI
+- **Robusterer KI-Fallback**: Fragt jetzt kompakt nur nach Stunde/Minute (weniger Fehlerquellen)
+
+---
+
 ## [5.99.2] - 2026-02-25
 
 ### 📄 Rechnung: Live-Suche Dropdown + Anrede kompakter

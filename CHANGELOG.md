@@ -6,6 +6,17 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.100.0] - 2026-02-25
+
+### 🛡️ Fix: Koordinaten-Plausibilitätsprüfung (Root-Cause-Fix)
+
+- **`fetchRouteWithFallback`**: Neue Validierung beim Start – Koordinaten außerhalb des europäischen Bereichs (lat 35–72, lon −30 bis 45) werden abgewiesen statt zu falschen Distanzen zu führen
+- **`geocodeCustomerAddress`**: Nominatim-Anfragen erhalten jetzt `viewbox=5.0,55.5,25.0,47.0` (Europa-Hinweis) sowie eine Post-Validierung – Koordinaten außerhalb Europa werden ignoriert
+- **Luftlinie-Fallback**: Gibt jetzt die exakten Koordinaten (`From/To`) im Warn-Log aus, damit bei zukünftigen Fehlern sofort erkennbar ist welche Koordinaten das Problem verursacht haben
+- Hintergrund: Diese Änderungen adressieren die Root-Cause des in v5.99.7 als Workaround gesicherten Problems (3023 km Luftlinie statt ~1 km durch falsche Geocoding-Koordinaten)
+
+---
+
 ## [5.99.7] - 2026-02-25
 
 ### 🛡️ Fix: Distanz-Sanity-Check bei Buchungen

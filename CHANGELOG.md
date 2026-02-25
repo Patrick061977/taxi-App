@@ -6,6 +6,15 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.5] - 2026-02-25
+
+### 🐛 Fixes
+
+- **Rechnungs-Modal CRM-Button**: Kein Alert mehr bei mehreren Kunden-Treffern. Der `➕ Neu`-Button öffnet jetzt immer direkt das Neu-Kunden-Modal mit dem eingetippten Namen. Suche läuft über das Live-Dropdown.
+- **Telegram Bot-Log in Firebase**: Log-Einträge werden jetzt persistent in `settings/telegram/botlog/` gespeichert (max 200 Einträge). Nach Seiten-Reload sind die letzten Einträge sofort wieder sichtbar. Timestamp wird mit Datum angezeigt.
+
+---
+
 ## [5.99.4] - 2026-02-25
 
 ### 🔍 Telegram Bot Log: Vollständige KI-Analyse sichtbar

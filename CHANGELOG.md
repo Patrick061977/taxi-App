@@ -6,6 +6,21 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.1] - 2026-02-25
+
+### 📄 Rechnung: CRM-Button öffnet jetzt Neuer-Kunde-Modal
+
+#### ✨ Neue Features
+- **CRM-Button in der neuen Rechnung** öffnet jetzt direkt "Neuer Kunde" statt eines "geh ins CRM"-Alerts:
+  - Kein Name eingegeben → Neuer Kunde Modal öffnet sich leer
+  - Name eingegeben, Kunde nicht gefunden → Neuer Kunde Modal mit vorausgefülltem Namen
+  - Kunde gefunden → Kunde bearbeiten (wie bisher)
+- **Automatische Datenübernahme nach Anlegen:** Nach dem Speichern eines neuen Kunden aus dem Rechnungskontext werden Name und Adresse automatisch in die Rechnung eingetragen
+- **Visueller Hinweis** im Modal: "💡 Nach dem Speichern werden die Daten automatisch in die Rechnung übernommen"
+- **Titel** zeigt "📄 Neuer Kunde für Rechnung" statt nur "Neuer Kunde"
+
+---
+
 ## [5.99.0] - 2026-02-25
 
 ### 👤 CRM: Anrede, Kundennummern & Lieferantennummern

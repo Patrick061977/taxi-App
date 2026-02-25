@@ -6,6 +6,22 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [5.99.4] - 2026-02-25
+
+### 🔍 Telegram Bot Log: Vollständige KI-Analyse sichtbar
+
+#### ✨ Verbesserungen
+- **KI-Analyse vollständig im Log**: Jetzt sieht man nach jeder Nachricht was Claude extrahiert hat:
+  - datetime, pickup, destination, passengers
+  - missing-Felder (was noch fehlt)
+  - Frage die gestellt wurde
+- **Kontext vor KI-Call**: Log zeigt ob Heimadresse bekannt war, ob Telefon-Pflicht, die exakte Kundennachricht
+- **"Details ▸" aufklappbar**: Alle Einträge mit Zusatzinfos haben jetzt ein aufklappbares Detail-Panel
+- **"Sitzung abgelaufen" mit Grund**: Log zeigt jetzt warum die Sitzung abgelaufen ist (hasPending, hasModifying, rideId-Mismatch)
+- **Nachricht an Kunden verbessert**: Statt "Sitzung abgelaufen" jetzt: "⏰ Sitzung abgelaufen – bitte /ändern eingeben"
+
+---
+
 ## [5.99.3] - 2026-02-25
 
 ### 🤖 Telegram Bot: Fahrt-Bearbeitung komplett überarbeitet

@@ -268,6 +268,52 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<style>
+/* System-Analyse */
+.analyse-section { margin-top: 16px; }
+.analyse-header { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.analyse-box { background: #0f172a; border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.7; margin-bottom: 10px; border: 1px solid #334155; }
+.analyse-box.red   { border-color: #ef4444; background: #1a0505; }
+.analyse-box.amber { border-color: #f59e0b; background: #1a1200; }
+.analyse-box.green { border-color: #10b981; background: #011a10; }
+.analyse-box.blue  { border-color: #3b82f6; background: #020d1a; }
+
+.timing-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid #1e293b; }
+.timing-row:last-child { border: none; }
+.timing-label { color: #94a3b8; flex: 1; }
+.timing-val   { font-weight: 700; color: #e2e8f0; min-width: 60px; text-align: right; }
+.timing-sub   { font-size: 11px; color: #64748b; }
+
+/* Timeline */
+.timeline { margin: 12px 0; font-family: monospace; font-size: 11px; line-height: 1.6; }
+.tl-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.tl-time  { width: 42px; text-align: right; color: #64748b; flex-shrink: 0; }
+.tl-bar   { display: flex; align-items: center; gap: 4px; flex: 1; }
+.tl-block { border-radius: 3px; padding: 2px 6px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.tl-block.existing { background: #334155; color: #94a3b8; }
+.tl-block.newride  { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+.tl-block.conflict { background: #4c0519; color: #fca5a5; border: 1px solid #ef4444; }
+.tl-block.deadhead { background: #422006; color: #fde68a; border: 1px dashed #f59e0b; }
+.tl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tl-line { width: 1px; height: 12px; background: #334155; margin: 0 auto; }
+
+/* Alt buttons */
+.alt-section { margin-top: 14px; }
+.alt-section h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.alt-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.alt-btn-vor  { padding: 10px 16px; background: #422006; color: #fde68a; border: 2px solid #f59e0b; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+.alt-btn-vor:hover  { background: #f59e0b; color: #0f172a; }
+.alt-btn-nach { padding: 10px 16px; background: #011a10; color: #6ee7b7; border: 2px solid #10b981; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+.alt-btn-nach:hover { background: #10b981; color: #0f172a; }
+
+/* Kunden-Sicht */
+.kunden-box { background: #020d1a; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+.kunden-header { background: #3b82f6; color: white; font-weight: 700; font-size: 13px; text-align: center; padding: 8px; margin: -14px -14px 12px -14px; border-radius: 6px 6px 0 0; }
+
+/* Separator */
+.view-separator { border: none; border-top: 1px solid #334155; margin: 16px 0; }
+</style>
+
 <script>
 // ═══════════════════════════════════════════════════════
 // FIREBASE INIT
@@ -704,6 +750,60 @@ function renderRidesTable(rides, dateStr) {
 }
 
 // ═══════════════════════════════════════════════════════
+// ALTERNATIVE SLOTS – VORHER & NACHHER
+// ═══════════════════════════════════════════════════════
+
+/** Prüft ob ein Slot frei ist (keine Überschneidung mit bestehenden Fahrten + Puffer) */
+function isSlotFree(startMs, newTotalMins, dayRides) {
+    const durationMs = newTotalMins * 60000;
+    const bufMs = params.buffer * 60000;
+    for (const r of dayRides) {
+        const rStart = new Date(r.pickupTimestamp || r.pickupTime).getTime();
+        const rDurMins = totalDuration(r.duration || r.estimatedDuration || 20, 0);
+        const rEnd = rStart + rDurMins * 60000;
+        // Überlapp inkl. Puffer
+        if (startMs < rEnd + bufMs && (startMs + durationMs) + bufMs > rStart) return false;
+    }
+    return true;
+}
+
+/** VORHER-Alternativen: Findet Slots BEVOR dem gewünschten Zeitpunkt */
+function findBeforeAlts(slotTs, newTotalMins, dayRides) {
+    // Spätestmöglicher Start: Slot-Start - neue Fahrtdauer - Puffer
+    const latestMs = slotTs - newTotalMins * 60000 - params.buffer * 60000;
+    const latestRounded = Math.floor(latestMs / (5 * 60000)) * (5 * 60000);
+
+    const alts = [];
+    // Suche ab spätestem Start rückwärts (bis 90 Min früher)
+    for (let t = latestRounded; t >= latestRounded - 90 * 60000; t -= 5 * 60000) {
+        if (isSlotFree(t, newTotalMins, dayRides)) {
+            const d = new Date(t);
+            alts.push(d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
+            if (alts.length >= 1) break; // Nur spätestmöglicher Vorher-Slot
+        }
+    }
+    return alts; // [0] = spätestmöglich VORHER
+}
+
+/** NACHHER-Alternativen: Findet Slots NACH dem frühestmöglichen Zeitpunkt */
+function findAfterAlts(earliestMs, newTotalMins, dayRides) {
+    const startRounded = Math.ceil(earliestMs / (5 * 60000)) * (5 * 60000);
+    const alts = [];
+    for (let t = startRounded; t <= startRounded + 120 * 60000; t += 5 * 60000) {
+        if (isSlotFree(t, newTotalMins, dayRides)) {
+            const d = new Date(t);
+            alts.push(d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
+            if (alts.length >= 4) break;
+        }
+    }
+    return alts;
+}
+
+function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ═══════════════════════════════════════════════════════
 // KONFLIKT-PRÜFUNG
 // ═══════════════════════════════════════════════════════
 async function runCheck() {
@@ -887,12 +987,67 @@ async function runCheck() {
             }
         }
 
-        // 8. Ergebnis anzeigen
-        showResult(conflict, slotDateTime, pickupAddr, destAddr, newDriveMins, newTotalMins, prevRide, nextRide, dayRides);
+        // 8. Alternativen berechnen
+        let beforeAlts = [];
+        let afterAlts  = [];
+
+        if (conflict) {
+            // VORHER: Nur bei next_gap oder exact sinnvoll
+            if (conflict.type === 'next_gap') {
+                // beforeAlt bereits oben berechnet → in findBeforeAlts verpacken
+                if (conflict.beforeAlt) {
+                    beforeAlts = [conflict.beforeAlt.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})];
+                }
+            } else if (conflict.type === 'exact' || conflict.type === 'during') {
+                // Spätestmöglicher Slot vor dem Konflikt
+                beforeAlts = findBeforeAlts(slotTs, newTotalMins, dayRides);
+            }
+
+            // NACHHER: Frühestmöglicher Start nach dem Konflikt
+            let earliestAfterMs = null;
+
+            if (conflict.type === 'prev_gap' && conflict.earliestTs) {
+                earliestAfterMs = conflict.earliestTs;
+            } else if (conflict.type === 'during' && prevRide) {
+                const prevTs2 = new Date(prevRide.pickupTimestamp || prevRide.pickupTime).getTime();
+                const prevDur2 = totalDuration(prevRide.duration || prevRide.estimatedDuration || 20, 0);
+                const prevEnd2 = prevTs2 + prevDur2 * 60000;
+                // deadhead from prevRide.destination → pickupAddr
+                let pDestCoords2 = prevDestCoordsForMap;
+                if (!pDestCoords2) pDestCoords2 = await geocode(prevRide.destination);
+                const dh2 = pDestCoords2 ? await calcRoute(pDestCoords2, pickupCoords) : { duration: params.buffer + 5 };
+                earliestAfterMs = prevEnd2 + (dh2.duration + params.buffer) * 60000;
+            } else if (conflict.type === 'exact' && conflict.ride) {
+                const cTs = new Date(conflict.ride.pickupTimestamp || conflict.ride.pickupTime).getTime();
+                const cDur = totalDuration(conflict.ride.duration || conflict.ride.estimatedDuration || 20, 0);
+                const cEnd = cTs + cDur * 60000;
+                let cDestCoords = await geocode(conflict.ride.destination);
+                const dhC = cDestCoords ? await calcRoute(cDestCoords, pickupCoords) : { duration: params.buffer + 5 };
+                earliestAfterMs = cEnd + (dhC.duration + params.buffer) * 60000;
+            } else if (conflict.type === 'next_gap' && nextRide) {
+                const nTs = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).getTime();
+                const nDur = totalDuration(nextRide.duration || nextRide.estimatedDuration || 20, 0);
+                const nEnd = nTs + nDur * 60000;
+                let nDestCoords = await geocode(nextRide.destination);
+                const dhN = nDestCoords ? await calcRoute(nDestCoords, pickupCoords) : { duration: params.buffer + 5 };
+                earliestAfterMs = nEnd + (dhN.duration + params.buffer) * 60000;
+            }
+
+            if (earliestAfterMs) {
+                afterAlts = findAfterAlts(earliestAfterMs, newTotalMins, dayRides);
+                log(`🟢 NACHHER: ${afterAlts.length} Alternativen ab ${fmtTime(earliestAfterMs)}`, 'ok');
+            }
+            log(`🔶 VORHER: ${beforeAlts.length > 0 ? beforeAlts[0] + ' Uhr (spätestens)' : 'nicht möglich'}`, beforeAlts.length > 0 ? 'warn' : 'dim');
+        }
+
+        // 9. Ergebnis anzeigen
+        showResult(conflict, slotDateTime, pickupAddr, destAddr, newDriveMins, newTotalMins,
+            prevRide, nextRide, dayRides, beforeAlts, afterAlts,
+            prevDestCoordsForMap, nextPickupCoordsForMap);
         renderRidesTable(dayRides, slotDateStr);
         showStatus(conflict ? `❌ KONFLIKT: ${conflict.msg}` : '✅ SLOT FREI', conflict ? 'err' : 'ok');
 
-        // 9. Karte rendern
+        // 10. Karte rendern
         await renderMapAfterCheck(
             conflict, slotDateTime, pickupAddr, destAddr,
             pickupCoords, destCoords, newRoute.geometry,
@@ -911,71 +1066,259 @@ async function runCheck() {
     btn.textContent = '▶ Konflikt prüfen';
 }
 
-function showResult(conflict, slotDt, pickup, dest, driveMins, totalMins, prevRide, nextRide, dayRides) {
+function showResult(conflict, slotDt, pickup, dest, driveMins, totalMins,
+    prevRide, nextRide, dayRides, beforeAlts, afterAlts) {
+
     const el = document.getElementById('result');
     const body = document.getElementById('result-body');
     el.style.display = 'block';
 
-    const slotEnd = new Date(slotDt.getTime() + totalMins * 60000);
+    const slotTs  = slotDt.getTime();
+    const slotEnd = new Date(slotTs + totalMins * 60000);
     const timeStr = slotDt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     const endStr  = slotEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
+    el.className = conflict ? 'card result-konflikt' : 'card result-frei';
+
     let html = '';
+
+    // ── Banner ──────────────────────────────────────────
     if (!conflict) {
-        el.className = 'card result-frei';
         html += `<div class="result-title">✅ SLOT FREI</div>`;
-    } else {
-        el.className = 'card result-konflikt';
-        html += `<div class="result-title">❌ KONFLIKT</div>`;
+        html += `<div class="detail-row"><span class="detail-label">Slot</span><span class="detail-value">${slotDt.toLocaleDateString('de-DE')} ${timeStr}–${endStr} Uhr</span></div>`;
+        html += `<div class="detail-row"><span class="detail-label">Strecke</span><span class="detail-value">${pickup} → ${dest}</span></div>`;
+        html += `<div class="detail-row"><span class="detail-label">Fahrtdauer</span><span class="detail-value">${driveMins} Min + ${params.boarding+params.alighting} Min Ein/Aus = <strong>${totalMins} Min</strong></span></div>`;
+        html += `<div class="detail-row"><span class="detail-label">Fahrten am Tag</span><span class="detail-value">${dayRides.length}</span></div>`;
+        if (prevRide) {
+            const pt = fmtTime(new Date(prevRide.pickupTimestamp||prevRide.pickupTime).getTime());
+            const prevDurTotal = totalDuration(prevRide.duration||prevRide.estimatedDuration||20, 0);
+            const prevEnd = fmtTime(new Date(prevRide.pickupTimestamp||prevRide.pickupTime).getTime() + prevDurTotal*60000);
+            html += `<div class="detail-row"><span class="detail-label">Vorherige Fahrt</span><span class="detail-value">${pt}–${prevEnd} Uhr</span></div>`;
+        }
+        if (nextRide) {
+            const nt = fmtTime(new Date(nextRide.pickupTimestamp||nextRide.pickupTime).getTime());
+            html += `<div class="detail-row"><span class="detail-label">Nächste Fahrt</span><span class="detail-value">ab ${nt} Uhr</span></div>`;
+        }
+        body.innerHTML = html;
+        return;
     }
 
-    html += `<div class="detail-row"><span class="detail-label">Gewünschter Slot</span><span class="detail-value">${slotDt.toLocaleDateString('de-DE')} ${timeStr}–${endStr} Uhr</span></div>`;
-    html += `<div class="detail-row"><span class="detail-label">Strecke</span><span class="detail-value">${pickup} → ${dest}</span></div>`;
-    html += `<div class="detail-row"><span class="detail-label">Fahrtdauer</span><span class="detail-value">${driveMins} Min Fahrt + ${params.boarding+params.alighting} Min Ein/Aus = ${totalMins} Min gesamt</span></div>`;
-    html += `<div class="detail-row"><span class="detail-label">Fahrten am Tag</span><span class="detail-value">${dayRides.length}</span></div>`;
+    // ── KONFLIKT ─────────────────────────────────────────
+    html += `<div class="result-title">❌ KONFLIKT</div>`;
 
-    if (prevRide) {
-        const pt = new Date(prevRide.pickupTimestamp || prevRide.pickupTime).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-        html += `<div class="detail-row"><span class="detail-label">Vorherige Fahrt</span><span class="detail-value">${pt} Uhr – ${prevRide.pickup||'?'} → ${prevRide.destination||'?'}</span></div>`;
+    // ── 1. KUNDEN-SICHT ──────────────────────────────────
+    html += `<div class="kunden-box">`;
+    html += `<div class="kunden-header">👤 KUNDEN-SICHT – Was der Kunde sieht</div>`;
+    html += `<div style="text-align:center; padding:10px 0 6px;">`;
+    html += `<div style="font-size:28px; margin-bottom:6px;">❌</div>`;
+    html += `<div style="font-size:15px; font-weight:700; color:#f59e0b; margin-bottom:4px;">Termin nicht verfügbar</div>`;
+    html += `<div style="font-size:13px; color:#64748b;">${slotDt.toLocaleDateString('de-DE', {weekday:'short', day:'2-digit', month:'2-digit', year:'numeric'})}</div>`;
+    html += `<div style="font-size:13px; color:#64748b;">${timeStr} Uhr ist bereits belegt</div>`;
+    html += `</div>`;
+
+    // Alternativen in Kunden-Sicht
+    if (beforeAlts.length > 0 || afterAlts.length > 0) {
+        html += `<hr class="view-separator">`;
+        if (beforeAlts.length > 0) {
+            html += `<div style="font-size:12px; color:#fde68a; font-weight:700; margin-bottom:6px;">🔶 VORHER noch möglich (spätestens):</div>`;
+            html += `<div class="alt-grid">`;
+            beforeAlts.forEach(t => {
+                html += `<button class="alt-btn-vor" onclick="fillTime('${t}')">⬅ ${t} Uhr</button>`;
+            });
+            html += `</div>`;
+        }
+        if (afterAlts.length > 0) {
+            html += `<div style="font-size:12px; color:#6ee7b7; font-weight:700; margin:10px 0 6px;">✅ NACHHER frühestens möglich:</div>`;
+            html += `<div class="alt-grid">`;
+            afterAlts.forEach(t => {
+                html += `<button class="alt-btn-nach" onclick="fillTime('${t}')">▶ ${t} Uhr</button>`;
+            });
+            html += `</div>`;
+        }
     }
-    if (nextRide) {
-        const nt = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-        html += `<div class="detail-row"><span class="detail-label">Nächste Fahrt</span><span class="detail-value">${nt} Uhr – ${nextRide.pickup||'?'} → ${nextRide.destination||'?'}</span></div>`;
-    }
+    html += `</div>`; // end kunden-box
 
-    if (conflict) {
-        html += `<div class="detail-row"><span class="detail-label">Konflikt-Typ</span><span class="detail-value" style="color:#ef4444;">${conflict.msg}</span></div>`;
+    // ── 2. SYSTEM-ANALYSE (Admin-Sicht) ──────────────────
+    html += `<hr class="view-separator">`;
+    html += `<div class="analyse-section">`;
+    html += `<div class="analyse-header" style="color:#f59e0b;">🔍 SYSTEM-ANALYSE (Admin-Sicht)</div>`;
 
-        if (conflict.type === 'prev_gap' && conflict.earliestTs) {
-            const earliest = new Date(conflict.earliestTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-            html += `<div class="detail-row"><span class="detail-label">Frühestens möglich</span><span class="detail-value" style="color:#10b981;">${earliest} Uhr</span></div>`;
-            html += `<div style="margin-top:10px;"><button class="alt-btn alt-after" onclick="fillTime('${earliest}')">▶ ${earliest} Uhr testen</button></div>`;
+    // Neue Fahrt Details
+    html += `<div class="analyse-box blue">`;
+    html += `<div style="color:#93c5fd; font-weight:700; margin-bottom:6px;">🆕 Neue Fahrt (Anfrage)</div>`;
+    html += `<div class="timing-row"><span class="timing-label">Wunschzeit</span><span class="timing-val">${timeStr} Uhr</span></div>`;
+    html += `<div class="timing-row"><span class="timing-label">Strecke</span><span class="timing-val" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">${pickup} → ${dest}</span></div>`;
+    html += `<div class="timing-row"><span class="timing-label">Fahrtdauer (OSRM)</span><span class="timing-val">${driveMins} Min</span></div>`;
+    html += `<div class="timing-row"><span class="timing-label">+ Einsteigen</span><span class="timing-val">${params.boarding} Min</span></div>`;
+    html += `<div class="timing-row"><span class="timing-label">+ Aussteigen</span><span class="timing-val">${params.alighting} Min</span></div>`;
+    html += `<div class="timing-row" style="border-top:1px solid #3b82f6; padding-top:4px; margin-top:4px;"><span class="timing-label" style="font-weight:700; color:#93c5fd;">= Gesamtdauer</span><span class="timing-val" style="color:#93c5fd;">${totalMins} Min</span></div>`;
+    html += `<div class="timing-row"><span class="timing-label">Ende der Fahrt</span><span class="timing-val">${endStr} Uhr</span></div>`;
+    html += `</div>`;
+
+    // Konflikt-Erklärung je Typ
+    const blockRide = conflict.ride;
+    html += `<div class="analyse-box red">`;
+    html += `<div style="color:#fca5a5; font-weight:700; margin-bottom:6px;">⚠️ KONFLIKT ERKANNT: ${conflictTypeLabel(conflict.type)}</div>`;
+
+    if (conflict.type === 'exact') {
+        const cTs = new Date(blockRide.pickupTimestamp||blockRide.pickupTime).getTime();
+        const cDurTotal = totalDuration(blockRide.duration||blockRide.estimatedDuration||20, 0);
+        const cEnd = fmtTime(cTs + cDurTotal * 60000);
+        html += rideDetailHtml(blockRide, '🚨 Blockierende Fahrt (gleiche Zeit)');
+        html += `<div class="timing-row"><span class="timing-label">Blockierende Fahrt endet</span><span class="timing-val">${cEnd} Uhr</span></div>`;
+        html += `<div style="color:#fca5a5; font-weight:700; margin-top:6px; font-size:13px;">❌ UM ${timeStr} UHR IST BEREITS EINE FAHRT GEBUCHT!</div>`;
+
+    } else if (conflict.type === 'during') {
+        const pTs = new Date(prevRide.pickupTimestamp||prevRide.pickupTime).getTime();
+        const pDurTotal = totalDuration(prevRide.duration||prevRide.estimatedDuration||20, 0);
+        const pEnd = fmtTime(pTs + pDurTotal * 60000);
+        html += rideDetailHtml(prevRide, '🚖 Laufende Fahrt (Taxi ist unterwegs)');
+        html += `<div class="timing-row"><span class="timing-label">Fahrt gebucht um</span><span class="timing-val">${fmtTime(pTs)} Uhr</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Fahrt endet um</span><span class="timing-val">${pEnd} Uhr</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Gewünschter Slot</span><span class="timing-val">${timeStr} Uhr</span></div>`;
+        html += `<div style="color:#fca5a5; font-weight:700; margin-top:6px; font-size:12px;">→ Das Taxi ist um ${timeStr} Uhr noch unterwegs!</div>`;
+
+    } else if (conflict.type === 'prev_gap') {
+        const pTs = new Date(prevRide.pickupTimestamp||prevRide.pickupTime).getTime();
+        const pDurTotal = totalDuration(prevRide.duration||prevRide.estimatedDuration||20, 0);
+        const pEndTs = pTs + pDurTotal * 60000;
+        const pEnd = fmtTime(pEndTs);
+        const dh = conflict.deadhead || '?';
+        const gap = Math.round((slotTs - pEndTs) / 60000);
+        const needed = dh + params.buffer;
+        html += rideDetailHtml(prevRide, '🚖 Vorherige Fahrt (blockiert Ankunft)');
+        html += `<div class="timing-row"><span class="timing-label">Vorh. Fahrt endet</span><span class="timing-val">${pEnd} Uhr</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Leerfahrt zum Abholort</span><span class="timing-val">${dh} Min</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">+ Sicherheits-Puffer</span><span class="timing-val">${params.buffer} Min</span></div>`;
+        html += `<div class="timing-row" style="border-top:1px solid #ef4444; margin-top:4px; padding-top:4px;"><span class="timing-label" style="color:#fca5a5; font-weight:700;">= Benötigt</span><span class="timing-val" style="color:#fca5a5;">${needed} Min</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Verfügbare Lücke</span><span class="timing-val">${gap} Min</span></div>`;
+        html += `<div style="color:#fca5a5; font-weight:700; margin-top:6px; font-size:13px;">❌ Es fehlen ${Math.abs(conflict.reserveMin)} Min!</div>`;
+        if (conflict.earliestTs) {
+            html += `<div style="color:#6ee7b7; margin-top:4px; font-size:12px;">✅ Frühestens möglich: <strong>${fmtTime(conflict.earliestTs)} Uhr</strong></div>`;
         }
 
-        if (conflict.type === 'next_gap') {
-            if (conflict.beforeAlt) {
-                const ba = conflict.beforeAlt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-                html += `<div class="detail-row"><span class="detail-label">VORHER möglich bis</span><span class="detail-value" style="color:#f59e0b;">${ba} Uhr</span></div>`;
-                html += `<div style="margin-top:10px;">`;
-                html += `<button class="alt-btn alt-before" onclick="fillTime('${ba}')">⬅ ${ba} Uhr testen</button>`;
-            }
-            if (nextRide) {
-                const nt = new Date(nextRide.pickupTimestamp || nextRide.pickupTime);
-                const afterMins = (nextRide.duration || 20) + params.boarding + params.alighting;
-                const afterTs = nt.getTime() + afterMins * 60000;
-                const after5 = new Date(Math.ceil(afterTs / (5*60000)) * (5*60000));
-                const afterStr = after5.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-                html += `<button class="alt-btn alt-after" onclick="fillTime('${afterStr}')">▶ ${afterStr} Uhr testen</button>`;
+    } else if (conflict.type === 'next_gap') {
+        const nTs = new Date(nextRide.pickupTimestamp||nextRide.pickupTime).getTime();
+        const dh2 = conflict.deadhead || '?';
+        const needed2 = dh2 + params.buffer;
+        html += rideDetailHtml(nextRide, '🚨 Nächste Fahrt (wird überschnitten)');
+        html += `<div class="timing-row"><span class="timing-label">Neue Fahrt endet</span><span class="timing-val">${endStr} Uhr</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Leerfahrt zum nächsten</span><span class="timing-val">${dh2} Min</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">+ Sicherheits-Puffer</span><span class="timing-val">${params.buffer} Min</span></div>`;
+        html += `<div class="timing-row" style="border-top:1px solid #ef4444; margin-top:4px; padding-top:4px;"><span class="timing-label" style="color:#fca5a5; font-weight:700;">= Benötigt</span><span class="timing-val" style="color:#fca5a5;">${needed2} Min</span></div>`;
+        html += `<div class="timing-row"><span class="timing-label">Verfügbare Zeit</span><span class="timing-val">${conflict.timeUntilNext} Min</span></div>`;
+        html += `<div style="color:#fca5a5; font-weight:700; margin-top:6px; font-size:13px;">❌ Es fehlen ${Math.abs(conflict.reserveNext)} Min!</div>`;
+    }
+    html += `</div>`; // end red box
+
+    // ── 3. TIMELINE ──────────────────────────────────────
+    html += `<div class="analyse-box" style="border-color:#334155;">`;
+    html += `<div style="color:#94a3b8; font-weight:700; margin-bottom:8px; font-size:12px;">📅 TAGES-TIMELINE</div>`;
+    html += buildTimeline(conflict, slotDt, slotTs, totalMins, driveMins, pickup, dest, prevRide, nextRide, dayRides);
+    html += `</div>`;
+
+    // ── 4. Alle Fahrten am Tag ────────────────────────────
+    if (dayRides.length > 0) {
+        html += `<div class="analyse-box" style="border-color:#334155;">`;
+        html += `<div style="color:#94a3b8; font-weight:700; margin-bottom:8px; font-size:12px;">📋 ALLE FAHRTEN AM TAG (${dayRides.length})</div>`;
+        dayRides.forEach((r, idx) => {
+            const rTs = new Date(r.pickupTimestamp||r.pickupTime).getTime();
+            const rDurTotal = totalDuration(r.duration||r.estimatedDuration||20, 0);
+            const rEnd = fmtTime(rTs + rDurTotal * 60000);
+            const isConflictRide = conflict.ride && conflict.ride.firebaseId === r.firebaseId;
+            const col = isConflictRide ? '#fca5a5' : '#94a3b8';
+            html += `<div style="border-bottom:1px solid #1e293b; padding:4px 0; font-size:11px; color:${col};">`;
+            html += `<span style="font-weight:700;">${fmtTime(rTs)}–${rEnd}</span>`;
+            html += ` ${isConflictRide ? '⚠️ ' : ''}${(r.pickup||'?').substring(0,25)} → ${(r.destination||'?').substring(0,25)}`;
+            html += ` <span style="color:#475569;">(${r.duration||'?'} Min | ${r.status})</span>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div>`; // end analyse-section
+
+    body.innerHTML = html;
+}
+
+function conflictTypeLabel(type) {
+    return {
+        exact:    'EXAKTE ZEITÜBERSCHNEIDUNG',
+        during:   'TAXI NOCH UNTERWEGS',
+        prev_gap: 'ZU WENIG ZEIT NACH VORHERIGER FAHRT',
+        next_gap: 'ZU WENIG ZEIT VOR NÄCHSTER FAHRT'
+    }[type] || type.toUpperCase();
+}
+
+function rideDetailHtml(ride, label) {
+    if (!ride) return '';
+    const rTs = new Date(ride.pickupTimestamp||ride.pickupTime).getTime();
+    const rDurTotal = totalDuration(ride.duration||ride.estimatedDuration||20, 0);
+    const rEnd = fmtTime(rTs + rDurTotal * 60000);
+    const name = ride.customerName || ride.name || ride.passengerName || '–';
+    let h = `<div style="background:#0f172a; border-radius:6px; padding:8px; margin-bottom:8px; border:1px solid #334155;">`;
+    h += `<div style="color:#fde68a; font-weight:700; font-size:11px; margin-bottom:4px;">${label}</div>`;
+    h += `<div class="timing-row"><span class="timing-label">Zeit</span><span class="timing-val">${fmtTime(rTs)}–${rEnd} Uhr</span></div>`;
+    if (name !== '–') h += `<div class="timing-row"><span class="timing-label">Kunde</span><span class="timing-val" style="font-size:11px;">${name}</span></div>`;
+    h += `<div class="timing-row"><span class="timing-label">Von</span><span class="timing-val" style="font-size:11px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ride.pickup||'?'}</span></div>`;
+    h += `<div class="timing-row"><span class="timing-label">Nach</span><span class="timing-val" style="font-size:11px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ride.destination||'?'}</span></div>`;
+    h += `<div class="timing-row"><span class="timing-label">Fahrtdauer</span><span class="timing-val">${ride.duration||'?'} Min + ${params.boarding+params.alighting} Min</span></div>`;
+    h += `</div>`;
+    return h;
+}
+
+function buildTimeline(conflict, slotDt, slotTs, totalMins, driveMins, pickup, dest, prevRide, nextRide, dayRides) {
+    // Sammle Events für die Timeline
+    const events = [];
+
+    dayRides.forEach((r, idx) => {
+        const rTs = new Date(r.pickupTimestamp||r.pickupTime).getTime();
+        const rDurTotal = totalDuration(r.duration||r.estimatedDuration||20, 0);
+        const rEndTs = rTs + rDurTotal * 60000;
+        const isConf = conflict.ride && conflict.ride.firebaseId === r.firebaseId;
+        events.push({ ts: rTs, endTs: rEndTs, label: (r.pickup||'?').substring(0,20), type: isConf ? 'conflict' : 'existing', idx: idx+1 });
+    });
+
+    // Neue Fahrt
+    events.push({ ts: slotTs, endTs: slotTs + totalMins * 60000, label: pickup.substring(0,20), type: 'newride' });
+
+    // Sortiere nach Zeit
+    events.sort((a, b) => a.ts - b.ts);
+
+    let html = '<div class="timeline">';
+    let prevEndTs = null;
+
+    events.forEach(ev => {
+        // Lücke / Leerfahrt zwischen Events
+        if (prevEndTs && ev.ts > prevEndTs) {
+            const gapMin = Math.round((ev.ts - prevEndTs) / 60000);
+            if (gapMin > 0) {
+                html += `<div class="tl-row" style="opacity:0.5;">`;
+                html += `<span class="tl-time">${fmtTime(prevEndTs)}</span>`;
+                html += `<div class="tl-bar"><span class="tl-block deadhead">↗ Leerfahrt / Pause ${gapMin} Min</span></div>`;
                 html += `</div>`;
             }
         }
 
-        if (conflict.deadhead) {
-            html += `<div class="detail-row"><span class="detail-label">Leerfahrt</span><span class="detail-value">${conflict.deadhead} Min</span></div>`;
-        }
-    }
+        const endStr2 = fmtTime(ev.endTs);
+        const durMin = Math.round((ev.endTs - ev.ts) / 60000);
+        const typeClass = ev.type;
+        const icon = ev.type === 'newride' ? '🆕' : (ev.type === 'conflict' ? '⚠️' : `${ev.idx}.`);
+        const extraStyle = ev.type === 'newride' ? ' font-style:italic;' : '';
 
-    body.innerHTML = html;
+        html += `<div class="tl-row">`;
+        html += `<span class="tl-time" style="color:${ev.type==='conflict'?'#fca5a5':(ev.type==='newride'?'#93c5fd':'#64748b')};">${fmtTime(ev.ts)}</span>`;
+        html += `<div class="tl-bar">`;
+        html += `<span class="tl-block ${typeClass}" style="${extraStyle}">${icon} ${ev.label} (${durMin} Min)</span>`;
+        html += `<span style="font-size:10px; color:#475569; margin-left:4px;">→ ${endStr2}</span>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        prevEndTs = ev.endTs;
+    });
+
+    html += '</div>';
+    return html;
 }
 
 // ═══════════════════════════════════════════════════════

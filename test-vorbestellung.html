@@ -177,10 +177,9 @@
 
         // Simulierte Route-Berechnung (normalerweise OSRM)
         function mockCalculateRoute(fromCoords, toCoords) {
-            // Einfache Distanz-basierte Schätzung
             const lat1 = fromCoords.lat, lon1 = fromCoords.lon;
             const lat2 = toCoords.lat, lon2 = toCoords.lon;
-            const R = 6371; // Erdradius in km
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -188,15 +187,22 @@
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const distance = R * c;
-
-            // Geschätzte Fahrzeit: 30 km/h Durchschnitt
             const duration = Math.ceil((distance / 30) * 60);
-
             return { distance: distance, duration: Math.max(duration, 3) };
         }
 
+        // Berechnet VORHER-Alternative (späteste Startzeit vor nächster Fahrt)
+        // FIX v6.2.8: -1 Slot (5 Min) damit der Vorschlag nie selbst 0 Min Reserve hat
+        function getBeforeAlternative(nextRideTimeMs, newTotalDuration, travelToNextRide, bufferTime) {
+            const latestStartMs = nextRideTimeMs - (newTotalDuration + travelToNextRide + bufferTime) * 60000;
+            const rounded = (Math.floor(latestStartMs / (5 * 60000)) - 1) * (5 * 60000);
+            return new Date(rounded);
+        }
+
         // Prüfe Zeitslot-Verfügbarkeit
-        function checkSlotAvailability(requestedTime, pickupCoords, destinationCoords, newDuration, existingRides) {
+        // routeCalc: optionale Funktion(fromCoords, toCoords) → {duration, distance}
+        function checkSlotAvailability(requestedTime, pickupCoords, destinationCoords, newDuration, existingRides, routeCalc) {
+            const calcRoute = routeCalc || mockCalculateRoute;
             const requestedMs = requestedTime.getTime();
             const newTotalDuration = calculateTotalDuration(newDuration);
             const newEndTime = new Date(requestedMs + newTotalDuration * 60000);
@@ -221,7 +227,7 @@
 
                 // Prüfe ob genug Zeit für Leerfahrt nach vorheriger Fahrt
                 if (rideEnd.getTime() <= requestedMs) {
-                    const deadheadRoute = mockCalculateRoute(
+                    const deadheadRoute = calcRoute(
                         { lat: ride.destinationCoords.lat, lon: ride.destinationCoords.lon },
                         pickupCoords
                     );
@@ -240,20 +246,26 @@
                 }
 
                 // Prüfe ob neue Fahrt rechtzeitig fertig ist für nächste Fahrt
+                // FIX v6.2.7: >= statt > → 0 Min Reserve = auch Konflikt
                 if (rideStart.getTime() > newEndTime.getTime()) {
-                    const deadheadRoute = mockCalculateRoute(
+                    const deadheadRoute = calcRoute(
                         destinationCoords,
                         { lat: ride.pickupCoords.lat, lon: ride.pickupCoords.lon }
                     );
                     const deadheadMinutes = deadheadRoute.duration;
+                    const earliestForNextRide = new Date(newEndTime.getTime() + deadheadMinutes * 60000 + BUFFER_TIME * 60000);
                     const latestEnd = new Date(rideStart.getTime() - deadheadMinutes * 60000 - BUFFER_TIME * 60000);
+                    const reserveMinutes = Math.round((rideStart.getTime() - earliestForNextRide.getTime()) / 60000);
 
-                    if (newEndTime.getTime() > latestEnd.getTime()) {
+                    if (earliestForNextRide.getTime() >= rideStart.getTime()) {
+                        const beforeAlt = getBeforeAlternative(rideStart.getTime(), newTotalDuration, deadheadMinutes, BUFFER_TIME);
                         conflicts.push({
                             type: 'next_ride_conflict',
                             ride: ride,
                             deadheadMinutes: deadheadMinutes,
+                            reserveMinutes: reserveMinutes,
                             latestEnd: latestEnd,
+                            beforeAlternative: beforeAlt,
                             message: `Neue Fahrt würde nächste Fahrt (${ride.customerName} um ${rideStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}) blockieren`
                         });
                     }
@@ -634,6 +646,146 @@
                             `Mindestvorlauf: ${MIN_ADVANCE_TIME} Min`,
                             `Test 15 Min vorher: ${tooSoonOk ? 'Erlaubt' : 'Abgelehnt'} (erwartet: Abgelehnt)`,
                             `Test 45 Min vorher: ${okTimeOk ? 'Erlaubt' : 'Abgelehnt'} (erwartet: Erlaubt)`
+                        ]
+                    };
+                }
+            },
+            // ── LOG-REPRODUKTIONS-TESTS (02.03.2026 Szenario) ─────────────
+            // Testroute: Amselring 10 → Labahnstraße 18, Heringsdorf
+            // 3 Min Fahrt, 7 Min gesamt (+ 2 Min Einsteigen + 2 Min Aussteigen)
+            {
+                name: "LOG Test L1: 03.03.2026 06:25 → FREI (658 Min Reserve)",
+                run: () => {
+                    // Fahrten am 03.03: erst ab 17:30
+                    const d = new Date('2026-03-03T06:25:00');
+                    const rides = [
+                        { id: 'r1', customerName: 'GOSCH', pickupTime: '2026-03-03T17:30:00', duration: 30,
+                          pickupCoords: { lat: 53.965, lon: 14.108 }, destinationCoords: { lat: 53.874, lon: 13.964 } },
+                        { id: 'r2', customerName: 'Mellenthin', pickupTime: '2026-03-03T22:00:00', duration: 30,
+                          pickupCoords: { lat: 53.874, lon: 13.964 }, destinationCoords: { lat: 53.965, lon: 14.108 } }
+                    ];
+                    const fixedRoute = () => ({ duration: 8, distance: 6 });
+                    const result = checkSlotAvailability(d,
+                        { lat: 53.957, lon: 14.148 }, { lat: 53.952, lon: 14.151 }, 3, rides, fixedRoute);
+                    return {
+                        passed: result.available === true,
+                        details: [
+                            'Slot: 03.03.2026 06:25 Uhr',
+                            'Nächste Fahrt: 17:30 Uhr (658 Min Abstand)',
+                            `Ergebnis: ${result.available ? '✅ FREI' : '❌ KONFLIKT'}`,
+                            'Erwartet: FREI'
+                        ]
+                    };
+                }
+            },
+            {
+                name: "LOG Test L2: 02.03.2026 06:40 → KONFLIKT (während laufender Fahrt)",
+                run: () => {
+                    // 06:30-Fahrt läuft noch (Bansin→Koserow, 20 Min → Ende 06:54)
+                    const d = new Date('2026-03-02T06:40:00');
+                    const rides = [
+                        { id: 'rA', customerName: 'Bansin-Koserow', pickupTime: '2026-03-02T06:30:00', duration: 20,
+                          pickupCoords: { lat: 53.965, lon: 14.108 }, destinationCoords: { lat: 53.977, lon: 14.019 } },
+                        { id: 'rB', customerName: 'Muehlenkamp', pickupTime: '2026-03-02T07:30:00', duration: 20,
+                          pickupCoords: { lat: 53.955, lon: 14.145 }, destinationCoords: { lat: 53.961, lon: 14.105 } }
+                    ];
+                    const fixedRoute = () => ({ duration: 8, distance: 6 });
+                    const result = checkSlotAvailability(d,
+                        { lat: 53.957, lon: 14.148 }, { lat: 53.952, lon: 14.151 }, 3, rides, fixedRoute);
+                    return {
+                        passed: result.available === false && result.conflicts.some(c => c.type === 'overlap'),
+                        details: [
+                            'Slot: 02.03.2026 06:40 Uhr',
+                            'Laufende Fahrt: 06:30–06:54 (Bansin→Koserow)',
+                            `Ergebnis: ${result.available ? '✅ FREI' : '❌ KONFLIKT (' + result.conflicts[0]?.type + ')'}`,
+                            'Erwartet: KONFLIKT (overlap)'
+                        ]
+                    };
+                }
+            },
+            {
+                name: "LOG Test L3: 02.03.2026 06:15 → KONFLIKT (5 Min zu spät für 06:30-Fahrt)",
+                run: () => {
+                    const d = new Date('2026-03-02T06:15:00');
+                    const rides = [
+                        { id: 'rA', customerName: 'Bansin-Koserow', pickupTime: '2026-03-02T06:30:00', duration: 20,
+                          pickupCoords: { lat: 53.965, lon: 14.108 }, destinationCoords: { lat: 53.977, lon: 14.019 } },
+                        { id: 'rB', customerName: 'Muehlenkamp', pickupTime: '2026-03-02T07:30:00', duration: 20,
+                          pickupCoords: { lat: 53.955, lon: 14.145 }, destinationCoords: { lat: 53.961, lon: 14.105 } }
+                    ];
+                    // Leerfahrt Labahnstraße→Bansin: 8 Min (aus dem Log)
+                    const fixedRoute = () => ({ duration: 8, distance: 6 });
+                    const result = checkSlotAvailability(d,
+                        { lat: 53.957, lon: 14.148 }, { lat: 53.952, lon: 14.151 }, 3, rides, fixedRoute);
+                    const conflict = result.conflicts.find(c => c.type === 'next_ride_conflict');
+                    // Neue Fahrt endet 06:22, + 8 Min + 5 Min = 06:35 > 06:30 → Konflikt
+                    return {
+                        passed: result.available === false && !!conflict,
+                        details: [
+                            'Slot: 06:15 Uhr | Fahrt endet: 06:22',
+                            'Leerfahrt→Bansin: 8 Min + Puffer 5 Min = frühestens 06:35',
+                            'Nächste Fahrt: 06:30 → 5 Min zu spät!',
+                            `Ergebnis: ${result.available ? '✅ FREI' : '❌ KONFLIKT'}`,
+                            conflict ? `VORHER-Alternative: ${conflict.beforeAlternative?.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr` : '',
+                            'Erwartet: KONFLIKT, VORHER-Alternative = 06:05'
+                        ]
+                    };
+                }
+            },
+            {
+                name: "LOG Test L4: 02.03.2026 06:10 → KONFLIKT (0 Min Reserve, FIX v6.2.7)",
+                run: () => {
+                    const d = new Date('2026-03-02T06:10:00');
+                    const rides = [
+                        { id: 'rA', customerName: 'Bansin-Koserow', pickupTime: '2026-03-02T06:30:00', duration: 20,
+                          pickupCoords: { lat: 53.965, lon: 14.108 }, destinationCoords: { lat: 53.977, lon: 14.019 } },
+                        { id: 'rB', customerName: 'Muehlenkamp', pickupTime: '2026-03-02T07:30:00', duration: 20,
+                          pickupCoords: { lat: 53.955, lon: 14.145 }, destinationCoords: { lat: 53.961, lon: 14.105 } }
+                    ];
+                    // Leerfahrt: 8 Min → 06:17 + 8 + 5 = 06:30 = exakt gleich → muss Konflikt sein!
+                    const fixedRoute = () => ({ duration: 8, distance: 6 });
+                    const result = checkSlotAvailability(d,
+                        { lat: 53.957, lon: 14.148 }, { lat: 53.952, lon: 14.151 }, 3, rides, fixedRoute);
+                    const conflict = result.conflicts.find(c => c.type === 'next_ride_conflict');
+                    return {
+                        passed: result.available === false && !!conflict,
+                        details: [
+                            'Slot: 06:10 Uhr | Fahrt endet: 06:17',
+                            'Leerfahrt 8 Min + Puffer 5 Min = 06:30 (EXAKT gleich!)',
+                            '>>> VOR Fix: 06:30 > 06:30 = false → fälschlich FREI',
+                            '>>> NACH Fix (v6.2.7): 06:30 >= 06:30 = true → KONFLIKT',
+                            `Ergebnis: ${result.available ? '⚠️ FREI (Fix fehlt!)' : '✅ KONFLIKT (Fix aktiv)'}`,
+                            'Erwartet: KONFLIKT'
+                        ]
+                    };
+                }
+            },
+            {
+                name: "LOG Test L5: VORHER-Alternative = 06:05 statt 06:10 (FIX v6.2.8)",
+                run: () => {
+                    // Bei 06:15-Konflikt (Test L3) wurde 06:10 vorgeschlagen – das ist selbst 0 Min Reserve
+                    // Nach Fix: 06:05 muss vorgeschlagen werden
+                    const d = new Date('2026-03-02T06:15:00');
+                    const rides = [
+                        { id: 'rA', customerName: 'Bansin-Koserow', pickupTime: '2026-03-02T06:30:00', duration: 20,
+                          pickupCoords: { lat: 53.965, lon: 14.108 }, destinationCoords: { lat: 53.977, lon: 14.019 } }
+                    ];
+                    const fixedRoute = () => ({ duration: 8, distance: 6 });
+                    const result = checkSlotAvailability(d,
+                        { lat: 53.957, lon: 14.148 }, { lat: 53.952, lon: 14.151 }, 3, rides, fixedRoute);
+                    const conflict = result.conflicts.find(c => c.type === 'next_ride_conflict');
+                    const altTime = conflict?.beforeAlternative;
+                    const altStr = altTime?.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const isCorrect = altTime && altTime.getHours() === 6 && altTime.getMinutes() === 5;
+                    return {
+                        passed: !!conflict && isCorrect,
+                        details: [
+                            'Konflikt bei: 06:15 | Nächste Fahrt: 06:30',
+                            'latestStartMs = 06:30 - (7+8+5) Min = 06:10',
+                            '>>> VOR Fix: Math.floor(06:10) = 06:10 → vorgeschlagen: 06:10 (FALSCH!)',
+                            '>>> NACH Fix (v6.2.8): (Math.floor - 1 Slot) = 06:05 → vorgeschlagen: 06:05',
+                            `VORHER-Alternative: ${altStr || '—'} Uhr`,
+                            `Ergebnis: ${isCorrect ? '✅ 06:05 korrekt' : '❌ ' + (altStr || 'kein Vorschlag')}`
                         ]
                     };
                 }

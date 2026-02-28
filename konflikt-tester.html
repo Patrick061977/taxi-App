@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konflikt-Tester – Live</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 16px; }
@@ -81,12 +82,30 @@
 
         .section-toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
         .section-toggle:hover h2 { color: #e2e8f0; }
+
+        /* Karte */
+        #map-card { display: none; }
+        #map { height: 420px; border-radius: 8px; margin-top: 10px; border: 1px solid #334155; }
+
+        /* Legende */
+        .map-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .legend-line { width: 24px; height: 3px; flex-shrink: 0; border-radius: 2px; }
+
+        /* Leaflet popup dark */
+        .leaflet-popup-content-wrapper { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; }
+        .leaflet-popup-tip { background: #1e293b; }
+        .leaflet-popup-content { font-size: 12px; line-height: 1.5; }
+        .popup-title { font-weight: 700; color: #fbbf24; margin-bottom: 4px; }
+        .popup-conflict { color: #fca5a5; font-weight: 600; }
+        .popup-ok { color: #6ee7b7; font-weight: 600; }
     </style>
 </head>
 <body>
 
 <h1>🚕 Konflikt-Tester <span class="tag">Live</span></h1>
-<p class="subtitle">Echte Firebase-Daten · Einstellbare Parameter · Direktes Testen</p>
+<p class="subtitle">Echte Firebase-Daten · Einstellbare Parameter · Direktes Testen · Kartenansicht</p>
 
 <div id="status"></div>
 
@@ -185,6 +204,51 @@
     <button class="btn-secondary" style="margin-top:8px; font-size:12px; padding:4px 10px;" onclick="toggleLog()">🔍 Debug-Log</button>
 </div>
 
+<!-- KARTE -->
+<div class="card" id="map-card">
+    <div class="section-toggle" onclick="toggleSection('map')">
+        <h2>🗺️ Kartenansicht</h2>
+        <span id="map-arrow" style="color:#64748b;">▼</span>
+    </div>
+    <div id="map-body">
+        <div id="map"></div>
+        <div class="map-legend">
+            <div class="legend-item">
+                <div class="legend-line" style="background:#3b82f6;"></div>
+                <span>Neue Fahrt</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line" style="background:#94a3b8;"></div>
+                <span>Bestehende Fahrten</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line" style="background:#ef4444;"></div>
+                <span>Konflikt-Fahrt</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line" style="background:#f59e0b; border-top: 2px dashed #f59e0b; height:0;"></div>
+                <span>Leerfahrt</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#3b82f6;"></div>
+                <span>Abholung (neu)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#10b981;"></div>
+                <span>Ziel (neu)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#fbbf24;"></div>
+                <span>Bestehende Stops</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#ef4444;"></div>
+                <span>Konflikt-Stop</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- FAHRTEN AM TAG -->
 <div class="card" id="rides-card" style="display:none;">
     <div class="section-toggle" onclick="toggleSection('rides')">
@@ -199,9 +263,10 @@
     </div>
 </div>
 
-<!-- Firebase + Scripts -->
+<!-- Firebase + Leaflet + Scripts -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -293,22 +358,201 @@ async function geocode(address) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ROUTE (OSRM)
+// ROUTE (OSRM) – mit Geometrie für Karte
 // ═══════════════════════════════════════════════════════
 async function calcRoute(from, to) {
-    if (!from || !to) return { duration: 10, distance: 0 };
+    if (!from || !to) return { duration: 10, distance: 0, geometry: null };
     try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`;
+        const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
         const resp = await fetch(url);
         const data = await resp.json();
         if (data.routes && data.routes[0]) {
             return {
                 duration: Math.ceil(data.routes[0].duration / 60),
-                distance: +(data.routes[0].distance / 1000).toFixed(1)
+                distance: +(data.routes[0].distance / 1000).toFixed(1),
+                geometry: data.routes[0].geometry
             };
         }
     } catch(e) {}
-    return { duration: 10, distance: 0 };
+    return { duration: 10, distance: 0, geometry: null };
+}
+
+// GeoJSON Koordinaten [lon,lat] → Leaflet [lat,lon]
+function geomToLatLngs(geometry) {
+    if (!geometry || !geometry.coordinates) return [];
+    return geometry.coordinates.map(c => [c[1], c[0]]);
+}
+
+// ═══════════════════════════════════════════════════════
+// KARTE (Leaflet)
+// ═══════════════════════════════════════════════════════
+let map = null;
+let mapLayers = [];
+
+function initMap() {
+    if (map) return;
+    map = L.map('map', { zoomControl: true }).setView([53.96, 14.07], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+}
+
+function clearMapLayers() {
+    mapLayers.forEach(l => map.removeLayer(l));
+    mapLayers = [];
+}
+
+function addMapLayer(layer) {
+    layer.addTo(map);
+    mapLayers.push(layer);
+}
+
+function makeIcon(color, label = '') {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+        <path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="#0f172a" stroke-width="2"/>
+        <text x="14" y="18" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="sans-serif">${label}</text>
+    </svg>`;
+    return L.divIcon({
+        html: svg,
+        className: '',
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36]
+    });
+}
+
+async function renderMapAfterCheck(conflict, slotDateTime, pickupAddr, destAddr,
+    pickupCoords, destCoords, newRouteGeom,
+    prevRide, nextRide, dayRides,
+    prevDestCoords, nextPickupCoords,
+    deadheadPrevGeom, deadheadNextGeom) {
+
+    document.getElementById('map-card').style.display = 'block';
+    initMap();
+    clearMapLayers();
+
+    const bounds = [];
+    let rideIndex = 0;
+
+    // ── Alle anderen Fahrten am Tag (grau) ──
+    for (const r of dayRides) {
+        rideIndex++;
+        const isConflict = conflict && conflict.ride && conflict.ride.firebaseId === r.firebaseId;
+        const isPrev = prevRide && prevRide.firebaseId === r.firebaseId;
+        const isNext = nextRide && nextRide.firebaseId === r.firebaseId;
+
+        const rPickupAddr = r.pickup || '';
+        const rDestAddr   = r.destination || '';
+        const rTs = new Date(r.pickupTimestamp || r.pickupTime);
+        const timeStr = rTs.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        // Koordinaten aus Cache oder Geocoding
+        let rFrom = r.pickupLat ? { lat: r.pickupLat, lon: r.pickupLon } : (r.pickupCoords || null);
+        let rTo   = r.destLat   ? { lat: r.destLat,   lon: r.destLon   } : (r.destCoords   || null);
+        if (!rFrom) rFrom = geocodeCache[rPickupAddr] || null;
+        if (!rTo)   rTo   = geocodeCache[rDestAddr]   || null;
+
+        const color = isConflict ? '#ef4444' : '#94a3b8';
+        const iconColor = isConflict ? '#ef4444' : '#fbbf24';
+        const weight = isConflict ? 4 : 2;
+        const opacity = isConflict ? 0.9 : 0.5;
+
+        const label = isConflict ? '!' : String(rideIndex);
+        const roleStr = isConflict ? ' ⚠️ KONFLIKT' : (isPrev ? ' (vorher)' : (isNext ? ' (nächste)' : ''));
+
+        const popupContent = `
+            <div class="popup-title">${timeStr} Uhr${roleStr}</div>
+            <div>${rPickupAddr}</div>
+            <div style="color:#64748b;">↓</div>
+            <div>${rDestAddr}</div>
+            <div style="margin-top:4px; color:#94a3b8;">${r.duration || r.estimatedDuration || '?'} Min | ${r.status}</div>
+            ${isConflict ? `<div class="popup-conflict" style="margin-top:4px;">${conflict.msg}</div>` : ''}
+        `;
+
+        if (rFrom) {
+            const m = L.marker([rFrom.lat, rFrom.lon], { icon: makeIcon(iconColor, label) })
+                .bindPopup(popupContent);
+            addMapLayer(m);
+            bounds.push([rFrom.lat, rFrom.lon]);
+        }
+        if (rTo) {
+            const mTo = L.marker([rTo.lat, rTo.lon], { icon: makeIcon(isConflict ? '#ef4444' : '#475569', '●') })
+                .bindPopup(popupContent);
+            addMapLayer(mTo);
+            bounds.push([rTo.lat, rTo.lon]);
+        }
+
+        // Route der bestehenden Fahrt (falls Koordinaten bekannt)
+        if (rFrom && rTo) {
+            try {
+                const rt = await calcRoute(rFrom, rTo);
+                if (rt.geometry) {
+                    const pl = L.polyline(geomToLatLngs(rt.geometry), {
+                        color, weight, opacity
+                    }).bindPopup(popupContent);
+                    addMapLayer(pl);
+                }
+            } catch(e) {}
+        }
+    }
+
+    // ── Leerfahrt VOR neuer Fahrt (orange gestrichelt) ──
+    if (deadheadPrevGeom) {
+        const pl = L.polyline(geomToLatLngs(deadheadPrevGeom), {
+            color: '#f59e0b', weight: 2, opacity: 0.8,
+            dashArray: '6 6'
+        }).bindPopup('<div class="popup-title" style="color:#f59e0b;">Leerfahrt (vorher)</div>');
+        addMapLayer(pl);
+    }
+
+    // ── Leerfahrt NACH neuer Fahrt (orange gestrichelt) ──
+    if (deadheadNextGeom) {
+        const pl = L.polyline(geomToLatLngs(deadheadNextGeom), {
+            color: '#f59e0b', weight: 2, opacity: 0.8,
+            dashArray: '6 6'
+        }).bindPopup('<div class="popup-title" style="color:#f59e0b;">Leerfahrt (danach)</div>');
+        addMapLayer(pl);
+    }
+
+    // ── Neue Fahrt (blau, dick) ──
+    const newEndTs = slotDateTime.getTime() + totalDuration(0, 0) * 60000;
+    const newTimeStr = slotDateTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const newPopup = `
+        <div class="popup-title" style="color:#3b82f6;">🆕 Neue Fahrt – ${newTimeStr} Uhr</div>
+        <div>${pickupAddr}</div>
+        <div style="color:#64748b;">↓</div>
+        <div>${destAddr}</div>
+        ${conflict ? `<div class="popup-conflict" style="margin-top:4px;">❌ ${conflict.msg}</div>` :
+                     `<div class="popup-ok" style="margin-top:4px;">✅ Slot frei</div>`}
+    `;
+
+    if (newRouteGeom) {
+        const pl = L.polyline(geomToLatLngs(newRouteGeom), {
+            color: '#3b82f6', weight: 5, opacity: 0.9
+        }).bindPopup(newPopup);
+        addMapLayer(pl);
+    }
+
+    if (pickupCoords) {
+        const m = L.marker([pickupCoords.lat, pickupCoords.lon], { icon: makeIcon('#3b82f6', 'A') })
+            .bindPopup(`<div class="popup-title" style="color:#3b82f6;">Abholung (neu)</div><div>${pickupAddr}</div>`);
+        addMapLayer(m);
+        bounds.push([pickupCoords.lat, pickupCoords.lon]);
+    }
+
+    if (destCoords) {
+        const m = L.marker([destCoords.lat, destCoords.lon], { icon: makeIcon('#10b981', 'Z') })
+            .bindPopup(`<div class="popup-title" style="color:#10b981;">Ziel (neu)</div><div>${destAddr}</div>`);
+        addMapLayer(m);
+        bounds.push([destCoords.lat, destCoords.lon]);
+    }
+
+    // Karte auf alle Punkte zoomen
+    if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [30, 30] });
+    }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -379,10 +623,58 @@ async function loadRidesForDate() {
         renderRidesTable(ridesOnDay, dateStr);
         showStatus(`✅ ${ridesOnDay.length} Fahrt(en) am ${dateStr} geladen (${Object.keys(allRidesCache).length} gesamt)`, 'ok');
         log(`✅ ${ridesOnDay.length} Fahrt(en) am ${dateStr}`, 'ok');
+
+        // Karte nur mit Tagesfahrten anzeigen
+        await renderMapDayOnly(ridesOnDay);
     } catch(e) {
         showStatus('❌ Fehler: ' + e.message, 'err');
         log('❌ ' + e.message, 'err');
     }
+}
+
+async function renderMapDayOnly(rides) {
+    document.getElementById('map-card').style.display = 'block';
+    initMap();
+    clearMapLayers();
+    const bounds = [];
+
+    for (let i = 0; i < rides.length; i++) {
+        const r = rides[i];
+        const rTs = new Date(r.pickupTimestamp || r.pickupTime);
+        const timeStr = rTs.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        let rFrom = r.pickupLat ? { lat: r.pickupLat, lon: r.pickupLon } : null;
+        let rTo   = r.destLat   ? { lat: r.destLat,   lon: r.destLon   } : null;
+        if (!rFrom && r.pickup)      rFrom = await geocode(r.pickup);
+        if (!rTo   && r.destination) rTo   = await geocode(r.destination);
+
+        const popupContent = `
+            <div class="popup-title">${timeStr} Uhr – Fahrt ${i+1}</div>
+            <div>${r.pickup || '?'}</div>
+            <div style="color:#64748b;">↓</div>
+            <div>${r.destination || '?'}</div>
+            <div style="margin-top:4px; color:#94a3b8;">${r.duration || '?'} Min | ${r.status}</div>
+        `;
+
+        if (rFrom) {
+            addMapLayer(L.marker([rFrom.lat, rFrom.lon], { icon: makeIcon('#fbbf24', String(i+1)) }).bindPopup(popupContent));
+            bounds.push([rFrom.lat, rFrom.lon]);
+        }
+        if (rTo) {
+            addMapLayer(L.marker([rTo.lat, rTo.lon], { icon: makeIcon('#475569', '●') }).bindPopup(popupContent));
+            bounds.push([rTo.lat, rTo.lon]);
+        }
+        if (rFrom && rTo) {
+            const rt = await calcRoute(rFrom, rTo);
+            if (rt.geometry) {
+                addMapLayer(L.polyline(geomToLatLngs(rt.geometry), {
+                    color: '#94a3b8', weight: 2, opacity: 0.6
+                }).bindPopup(popupContent));
+            }
+        }
+    }
+
+    if (bounds.length > 0) map.fitBounds(bounds, { padding: [30, 30] });
 }
 
 function renderRidesTable(rides, dateStr) {
@@ -437,6 +729,12 @@ async function runCheck() {
     log(`🔍 Prüfe: ${slotDateTime.toLocaleString('de-DE')}`, 'info');
     log(`📍 ${pickupAddr} → ${destAddr}`, 'info');
     log(`⚙️ boarding=${params.boarding} alighting=${params.alighting} buffer=${params.buffer} waypoints=${waypointCount}×${params.waypoint} mindest=${params.mindest}`, 'dim');
+
+    // Für Karte merken
+    let deadheadPrevGeom = null;
+    let deadheadNextGeom = null;
+    let prevDestCoordsForMap = null;
+    let nextPickupCoordsForMap = null;
 
     try {
         // 1. Firebase laden falls noch nicht
@@ -534,8 +832,10 @@ async function runCheck() {
                 if (prevRide.destLat && prevRide.destLon) prevDestCoords = { lat: prevRide.destLat, lon: prevRide.destLon };
                 else if (prevRide.destCoords) prevDestCoords = prevRide.destCoords;
                 else prevDestCoords = await geocode(prevRide.destination);
+                prevDestCoordsForMap = prevDestCoords;
 
-                const deadhead = prevDestCoords ? await calcRoute(prevDestCoords, pickupCoords) : { duration: params.buffer + 5 };
+                const deadhead = prevDestCoords ? await calcRoute(prevDestCoords, pickupCoords) : { duration: params.buffer + 5, geometry: null };
+                deadheadPrevGeom = deadhead.geometry;
                 const minGap = Math.max(deadhead.duration + params.buffer, params.mindest);
                 const earliestTs = prevEndTs + minGap * 60000;
                 const gapMin = Math.round((slotTs - prevEndTs) / 60000);
@@ -553,7 +853,7 @@ async function runCheck() {
             }
         }
 
-        // D) Neue Fahrt endet zu spät für nächste Fahrt (FIX v6.2.7: >=)
+        // D) Neue Fahrt endet zu spät für nächste Fahrt
         if (!conflict && nextRide) {
             const nextTs = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).getTime();
             log(`🗺️ Leerfahrt zur nächsten: ${destAddr} → ${nextRide.pickup||'?'}`, 'info');
@@ -561,8 +861,10 @@ async function runCheck() {
             if (nextRide.pickupLat && nextRide.pickupLon) nextPickupCoords = { lat: nextRide.pickupLat, lon: nextRide.pickupLon };
             else if (nextRide.pickupCoords) nextPickupCoords = nextRide.pickupCoords;
             else nextPickupCoords = await geocode(nextRide.pickup);
+            nextPickupCoordsForMap = nextPickupCoords;
 
-            const deadhead2 = nextPickupCoords ? await calcRoute(destCoords, nextPickupCoords) : { duration: params.buffer + 5 };
+            const deadhead2 = nextPickupCoords ? await calcRoute(destCoords, nextPickupCoords) : { duration: params.buffer + 5, geometry: null };
+            deadheadNextGeom = deadhead2.geometry;
             const neededGap = Math.max(deadhead2.duration + params.buffer, params.mindest);
             const earliestForNext = newEndTs + neededGap * 60000;
             const timeUntilNext = Math.round((nextTs - newEndTs) / 60000);
@@ -572,16 +874,14 @@ async function runCheck() {
             log(`   Leerfahrt: ${deadhead2.duration} Min + Puffer: ${params.buffer} Min = ${neededGap} Min benötigt`, 'dim');
             log(`   Nächste Fahrt: ${new Date(nextTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} | Reserve: ${reserveNext} Min`, reserveNext <= 0 ? (reserveNext < 0 ? 'err' : 'warn') : 'ok');
 
-            // FIX v6.2.7: >= statt >
             if (earliestForNext >= nextTs) {
-                // VORHER-Alternative (FIX v6.2.8: -1 Slot)
                 const latestStartMs = nextTs - (newTotalMins + deadhead2.duration + params.buffer) * 60000;
                 const latestRounded = (Math.floor(latestStartMs / (5 * 60000)) - 1) * (5 * 60000);
                 const beforeAlt = latestRounded > 0 ? new Date(latestRounded) : null;
                 conflict = { type: 'next_gap', ride: nextRide, deadhead: deadhead2.duration, neededGap, timeUntilNext, reserveNext, beforeAlt,
                     msg: `Taxi kommt nicht rechtzeitig zur nächsten Fahrt (${Math.abs(reserveNext)} Min zu wenig)` };
                 log('🚨 ZU WENIG ZEIT VOR NÄCHSTER FAHRT', 'err');
-                if (beforeAlt) log(`   VORHER-Alternative: ${beforeAlt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr (v6.2.8 Fix: -1 Slot)`, 'warn');
+                if (beforeAlt) log(`   VORHER-Alternative: ${beforeAlt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr`, 'warn');
             } else {
                 log(`✅ Nächste Fahrt: ${reserveNext} Min Reserve`, 'ok');
             }
@@ -591,6 +891,15 @@ async function runCheck() {
         showResult(conflict, slotDateTime, pickupAddr, destAddr, newDriveMins, newTotalMins, prevRide, nextRide, dayRides);
         renderRidesTable(dayRides, slotDateStr);
         showStatus(conflict ? `❌ KONFLIKT: ${conflict.msg}` : '✅ SLOT FREI', conflict ? 'err' : 'ok');
+
+        // 9. Karte rendern
+        await renderMapAfterCheck(
+            conflict, slotDateTime, pickupAddr, destAddr,
+            pickupCoords, destCoords, newRoute.geometry,
+            prevRide, nextRide, dayRides,
+            prevDestCoordsForMap, nextPickupCoordsForMap,
+            deadheadPrevGeom, deadheadNextGeom
+        );
 
     } catch(e) {
         showStatus('❌ Fehler: ' + e.message, 'err');
@@ -610,8 +919,6 @@ function showResult(conflict, slotDt, pickup, dest, driveMins, totalMins, prevRi
     const slotEnd = new Date(slotDt.getTime() + totalMins * 60000);
     const timeStr = slotDt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     const endStr  = slotEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    const card = el.querySelector('.card') || el;
 
     let html = '';
     if (!conflict) {

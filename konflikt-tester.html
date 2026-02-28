@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konflikt-Tester – Live</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 16px; }
+
+        h1 { color: #fbbf24; font-size: 20px; margin-bottom: 4px; }
+        .subtitle { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+
+        .card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+        .card h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 8px 10px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 14px; }
+        input:focus, select:focus { outline: none; border-color: #fbbf24; }
+
+        .param-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .param-row label { width: 200px; font-size: 13px; color: #cbd5e1; margin: 0; flex-shrink: 0; }
+        .param-row input[type=range] { flex: 1; accent-color: #fbbf24; }
+        .param-value { width: 55px; text-align: right; font-weight: 600; color: #fbbf24; font-size: 14px; }
+
+        button { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+        .btn-primary { background: #fbbf24; color: #0f172a; }
+        .btn-primary:hover { background: #f59e0b; }
+        .btn-primary:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .btn-secondary:hover { background: #475569; }
+
+        #status { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; display: none; }
+        .status-ok { background: #064e3b; color: #6ee7b7; border: 1px solid #10b981; }
+        .status-err { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+        .status-info { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+
+        /* Ergebnis */
+        #result { display: none; }
+        .result-frei { border-left: 4px solid #10b981; background: #042f2e; }
+        .result-konflikt { border-left: 4px solid #ef4444; background: #2d0d0d; }
+        .result-warnung { border-left: 4px solid #f59e0b; background: #2d1f00; }
+        .result-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+        .result-frei .result-title { color: #10b981; }
+        .result-konflikt .result-title { color: #ef4444; }
+        .result-warnung .result-title { color: #f59e0b; }
+
+        .detail-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 13px; }
+        .detail-row:last-child { border: none; }
+        .detail-label { color: #94a3b8; }
+        .detail-value { font-weight: 600; color: #e2e8f0; }
+
+        .alt-btn { display: inline-block; margin: 4px 4px 0 0; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+        .alt-before { background: #92400e; color: #fde68a; }
+        .alt-after  { background: #064e3b; color: #6ee7b7; }
+
+        /* Fahrten-Tabelle */
+        .rides-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+        .rides-table th { text-align: left; color: #64748b; padding: 4px 8px; border-bottom: 1px solid #334155; }
+        .rides-table td { padding: 5px 8px; border-bottom: 1px solid #1e293b; }
+        .rides-table tr:hover td { background: #1e293b; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-assigned { background: #92400e; color: #fde68a; }
+        .badge-new      { background: #1e3a5f; color: #93c5fd; }
+        .badge-other    { background: #334155; color: #94a3b8; }
+
+        .log-box { background: #020617; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-top: 10px; }
+        .log-ok   { color: #6ee7b7; }
+        .log-err  { color: #fca5a5; }
+        .log-warn { color: #fde68a; }
+        .log-info { color: #93c5fd; }
+        .log-dim  { color: #475569; }
+
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #475569; border-top-color: #fbbf24; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; background: #334155; color: #94a3b8; margin-left: 4px; }
+
+        .section-toggle { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+        .section-toggle:hover h2 { color: #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<h1>🚕 Konflikt-Tester <span class="tag">Live</span></h1>
+<p class="subtitle">Echte Firebase-Daten · Einstellbare Parameter · Direktes Testen</p>
+
+<div id="status"></div>
+
+<!-- PARAMETER -->
+<div class="card">
+    <div class="section-toggle" onclick="toggleSection('params')">
+        <h2>⚙️ Parameter</h2>
+        <span id="params-arrow" style="color:#64748b;">▼</span>
+    </div>
+    <div id="params-body">
+        <div class="param-row">
+            <label>Einsteige-Zeit (boardingTime)</label>
+            <input type="range" id="p-boarding" min="0" max="10" step="1" value="3" oninput="updateParam('boarding', this.value)">
+            <span class="param-value" id="v-boarding">3 Min</span>
+        </div>
+        <div class="param-row">
+            <label>Aussteige-Zeit (alightingTime)</label>
+            <input type="range" id="p-alighting" min="0" max="10" step="1" value="2" oninput="updateParam('alighting', this.value)">
+            <span class="param-value" id="v-alighting">2 Min</span>
+        </div>
+        <div class="param-row">
+            <label>Sicherheits-Puffer (bufferTime)</label>
+            <input type="range" id="p-buffer" min="0" max="20" step="1" value="5" oninput="updateParam('buffer', this.value)">
+            <span class="param-value" id="v-buffer">5 Min</span>
+        </div>
+        <div class="param-row">
+            <label>Waypoint-Stopzeit</label>
+            <input type="range" id="p-waypoint" min="0" max="15" step="1" value="5" oninput="updateParam('waypoint', this.value)">
+            <span class="param-value" id="v-waypoint">5 Min</span>
+        </div>
+        <div class="param-row">
+            <label>Mindest-Abstand zwischen Fahrten</label>
+            <input type="range" id="p-mindest" min="0" max="30" step="5" value="0" oninput="updateParam('mindest', this.value)">
+            <span class="param-value" id="v-mindest">0 Min</span>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:8px; align-items:center; font-size:12px; color:#64748b;">
+            <button class="btn-secondary" style="padding:5px 12px; font-size:12px;" onclick="resetParams()">↺ Zurücksetzen</button>
+            <span>Standard-Werte: Einsteigen 3, Aussteigen 2, Puffer 5, Waypoint 5, Mindest 0</span>
+        </div>
+    </div>
+</div>
+
+<!-- EINGABE -->
+<div class="card">
+    <h2>🔍 Termin prüfen</h2>
+    <div class="grid2" style="margin-bottom:10px;">
+        <div>
+            <label>Datum</label>
+            <input type="date" id="in-date">
+        </div>
+        <div>
+            <label>Uhrzeit</label>
+            <input type="time" id="in-time" value="08:00">
+        </div>
+    </div>
+    <div style="margin-bottom:10px;">
+        <label>Abholadresse</label>
+        <input type="text" id="in-pickup" placeholder="z.B. Amselring 10, Heringsdorf" value="Amselring 10, Heringsdorf">
+    </div>
+    <div style="margin-bottom:10px;">
+        <label>Zieladresse</label>
+        <input type="text" id="in-dest" placeholder="z.B. Labahnstraße 18, Heringsdorf" value="Labahnstraße 18, Heringsdorf">
+    </div>
+    <div class="grid2" style="margin-bottom:14px;">
+        <div>
+            <label>Passagiere</label>
+            <select id="in-pax">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select>
+        </div>
+        <div>
+            <label>Zwischenstopps</label>
+            <select id="in-waypoints">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-primary" id="btn-check" onclick="runCheck()">▶ Konflikt prüfen</button>
+        <button class="btn-secondary" onclick="loadRidesForDate()">📅 Fahrten laden</button>
+        <button class="btn-secondary" onclick="fillFromLog()">📋 Beispiel: Log 02.03</button>
+    </div>
+</div>
+
+<!-- ERGEBNIS -->
+<div class="card" id="result">
+    <h2>📊 Ergebnis</h2>
+    <div id="result-body"></div>
+    <div id="log-output" class="log-box" style="display:none;"></div>
+    <button class="btn-secondary" style="margin-top:8px; font-size:12px; padding:4px 10px;" onclick="toggleLog()">🔍 Debug-Log</button>
+</div>
+
+<!-- FAHRTEN AM TAG -->
+<div class="card" id="rides-card" style="display:none;">
+    <div class="section-toggle" onclick="toggleSection('rides')">
+        <h2>📅 Fahrten am gewählten Tag <span id="rides-date-label" class="tag"></span></h2>
+        <span id="rides-arrow" style="color:#64748b;">▼</span>
+    </div>
+    <div id="rides-body">
+        <table class="rides-table" id="rides-table">
+            <thead><tr><th>Zeit</th><th>Von</th><th>Nach</th><th>Dauer</th><th>Status</th></tr></thead>
+            <tbody id="rides-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Firebase + Scripts -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app"
+};
+
+let db = null;
+let allRidesCache = {};
+let logLines = [];
+
+function showStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status-' + type;
+    el.style.display = 'block';
+}
+
+async function initFirebase() {
+    try {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        db = firebase.database();
+        showStatus('✅ Firebase verbunden – ' + FIREBASE_CONFIG.databaseURL, 'ok');
+        log('✅ Firebase bereit', 'ok');
+    } catch(e) {
+        showStatus('❌ Firebase-Fehler: ' + e.message, 'err');
+    }
+}
+
+initFirebase();
+
+// ═══════════════════════════════════════════════════════
+// PARAMETER
+// ═══════════════════════════════════════════════════════
+let params = { boarding: 3, alighting: 2, buffer: 5, waypoint: 5, mindest: 0 };
+
+function updateParam(key, val) {
+    params[key] = parseInt(val);
+    document.getElementById('v-' + key).textContent = val + ' Min';
+}
+
+function resetParams() {
+    const defaults = { boarding: 3, alighting: 2, buffer: 5, waypoint: 5, mindest: 0 };
+    for (const [k, v] of Object.entries(defaults)) {
+        params[k] = v;
+        document.getElementById('p-' + k).value = v;
+        document.getElementById('v-' + k).textContent = v + ' Min';
+    }
+    log('↺ Parameter auf Standard zurückgesetzt', 'info');
+}
+
+function totalDuration(driveMins, waypointCount = 0) {
+    return driveMins + params.boarding + params.alighting + (waypointCount * params.waypoint);
+}
+
+// ═══════════════════════════════════════════════════════
+// GEOCODING (Nominatim)
+// ═══════════════════════════════════════════════════════
+const geocodeCache = {};
+
+async function geocode(address) {
+    if (geocodeCache[address]) return geocodeCache[address];
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=1&addressdetails=0`;
+        const resp = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+        const data = await resp.json();
+        if (data && data[0]) {
+            const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+            geocodeCache[address] = coords;
+            return coords;
+        }
+        // Fallback: ohne Usedom
+        const url2 = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+        const resp2 = await fetch(url2);
+        const data2 = await resp2.json();
+        if (data2 && data2[0]) {
+            const coords = { lat: parseFloat(data2[0].lat), lon: parseFloat(data2[0].lon) };
+            geocodeCache[address] = coords;
+            return coords;
+        }
+    } catch(e) {}
+    return null;
+}
+
+// ═══════════════════════════════════════════════════════
+// ROUTE (OSRM)
+// ═══════════════════════════════════════════════════════
+async function calcRoute(from, to) {
+    if (!from || !to) return { duration: 10, distance: 0 };
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.routes && data.routes[0]) {
+            return {
+                duration: Math.ceil(data.routes[0].duration / 60),
+                distance: +(data.routes[0].distance / 1000).toFixed(1)
+            };
+        }
+    } catch(e) {}
+    return { duration: 10, distance: 0 };
+}
+
+// ═══════════════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════════════
+function log(msg, type = 'dim') {
+    logLines.push({ msg, type });
+    const box = document.getElementById('log-output');
+    if (box.style.display !== 'none') renderLog();
+}
+
+function renderLog() {
+    const box = document.getElementById('log-output');
+    box.innerHTML = logLines.map(l =>
+        `<div class="log-${l.type}">${l.msg}</div>`
+    ).join('');
+    box.scrollTop = box.scrollHeight;
+}
+
+let logVisible = false;
+function toggleLog() {
+    logVisible = !logVisible;
+    const box = document.getElementById('log-output');
+    box.style.display = logVisible ? 'block' : 'none';
+    if (logVisible) renderLog();
+}
+
+// ═══════════════════════════════════════════════════════
+// FAHRTEN LADEN
+// ═══════════════════════════════════════════════════════
+function getLocalDateString(date) {
+    return date.getFullYear() + '-' +
+        String(date.getMonth() + 1).padStart(2, '0') + '-' +
+        String(date.getDate()).padStart(2, '0');
+}
+
+async function loadRidesForDate() {
+    const dateStr = document.getElementById('in-date').value;
+    if (!dateStr) { showStatus('⚠️ Bitte Datum wählen', 'err'); return; }
+    if (!db) { showStatus('⚠️ Firebase nicht verbunden', 'err'); return; }
+
+    showStatus('⏳ Lade Fahrten...', 'info');
+    log(`📅 Lade Fahrten für ${dateStr}...`, 'info');
+
+    try {
+        const snap = await db.ref('rides').once('value');
+        allRidesCache = snap.val() || {};
+
+        const skipStatus = ['cancelled', 'storniert', 'completed', 'abgeschlossen'];
+        const skipSource = ['hotel_calendar_import'];
+
+        const ridesOnDay = Object.entries(allRidesCache)
+            .filter(([id, r]) => {
+                if (skipStatus.includes(r.status)) return false;
+                if (skipSource.includes(r.source)) return false;
+                const ts = r.pickupTimestamp || r.pickupTime;
+                if (!ts) return false;
+                const d = new Date(ts);
+                return getLocalDateString(d) === dateStr;
+            })
+            .map(([id, r]) => ({ ...r, firebaseId: id }))
+            .sort((a, b) => {
+                const ta = new Date(a.pickupTimestamp || a.pickupTime).getTime();
+                const tb = new Date(b.pickupTimestamp || b.pickupTime).getTime();
+                return ta - tb;
+            });
+
+        renderRidesTable(ridesOnDay, dateStr);
+        showStatus(`✅ ${ridesOnDay.length} Fahrt(en) am ${dateStr} geladen (${Object.keys(allRidesCache).length} gesamt)`, 'ok');
+        log(`✅ ${ridesOnDay.length} Fahrt(en) am ${dateStr}`, 'ok');
+    } catch(e) {
+        showStatus('❌ Fehler: ' + e.message, 'err');
+        log('❌ ' + e.message, 'err');
+    }
+}
+
+function renderRidesTable(rides, dateStr) {
+    document.getElementById('rides-card').style.display = 'block';
+    document.getElementById('rides-date-label').textContent = dateStr;
+
+    const tbody = document.getElementById('rides-tbody');
+    if (rides.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#64748b; padding:12px;">Keine aktiven Fahrten an diesem Tag</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rides.map(r => {
+        const t = new Date(r.pickupTimestamp || r.pickupTime);
+        const timeStr = t.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        const dur = r.duration || r.estimatedDuration || '?';
+        const statusClass = r.status === 'assigned' ? 'assigned' : (r.status === 'new' ? 'new' : 'other');
+        const pickup = (r.pickup || '').substring(0, 25) + ((r.pickup || '').length > 25 ? '…' : '');
+        const dest   = (r.destination || '').substring(0, 25) + ((r.destination || '').length > 25 ? '…' : '');
+        return `<tr>
+            <td style="font-weight:600; color:#fbbf24;">${timeStr}</td>
+            <td>${pickup}</td>
+            <td>${dest}</td>
+            <td>${dur} Min</td>
+            <td><span class="badge badge-${statusClass}">${r.status}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// KONFLIKT-PRÜFUNG
+// ═══════════════════════════════════════════════════════
+async function runCheck() {
+    const dateStr = document.getElementById('in-date').value;
+    const timeStr = document.getElementById('in-time').value;
+    const pickupAddr = document.getElementById('in-pickup').value.trim();
+    const destAddr   = document.getElementById('in-dest').value.trim();
+    const waypointCount = parseInt(document.getElementById('in-waypoints').value);
+
+    if (!dateStr || !timeStr || !pickupAddr || !destAddr) {
+        showStatus('⚠️ Bitte alle Felder ausfüllen', 'err'); return;
+    }
+    if (!db) { showStatus('⚠️ Firebase nicht verbunden', 'err'); return; }
+
+    const btn = document.getElementById('btn-check');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Prüfe…';
+    logLines = [];
+    document.getElementById('result').style.display = 'none';
+    showStatus('⏳ Koordinaten & Routen werden berechnet…', 'info');
+
+    const slotDateTime = new Date(`${dateStr}T${timeStr}:00`);
+    log(`🔍 Prüfe: ${slotDateTime.toLocaleString('de-DE')}`, 'info');
+    log(`📍 ${pickupAddr} → ${destAddr}`, 'info');
+    log(`⚙️ boarding=${params.boarding} alighting=${params.alighting} buffer=${params.buffer} waypoints=${waypointCount}×${params.waypoint} mindest=${params.mindest}`, 'dim');
+
+    try {
+        // 1. Firebase laden falls noch nicht
+        if (Object.keys(allRidesCache).length === 0) {
+            log('📡 Lade Firebase…', 'info');
+            const snap = await db.ref('rides').once('value');
+            allRidesCache = snap.val() || {};
+            log(`✅ ${Object.keys(allRidesCache).length} Fahrten geladen`, 'ok');
+        }
+
+        // 2. Relevante Fahrten filtern (gleicher Tag, aktiv)
+        const skipStatus = ['cancelled', 'storniert', 'completed', 'abgeschlossen'];
+        const slotDateStr = getLocalDateString(slotDateTime);
+        const slotTs = slotDateTime.getTime();
+
+        const dayRides = Object.entries(allRidesCache)
+            .filter(([id, r]) => {
+                if (skipStatus.includes(r.status)) return false;
+                if (r.source === 'hotel_calendar_import' || r.hotelCalendarId) return false;
+                const ts = r.pickupTimestamp || r.pickupTime;
+                if (!ts) return false;
+                return getLocalDateString(new Date(ts)) === slotDateStr;
+            })
+            .map(([id, r]) => ({ ...r, firebaseId: id }))
+            .sort((a, b) => new Date(a.pickupTimestamp||a.pickupTime) - new Date(b.pickupTimestamp||b.pickupTime));
+
+        log(`📅 ${dayRides.length} aktive Fahrt(en) am ${slotDateStr}`, 'info');
+        dayRides.forEach(r => {
+            const t = new Date(r.pickupTimestamp || r.pickupTime);
+            log(`   ${t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} | ${r.pickup||'?'} → ${r.destination||'?'} | ${r.duration||'?'} Min | ${r.status}`, 'dim');
+        });
+
+        // 3. Geocoding
+        log('🌍 Geocodiere Adressen…', 'info');
+        const [pickupCoords, destCoords] = await Promise.all([geocode(pickupAddr), geocode(destAddr)]);
+        if (!pickupCoords) { showStatus('❌ Abholadresse nicht gefunden', 'err'); btn.disabled=false; btn.textContent='▶ Konflikt prüfen'; return; }
+        if (!destCoords)   { showStatus('❌ Zieladresse nicht gefunden',  'err'); btn.disabled=false; btn.textContent='▶ Konflikt prüfen'; return; }
+        log(`✅ Pickup: ${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`, 'ok');
+        log(`✅ Dest:   ${destCoords.lat.toFixed(4)}, ${destCoords.lon.toFixed(4)}`, 'ok');
+
+        // 4. Neue Fahrt-Dauer berechnen
+        log('🗺️ Berechne Route der neuen Fahrt (OSRM)…', 'info');
+        const newRoute = await calcRoute(pickupCoords, destCoords);
+        const newDriveMins = newRoute.duration;
+        const newTotalMins = totalDuration(newDriveMins, waypointCount);
+        const newEndTs = slotTs + newTotalMins * 60000;
+        log(`🚗 Fahrtdauer: ${newDriveMins} Min | Gesamt: ${newTotalMins} Min (Ende: ${new Date(newEndTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})})`, 'ok');
+
+        // 5. Vorherige Fahrt finden
+        let prevRide = null;
+        for (let i = dayRides.length - 1; i >= 0; i--) {
+            const r = dayRides[i];
+            const rTs = new Date(r.pickupTimestamp || r.pickupTime).getTime();
+            if (rTs < slotTs) { prevRide = r; break; }
+        }
+
+        // 6. Nächste Fahrt finden
+        let nextRide = null;
+        for (const r of dayRides) {
+            const rTs = new Date(r.pickupTimestamp || r.pickupTime).getTime();
+            if (rTs > slotTs) { nextRide = r; break; }
+        }
+
+        // 7. Exakte Überschneidung
+        const exactOverlap = dayRides.find(r => new Date(r.pickupTimestamp || r.pickupTime).getTime() === slotTs);
+
+        // ── PRÜFUNG ──────────────────────────────────────────
+        let conflict = null;
+
+        // A) Exakte Zeitüberschneidung
+        if (exactOverlap) {
+            conflict = { type: 'exact', ride: exactOverlap, msg: 'Exakt gleiche Uhrzeit bereits gebucht' };
+            log('🚨 EXAKTE ZEITÜBERSCHNEIDUNG!', 'err');
+        }
+
+        // B) Neuer Slot liegt während vorheriger Fahrt
+        if (!conflict && prevRide) {
+            const prevTs = new Date(prevRide.pickupTimestamp || prevRide.pickupTime).getTime();
+            const prevDur = totalDuration(prevRide.duration || prevRide.estimatedDuration || 20, 0);
+            const prevEndTs = prevTs + prevDur * 60000;
+            if (slotTs < prevEndTs) {
+                conflict = { type: 'during', ride: prevRide, rideEnd: prevEndTs, msg: 'Taxi ist noch unterwegs' };
+                log(`🚨 WÄHREND LAUFENDER FAHRT: ${new Date(prevTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} – ${new Date(prevEndTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`, 'err');
+            }
+        }
+
+        // C) Zu wenig Zeit nach vorheriger Fahrt (Leerfahrt)
+        if (!conflict && prevRide) {
+            const prevTs = new Date(prevRide.pickupTimestamp || prevRide.pickupTime).getTime();
+            const prevDur = totalDuration(prevRide.duration || prevRide.estimatedDuration || 20, 0);
+            const prevEndTs = prevTs + prevDur * 60000;
+            if (slotTs >= prevEndTs) {
+                log(`🗺️ Leerfahrt: ${prevRide.destination||'?'} → ${pickupAddr}`, 'info');
+                let prevDestCoords = null;
+                if (prevRide.destLat && prevRide.destLon) prevDestCoords = { lat: prevRide.destLat, lon: prevRide.destLon };
+                else if (prevRide.destCoords) prevDestCoords = prevRide.destCoords;
+                else prevDestCoords = await geocode(prevRide.destination);
+
+                const deadhead = prevDestCoords ? await calcRoute(prevDestCoords, pickupCoords) : { duration: params.buffer + 5 };
+                const minGap = Math.max(deadhead.duration + params.buffer, params.mindest);
+                const earliestTs = prevEndTs + minGap * 60000;
+                const gapMin = Math.round((slotTs - prevEndTs) / 60000);
+                const reserveMin = Math.round((slotTs - earliestTs) / 60000);
+
+                log(`   Vorh. Fahrt endet: ${new Date(prevEndTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`, 'dim');
+                log(`   Leerfahrt: ${deadhead.duration} Min + Puffer: ${params.buffer} Min = ${minGap} Min benötigt`, 'dim');
+                log(`   Lücke: ${gapMin} Min | Reserve: ${reserveMin} Min`, reserveMin < 0 ? 'err' : (reserveMin === 0 ? 'warn' : 'ok'));
+
+                if (slotTs < earliestTs) {
+                    conflict = { type: 'prev_gap', ride: prevRide, deadhead: deadhead.duration, earliestTs, reserveMin,
+                        msg: `Zu wenig Zeit nach vorheriger Fahrt (${Math.abs(reserveMin)} Min fehlen)` };
+                    log('🚨 ZU WENIG ZEIT NACH VORHERIGER FAHRT', 'err');
+                }
+            }
+        }
+
+        // D) Neue Fahrt endet zu spät für nächste Fahrt (FIX v6.2.7: >=)
+        if (!conflict && nextRide) {
+            const nextTs = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).getTime();
+            log(`🗺️ Leerfahrt zur nächsten: ${destAddr} → ${nextRide.pickup||'?'}`, 'info');
+            let nextPickupCoords = null;
+            if (nextRide.pickupLat && nextRide.pickupLon) nextPickupCoords = { lat: nextRide.pickupLat, lon: nextRide.pickupLon };
+            else if (nextRide.pickupCoords) nextPickupCoords = nextRide.pickupCoords;
+            else nextPickupCoords = await geocode(nextRide.pickup);
+
+            const deadhead2 = nextPickupCoords ? await calcRoute(destCoords, nextPickupCoords) : { duration: params.buffer + 5 };
+            const neededGap = Math.max(deadhead2.duration + params.buffer, params.mindest);
+            const earliestForNext = newEndTs + neededGap * 60000;
+            const timeUntilNext = Math.round((nextTs - newEndTs) / 60000);
+            const reserveNext = Math.round((nextTs - earliestForNext) / 60000);
+
+            log(`   Neue Fahrt endet: ${new Date(newEndTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}`, 'dim');
+            log(`   Leerfahrt: ${deadhead2.duration} Min + Puffer: ${params.buffer} Min = ${neededGap} Min benötigt`, 'dim');
+            log(`   Nächste Fahrt: ${new Date(nextTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} | Reserve: ${reserveNext} Min`, reserveNext <= 0 ? (reserveNext < 0 ? 'err' : 'warn') : 'ok');
+
+            // FIX v6.2.7: >= statt >
+            if (earliestForNext >= nextTs) {
+                // VORHER-Alternative (FIX v6.2.8: -1 Slot)
+                const latestStartMs = nextTs - (newTotalMins + deadhead2.duration + params.buffer) * 60000;
+                const latestRounded = (Math.floor(latestStartMs / (5 * 60000)) - 1) * (5 * 60000);
+                const beforeAlt = latestRounded > 0 ? new Date(latestRounded) : null;
+                conflict = { type: 'next_gap', ride: nextRide, deadhead: deadhead2.duration, neededGap, timeUntilNext, reserveNext, beforeAlt,
+                    msg: `Taxi kommt nicht rechtzeitig zur nächsten Fahrt (${Math.abs(reserveNext)} Min zu wenig)` };
+                log('🚨 ZU WENIG ZEIT VOR NÄCHSTER FAHRT', 'err');
+                if (beforeAlt) log(`   VORHER-Alternative: ${beforeAlt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr (v6.2.8 Fix: -1 Slot)`, 'warn');
+            } else {
+                log(`✅ Nächste Fahrt: ${reserveNext} Min Reserve`, 'ok');
+            }
+        }
+
+        // 8. Ergebnis anzeigen
+        showResult(conflict, slotDateTime, pickupAddr, destAddr, newDriveMins, newTotalMins, prevRide, nextRide, dayRides);
+        renderRidesTable(dayRides, slotDateStr);
+        showStatus(conflict ? `❌ KONFLIKT: ${conflict.msg}` : '✅ SLOT FREI', conflict ? 'err' : 'ok');
+
+    } catch(e) {
+        showStatus('❌ Fehler: ' + e.message, 'err');
+        log('❌ Fehler: ' + e.message, 'err');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '▶ Konflikt prüfen';
+}
+
+function showResult(conflict, slotDt, pickup, dest, driveMins, totalMins, prevRide, nextRide, dayRides) {
+    const el = document.getElementById('result');
+    const body = document.getElementById('result-body');
+    el.style.display = 'block';
+
+    const slotEnd = new Date(slotDt.getTime() + totalMins * 60000);
+    const timeStr = slotDt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const endStr  = slotEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const card = el.querySelector('.card') || el;
+
+    let html = '';
+    if (!conflict) {
+        el.className = 'card result-frei';
+        html += `<div class="result-title">✅ SLOT FREI</div>`;
+    } else {
+        el.className = 'card result-konflikt';
+        html += `<div class="result-title">❌ KONFLIKT</div>`;
+    }
+
+    html += `<div class="detail-row"><span class="detail-label">Gewünschter Slot</span><span class="detail-value">${slotDt.toLocaleDateString('de-DE')} ${timeStr}–${endStr} Uhr</span></div>`;
+    html += `<div class="detail-row"><span class="detail-label">Strecke</span><span class="detail-value">${pickup} → ${dest}</span></div>`;
+    html += `<div class="detail-row"><span class="detail-label">Fahrtdauer</span><span class="detail-value">${driveMins} Min Fahrt + ${params.boarding+params.alighting} Min Ein/Aus = ${totalMins} Min gesamt</span></div>`;
+    html += `<div class="detail-row"><span class="detail-label">Fahrten am Tag</span><span class="detail-value">${dayRides.length}</span></div>`;
+
+    if (prevRide) {
+        const pt = new Date(prevRide.pickupTimestamp || prevRide.pickupTime).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        html += `<div class="detail-row"><span class="detail-label">Vorherige Fahrt</span><span class="detail-value">${pt} Uhr – ${prevRide.pickup||'?'} → ${prevRide.destination||'?'}</span></div>`;
+    }
+    if (nextRide) {
+        const nt = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        html += `<div class="detail-row"><span class="detail-label">Nächste Fahrt</span><span class="detail-value">${nt} Uhr – ${nextRide.pickup||'?'} → ${nextRide.destination||'?'}</span></div>`;
+    }
+
+    if (conflict) {
+        html += `<div class="detail-row"><span class="detail-label">Konflikt-Typ</span><span class="detail-value" style="color:#ef4444;">${conflict.msg}</span></div>`;
+
+        if (conflict.type === 'prev_gap' && conflict.earliestTs) {
+            const earliest = new Date(conflict.earliestTs).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+            html += `<div class="detail-row"><span class="detail-label">Frühestens möglich</span><span class="detail-value" style="color:#10b981;">${earliest} Uhr</span></div>`;
+            html += `<div style="margin-top:10px;"><button class="alt-btn alt-after" onclick="fillTime('${earliest}')">▶ ${earliest} Uhr testen</button></div>`;
+        }
+
+        if (conflict.type === 'next_gap') {
+            if (conflict.beforeAlt) {
+                const ba = conflict.beforeAlt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                html += `<div class="detail-row"><span class="detail-label">VORHER möglich bis</span><span class="detail-value" style="color:#f59e0b;">${ba} Uhr</span></div>`;
+                html += `<div style="margin-top:10px;">`;
+                html += `<button class="alt-btn alt-before" onclick="fillTime('${ba}')">⬅ ${ba} Uhr testen</button>`;
+            }
+            if (nextRide) {
+                const nt = new Date(nextRide.pickupTimestamp || nextRide.pickupTime);
+                const afterMins = (nextRide.duration || 20) + params.boarding + params.alighting;
+                const afterTs = nt.getTime() + afterMins * 60000;
+                const after5 = new Date(Math.ceil(afterTs / (5*60000)) * (5*60000));
+                const afterStr = after5.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                html += `<button class="alt-btn alt-after" onclick="fillTime('${afterStr}')">▶ ${afterStr} Uhr testen</button>`;
+                html += `</div>`;
+            }
+        }
+
+        if (conflict.deadhead) {
+            html += `<div class="detail-row"><span class="detail-label">Leerfahrt</span><span class="detail-value">${conflict.deadhead} Min</span></div>`;
+        }
+    }
+
+    body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// HILFSFUNKTIONEN
+// ═══════════════════════════════════════════════════════
+function fillTime(timeStr) {
+    document.getElementById('in-time').value = timeStr;
+    runCheck();
+}
+
+function fillFromLog() {
+    document.getElementById('in-date').value = '2026-03-02';
+    document.getElementById('in-time').value = '06:15';
+    document.getElementById('in-pickup').value = 'Amselring 10, Heringsdorf';
+    document.getElementById('in-dest').value = 'Labahnstraße 18, Heringsdorf';
+    log('📋 Log-Beispiel geladen: 02.03.2026 06:15', 'info');
+}
+
+function toggleSection(id) {
+    const body = document.getElementById(id + '-body');
+    const arrow = document.getElementById(id + '-arrow');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    arrow.textContent = hidden ? '▼' : '▶';
+}
+
+// Datum auf heute vorbelegen
+document.getElementById('in-date').value = getLocalDateString(new Date());
+</script>
+</body>
+</html>

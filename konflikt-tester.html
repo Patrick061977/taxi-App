@@ -192,7 +192,19 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn-primary" id="btn-check" onclick="runCheck()">▶ Konflikt prüfen</button>
         <button class="btn-secondary" onclick="loadRidesForDate()">📅 Fahrten laden</button>
+        <button class="btn-secondary" onclick="openKalender()">🗓️ Fahrtkalender</button>
         <button class="btn-secondary" onclick="fillFromLog()">📋 Beispiel: Log 02.03</button>
+    </div>
+</div>
+
+<!-- FAHRTKALENDER -->
+<div class="card" id="kalender-card" style="display:none;">
+    <div class="section-toggle" onclick="toggleSection('kalender')">
+        <h2>🗓️ Fahrtkalender <span id="kalender-count" class="tag"></span></h2>
+        <span id="kalender-arrow" style="color:#64748b;">▼</span>
+    </div>
+    <div id="kalender-body">
+        <div id="kalender-content" style="margin-top:8px;"></div>
     </div>
 </div>
 
@@ -312,6 +324,32 @@
 
 /* Separator */
 .view-separator { border: none; border-top: 1px solid #334155; margin: 16px 0; }
+
+/* Fahrtkalender */
+.kal-month { margin-bottom: 16px; }
+.kal-month-title { font-size: 13px; font-weight: 700; color: #fbbf24; margin-bottom: 8px; letter-spacing: 0.05em; }
+.kal-days { display: flex; flex-wrap: wrap; gap: 6px; }
+.kal-day { display: flex; flex-direction: column; align-items: center; padding: 8px 10px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; cursor: pointer; transition: all 0.15s; min-width: 60px; }
+.kal-day:hover { border-color: #fbbf24; background: #1e293b; }
+.kal-day.today { border-color: #3b82f6; }
+.kal-day.has-conflict { border-color: #ef4444; background: #1a0505; }
+.kal-day-date { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+.kal-day-wd   { font-size: 10px; color: #64748b; }
+.kal-day-cnt  { font-size: 11px; font-weight: 700; color: #fbbf24; margin-top: 2px; }
+.kal-day-bar  { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; }
+.kal-dot { width: 5px; height: 5px; border-radius: 50%; background: #fbbf24; }
+.kal-dot.assigned { background: #f59e0b; }
+.kal-dot.new { background: #3b82f6; }
+
+.kal-day-detail { display: none; }
+.kal-day-list { margin-top: 10px; }
+.kal-ride-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 12px; cursor: pointer; transition: background 0.1s; border-radius: 4px; }
+.kal-ride-row:hover { background: #1e293b; }
+.kal-ride-time { color: #fbbf24; font-weight: 700; min-width: 44px; flex-shrink: 0; }
+.kal-ride-info { flex: 1; color: #94a3b8; }
+.kal-ride-name { color: #e2e8f0; font-weight: 600; }
+.kal-ride-btn { padding: 3px 8px; background: #334155; border: none; border-radius: 4px; color: #e2e8f0; font-size: 11px; cursor: pointer; }
+.kal-ride-btn:hover { background: #fbbf24; color: #0f172a; }
 </style>
 
 <script>
@@ -1319,6 +1357,165 @@ function buildTimeline(conflict, slotDt, slotTs, totalMins, driveMins, pickup, d
 
     html += '</div>';
     return html;
+}
+
+// ═══════════════════════════════════════════════════════
+// FAHRTKALENDER
+// ═══════════════════════════════════════════════════════
+async function openKalender() {
+    const card = document.getElementById('kalender-card');
+    const content = document.getElementById('kalender-content');
+    card.style.display = 'block';
+    content.innerHTML = '<div style="color:#64748b; font-size:13px;"><span class="spinner"></span> Lade alle Fahrten…</div>';
+
+    if (!db) { showStatus('⚠️ Firebase nicht verbunden', 'err'); return; }
+
+    try {
+        const snap = await db.ref('rides').once('value');
+        allRidesCache = snap.val() || {};
+
+        const skipStatus = ['cancelled', 'storniert', 'completed', 'abgeschlossen'];
+        const skipSource = ['hotel_calendar_import'];
+
+        // Gruppiere nach Datum
+        const byDate = {};
+        Object.entries(allRidesCache).forEach(([id, r]) => {
+            if (skipStatus.includes(r.status)) return;
+            if (skipSource.includes(r.source)) return;
+            const ts = r.pickupTimestamp || r.pickupTime;
+            if (!ts) return;
+            const d = new Date(ts);
+            const dateStr = getLocalDateString(d);
+            if (!byDate[dateStr]) byDate[dateStr] = [];
+            byDate[dateStr].push({ ...r, firebaseId: id });
+        });
+
+        const dates = Object.keys(byDate).sort();
+        document.getElementById('kalender-count').textContent = `${dates.length} Tage`;
+
+        if (dates.length === 0) {
+            content.innerHTML = '<div style="color:#64748b; font-size:13px;">Keine aktiven Fahrten gefunden.</div>';
+            return;
+        }
+
+        // Gruppiere nach Monat
+        const byMonth = {};
+        dates.forEach(d => {
+            const m = d.substring(0, 7); // YYYY-MM
+            if (!byMonth[m]) byMonth[m] = [];
+            byMonth[m].push(d);
+        });
+
+        const todayStr = getLocalDateString(new Date());
+        let html = '';
+
+        Object.entries(byMonth).forEach(([month, monthDates]) => {
+            const [yr, mo] = month.split('-');
+            const monthName = new Date(parseInt(yr), parseInt(mo) - 1, 1)
+                .toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+
+            html += `<div class="kal-month">`;
+            html += `<div class="kal-month-title">📆 ${monthName}</div>`;
+            html += `<div class="kal-days">`;
+
+            monthDates.forEach(dateStr => {
+                const rides = byDate[dateStr].sort((a, b) =>
+                    new Date(a.pickupTimestamp||a.pickupTime) - new Date(b.pickupTimestamp||b.pickupTime));
+                const [yr2, mo2, da2] = dateStr.split('-').map(Number);
+                const dateObj = new Date(yr2, mo2 - 1, da2);
+                const wd = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
+                const isToday = dateStr === todayStr;
+                const cnt = rides.length;
+
+                // Dots (max 5)
+                const dots = rides.slice(0, 5).map(r => {
+                    const cls = r.status === 'assigned' ? 'assigned' : (r.status === 'new' ? 'new' : '');
+                    return `<span class="kal-dot ${cls}"></span>`;
+                }).join('');
+
+                html += `<div class="kal-day${isToday ? ' today' : ''}" onclick="selectKalenderDay('${dateStr}')">`;
+                html += `<span class="kal-day-wd">${wd}</span>`;
+                html += `<span class="kal-day-date">${da2}.</span>`;
+                html += `<span class="kal-day-cnt">${cnt} Fahrt${cnt !== 1 ? 'en' : ''}</span>`;
+                html += `<div class="kal-day-bar">${dots}</div>`;
+                html += `</div>`;
+            });
+
+            html += `</div>`; // kal-days
+
+            // Detail-Liste für jeden Tag im Monat
+            monthDates.forEach(dateStr => {
+                const rides = byDate[dateStr].sort((a, b) =>
+                    new Date(a.pickupTimestamp||a.pickupTime) - new Date(b.pickupTimestamp||b.pickupTime));
+
+                html += `<div id="kal-detail-${dateStr}" style="display:none; margin-top:8px;">`;
+                html += `<div class="kal-day-list">`;
+                rides.forEach(r => {
+                    const rTs = new Date(r.pickupTimestamp||r.pickupTime);
+                    const timeStr2 = rTs.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+                    const dur = r.duration || r.estimatedDuration || '?';
+                    const name = r.customerName || r.name || r.passengerName || '';
+                    const pickup = (r.pickup||'').substring(0, 30);
+                    const dest   = (r.destination||'').substring(0, 30);
+                    const statusBadge = r.status === 'assigned'
+                        ? '<span class="badge badge-assigned" style="font-size:10px;">assigned</span>'
+                        : `<span class="badge badge-other" style="font-size:10px;">${r.status}</span>`;
+
+                    html += `<div class="kal-ride-row" onclick="fillFromRide('${dateStr}', '${timeStr2}', \`${r.pickup||''}\`, \`${r.destination||''}\`)">`;
+                    html += `<span class="kal-ride-time">${timeStr2}</span>`;
+                    html += `<div class="kal-ride-info">`;
+                    if (name) html += `<div class="kal-ride-name">${name}</div>`;
+                    html += `<div>${pickup} → ${dest}</div>`;
+                    html += `<div style="color:#475569;">${dur} Min ${statusBadge}</div>`;
+                    html += `</div>`;
+                    html += `<button class="kal-ride-btn" onclick="event.stopPropagation(); fillFromRide('${dateStr}', '${timeStr2}', \`${r.pickup||''}\`, \`${r.destination||''}\`)">▶ Testen</button>`;
+                    html += `</div>`;
+                });
+                html += `</div></div>`; // kal-day-list + kal-detail
+            });
+
+            html += `</div>`; // kal-month
+        });
+
+        content.innerHTML = html;
+        showStatus(`✅ ${dates.length} Tage mit Fahrten geladen`, 'ok');
+
+    } catch(e) {
+        content.innerHTML = `<div style="color:#fca5a5;">❌ Fehler: ${e.message}</div>`;
+    }
+}
+
+let lastKalDetailOpen = null;
+
+function selectKalenderDay(dateStr) {
+    // Datum ins Formular übernehmen
+    document.getElementById('in-date').value = dateStr;
+
+    // Detail-Liste ein-/ausklappen
+    const detail = document.getElementById('kal-detail-' + dateStr);
+    if (!detail) return;
+
+    if (lastKalDetailOpen && lastKalDetailOpen !== dateStr) {
+        const prev = document.getElementById('kal-detail-' + lastKalDetailOpen);
+        if (prev) prev.style.display = 'none';
+    }
+
+    const isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'block';
+    lastKalDetailOpen = isOpen ? null : dateStr;
+
+    // Fahrten für diesen Tag laden
+    if (!isOpen) loadRidesForDate();
+}
+
+function fillFromRide(dateStr, timeStr, pickup, dest) {
+    document.getElementById('in-date').value = dateStr;
+    document.getElementById('in-time').value = timeStr;
+    if (pickup) document.getElementById('in-pickup').value = pickup;
+    if (dest)   document.getElementById('in-dest').value   = dest;
+    log(`📋 Fahrt übernommen: ${dateStr} ${timeStr} | ${pickup} → ${dest}`, 'info');
+    // Scroll zum Formular
+    document.getElementById('btn-check').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // ═══════════════════════════════════════════════════════

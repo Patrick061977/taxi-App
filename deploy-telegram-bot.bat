@@ -7,6 +7,9 @@ echo   Funk Taxi Heringsdorf - Bot Deploy
 echo ============================================
 echo.
 
+:: Projektordner merken (dort wo die .bat Datei liegt)
+set "PROJECT_DIR=%~dp0"
+
 :: 1. Pruefen ob Node.js installiert ist
 where node >nul 2>&1
 if %errorlevel% neq 0 (
@@ -18,7 +21,8 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-echo [OK] Node.js gefunden
+echo [OK] Node.js gefunden:
+node --version
 
 :: 2. Pruefen ob Firebase CLI installiert ist, sonst installieren
 where firebase >nul 2>&1
@@ -27,6 +31,7 @@ if %errorlevel% neq 0 (
     call npm install -g firebase-tools
     if %errorlevel% neq 0 (
         echo [FEHLER] Firebase CLI Installation fehlgeschlagen!
+        echo [TIPP] Versuche die Eingabeaufforderung als Administrator zu starten.
         pause
         exit /b 1
     )
@@ -52,23 +57,54 @@ if %errorlevel% neq 0 (
 echo [OK] Firebase Login aktiv
 
 :: 4. In den Projektordner wechseln
-cd /d "%~dp0"
+cd /d "%PROJECT_DIR%"
 echo [OK] Projektordner: %cd%
 
-:: 5. Dependencies installieren
-echo.
-echo [INFO] Dependencies werden installiert...
-cd functions
-call npm install
-if %errorlevel% neq 0 (
-    echo [FEHLER] npm install fehlgeschlagen!
+:: 5. Pruefen ob functions-Ordner existiert
+if not exist "%PROJECT_DIR%functions" (
+    echo [FEHLER] Ordner "functions" nicht gefunden in: %PROJECT_DIR%
+    echo Bitte stelle sicher, dass die Datei im richtigen Verzeichnis liegt.
     pause
     exit /b 1
 )
-echo [OK] Dependencies installiert
-cd ..
 
-:: 6. Cloud Function deployen
+:: 6. Dependencies installieren
+echo.
+echo [INFO] Dependencies werden installiert...
+cd /d "%PROJECT_DIR%functions"
+if %errorlevel% neq 0 (
+    echo [FEHLER] Konnte nicht in den functions-Ordner wechseln!
+    pause
+    exit /b 1
+)
+echo [OK] Arbeitsverzeichnis: %cd%
+
+:: npm cache bereinigen falls noetig
+call npm install 2>"%TEMP%\npm-error.log"
+if %errorlevel% neq 0 (
+    echo [WARNUNG] npm install fehlgeschlagen, versuche npm cache zu bereinigen...
+    call npm cache clean --force
+    echo [INFO] Zweiter Versuch...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo [FEHLER] npm install fehlgeschlagen!
+        echo.
+        echo Moegliche Loesungen:
+        echo   1. Eingabeaufforderung als Administrator starten
+        echo   2. Antivirus voruebergehend deaktivieren
+        echo   3. "npm cache clean --force" manuell ausfuehren
+        echo   4. Den Ordner "functions\node_modules" loeschen und erneut versuchen
+        echo.
+        pause
+        exit /b 1
+    )
+)
+echo [OK] Dependencies installiert
+
+:: Zurueck zum Projektordner
+cd /d "%PROJECT_DIR%"
+
+:: 7. Cloud Function deployen
 echo.
 echo ============================================
 echo   Deploying Cloud Function...
@@ -87,7 +123,7 @@ if %errorlevel% neq 0 (
 echo.
 echo [OK] Cloud Function erfolgreich deployed!
 
-:: 7. Webhook bei Telegram registrieren
+:: 8. Webhook bei Telegram registrieren
 echo.
 echo ============================================
 echo   Webhook wird bei Telegram registriert...

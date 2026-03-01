@@ -102,18 +102,25 @@ async function addTelegramLog(emoji, chatId, msg, details = null) {
             ...(details ? { details: JSON.stringify(details).substring(0, 500) } : {})
         };
         await logRef.push(entry);
-        // Max 200 Logs behalten
-        const snap = await logRef.once('value');
+        // Max 200 Logs behalten - nur gelegentlich aufraeumen (ca. 1 von 10 Aufrufen)
+        if (Math.random() < 0.1) {
+            trimTelegramLogs(logRef);
+        }
+    } catch (e) { /* Log-Fehler ignorieren */ }
+    console.log(`${emoji} [${chatId}] ${msg}`);
+}
+
+function trimTelegramLogs(logRef) {
+    logRef.once('value').then(snap => {
         const count = snap.numChildren();
-        if (count > 200) {
+        if (count > 220) {
             const toDelete = count - 200;
             let deleted = 0;
             snap.forEach(child => {
                 if (deleted < toDelete) { child.ref.remove(); deleted++; }
             });
         }
-    } catch (e) { /* Log-Fehler ignorieren */ }
-    console.log(`${emoji} [${chatId}] ${msg}`);
+    }).catch(() => {});
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1064,7 +1071,7 @@ async function handleMessage(message) {
     const textCmd = text.toLowerCase();
     const userName = message.from?.first_name || 'Unbekannt';
 
-    await addTelegramLog('📩', chatId, `Nachricht von ${userName}`, { text: text.substring(0, 100) });
+    addTelegramLog('📩', chatId, `Nachricht von ${userName}`, { text: text.substring(0, 100) });
 
     // === COMMANDS ===
     if (textCmd === '/start') {
@@ -1203,9 +1210,11 @@ async function handleMessage(message) {
     }
 
     // === NEUE NACHRICHT ===
-    await addTelegramLog('🆕', chatId, 'Neue Buchungs-Analyse gestartet');
-    const knownForGreeting = await getTelegramCustomer(chatId);
-    const isAdminUser = await isTelegramAdmin(chatId);
+    const [, knownForGreeting, isAdminUser] = await Promise.all([
+        addTelegramLog('🆕', chatId, 'Neue Buchungs-Analyse gestartet'),
+        getTelegramCustomer(chatId),
+        isTelegramAdmin(chatId)
+    ]);
 
     // Unbekannter Nutzer
     if (!knownForGreeting && !isAdminUser) {
@@ -1750,7 +1759,7 @@ async function handleContact(message) {
 // ═══════════════════════════════════════════════════════════════
 
 exports.telegramWebhook = onRequest(
-    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB' },
+    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1 },
     async (req, res) => {
         // Nur POST akzeptieren
         if (req.method !== 'POST') {

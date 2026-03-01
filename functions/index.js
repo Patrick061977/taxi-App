@@ -82,11 +82,15 @@ async function sendTelegramMessage(chatId, text, extraParams = {}) {
 async function answerCallbackQuery(callbackId) {
     const token = await loadBotToken();
     if (!token) return;
-    fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ callback_query_id: callbackId })
-    }).catch(() => {});
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: callbackId })
+        });
+    } catch (err) {
+        console.error('answerCallbackQuery fehlgeschlagen:', err.message);
+    }
 }
 
 async function addTelegramLog(emoji, chatId, msg, details = null) {
@@ -1249,7 +1253,7 @@ async function handleCallback(callback) {
     const chatId = callback.message.chat.id;
     const data = callback.data;
     await addTelegramLog('🖱️', chatId, `Button: ${data.substring(0, 25)}`);
-    answerCallbackQuery(callback.id);
+    await answerCallbackQuery(callback.id);
 
     // Menü-Buttons
     if (data === 'menu_buchen') {

@@ -19,6 +19,23 @@ set "PROJECT_DIR=%~dp0"
 set "FUNCTIONS_DIR=%PROJECT_DIR%functions"
 set "PROJECT_ID=taxi-heringsdorf"
 
+:: Fallback: Falls die .bat Datei nicht im Projektordner liegt,
+:: pruefe ob das aktuelle Verzeichnis der Projektordner ist
+if not exist "%FUNCTIONS_DIR%\package.json" (
+    if exist "%CD%\functions\package.json" (
+        set "PROJECT_DIR=%CD%\"
+        set "FUNCTIONS_DIR=%CD%\functions"
+    )
+)
+
+:: Fallback 2: Pruefe ob wir bereits IM functions-Ordner sind
+if not exist "%FUNCTIONS_DIR%\package.json" (
+    if exist "%CD%\package.json" (
+        for %%I in ("%CD%\..") do set "PROJECT_DIR=%%~fI\"
+        for %%I in ("%CD%\..") do set "FUNCTIONS_DIR=%%~fI\functions"
+    )
+)
+
 echo.
 echo ============================================
 echo   Funk Taxi Heringsdorf - Bot Deploy
@@ -121,8 +138,16 @@ echo.
 if not exist "%FUNCTIONS_DIR%\package.json" (
     echo [FEHLER] Die Datei "functions\package.json" fehlt!
     echo.
-    echo Hast du das Git-Repository vollstaendig heruntergeladen?
-    echo Der Ordner "%FUNCTIONS_DIR%" muss eine package.json enthalten.
+    echo Gesucht in: %FUNCTIONS_DIR%
+    echo.
+    echo Moegliche Loesung:
+    echo   1. Oeffne den taxi-App Ordner im Windows Explorer
+    echo   2. Lege diese .bat Datei DIREKT in den taxi-App Ordner
+    echo      ^(neben den "functions" Ordner und die index.html^)
+    echo   3. Doppelklicke die .bat Datei dort erneut
+    echo.
+    echo ODER: Oeffne eine Eingabeaufforderung im taxi-App Ordner
+    echo       und fuehre dieses Skript von dort aus.
     echo.
     pause
     exit /b 1

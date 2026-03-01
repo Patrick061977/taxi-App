@@ -86,32 +86,63 @@ echo.
 :: -----------------------------------------------
 :: SCHRITT 3: Firebase CLI pruefen/installieren
 :: -----------------------------------------------
+:: Strategie: Global installiert? -> nutzen
+::            Nicht installiert? -> npx nutzen (kein Admin noetig!)
+::            npx klappt nicht? -> Global installieren als Fallback
+set "FIREBASE_CMD=firebase"
+
 where firebase >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [INFO] Firebase CLI wird installiert...
-    echo [INFO] Das kann 1-2 Minuten dauern...
-    echo.
-    call npm install -g firebase-tools
-    if %errorlevel% neq 0 (
-        echo.
-        echo [FEHLER] Firebase CLI konnte nicht installiert werden.
-        echo.
-        echo Loesung: Rechtsklick auf diese Datei
-        echo          -^> "Als Administrator ausfuehren"
-        echo.
-        pause
-        exit /b 1
-    )
-    echo.
+if %errorlevel% equ 0 (
+    echo [OK] Firebase CLI global gefunden
+    set "FIREBASE_CMD=firebase"
+    goto firebase_ok
 )
-echo [OK] Firebase CLI gefunden
+
+:: Firebase nicht global installiert - npx als Hauptmethode
+echo [INFO] Firebase CLI nicht global installiert.
+echo [INFO] Nutze npx ^(kein Admin noetig!^)...
+echo.
+
+:: Teste ob npx firebase-tools funktioniert
+call npx --yes firebase-tools --version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Firebase CLI via npx verfuegbar
+    set "FIREBASE_CMD=npx --yes firebase-tools"
+    goto firebase_ok
+)
+
+:: npx hat nicht geklappt - versuche globale Installation
+echo [INFO] npx hat nicht geklappt, versuche globale Installation...
+echo [INFO] Das kann 1-2 Minuten dauern...
+echo.
+call npm install -g firebase-tools
+if %errorlevel% neq 0 (
+    echo.
+    echo [FEHLER] Firebase CLI konnte nicht installiert werden.
+    echo.
+    echo Loesungen:
+    echo.
+    echo   1. Rechtsklick auf diese Datei
+    echo      -^> "Als Administrator ausfuehren"
+    echo.
+    echo   2. ODER: Standalone-Version herunterladen ^(kein npm noetig!^):
+    echo      https://firebase.tools/bin/win/instant/firebase-tools-instant.exe
+    echo      Die .exe in diesen Ordner legen und umbenennen zu "firebase.exe"
+    echo.
+    pause
+    exit /b 1
+)
+set "FIREBASE_CMD=firebase"
+echo.
+
+:firebase_ok
 echo.
 
 :: -----------------------------------------------
 :: SCHRITT 4: Firebase Login
 :: -----------------------------------------------
 echo [INFO] Firebase Login wird geprueft...
-call firebase projects:list >nul 2>&1
+call %FIREBASE_CMD% projects:list >nul 2>&1
 if %errorlevel% neq 0 (
     echo.
     echo ============================================
@@ -121,7 +152,7 @@ if %errorlevel% neq 0 (
     echo   Gleich oeffnet sich dein Browser.
     echo   Bitte mit deinem Google-Konto einloggen!
     echo.
-    call firebase login
+    call %FIREBASE_CMD% login
     if %errorlevel% neq 0 (
         echo [FEHLER] Login fehlgeschlagen. Bitte nochmal versuchen.
         pause
@@ -230,7 +261,7 @@ echo.
 echo [INFO] Das dauert ca. 1-2 Minuten...
 echo.
 
-call firebase deploy --only functions
+call %FIREBASE_CMD% deploy --only functions
 if %errorlevel% neq 0 (
     echo.
     echo [FEHLER] Deploy fehlgeschlagen!

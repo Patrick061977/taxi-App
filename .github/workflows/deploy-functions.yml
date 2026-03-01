@@ -1,0 +1,44 @@
+name: Deploy Telegram Bot (Cloud Functions)
+
+# Triggert wenn functions/ Ordner geaendert wird
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
+  # Manuell auslösen (Button in GitHub)
+  workflow_dispatch:
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Node.js Setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Pakete installieren
+        run: cd functions && npm install
+
+      - name: Firebase Deploy
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Webhook aktivieren
+        if: success()
+        run: |
+          echo "Cloud Functions deployed!"
+          echo "Webhook aktivieren: https://europe-west1-taxi-heringsdorf.cloudfunctions.net/setupWebhook"
+          # Automatisch Webhook setzen
+          RESPONSE=$(curl -s "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/setupWebhook")
+          echo "Webhook-Antwort: $RESPONSE"

@@ -1834,6 +1834,11 @@ exports.telegramWebhook = onRequest(
 exports.setupWebhook = onRequest(
     { region: 'europe-west1' },
     async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
         const token = await loadBotToken();
         if (!token) {
             res.status(500).send('Kein Bot-Token in Firebase!');
@@ -1879,6 +1884,11 @@ exports.setupWebhook = onRequest(
 exports.removeWebhook = onRequest(
     { region: 'europe-west1' },
     async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
         const token = await loadBotToken();
         if (!token) { res.status(500).send('Kein Bot-Token!'); return; }
 

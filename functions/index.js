@@ -1400,6 +1400,45 @@ async function handleCallback(callback) {
                 linkTelegramChatToCustomer(chatId, booking).catch(() => {});
             }
 
+            // Admin-Benachrichtigung bei Kunden-Buchungen
+            if (!booking._adminBooked) {
+                try {
+                    const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                    const adminChats = adminSnap.val() || [];
+                    if (adminChats.length > 0) {
+                        const now = new Date();
+                        const isToday = dt.toDateString() === now.toDateString();
+                        let timeLabel;
+                        if (!isVorbestellung) {
+                            timeLabel = 'SOFORT';
+                        } else if (isToday) {
+                            timeLabel = `Heute ${timeStr} Uhr`;
+                        } else {
+                            timeLabel = `${dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
+                        }
+                        const sentAt = now.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const statusEmoji = isVorbestellung ? '📅' : '🚕';
+                        const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
+                        const adminMsg = `${statusEmoji} <b>${statusText}</b>\n` +
+                            `🆔 <b>ID:</b> <code>${rideData.id}</code>\n\n` +
+                            `📍 <b>Von:</b> ${rideData.pickup}\n` +
+                            `🎯 <b>Nach:</b> ${rideData.destination}\n` +
+                            `👤 <b>Name:</b> ${rideData.customerName}\n` +
+                            (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                            `🕐 <b>Abholung:</b> ${timeLabel}\n` +
+                            `👥 <b>Personen:</b> ${passengers}\n` +
+                            (telegramRoutePrice ? `💰 <b>Preis:</b> ca. ${telegramRoutePrice.price} €\n` : '') +
+                            `⏰ <b>Gesendet:</b> ${sentAt}\n\n` +
+                            `📱 <i>Via Telegram-Bot</i>`;
+                        for (const adminChatId of adminChats) {
+                            sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
+                        }
+                    }
+                } catch (e) {
+                    console.error('Admin-Benachrichtigung Fehler:', e.message);
+                }
+            }
+
             // Admin CRM-Anlage anbieten
             if (booking._adminBooked && booking._forCustomer && booking._crmCustomerId === null) {
                 try {
@@ -1502,8 +1541,8 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId,
             `🕐 <b>Neue Zeit: ${hh}:${mm} Uhr</b>\n\n📅 ${dayLabel} um ${hh}:${mm} Uhr\n📍 ${pending.booking.pickup} → ${pending.booking.destination}\n👥 ${pending.booking.passengers || 1} Person(en)\n\nSoll ich diese Zeit buchen?`,
             { reply_markup: { inline_keyboard: [[
-                { text: '✅ Ja, buchen!', callback_data: `book_yes_${chatId}` },
-                { text: '❌ Abbrechen', callback_data: `book_no_${chatId}` }
+                { text: '✅ Ja, buchen!', callback_data: `book_yes_${pending.bookingId}` },
+                { text: '❌ Abbrechen', callback_data: `book_no_${pending.bookingId}` }
             ]] } }
         );
         return;

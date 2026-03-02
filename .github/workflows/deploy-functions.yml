@@ -40,7 +40,6 @@ jobs:
       - name: Bot deployen
         run: firebase deploy --only functions --force --project taxi-heringsdorf --token "${{ secrets.FIREBASE_TOKEN }}"
 
-
       - name: Webhook aktivieren
         if: success()
         run: |

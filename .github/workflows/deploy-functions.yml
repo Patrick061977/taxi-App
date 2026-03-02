@@ -20,19 +20,15 @@ jobs:
       - name: Node.js Setup
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: functions/package-lock.json
+          node-version: '20'
 
       - name: Pakete installieren
         run: cd functions && npm install
 
       - name: Firebase Deploy
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only functions
+        run: npx firebase-tools deploy --only functions --project taxi-heringsdorf --token "$FIREBASE_TOKEN"
         env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
       - name: Webhook aktivieren
         if: success()

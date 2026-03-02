@@ -9,8 +9,8 @@ Der User sieht oben in der App: `📊 v6.3.0 • 01.03.2026 09:15`
 # 1. Änderungen committen
 git add index.html && git commit -m "beschreibung"
 
-# 2. Datum+Uhrzeit als Build-Timestamp eintragen
-TS=$(date +"%d.%m.%Y %H:%M")
+# 2. Datum+Uhrzeit als Build-Timestamp eintragen (deutsche Zeit CET/CEST)
+TS=$(TZ="Europe/Berlin" date +"%d.%m.%Y %H:%M")
 sed -i "s/const APP_BUILD = '.*'/const APP_BUILD = '$TS'/" index.html
 
 # 3. Timestamp committen und pushen

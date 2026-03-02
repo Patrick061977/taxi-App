@@ -61,14 +61,14 @@ async function loadBotToken() {
     return botToken;
 }
 
-async function loadWebhookSecret() {
+async function ensureWebhookSecret() {
     const snap = await db.ref('settings/telegram/webhookSecret').once('value');
-    return snap.val();
-}
-
-async function loadAdminSecret() {
-    const snap = await db.ref('settings/telegram/adminSecret').once('value');
-    return snap.val();
+    if (snap.val()) return snap.val();
+    // Kein Secret vorhanden → automatisch generieren und speichern
+    const { randomBytes } = await import('crypto');
+    const secret = randomBytes(32).toString('hex');
+    await db.ref('settings/telegram/webhookSecret').set(secret);
+    return secret;
 }
 
 async function sendTelegramMessage(chatId, text, extraParams = {}) {
@@ -1817,14 +1817,12 @@ exports.telegramWebhook = onRequest(
         }
 
         // Telegram-Webhook-Secret validieren (X-Telegram-Bot-Api-Secret-Token)
-        const webhookSecret = await loadWebhookSecret();
-        if (webhookSecret) {
-            const incomingToken = req.headers['x-telegram-bot-api-secret-token'];
-            if (!incomingToken || incomingToken !== webhookSecret) {
-                console.warn('Webhook: ungültiges oder fehlendes Secret-Token – Anfrage abgelehnt');
-                res.status(403).send('Forbidden');
-                return;
-            }
+        const webhookSecret = await ensureWebhookSecret();
+        const incomingToken = req.headers['x-telegram-bot-api-secret-token'];
+        if (!incomingToken || incomingToken !== webhookSecret) {
+            console.warn('Webhook: ungültiges oder fehlendes Secret-Token – Anfrage abgelehnt');
+            res.status(403).send('Forbidden');
+            return;
         }
 
         try {
@@ -1855,16 +1853,6 @@ exports.telegramWebhook = onRequest(
 exports.setupWebhook = onRequest(
     { region: 'europe-west1' },
     async (req, res) => {
-        // Admin-Secret prüfen
-        const adminSecret = await loadAdminSecret();
-        if (adminSecret) {
-            const provided = req.headers['x-admin-secret'];
-            if (!provided || provided !== adminSecret) {
-                res.status(403).send('Unauthorized');
-                return;
-            }
-        }
-
         const token = await loadBotToken();
         if (!token) {
             res.status(500).send('Kein Bot-Token in Firebase!');
@@ -1875,23 +1863,19 @@ exports.setupWebhook = onRequest(
         const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'taxi-heringsdorf';
         const webhookUrl = `https://europe-west1-${projectId}.cloudfunctions.net/telegramWebhook`;
 
-        // Webhook-Secret für Request-Validierung laden
-        const webhookSecret = await loadWebhookSecret();
+        // Secret automatisch generieren falls noch keins existiert
+        const webhookSecret = await ensureWebhookSecret();
 
         try {
-            const webhookPayload = {
-                url: webhookUrl,
-                allowed_updates: ['message', 'callback_query'],
-                drop_pending_updates: false
-            };
-            if (webhookSecret) {
-                webhookPayload.secret_token = webhookSecret;
-            }
-
             const resp = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(webhookPayload)
+                body: JSON.stringify({
+                    url: webhookUrl,
+                    allowed_updates: ['message', 'callback_query'],
+                    drop_pending_updates: false,
+                    secret_token: webhookSecret
+                })
             });
             const data = await resp.json();
 
@@ -1918,16 +1902,6 @@ exports.setupWebhook = onRequest(
 exports.removeWebhook = onRequest(
     { region: 'europe-west1' },
     async (req, res) => {
-        // Admin-Secret prüfen
-        const adminSecret = await loadAdminSecret();
-        if (adminSecret) {
-            const provided = req.headers['x-admin-secret'];
-            if (!provided || provided !== adminSecret) {
-                res.status(403).send('Unauthorized');
-                return;
-            }
-        }
-
         const token = await loadBotToken();
         if (!token) { res.status(500).send('Kein Bot-Token!'); return; }
 

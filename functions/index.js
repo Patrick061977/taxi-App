@@ -1798,7 +1798,7 @@ async function handleContact(message) {
 // ═══════════════════════════════════════════════════════════════
 
 exports.telegramWebhook = onRequest(
-    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1 },
+    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1, invoker: 'public' },
     async (req, res) => {
         // Nur POST akzeptieren
         if (req.method !== 'POST') {
@@ -1832,7 +1832,7 @@ exports.telegramWebhook = onRequest(
 // ═══════════════════════════════════════════════════════════════
 
 exports.setupWebhook = onRequest(
-    { region: 'europe-west1' },
+    { region: 'europe-west1', invoker: 'public' },
     async (req, res) => {
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -1882,7 +1882,7 @@ exports.setupWebhook = onRequest(
 // ═══════════════════════════════════════════════════════════════
 
 exports.removeWebhook = onRequest(
-    { region: 'europe-west1' },
+    { region: 'europe-west1', invoker: 'public' },
     async (req, res) => {
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

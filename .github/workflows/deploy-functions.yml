@@ -1,40 +1,48 @@
 name: Deploy Telegram Bot (Cloud Functions)
 
-# Triggert wenn functions/ Ordner geaendert wird
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'functions/**'
-  # Manuell auslösen (Button in GitHub)
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch deployen (z.B. main oder claude/fix-telegram-bot-PHIk3)'
+        required: false
+        default: 'main'
 
 jobs:
   deploy-functions:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Token pruefen
+        run: |
+          if [ -z "${{ secrets.FIREBASE_TOKEN }}" ]; then
+            echo "FEHLER: FIREBASE_TOKEN Secret fehlt!"
+            echo "Bitte unter Settings > Secrets > Actions hinzufuegen."
+            exit 1
+          fi
+          echo "Token vorhanden - weiter..."
 
-      - name: Node.js Setup
+      - name: Code herunterladen
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || 'main' }}
+
+      - name: Node.js 20 einrichten
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Pakete installieren
+      - name: Firebase Tools installieren
+        run: npm install -g firebase-tools
+
+      - name: Pakete installieren (functions/)
         run: cd functions && npm install
 
-      - name: Firebase Deploy
-        run: npx firebase-tools deploy --only functions --project taxi-heringsdorf --token "$FIREBASE_TOKEN"
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Bot deployen
+        run: firebase deploy --only functions --project taxi-heringsdorf --token "${{ secrets.FIREBASE_TOKEN }}"
 
       - name: Webhook aktivieren
         if: success()
         run: |
-          echo "Cloud Functions deployed!"
-          echo "Webhook aktivieren: https://europe-west1-taxi-heringsdorf.cloudfunctions.net/setupWebhook"
-          # Automatisch Webhook setzen
+          echo "=== Bot erfolgreich deployed! ==="
           RESPONSE=$(curl -s "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/setupWebhook")
           echo "Webhook-Antwort: $RESPONSE"

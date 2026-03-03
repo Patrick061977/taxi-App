@@ -474,20 +474,29 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
 // ═══════════════════════════════════════════════════════════════
 
 async function callAnthropicAPI(apiKey, model, maxTokens, messages) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({ model, max_tokens: maxTokens, messages })
-    });
-    if (!resp.ok) {
+    // 🆕 v6.6.3: Retry mit Backoff bei 529 (Overloaded) und 503 (Service Unavailable)
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({ model, max_tokens: maxTokens, messages })
+        });
+        if (resp.ok) return resp.json();
         const err = await resp.json().catch(() => ({}));
+        // Bei 529/503: Retry mit Backoff (2s, 4s)
+        if ((resp.status === 529 || resp.status === 503) && attempt < MAX_RETRIES) {
+            const delay = (attempt + 1) * 2000;
+            console.log(`⏳ API ${resp.status} – Retry ${attempt + 1}/${MAX_RETRIES} in ${delay/1000}s...`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+        }
         throw new Error(`API-Fehler: ${resp.status} - ${err.error?.message || 'Unbekannt'}`);
     }
-    return resp.json();
 }
 
 async function getAnthropicApiKey() {
@@ -715,7 +724,20 @@ Nur gültiges JSON, kein Markdown:
     } catch (e) {
         console.error('Analyse-Fehler:', e);
         await addTelegramLog('❌', chatId, 'Analyse-Fehler: ' + e.message);
-        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Analyse: ' + e.message + '\n\nBitte versuche es nochmal.');
+        // 🆕 v6.6.3: Freundliche Fallback-Nachricht statt technischer Fehlermeldung
+        if (e.message && (e.message.includes('529') || e.message.includes('503') || e.message.includes('Overloaded'))) {
+            await sendTelegramMessage(chatId,
+                '⚠️ Unser Buchungssystem ist gerade kurzzeitig überlastet.\n\n' +
+                '🔄 Bitte versuchen Sie es in 1-2 Minuten erneut.\n\n' +
+                'Oder rufen Sie uns direkt an:\n📞 <b>038378 / 22022</b>'
+            );
+        } else {
+            await sendTelegramMessage(chatId,
+                '⚠️ Leider ist ein technischer Fehler aufgetreten.\n\n' +
+                '🔄 Bitte versuchen Sie es nochmal.\n\n' +
+                'Falls es weiterhin nicht klappt, rufen Sie uns einfach an:\n📞 <b>038378 / 22022</b>'
+            );
+        }
     }
 }
 
@@ -761,7 +783,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
         await askPassengersOrConfirm(chatId, booking, routePrice, originalText);
     } catch (e) {
         console.error('continueBookingFlow Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        await sendTelegramMessage(chatId,
+            '⚠️ Leider ist ein Fehler bei der Buchung aufgetreten.\n\n' +
+            '🔄 Bitte versuchen Sie es nochmal oder rufen Sie uns an:\n📞 <b>038378 / 22022</b>'
+        );
     }
 }
 
@@ -907,7 +932,18 @@ Nur gültiges JSON, kein Markdown:
 
     } catch (e) {
         console.error('Follow-Up Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        if (e.message && (e.message.includes('529') || e.message.includes('503') || e.message.includes('Overloaded'))) {
+            await sendTelegramMessage(chatId,
+                '⚠️ Unser Buchungssystem ist gerade kurzzeitig überlastet.\n\n' +
+                '🔄 Bitte versuchen Sie es in 1-2 Minuten erneut.\n\n' +
+                'Oder rufen Sie uns direkt an:\n📞 <b>038378 / 22022</b>'
+            );
+        } else {
+            await sendTelegramMessage(chatId,
+                '⚠️ Leider ist ein Fehler aufgetreten.\n\n' +
+                '🔄 Bitte versuchen Sie es nochmal oder rufen Sie uns an:\n📞 <b>038378 / 22022</b>'
+            );
+        }
     }
 }
 

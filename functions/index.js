@@ -879,11 +879,22 @@ Nur gültiges JSON, kein Markdown:
 
 async function askPassengersOrConfirm(chatId, booking, routePrice, originalText) {
     const hasExplicitPassengers = booking._passengersExplicit || (booking.passengers && booking.passengers > 1);
-    if (hasExplicitPassengers) return showTelegramConfirmation(chatId, booking, routePrice);
+    if (hasExplicitPassengers) {
+        await addTelegramLog('👥', chatId, `Personen explizit (${booking.passengers}) → direkt zur Bestätigung`);
+        return showTelegramConfirmation(chatId, booking, routePrice);
+    }
 
     const bookingId = Date.now().toString(36);
+    await addTelegramLog('👥', chatId, `Frage Personenzahl ab (bookingId=${bookingId})`);
     await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingPassengers: true });
-    await sendTelegramMessage(chatId, '👥 <b>Wie viele Personen fahren mit?</b>', {
+
+    // Prüfe ob setPending erfolgreich war
+    const verifyPending = await getPending(chatId);
+    if (!verifyPending || !verifyPending.booking) {
+        await addTelegramLog('❌', chatId, `setPending FEHLGESCHLAGEN! verify: exists=${!!verifyPending}, hasBooking=${!!(verifyPending && verifyPending.booking)}`);
+    }
+
+    const msgResult = await sendTelegramMessage(chatId, '👥 <b>Wie viele Personen fahren mit?</b>', {
         reply_markup: { inline_keyboard: [
             [
                 { text: '🧑 1', callback_data: `pax_1_${bookingId}` },
@@ -898,6 +909,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
             ]
         ]}
     });
+    if (!msgResult) await addTelegramLog('❌', chatId, 'Personenzahl-Buttons senden FEHLGESCHLAGEN!');
 }
 
 function buildTelegramConfirmMsg(booking, routePrice) {
@@ -1520,19 +1532,29 @@ async function handleCallback(callback) {
     // Personenzahl
     if (data.startsWith('pax_')) {
         const match = data.match(/^pax_(\d+)_(.+)$/);
-        if (!match) return;
+        if (!match) {
+            await addTelegramLog('⚠️', chatId, `pax_ Regex fehlgeschlagen für: ${data}`);
+            return;
+        }
         const paxCount = parseInt(match[1]);
+        await addTelegramLog('🔍', chatId, `pax_ Handler: count=${paxCount}, lade Pending...`);
         const pending = await getPending(chatId);
+        await addTelegramLog('🔍', chatId, `pax_ Pending: exists=${!!pending}, hasBooking=${!!(pending && pending.booking)}, keys=${pending ? Object.keys(pending).join(',') : 'null'}`);
         if (!pending || !pending.booking) {
-            // v6.3.1: Statt stiller Rückkehr → Fehlermeldung an User
             await addTelegramLog('⚠️', chatId, `Personenzahl-Button: Buchungsdaten nicht gefunden (pending=${!!pending})`);
             await sendTelegramMessage(chatId, '⚠️ Sitzung abgelaufen. Bitte schreiben Sie Ihren Buchungswunsch noch einmal.');
             return;
         }
         pending.booking.passengers = paxCount;
         pending.booking._passengersExplicit = true;
-        await addTelegramLog('👥', chatId, `${paxCount} Person(en) gewählt`);
-        await showTelegramConfirmation(chatId, pending.booking, pending.routePrice);
+        await addTelegramLog('👥', chatId, `${paxCount} Person(en) gewählt → zeige Bestätigung`);
+        try {
+            await showTelegramConfirmation(chatId, pending.booking, pending.routePrice);
+            await addTelegramLog('✅', chatId, 'Bestätigung gesendet');
+        } catch (confirmErr) {
+            await addTelegramLog('❌', chatId, `Bestätigung Fehler: ${confirmErr.message}`);
+            await sendTelegramMessage(chatId, '⚠️ Fehler bei der Bestätigung: ' + confirmErr.message);
+        }
         return;
     }
 

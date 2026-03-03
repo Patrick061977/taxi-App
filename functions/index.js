@@ -61,6 +61,16 @@ async function loadBotToken() {
     return botToken;
 }
 
+async function ensureWebhookSecret() {
+    const snap = await db.ref('settings/telegram/webhookSecret').once('value');
+    if (snap.val()) return snap.val();
+    // Kein Secret vorhanden → automatisch generieren und speichern
+    const { randomBytes } = await import('crypto');
+    const secret = randomBytes(32).toString('hex');
+    await db.ref('settings/telegram/webhookSecret').set(secret);
+    return secret;
+}
+
 async function sendTelegramMessage(chatId, text, extraParams = {}) {
     const token = await loadBotToken();
     if (!token) { console.error('Kein Bot-Token!'); return null; }
@@ -1806,6 +1816,15 @@ exports.telegramWebhook = onRequest(
             return;
         }
 
+        // Telegram-Webhook-Secret validieren (X-Telegram-Bot-Api-Secret-Token)
+        const webhookSecret = await ensureWebhookSecret();
+        const incomingToken = req.headers['x-telegram-bot-api-secret-token'];
+        if (!incomingToken || incomingToken !== webhookSecret) {
+            console.warn('Webhook: ungültiges oder fehlendes Secret-Token – Anfrage abgelehnt');
+            res.status(403).send('Forbidden');
+            return;
+        }
+
         try {
             const update = req.body;
 
@@ -1849,6 +1868,9 @@ exports.setupWebhook = onRequest(
         const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'taxi-heringsdorf';
         const webhookUrl = `https://europe-west1-${projectId}.cloudfunctions.net/telegramWebhook`;
 
+        // Secret automatisch generieren falls noch keins existiert
+        const webhookSecret = await ensureWebhookSecret();
+
         try {
             const resp = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
                 method: 'POST',
@@ -1856,7 +1878,8 @@ exports.setupWebhook = onRequest(
                 body: JSON.stringify({
                     url: webhookUrl,
                     allowed_updates: ['message', 'callback_query'],
-                    drop_pending_updates: false
+                    drop_pending_updates: false,
+                    secret_token: webhookSecret
                 })
             });
             const data = await resp.json();

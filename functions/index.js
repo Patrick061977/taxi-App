@@ -1151,15 +1151,302 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
             return;
         }
         let msg = `📋 <b>Ihre Buchungen, ${knownCustomer.name}:</b>\n\n`;
-        upcoming.forEach(([, r]) => {
+        const buttons = [];
+        const statusIcons = { open: '🟢', vorbestellt: '🔵', unterwegs: '🚕', completed: '✅', abgeschlossen: '✅' };
+
+        upcoming.forEach(([rideId, r]) => {
             const dt = new Date(r.pickupTimestamp || 0);
             const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-            msg += `📅 <b>${timeStr} Uhr</b>\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n📋 ${r.status || 'offen'}\n\n`;
+            const icon = statusIcons[r.status] || '⚪';
+            msg += `${icon} <b>${timeStr} Uhr</b>\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n`;
+
+            // Nur zukünftige Fahrten bearbeitbar
+            if ((r.pickupTimestamp || 0) > now && r.status !== 'unterwegs') {
+                buttons.push([
+                    { text: `✏️ ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr ändern`, callback_data: `cust_edit_${rideId}` },
+                    { text: '🗑️ Stornieren', callback_data: `cust_del_${rideId}` }
+                ]);
+            }
         });
-        await sendTelegramMessage(chatId, msg);
+
+        if (buttons.length === 0) {
+            msg += '<i>Keine Fahrten zum Bearbeiten verfügbar.</i>';
+        }
+
+        await sendTelegramMessage(chatId, msg, buttons.length > 0 ? { reply_markup: { inline_keyboard: buttons } } : undefined);
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN: FAHRTEN-ÜBERSICHT & VERWALTUNG
+// ═══════════════════════════════════════════════════════════════
+
+async function handleAdminRidesOverview(chatId, filter = 'today') {
+    if (!await isTelegramAdmin(chatId)) {
+        await sendTelegramMessage(chatId, '⛔ Nur für Admins verfügbar.');
+        return;
+    }
+    try {
+        const ridesSnap = await db.ref('rides').once('value');
+        const allRides = Object.entries(ridesSnap.val() || {});
+        const now = new Date();
+        const berlinNow = new Date(now.toLocaleString('en-US', TZ_BERLIN));
+
+        // Tagesgrenzen in Berlin-Zeit
+        const todayStart = new Date(berlinNow); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(berlinNow); todayEnd.setHours(23, 59, 59, 999);
+        const tomorrowEnd = new Date(todayEnd.getTime() + 86400000);
+
+        let filtered;
+        let title;
+
+        if (filter === 'open') {
+            // Nur offene + vorbestellte (ab jetzt, nächste 7 Tage)
+            const weekEnd = Date.now() + 7 * 86400000;
+            filtered = allRides.filter(([, r]) => {
+                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'completed' || r.status === 'abgeschlossen') return false;
+                const ts = r.pickupTimestamp || 0;
+                return ts >= Date.now() - 3600000 && ts <= weekEnd;
+            });
+            title = '📋 <b>Offene Fahrten</b> (nächste 7 Tage)';
+        } else if (filter === 'tomorrow') {
+            const tomorrowStart = new Date(todayEnd.getTime() + 1);
+            filtered = allRides.filter(([, r]) => {
+                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                const ts = r.pickupTimestamp || 0;
+                const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
+                return rideDate >= tomorrowStart && rideDate <= tomorrowEnd;
+            });
+            title = `📋 <b>Fahrten morgen</b> (${new Date(tomorrowEnd).toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })})`;
+        } else {
+            // Heute (default)
+            filtered = allRides.filter(([, r]) => {
+                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                const ts = r.pickupTimestamp || 0;
+                const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
+                return rideDate >= todayStart && rideDate <= todayEnd;
+            });
+            title = `📋 <b>Fahrten heute</b> (${berlinNow.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })})`;
+        }
+
+        filtered.sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0));
+
+        if (filtered.length === 0) {
+            const noRidesMsg = filter === 'open' ? 'Keine offenen Fahrten in den nächsten 7 Tagen.'
+                : filter === 'tomorrow' ? 'Keine Fahrten für morgen eingetragen.'
+                : 'Keine Fahrten für heute eingetragen.';
+            await sendTelegramMessage(chatId, `${title}\n\n${noRidesMsg}\n\n/buchen – Neue Fahrt eintragen`);
+            return;
+        }
+
+        const statusIcon = (s) => {
+            const icons = { open: '🟢', vorbestellt: '🔵', unterwegs: '🚕', completed: '✅', abgeschlossen: '✅' };
+            return icons[s] || '⚪';
+        };
+
+        let msg = `${title}\n📊 ${filtered.length} Fahrt(en)\n\n`;
+        const buttons = [];
+
+        filtered.forEach(([rideId, r]) => {
+            const dt = new Date(r.pickupTimestamp || 0);
+            const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const dateStr = filter !== 'today' ? ` ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit' })}` : '';
+            const status = statusIcon(r.status);
+            const pax = r.passengers || 1;
+            const name = r.customerName || 'Unbekannt';
+            const pickup = (r.pickup || '?').substring(0, 25);
+            const dest = (r.destination || '?').substring(0, 25);
+            const price = r.estimatedPrice ? ` · ~${r.estimatedPrice}€` : '';
+
+            msg += `${status} <b>${timeStr}${dateStr}</b> · ${name} (${pax}P)\n`;
+            msg += `   📍 ${pickup} → ${dest}${price}\n\n`;
+
+            const shortLabel = `${timeStr} ${name.substring(0, 12)}`;
+            buttons.push([{ text: `📄 ${shortLabel}`, callback_data: `adm_ride_${rideId}` }]);
+        });
+
+        // Navigation-Buttons
+        const navRow = [];
+        if (filter !== 'today') navRow.push({ text: '📅 Heute', callback_data: 'adm_rides_today' });
+        if (filter !== 'tomorrow') navRow.push({ text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' });
+        if (filter !== 'open') navRow.push({ text: '📋 Offene', callback_data: 'adm_rides_open' });
+        if (navRow.length > 0) buttons.push(navRow);
+
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
+        await addTelegramLog('📋', chatId, `Admin: ${filtered.length} Fahrten angezeigt (${filter})`);
+
+    } catch (e) {
+        console.error('Admin Fahrten-Übersicht Fehler:', e);
+        await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Fahrten: ' + e.message);
+    }
+}
+
+async function handleAdminRideDetail(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        const dt = new Date(r.pickupTimestamp || 0);
+        const dateStr = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', completed: '✅ Abgeschlossen', abgeschlossen: '✅ Abgeschlossen', deleted: '🗑️ Gelöscht', storniert: '❌ Storniert' };
+
+        let msg = '📄 <b>Fahrt-Details</b>\n\n';
+        msg += `📅 <b>${dateStr} um ${timeStr} Uhr</b>\n`;
+        msg += `📍 Von: ${r.pickup || '?'}\n`;
+        msg += `🎯 Nach: ${r.destination || '?'}\n`;
+        msg += `👤 ${r.customerName || 'Unbekannt'}`;
+        if (r.customerPhone) msg += ` · 📱 ${r.customerPhone}`;
+        msg += '\n';
+        msg += `👥 ${r.passengers || 1} Person(en)\n`;
+        msg += `📋 Status: ${statusLabels[r.status] || r.status || 'Unbekannt'}\n`;
+        if (r.estimatedPrice) msg += `💰 ~${r.estimatedPrice} €\n`;
+        if (r.estimatedDistance) msg += `🗺️ ~${r.estimatedDistance} km\n`;
+        if (r.notes) msg += `📝 ${r.notes}\n`;
+        msg += `\n🔑 ID: <code>${rideId}</code>`;
+        if (r.source) msg += `\n📡 Quelle: ${r.source}`;
+
+        const isActive = r.status !== 'deleted' && r.status !== 'storniert';
+        const keyboard = [];
+
+        if (isActive) {
+            keyboard.push([
+                { text: '⏰ Zeit ändern', callback_data: `adm_edit_time_${rideId}` },
+                { text: '📍 Ort ändern', callback_data: `adm_edit_addr_${rideId}` }
+            ]);
+            keyboard.push([
+                { text: '👥 Personen', callback_data: `adm_edit_pax_${rideId}` },
+                { text: '📋 Status', callback_data: `adm_edit_status_${rideId}` }
+            ]);
+            keyboard.push([{ text: '🗑️ Fahrt löschen', callback_data: `adm_del_${rideId}` }]);
+        }
+        keyboard.push([{ text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' }]);
+
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
+
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+async function handleAdminEditTime(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        const dt = new Date(r.pickupTimestamp || 0);
+        const currentTime = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+
+        const timeButtons = [];
+        for (const offset of [-60, -30, -15, 15, 30, 60]) {
+            const alt = new Date(dt.getTime() + offset * 60000);
+            const altTime = alt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const label = offset < 0 ? `${offset}min → ${altTime}` : `+${offset}min → ${altTime}`;
+            timeButtons.push({ text: label, callback_data: `adm_settime_${rideId}_${offset}` });
+        }
+
+        await sendTelegramMessage(chatId,
+            `⏰ <b>Zeit ändern</b>\n\nAktuell: <b>${currentTime} Uhr</b>\n\nWähle neue Zeit oder schreibe sie direkt (z.B. "14:30"):`,
+            { reply_markup: { inline_keyboard: [
+                [timeButtons[0], timeButtons[1], timeButtons[2]],
+                [timeButtons[3], timeButtons[4], timeButtons[5]],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+        await setPending(chatId, { _adminEditRide: rideId, _adminEditField: 'time' });
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+async function handleAdminEditPax(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        await sendTelegramMessage(chatId,
+            `👥 <b>Personenzahl ändern</b>\n\nAktuell: <b>${r.passengers || 1} Person(en)</b>`,
+            { reply_markup: { inline_keyboard: [
+                [
+                    { text: '1', callback_data: `adm_setpax_${rideId}_1` },
+                    { text: '2', callback_data: `adm_setpax_${rideId}_2` },
+                    { text: '3', callback_data: `adm_setpax_${rideId}_3` },
+                    { text: '4', callback_data: `adm_setpax_${rideId}_4` }
+                ],
+                [
+                    { text: '5', callback_data: `adm_setpax_${rideId}_5` },
+                    { text: '6', callback_data: `adm_setpax_${rideId}_6` },
+                    { text: '7', callback_data: `adm_setpax_${rideId}_7` },
+                    { text: '8', callback_data: `adm_setpax_${rideId}_8` }
+                ],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+async function handleAdminEditStatus(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', abgeschlossen: '✅ Abgeschlossen' };
+
+        await sendTelegramMessage(chatId,
+            `📋 <b>Status ändern</b>\n\nAktuell: <b>${statusLabels[r.status] || r.status || '?'}</b>`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '🟢 Offen', callback_data: `adm_setstatus_${rideId}_open` }, { text: '🔵 Vorbestellt', callback_data: `adm_setstatus_${rideId}_vorbestellt` }],
+                [{ text: '🚕 Unterwegs', callback_data: `adm_setstatus_${rideId}_unterwegs` }, { text: '✅ Abgeschlossen', callback_data: `adm_setstatus_${rideId}_abgeschlossen` }],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+async function handleAdminDeleteRide(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        const dt = new Date(r.pickupTimestamp || 0);
+        const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+        await sendTelegramMessage(chatId,
+            `🗑️ <b>Fahrt wirklich löschen?</b>\n\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n👤 ${r.customerName || '?'}`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '🗑️ Ja, löschen!', callback_data: `adm_delconfirm_${rideId}` }, { text: '✖ Abbrechen', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+function isAdminRidesQuery(text) {
+    const t = text.toLowerCase();
+    return /\b(fahrten|rides|übersicht|dashboard)\b/.test(t) ||
+        /welche.{0,15}(fahrt|termin|buchung).{0,10}(haben|gibt|stehen|sind)/i.test(t) ||
+        /was.{0,10}(steht|liegt|haben).{0,10}(an|vor|heute|morgen)/i.test(t) ||
+        /zeig.{0,10}(alle|die|mir).{0,10}(fahrt|buchung|termin)/i.test(t) ||
+        /alle.{0,10}(fahrt|buchung|termin)/i.test(t) ||
+        /\b(heute|morgen).{0,15}(fahrt|buchung|termin|los)/i.test(t) ||
+        /was.{0,10}(geht|geht's|los).{0,10}(heute|morgen|ab)/i.test(t);
 }
 
 async function handleTelegramDeleteQuery(chatId, knownCustomer) {
@@ -1191,6 +1478,41 @@ async function handleTelegramDeleteQuery(chatId, knownCustomer) {
             buttons.push([{ text: `🗑️ ${timeStr}: ${(r.pickup || '?').substring(0, 20)}...`, callback_data: `del_ride_${rideId}` }]);
         });
         buttons.push([{ text: '✖️ Nichts löschen', callback_data: 'del_cancel' }]);
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+    }
+}
+
+async function handleTelegramModifyQuery(chatId, knownCustomer) {
+    if (!knownCustomer) {
+        await sendTelegramMessage(chatId, '❓ Bitte teilen Sie Ihre Telefonnummer damit ich Ihre Buchungen finde.');
+        return;
+    }
+    try {
+        const ridesSnap = await db.ref('rides').once('value');
+        const allRides = Object.entries(ridesSnap.val() || {});
+        const cleanPhone = (knownCustomer.phone || knownCustomer.mobile || '').replace(/\s/g, '');
+        const now = Date.now();
+        const upcoming = allRides.filter(([, r]) => {
+            if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'unterwegs') return false;
+            const rPhone = (r.customerPhone || '').replace(/\s/g, '');
+            return rPhone && rPhone.slice(-9) === cleanPhone.slice(-9) && (r.pickupTimestamp || 0) > now;
+        }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);
+
+        if (upcoming.length === 0) {
+            await sendTelegramMessage(chatId, `📋 <b>${knownCustomer.name}</b>, keine änderbaren Buchungen vorhanden.\n\nNur zukünftige Fahrten können geändert werden.`);
+            return;
+        }
+        let msg = `✏️ <b>Welche Buchung ändern?</b>\n\n`;
+        const buttons = [];
+        upcoming.forEach(([rideId, r]) => {
+            const dt = new Date(r.pickupTimestamp || 0);
+            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            msg += `📅 <b>${timeStr} Uhr</b>\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n`;
+            buttons.push([{ text: `✏️ ${timeStr}: ${(r.pickup || '?').substring(0, 18)}`, callback_data: `cust_edit_${rideId}` }]);
+        });
+        buttons.push([{ text: '✖ Nichts ändern', callback_data: 'cust_edit_cancel' }]);
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
@@ -1240,6 +1562,9 @@ async function handleMessage(message) {
     if (textCmd === '/hilfe' || textCmd === '/help') {
         const knownCustomer = await getTelegramCustomer(chatId);
         let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
+        if (await isTelegramAdmin(chatId)) {
+            hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
+        }
         if (knownCustomer) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownCustomer.name}\n📱 ${knownCustomer.phone || 'keine Telefonnummer'}`;
         await sendTelegramMessage(chatId, hilfeMsg);
         return;
@@ -1271,8 +1596,21 @@ async function handleMessage(message) {
         return;
     }
 
+    // Admin-Befehle
+    if (textCmd === '/fahrten' || textCmd === '/rides') {
+        if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'today'); return; }
+    }
+    if (textCmd === '/offen' || textCmd === '/open') {
+        if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'open'); return; }
+    }
+    if (textCmd === '/morgen' || textCmd === '/tomorrow') {
+        if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
+    }
+
     if (textCmd.startsWith('/')) {
-        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe`);
+        const isAdminForHelp = await isTelegramAdmin(chatId);
+        const adminCmds = isAdminForHelp ? '\n\n<b>Admin:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen' : '';
+        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
         return;
     }
 
@@ -1334,6 +1672,119 @@ async function handleMessage(message) {
         return;
     }
 
+    // Kunden: Freitext-Eingabe für Fahrt-Bearbeitung (z.B. "14:30" oder neue Adresse)
+    if (pending && pending._custEditRide && pending._custEditField && !isPendingExpired(pending)) {
+        const rideId = pending._custEditRide;
+        const field = pending._custEditField;
+        await deletePending(chatId);
+
+        if (field === 'time') {
+            const timeMatch = text.match(/(\d{1,2})[:.:](\d{2})/);
+            if (timeMatch) {
+                const hours = parseInt(timeMatch[1]), mins = parseInt(timeMatch[2]);
+                if (hours >= 0 && hours <= 23 && mins >= 0 && mins <= 59) {
+                    try {
+                        const snap = await db.ref(`rides/${rideId}`).once('value');
+                        const r = snap.val();
+                        if (r) {
+                            const oldDt = new Date(r.pickupTimestamp || Date.now());
+                            const berlinDate = new Date(oldDt.toLocaleString('en-US', TZ_BERLIN));
+                            berlinDate.setHours(hours, mins, 0, 0);
+                            const berlinAsUTC = new Date(berlinDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                            const offsetMs = berlinAsUTC.getTime() - berlinDate.getTime();
+                            const newTimestamp = berlinDate.getTime() - offsetMs;
+                            await db.ref(`rides/${rideId}`).update({
+                                pickupTimestamp: newTimestamp,
+                                pickupTime: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
+                                editedAt: Date.now(), editedBy: 'telegram-customer'
+                            });
+                            await addTelegramLog('✏️', chatId, `Kunde: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
+                            await sendTelegramMessage(chatId, `✅ <b>Uhrzeit geändert!</b>\n\nNeue Zeit: <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+                        }
+                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    return;
+                }
+            }
+            await sendTelegramMessage(chatId, '⚠️ Ungültige Uhrzeit. Bitte z.B. 14:30 eingeben.');
+            return;
+        }
+
+        if (field === 'pickup' || field === 'destination') {
+            try {
+                const update = { editedAt: Date.now(), editedBy: 'telegram-customer' };
+                update[field] = text;
+                const geo = await geocode(text);
+                if (geo) { update[field + 'Lat'] = geo.lat; update[field + 'Lon'] = geo.lon; }
+                await db.ref(`rides/${rideId}`).update(update);
+                const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+                await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"`);
+                await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            return;
+        }
+    }
+
+    // Admin: Freitext-Eingabe für Fahrt-Bearbeitung (z.B. "14:30" nach Zeit-Ändern)
+    if (pending && pending._adminEditRide && pending._adminEditField && !isPendingExpired(pending)) {
+        const rideId = pending._adminEditRide;
+        const field = pending._adminEditField;
+        await deletePending(chatId);
+
+        if (field === 'time') {
+            // Parse Uhrzeit aus Freitext
+            const timeMatch = text.match(/(\d{1,2})[:.:](\d{2})/);
+            if (timeMatch) {
+                const hours = parseInt(timeMatch[1]), mins = parseInt(timeMatch[2]);
+                if (hours >= 0 && hours <= 23 && mins >= 0 && mins <= 59) {
+                    try {
+                        const snap = await db.ref(`rides/${rideId}`).once('value');
+                        const r = snap.val();
+                        if (r) {
+                            const oldDt = new Date(r.pickupTimestamp || Date.now());
+                            const berlinDate = new Date(oldDt.toLocaleString('en-US', TZ_BERLIN));
+                            berlinDate.setHours(hours, mins, 0, 0);
+                            // Konvertiere Berlin-Zeit zurück zu UTC-Timestamp
+                            const berlinAsUTC = new Date(berlinDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                            const offsetMs = berlinAsUTC.getTime() - berlinDate.getTime();
+                            const newTimestamp = berlinDate.getTime() - offsetMs;
+
+                            await db.ref(`rides/${rideId}`).update({
+                                pickupTimestamp: newTimestamp,
+                                pickupTime: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
+                                editedAt: Date.now(), editedBy: 'telegram-admin'
+                            });
+                            await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
+                            await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>`);
+                            await handleAdminRideDetail(chatId, rideId);
+                        }
+                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    return;
+                }
+            }
+            await sendTelegramMessage(chatId, '⚠️ Ungültige Uhrzeit. Bitte im Format HH:MM eingeben (z.B. 14:30).');
+            return;
+        }
+
+        if (field === 'pickup' || field === 'destination') {
+            try {
+                const update = { editedAt: Date.now(), editedBy: 'telegram-admin' };
+                update[field] = text;
+                // Geocode die neue Adresse
+                const geo = await geocode(text);
+                if (geo) {
+                    update[field + 'Lat'] = geo.lat;
+                    update[field + 'Lon'] = geo.lon;
+                }
+                await db.ref(`rides/${rideId}`).update(update);
+                const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+                await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${text}"`);
+                await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${text}</b>`);
+                await handleAdminRideDetail(chatId, rideId);
+            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            return;
+        }
+    }
+
     // Follow-Up: Unvollständige Buchung ergänzen
     if (pending && pending.partial && !isPendingExpired(pending)) {
         await addTelegramLog('🔄', chatId, 'Follow-Up Analyse');
@@ -1366,6 +1817,19 @@ async function handleMessage(message) {
     // Lösch-Intent?
     if (isTelegramDeleteQuery(text)) {
         await handleTelegramDeleteQuery(chatId, knownForGreeting);
+        return;
+    }
+
+    // Änderungs-Intent? (Kunde will Fahrt bearbeiten)
+    if (isTelegramModifyQuery(text)) {
+        await handleTelegramModifyQuery(chatId, knownForGreeting);
+        return;
+    }
+
+    // Admin: Fahrten-Abfrage per natürlicher Sprache
+    if (isAdminUser && isAdminRidesQuery(text)) {
+        const filter = /morgen/i.test(text) ? 'tomorrow' : /offen|nächst/i.test(text) ? 'open' : 'today';
+        await handleAdminRidesOverview(chatId, filter);
         return;
     }
 
@@ -1745,7 +2209,273 @@ async function handleCallback(callback) {
         return;
     }
 
-    // Fahrt löschen
+    // ═══ ADMIN: Fahrten-Verwaltung Callbacks ═══
+    if (data === 'adm_rides_today') { await handleAdminRidesOverview(chatId, 'today'); return; }
+    if (data === 'adm_rides_tomorrow') { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
+    if (data === 'adm_rides_open') { await handleAdminRidesOverview(chatId, 'open'); return; }
+
+    if (data.startsWith('adm_ride_')) {
+        const rideId = data.replace('adm_ride_', '');
+        await handleAdminRideDetail(chatId, rideId);
+        return;
+    }
+
+    if (data.startsWith('adm_edit_time_')) {
+        await handleAdminEditTime(chatId, data.replace('adm_edit_time_', ''));
+        return;
+    }
+    if (data.startsWith('adm_edit_addr_')) {
+        const rideId = data.replace('adm_edit_addr_', '');
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+        await sendTelegramMessage(chatId,
+            `📍 <b>Adresse ändern</b>\n\n📍 Von: ${r.pickup || '?'}\n🎯 Nach: ${r.destination || '?'}\n\nWas ändern?`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '📍 Abholort', callback_data: `adm_setfield_${rideId}_pickup` }, { text: '🎯 Zielort', callback_data: `adm_setfield_${rideId}_destination` }],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+        return;
+    }
+    if (data.startsWith('adm_edit_pax_')) {
+        await handleAdminEditPax(chatId, data.replace('adm_edit_pax_', ''));
+        return;
+    }
+    if (data.startsWith('adm_edit_status_')) {
+        await handleAdminEditStatus(chatId, data.replace('adm_edit_status_', ''));
+        return;
+    }
+    if (data.startsWith('adm_del_')) {
+        await handleAdminDeleteRide(chatId, data.replace('adm_del_', ''));
+        return;
+    }
+
+    // Admin: Zeit per Offset-Button setzen
+    if (data.startsWith('adm_settime_')) {
+        const parts = data.replace('adm_settime_', '').split('_');
+        const rideId = parts.slice(0, -1).join('_');
+        const offset = parseInt(parts[parts.length - 1]);
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            const newTs = (r.pickupTimestamp || Date.now()) + offset * 60000;
+            const newDt = new Date(newTs);
+            const newTime = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            await db.ref(`rides/${rideId}`).update({
+                pickupTimestamp: newTs, pickupTime: newTime,
+                editedAt: Date.now(), editedBy: 'telegram-admin'
+            });
+            await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${newTime} (${offset > 0 ? '+' : ''}${offset}min)`);
+            await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${newTime} Uhr</b>`);
+            await handleAdminRideDetail(chatId, rideId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Admin: Adresse ändern - Freitext-Eingabe starten
+    if (data.startsWith('adm_setfield_')) {
+        const rest = data.replace('adm_setfield_', '');
+        const lastUnderscore = rest.lastIndexOf('_');
+        const rideId = rest.substring(0, lastUnderscore);
+        const field = rest.substring(lastUnderscore + 1);
+        const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+        await setPending(chatId, { _adminEditRide: rideId, _adminEditField: field });
+        await sendTelegramMessage(chatId, `📍 <b>${label} eingeben:</b>\n\nSchreibe die neue Adresse:`, {
+            reply_markup: { inline_keyboard: [[{ text: '✖ Abbrechen', callback_data: `adm_ride_${rideId}` }]] }
+        });
+        return;
+    }
+
+    // Admin: Personenzahl setzen
+    if (data.startsWith('adm_setpax_')) {
+        const parts = data.replace('adm_setpax_', '').split('_');
+        const rideId = parts.slice(0, -1).join('_');
+        const pax = parseInt(parts[parts.length - 1]);
+        try {
+            await db.ref(`rides/${rideId}`).update({ passengers: pax, editedAt: Date.now(), editedBy: 'telegram-admin' });
+            await addTelegramLog('✏️', chatId, `Admin: Personenzahl geändert auf ${pax}`);
+            await sendTelegramMessage(chatId, `✅ Personenzahl geändert auf <b>${pax}</b>`);
+            await handleAdminRideDetail(chatId, rideId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Admin: Status setzen
+    if (data.startsWith('adm_setstatus_')) {
+        const parts = data.replace('adm_setstatus_', '').split('_');
+        const rideId = parts.slice(0, -1).join('_');
+        const newStatus = parts[parts.length - 1];
+        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', abgeschlossen: '✅ Abgeschlossen' };
+        try {
+            await db.ref(`rides/${rideId}`).update({ status: newStatus, editedAt: Date.now(), editedBy: 'telegram-admin' });
+            await addTelegramLog('✏️', chatId, `Admin: Status geändert auf "${newStatus}"`);
+            await sendTelegramMessage(chatId, `✅ Status geändert auf <b>${statusLabels[newStatus] || newStatus}</b>`);
+            await handleAdminRideDetail(chatId, rideId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Admin: Fahrt endgültig löschen
+    if (data.startsWith('adm_delconfirm_')) {
+        const rideId = data.replace('adm_delconfirm_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-admin', deletedAt: Date.now() });
+            await addTelegramLog('🗑️', chatId, `Admin: Fahrt gelöscht: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
+            await sendTelegramMessage(chatId, `🗑️ <b>Fahrt storniert!</b>\n\n${r ? `📍 ${r.pickup} → ${r.destination}\n👤 ${r.customerName || '?'}` : ''}`);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // ═══ KUNDEN: Fahrt bearbeiten/stornieren ═══
+    if (data.startsWith('cust_edit_')) {
+        const rideId = data.replace('cust_edit_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const dt = new Date(r.pickupTimestamp || 0);
+            const dateStr = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' });
+            const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+
+            let msg = `✏️ <b>Fahrt bearbeiten</b>\n\n`;
+            msg += `📅 ${dateStr} um ${timeStr} Uhr\n`;
+            msg += `📍 ${r.pickup || '?'} → ${r.destination || '?'}\n`;
+            msg += `👥 ${r.passengers || 1} Person(en)\n\n`;
+            msg += `<b>Was möchten Sie ändern?</b>`;
+
+            await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
+                [{ text: '⏰ Uhrzeit ändern', callback_data: `cust_time_${rideId}` }],
+                [{ text: '📍 Abholort ändern', callback_data: `cust_addr_${rideId}_pickup` }, { text: '🎯 Ziel ändern', callback_data: `cust_addr_${rideId}_destination` }],
+                [{ text: '🗑️ Stornieren', callback_data: `cust_del_${rideId}` }, { text: '✖ Zurück', callback_data: 'cust_edit_cancel' }]
+            ]}});
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    if (data === 'cust_edit_cancel') {
+        await sendTelegramMessage(chatId, '✅ OK, nichts geändert.');
+        return;
+    }
+
+    // Kunden: Uhrzeit ändern
+    if (data.startsWith('cust_time_')) {
+        const rideId = data.replace('cust_time_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const dt = new Date(r.pickupTimestamp || 0);
+            const currentTime = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+
+            const timeButtons = [];
+            for (const offset of [-60, -30, 30, 60]) {
+                const alt = new Date(dt.getTime() + offset * 60000);
+                const altTime = alt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+                const label = offset < 0 ? `${altTime} (${offset}min)` : `${altTime} (+${offset}min)`;
+                timeButtons.push({ text: label, callback_data: `cust_settime_${rideId}_${offset}` });
+            }
+
+            await sendTelegramMessage(chatId,
+                `⏰ <b>Neue Uhrzeit wählen</b>\n\nAktuell: <b>${currentTime} Uhr</b>\n\nWählen Sie eine Zeit oder schreiben Sie z.B. "14:30":`,
+                { reply_markup: { inline_keyboard: [
+                    [timeButtons[0], timeButtons[1]],
+                    [timeButtons[2], timeButtons[3]],
+                    [{ text: '◀ Zurück', callback_data: `cust_edit_${rideId}` }]
+                ]}}
+            );
+            await setPending(chatId, { _custEditRide: rideId, _custEditField: 'time' });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Kunden: Adresse ändern - Freitext starten
+    if (data.startsWith('cust_addr_')) {
+        const rest = data.replace('cust_addr_', '');
+        const lastUnderscore = rest.lastIndexOf('_');
+        const rideId = rest.substring(0, lastUnderscore);
+        const field = rest.substring(lastUnderscore + 1);
+        const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+        await setPending(chatId, { _custEditRide: rideId, _custEditField: field });
+        await sendTelegramMessage(chatId, `📍 <b>Neuen ${label} eingeben:</b>\n\nSchreiben Sie die neue Adresse:`, {
+            reply_markup: { inline_keyboard: [[{ text: '✖ Abbrechen', callback_data: `cust_edit_${rideId}` }]] }
+        });
+        return;
+    }
+
+    // Kunden: Zeit per Button setzen
+    if (data.startsWith('cust_settime_')) {
+        const parts = data.replace('cust_settime_', '').split('_');
+        const rideId = parts.slice(0, -1).join('_');
+        const offset = parseInt(parts[parts.length - 1]);
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            const newTs = (r.pickupTimestamp || Date.now()) + offset * 60000;
+            const newDt = new Date(newTs);
+            const newTime = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            await db.ref(`rides/${rideId}`).update({
+                pickupTimestamp: newTs, pickupTime: newTime,
+                editedAt: Date.now(), editedBy: 'telegram-customer'
+            });
+            await addTelegramLog('✏️', chatId, `Kunde: Zeit geändert auf ${newTime}`);
+            await sendTelegramMessage(chatId, `✅ <b>Uhrzeit geändert!</b>\n\nNeue Zeit: <b>${newTime} Uhr</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Kunden: Fahrt stornieren
+    if (data.startsWith('cust_del_')) {
+        const rideId = data.replace('cust_del_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            const dt = new Date(r.pickupTimestamp || 0);
+            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            await sendTelegramMessage(chatId,
+                `🗑️ <b>Fahrt wirklich stornieren?</b>\n\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '🗑️ Ja, stornieren!', callback_data: `cust_delok_${rideId}` }, { text: '✖ Behalten', callback_data: `cust_edit_${rideId}` }]
+                ]}}
+            );
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Kunden: Stornierung bestätigt
+    if (data.startsWith('cust_delok_')) {
+        const rideId = data.replace('cust_delok_', '');
+        try {
+            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-customer', deletedAt: Date.now() });
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            await addTelegramLog('🗑️', chatId, `Kunde hat storniert: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
+            await sendTelegramMessage(chatId, `✅ <b>Fahrt storniert!</b>\n\n📍 ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}\n\n<i>Möchten Sie ein neues Taxi? Schreiben Sie einfach wann und wohin!</i>`);
+
+            // Admin benachrichtigen
+            try {
+                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = adminSnap.val() || [];
+                const dt = new Date(r.pickupTimestamp || 0);
+                const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                for (const adminChatId of adminChats) {
+                    sendTelegramMessage(adminChatId,
+                        `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`
+                    ).catch(() => {});
+                }
+            } catch (e) { /* Admin-Benachrichtigung ist nicht kritisch */ }
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler beim Stornieren.'); }
+        return;
+    }
+
+    // Fahrt löschen (Kunden-Seite, alter Handler)
     if (data.startsWith('del_ride_')) {
         const rideId = data.replace('del_ride_', '');
         try {

@@ -552,6 +552,8 @@ DATUM + UHRZEIT → ISO-Format YYYY-MM-DDTHH:MM:
 • "Freitag 14:30" → [nächster Freitag]T14:30
 • Nur Uhrzeit ohne Datum → Datum = heute
 • Nur Datum ohne Uhrzeit → datetime = null, "datetime" in missing
+• KEIN Datum UND KEINE Uhrzeit genannt → datetime = null, "datetime" MUSS in missing!
+• NIEMALS ein Datum/Uhrzeit erfinden oder raten! Nur setzen wenn EXPLIZIT vom Fahrgast genannt!
 • NIEMALS 00:00 verwenden!
 
 ADRESSEN:
@@ -596,6 +598,15 @@ Nur gültiges JSON, kein Markdown:
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
         let jsonText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const booking = JSON.parse(jsonText);
+
+        // Datum-Halluzinations-Schutz: Wenn der User kein Datum/Uhrzeit geschrieben hat, datetime löschen
+        const _timeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
+        if (booking.datetime && !_timeKeywords.test(text)) {
+            await addTelegramLog('🛡️', chatId, `Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber User schrieb "${text}" ohne Zeitangabe → datetime gelöscht`);
+            booking.datetime = null;
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+        }
 
         // Jahres-Sanitycheck
         if (booking.datetime && typeof booking.datetime === 'string') {
@@ -803,7 +814,7 @@ NEUE ANTWORT: "${newText}"
 REGELN:
 1. FELD-ZUORDNUNG: Die Antwort füllt das erste fehlende Feld ("${_missingNow[0] || 'keines'}"), außer der Fahrgast benennt explizit ein anderes
 2. BESTEHENDE FELDER: Nie überschreiben, außer Fahrgast korrigiert explizit
-3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | nie 00:00!
+3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 
@@ -829,6 +840,15 @@ Nur gültiges JSON, kein Markdown:
         // Schutzmaßnahmen
         if (partial.phone) booking.phone = partial.phone;
         if (partial.name && partial._crmCustomerId) booking.name = partial.name;
+
+        // Datum-Halluzinations-Schutz für Follow-Up: Wenn vorher kein datetime und User kein Datum nennt → nicht erfinden
+        const _fuTimeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
+        if (!_pDatetime && booking.datetime && !_fuTimeKeywords.test(newText)) {
+            await addTelegramLog('🛡️', chatId, `Follow-Up Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber Antwort "${newText}" enthält keine Zeitangabe → datetime gelöscht`);
+            booking.datetime = null;
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+        }
 
         // Jahres-Sanitycheck
         if (booking.datetime && typeof booking.datetime === 'string') {
@@ -896,6 +916,22 @@ Nur gültiges JSON, kein Markdown:
 // ═══════════════════════════════════════════════════════════════
 
 async function askPassengersOrConfirm(chatId, booking, routePrice, originalText) {
+    // Sicherheitscheck: datetime muss gesetzt sein bevor Buchung bestätigt werden kann
+    if (!booking.datetime) {
+        await addTelegramLog('🛡️', chatId, 'Datum fehlt → zurück zur Abfrage');
+        if (!booking.missing) booking.missing = [];
+        if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+        const noted = [];
+        if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
+        if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
+        let msg = '';
+        if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+        msg += '💬 Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.\n\n<i>/abbrechen zum Zurücksetzen</i>';
+        await setPending(chatId, { partial: booking, originalText, lastQuestion: 'Für wann soll ich das Taxi bestellen?' });
+        await sendTelegramMessage(chatId, msg);
+        return;
+    }
+
     const hasExplicitPassengers = booking._passengersExplicit || (booking.passengers && booking.passengers > 1);
     if (hasExplicitPassengers) {
         await addTelegramLog('👥', chatId, `Personen explizit (${booking.passengers}) → direkt zur Bestätigung`);
@@ -1438,7 +1474,16 @@ async function handleCallback(callback) {
 
         try {
             const booking = pending.booking;
-            const pickupTimestamp = booking.datetime ? parseGermanDatetime(booking.datetime) : Date.now();
+            // Letzter Schutz: Ohne datetime keine Buchung
+            if (!booking.datetime) {
+                await addTelegramLog('🛡️', chatId, 'Buchung abgebrochen: Kein Datum/Uhrzeit gesetzt');
+                await sendTelegramMessage(chatId, '⚠️ <b>Datum/Uhrzeit fehlt!</b>\n\nBitte nenne mir zuerst, wann du das Taxi brauchst (Datum und Uhrzeit).');
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+                await setPending(chatId, { partial: booking, originalText: '' });
+                return;
+            }
+            const pickupTimestamp = parseGermanDatetime(booking.datetime);
             const dt = new Date(pickupTimestamp);
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / 60000;
             const isVorbestellung = minutesUntilPickup > 30;
@@ -1878,6 +1923,13 @@ async function handleCallback(callback) {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {
             const booking = pending.partial;
+            // Prüfe ob noch Pflichtfelder fehlen (datetime!)
+            if (!booking.datetime) {
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                return;
+            }
             const routePrice = await calculateTelegramRoutePrice(booking);
             await askPassengersOrConfirm(chatId, booking, routePrice, pending.originalText || '');
         }

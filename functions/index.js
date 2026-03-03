@@ -932,7 +932,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     if (routePrice) {
         msg += `\n🗺️ Strecke: ca. ${routePrice.distance} km (~${routePrice.duration} Min)\n`;
         msg += `💰 Geschätzter Preis: ca. ${routePrice.price} €`;
-        if (routePrice.zuschlagText.length > 0) msg += ` (${routePrice.zuschlagText.join(', ')})`;
+        if (routePrice.zuschlagText && routePrice.zuschlagText.length > 0) msg += ` (${routePrice.zuschlagText.join(', ')})`;
         msg += '\n';
     }
     msg += '\n<b>Soll ich den Termin eintragen?</b>';
@@ -982,6 +982,12 @@ async function linkTelegramChatToCustomer(chatId, booking) {
     const name = booking.name;
     if (!phone && !name) return;
 
+    // Sicherheitscheck: Admin-ChatIDs NIEMALS als Kunden speichern
+    if (await isTelegramAdmin(chatId)) {
+        await addTelegramLog('🛡️', chatId, `Admin-Schutz: chatId ${chatId} wird NICHT als Kunde "${name}" gespeichert`);
+        return;
+    }
+
     try {
         const snap = await db.ref('customers').once('value');
         let customerId = null;
@@ -1012,6 +1018,57 @@ async function linkTelegramChatToCustomer(chatId, booking) {
             });
         }
     } catch (e) { console.warn('linkTelegramChatToCustomer:', e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BELIEBTE ZIELE (Kundenhistorie)
+// ═══════════════════════════════════════════════════════════════
+
+async function getCustomerFavoriteDestinations(customerName, customerPhone) {
+    try {
+        const snap = await db.ref('rides').orderByChild('customerName').equalTo(customerName).limitToLast(50).once('value');
+        if (!snap.exists()) return [];
+
+        const destCount = {};
+        const destDetails = {};
+        snap.forEach(child => {
+            const r = child.val();
+            if (!r.destination || r.status === 'cancelled' || r.status === 'storniert') return;
+            const dest = r.destination.trim();
+            const key = dest.toLowerCase();
+            destCount[key] = (destCount[key] || 0) + 1;
+            if (!destDetails[key]) {
+                destDetails[key] = {
+                    name: dest,
+                    lat: r.destinationLat || null,
+                    lon: r.destinationLon || null
+                };
+            }
+            // Pickup als mögliche "Von"-Adresse merken (häufigster = Zuhause)
+            if (!destDetails[key].lastPickup && r.pickup) {
+                destDetails[key].lastPickup = r.pickup;
+                destDetails[key].pickupLat = r.pickupLat || null;
+                destDetails[key].pickupLon = r.pickupLon || null;
+            }
+        });
+
+        // Sortiere nach Häufigkeit, max 4 Ziele
+        return Object.entries(destCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([key, count]) => ({
+                destination: destDetails[key].name,
+                destinationLat: destDetails[key].lat,
+                destinationLon: destDetails[key].lon,
+                lastPickup: destDetails[key].lastPickup,
+                pickupLat: destDetails[key].pickupLat,
+                pickupLon: destDetails[key].pickupLon,
+                count
+            }));
+    } catch (e) {
+        console.warn('getCustomerFavoriteDestinations:', e.message);
+        return [];
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1558,6 +1615,44 @@ async function handleCallback(callback) {
         return;
     }
 
+    // Beliebtes Ziel ausgewählt
+    if (data.startsWith('fav_dest_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.awaitingFavDestination) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden. Bitte nochmal starten.');
+            return;
+        }
+
+        const { preselectedCustomer, originalText, userName, favorites } = pending;
+
+        if (data.startsWith('fav_dest_other_')) {
+            // "Anderes Ziel" → normaler Buchungsflow
+            await deletePending(chatId);
+            await sendTelegramMessage(chatId, `🤖 <i>Analysiere Buchung für ${preselectedCustomer.name}...</i>`);
+            await analyzeTelegramBooking(chatId, originalText, userName, { isAdmin: true, preselectedCustomer });
+            return;
+        }
+
+        const favMatch = data.match(/^fav_dest_(\d+)_(.+)$/);
+        if (!favMatch || !favorites) return;
+        const favIndex = parseInt(favMatch[1]);
+        const fav = favorites[favIndex];
+        if (!fav) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+
+        await addTelegramLog('⭐', chatId, `Beliebtes Ziel gewählt: ${fav.destination} (${fav.count}x gebucht)`);
+
+        // Buchungstext mit dem gewählten Ziel + ggf. Abholadresse zusammenbauen
+        const pickup = preselectedCustomer.address || fav.lastPickup || null;
+        let enrichedText = originalText || '';
+        if (pickup) enrichedText += ` von ${pickup}`;
+        enrichedText += ` nach ${fav.destination}`;
+
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+        await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer });
+        return;
+    }
+
     // Zeitslot-Auswahl
     if (data.startsWith('slot_')) {
         const match = data.match(/^slot_(-?\d+)_(\d{2})_(\d{2})$/);
@@ -1605,25 +1700,49 @@ async function handleCallback(callback) {
     }
 
     // Admin Kundenwahl
-    if (data.startsWith('admin_cust_yes_')) {
+    if (data.startsWith('admin_cust_yes_') || data.startsWith('admin_cust_sel_')) {
         const pending = await getPending(chatId);
-        if (!pending || !pending.crmConfirm) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        const { found } = pending.crmConfirm;
-        await deletePending(chatId);
-        await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
-        await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, preselectedCustomer: found });
-        return;
-    }
-    if (data.startsWith('admin_cust_sel_')) {
-        const selectMatch = data.match(/^admin_cust_sel_(\d+)_(.+)$/);
-        if (!selectMatch) return;
-        const pending = await getPending(chatId);
-        if (!pending || !pending.crmMultiSelect) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        const found = pending.crmMultiSelect.matches[parseInt(selectMatch[1])];
-        if (!found) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
-        await deletePending(chatId);
-        await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
-        await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, preselectedCustomer: found });
+        let found = null;
+
+        if (data.startsWith('admin_cust_yes_')) {
+            if (!pending || !pending.crmConfirm) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+            found = pending.crmConfirm.found;
+        } else {
+            const selectMatch = data.match(/^admin_cust_sel_(\d+)_(.+)$/);
+            if (!selectMatch) return;
+            if (!pending || !pending.crmMultiSelect) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+            found = pending.crmMultiSelect.matches[parseInt(selectMatch[1])];
+            if (!found) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+        }
+
+        await addTelegramLog('👤', chatId, `Admin: Vorausgewählter Kunde: ${found.name}`);
+
+        // Beliebte Ziele des Kunden laden
+        const favorites = await getCustomerFavoriteDestinations(found.name, found.phone);
+        if (favorites.length > 0) {
+            const favId = Date.now().toString(36);
+            await setPending(chatId, {
+                awaitingFavDestination: true,
+                originalText: pending.originalText,
+                userName: pending.userName,
+                preselectedCustomer: found,
+                favorites,
+                favId
+            });
+            let favMsg = `✅ <b>${found.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
+            const buttons = favorites.map((f, i) => {
+                favMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
+                const label = f.destination.length > 28 ? f.destination.slice(0, 26) + '…' : f.destination;
+                return [{ text: `📍 ${label}`, callback_data: `fav_dest_${i}_${favId}` }];
+            });
+            buttons.push([{ text: '📝 Anderes Ziel', callback_data: `fav_dest_other_${favId}` }]);
+            await sendTelegramMessage(chatId, favMsg, { reply_markup: { inline_keyboard: buttons } });
+        } else {
+            // Keine Favoriten → normaler Flow
+            await deletePending(chatId);
+            await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+            await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, preselectedCustomer: found });
+        }
         return;
     }
     if (data.startsWith('admin_cust_no_')) {

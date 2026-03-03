@@ -1523,9 +1523,15 @@ async function handleCallback(callback) {
         if (!match) return;
         const paxCount = parseInt(match[1]);
         const pending = await getPending(chatId);
-        if (!pending || !pending.booking) return;
+        if (!pending || !pending.booking) {
+            // v6.3.1: Statt stiller Rückkehr → Fehlermeldung an User
+            await addTelegramLog('⚠️', chatId, `Personenzahl-Button: Buchungsdaten nicht gefunden (pending=${!!pending})`);
+            await sendTelegramMessage(chatId, '⚠️ Sitzung abgelaufen. Bitte schreiben Sie Ihren Buchungswunsch noch einmal.');
+            return;
+        }
         pending.booking.passengers = paxCount;
         pending.booking._passengersExplicit = true;
+        await addTelegramLog('👥', chatId, `${paxCount} Person(en) gewählt`);
         await showTelegramConfirmation(chatId, pending.booking, pending.routePrice);
         return;
     }

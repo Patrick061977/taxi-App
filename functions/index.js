@@ -371,6 +371,24 @@ function calculatePrice(distance, timestamp = null) {
     return { total: totalRounded.toFixed(2), zuschlagText: text, distance, basePrice: base.toFixed(2) };
 }
 
+// Parse datetime string as German time (CET/CEST) → returns UTC timestamp
+function parseGermanDatetime(datetimeStr) {
+    if (!datetimeStr) return Date.now();
+    const d = new Date(datetimeStr);
+    if (isNaN(d.getTime())) return Date.now();
+    // If already has explicit timezone suffix (Z or +/-offset), use as-is
+    if (typeof datetimeStr === 'string' && (datetimeStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(datetimeStr))) {
+        return d.getTime();
+    }
+    // Treat as Europe/Berlin: compute offset and correct
+    const berlinStr = d.toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
+    const berlinAsUTC = new Date(berlinStr);
+    const offsetMs = berlinAsUTC.getTime() - d.getTime();
+    return d.getTime() - offsetMs;
+}
+
+const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
+
 async function calculateTelegramRoutePrice(booking) {
     if (!booking.pickupLat || !booking.destinationLat) return null;
     try {
@@ -380,7 +398,7 @@ async function calculateTelegramRoutePrice(booking) {
         );
         if (!route || !route.distance) return null;
         if (parseFloat(route.distance) > 500) return null;
-        const pickupTimestamp = booking.datetime ? new Date(booking.datetime).getTime() : Date.now();
+        const pickupTimestamp = booking.datetime ? parseGermanDatetime(booking.datetime) : Date.now();
         const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
         return { distance: route.distance, duration: route.duration, price: pricing.total, zuschlagText: pricing.zuschlagText };
     } catch (e) { return null; }
@@ -705,8 +723,8 @@ async function continueBookingFlow(chatId, booking, originalText) {
             let msg = '';
             const noted = [];
             if (booking.datetime) {
-                const d = new Date(booking.datetime);
-                noted.push(`📅 ${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`);
+                const d = new Date(parseGermanDatetime(booking.datetime));
+                noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
             }
             if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
             if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
@@ -827,7 +845,7 @@ Nur gültiges JSON, kein Markdown:
         if (booking.missing && booking.missing.length > 0) {
             let msg = '';
             const noted = [];
-            if (booking.datetime) { const d = new Date(booking.datetime); noted.push(`📅 ${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`); }
+            if (booking.datetime) { const d = new Date(parseGermanDatetime(booking.datetime)); noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`); }
             if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
             if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
             if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
@@ -917,8 +935,8 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         ? `🕵️ <b>Buchung für ${booking._forCustomer || booking.name}</b>\n\n`
         : '✅ <b>Termin erkannt!</b>\n\n';
     if (booking.datetime) {
-        const dt = new Date(booking.datetime);
-        msg += `📅 ${dt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr\n`;
+        const dt = new Date(parseGermanDatetime(booking.datetime));
+        msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
     }
     if (booking.pickup) msg += `📍 Von: ${booking.pickup} ✅\n`;
     if (booking.destination) msg += `🎯 Nach: ${booking.destination} ✅\n`;
@@ -946,12 +964,12 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
         { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
     ]);
     if (booking && booking.datetime) {
-        const dt = new Date(booking.datetime);
+        const dt = new Date(parseGermanDatetime(booking.datetime));
         const timeRow = [];
         for (const offset of [-60, -30, 30, 60]) {
             const alt = new Date(dt.getTime() + offset * 60000);
-            const hh = String(alt.getHours()).padStart(2, '0');
-            const mm = String(alt.getMinutes()).padStart(2, '0');
+            const altTime = alt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+            const [hh, mm] = altTime.split(':');
             const label = offset < 0 ? `◀ ${hh}:${mm}` : `${hh}:${mm} ▶`;
             timeRow.push({ text: label, callback_data: `slot_${chatId}_${hh}_${mm}` });
         }
@@ -1099,7 +1117,7 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         let msg = `📋 <b>Ihre Buchungen, ${knownCustomer.name}:</b>\n\n`;
         upcoming.forEach(([, r]) => {
             const dt = new Date(r.pickupTimestamp || 0);
-            const timeStr = dt.toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
             msg += `📅 <b>${timeStr} Uhr</b>\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n📋 ${r.status || 'offen'}\n\n`;
         });
         await sendTelegramMessage(chatId, msg);
@@ -1132,7 +1150,7 @@ async function handleTelegramDeleteQuery(chatId, knownCustomer) {
         const buttons = [];
         upcoming.forEach(([rideId, r]) => {
             const dt = new Date(r.pickupTimestamp || 0);
-            const timeStr = dt.toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
             msg += `📅 <b>${timeStr} Uhr</b>\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n`;
             buttons.push([{ text: `🗑️ ${timeStr}: ${(r.pickup || '?').substring(0, 20)}...`, callback_data: `del_ride_${rideId}` }]);
         });
@@ -1420,16 +1438,16 @@ async function handleCallback(callback) {
 
         try {
             const booking = pending.booking;
-            const pickupTimestamp = booking.datetime ? new Date(booking.datetime).getTime() : Date.now();
+            const pickupTimestamp = booking.datetime ? parseGermanDatetime(booking.datetime) : Date.now();
             const dt = new Date(pickupTimestamp);
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / 60000;
             const isVorbestellung = minutesUntilPickup > 30;
             const passengers = booking.passengers || 1;
-            const timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+            const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
 
-            // Preis berechnen
-            let telegramRoutePrice = null;
-            if (booking.pickupLat && booking.destinationLat) {
+            // Preis: gespeicherten verwenden, nur als Fallback neu berechnen
+            let telegramRoutePrice = pending.routePrice || null;
+            if (!telegramRoutePrice && booking.pickupLat && booking.destinationLat) {
                 try { telegramRoutePrice = await calculateTelegramRoutePrice(booking); } catch (e) {}
             }
 
@@ -1437,8 +1455,8 @@ async function handleCallback(callback) {
                 pickup: booking.pickup || 'Abholort offen',
                 destination: booking.destination || 'Zielort offen',
                 pickupTimestamp,
-                pickupTime: dt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                pickupDate: dt.toLocaleDateString('de-DE'),
+                pickupTime: dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                pickupDate: dt.toLocaleDateString('de-DE', TZ_BERLIN),
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
@@ -1463,7 +1481,7 @@ async function handleCallback(callback) {
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
             await sendTelegramMessage(chatId,
                 successHeader +
-                `📅 ${dt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
+                `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
                 `📍 ${rideData.pickup} → ${rideData.destination}\n` +
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
@@ -1486,16 +1504,16 @@ async function handleCallback(callback) {
                     const adminChats = adminSnap.val() || [];
                     if (adminChats.length > 0) {
                         const now = new Date();
-                        const isToday = dt.toDateString() === now.toDateString();
+                        const isTodayBerlin = dt.toLocaleDateString('de-DE', TZ_BERLIN) === now.toLocaleDateString('de-DE', TZ_BERLIN);
                         let timeLabel;
                         if (!isVorbestellung) {
                             timeLabel = 'SOFORT';
-                        } else if (isToday) {
+                        } else if (isTodayBerlin) {
                             timeLabel = `Heute ${timeStr} Uhr`;
                         } else {
-                            timeLabel = `${dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
+                            timeLabel = `${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
                         }
-                        const sentAt = now.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const sentAt = now.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                         const statusEmoji = isVorbestellung ? '📅' : '🚕';
                         const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
                         const adminMsg = `${statusEmoji} <b>${statusText}</b>\n` +
@@ -1663,14 +1681,15 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden.');
             return;
         }
-        const existingDt = new Date(pending.booking.datetime || Date.now());
-        existingDt.setHours(parseInt(hh), parseInt(mm), 0, 0);
-        pending.booking.datetime = existingDt.toISOString();
+        const existingTimestamp = parseGermanDatetime(pending.booking.datetime);
+        const berlinDate = new Date(existingTimestamp).toLocaleDateString('en-CA', TZ_BERLIN); // YYYY-MM-DD
+        pending.booking.datetime = `${berlinDate}T${hh}:${mm}:00`;
         pending._prevalidatedSlot = true;
         pending._prevalidatedAt = Date.now();
         await setPending(chatId, pending);
 
-        const dayLabel = existingDt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+        const newDt = new Date(parseGermanDatetime(pending.booking.datetime));
+        const dayLabel = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' });
         await sendTelegramMessage(chatId,
             `🕐 <b>Neue Zeit: ${hh}:${mm} Uhr</b>\n\n📅 ${dayLabel} um ${hh}:${mm} Uhr\n📍 ${pending.booking.pickup} → ${pending.booking.destination}\n👥 ${pending.booking.passengers || 1} Person(en)\n\nSoll ich diese Zeit buchen?`,
             { reply_markup: { inline_keyboard: [[

@@ -932,7 +932,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     if (routePrice) {
         msg += `\n🗺️ Strecke: ca. ${routePrice.distance} km (~${routePrice.duration} Min)\n`;
         msg += `💰 Geschätzter Preis: ca. ${routePrice.price} €`;
-        if (routePrice.zuschlagText.length > 0) msg += ` (${routePrice.zuschlagText.join(', ')})`;
+        if (routePrice.zuschlagText && routePrice.zuschlagText.length > 0) msg += ` (${routePrice.zuschlagText.join(', ')})`;
         msg += '\n';
     }
     msg += '\n<b>Soll ich den Termin eintragen?</b>';

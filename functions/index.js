@@ -474,29 +474,20 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
 // ═══════════════════════════════════════════════════════════════
 
 async function callAnthropicAPI(apiKey, model, maxTokens, messages) {
-    // 🆕 v6.6.3: Retry mit Backoff bei 529 (Overloaded) und 503 (Service Unavailable)
-    const MAX_RETRIES = 2;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({ model, max_tokens: maxTokens, messages })
-        });
-        if (resp.ok) return resp.json();
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({ model, max_tokens: maxTokens, messages })
+    });
+    if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        // Bei 529/503: Retry mit Backoff (2s, 4s)
-        if ((resp.status === 529 || resp.status === 503) && attempt < MAX_RETRIES) {
-            const delay = (attempt + 1) * 2000;
-            console.log(`⏳ API ${resp.status} – Retry ${attempt + 1}/${MAX_RETRIES} in ${delay/1000}s...`);
-            await new Promise(r => setTimeout(r, delay));
-            continue;
-        }
         throw new Error(`API-Fehler: ${resp.status} - ${err.error?.message || 'Unbekannt'}`);
     }
+    return resp.json();
 }
 
 async function getAnthropicApiKey() {
@@ -569,6 +560,7 @@ ADRESSEN:
 • Straße + Hausnummer immer vollständig übernehmen
 • Bekannte Ziele: "Bahnhof Heringsdorf", "Flughafen Heringsdorf (HDF)", "Seebrücke Heringsdorf"
 • Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → kurz nachfragen
+• NUR ORTSNAME (z.B. "Bansin", "Ahlbeck", "Heringsdorf") OHNE Straße → Adresse übernehmen ABER in question freundlich nach genauer Straße fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer wäre ideal – oder soll ich den Ortskern nehmen?"
 • "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, nach Straße fragen
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
@@ -724,20 +716,7 @@ Nur gültiges JSON, kein Markdown:
     } catch (e) {
         console.error('Analyse-Fehler:', e);
         await addTelegramLog('❌', chatId, 'Analyse-Fehler: ' + e.message);
-        // 🆕 v6.6.3: Freundliche Fallback-Nachricht statt technischer Fehlermeldung
-        if (e.message && (e.message.includes('529') || e.message.includes('503') || e.message.includes('Overloaded'))) {
-            await sendTelegramMessage(chatId,
-                '⚠️ Unser Buchungssystem ist gerade kurzzeitig überlastet.\n\n' +
-                '🔄 Bitte versuchen Sie es in 1-2 Minuten erneut.\n\n' +
-                'Oder rufen Sie uns direkt an:\n📞 <b>038378 / 22022</b>'
-            );
-        } else {
-            await sendTelegramMessage(chatId,
-                '⚠️ Leider ist ein technischer Fehler aufgetreten.\n\n' +
-                '🔄 Bitte versuchen Sie es nochmal.\n\n' +
-                'Falls es weiterhin nicht klappt, rufen Sie uns einfach an:\n📞 <b>038378 / 22022</b>'
-            );
-        }
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Analyse: ' + e.message + '\n\nBitte versuche es nochmal.');
     }
 }
 
@@ -783,10 +762,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
         await askPassengersOrConfirm(chatId, booking, routePrice, originalText);
     } catch (e) {
         console.error('continueBookingFlow Fehler:', e);
-        await sendTelegramMessage(chatId,
-            '⚠️ Leider ist ein Fehler bei der Buchung aufgetreten.\n\n' +
-            '🔄 Bitte versuchen Sie es nochmal oder rufen Sie uns an:\n📞 <b>038378 / 22022</b>'
-        );
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
     }
 }
 
@@ -842,6 +818,7 @@ REGELN:
 3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
+6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
 
 Nur gültiges JSON, kein Markdown:
 {
@@ -932,18 +909,7 @@ Nur gültiges JSON, kein Markdown:
 
     } catch (e) {
         console.error('Follow-Up Fehler:', e);
-        if (e.message && (e.message.includes('529') || e.message.includes('503') || e.message.includes('Overloaded'))) {
-            await sendTelegramMessage(chatId,
-                '⚠️ Unser Buchungssystem ist gerade kurzzeitig überlastet.\n\n' +
-                '🔄 Bitte versuchen Sie es in 1-2 Minuten erneut.\n\n' +
-                'Oder rufen Sie uns direkt an:\n📞 <b>038378 / 22022</b>'
-            );
-        } else {
-            await sendTelegramMessage(chatId,
-                '⚠️ Leider ist ein Fehler aufgetreten.\n\n' +
-                '🔄 Bitte versuchen Sie es nochmal oder rufen Sie uns an:\n📞 <b>038378 / 22022</b>'
-            );
-        }
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
     }
 }
 
@@ -1035,6 +1001,11 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
         { text: '✅ Ja, eintragen!', callback_data: `book_yes_${bookingId}` },
         { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
     ]);
+    if (!booking || !booking.notes || booking.notes === 'null') {
+        keyboard.inline_keyboard.push([
+            { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
+        ]);
+    }
     if (booking && booking.datetime) {
         const dt = new Date(parseGermanDatetime(booking.datetime));
         const timeRow = [];
@@ -1577,7 +1548,7 @@ async function handleMessage(message) {
         }
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '👤 Profil', callback_data: 'menu_profil' }],
             knownCustomer ? [{ text: '🔓 Abmelden', callback_data: 'menu_abmelden' }] : [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
@@ -1597,12 +1568,33 @@ async function handleMessage(message) {
 
     if (textCmd === '/hilfe' || textCmd === '/help') {
         const knownCustomer = await getTelegramCustomer(chatId);
-        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
         if (await isTelegramAdmin(chatId)) {
             hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
         }
         if (knownCustomer) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownCustomer.name}\n📱 ${knownCustomer.phone || 'keine Telefonnummer'}`;
         await sendTelegramMessage(chatId, hilfeMsg);
+        return;
+    }
+
+    if (textCmd === '/profil' || textCmd === '/profile') {
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Sie sind noch nicht angemeldet.\n\nBitte teilen Sie zuerst Ihre Telefonnummer:', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+            return;
+        }
+        let profilMsg = '👤 <b>Mein Profil</b>\n\n';
+        profilMsg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
+        profilMsg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        profilMsg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        profilMsg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
+        await sendTelegramMessage(chatId, profilMsg, { reply_markup: { inline_keyboard: [
+            [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
+            [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }]
+        ] } });
         return;
     }
 
@@ -1646,7 +1638,7 @@ async function handleMessage(message) {
     if (textCmd.startsWith('/')) {
         const isAdminForHelp = await isTelegramAdmin(chatId);
         const adminCmds = isAdminForHelp ? '\n\n<b>Admin:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen' : '';
-        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
+        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
         return;
     }
 
@@ -1657,6 +1649,66 @@ async function handleMessage(message) {
     if (pending && isPendingExpired(pending)) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, '⏰ <b>Ihre vorherige Anfrage ist abgelaufen</b> (nach 30 Minuten).\n\nSchreiben Sie einfach eine neue Anfrage!');
+    }
+
+    // Bemerkung zur Buchung hinzufügen (Freitext)
+    if (pending && pending._awaitingNote && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
+        const noteText = text.trim().slice(0, 500);
+        const updatedBooking = { ...pending.booking, notes: noteText };
+        const updatedPending = { ...pending, booking: updatedBooking };
+        delete updatedPending._awaitingNote;
+        await setPending(chatId, updatedPending);
+        await addTelegramLog('📝', chatId, `Bemerkung: "${noteText}"`);
+        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending._routePrice || null);
+        const keyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, updatedBooking);
+        await sendTelegramMessage(chatId, `📝 Bemerkung gespeichert!\n\n${confirmMsg}`, { reply_markup: keyboard });
+        return;
+    }
+
+    // Profil-Bearbeitung: Freitext-Eingabe
+    if (pending && pending._profilEdit && !isPendingExpired(pending)) {
+        const field = pending._profilEdit;
+        await deletePending(chatId);
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Profil nicht gefunden. Bitte /start eingeben.');
+            return;
+        }
+        const newValue = text.trim();
+        if (!newValue) {
+            await sendTelegramMessage(chatId, '⚠️ Leerer Wert. Bitte nochmal versuchen über /profil');
+            return;
+        }
+        let finalValue = newValue;
+        if (field === 'phone') {
+            finalValue = newValue.replace(/\s/g, '');
+            if (finalValue.startsWith('+')) { /* ok */ }
+            else if (finalValue.startsWith('00')) finalValue = '+' + finalValue.slice(2);
+            else if (finalValue.startsWith('49') && finalValue.length >= 12) finalValue = '+' + finalValue;
+            else if (finalValue.startsWith('0')) finalValue = '+49' + finalValue.slice(1);
+            else finalValue = '+49' + finalValue;
+        }
+        knownCustomer[field] = finalValue;
+        await saveTelegramCustomer(chatId, knownCustomer);
+        if (knownCustomer.customerId) {
+            try {
+                const update = {};
+                update[field] = finalValue;
+                await db.ref('customers/' + knownCustomer.customerId).update(update);
+                await addTelegramLog('✏️', chatId, `Profil+CRM: ${field} = "${finalValue}"`);
+            } catch (e) {
+                await addTelegramLog('⚠️', chatId, `Profil ok, CRM-Fehler: ${e.message}`);
+            }
+        } else {
+            await addTelegramLog('✏️', chatId, `Profil: ${field} = "${finalValue}"`);
+        }
+        const labels = { name: 'Name', phone: 'Telefonnummer', address: 'Adresse' };
+        await sendTelegramMessage(chatId,
+            `✅ <b>${labels[field]} aktualisiert!</b>\n\nNeu: <b>${finalValue}</b>` +
+            (knownCustomer.customerId ? '\n\n<i>Auch im CRM gespeichert.</i>' : '') +
+            '\n\n/profil – Profil anzeigen'
+        );
+        return;
     }
 
     // Warte auf Bestätigung
@@ -1923,6 +1975,46 @@ async function handleCallback(callback) {
         return;
     }
 
+    // Profil anzeigen (Menü-Button)
+    if (data === 'menu_profil') {
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Bitte zuerst Telefonnummer teilen.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+            return;
+        }
+        let msg = '👤 <b>Mein Profil</b>\n\n';
+        msg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
+        msg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        msg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        msg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
+            [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
+            [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }]
+        ] } });
+        return;
+    }
+
+    // Profil-Feld bearbeiten
+    if (data.startsWith('profil_edit_')) {
+        const field = data.replace('profil_edit_', '');
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Profil nicht gefunden. Bitte /start eingeben.');
+            return;
+        }
+        const labels = { name: '📛 Name', phone: '📱 Telefonnummer', address: '🏠 Adresse' };
+        const hints = { name: 'Ihren vollständigen Namen', phone: 'Ihre neue Telefonnummer (z.B. 0152 12345678)', address: 'Ihre Heimadresse (Straße Hausnummer, Ort)' };
+        const current = { name: knownCustomer.name || '—', phone: knownCustomer.phone || '—', address: knownCustomer.address || 'nicht hinterlegt' };
+        await setPending(chatId, { _profilEdit: field });
+        await sendTelegramMessage(chatId,
+            `✏️ <b>${labels[field]} ändern</b>\n\nAktuell: <b>${current[field]}</b>\n\nBitte geben Sie ${hints[field]} ein:\n\n<i>/abbrechen zum Zurücksetzen</i>`
+        );
+        return;
+    }
+
     // Admin: Für Kunden oder für sich selbst
     if (data === 'taxi_for_customer' || data === 'taxi_for_self') {
         const pending = await getPending(chatId);
@@ -2113,6 +2205,19 @@ async function handleCallback(callback) {
     }
 
     // Buchung ablehnen / ändern
+    // Bemerkung zur Buchung hinzufügen
+    if (data.startsWith('book_note_')) {
+        const noteBookingId = data.replace('book_note_', '');
+        const notePending = await getPending(chatId);
+        if (notePending && notePending.bookingId === noteBookingId && notePending.booking) {
+            await setPending(chatId, { ...notePending, _awaitingNote: true });
+            await sendTelegramMessage(chatId, '📝 <b>Bemerkung zur Fahrt</b>\n\nBitte schreiben Sie Ihre Bemerkung:\n<i>z.B. Kindersitz, Rollstuhl, großer Koffer, Hund, etc.</i>');
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal senden.');
+        }
+        return;
+    }
+
     if (data.startsWith('book_no_')) {
         const noBookingId = data.replace('book_no_', '');
         const noPending = await getPending(chatId);
@@ -2748,8 +2853,11 @@ async function handleContact(message) {
     const removeKeyboard = { reply_markup: { remove_keyboard: true } };
 
     let phone = (contact.phone_number || '').replace(/\s/g, '');
-    if (phone.startsWith('00')) phone = '+' + phone.slice(2);
-    else if (phone && !phone.startsWith('+')) phone = '+49' + phone.replace(/^0/, '');
+    if (phone.startsWith('+')) { /* bereits korrekt */ }
+    else if (phone.startsWith('00')) phone = '+' + phone.slice(2);
+    else if (phone.startsWith('49') && phone.length >= 12) phone = '+' + phone;
+    else if (phone.startsWith('0')) phone = '+49' + phone.slice(1);
+    else phone = '+49' + phone;
 
     await addTelegramLog('📱', chatId, `Kontakt geteilt: ${phone} (${firstName})`);
 

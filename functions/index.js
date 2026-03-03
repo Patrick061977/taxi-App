@@ -982,6 +982,12 @@ async function linkTelegramChatToCustomer(chatId, booking) {
     const name = booking.name;
     if (!phone && !name) return;
 
+    // Sicherheitscheck: Admin-ChatIDs NIEMALS als Kunden speichern
+    if (await isTelegramAdmin(chatId)) {
+        await addTelegramLog('🛡️', chatId, `Admin-Schutz: chatId ${chatId} wird NICHT als Kunde "${name}" gespeichert`);
+        return;
+    }
+
     try {
         const snap = await db.ref('customers').once('value');
         let customerId = null;

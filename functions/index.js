@@ -569,6 +569,7 @@ ADRESSEN:
 • Straße + Hausnummer immer vollständig übernehmen
 • Bekannte Ziele: "Bahnhof Heringsdorf", "Flughafen Heringsdorf (HDF)", "Seebrücke Heringsdorf"
 • Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → kurz nachfragen
+• NUR ORTSNAME (z.B. "Bansin", "Ahlbeck", "Heringsdorf") OHNE Straße → Adresse übernehmen ABER in question freundlich nach genauer Straße fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer wäre ideal – oder soll ich den Ortskern nehmen?"
 • "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, nach Straße fragen
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
@@ -842,6 +843,7 @@ REGELN:
 3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
+6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
 
 Nur gültiges JSON, kein Markdown:
 {
@@ -2748,8 +2750,11 @@ async function handleContact(message) {
     const removeKeyboard = { reply_markup: { remove_keyboard: true } };
 
     let phone = (contact.phone_number || '').replace(/\s/g, '');
-    if (phone.startsWith('00')) phone = '+' + phone.slice(2);
-    else if (phone && !phone.startsWith('+')) phone = '+49' + phone.replace(/^0/, '');
+    if (phone.startsWith('+')) { /* bereits korrekt */ }
+    else if (phone.startsWith('00')) phone = '+' + phone.slice(2);
+    else if (phone.startsWith('49') && phone.length >= 12) phone = '+' + phone;
+    else if (phone.startsWith('0')) phone = '+49' + phone.slice(1);
+    else phone = '+49' + phone;
 
     await addTelegramLog('📱', chatId, `Kontakt geteilt: ${phone} (${firstName})`);
 

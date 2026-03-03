@@ -1579,7 +1579,7 @@ async function handleMessage(message) {
         }
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '👤 Profil', callback_data: 'menu_profil' }],
             knownCustomer ? [{ text: '🔓 Abmelden', callback_data: 'menu_abmelden' }] : [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
@@ -1599,12 +1599,35 @@ async function handleMessage(message) {
 
     if (textCmd === '/hilfe' || textCmd === '/help') {
         const knownCustomer = await getTelegramCustomer(chatId);
-        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
         if (await isTelegramAdmin(chatId)) {
             hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
         }
         if (knownCustomer) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownCustomer.name}\n📱 ${knownCustomer.phone || 'keine Telefonnummer'}`;
         await sendTelegramMessage(chatId, hilfeMsg);
+        return;
+    }
+
+    if (textCmd === '/profil' || textCmd === '/profile') {
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Sie sind noch nicht angemeldet.\n\nBitte teilen Sie zuerst Ihre Telefonnummer:', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+            return;
+        }
+        let profilMsg = '👤 <b>Mein Profil</b>\n\n';
+        profilMsg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
+        profilMsg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        profilMsg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        profilMsg += `📝 Notiz: <b>${knownCustomer.notes || 'keine'}</b>\n`;
+        profilMsg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
+        await sendTelegramMessage(chatId, profilMsg, { reply_markup: { inline_keyboard: [
+            [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
+            [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }],
+            [{ text: '📝 Notiz bearbeiten', callback_data: 'profil_edit_notes' }]
+        ] } });
         return;
     }
 
@@ -1648,7 +1671,7 @@ async function handleMessage(message) {
     if (textCmd.startsWith('/')) {
         const isAdminForHelp = await isTelegramAdmin(chatId);
         const adminCmds = isAdminForHelp ? '\n\n<b>Admin:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen' : '';
-        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
+        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
         return;
     }
 
@@ -1659,6 +1682,66 @@ async function handleMessage(message) {
     if (pending && isPendingExpired(pending)) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, '⏰ <b>Ihre vorherige Anfrage ist abgelaufen</b> (nach 30 Minuten).\n\nSchreiben Sie einfach eine neue Anfrage!');
+    }
+
+    // Profil-Bearbeitung: Freitext-Eingabe
+    if (pending && pending._profilEdit && !isPendingExpired(pending)) {
+        const field = pending._profilEdit;
+        await deletePending(chatId);
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Profil nicht gefunden. Bitte /start eingeben.');
+            return;
+        }
+
+        const newValue = text.trim();
+        if (!newValue) {
+            await sendTelegramMessage(chatId, '⚠️ Leerer Wert. Bitte nochmal versuchen über /profil');
+            return;
+        }
+
+        // Telefonnummer normalisieren
+        let finalValue = newValue;
+        if (field === 'phone') {
+            finalValue = newValue.replace(/\s/g, '');
+            if (finalValue.startsWith('+')) { /* ok */ }
+            else if (finalValue.startsWith('00')) finalValue = '+' + finalValue.slice(2);
+            else if (finalValue.startsWith('49') && finalValue.length >= 12) finalValue = '+' + finalValue;
+            else if (finalValue.startsWith('0')) finalValue = '+49' + finalValue.slice(1);
+            else finalValue = '+49' + finalValue;
+        }
+
+        // Notiz auf 1000 Zeichen begrenzen
+        if (field === 'notes') {
+            finalValue = newValue.slice(0, 1000);
+        }
+
+        // Telegram-Profil aktualisieren
+        knownCustomer[field] = finalValue;
+        await saveTelegramCustomer(chatId, knownCustomer);
+
+        // CRM aktualisieren falls verknüpft
+        if (knownCustomer.customerId) {
+            try {
+                const update = {};
+                update[field] = finalValue;
+                await db.ref('customers/' + knownCustomer.customerId).update(update);
+                await addTelegramLog('✏️', chatId, `Profil+CRM aktualisiert: ${field} = "${finalValue}"`);
+            } catch (e) {
+                console.error('CRM-Update Fehler:', e.message);
+                await addTelegramLog('⚠️', chatId, `Profil aktualisiert, CRM-Fehler: ${e.message}`);
+            }
+        } else {
+            await addTelegramLog('✏️', chatId, `Profil aktualisiert (kein CRM): ${field} = "${finalValue}"`);
+        }
+
+        const labels = { name: 'Name', phone: 'Telefonnummer', address: 'Adresse', notes: 'Notiz' };
+        await sendTelegramMessage(chatId,
+            `✅ <b>${labels[field]} aktualisiert!</b>\n\nNeu: <b>${finalValue}</b>` +
+            (knownCustomer.customerId ? '\n\n<i>Auch im CRM gespeichert.</i>' : '') +
+            '\n\n/profil – Profil anzeigen'
+        );
+        return;
     }
 
     // Warte auf Bestätigung
@@ -1916,12 +1999,52 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId, '🚕 <b>Funk Taxi Heringsdorf</b>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/abbrechen – ❌ Abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Hilfe');
         return;
     }
+    if (data === 'menu_profil') {
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Bitte zuerst Telefonnummer teilen.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+            return;
+        }
+        let profilMsg = '👤 <b>Mein Profil</b>\n\n';
+        profilMsg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
+        profilMsg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        profilMsg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        profilMsg += `📝 Notiz: <b>${knownCustomer.notes || 'keine'}</b>\n`;
+        profilMsg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
+        await sendTelegramMessage(chatId, profilMsg, { reply_markup: { inline_keyboard: [
+            [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
+            [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }],
+            [{ text: '📝 Notiz bearbeiten', callback_data: 'profil_edit_notes' }]
+        ] } });
+        return;
+    }
     if (data === 'menu_abmelden') {
         const wasKnown = await getTelegramCustomer(chatId);
         if (wasKnown) {
             await db.ref('settings/telegram/customers/' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>Abgemeldet!</b> Profil <b>${wasKnown.name}</b> gelöscht.\n\nTippen Sie /start um sich wieder anzumelden.`);
         } else await sendTelegramMessage(chatId, 'ℹ️ Sie sind nicht angemeldet. Tippen Sie /start.');
+        return;
+    }
+
+    // Profil bearbeiten
+    if (data.startsWith('profil_edit_')) {
+        const field = data.replace('profil_edit_', '');
+        const knownCustomer = await getTelegramCustomer(chatId);
+        if (!knownCustomer) {
+            await sendTelegramMessage(chatId, '❓ Profil nicht gefunden. Bitte /start eingeben.');
+            return;
+        }
+        const labels = { name: '📛 Name', phone: '📱 Telefonnummer', address: '🏠 Adresse', notes: '📝 Notiz' };
+        const hints = { name: 'Ihren vollständigen Namen', phone: 'Ihre neue Telefonnummer (z.B. 0152 12345678)', address: 'Ihre Heimadresse (Straße Hausnummer, Ort)', notes: 'Ihre Notiz (max. 1000 Zeichen, z.B. Rollstuhl, Kindersitz, Hund)' };
+        const current = { name: knownCustomer.name || '—', phone: knownCustomer.phone || '—', address: knownCustomer.address || 'nicht hinterlegt', notes: knownCustomer.notes || 'keine' };
+        await setPending(chatId, { _profilEdit: field });
+        await sendTelegramMessage(chatId,
+            `✏️ <b>${labels[field]} ändern</b>\n\nAktuell: <b>${current[field]}</b>\n\nBitte geben Sie ${hints[field]} ein:\n\n<i>/abbrechen zum Zurücksetzen</i>`
+        );
         return;
     }
 

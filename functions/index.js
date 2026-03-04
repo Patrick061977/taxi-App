@@ -1688,21 +1688,23 @@ async function handleMessage(message) {
         let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
         if (knownCustomer) {
             greeting += `👋 Hallo <b>${knownCustomer.name}</b>! Schön, Sie wieder zu sehen.\n`;
-            greeting += `📱 ${knownCustomer.phone || 'Telefon gespeichert'}\n\nWas kann ich für Sie tun?`;
+            greeting += `📱 ${knownCustomer.phone || 'Telefon gespeichert'}\n\n`;
         } else {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
-            greeting += '<b>Das kann ich für Sie tun:</b>\n';
-            greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
-            greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
-            greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
-            greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
-            greeting += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
-            greeting += '💡 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
+        }
+        greeting += '<b>Das kann ich für Sie tun:</b>\n';
+        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
+        greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+        greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        if (!knownCustomer) {
+            greeting += '\n\n📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         }
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '👤 Profil', callback_data: 'menu_profil' }],
-            [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '🗑️ Fahrt stornieren', callback_data: 'menu_loeschen' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -2176,6 +2178,24 @@ async function handleCallback(callback) {
             await db.ref('settings/telegram/customers/' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>Abgemeldet!</b> Profil <b>${wasKnown.name}</b> gelöscht.\n\nTippen Sie /start um sich wieder anzumelden.`);
         } else await sendTelegramMessage(chatId, 'ℹ️ Sie sind nicht angemeldet. Tippen Sie /start.');
+        return;
+    }
+
+    // 🆕 v6.10.0: Menü-Buttons für Ändern und Löschen
+    if (data === 'menu_aendern') {
+        const knownForModify = await getTelegramCustomer(chatId);
+        if (knownForModify) {
+            await handleTelegramModifyQuery(chatId, knownForModify);
+        } else {
+            await sendTelegramMessage(chatId, '❓ Ich kann Sie noch nicht zuordnen.\nBitte teilen Sie Ihre Telefonnummer damit ich Ihre Buchungen finde.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+        }
+        return;
+    }
+    if (data === 'menu_loeschen') {
+        const knownForDelete = await getTelegramCustomer(chatId);
+        await handleTelegramDeleteQuery(chatId, knownForDelete);
         return;
     }
 

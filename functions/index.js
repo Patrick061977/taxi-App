@@ -364,6 +364,7 @@ async function searchNominatimForTelegram(query) {
     if (!query) return [];
     const results = [];
     const searchKey = query.toLowerCase().trim();
+    const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
 
     // KNOWN_PLACES durchsuchen
     for (const [key, place] of Object.entries(KNOWN_PLACES)) {
@@ -372,17 +373,26 @@ async function searchNominatimForTelegram(query) {
         }
     }
 
-    // Nominatim API
+    // Nominatim API - Usedom-Ergebnisse zuerst
     try {
         const [usedomResp, generalResp] = await Promise.all([
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1`),
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=11.0,54.7,14.5,53.3&bounded=1&limit=5&addressdetails=1`)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`, fetchOpts),
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`, fetchOpts)
         ]);
         const usedomData = await usedomResp.json();
         const generalData = await generalResp.json();
         const seen = new Set(results.map(r => `${r.lat.toFixed(3)}_${r.lon.toFixed(3)}`));
 
-        for (const item of [...usedomData, ...generalData]) {
+        // Usedom-Ergebnisse zuerst, dann allgemeine
+        const allItems = [...usedomData, ...generalData];
+        // Sortiere: Usedom-Region zuerst
+        allItems.sort((a, b) => {
+            const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
+            const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
+            return aUsedom - bUsedom;
+        });
+
+        for (const item of allItems) {
             const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
             const coordKey = `${lat.toFixed(3)}_${lon.toFixed(3)}`;
             if (!seen.has(coordKey)) {
@@ -392,7 +402,9 @@ async function searchNominatimForTelegram(query) {
                 if (!name && addr.road) name = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
                 if (!name) name = item.display_name.split(',')[0];
                 const town = addr.town || addr.city || addr.village || addr.municipality || '';
-                results.push({ name: name + (town ? `, ${town}` : ''), lat, lon, source: 'nominatim' });
+                const postcode = addr.postcode || '';
+                const displayName = name + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+                results.push({ name: displayName, lat, lon, source: 'nominatim' });
             }
         }
     } catch (e) { console.warn('Nominatim Fehler:', e); }
@@ -493,63 +505,70 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
     await sendTelegramMessage(chatId, '📍 <i>Prüfe Adressen...</i>');
     await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → "${booking.destination}"`);
 
-    let pickupResult = booking.pickupLat ? { lat: booking.pickupLat, lon: booking.pickupLon } : null;
-    let destResult = booking.destinationLat ? { lat: booking.destinationLat, lon: booking.destinationLon } : null;
+    // Bereits gesetzte Koordinaten überspringen (z.B. GPS-Standort, beliebte Ziele)
+    const hasPickupCoords = !!(booking.pickupLat && booking.pickupLon);
+    const hasDestCoords = !!(booking.destinationLat && booking.destinationLon);
 
-    const needPickup = !pickupResult && !!booking.pickup;
-    const needDest = !destResult && !!booking.destination;
+    const needPickup = !hasPickupCoords && !!booking.pickup;
+    const needDest = !hasDestCoords && !!booking.destination;
 
+    // Wenn Adressen per Text eingegeben → IMMER Vorschläge zeigen, Kunde wählt selbst
     if (needPickup || needDest) {
-        try {
-            const promises = [];
-            if (needPickup) promises.push(geocode(booking.pickup));
-            if (needDest) promises.push(geocode(booking.destination));
-            const results = await Promise.all(promises);
-            let idx = 0;
-            if (needPickup) pickupResult = results[idx++];
-            if (needDest) destResult = results[idx++];
-        } catch (e) {
-            await addTelegramLog('⚠️', chatId, 'Geocoding Fehler: ' + e.message);
-            return booking;
-        }
-    }
-
-    // Nicht-gefundene Adressen -> Vorschläge
-    if (!pickupResult || !destResult) {
-        const notFoundField = !pickupResult ? 'pickup' : 'destination';
-        const notFoundAddress = !pickupResult ? booking.pickup : booking.destination;
-        const fieldLabel = notFoundField === 'pickup' ? '📍 Abholort' : '🎯 Zielort';
+        // Zuerst Pickup lösen, dann Destination
+        const fieldToResolve = needPickup ? 'pickup' : 'destination';
+        const addressToResolve = needPickup ? booking.pickup : booking.destination;
+        const fieldLabel = needPickup ? '📍 Abholort' : '🎯 Zielort';
+        const prefix = needPickup ? 'np' : 'nd';
 
         try {
-            const suggestions = await searchNominatimForTelegram(notFoundAddress);
+            const suggestions = await searchNominatimForTelegram(addressToResolve);
+
             if (suggestions.length > 0) {
-                const prefix = notFoundField === 'pickup' ? 'np' : 'nd';
                 const keyboard = {
                     inline_keyboard: [
                         ...suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
-                        [{ text: '⏩ Trotzdem weiter (ohne Preis)', callback_data: 'addr_skip' }]
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                        [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
                     ]
                 };
 
                 const pendingState = { partial: { ...booking, missing: [] }, originalText };
                 pendingState.nominatimResults = suggestions;
-                if (pickupResult) { pendingState.partial.pickupLat = pickupResult.lat; pendingState.partial.pickupLon = pickupResult.lon; }
-                if (destResult) { pendingState.partial.destinationLat = destResult.lat; pendingState.partial.destinationLon = destResult.lon; }
-                pendingState.pendingDestValidation = (!pickupResult && !destResult);
+                if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
+                if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
+                // Wenn beide Adressen noch aufgelöst werden müssen, Destination nachher
+                pendingState.pendingDestValidation = (needPickup && needDest);
                 await setPending(chatId, pendingState);
 
-                await addTelegramLog('🔍', chatId, `${fieldLabel} "${notFoundAddress}" nicht eindeutig → ${suggestions.length} Vorschläge`);
-                await sendTelegramMessage(chatId, `🔍 <b>${fieldLabel}: "${notFoundAddress}" nicht eindeutig gefunden.</b>\n\nMeinten Sie einen dieser Orte?`, { reply_markup: keyboard });
+                await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${suggestions.length} Vorschläge`);
+                await sendTelegramMessage(chatId,
+                    `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                    `Bitte wählen Sie die korrekte Adresse:`,
+                    { reply_markup: keyboard }
+                );
+                return null; // Warte auf Kundenauswahl
+            } else {
+                // Keine Ergebnisse → Adresse neu eingeben lassen
+                await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → keine Ergebnisse`);
+                await sendTelegramMessage(chatId,
+                    `⚠️ <b>${fieldLabel}: "${addressToResolve}" nicht gefunden.</b>\n\n` +
+                    `Bitte geben Sie die vollständige Adresse ein:\n<b>Straße + Hausnummer, PLZ Ort</b>\n<i>z.B. Dünenweg 10, 17424 Heringsdorf</i>`
+                );
+                booking[fieldToResolve] = null;
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes(fieldToResolve)) booking.missing.push(fieldToResolve);
+                await setPending(chatId, { partial: booking, originalText });
                 return null;
             }
-        } catch (e) { console.warn('Nominatim Disambiguation Fehler:', e); }
+        } catch (e) {
+            console.warn('Adress-Suche Fehler:', e);
+            await addTelegramLog('⚠️', chatId, 'Adress-Suche Fehler: ' + e.message);
+        }
     }
 
-    if (pickupResult) { booking.pickupLat = pickupResult.lat; booking.pickupLon = pickupResult.lon; }
-    if (destResult) { booking.destinationLat = destResult.lat; booking.destinationLon = destResult.lon; }
-
-    if (pickupResult && destResult) {
-        await addTelegramLog('📍', chatId, `Koordinaten: Pickup(${pickupResult.lat?.toFixed(4)}, ${pickupResult.lon?.toFixed(4)}) → Dest(${destResult.lat?.toFixed(4)}, ${destResult.lon?.toFixed(4)})`);
+    // Beide Adressen haben bereits Koordinaten (GPS, beliebte Ziele, vorherige Auswahl)
+    if (hasPickupCoords && hasDestCoords) {
+        await addTelegramLog('📍', chatId, `Koordinaten: Pickup(${booking.pickupLat?.toFixed(4)}, ${booking.pickupLon?.toFixed(4)}) → Dest(${booking.destinationLat?.toFixed(4)}, ${booking.destinationLon?.toFixed(4)})`);
         await sendTelegramMessage(chatId, `✅ <b>Adressen verifiziert:</b>\n📍 ${booking.pickup}\n🎯 ${booking.destination}`);
     }
     return booking;
@@ -2903,6 +2922,25 @@ async function handleCallback(callback) {
     }
 
     // Adress-Skip
+    // Adresse neu eingeben (Kunde will andere Adresse)
+    if (data.startsWith('addr_retry_')) {
+        const field = data.replace('addr_retry_', ''); // 'pickup' oder 'destination'
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            const booking = pending.partial;
+            booking[field] = null;
+            if (field === 'pickup') { booking.pickupLat = null; booking.pickupLon = null; }
+            else { booking.destinationLat = null; booking.destinationLon = null; }
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes(field)) booking.missing.push(field);
+            delete pending.nominatimResults;
+            const fieldLabel = field === 'pickup' ? 'Abholort' : 'Zielort';
+            await sendTelegramMessage(chatId, `✏️ Bitte geben Sie den <b>${fieldLabel}</b> erneut ein:`);
+            await setPending(chatId, { partial: booking, originalText: pending.originalText || '' });
+        }
+        return;
+    }
+
     if (data === 'addr_skip') {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {

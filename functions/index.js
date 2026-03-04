@@ -2066,12 +2066,25 @@ async function handleMessage(message) {
         isTelegramAdmin(chatId)
     ]);
 
-    // Unbekannter Nutzer
+    // Unbekannter Nutzer → vollständige Begrüßung mit Übersicht
     if (!knownForGreeting && !isAdminUser) {
-        await sendTelegramMessage(chatId,
-            '👋 Hallo! Ich bin der <b>Taxibot von Funk Taxi Heringsdorf</b>.\n\n📱 Bitte teilen Sie einmalig Ihre Telefonnummer.\n\nOder schreiben Sie direkt Ihre Anfrage:\n<i>„Morgen 10 Uhr vom Bahnhof Heringsdorf nach Ahlbeck"</i>',
-            { reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } }
-        );
+        let welcomeMsg = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        welcomeMsg += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
+        welcomeMsg += '<b>Das kann ich für Sie tun:</b>\n';
+        welcomeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        welcomeMsg += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
+        welcomeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        welcomeMsg += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>\n\n';
+        welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
+        const welcomeKeyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        await sendTelegramMessage(chatId, welcomeMsg, { reply_markup: welcomeKeyboard });
+        await sendTelegramMessage(chatId, '📱 <b>Telefonnummer teilen</b> – einmalig, damit wir Sie sofort erkennen:', {
+            reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+        });
     }
 
     // Buchungsabfrage?

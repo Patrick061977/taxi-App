@@ -276,6 +276,14 @@ function isTelegramBookingQuery(text) {
         /liste.{0,10}(fahrt|buchung)/i.test(t);
 }
 
+// 🆕 v6.10.0: Erkennt "Buchen"-Intent als Freitext
+function isTelegramBookCommand(text) {
+    const t = text.toLowerCase().trim();
+    return /^(buchen|fahrt buchen|taxi buchen|bestellen|taxi bestellen|fahrt bestellen|neue fahrt|taxi rufen|ich brauche ein taxi|ich möchte buchen|taxi bitte)$/i.test(t) ||
+        /^(buch|bestell).{0,5}(fahrt|taxi|wagen)/i.test(t) ||
+        /^(fahrt|taxi|wagen).{0,5}(buch|bestell)/i.test(t);
+}
+
 function isTelegramDeleteQuery(text) {
     const t = text.toLowerCase().trim();
     return /^(löschen|stornieren|storno|cancel|absagen|lösch|storniere|abmelden|kündigen)$/i.test(t) ||
@@ -1680,21 +1688,23 @@ async function handleMessage(message) {
         let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
         if (knownCustomer) {
             greeting += `👋 Hallo <b>${knownCustomer.name}</b>! Schön, Sie wieder zu sehen.\n`;
-            greeting += `📱 ${knownCustomer.phone || 'Telefon gespeichert'}\n\nWas kann ich für Sie tun?`;
+            greeting += `📱 ${knownCustomer.phone || 'Telefon gespeichert'}\n\n`;
         } else {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
-            greeting += '<b>Das kann ich für Sie tun:</b>\n';
-            greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
-            greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
-            greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
-            greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
-            greeting += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
-            greeting += '💡 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
+        }
+        greeting += '<b>Das kann ich für Sie tun:</b>\n';
+        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
+        greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+        greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        if (!knownCustomer) {
+            greeting += '\n\n📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         }
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '👤 Profil', callback_data: 'menu_profil' }],
-            [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '🗑️ Fahrt stornieren', callback_data: 'menu_loeschen' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -1713,7 +1723,9 @@ async function handleMessage(message) {
 
     if (textCmd === '/hilfe' || textCmd === '/help') {
         const knownCustomer = await getTelegramCustomer(chatId);
-        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht';
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n• <i>Freitag 14:30 Seebrücke Bansin – Flughafen Berlin</i>\n\n';
+        hilfeMsg += '<b>Befehle (Slash):</b>\n/buchen – 🚕 Neue Fahrt bestellen\n/status – 📊 Ihre Fahrten\n/ändern – ✏️ Fahrt bearbeiten\n/löschen – 🗑️ Fahrt stornieren\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht\n\n';
+        hilfeMsg += '<b>Oder einfach als Text schreiben:</b>\n• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n• „<i>Meine Fahrten</i>" oder „<i>Status</i>"';
         if (await isTelegramAdmin(chatId)) {
             hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
         }
@@ -1760,6 +1772,20 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.10.0: /löschen, /stornieren → Fahrt löschen
+    if (textCmd === '/löschen' || textCmd === '/loeschen' || textCmd === '/stornieren') {
+        const knownForDelete = await getTelegramCustomer(chatId);
+        await handleTelegramDeleteQuery(chatId, knownForDelete);
+        return;
+    }
+
+    // 🆕 v6.10.0: /ändern, /bearbeiten → Fahrt ändern
+    if (textCmd === '/ändern' || textCmd === '/aendern' || textCmd === '/bearbeiten') {
+        const knownForModify = await getTelegramCustomer(chatId);
+        await handleTelegramModifyQuery(chatId, knownForModify);
+        return;
+    }
+
     if (textCmd === '/status') {
         const knownCustomer = await getTelegramCustomer(chatId);
         if (knownCustomer) await handleTelegramBookingQuery(chatId, 'meine Fahrten', knownCustomer);
@@ -1783,7 +1809,7 @@ async function handleMessage(message) {
     if (textCmd.startsWith('/')) {
         const isAdminForHelp = await isTelegramAdmin(chatId);
         const adminCmds = isAdminForHelp ? '\n\n<b>Admin:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen' : '';
-        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}`);
+        await sendTelegramMessage(chatId, `❓ Befehl <b>${text}</b> nicht erkannt.\n\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Meine Fahrten\n/ändern – ✏️ Fahrt bearbeiten\n/löschen – 🗑️ Fahrt stornieren\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Abbrechen\n/hilfe – ℹ️ Hilfe${adminCmds}\n\n<i>💡 Sie können auch als Text schreiben: „Fahrt buchen", „Fahrt löschen", „Fahrt ändern"</i>`);
         return;
     }
 
@@ -2040,17 +2066,37 @@ async function handleMessage(message) {
         isTelegramAdmin(chatId)
     ]);
 
-    // Unbekannter Nutzer
+    // Unbekannter Nutzer → vollständige Begrüßung mit Übersicht
     if (!knownForGreeting && !isAdminUser) {
-        await sendTelegramMessage(chatId,
-            '👋 Hallo! Ich bin der <b>Taxibot von Funk Taxi Heringsdorf</b>.\n\n📱 Bitte teilen Sie einmalig Ihre Telefonnummer.\n\nOder schreiben Sie direkt Ihre Anfrage:\n<i>„Morgen 10 Uhr vom Bahnhof Heringsdorf nach Ahlbeck"</i>',
-            { reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true } }
-        );
+        let welcomeMsg = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        welcomeMsg += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
+        welcomeMsg += '<b>Das kann ich für Sie tun:</b>\n';
+        welcomeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        welcomeMsg += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
+        welcomeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        welcomeMsg += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>\n\n';
+        welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
+        const welcomeKeyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        await sendTelegramMessage(chatId, welcomeMsg, { reply_markup: welcomeKeyboard });
+        await sendTelegramMessage(chatId, '📱 <b>Telefonnummer teilen</b> – einmalig, damit wir Sie sofort erkennen:', {
+            reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+        });
     }
 
     // Buchungsabfrage?
     if (isTelegramBookingQuery(text)) {
         await handleTelegramBookingQuery(chatId, text, knownForGreeting);
+        return;
+    }
+
+    // 🆕 v6.10.0: "Fahrt buchen", "Taxi buchen" etc. → Buchungsassistent
+    if (isTelegramBookCommand(text)) {
+        await addTelegramLog('🚕', chatId, 'Buchen-Intent erkannt → Buchungsassistent');
+        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
         return;
     }
 
@@ -2122,14 +2168,20 @@ async function handleCallback(callback) {
         hilfeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         hilfeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
         hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
-        hilfeMsg += '<b>Befehle:</b>\n';
+        hilfeMsg += '<b>Befehle (Slash):</b>\n';
         hilfeMsg += '/buchen – 🚕 Neue Fahrt buchen\n';
         hilfeMsg += '/status – 📊 Ihre Fahrten\n';
+        hilfeMsg += '/ändern – ✏️ Fahrt bearbeiten\n';
+        hilfeMsg += '/löschen – 🗑️ Fahrt stornieren\n';
         hilfeMsg += '/profil – 👤 Profil bearbeiten\n';
         hilfeMsg += '/abbrechen – ❌ Buchung abbrechen\n';
         hilfeMsg += '/abmelden – 🔓 Abmelden\n';
         hilfeMsg += '/hilfe – ℹ️ Diese Übersicht\n\n';
-        hilfeMsg += '💡 <i>Tipp: Schreiben Sie einfach eine Nachricht wie "Morgen 10 Uhr vom Bahnhof nach Ahlbeck" – ich verstehe Sie automatisch!</i>';
+        hilfeMsg += '<b>Oder einfach als Text schreiben:</b>\n';
+        hilfeMsg += '• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n';
+        hilfeMsg += '• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n';
+        hilfeMsg += '• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n';
+        hilfeMsg += '• „<i>Meine Fahrten</i>" oder „<i>Status</i>"\n';
         await sendTelegramMessage(chatId, hilfeMsg);
         return;
     }
@@ -2139,6 +2191,24 @@ async function handleCallback(callback) {
             await db.ref('settings/telegram/customers/' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>Abgemeldet!</b> Profil <b>${wasKnown.name}</b> gelöscht.\n\nTippen Sie /start um sich wieder anzumelden.`);
         } else await sendTelegramMessage(chatId, 'ℹ️ Sie sind nicht angemeldet. Tippen Sie /start.');
+        return;
+    }
+
+    // 🆕 v6.10.0: Menü-Buttons für Ändern und Löschen
+    if (data === 'menu_aendern') {
+        const knownForModify = await getTelegramCustomer(chatId);
+        if (knownForModify) {
+            await handleTelegramModifyQuery(chatId, knownForModify);
+        } else {
+            await sendTelegramMessage(chatId, '❓ Ich kann Sie noch nicht zuordnen.\nBitte teilen Sie Ihre Telefonnummer damit ich Ihre Buchungen finde.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+        }
+        return;
+    }
+    if (data === 'menu_loeschen') {
+        const knownForDelete = await getTelegramCustomer(chatId);
+        await handleTelegramDeleteQuery(chatId, knownForDelete);
         return;
     }
 

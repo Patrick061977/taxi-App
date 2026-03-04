@@ -16,12 +16,31 @@ const db = admin.database();
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
 
+// Standard-Tarif (wird beim Start aus Firebase überschrieben falls vorhanden)
 const TARIF = {
     grundgebuehr: 4.00,
     km_1_2: 3.30, km_3_4: 2.80, km_ab_5: 2.20,
     nacht_grundgebuehr: 5.50,
     nacht_km_1_2: 3.30, nacht_km_3_4: 2.80, nacht_km_ab_5: 2.40
 };
+let tarifLoaded = false;
+
+async function loadTarifFromFirebase() {
+    if (tarifLoaded) return;
+    try {
+        const snap = await db.ref('settings/tarif').once('value');
+        const saved = snap.val();
+        if (saved) {
+            Object.keys(TARIF).forEach(k => {
+                if (saved[k] !== undefined) TARIF[k] = parseFloat(saved[k]);
+            });
+            console.log('[Tarif] Aus Firebase geladen:', TARIF);
+        }
+        tarifLoaded = true;
+    } catch (e) {
+        console.warn('[Tarif] Firebase-Fehler, nutze Standard:', e.message);
+    }
+}
 
 const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
 
@@ -47,6 +66,13 @@ const KNOWN_PLACES = {
 };
 
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minuten
+
+// Usedom-Region Bounding Box (großzügig: Usedom + Swinemünde + Wolgast + Anklam)
+const USEDOM_BOUNDS = { minLat: 53.75, maxLat: 54.20, minLon: 13.60, maxLon: 14.45 };
+function isNearUsedom(lat, lon) {
+    return lat >= USEDOM_BOUNDS.minLat && lat <= USEDOM_BOUNDS.maxLat &&
+           lon >= USEDOM_BOUNDS.minLon && lon <= USEDOM_BOUNDS.maxLon;
+}
 
 let botToken = null;
 
@@ -251,31 +277,56 @@ async function geocode(address) {
     const searchKey = address.toLowerCase().trim();
     if (KNOWN_PLACES[searchKey]) return KNOWN_PLACES[searchKey];
 
-    // Geocoding-Cache aus Firebase
+    const cacheKey = 'geocodeCache/' + searchKey.replace(/[.#$/[\]]/g, '_');
+
+    // Geocoding-Cache aus Firebase (mit Validierung)
     try {
-        const cacheSnap = await db.ref('geocodeCache/' + searchKey.replace(/[.#$/[\]]/g, '_')).once('value');
-        if (cacheSnap.val()) return cacheSnap.val();
+        const cacheSnap = await db.ref(cacheKey).once('value');
+        const cached = cacheSnap.val();
+        if (cached && typeof cached.lat === 'number' && typeof cached.lon === 'number' && cached.lat !== 0 && cached.lon !== 0) {
+            // Cache-Treffer nur verwenden wenn Koordinaten plausibel
+            if (isNearUsedom(cached.lat, cached.lon)) {
+                return cached;
+            }
+            // Cache-Eintrag außerhalb Usedom → löschen und neu geocodieren
+            console.log(`[Geocode] Cache-Eintrag für "${address}" außerhalb Usedom (${cached.lat}, ${cached.lon}) → wird neu geocodiert`);
+            try { await db.ref(cacheKey).remove(); } catch (e) {}
+        }
     } catch (e) { /* Cache-Fehler ignorieren */ }
 
     try {
+        // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region
         const fetchAndValidate = async (url) => {
-            const resp = await fetch(url);
+            const resp = await fetch(url, { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } });
             const data = await resp.json();
+            if (!data || !data.length) return null;
+
+            // 1. Bevorzugt: Ergebnis in der Usedom-Region
             for (const item of data) {
                 const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-                return { lat, lon, display_name: item.display_name };
+                if (isNearUsedom(lat, lon)) {
+                    console.log(`[Geocode] "${address}" → Usedom-Treffer: ${lat}, ${lon} (${item.display_name})`);
+                    return { lat, lon, display_name: item.display_name };
+                }
             }
-            return null;
+            // 2. Fallback: Erstes Ergebnis (für Fern-Ziele wie Berlin, Hamburg)
+            const first = data[0];
+            const lat = parseFloat(first.lat), lon = parseFloat(first.lon);
+            console.log(`[Geocode] "${address}" → Kein Usedom-Treffer, nutze erstes Ergebnis: ${lat}, ${lon} (${first.display_name})`);
+            return { lat, lon, display_name: first.display_name };
         };
 
-        let result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=5&addressdetails=1`);
+        // Nominatim-Suche mit Viewbox-Präferenz für Usedom
+        let result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`);
         if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Świnoujście, Polska')}&limit=5&addressdetails=1`);
-        if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=13.5,54.3,14.7,53.5&bounded=1&limit=5&addressdetails=1`);
+        if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`);
         if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
 
         if (result) {
-            // Cache speichern
-            try { await db.ref('geocodeCache/' + searchKey.replace(/[.#$/[\]]/g, '_')).set(result); } catch (e) {}
+            // Nur in Usedom-Nähe cachen (Fern-Ziele nicht cachen, da diese eher variieren)
+            if (isNearUsedom(result.lat, result.lon)) {
+                try { await db.ref(cacheKey).set(result); } catch (e) {}
+            }
         }
         return result;
     } catch (e) {
@@ -417,16 +468,25 @@ const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
 async function calculateTelegramRoutePrice(booking) {
     if (!booking.pickupLat || !booking.destinationLat) return null;
     try {
+        console.log(`[RoutePrice] Berechne Route: (${booking.pickupLat}, ${booking.pickupLon}) → (${booking.destinationLat}, ${booking.destinationLon})`);
         const route = await calculateRoute(
             { lat: booking.pickupLat, lon: booking.pickupLon },
             { lat: booking.destinationLat, lon: booking.destinationLon }
         );
         if (!route || !route.distance) return null;
-        if (parseFloat(route.distance) > 500) return null;
+        console.log(`[RoutePrice] OSRM Ergebnis: ${route.distance} km, ${route.duration} min`);
+        if (parseFloat(route.distance) > 500) {
+            console.warn(`[RoutePrice] Unrealistische Distanz: ${route.distance} km → Berechnung übersprungen`);
+            return null;
+        }
         const pickupTimestamp = booking.datetime ? parseGermanDatetime(booking.datetime) : Date.now();
         const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
+        console.log(`[RoutePrice] Preis: ${pricing.total}€ für ${route.distance} km`);
         return { distance: route.distance, duration: route.duration, price: pricing.total, zuschlagText: pricing.zuschlagText };
-    } catch (e) { return null; }
+    } catch (e) {
+        console.error('[RoutePrice] Fehler:', e.message);
+        return null;
+    }
 }
 
 async function validateTelegramAddresses(chatId, booking, originalText) {
@@ -489,6 +549,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
     if (destResult) { booking.destinationLat = destResult.lat; booking.destinationLon = destResult.lon; }
 
     if (pickupResult && destResult) {
+        await addTelegramLog('📍', chatId, `Koordinaten: Pickup(${pickupResult.lat?.toFixed(4)}, ${pickupResult.lon?.toFixed(4)}) → Dest(${destResult.lat?.toFixed(4)}, ${destResult.lon?.toFixed(4)})`);
         await sendTelegramMessage(chatId, `✅ <b>Adressen verifiziert:</b>\n📍 ${booking.pickup}\n🎯 ${booking.destination}`);
     }
     return booking;
@@ -1058,7 +1119,7 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
 async function showTelegramConfirmation(chatId, booking, routePrice) {
     const confirmMsg = buildTelegramConfirmMsg(booking, routePrice);
     const bookingId = Date.now().toString(36);
-    await setPending(chatId, { booking, bookingId });
+    await setPending(chatId, { booking, bookingId, routePrice });
     const btnSent = await sendTelegramMessage(chatId, confirmMsg, {
         reply_markup: buildBookingConfirmKeyboard(bookingId, chatId, booking)
     });
@@ -2294,8 +2355,8 @@ async function handleCallback(callback) {
         const booking = pending && (pending.booking || pending.partial);
         if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
         if (data.startsWith('change_time_')) { booking.datetime = null; booking.missing = ['datetime']; }
-        else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.missing = ['pickup']; }
-        else { booking.destination = null; booking.destinationLat = null; booking.missing = ['destination']; }
+        else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null; booking.missing = ['pickup']; }
+        else { booking.destination = null; booking.destinationLat = null; booking.destinationLon = null; booking.missing = ['destination']; }
         await continueBookingFlow(chatId, booking, '');
         return;
     }
@@ -3040,6 +3101,9 @@ exports.telegramWebhook = onRequest(
             res.status(403).send('Forbidden');
             return;
         }
+
+        // Tarif aus Firebase laden (einmalig pro Cold Start)
+        await loadTarifFromFirebase();
 
         try {
             const update = req.body;

@@ -839,6 +839,20 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
+        // 🆕 Vorausgefüllte Koordinaten aus Favoriten übernehmen (überspringt Adress-Bestätigung)
+        const prefilledCoords = options.prefilledCoords || null;
+        if (prefilledCoords) {
+            if (prefilledCoords.pickupLat && prefilledCoords.pickupLon) {
+                booking.pickupLat = prefilledCoords.pickupLat;
+                booking.pickupLon = prefilledCoords.pickupLon;
+            }
+            if (prefilledCoords.destinationLat && prefilledCoords.destinationLon) {
+                booking.destinationLat = prefilledCoords.destinationLat;
+                booking.destinationLon = prefilledCoords.destinationLon;
+            }
+            await addTelegramLog('📍', chatId, `Koordinaten aus Favoriten: Pickup(${booking.pickupLat?.toFixed?.(4) || '–'}, ${booking.pickupLon?.toFixed?.(4) || '–'}) → Dest(${booking.destinationLat?.toFixed?.(4) || '–'}, ${booking.destinationLon?.toFixed?.(4) || '–'})`);
+        }
+
         // Defensive missing-Prüfung
         if (!booking.missing) booking.missing = [];
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
@@ -1032,6 +1046,16 @@ Nur gültiges JSON, kein Markdown:
             booking._forCustomer = booking._forCustomer || booking.forCustomer || partial._forCustomer;
             booking._customerAddress = partial._customerAddress;
             if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
+        }
+
+        // 🆕 Koordinaten aus partial übernehmen (z.B. aus Favoriten)
+        if (partial.pickupLat && partial.pickupLon && !booking.pickupLat) {
+            booking.pickupLat = partial.pickupLat;
+            booking.pickupLon = partial.pickupLon;
+        }
+        if (partial.destinationLat && partial.destinationLon && !booking.destinationLat) {
+            booking.destinationLat = partial.destinationLat;
+            booking.destinationLon = partial.destinationLon;
         }
 
         // Adressen validieren
@@ -2575,9 +2599,20 @@ async function handleCallback(callback) {
         if (pickup) enrichedText += ` von ${pickup}`;
         enrichedText += ` nach ${fav.destination}`;
 
+        // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
+        const prefilledCoords = {};
+        if (fav.destinationLat && fav.destinationLon) {
+            prefilledCoords.destinationLat = fav.destinationLat;
+            prefilledCoords.destinationLon = fav.destinationLon;
+        }
+        if (pickup && fav.pickupLat && fav.pickupLon) {
+            prefilledCoords.pickupLat = fav.pickupLat;
+            prefilledCoords.pickupLon = fav.pickupLon;
+        }
+
         await deletePending(chatId);
         await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
-        await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer });
+        await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords });
         return;
     }
 

@@ -129,6 +129,27 @@ async function answerCallbackQuery(callbackId) {
     }
 }
 
+async function editTelegramMessage(chatId, messageId, text, extraParams = {}) {
+    const token = await loadBotToken();
+    if (!token) { console.error('Kein Bot-Token!'); return null; }
+    try {
+        const resp = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML', ...extraParams })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+            console.error('editMessageText Fehler:', data.description);
+            return await sendTelegramMessage(chatId, text, extraParams);
+        }
+        return data.result;
+    } catch (e) {
+        console.error('editMessageText Exception:', e.message);
+        return await sendTelegramMessage(chatId, text, extraParams);
+    }
+}
+
 async function addTelegramLog(emoji, chatId, msg, details = null) {
     try {
         const logRef = db.ref('settings/telegram/botlog');
@@ -1145,6 +1166,9 @@ async function showTelegramConfirmation(chatId, booking, routePrice) {
     if (!btnSent) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Senden der Bestätigung. Bitte nochmal versuchen.');
+    } else {
+        // Message-ID speichern für späteres Inline-Editieren
+        await setPending(chatId, { booking, bookingId, routePrice, _confirmMsgId: btnSent.message_id });
     }
 }
 
@@ -1658,12 +1682,19 @@ async function handleMessage(message) {
             greeting += `👋 Hallo <b>${knownCustomer.name}</b>! Schön, Sie wieder zu sehen.\n`;
             greeting += `📱 ${knownCustomer.phone || 'Telefon gespeichert'}\n\nWas kann ich für Sie tun?`;
         } else {
-            greeting += 'Herzlich willkommen! Ich bin Ihr persönlicher Taxi-Assistent.\n\n💡 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
+            greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
+            greeting += '<b>Das kann ich für Sie tun:</b>\n';
+            greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+            greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
+            greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+            greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
+            greeting += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
+            greeting += '💡 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         }
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
             [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '👤 Profil', callback_data: 'menu_profil' }],
-            knownCustomer ? [{ text: '🔓 Abmelden', callback_data: 'menu_abmelden' }] : [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
+            [{ text: 'ℹ️ Hilfe & Befehle', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -1773,9 +1804,16 @@ async function handleMessage(message) {
         delete updatedPending._awaitingNote;
         await setPending(chatId, updatedPending);
         await addTelegramLog('📝', chatId, `Bemerkung: "${noteText}"`);
-        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending._routePrice || null);
+        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending.routePrice || null);
         const keyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, updatedBooking);
-        await sendTelegramMessage(chatId, `📝 Bemerkung gespeichert!\n\n${confirmMsg}`, { reply_markup: keyboard });
+        // Bestätigungs-Nachricht inline aktualisieren falls möglich
+        const savedMsgId = pending._confirmMsgId;
+        if (savedMsgId) {
+            await editTelegramMessage(chatId, savedMsgId, confirmMsg, { reply_markup: keyboard });
+            await sendTelegramMessage(chatId, `✅ Bemerkung "<b>${noteText}</b>" gespeichert!`);
+        } else {
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: keyboard });
+        }
         return;
     }
 
@@ -2077,7 +2115,22 @@ async function handleCallback(callback) {
         return;
     }
     if (data === 'menu_hilfe') {
-        await sendTelegramMessage(chatId, '🚕 <b>Funk Taxi Heringsdorf</b>\n\n<b>Befehle:</b>\n/buchen – 🚕 Neue Fahrt\n/status – 📊 Ihre Fahrten\n/abbrechen – ❌ Abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Hilfe');
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n';
+        hilfeMsg += '<b>Das kann ich für Sie tun:</b>\n';
+        hilfeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        hilfeMsg += '📊 <b>Fahrten ansehen</b> – Gebuchte Fahrten einsehen\n';
+        hilfeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
+        hilfeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
+        hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
+        hilfeMsg += '<b>Befehle:</b>\n';
+        hilfeMsg += '/buchen – 🚕 Neue Fahrt buchen\n';
+        hilfeMsg += '/status – 📊 Ihre Fahrten\n';
+        hilfeMsg += '/profil – 👤 Profil bearbeiten\n';
+        hilfeMsg += '/abbrechen – ❌ Buchung abbrechen\n';
+        hilfeMsg += '/abmelden – 🔓 Abmelden\n';
+        hilfeMsg += '/hilfe – ℹ️ Diese Übersicht\n\n';
+        hilfeMsg += '💡 <i>Tipp: Schreiben Sie einfach eine Nachricht wie "Morgen 10 Uhr vom Bahnhof nach Ahlbeck" – ich verstehe Sie automatisch!</i>';
+        await sendTelegramMessage(chatId, hilfeMsg);
         return;
     }
     if (data === 'menu_abmelden') {
@@ -2327,10 +2380,15 @@ async function handleCallback(callback) {
         if (payPending && payPending.bookingId === payBookingId && payPending.booking) {
             payPending.booking.paymentMethod = isKarte ? 'karte' : 'bar';
             await setPending(chatId, payPending);
-            // Bestätigung mit aktualisierten Buttons neu senden
+            // Bestätigung inline aktualisieren (kein neues Nachricht)
             const updatedMsg = buildTelegramConfirmMsg(payPending.booking, payPending.routePrice || null);
             const updatedKeyboard = buildBookingConfirmKeyboard(payBookingId, chatId, payPending.booking);
-            await sendTelegramMessage(chatId, updatedMsg, { reply_markup: updatedKeyboard });
+            const msgId = callback.message?.message_id;
+            if (msgId) {
+                await editTelegramMessage(chatId, msgId, updatedMsg, { reply_markup: updatedKeyboard });
+            } else {
+                await sendTelegramMessage(chatId, updatedMsg, { reply_markup: updatedKeyboard });
+            }
             await addTelegramLog('💳', chatId, `Zahlungsmethode: ${isKarte ? 'Karte' : 'Bar'}`);
         }
         return;
@@ -2470,15 +2528,15 @@ async function handleCallback(callback) {
         pending._prevalidatedAt = Date.now();
         await setPending(chatId, pending);
 
-        const newDt = new Date(parseGermanDatetime(pending.booking.datetime));
-        const dayLabel = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' });
-        await sendTelegramMessage(chatId,
-            `🕐 <b>Neue Zeit: ${hh}:${mm} Uhr</b>\n\n📅 ${dayLabel} um ${hh}:${mm} Uhr\n📍 ${pending.booking.pickup} → ${pending.booking.destination}\n👥 ${pending.booking.passengers || 1} Person(en)\n\nSoll ich diese Zeit buchen?`,
-            { reply_markup: { inline_keyboard: [[
-                { text: '✅ Ja, buchen!', callback_data: `book_yes_${pending.bookingId}` },
-                { text: '❌ Abbrechen', callback_data: `book_no_${pending.bookingId}` }
-            ]] } }
-        );
+        // Bestätigung inline aktualisieren mit neuer Zeit
+        const updatedMsg = buildTelegramConfirmMsg(pending.booking, pending.routePrice || null);
+        const updatedKeyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, pending.booking);
+        const msgId = callback.message?.message_id;
+        if (msgId) {
+            await editTelegramMessage(chatId, msgId, updatedMsg, { reply_markup: updatedKeyboard });
+        } else {
+            await sendTelegramMessage(chatId, updatedMsg, { reply_markup: updatedKeyboard });
+        }
         return;
     }
 
@@ -3033,13 +3091,14 @@ async function handleContact(message) {
             }
         });
 
+        const commandHint = '\n\n<b>Ihre Möglichkeiten:</b>\n🚕 Fahrt buchen – einfach schreiben wann & wohin\n📊 /status – Ihre Fahrten ansehen\n✏️ Fahrten bearbeiten oder stornieren\n👤 /profil – Ihre Daten verwalten\nℹ️ /hilfe – Alle Befehle';
         if (customerId && customerData) {
             await saveTelegramCustomer(chatId, { customerId, name: customerData.name || firstName, phone: customerData.phone || phone, mobile: customerData.mobile || null, address: customerData.address || null, linkedAt: Date.now() });
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
-            await sendTelegramMessage(chatId, `✅ <b>Willkommen zurück, ${customerData.name}!</b>\n\nIhre Nummer <b>${phone}</b> ist gespeichert.\n\nSchreiben Sie wann und wohin – ich buche sofort!`, removeKeyboard);
+            await sendTelegramMessage(chatId, `✅ <b>Willkommen zurück, ${customerData.name}!</b>\n\nIhre Nummer <b>${phone}</b> ist gespeichert.${commandHint}`, removeKeyboard);
         } else {
             await saveTelegramCustomer(chatId, { customerId: null, name: firstName, phone, linkedAt: Date.now() });
-            await sendTelegramMessage(chatId, `✅ <b>Danke, ${firstName}!</b>\n\nIhre Nummer <b>${phone}</b> wurde gespeichert.\n\nSchreiben Sie jetzt wann und wohin!`, removeKeyboard);
+            await sendTelegramMessage(chatId, `✅ <b>Danke, ${firstName}!</b>\n\nIhre Nummer <b>${phone}</b> wurde gespeichert.${commandHint}`, removeKeyboard);
         }
     } catch (e) {
         await sendTelegramMessage(chatId, '✅ Telefonnummer erhalten! Sie können jetzt buchen.', removeKeyboard);

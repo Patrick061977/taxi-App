@@ -489,6 +489,83 @@ function calculatePrice(distance, timestamp = null) {
 }
 
 // Parse datetime string as German time (CET/CEST) → returns UTC timestamp
+// ═══════════════════════════════════════════════════════════════
+// VERFÜGBARKEITS-PRÜFUNG (Telegram-Bot)
+// ═══════════════════════════════════════════════════════════════
+
+async function checkTelegramTimeConflict(pickupTimestamp, estimatedDuration) {
+    try {
+        const requestedDate = new Date(pickupTimestamp);
+        // Nur Fahrten vom selben Tag laden
+        const dayStart = new Date(requestedDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(requestedDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const ridesSnap = await db.ref('rides')
+            .orderByChild('pickupTimestamp')
+            .startAt(dayStart.getTime())
+            .endAt(dayEnd.getTime())
+            .once('value');
+
+        const rides = ridesSnap.val();
+        if (!rides) return null; // Keine Fahrten → kein Konflikt
+
+        const activeStatuses = ['new', 'open', 'assigned', 'vorbestellt', 'picked_up', 'ongoing', 'accepted'];
+        const duration = estimatedDuration || 30; // Fallback: 30 Min
+        const requestedEnd = pickupTimestamp + (duration * 60000);
+        const bufferMs = 10 * 60000; // 10 Min Puffer zwischen Fahrten
+
+        const conflicts = [];
+        for (const [rideId, ride] of Object.entries(rides)) {
+            if (!activeStatuses.includes(ride.status)) continue;
+            const rideStart = ride.pickupTimestamp || 0;
+            const rideDuration = ride.duration ? parseInt(ride.duration) : (ride.estimatedDuration ? parseInt(ride.estimatedDuration) : 30);
+            const rideEnd = rideStart + (rideDuration * 60000);
+
+            // Überlappungs-Check mit Puffer
+            if (pickupTimestamp < (rideEnd + bufferMs) && requestedEnd > (rideStart - bufferMs)) {
+                const rideTime = new Date(rideStart).toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+                const rideEndTime = new Date(rideEnd).toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+                conflicts.push({
+                    rideId,
+                    pickup: ride.pickup || '?',
+                    destination: ride.destination || '?',
+                    startTime: rideTime,
+                    endTime: rideEndTime,
+                    rideStart,
+                    rideEnd
+                });
+            }
+        }
+
+        if (conflicts.length === 0) return null;
+
+        // Fahrzeug-Anzahl prüfen (mehrere Fahrzeuge = evtl. kein echter Konflikt)
+        let vehicleCount = 1;
+        try {
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val();
+            if (vehicles) {
+                vehicleCount = Object.values(vehicles).filter(v => v.active !== false).length;
+            }
+        } catch (e) { /* Fallback: 1 Fahrzeug */ }
+
+        // Wenn mehr Fahrzeuge als Konflikte → kein Problem
+        if (vehicleCount > conflicts.length) return null;
+
+        // Frühestmöglichen freien Slot berechnen
+        const allEnds = conflicts.map(c => c.rideEnd + bufferMs).sort((a, b) => a - b);
+        const earliestFree = allEnds[allEnds.length - 1];
+        const earliestFreeTime = new Date(earliestFree).toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+
+        return { conflicts, earliestFree, earliestFreeTime, vehicleCount };
+    } catch (e) {
+        console.error('[Verfügbarkeit] Prüfung fehlgeschlagen:', e.message);
+        return null; // Im Fehlerfall Buchung trotzdem zulassen
+    }
+}
+
 function parseGermanDatetime(datetimeStr) {
     if (!datetimeStr) return Date.now();
     const d = new Date(datetimeStr);
@@ -2295,6 +2372,20 @@ async function handleCallback(callback) {
         return;
     }
 
+    // Buchung trotz Zeitkonflikt eintragen (Override)
+    if (data.startsWith('book_force_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.booking) {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal senden.');
+            return;
+        }
+        pending._conflictOverride = true;
+        await setPending(chatId, pending);
+        await addTelegramLog('⚡', chatId, 'Zeitkonflikt-Override: Buchung wird trotzdem eingetragen');
+        // Weiterleiten an book_yes_ Handler
+        data = 'book_yes_' + (pending.bookingId || '');
+    }
+
     // Buchung bestätigen
     if (data.startsWith('book_yes_')) {
         const pending = await getPending(chatId);
@@ -2342,6 +2433,58 @@ async function handleCallback(callback) {
             const isVorbestellung = minutesUntilPickup > 30;
             const passengers = booking.passengers || 1;
             const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+
+            // Verfügbarkeits-Check: Zeitkonflikt erkennen und melden
+            const estDuration = pending.routePrice?.duration ? parseInt(pending.routePrice.duration) : null;
+            const conflict = await checkTelegramTimeConflict(pickupTimestamp, estDuration);
+            if (conflict && !pending._conflictOverride) {
+                // Detaillierte Konflikt-Meldung senden
+                let conflictMsg = '⚠️ <b>Zeitkonflikt erkannt!</b>\n\n';
+                conflictMsg += `Du möchtest ein Taxi um <b>${timeStr} Uhr</b>.\n\n`;
+                conflictMsg += '❌ <b>Problem:</b> Zu dieser Zeit ';
+                conflictMsg += conflict.conflicts.length === 1 ? 'ist bereits eine Fahrt gebucht' : `sind bereits ${conflict.conflicts.length} Fahrten gebucht`;
+                conflictMsg += `:\n\n`;
+                for (const c of conflict.conflicts) {
+                    conflictMsg += `🚕 ${c.startTime}–${c.endTime} Uhr\n`;
+                    conflictMsg += `   📍 ${c.pickup} → ${c.destination}\n\n`;
+                }
+                conflictMsg += `💡 <b>Warum?</b> `;
+                if (conflict.vehicleCount <= 1) {
+                    conflictMsg += 'Es ist nur 1 Fahrzeug verfügbar. Das Taxi ist zu dieser Zeit noch unterwegs und kann dich nicht gleichzeitig abholen.';
+                } else {
+                    conflictMsg += `Es sind ${conflict.vehicleCount} Fahrzeuge verfügbar, aber alle bereits belegt zu dieser Zeit.`;
+                }
+                conflictMsg += `\n\n🕐 <b>Frühestens frei:</b> ${conflict.earliestFreeTime} Uhr`;
+                conflictMsg += '\n\n<b>Was möchtest du tun?</b>';
+
+                // Buttons: Alternative Zeit oder trotzdem buchen
+                const conflictKeyboard = { inline_keyboard: [] };
+                // Alternative Zeitvorschläge
+                const altTime = new Date(conflict.earliestFree);
+                const altTimeStr = altTime.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+                const [altHH, altMM] = altTimeStr.split(':');
+                conflictKeyboard.inline_keyboard.push([
+                    { text: `🕐 ${altTimeStr} Uhr (nächster freier Slot)`, callback_data: `slot_${chatId}_${altHH}_${altMM}` }
+                ]);
+                // ±30 Min vom freien Slot
+                const alt30 = new Date(conflict.earliestFree + 30 * 60000);
+                const alt30Str = alt30.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
+                const [a30HH, a30MM] = alt30Str.split(':');
+                conflictKeyboard.inline_keyboard.push([
+                    { text: `🕐 ${alt30Str} Uhr (+30 Min)`, callback_data: `slot_${chatId}_${a30HH}_${a30MM}` }
+                ]);
+                // Trotzdem eintragen (Admin-Override)
+                conflictKeyboard.inline_keyboard.push([
+                    { text: '⚡ Trotzdem eintragen', callback_data: `book_force_${pending.bookingId}` }
+                ]);
+                conflictKeyboard.inline_keyboard.push([
+                    { text: '❌ Abbrechen', callback_data: `book_no_${pending.bookingId}` }
+                ]);
+
+                await sendTelegramMessage(chatId, conflictMsg, { reply_markup: conflictKeyboard });
+                await addTelegramLog('⚠️', chatId, `Zeitkonflikt: ${timeStr} Uhr – ${conflict.conflicts.length} Fahrt(en) belegt, frei ab ${conflict.earliestFreeTime}`);
+                return;
+            }
 
             // Preis: gespeicherten verwenden, nur als Fallback neu berechnen
             let telegramRoutePrice = pending.routePrice || null;

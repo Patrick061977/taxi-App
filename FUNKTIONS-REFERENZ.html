@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Funk Taxi Heringsdorf - Funktions-Referenz</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a; color: #e2e8f0; line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            padding: 24px 32px; border-bottom: 2px solid #475569;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .header h1 { font-size: 1.5rem; color: #f8fafc; }
+        .header .subtitle { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
+        .search-bar {
+            display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .search-bar input {
+            flex: 1; min-width: 250px; padding: 10px 16px; border-radius: 8px;
+            border: 1px solid #475569; background: #1e293b; color: #f8fafc;
+            font-size: 1rem; outline: none;
+        }
+        .search-bar input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.2); }
+        .search-bar input::placeholder { color: #64748b; }
+        .filter-chips {
+            display: flex; gap: 6px; flex-wrap: wrap;
+        }
+        .chip {
+            padding: 6px 14px; border-radius: 20px; cursor: pointer;
+            font-size: 0.8rem; font-weight: 500; border: 1px solid #475569;
+            background: #1e293b; color: #94a3b8; transition: all 0.2s;
+            user-select: none;
+        }
+        .chip:hover { border-color: #60a5fa; color: #e2e8f0; }
+        .chip.active { background: #1d4ed8; border-color: #3b82f6; color: #fff; }
+        .stats-bar {
+            display: flex; gap: 16px; margin-top: 12px; color: #64748b; font-size: 0.85rem;
+        }
+        .stats-bar span { display: flex; align-items: center; gap: 4px; }
+        .container { display: flex; min-height: calc(100vh - 180px); }
+        .sidebar {
+            width: 280px; background: #1e293b; border-right: 1px solid #334155;
+            overflow-y: auto; position: sticky; top: 180px; height: calc(100vh - 180px);
+            flex-shrink: 0;
+        }
+        .sidebar-section { padding: 8px 0; }
+        .sidebar-title {
+            padding: 8px 16px; font-size: 0.75rem; font-weight: 600;
+            color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .sidebar-item {
+            padding: 6px 16px; cursor: pointer; font-size: 0.85rem;
+            color: #94a3b8; transition: all 0.15s; display: flex;
+            align-items: center; gap: 8px;
+        }
+        .sidebar-item:hover { background: #334155; color: #e2e8f0; }
+        .sidebar-item.active { background: #1d4ed8; color: #fff; }
+        .sidebar-item .count {
+            margin-left: auto; background: #334155; padding: 1px 8px;
+            border-radius: 10px; font-size: 0.75rem;
+        }
+        .sidebar-item.active .count { background: rgba(255,255,255,0.2); }
+        .main { flex: 1; padding: 24px 32px; overflow-y: auto; }
+        .category-header {
+            padding: 16px 0 8px; margin-bottom: 16px;
+            border-bottom: 2px solid #334155;
+        }
+        .category-header h2 {
+            font-size: 1.3rem; color: #f8fafc;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .category-header .desc { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
+        .func-card {
+            background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+            padding: 16px 20px; margin-bottom: 12px; transition: all 0.2s;
+        }
+        .func-card:hover { border-color: #475569; transform: translateY(-1px); }
+        .func-card.highlight { border-color: #f59e0b; background: #1e293b; }
+        .func-name {
+            font-family: 'SF Mono', 'Fira Code', monospace; font-size: 1rem;
+            color: #60a5fa; font-weight: 600;
+        }
+        .func-name .async-badge {
+            font-size: 0.7rem; background: #7c3aed; color: #fff;
+            padding: 2px 6px; border-radius: 4px; margin-left: 8px;
+            font-family: sans-serif; vertical-align: middle;
+        }
+        .func-line {
+            font-size: 0.8rem; color: #64748b; margin-top: 2px;
+            font-family: monospace;
+        }
+        .func-params {
+            margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;
+        }
+        .param-tag {
+            background: #334155; padding: 3px 10px; border-radius: 6px;
+            font-size: 0.8rem; color: #a5b4fc; font-family: monospace;
+        }
+        .func-desc {
+            margin-top: 8px; color: #cbd5e1; font-size: 0.9rem;
+        }
+        .func-tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .tag {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;
+            font-weight: 500;
+        }
+        .tag-file { background: #064e3b; color: #6ee7b7; }
+        .tag-category { background: #4c1d95; color: #c4b5fd; }
+        .no-results {
+            text-align: center; padding: 60px 20px; color: #64748b;
+        }
+        .no-results .icon { font-size: 3rem; margin-bottom: 16px; }
+        .no-results h3 { color: #94a3b8; margin-bottom: 8px; }
+        mark { background: #f59e0b; color: #000; border-radius: 2px; padding: 0 2px; }
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { padding: 16px; }
+            .header { padding: 16px; }
+            .search-bar input { min-width: 100%; }
+        }
+        .back-top {
+            position: fixed; bottom: 24px; right: 24px; width: 44px; height: 44px;
+            border-radius: 50%; background: #1d4ed8; border: none; color: #fff;
+            font-size: 1.2rem; cursor: pointer; display: none; z-index: 99;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .back-top:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Funk Taxi Heringsdorf - Funktions-Referenz</h1>
+    <div class="subtitle">v6.10.0 - Vollstandige Dokumentation aller Funktionen</div>
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Funktion suchen... (z.B. saveRide, GPS, Telegram)" autofocus>
+    </div>
+    <div class="filter-chips" id="filterChips"></div>
+    <div class="stats-bar">
+        <span id="totalCount"></span>
+        <span id="filteredCount" style="display:none"></span>
+    </div>
+</div>
+
+<div class="container">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main" id="mainContent"></main>
+</div>
+
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#8593;</button>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// FUNKTIONS-DATENBANK
+// ═══════════════════════════════════════════════════════════════
+
+const FUNCTIONS = [
+// ─── FAHRTEN: Erstellen & Speichern ───
+{name:"saveRides",line:12972,file:"index.html",async:false,params:[],cat:"Fahrten",sub:"Erstellen & Speichern",desc:"Speichert alle Fahrten in localStorage als JSON-Array. Basic Persistenzfunktion fuer Offline-Betrieb."},
+{name:"saveRide",line:25518,file:"index.html",async:true,params:["ride: Object"],cat:"Fahrten",sub:"Erstellen & Speichern",desc:"Speichert einzelne Fahrt in Firebase mit eindeutiger ID. Normalisiert Telefonnummern und setzt userId."},
+{name:"updateRide",line:25579,file:"index.html",async:true,params:["id: string","updates: Object"],cat:"Fahrten",sub:"Erstellen & Speichern",desc:"Updated Fahrt in Firebase. Prueft Statusaenderung und sendet Telegram-Benachrichtigung bei Statuswechsel."},
+
+// ─── FAHRTEN: Bearbeiten ───
+{name:"editRide",line:14138,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Oeffnet Bearbeitungsmodal mit allen Fahrtdetails. Unterstuetzt separate Datum/Zeit-Felder, Preis-Modi."},
+{name:"saveEditedRide",line:15101,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Speichert bearbeitete Fahrtdaten. Berechnet optional Preis/Dauer via Geocoding."},
+{name:"editRideTime",line:62626,file:"index.html",async:false,params:["rideId: string","currentTime: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Erlaubt Aenderung der Abholzeit (HH:MM Format) fuer bestehende Fahrt."},
+{name:"editRideFromCalendar",line:71854,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Oeffnet Bearbeitungs-UI basierend auf Kalender-Kontext."},
+{name:"editInvoiceRide",line:98655,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Bearbeitet Fahrt im Rechnungs-Kontext mit speziellen Feldern."},
+{name:"saveEditedInvoiceRide",line:98860,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Bearbeiten",desc:"Speichert bearbeitete Rechnungs-Fahrt mit Validierung."},
+
+// ─── FAHRTEN: Loeschen ───
+{name:"deleteRide",line:15651,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Loeschen",desc:"Loescht Fahrt permanent aus Firebase und localStorage. Versendet Telegram-Benachrichtigung vor Loeschung."},
+{name:"deleteInvoiceRide",line:98929,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Loeschen",desc:"Loescht Fahrt aus Rechnungskontexten mit speziellem Handling."},
+{name:"deleteResetRide",line:62509,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Loeschen",desc:"Loescht eine zurueckgesetzte Fahrt (nach Reset-Operation)."},
+{name:"deleteRideFromCalendar",line:72437,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Loeschen",desc:"Loescht Fahrt mit Kalender-spezifischem Kontext."},
+
+// ─── FAHRTEN: Stornieren & Ablehnen ───
+{name:"cancelRide",line:50625,file:"index.html",async:false,params:[],cat:"Fahrten",sub:"Stornieren",desc:"Storniert aktuelle Fahrt des angeloggten Fahrgasts."},
+{name:"cancelRideFromHistory",line:13844,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Stornieren",desc:"Storniert Fahrt aus Verlauf mit Hotel-Schutz (verhindert Storno von Hotel-Fahrten)."},
+{name:"cancelAcceptedRide",line:54587,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Stornieren",desc:"Fahrer kann angenommene Fahrt stornieren. Setzt Status zurueck auf 'new'."},
+{name:"cancelRideAsAdmin",line:72284,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Stornieren",desc:"Admin kann jede Fahrt stornieren mit speziellen Logging und Telegram-Meldungen."},
+{name:"rejectRide",line:81813,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Stornieren",desc:"Fahrer lehnt zugewiesene Fahrt ab. Setzt Status auf 'rejected'. Stoppt Vibrationen."},
+{name:"declineRide",line:22221,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Stornieren",desc:"Fahrt wird abgelehnt und zurueck in den Pool gestellt (Status -> 'new')."},
+
+// ─── FAHRTEN: Annehmen ───
+{name:"acceptRide",line:54210,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Annehmen",desc:"Fahrer akzeptiert Fahrt. Schaltet zu Aktiv-GPS, setzt Status auf 'accepted'."},
+{name:"adminAcceptRide",line:54623,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Annehmen",desc:"Admin kann Fahrt im Namen des Fahrers akzeptieren."},
+{name:"acceptRideFromFullscreen",line:81806,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Annehmen",desc:"Akzeptiert Fahrt direkt vom Fullscreen-Alert (Mobile-View)."},
+
+// ─── FAHRTEN: Abschliessen ───
+{name:"completeRide",line:54985,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Abschliessen",desc:"Haupt-Abschluss-Funktion. Zeigt Modal mit Preis-Eingabe (Taxameter)."},
+{name:"completeRideSimple",line:56279,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Abschliessen",desc:"Alias fuer completeRide() - Wrapper fuer einfache Aufrufe."},
+{name:"completeRideFromMap",line:54735,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Abschliessen",desc:"Schnell-Abschluss direkt von Karte."},
+{name:"quickCompleteBlockingRide",line:54753,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Abschliessen",desc:"Schnell-Abschliessen fuer blockierende Fahrten (ohne Preis-Modal)."},
+{name:"completeRideAsAdmin",line:72382,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Abschliessen",desc:"Admin schliesst Fahrt mit Admin-Logging und Telegram ab."},
+{name:"finalizeRideCompletion",line:56197,file:"index.html",async:true,params:["rideId: string","rideData: Object"],cat:"Fahrten",sub:"Abschliessen",desc:"Abschluss-Finalisierung: speichert in rideHistory, loggt Activity, stoppt GPS, wechselt zu Standby."},
+
+// ─── FAHRTEN: Zuweisen ───
+{name:"assignVehicleToRide",line:15707,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Oeffnet Modal zur manuellen Fahrzeug-Zuweisung. Laedt alle Fahrzeuge mit Online-Status und Schichtplan-Pruefung."},
+{name:"assignVehicleUnified",line:16046,file:"index.html",async:true,params:["rideId: string","vehicleId: string","options: Object"],cat:"Fahrten",sub:"Zuweisen",desc:"Zentrale Fahrzeug-Zuweisung. Speichert in Firebase, erstellt Activity-Log, sendet optional Telegram."},
+{name:"selectVehicleForAssignment",line:16193,file:"index.html",async:true,params:["rideId: string","vehicleId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Admin-Fahrzeugauswahl UI-Handler. Nutzt zentrale assignVehicleUnified()."},
+{name:"unassignVehicleFromRide",line:16246,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Hebt Fahrzeug-Zuweisung auf. Setzt Status zurueck auf 'new'."},
+{name:"reassignRide",line:15569,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Setzt Fahrt zurueck von 'rejected' auf 'new' fuer Neuzuweisung."},
+{name:"lockRideAssignment",line:15635,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Admin sperrt Fahrt-Zuweisung: System darf NICHT mehr automatisch umplanen."},
+{name:"unlockRideAssignment",line:15619,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Admin hebt Sperre auf: System darf Fahrt wieder automatisch optimieren."},
+{name:"unassignRide",line:58809,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Zuweisen",desc:"Hebt Zuweisung auf und triggert Auto-Neuzuweisung fuer Vorbestellungen."},
+
+// ─── FAHRTEN: Auto-Zuweisung ───
+{name:"autoAssignVehicleToRide",line:28397,file:"index.html",async:true,params:["rideData: Object"],cat:"Fahrten",sub:"Auto-Zuweisung",desc:"Automatische Fahrzeugzuweisung mit Optimierung: Schichtplan, GPS-Position, Leerfahrt-Zeit, Kapazitaet."},
+{name:"optimizeVehicleAssignments",line:28993,file:"index.html",async:true,params:["dateStr: string"],cat:"Fahrten",sub:"Auto-Zuweisung",desc:"Optimiert ALLE Vorbestellungen eines Tages neu. Setzt temporaer alle Zuweisungen zurueck."},
+
+// ─── FAHRTEN: Laden ───
+{name:"loadDriverRides",line:51521,file:"index.html",async:true,params:[],cat:"Fahrten",sub:"Laden",desc:"Laedt nur relevante Fahrten fuer aktuellen Fahrer ab heute (performance-optimiert)."},
+{name:"loadActiveRides",line:56694,file:"index.html",async:true,params:["filter: string"],cat:"Fahrten",sub:"Laden",desc:"Laedt aktive Fahrten mit Filterung: 'all'/'today'/'past'/'future'/'old'."},
+{name:"loadCompletedRides",line:5118,file:"index.html",async:false,params:[],cat:"Fahrten",sub:"Laden",desc:"Laedt abgeschlossene Fahrten in Geschichte-View."},
+{name:"loadCancelledRides",line:5168,file:"index.html",async:false,params:[],cat:"Fahrten",sub:"Laden",desc:"Laedt stornierte Fahrten in Geschichte-View."},
+
+// ─── FAHRTEN: Anzeige ───
+{name:"viewRideDetails",line:13904,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Anzeige",desc:"Zeigt Fahrtdetails und startet Live-Listener (Passenger-View)."},
+{name:"rebookRide",line:13936,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrten",sub:"Anzeige",desc:"Wiederbuchung: Fuellt Buchungsformular mit vorheriger Fahrt aus."},
+{name:"renderRideCard",line:21506,file:"index.html",async:false,params:["ride: Object","type: string","nextRideToStart: Object"],cat:"Fahrten",sub:"Anzeige",desc:"Rendert einzelne Fahrt-Karte mit Status-Buttons. Type: 'new'/'accepted'/'running'/'completed'."},
+{name:"getRideColor",line:86369,file:"index.html",async:false,params:["status: string","ride: Object"],cat:"Fahrten",sub:"Anzeige",desc:"Gibt Farbe fuer Fahrt-Status zurueck. Hotel-Farbe hat Prioritaet."},
+
+// ─── FAHRTEN: Cleanup ───
+{name:"cleanupStuckAssignedRides",line:16542,file:"index.html",async:true,params:[],cat:"Fahrten",sub:"Cleanup",desc:"Setzt 'assigned'-Fahrten zurueck auf 'new' nach 2 Min Timeout."},
+{name:"resetActiveRide",line:62393,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Cleanup",desc:"Setzt aktive Fahrt zurueck auf 'new'. Loescht Tracking-Link. Gibt Fahrzeug frei."},
+{name:"resetVehicleForRide",line:62440,file:"index.html",async:true,params:["rideId: string"],cat:"Fahrten",sub:"Cleanup",desc:"Komplette Fahrzeug-Freigabe: Status->new, vehicleId->null, Tracking->geloescht."},
+
+// ─── FAHRTEN: Tracking ───
+{name:"createTrackingLinkForRide",line:15850,file:"index.html",async:true,params:["rideId: string","vehicleId: string"],cat:"Fahrten",sub:"Tracking",desc:"Erstellt eindeutigen Tracking-Link (Track.html). Speichert in Firebase /tracking mit Expiry."},
+{name:"checkPendingTrackingLinks",line:16006,file:"index.html",async:true,params:[],cat:"Fahrten",sub:"Tracking",desc:"Prueft Fahrten die noch Tracking-Links benoetigen. Laeuft alle 60s."},
+
+// ═══════════════════════════════════════════════════════════════
+// GPS TRACKING
+// ═══════════════════════════════════════════════════════════════
+{name:"startDriverTracking",line:52109,file:"index.html",async:false,params:["rideId: string|null"],cat:"GPS",sub:"Start/Stop",desc:"Startet praezises GPS-Tracking mit hoher Genauigkeit fuer aktive Fahrten. Verwendet watchPosition()."},
+{name:"stopDriverTracking",line:53047,file:"index.html",async:false,params:[],cat:"GPS",sub:"Start/Stop",desc:"Stoppt GPS-Tracking komplett, loescht Fahrzeug aus Firebase /vehicles/."},
+{name:"startGPSTracking",line:54112,file:"index.html",async:false,params:[],cat:"GPS",sub:"Start/Stop",desc:"Alias-Funktion zu startDriverTracking() fuer bessere Lesbarkeit."},
+{name:"stopGPSTracking",line:54116,file:"index.html",async:false,params:[],cat:"GPS",sub:"Start/Stop",desc:"Alias-Funktion zu stopDriverTracking() fuer bessere Lesbarkeit."},
+{name:"startGPSMonitoring",line:20874,file:"index.html",async:false,params:[],cat:"GPS",sub:"Start/Stop",desc:"Ueberwacht GPS-Status alle 5 Sekunden. Warnt bei GPS-Fehlern >15 Sekunden."},
+{name:"stopGPSMonitoring",line:20914,file:"index.html",async:false,params:[],cat:"GPS",sub:"Start/Stop",desc:"Stoppt das 5-Sekunden-Monitoring des GPS-Zustands."},
+
+{name:"startActiveTracking",line:52054,file:"index.html",async:false,params:["rideId: string"],cat:"GPS",sub:"Modi",desc:"Wechselt zu aktivem GPS-Modus fuer laufende Fahrten (hohe Genauigkeit, 10m/10s Filter)."},
+{name:"startStandbyTracking",line:51912,file:"index.html",async:false,params:[],cat:"GPS",sub:"Modi",desc:"Startet Standby-Modus mit LTE/WiFi (grobe Position). Alle 2 Minuten. Spart Akku."},
+{name:"switchToStandby",line:52086,file:"index.html",async:false,params:[],cat:"GPS",sub:"Modi",desc:"Stoppt aktives GPS nach Fahrt und wechselt zurueck zu Standby-Modus."},
+{name:"getStandbyPosition",line:51972,file:"index.html",async:false,params:[],cat:"GPS",sub:"Modi",desc:"Holt grobe GPS-Position via LTE/WiFi und speichert in Firebase."},
+
+{name:"handleGPSPosition",line:52836,file:"index.html",async:false,params:["pos: GeolocationPosition","rideId: string|null"],cat:"GPS",sub:"Position",desc:"Hauptposition-Handler mit Debouncing (10m/10s aktiv, 50m/60s Standby). Speichert in /vehicles/."},
+{name:"shouldWriteGPSUpdate",line:52666,file:"index.html",async:false,params:["lat: number","lon: number"],cat:"GPS",sub:"Position",desc:"Prueft ob GPS-Update zu Firebase geschrieben werden soll (Debouncing: >2Min oder >50m Bewegung)."},
+{name:"markGPSPositionWritten",line:52700,file:"index.html",async:false,params:["lat: number","lon: number"],cat:"GPS",sub:"Position",desc:"Speichert zuletzt geschriebene GPS-Position fuer Debouncing-Berechnung."},
+{name:"updateGPSStatus",line:20922,file:"index.html",async:false,params:["timeSinceLastUpdate: number|null"],cat:"GPS",sub:"Position",desc:"Aktualisiert UI-Kompakt-Status: gruen (<5s), gelb (5-15s), rot (>30s)."},
+{name:"startGPSHealthMonitor",line:52262,file:"index.html",async:false,params:[],cat:"GPS",sub:"Position",desc:"Ueberwacht GPS-Gesundheit alle 30s. Zeigt Warnung wenn >30s ohne GPS-Update."},
+
+{name:"calculateDistance",line:53036,file:"index.html",async:false,params:["lat1: number","lon1: number","lat2: number","lon2: number"],cat:"GPS",sub:"Berechnung",desc:"Haversine-Formel fuer Distanz. Gibt Kilometer zurueck."},
+{name:"calculateGPSDistance",line:52650,file:"index.html",async:false,params:["lat1: number","lon1: number","lat2: number","lon2: number"],cat:"GPS",sub:"Berechnung",desc:"Haversine-Formel in Metern. Fuer GPS-Debouncing."},
+{name:"calculateGPSDistanceKm",line:40729,file:"index.html",async:false,params:["lat1: number","lon1: number","lat2: number","lon2: number"],cat:"GPS",sub:"Berechnung",desc:"Haversine-Formel in Kilometer. Fuer Dispatch-Kandidaten-ETA."},
+
+// ═══════════════════════════════════════════════════════════════
+// FAHRZEUGE & FLOTTE
+// ═══════════════════════════════════════════════════════════════
+{name:"updateVehicleSyncStatus",line:20957,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Status",desc:"Prueft Firebase-Sync Status. Zeigt 'SYNC OK' (<30s), Warnung (30-120s), 'SYNC ALT' (>120s)."},
+{name:"updateVehicleDropdowns",line:64022,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Status",desc:"Aktualisiert Fahrzeug-Dropdown-Auswahl in Driver-View."},
+{name:"updateDriverViewV295",line:21779,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Status",desc:"Rendert Driver-View mit aktiver Fahrt, Statistiken, GPS-Status."},
+{name:"updateDriverStatusIndicator",line:21841,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Status",desc:"Zeigt Status: BESETZT (aktive Fahrt) oder BEREIT (frei)."},
+{name:"normalizeVehicleId",line:10752,file:"index.html",async:false,params:["plate: string"],cat:"Fahrzeuge",sub:"Lookup",desc:"Normalisiert Kennzeichen zu ID-Format. Lowercase, trimmt, ersetzt Leerzeichen."},
+{name:"findVehicle",line:10757,file:"index.html",async:false,params:["idOrPlate: string"],cat:"Fahrzeuge",sub:"Lookup",desc:"Findet Fahrzeug in VEHICLES-Config. Sucht nach ID, normalisiertem Kennzeichen oder legacyId."},
+{name:"getVehiclePriority",line:27695,file:"index.html",async:false,params:["vehicleId: string"],cat:"Fahrzeuge",sub:"Lookup",desc:"Gibt Fahrzeug-Prioritaet zurueck (Firebase > OFFICIAL_VEHICLES > 99)."},
+
+// ─── Schichtplan ───
+{name:"getVehicleShiftTimes",line:28223,file:"index.html",async:false,params:["vehicleId: string","dateStr: string"],cat:"Fahrzeuge",sub:"Schichtplan",desc:"Holt Schichtzeiten fuer Fahrzeug an bestimmtem Tag. Unterstuetzt Split-Shifts."},
+{name:"getVehicleActiveForDate",line:28198,file:"index.html",async:false,params:["vehicleId: string","dateStr: string"],cat:"Fahrzeuge",sub:"Schichtplan",desc:"Prueft ob Fahrzeug an Datum eingeplant ist. Gibt boolean zurueck."},
+{name:"isVehicleAvailableAtSlot",line:28281,file:"index.html",async:false,params:["vehicleId: string","dateStr: string","slotTimeStr: string"],cat:"Fahrzeuge",sub:"Schichtplan",desc:"Prueft Verfuegbarkeit zu Uhrzeit (Tag + Zeit). Unterstuetzt Split-Shifts."},
+{name:"getVehicleHomeForTime",line:28319,file:"index.html",async:false,params:["vehicleId: string","dateStr: string","timeStr: string"],cat:"Fahrzeuge",sub:"Schichtplan",desc:"Holt Heimatstandort fuer Fahrzeug basierend auf Schicht."},
+{name:"getActiveVehiclesForDate",line:28296,file:"index.html",async:false,params:["dateStr: string","requiredCapacity: number|null","slotTimeStr: string|null"],cat:"Fahrzeuge",sub:"Schichtplan",desc:"Zaehlt verfuegbare Fahrzeuge fuer Datum (ggf. Uhrzeit + Kapazitaet)."},
+
+// ─── Flotte ───
+{name:"renderFleetDispatchPanel",line:58873,file:"index.html",async:false,params:["ridesData: Object","driversData: Object"],cat:"Fahrzeuge",sub:"Flotte",desc:"Rendert Vermittlungs-Dashboard mit offenen Fahrten. Zeigt Fahrzeug-Kandidaten, GPS-Alter, ETA."},
+{name:"renderFleetDayTimeline",line:59137,file:"index.html",async:false,params:["ridesData: Object","driversData: Object","dateStr: string|null"],cat:"Fahrzeuge",sub:"Flotte",desc:"Rendert Gantt-Timeline mit Fahrzeugen vs. Fahrten pro Tag."},
+{name:"updateFleetTimeline",line:58480,file:"index.html",async:false,params:["ridesData: Object","driversData: Object"],cat:"Fahrzeuge",sub:"Flotte",desc:"Aktualisiert Fleet-Timeline und Dispatch-Panel."},
+{name:"showFleetRideDetail",line:59589,file:"index.html",async:false,params:["rideId: string"],cat:"Fahrzeuge",sub:"Flotte",desc:"Fleet-Admin: Zeigt Fahrtdetails mit Admin-Aktionen (Reset, Lock, etc.)."},
+
+// ─── Fahrer-Karte ───
+{name:"initDriverMapV295",line:83339,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Fahrer-Karte",desc:"Initialisiert Leaflet-Karte fuer Driver-View. Setzt Tile-Layer, Zoom, Events."},
+{name:"updateDriverMapV295",line:83362,file:"index.html",async:false,params:[],cat:"Fahrzeuge",sub:"Fahrer-Karte",desc:"Aktualisiert Karte mit aktuellem Fahrer/Fahrzeug-Marker, Route, ETA."},
+{name:"updateDriverRoute",line:83605,file:"index.html",async:false,params:["ride: Object"],cat:"Fahrzeuge",sub:"Fahrer-Karte",desc:"Berechnet Route zu Abholort ODER Ziel (je nach Status). Zeigt Distance, Duration, ETA."},
+{name:"updateDriverInfoTop",line:50808,file:"index.html",async:false,params:["ride: Object"],cat:"Fahrzeuge",sub:"Fahrer-Karte",desc:"Aktualisiert Fahrer-Info Box: Kundenname, Pickup/Ziel-Adressen, Zeit, Bemerkungen."},
+
+// ═══════════════════════════════════════════════════════════════
+// TELEGRAM BOT (Browser)
+// ═══════════════════════════════════════════════════════════════
+{name:"loadTelegramToken",line:30734,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Initialisierung",desc:"Laedt Bot-Token aus Firebase, validiert mit getMe, prueft Webhook-Status. Startet Polling oder aktiviert Webhook-Modus."},
+{name:"startTelegramPolling",line:33024,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Polling",desc:"Startet Long-Poll Mode. Prueft Webhook-Status, laedt Firebase-Daten, initialisiert Polling-Loop mit Watchdog."},
+{name:"stopTelegramPolling",line:33296,file:"index.html",async:false,params:[],cat:"Telegram",sub:"Polling",desc:"Stoppt Polling, gibt Firebase Lock frei und bereinigt Ressourcen."},
+{name:"pollTelegramMessages",line:33364,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Polling",desc:"Asynchrone Long-Poll mit 20s Timeout. Tab-Leader-Lock und Firebase Global Lock."},
+
+{name:"sendTelegramMessage",line:30889,file:"index.html",async:true,params:["chatId: string","text: string","extraParams: Object"],cat:"Telegram",sub:"Senden",desc:"Sendet HTML-formatierte Nachricht via Telegram API mit 5s Timeout."},
+{name:"sendTelegramToAdmin",line:31115,file:"index.html",async:true,params:["message: string"],cat:"Telegram",sub:"Senden",desc:"Sendet Nachricht an alle registrierten Admin-Chats aus Firebase."},
+{name:"sendTelegramToDriver",line:31155,file:"index.html",async:true,params:["vehicleId: string","ride: Object","gpsAgeMinutes: number"],cat:"Telegram",sub:"Senden",desc:"Sendet Fahrtauftrag an Fahrer mit Ride-ID, GPS-Warnung, Kunden-Info."},
+{name:"sendTelegramToDriverCancel",line:31244,file:"index.html",async:true,params:["vehicleId: string","message: string"],cat:"Telegram",sub:"Senden",desc:"Sendet Stornierungsnachricht an Fahrer."},
+{name:"sendCustomerTelegram",line:31586,file:"index.html",async:true,params:["phone: string","trackingLink: string","ride: Object"],cat:"Telegram",sub:"Senden",desc:"Sendet Bestaetigungsnachricht an Kunde mit Tracking-Link."},
+{name:"sendTelegramForNewRide",line:31727,file:"index.html",async:true,params:["ride: Object"],cat:"Telegram",sub:"Senden",desc:"Sendet neue Fahrt an alle Admin-Chats mit Duplikat-Schutz."},
+{name:"sendTelegramStatusUpdate",line:31835,file:"index.html",async:true,params:["ride: Object","oldStatus: string","newStatus: string"],cat:"Telegram",sub:"Senden",desc:"Sendet Status-Updates (accepted, cancelled, picked_up, completed) an Admins."},
+{name:"sendTelegramForDeletedRide",line:32004,file:"index.html",async:true,params:["ride: Object"],cat:"Telegram",sub:"Senden",desc:"Benachrichtigt Admins wenn Fahrt vom Admin geloescht wurde."},
+{name:"sendTelegramOpenRideWarning",line:32067,file:"index.html",async:true,params:["ride: Object"],cat:"Telegram",sub:"Senden",desc:"Warnt Admins 15 Min vor Abholzeit wenn Fahrt noch nicht angenommen."},
+
+{name:"handleTelegramIncoming",line:33794,file:"index.html",async:true,params:["message: Object"],cat:"Telegram",sub:"Empfangen",desc:"Main-Handler fuer Text-Nachrichten. Dispatcht zu /start, /buchen, /loeschen, /aendern, Freitext."},
+{name:"handleTelegramContact",line:33532,file:"index.html",async:true,params:["message: Object"],cat:"Telegram",sub:"Empfangen",desc:"Verarbeitet geteilte Kontakte (Telefonnummer). Normalisiert Nummer, sucht CRM-Kunden."},
+{name:"handleTelegramLocation",line:33619,file:"index.html",async:true,params:["message: Object"],cat:"Telegram",sub:"Empfangen",desc:"Verarbeitet GPS-Standorte. Reverse-Geocoding zu Adresse. Integration in laufende Buchung."},
+{name:"handleTelegramCallback",line:35736,file:"index.html",async:true,params:["callback: Object"],cat:"Telegram",sub:"Empfangen",desc:"Verarbeitet Button-Klicks (inline_keyboard callbacks). Dispatcht zu Adress-/Nominatim-Selection."},
+
+{name:"analyzeTelegramBooking",line:34201,file:"index.html",async:true,params:["chatId: number","text: string","userName: string","options: Object"],cat:"Telegram",sub:"Buchungsflow",desc:"Claude API Call fuer Buchungstext-Analyse (Adressen, Datum, Zeit extrahieren)."},
+{name:"analyzeTelegramFollowUp",line:34531,file:"index.html",async:true,params:["chatId: number","newText: string","userName: string","pending: Object"],cat:"Telegram",sub:"Buchungsflow",desc:"Follow-Up Analyse wenn Kunden fehlende Daten nachschicken."},
+{name:"validateTelegramAddresses",line:34843,file:"index.html",async:true,params:["chatId: number","booking: Object","originalText: string"],cat:"Telegram",sub:"Buchungsflow",desc:"Validiert Adressen via Nominatim. Baut Confirm-Buttons fuer Adress-Auswahl."},
+{name:"searchNominatimForTelegram",line:34916,file:"index.html",async:true,params:["query: string"],cat:"Telegram",sub:"Buchungsflow",desc:"Sucht Adressen bei OpenStreetMap Nominatim. Filtert auf Usedom-Region. Top 5 Treffer."},
+{name:"showTelegramConfirmation",line:35049,file:"index.html",async:true,params:["chatId: number","booking: Object","routePrice: number"],cat:"Telegram",sub:"Buchungsflow",desc:"Zeigt Bestaetigungsnachricht mit Fahrdetails und Inline-Buttons."},
+{name:"calculateTelegramRoutePrice",line:35063,file:"index.html",async:true,params:["booking: Object"],cat:"Telegram",sub:"Buchungsflow",desc:"Berechnet Fahrtpreis basierend auf Distanz und Tageszeit."},
+
+{name:"handleTelegramDeleteQuery",line:35319,file:"index.html",async:true,params:["chatId: number","knownCustomer: Object"],cat:"Telegram",sub:"Befehle",desc:"Zeigt Kunden Liste seiner Fahrten zur Stornierung. Inline-Buttons fuer Storno."},
+{name:"showTelegramModifyList",line:35376,file:"index.html",async:true,params:["chatId: number","knownCustomer: Object"],cat:"Telegram",sub:"Befehle",desc:"Zeigt bevorstehende Fahrten zur Bearbeitung (Zeit, Adresse aendern)."},
+{name:"handleTelegramModifyText",line:35508,file:"index.html",async:true,params:["chatId: number","text: string","pending: Object"],cat:"Telegram",sub:"Befehle",desc:"Verarbeitet Modify-Input (neue Zeit/Adresse). Validiert und updated Fahrt."},
+{name:"parseTelegramTimeLocal",line:35434,file:"index.html",async:false,params:["text: string","baseTimestamp: number"],cat:"Telegram",sub:"Befehle",desc:"Parse deutsche Zeitangaben ('15:30', '15 Uhr', 'halb 4'). Gibt Millisekunden."},
+{name:"parseTelegramDateLocal",line:35482,file:"index.html",async:false,params:["text: string","baseTimestamp: number"],cat:"Telegram",sub:"Befehle",desc:"Parse deutsche Datumsangaben ('morgen', 'uebermorgen', '15.03.'). Gibt Datums-String."},
+
+{name:"getTelegramCustomer",line:32679,file:"index.html",async:false,params:["chatId: number"],cat:"Telegram",sub:"Kunden-Cache",desc:"Holt bekannten Kunden aus Cache. Gibt null wenn unbekannt."},
+{name:"saveTelegramCustomer",line:32761,file:"index.html",async:true,params:["chatId: number","data: Object"],cat:"Telegram",sub:"Kunden-Cache",desc:"Speichert Kunden-Link in Memory + Firebase."},
+{name:"isTelegramAdmin",line:32684,file:"index.html",async:true,params:["chatId: number"],cat:"Telegram",sub:"Kunden-Cache",desc:"Prueft ob Chat-ID in adminChats Array."},
+{name:"linkTelegramChatToCustomer",line:32770,file:"index.html",async:true,params:["chatId: number","booking: Object"],cat:"Telegram",sub:"Kunden-Cache",desc:"Nach Buchung: Sucht CRM-Kunde via Telefon, verknuepft Chat-ID."},
+
+{name:"setTelegramPending",line:32637,file:"index.html",async:true,params:["chatId: number","data: Object"],cat:"Telegram",sub:"Pending",desc:"Speichert Pending-Buchung in Memory + Firebase. Mit _createdAt Timestamp."},
+{name:"deleteTelegramPending",line:32654,file:"index.html",async:true,params:["chatId: number"],cat:"Telegram",sub:"Pending",desc:"Loescht Pending aus Memory + Firebase."},
+{name:"cleanupExpiredTelegramPendings",line:32662,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Pending",desc:"Loescht alle abgelaufenen Pendings. Laeuft alle 5 Min."},
+
+{name:"addTelegramLog",line:32602,file:"index.html",async:true,params:["emoji: string","chatId: number","msg: string","details: Object"],cat:"Telegram",sub:"Logging",desc:"Fuegt Debug-Eintrag zu telegramBotLog Array hinzu. Speichert auch in Firebase (max 200)."},
+{name:"renderTelegramBotLogPanel",line:32858,file:"index.html",async:false,params:[],cat:"Telegram",sub:"Logging",desc:"Rendert Bot-Log Panel UI mit HTML (mit Details-Expander)."},
+{name:"updateTgDiagStatus",line:32899,file:"index.html",async:false,params:[],cat:"Telegram",sub:"Logging",desc:"Aktualisiert Diagnose-Anzeige: Polling-Status, Leader-Device, Pending-Count."},
+{name:"toggleTelegramBotOnOff",line:32980,file:"index.html",async:false,params:[],cat:"Telegram",sub:"Logging",desc:"Toggle-Button: Startet/Stoppt Polling, aktualisiert UI."},
+
+{name:"setupTelegramWebhook",line:32311,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Webhook",desc:"Ruft Cloud Function /setupWebhook auf. Zeigt Status in UI."},
+{name:"removeTelegramWebhook",line:32341,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Webhook",desc:"Ruft Cloud Function /removeWebhook auf. Wechselt zurueck zu Browser-Polling."},
+{name:"updateTelegramStatus",line:32366,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Webhook",desc:"Aktualisiert Telegram-Status-Anzeige (Admin-Count, Webhook-Status)."},
+{name:"saveTelegramBotToken",line:32391,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Webhook",desc:"Speichert Bot-Token nach Validierung via getMe. Prueft Token-Format."},
+{name:"sendTelegramTest",line:32538,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Webhook",desc:"Sendet Test-Nachricht an alle Admin-Chats. Alert mit Erfolgscount."},
+
+{name:"showTelegramLockWarning",line:33326,file:"index.html",async:false,params:["fbLock: Object","myDeviceId: string"],cat:"Telegram",sub:"Multi-Device",desc:"Zeigt Banner wenn anderes Geraet Polling aktiv haelt. 'Hier uebernehmen'-Button."},
+{name:"hideTelegramLockWarning",line:33342,file:"index.html",async:false,params:[],cat:"Telegram",sub:"Multi-Device",desc:"Entfernt Lock-Warning Banner."},
+{name:"forceTelegramTakeover",line:33348,file:"index.html",async:true,params:[],cat:"Telegram",sub:"Multi-Device",desc:"Ueberschreibt Firebase Poll-Lock. Aktuelles Geraet wird Leader."},
+
+// ═══════════════════════════════════════════════════════════════
+// TELEGRAM BOT (Cloud Functions)
+// ═══════════════════════════════════════════════════════════════
+{name:"exports.telegramWebhook",line:3289,file:"functions/index.js",async:true,params:["req: Object","res: Object"],cat:"Cloud Functions",sub:"Webhook",desc:"Main Webhook Endpoint fuer Telegram Updates. Validiert Secret-Token, dispatcht zu Handlern."},
+{name:"exports.setupWebhook",line:3337,file:"functions/index.js",async:true,params:["req: Object","res: Object"],cat:"Cloud Functions",sub:"Webhook",desc:"Aktiviert Webhook Mode. Setzt setWebhook bei Telegram, speichert URL + Status in Firebase."},
+{name:"exports.removeWebhook",line:3391,file:"functions/index.js",async:true,params:["req: Object","res: Object"],cat:"Cloud Functions",sub:"Webhook",desc:"Deaktiviert Webhook. Ruft deleteWebhook bei Telegram auf, setzt webhookActive=false."},
+{name:"loadBotToken",line:83,file:"functions/index.js",async:true,params:[],cat:"Cloud Functions",sub:"Helfer",desc:"Laedt Token aus Firebase (einmalig per Cold Start gecacht)."},
+{name:"ensureWebhookSecret",line:90,file:"functions/index.js",async:true,params:[],cat:"Cloud Functions",sub:"Helfer",desc:"Laedt oder generiert 32-Byte Hex-Secret fuer Webhook-Authentifizierung."},
+{name:"calculatePrice",line:465,file:"functions/index.js",async:false,params:["distance: number","timestamp: number"],cat:"Cloud Functions",sub:"Helfer",desc:"Berechnet Fahrtpreis basierend auf Distanz und Tageszeit. Nacht + Feiertage."},
+{name:"parseGermanDatetime",line:492,file:"functions/index.js",async:false,params:["datetimeStr: string"],cat:"Cloud Functions",sub:"Helfer",desc:"Parse deutsche Datum+Zeit-Angaben. Gibt Millisekunden zurueck."},
+
+// ═══════════════════════════════════════════════════════════════
+// UI & NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+{name:"switchView",line:19164,file:"index.html",async:false,params:["view: string"],cat:"UI",sub:"Navigation",desc:"Wechselt zwischen Admin/Driver/Passenger Hauptansichten."},
+{name:"toggleMenu",line:19705,file:"index.html",async:false,params:["event: Event"],cat:"UI",sub:"Navigation",desc:"Oeffnet/Schliesst Hamburger-Menu."},
+{name:"closeMenu",line:19717,file:"index.html",async:false,params:[],cat:"UI",sub:"Navigation",desc:"Schliesst Hamburger-Menu."},
+{name:"toggleHeader",line:5487,file:"index.html",async:false,params:[],cat:"UI",sub:"Navigation",desc:"Klappt Header-Bereich ein/aus fuer mehr Platz."},
+{name:"switchRidesTab",line:5083,file:"index.html",async:false,params:["tab: string"],cat:"UI",sub:"Navigation",desc:"Wechselt zwischen Fahrten-Tabs (aktiv/abgeschlossen/storniert)."},
+{name:"showHistoryTab",line:13053,file:"index.html",async:false,params:["tab: string"],cat:"UI",sub:"Navigation",desc:"Wechselt zwischen History-Tabs."},
+{name:"updateAdminTabsVisibility",line:19833,file:"index.html",async:false,params:[],cat:"UI",sub:"Navigation",desc:"Zeigt/versteckt Admin-Tabs basierend auf Benutzer-Rolle."},
+
+{name:"initApp",line:17926,file:"index.html",async:false,params:["hasFirebase: boolean"],cat:"UI",sub:"Initialisierung",desc:"Haupt-Initialisierung der App. Laedt Firebase-Daten, startet Listener, setzt UI auf."},
+{name:"clearAppCache",line:5506,file:"index.html",async:false,params:["event: Event"],cat:"UI",sub:"Initialisierung",desc:"Leert App-Cache und laedt Seite neu."},
+{name:"toggleDebugMode",line:5629,file:"index.html",async:false,params:[],cat:"UI",sub:"Initialisierung",desc:"Schaltet Debug-Modus ein/aus. Zeigt extra Logs und Diagnose-Infos."},
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH & BENUTZER
+// ═══════════════════════════════════════════════════════════════
+{name:"loadTabSettings",line:20297,file:"index.html",async:true,params:[],cat:"Auth",sub:"Berechtigungen",desc:"Laedt Tab-Berechtigungen aus Firebase fuer aktuellen Benutzer."},
+{name:"getDefaultPermissions",line:20348,file:"index.html",async:false,params:[],cat:"Auth",sub:"Berechtigungen",desc:"Gibt Standard-Berechtigungen je Rolle zurueck."},
+{name:"ensureAdminHasAllTabs",line:20357,file:"index.html",async:true,params:[],cat:"Auth",sub:"Berechtigungen",desc:"Stellt sicher dass Admin alle Tabs hat."},
+{name:"applyTabPermissions",line:20394,file:"index.html",async:true,params:["permissions: Object","role: string"],cat:"Auth",sub:"Berechtigungen",desc:"Wendet Tab-Berechtigungen auf UI an. Zeigt/versteckt Tabs."},
+{name:"fillTabPermissionCheckboxes",line:20439,file:"index.html",async:false,params:["permissions: Object"],cat:"Auth",sub:"Berechtigungen",desc:"Fuellt Checkboxen in Tab-Verwaltung mit aktuellen Berechtigungen."},
+{name:"showMyProfileModalFromMenu",line:19996,file:"index.html",async:false,params:[],cat:"Auth",sub:"Profil",desc:"Zeigt Mein-Profil-Modal vom Menu aus."},
+{name:"saveMyProfile",line:20211,file:"index.html",async:true,params:[],cat:"Auth",sub:"Profil",desc:"Speichert Profildaten in Firebase (Name, Telefon, etc.)."},
+
+// ═══════════════════════════════════════════════════════════════
+// BENACHRICHTIGUNGEN
+// ═══════════════════════════════════════════════════════════════
+{name:"sendLocalNotification",line:16487,file:"index.html",async:false,params:["title: string","body: string","data: Object"],cat:"Benachrichtigungen",sub:"Push",desc:"Sendet lokale Browser-Notification (Push-Benachrichtigung)."},
+{name:"playNotificationSound",line:16530,file:"index.html",async:false,params:[],cat:"Benachrichtigungen",sub:"Push",desc:"Spielt Benachrichtigungston ab."},
+{name:"requestNotificationPermission",line:16446,file:"index.html",async:true,params:[],cat:"Benachrichtigungen",sub:"Push",desc:"Fragt Browser-Berechtigung fuer Push-Notifications an."},
+
+// ═══════════════════════════════════════════════════════════════
+// KOMMUNIKATION (WhatsApp, SMS)
+// ═══════════════════════════════════════════════════════════════
+{name:"sendQuickWhatsApp",line:14863,file:"index.html",async:true,params:["rideId: string","template: string"],cat:"Kommunikation",sub:"WhatsApp",desc:"Oeffnet WhatsApp mit vorgefertigter Nachricht basierend auf Template."},
+{name:"sendQuickSMS",line:14958,file:"index.html",async:true,params:["rideId: string","template: string"],cat:"Kommunikation",sub:"SMS",desc:"Oeffnet SMS-App mit vorgefertigter Nachricht basierend auf Template."},
+{name:"openKundeninfo",line:14681,file:"index.html",async:true,params:["rideId: string"],cat:"Kommunikation",sub:"Kunden-Info",desc:"Oeffnet Kunden-Info-Panel mit Kommunikationsoptionen (WhatsApp, SMS, Anruf)."},
+
+// ═══════════════════════════════════════════════════════════════
+// ANRUF-SYSTEM
+// ═══════════════════════════════════════════════════════════════
+{name:"initCallPopupListener",line:12013,file:"index.html",async:false,params:[],cat:"Anrufe",sub:"Popup",desc:"Startet Firebase-Listener fuer eingehende Anrufe. Zeigt Popup bei neuem Anruf."},
+{name:"showCallPopup",line:12098,file:"index.html",async:false,params:["data: Object"],cat:"Anrufe",sub:"Popup",desc:"Zeigt Anruf-Popup mit Kundendaten, Buchungs-Buttons."},
+{name:"closeCallPopup",line:12257,file:"index.html",async:false,params:[],cat:"Anrufe",sub:"Popup",desc:"Schliesst Anruf-Popup."},
+{name:"initCallHistory",line:12273,file:"index.html",async:false,params:[],cat:"Anrufe",sub:"Historie",desc:"Initialisiert Anruf-Historie Listener (letzte 20 Anrufe)."},
+{name:"displayCallHistory",line:12310,file:"index.html",async:true,params:["snapshot: Object"],cat:"Anrufe",sub:"Historie",desc:"Rendert Anruf-Historie mit Details (Nummer, Dauer, Kunde)."},
+{name:"callNumber",line:17588,file:"index.html",async:false,params:["number: string","name: string"],cat:"Anrufe",sub:"Waehlen",desc:"Oeffnet Telefon-App mit Nummer (tel: Link)."},
+{name:"loadCallFavorites",line:17132,file:"index.html",async:true,params:[],cat:"Anrufe",sub:"Favoriten",desc:"Laedt Anruf-Favoriten aus Firebase."},
+{name:"addCallFavorite",line:17778,file:"index.html",async:false,params:[],cat:"Anrufe",sub:"Favoriten",desc:"Fuegt neuen Anruf-Favorit hinzu (Name + Telefonnummer)."},
+
+// ═══════════════════════════════════════════════════════════════
+// ERROR LOGGING
+// ═══════════════════════════════════════════════════════════════
+{name:"trackError",line:11120,file:"index.html",async:false,params:["errorInfo: Object"],cat:"Logging",sub:"Fehler",desc:"Speichert Fehler in localStorage mit Geraete-Info. Max 7 Tage Retention."},
+{name:"sendErrorBatchToFirebase",line:11215,file:"index.html",async:true,params:[],cat:"Logging",sub:"Fehler",desc:"Sendet Error-Batch (max 10) an Firebase /errorLogs. Alle 30 Sekunden."},
+{name:"openErrorTracker",line:11424,file:"index.html",async:false,params:[],cat:"Logging",sub:"Fehler",desc:"Oeffnet Error-Tracker UI Panel."},
+{name:"openFirebaseErrorViewer",line:11618,file:"index.html",async:true,params:[],cat:"Logging",sub:"Fehler",desc:"Oeffnet Firebase Error Viewer mit Filter-Optionen."},
+{name:"debugLog",line:10733,file:"index.html",async:false,params:["type: string","message: string"],cat:"Logging",sub:"Debug",desc:"Schreibt Debug-Log mit Typ-Prefix in Console."},
+{name:"logStateChange",line:11975,file:"index.html",async:false,params:["description: string","oldValue: any","newValue: any"],cat:"Logging",sub:"Debug",desc:"Loggt State-Aenderung fuer Diagnose-Zwecke."},
+
+// ═══════════════════════════════════════════════════════════════
+// BACKUP & DATEN
+// ═══════════════════════════════════════════════════════════════
+{name:"createAutoBackup",line:16827,file:"index.html",async:true,params:[],cat:"Backup",sub:"Erstellen",desc:"Erstellt automatisches Backup aller Firebase-Daten in IndexedDB."},
+{name:"downloadBackup",line:16954,file:"index.html",async:true,params:["backupId: string"],cat:"Backup",sub:"Verwalten",desc:"Laedt Backup als JSON-Datei herunter."},
+{name:"restoreBackup",line:16980,file:"index.html",async:true,params:["backupId: string"],cat:"Backup",sub:"Verwalten",desc:"Stellt Backup aus IndexedDB wieder her nach Firebase."},
+{name:"deleteBackup",line:17025,file:"index.html",async:true,params:["backupId: string"],cat:"Backup",sub:"Verwalten",desc:"Loescht ein Backup aus IndexedDB."},
+{name:"updateBackupList",line:17048,file:"index.html",async:true,params:[],cat:"Backup",sub:"Verwalten",desc:"Aktualisiert Backup-Liste in der UI."},
+
+// ═══════════════════════════════════════════════════════════════
+// OEPNV (Fahrplan)
+// ═══════════════════════════════════════════════════════════════
+{name:"loadSchedule",line:18536,file:"index.html",async:true,params:[],cat:"OEPNV",sub:"Fahrplan",desc:"Laedt OEPNV-Fahrplan fuer naechstgelegene Haltestelle."},
+{name:"fetchNearbyStops",line:18646,file:"index.html",async:true,params:["lat: number","lng: number"],cat:"OEPNV",sub:"Fahrplan",desc:"Sucht nahe Haltestellen via API."},
+{name:"loadDepartures",line:18890,file:"index.html",async:true,params:["stopId: string","stopName: string"],cat:"OEPNV",sub:"Fahrplan",desc:"Laedt Abfahrtszeiten fuer eine Haltestelle."},
+{name:"startOPNVBooking",line:19746,file:"index.html",async:false,params:[],cat:"OEPNV",sub:"Buchung",desc:"Startet OEPNV-Zubringer-Buchung (Fahrt zum Bahnhof/Haltestelle)."},
+
+// ═══════════════════════════════════════════════════════════════
+// GEOCODING & ROUTING
+// ═══════════════════════════════════════════════════════════════
+{name:"reverseGeocode",line:33683,file:"index.html",async:true,params:["lat: number","lon: number"],cat:"Geocoding",sub:"Nominatim",desc:"Reverse-Geocoding via OpenStreetMap Nominatim. Gibt strukturierte Adresse zurueck."},
+{name:"isFeiertag",line:10842,file:"index.html",async:false,params:["date: Date"],cat:"Geocoding",sub:"Hilfsfunktionen",desc:"Prueft ob Datum ein Feiertag ist (Zuschlag-Berechnung)."},
+{name:"getLocalDateString",line:830,file:"index.html",async:false,params:["date: Date"],cat:"Geocoding",sub:"Hilfsfunktionen",desc:"Formatiert Datum als 'YYYY-MM-DD' String."},
+{name:"convertGermanToPolish",line:10980,file:"index.html",async:false,params:["query: string"],cat:"Geocoding",sub:"Hilfsfunktionen",desc:"Konvertiert deutsche Ortsnamen zu polnischen fuer Nominatim-Suche (Swinoujscie etc.)."},
+
+// ═══════════════════════════════════════════════════════════════
+// STAMMKUNDEN
+// ═══════════════════════════════════════════════════════════════
+{name:"loadRegularCustomer",line:12982,file:"index.html",async:false,params:[],cat:"CRM",sub:"Stammkunden",desc:"Laedt gespeicherten Stammkunden aus localStorage."},
+{name:"showRegularCustomerBox",line:12995,file:"index.html",async:false,params:[],cat:"CRM",sub:"Stammkunden",desc:"Zeigt Stammkunden-Info-Box im Buchungsformular."},
+{name:"useRegularCustomerData",line:13017,file:"index.html",async:false,params:[],cat:"CRM",sub:"Stammkunden",desc:"Fuellt Buchungsformular mit Stammkunden-Daten."},
+{name:"saveRegularCustomerData",line:13047,file:"index.html",async:false,params:["name: string","pickup: string","destination: string"],cat:"CRM",sub:"Stammkunden",desc:"Speichert Stammkunden-Daten in localStorage."},
+
+// ═══════════════════════════════════════════════════════════════
+// STORNIERUNG
+// ═══════════════════════════════════════════════════════════════
+{name:"showCancellationPanel",line:5836,file:"index.html",async:false,params:[],cat:"Stornierung",sub:"UI",desc:"Zeigt Stornierungs-Panel fuer Fahrgaeste."},
+{name:"closeCancellationPanel",line:5955,file:"index.html",async:false,params:[],cat:"Stornierung",sub:"UI",desc:"Schliesst Stornierungs-Panel."},
+{name:"confirmCancellation",line:5959,file:"index.html",async:true,params:["rideId: string"],cat:"Stornierung",sub:"UI",desc:"Bestaetigt Stornierung und berechnet Gebuehr."},
+{name:"calculateCancellationFee",line:5998,file:"index.html",async:false,params:["ride: Object"],cat:"Stornierung",sub:"Berechnung",desc:"Berechnet Stornogebuehr basierend auf Zeitpunkt und Fahrt-Typ."},
+];
+
+// ═══════════════════════════════════════════════════════════════
+// APP-LOGIK
+// ═══════════════════════════════════════════════════════════════
+
+const categories = [...new Set(FUNCTIONS.map(f => f.cat))];
+const catColors = {
+    'Fahrten':'#3b82f6','GPS':'#10b981','Fahrzeuge':'#f59e0b','Telegram':'#8b5cf6',
+    'Cloud Functions':'#ec4899','UI':'#6366f1','Auth':'#14b8a6','Benachrichtigungen':'#f97316',
+    'Kommunikation':'#06b6d4','Anrufe':'#84cc16','Logging':'#a855f7','Backup':'#64748b',
+    'OEPNV':'#ef4444','Geocoding':'#22d3ee','CRM':'#d946ef','Stornierung':'#fb923c'
+};
+const catIcons = {
+    'Fahrten':'🚗','GPS':'📍','Fahrzeuge':'🚕','Telegram':'📱','Cloud Functions':'☁️',
+    'UI':'🖥️','Auth':'🔐','Benachrichtigungen':'🔔','Kommunikation':'💬','Anrufe':'📞',
+    'Logging':'📋','Backup':'💾','OEPNV':'🚌','Geocoding':'🗺️','CRM':'👥','Stornierung':'❌'
+};
+
+let activeCategory = null;
+let searchTerm = '';
+
+function init() {
+    renderFilterChips();
+    renderSidebar();
+    renderMain();
+    updateStats();
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchTerm = e.target.value.toLowerCase().trim();
+        renderMain();
+        updateStats();
+    });
+
+    window.addEventListener('scroll', () => {
+        document.getElementById('backTop').style.display = window.scrollY > 400 ? 'block' : 'none';
+    });
+}
+
+function getFilteredFunctions() {
+    return FUNCTIONS.filter(f => {
+        if (activeCategory && f.cat !== activeCategory) return false;
+        if (searchTerm) {
+            const haystack = (f.name + ' ' + f.desc + ' ' + f.cat + ' ' + (f.sub||'') + ' ' + f.params.join(' ')).toLowerCase();
+            return haystack.includes(searchTerm);
+        }
+        return true;
+    });
+}
+
+function renderFilterChips() {
+    const el = document.getElementById('filterChips');
+    el.innerHTML = categories.map(cat => {
+        const count = FUNCTIONS.filter(f => f.cat === cat).length;
+        return `<span class="chip${activeCategory===cat?' active':''}" onclick="toggleCategory('${cat}')">${catIcons[cat]||''} ${cat} (${count})</span>`;
+    }).join('');
+}
+
+function toggleCategory(cat) {
+    activeCategory = activeCategory === cat ? null : cat;
+    renderFilterChips();
+    renderSidebar();
+    renderMain();
+    updateStats();
+}
+
+function renderSidebar() {
+    const el = document.getElementById('sidebar');
+    const filtered = getFilteredFunctions();
+    const grouped = {};
+    filtered.forEach(f => {
+        const key = f.cat;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(f);
+    });
+
+    let html = '';
+    Object.entries(grouped).forEach(([cat, funcs]) => {
+        html += `<div class="sidebar-section">`;
+        html += `<div class="sidebar-title">${catIcons[cat]||''} ${cat}</div>`;
+        // Group by sub
+        const subs = {};
+        funcs.forEach(f => {
+            const s = f.sub || 'Allgemein';
+            if (!subs[s]) subs[s] = [];
+            subs[s].push(f);
+        });
+        Object.entries(subs).forEach(([sub, sfuncs]) => {
+            html += `<div class="sidebar-item" onclick="scrollToSub('${cat}','${sub}')">
+                ${sub} <span class="count">${sfuncs.length}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    });
+    el.innerHTML = html;
+}
+
+function scrollToSub(cat, sub) {
+    const id = `section-${cat}-${sub}`.replace(/[^a-zA-Z0-9-]/g, '_');
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function highlightText(text, term) {
+    if (!term) return text;
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+}
+
+function renderMain() {
+    const el = document.getElementById('mainContent');
+    const filtered = getFilteredFunctions();
+
+    if (filtered.length === 0) {
+        el.innerHTML = `<div class="no-results">
+            <div class="icon">🔍</div>
+            <h3>Keine Funktionen gefunden</h3>
+            <p>Versuche einen anderen Suchbegriff oder entferne den Filter.</p>
+        </div>`;
+        return;
+    }
+
+    // Group by cat -> sub
+    const grouped = {};
+    filtered.forEach(f => {
+        const key = f.cat;
+        if (!grouped[key]) grouped[key] = {};
+        const sub = f.sub || 'Allgemein';
+        if (!grouped[key][sub]) grouped[key][sub] = [];
+        grouped[key][sub].push(f);
+    });
+
+    let html = '';
+    Object.entries(grouped).forEach(([cat, subs]) => {
+        Object.entries(subs).forEach(([sub, funcs]) => {
+            const sectionId = `section-${cat}-${sub}`.replace(/[^a-zA-Z0-9-]/g, '_');
+            html += `<div class="category-header" id="${sectionId}">
+                <h2><span style="color:${catColors[cat]||'#60a5fa'}">${catIcons[cat]||''}</span> ${cat} &rsaquo; ${sub}</h2>
+            </div>`;
+            funcs.forEach(f => {
+                const name = highlightText(f.name, searchTerm);
+                const desc = highlightText(f.desc, searchTerm);
+                html += `<div class="func-card">
+                    <div class="func-name">${name}(${f.params.length > 0 ? '...' : ''})${f.async ? '<span class="async-badge">async</span>' : ''}</div>
+                    <div class="func-line">${f.file}:${f.line}</div>
+                    ${f.params.length > 0 ? `<div class="func-params">${f.params.map(p => `<span class="param-tag">${highlightText(p, searchTerm)}</span>`).join('')}</div>` : ''}
+                    <div class="func-desc">${desc}</div>
+                    <div class="func-tags">
+                        <span class="tag tag-category" style="background:${catColors[f.cat]||'#4c1d95'}30;color:${catColors[f.cat]||'#c4b5fd'}">${f.cat}</span>
+                        <span class="tag tag-file">${f.file}</span>
+                    </div>
+                </div>`;
+            });
+        });
+    });
+    el.innerHTML = html;
+}
+
+function updateStats() {
+    const total = FUNCTIONS.length;
+    const filtered = getFilteredFunctions().length;
+    document.getElementById('totalCount').textContent = `${total} Funktionen gesamt`;
+    const fc = document.getElementById('filteredCount');
+    if (filtered !== total) {
+        fc.style.display = 'inline';
+        fc.textContent = `• ${filtered} angezeigt`;
+    } else {
+        fc.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

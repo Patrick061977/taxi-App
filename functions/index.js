@@ -284,6 +284,31 @@ async function geocode(address) {
     }
 }
 
+// Reverse-Geocoding: Koordinaten → Adresse
+async function reverseGeocode(lat, lon) {
+    try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=18`, {
+            headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' }
+        });
+        const data = await resp.json();
+        if (data && data.address) {
+            const addr = data.address;
+            let name = '';
+            if (addr.road) name = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
+            else if (addr.pedestrian) name = addr.pedestrian;
+            else if (data.display_name) name = data.display_name.split(',')[0];
+            const town = addr.town || addr.city || addr.village || addr.municipality || '';
+            const postcode = addr.postcode || '';
+            const fullName = name + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+            return { name: fullName, lat: parseFloat(data.lat), lon: parseFloat(data.lon), display_name: data.display_name };
+        }
+        return null;
+    } catch (e) {
+        console.warn('Reverse-Geocoding Fehler:', e.message);
+        return null;
+    }
+}
+
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
     const results = [];
@@ -985,6 +1010,9 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         if (cleanPhone) msg += `📱 ${cleanPhone}\n`;
     }
     if (booking.notes && booking.notes !== 'null') msg += `📝 ${booking.notes}\n`;
+    // Zahlungsmethode anzeigen
+    const payMethod = booking.paymentMethod || 'bar';
+    msg += `💳 Zahlung: ${payMethod === 'karte' ? 'Kartenzahlung' : 'Barzahlung'}\n`;
     if (routePrice) {
         msg += `\n🗺️ Strecke: ca. ${routePrice.distance} km (~${routePrice.duration} Min)\n`;
         msg += `💰 Geschätzter Preis: ca. ${routePrice.price} €`;
@@ -1000,6 +1028,12 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
     keyboard.inline_keyboard.push([
         { text: '✅ Ja, eintragen!', callback_data: `book_yes_${bookingId}` },
         { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
+    ]);
+    // Zahlungsmethode umschalten
+    const currentPay = booking?.paymentMethod || 'bar';
+    keyboard.inline_keyboard.push([
+        { text: currentPay === 'bar' ? '💵 Bar ✓' : '💵 Bar', callback_data: `pay_bar_${bookingId}` },
+        { text: currentPay === 'karte' ? '💳 Karte ✓' : '💳 Karte', callback_data: `pay_karte_${bookingId}` }
     ]);
     if (!booking || !booking.notes || booking.notes === 'null') {
         keyboard.inline_keyboard.push([
@@ -2105,7 +2139,8 @@ async function handleCallback(callback) {
                 ...(booking._adminBooked && { adminBookedBy: String(booking._adminChatId), bookedForCustomer: booking._forCustomer || booking.name }),
                 ...(booking.pickupLat && { pickupLat: booking.pickupLat, pickupLon: booking.pickupLon }),
                 ...(booking.destinationLat && { destinationLat: booking.destinationLat, destinationLon: booking.destinationLon }),
-                ...(telegramRoutePrice && { estimatedPrice: telegramRoutePrice.price, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration })
+                ...(telegramRoutePrice && { estimatedPrice: telegramRoutePrice.price, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
+                paymentMethod: booking.paymentMethod || 'bar'
             };
 
             const newRef = db.ref('rides').push();
@@ -2200,6 +2235,23 @@ async function handleCallback(callback) {
         } catch (e) {
             await addTelegramLog('❌', chatId, 'Fehler: ' + e.message);
             await sendTelegramMessage(chatId, '⚠️ Fehler beim Eintragen: ' + e.message);
+        }
+        return;
+    }
+
+    // Zahlungsmethode umschalten
+    if (data.startsWith('pay_bar_') || data.startsWith('pay_karte_')) {
+        const isKarte = data.startsWith('pay_karte_');
+        const payBookingId = data.replace(/^pay_(bar|karte)_/, '');
+        const payPending = await getPending(chatId);
+        if (payPending && payPending.bookingId === payBookingId && payPending.booking) {
+            payPending.booking.paymentMethod = isKarte ? 'karte' : 'bar';
+            await setPending(chatId, payPending);
+            // Bestätigung mit aktualisierten Buttons neu senden
+            const updatedMsg = buildTelegramConfirmMsg(payPending.booking, payPending.routePrice || null);
+            const updatedKeyboard = buildBookingConfirmKeyboard(payBookingId, chatId, payPending.booking);
+            await sendTelegramMessage(chatId, updatedMsg, { reply_markup: updatedKeyboard });
+            await addTelegramLog('💳', chatId, `Zahlungsmethode: ${isKarte ? 'Karte' : 'Bar'}`);
         }
         return;
     }
@@ -2896,6 +2948,78 @@ async function handleContact(message) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// STANDORT-HANDLER (GPS-Standort als Abholort)
+// ═══════════════════════════════════════════════════════════════
+
+async function handleLocation(message) {
+    const chatId = message.chat.id;
+    const lat = message.location.latitude;
+    const lon = message.location.longitude;
+    const userName = message.from?.first_name || 'Unbekannt';
+
+    await addTelegramLog('📍', chatId, `GPS-Standort empfangen: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+
+    // Reverse-Geocoding: Koordinaten → Adresse
+    let addressName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    const reversed = await reverseGeocode(lat, lon);
+    if (reversed && reversed.name) {
+        addressName = reversed.name;
+        await addTelegramLog('📍', chatId, `Reverse-Geocoding: ${addressName}`);
+    }
+
+    // Prüfe ob eine Buchung läuft und Abholort fehlt
+    const pending = await getPending(chatId);
+    if (pending) {
+        const booking = pending.booking || pending.partial;
+        if (booking && (!booking.pickup || (booking.missing && booking.missing.includes('pickup')))) {
+            // Standort als Abholort übernehmen
+            booking.pickup = addressName;
+            booking.pickupLat = lat;
+            booking.pickupLon = lon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+
+            await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
+
+            // Buchungsfluss fortsetzen
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+            return;
+        }
+
+        // Wenn Zielort fehlt → als Zielort setzen
+        if (booking && (!booking.destination || (booking.missing && booking.missing.includes('destination')))) {
+            booking.destination = addressName;
+            booking.destinationLat = lat;
+            booking.destinationLon = lon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
+
+            await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
+
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+            return;
+        }
+    }
+
+    // Kein laufender Buchungsvorgang → neue Buchung mit Standort als Abholort starten
+    const newBooking = {
+        pickup: addressName,
+        pickupLat: lat,
+        pickupLon: lon,
+        missing: ['destination', 'datetime'],
+        intent: 'buchung'
+    };
+
+    // Kundenname laden
+    const customer = await getTelegramCustomer(chatId);
+    if (customer) {
+        newBooking.name = customer.name;
+        newBooking.phone = customer.phone;
+    }
+
+    await sendTelegramMessage(chatId, `📍 <b>Standort empfangen!</b>\n🏠 Abholort: ${addressName}\n\n💬 Wohin möchten Sie fahren?`);
+    await setPending(chatId, { partial: newBooking, originalText: `GPS: ${addressName}` });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // WEBHOOK ENTRY POINT
 // ═══════════════════════════════════════════════════════════════
 
@@ -2925,6 +3049,8 @@ exports.telegramWebhook = onRequest(
             } else if (update.message) {
                 if (update.message.contact) {
                     await handleContact(update.message);
+                } else if (update.message.location) {
+                    await handleLocation(update.message);
                 } else if (update.message.text) {
                     await handleMessage(update.message);
                 }

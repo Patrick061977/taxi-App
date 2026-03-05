@@ -170,13 +170,18 @@ async function addTelegramLog(emoji, chatId, msg, details = null) {
 function trimTelegramLogs(logRef) {
     logRef.once('value').then(snap => {
         const count = snap.numChildren();
-        if (count > 220) {
-            const toDelete = count - 200;
-            let deleted = 0;
-            snap.forEach(child => {
-                if (deleted < toDelete) { child.ref.remove(); deleted++; }
-            });
-        }
+        // Max 200 Logs + alte Einträge (>48h) aufräumen
+        const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+        let deleted = 0;
+        const toDeleteByCount = count > 220 ? count - 200 : 0;
+        snap.forEach(child => {
+            const e = child.val();
+            const age = e && e.time ? e.time : 0;
+            if (deleted < toDeleteByCount || age < cutoff) {
+                child.ref.remove();
+                deleted++;
+            }
+        });
     }).catch(() => {});
 }
 
@@ -3652,9 +3657,13 @@ async function handleContact(message) {
 
     await addTelegramLog('📱', chatId, `Kontakt geteilt: ${phone} (${firstName})`);
 
-    // Admin-Check
+    // Admin-Check: Auch Admins als Kunde speichern (für /profil)
     if (await isTelegramAdmin(chatId)) {
-        await sendTelegramMessage(chatId, '✅ <b>Admin-Kontakt erkannt.</b>\n\nKeine Kunden-Verknüpfung nötig.', removeKeyboard);
+        const existing = await getTelegramCustomer(chatId);
+        if (!existing) {
+            await saveTelegramCustomer(chatId, { name: firstName, phone, isAdmin: true, linkedAt: Date.now() });
+        }
+        await sendTelegramMessage(chatId, `✅ <b>Admin-Profil gespeichert.</b>\n\n👤 ${firstName}\n📱 ${phone}\n\n/profil um Daten zu verwalten.`, removeKeyboard);
         return;
     }
 

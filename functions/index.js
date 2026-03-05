@@ -16,11 +16,12 @@ const db = admin.database();
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
 
-// 🛡️ SPAM-SCHUTZ: Max Nachrichten pro Zeitfenster
-const SPAM_MAX_MESSAGES = 20;      // Max 20 Nachrichten...
-const SPAM_WINDOW_MS = 60 * 1000;  // ...pro 60 Sekunden
-const SPAM_COOLDOWN_MS = 3 * 60 * 1000; // 3 Min Sperre nach Spam
-const SPAM_MAX_STRIKES = 3;        // Nach 3 Sperren → dauerhafter Block
+// 🛡️ SPAM-SCHUTZ: Nachrichten pro Minute
+const SPAM_WARN_THRESHOLD = 40;    // Ab 40/Min → Warnung
+const SPAM_MAX_MESSAGES = 60;      // Ab 60/Min → Sperre
+const SPAM_WINDOW_MS = 60 * 1000;  // Zeitfenster: 60 Sekunden
+const SPAM_COOLDOWN_MS = 3 * 60 * 1000; // 3 Min Sperre
+const SPAM_MAX_STRIKES = 3;        // 3× Sperre → dauerhafter Block
 const spamTracker = {}; // { chatId: { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: false } }
 
 function checkSpam(chatId) {
@@ -64,8 +65,8 @@ function checkSpam(chatId) {
         return 'spam';
     }
 
-    // Warnung bei 15+ Nachrichten (kurz vor Limit)
-    if (tracker.timestamps.length >= SPAM_MAX_MESSAGES - 5 && !tracker.warned) {
+    // Warnung ab 40 Nachrichten/Min
+    if (tracker.timestamps.length >= SPAM_WARN_THRESHOLD && !tracker.warned) {
         tracker.warned = true;
         return 'warning';
     }

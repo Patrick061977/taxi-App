@@ -2570,43 +2570,49 @@ async function handleCallback(callback) {
                 linkTelegramChatToCustomer(chatId, booking).catch(() => {});
             }
 
-            // Admin-Benachrichtigung bei Kunden-Buchungen
-            if (!booking._adminBooked) {
-                try {
-                    const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                    const adminChats = adminSnap.val() || [];
-                    if (adminChats.length > 0) {
-                        const now = new Date();
-                        const isTodayBerlin = dt.toLocaleDateString('de-DE', TZ_BERLIN) === now.toLocaleDateString('de-DE', TZ_BERLIN);
-                        let timeLabel;
-                        if (!isVorbestellung) {
-                            timeLabel = 'SOFORT';
-                        } else if (isTodayBerlin) {
-                            timeLabel = `Heute ${timeStr} Uhr`;
-                        } else {
-                            timeLabel = `${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
-                        }
-                        const sentAt = now.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        const statusEmoji = isVorbestellung ? '📅' : '🚕';
-                        const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
-                        const adminMsg = `${statusEmoji} <b>${statusText}</b>\n` +
-                            `🆔 <b>ID:</b> <code>${rideData.id}</code>\n\n` +
-                            `📍 <b>Von:</b> ${rideData.pickup}\n` +
-                            `🎯 <b>Nach:</b> ${rideData.destination}\n` +
-                            `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                            (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
-                            `🕐 <b>Abholung:</b> ${timeLabel}\n` +
-                            `👥 <b>Personen:</b> ${passengers}\n` +
-                            (telegramRoutePrice ? `💰 <b>Preis:</b> ca. ${telegramRoutePrice.price} €\n` : '') +
-                            `⏰ <b>Gesendet:</b> ${sentAt}\n\n` +
-                            `📱 <i>Via Telegram-Bot</i>`;
-                        for (const adminChatId of adminChats) {
-                            sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
-                        }
+            // Admin-Benachrichtigung bei ALLEN Buchungen (Kunden + Admin)
+            try {
+                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = adminSnap.val() || [];
+                if (adminChats.length > 0) {
+                    const now = new Date();
+                    const isTodayBerlin = dt.toLocaleDateString('de-DE', TZ_BERLIN) === now.toLocaleDateString('de-DE', TZ_BERLIN);
+                    let timeLabel;
+                    if (!isVorbestellung) {
+                        timeLabel = 'SOFORT';
+                    } else if (isTodayBerlin) {
+                        timeLabel = `Heute ${timeStr} Uhr`;
+                    } else {
+                        timeLabel = `${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
                     }
-                } catch (e) {
-                    console.error('Admin-Benachrichtigung Fehler:', e.message);
+                    const sentAt = now.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const statusEmoji = isVorbestellung ? '📅' : '🚕';
+                    const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
+                    const adminBookedHint = booking._adminBooked ? `\n👔 <i>Admin-Buchung für ${booking._forCustomer || rideData.customerName}</i>` : '';
+                    const adminMsg = `${statusEmoji} <b>${statusText}</b>\n` +
+                        `🆔 <b>ID:</b> <code>${rideData.id}</code>\n\n` +
+                        `📍 <b>Von:</b> ${rideData.pickup}\n` +
+                        `🎯 <b>Nach:</b> ${rideData.destination}\n` +
+                        `👤 <b>Name:</b> ${rideData.customerName}\n` +
+                        (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                        `🕐 <b>Abholung:</b> ${timeLabel}\n` +
+                        `👥 <b>Personen:</b> ${passengers}\n` +
+                        (telegramRoutePrice ? `💰 <b>Preis:</b> ca. ${telegramRoutePrice.price} €\n` : '') +
+                        `⏰ <b>Gesendet:</b> ${sentAt}` +
+                        adminBookedHint + `\n\n` +
+                        `📱 <i>Via Telegram-Bot</i>`;
+                    // Bei Admin-Buchungen: An ANDERE Admins senden (nicht an den Buchenden selbst)
+                    for (const adminChatId of adminChats) {
+                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue; // Sich selbst überspringen
+                        sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
+                    }
+                    // Bei Admin-Buchungen: Dem buchenden Admin eine Kurzbestätigung senden (als separater Block)
+                    if (booking._adminBooked) {
+                        await addTelegramLog(statusEmoji, 'system', `${statusText}: ${rideData.customerName} → ${timeLabel}`, { rideId: rideData.id, adminBooked: true });
+                    }
                 }
+            } catch (e) {
+                console.error('Admin-Benachrichtigung Fehler:', e.message);
             }
 
             // Admin CRM-Anlage anbieten

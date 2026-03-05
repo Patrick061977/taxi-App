@@ -2152,11 +2152,19 @@ async function handleMessage(message) {
                 const update = { editedAt: Date.now(), editedBy: 'telegram-customer' };
                 update[field] = text;
                 const geo = await geocode(text);
-                if (geo) { update[field + 'Lat'] = geo.lat; update[field + 'Lon'] = geo.lon; }
+                let geoNote = '';
+                if (geo) {
+                    update[field + 'Lat'] = geo.lat;
+                    update[field + 'Lon'] = geo.lon;
+                    const coordsKey = field === 'pickup' ? 'pickupCoords' : 'destCoords';
+                    update[coordsKey] = { lat: geo.lat, lon: geo.lon };
+                } else {
+                    geoNote = '\n\n⚠️ <i>Adresse konnte nicht verifiziert werden. Bitte prüfe Schreibweise.</i>';
+                }
                 await db.ref(`rides/${rideId}`).update(update);
                 const label = field === 'pickup' ? 'Abholort' : 'Zielort';
-                await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"`);
-                await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+                await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"${geo ? '' : ' (nicht geocodiert)'}`);
+                await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>${geoNote}\n\n<i>Wir freuen uns auf Sie!</i>`);
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
         }
@@ -2209,14 +2217,44 @@ async function handleMessage(message) {
                 update[field] = text;
                 // Geocode die neue Adresse
                 const geo = await geocode(text);
+                let geoInfo = '';
                 if (geo) {
                     update[field + 'Lat'] = geo.lat;
                     update[field + 'Lon'] = geo.lon;
+                    // Koordinaten-Objekte für Kalender/AutoAssign updaten
+                    const coordsKey = field === 'pickup' ? 'pickupCoords' : 'destCoords';
+                    update[coordsKey] = { lat: geo.lat, lon: geo.lon };
+                    geoInfo = ` (📍 ${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)})`;
+                } else {
+                    geoInfo = ' ⚠️ (Adresse nicht geocodiert)';
+                }
+                // Preis/Strecke neu berechnen wenn beide Koordinaten vorhanden
+                const snap = await db.ref(`rides/${rideId}`).once('value');
+                const existingRide = snap.val() || {};
+                const pLat = field === 'pickup' ? (geo ? geo.lat : null) : existingRide.pickupLat;
+                const pLon = field === 'pickup' ? (geo ? geo.lon : null) : existingRide.pickupLon;
+                const dLat = field === 'destination' ? (geo ? geo.lat : null) : existingRide.destinationLat;
+                const dLon = field === 'destination' ? (geo ? geo.lon : null) : existingRide.destinationLon;
+                if (pLat && pLon && dLat && dLon) {
+                    try {
+                        const route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon });
+                        if (route && route.distance && parseFloat(route.distance) <= 500) {
+                            const pickupTs = existingRide.pickupTimestamp || Date.now();
+                            const pricing = calculatePrice(parseFloat(route.distance), pickupTs);
+                            update.price = pricing.total;
+                            update.estimatedPrice = pricing.total;
+                            update.distance = route.distance;
+                            update.estimatedDistance = route.distance;
+                            update.duration = route.duration;
+                            update.estimatedDuration = route.duration;
+                            geoInfo += ` | ${route.distance} km, ~${pricing.total} €`;
+                        }
+                    } catch (routeErr) { /* Preis-Update optional */ }
                 }
                 await db.ref(`rides/${rideId}`).update(update);
                 const label = field === 'pickup' ? 'Abholort' : 'Zielort';
-                await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${text}"`);
-                await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${text}</b>`);
+                await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${text}"${geoInfo}`);
+                await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${text}</b>${geoInfo}`);
                 await handleAdminRideDetail(chatId, rideId);
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
@@ -2882,14 +2920,27 @@ async function handleCallback(callback) {
         enrichedText += ` nach ${fav.destination}`;
 
         // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
+        // Falls Koordinaten fehlen (alte Fahrten), per Geocoding nachladen
         const prefilledCoords = {};
         if (fav.destinationLat && fav.destinationLon) {
             prefilledCoords.destinationLat = fav.destinationLat;
             prefilledCoords.destinationLon = fav.destinationLon;
+        } else if (fav.destination) {
+            const destGeo = await geocode(fav.destination);
+            if (destGeo) {
+                prefilledCoords.destinationLat = destGeo.lat;
+                prefilledCoords.destinationLon = destGeo.lon;
+            }
         }
         if (pickup && fav.pickupLat && fav.pickupLon) {
             prefilledCoords.pickupLat = fav.pickupLat;
             prefilledCoords.pickupLon = fav.pickupLon;
+        } else if (pickup) {
+            const pickGeo = await geocode(pickup);
+            if (pickGeo) {
+                prefilledCoords.pickupLat = pickGeo.lat;
+                prefilledCoords.pickupLon = pickGeo.lon;
+            }
         }
 
         await deletePending(chatId);

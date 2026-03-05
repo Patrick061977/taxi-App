@@ -2507,9 +2507,11 @@ async function handleCallback(callback) {
                 createdAt: Date.now(),
                 createdBy: booking._adminBooked ? `admin-telegram-${booking._adminChatId}` : 'telegram-cloud-function',
                 ...(booking._adminBooked && { adminBookedBy: String(booking._adminChatId), bookedForCustomer: booking._forCustomer || booking.name }),
-                ...(booking.pickupLat && { pickupLat: booking.pickupLat, pickupLon: booking.pickupLon }),
-                ...(booking.destinationLat && { destinationLat: booking.destinationLat, destinationLon: booking.destinationLon }),
-                ...(telegramRoutePrice && { estimatedPrice: telegramRoutePrice.price, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
+                // 🔧 v6.11.0: Koordinaten als flache Felder UND Objekte (für Kalender/AutoAssign)
+                ...(booking.pickupLat && { pickupLat: booking.pickupLat, pickupLon: booking.pickupLon, pickupCoords: { lat: booking.pickupLat, lon: booking.pickupLon } }),
+                ...(booking.destinationLat && { destinationLat: booking.destinationLat, destinationLon: booking.destinationLon, destCoords: { lat: booking.destinationLat, lon: booking.destinationLon } }),
+                // 🔧 v6.11.0: Preis als 'price' UND 'estimatedPrice' (Kalender zeigt ride.price)
+                ...(telegramRoutePrice && { price: telegramRoutePrice.price, estimatedPrice: telegramRoutePrice.price, distance: telegramRoutePrice.distance, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
                 paymentMethod: booking.paymentMethod || 'bar'
             };
 

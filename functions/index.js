@@ -16,6 +16,76 @@ const db = admin.database();
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
 
+// 🛡️ SPAM-SCHUTZ: Nachrichten pro Minute
+const SPAM_WARN_THRESHOLD = 40;    // Ab 40/Min → Warnung
+const SPAM_MAX_MESSAGES = 60;      // Ab 60/Min → Sperre
+const SPAM_WINDOW_MS = 60 * 1000;  // Zeitfenster: 60 Sekunden
+const SPAM_COOLDOWN_MS = 3 * 60 * 1000; // 3 Min Sperre
+const SPAM_MAX_STRIKES = 3;        // 3× Sperre → dauerhafter Block
+const spamTracker = {}; // { chatId: { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: false } }
+
+function checkSpam(chatId) {
+    const now = Date.now();
+    if (!spamTracker[chatId]) {
+        spamTracker[chatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: false };
+    }
+    const tracker = spamTracker[chatId];
+
+    // Dauerhaft geblockt? → Nur Admin kann das aufheben (in Firebase)
+    if (tracker.permBlocked) {
+        return 'permblocked';
+    }
+
+    // Temporäre Sperre aktiv?
+    if (tracker.blocked && now < tracker.blockedUntil) {
+        return 'blocked';
+    }
+    // Sperre abgelaufen → zurücksetzen
+    if (tracker.blocked && now >= tracker.blockedUntil) {
+        tracker.blocked = false;
+        tracker.warned = false;
+        tracker.timestamps = [];
+    }
+
+    // Alte Timestamps entfernen (außerhalb des Zeitfensters)
+    tracker.timestamps = tracker.timestamps.filter(t => now - t < SPAM_WINDOW_MS);
+    tracker.timestamps.push(now);
+
+    // Spam erkannt?
+    if (tracker.timestamps.length > SPAM_MAX_MESSAGES) {
+        tracker.strikes++;
+        tracker.blocked = true;
+        tracker.blockedUntil = now + SPAM_COOLDOWN_MS;
+
+        // 3. Strike → dauerhaft blocken
+        if (tracker.strikes >= SPAM_MAX_STRIKES) {
+            tracker.permBlocked = true;
+            return 'permblock_new';
+        }
+        return 'spam';
+    }
+
+    // Warnung ab 40 Nachrichten/Min
+    if (tracker.timestamps.length >= SPAM_WARN_THRESHOLD && !tracker.warned) {
+        tracker.warned = true;
+        return 'warning';
+    }
+
+    return 'ok';
+}
+
+// Speicher alle 10 Minuten aufräumen (verhindert Memory-Leak bei Cloud Functions)
+setInterval(() => {
+    const now = Date.now();
+    for (const chatId of Object.keys(spamTracker)) {
+        if (now - (spamTracker[chatId].blockedUntil || 0) > 600000 &&
+            (spamTracker[chatId].timestamps.length === 0 ||
+             now - spamTracker[chatId].timestamps[spamTracker[chatId].timestamps.length - 1] > 600000)) {
+            delete spamTracker[chatId];
+        }
+    }
+}, 600000);
+
 // Standard-Tarif (wird beim Start aus Firebase überschrieben falls vorhanden)
 const TARIF = {
     grundgebuehr: 4.00,
@@ -777,6 +847,89 @@ async function callAnthropicAPI(apiKey, model, maxTokens, messages) {
 async function getAnthropicApiKey() {
     const snap = await db.ref('settings/anthropic/apiKey').once('value');
     return snap.val() || null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🧠 INTELLIGENTER KONVERSATIONS-HANDLER
+// Klassifiziert Nachrichten und antwortet kontextbezogen
+// ═══════════════════════════════════════════════════════════════
+
+async function handleSmartConversation(chatId, text, userName, knownCustomer) {
+    const apiKey = await getAnthropicApiKey();
+    if (!apiKey) {
+        // Ohne API-Key: Fallback auf Buchungsanalyse
+        return { intent: 'booking' };
+    }
+
+    try {
+        const customerContext = knownCustomer
+            ? `Der Kunde heißt ${knownCustomer.name}, Tel: ${knownCustomer.phone || 'unbekannt'}.`
+            : `Der Nutzer ist noch nicht registriert.`;
+
+        const now = new Date();
+        const berlinTime = now.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
+            role: 'user',
+            content: `Du bist der Telegram-Bot von "Funk Taxi Heringsdorf" auf der Insel Usedom.
+Aktuell: ${berlinTime}
+${customerContext}
+
+Klassifiziere diese Nachricht und antworte als JSON:
+
+Nachricht: "${text}"
+
+ENTSCHEIDUNGSREGELN (in dieser Reihenfolge prüfen!):
+
+1. "booking" – wenn MINDESTENS EINES zutrifft:
+   - Enthält Ort + Zeit ("morgen 10 Uhr Bahnhof")
+   - Enthält Start UND Ziel ("von X nach Y")
+   - Enthält klare Buchungsabsicht ("ich brauche ein Taxi", "Fahrt bestellen", "abholen")
+   - Nennt konkrete Orte auf Usedom mit Kontext ("zum Flughafen bitte", "nach Ahlbeck")
+   - Enthält Zeitangabe + Absicht ("übermorgen brauche ich", "um 14 Uhr")
+
+2. "price_inquiry" – wenn der Nutzer NUR einen Preis wissen will OHNE buchen zu wollen:
+   - "Was kostet eine Fahrt nach...?", "Wie teuer ist...?", "Preise?"
+   → Beantworte mit ungefährer Preisinfo UND biete Buchung an
+
+3. "question" – allgemeine Info-Frage OHNE Buchungsabsicht:
+   - Bezahlung, Kindersitze, Öffnungszeiten, Fahrzeugtypen, Gepäck, Tiere
+   - "Kann man...", "Habt ihr...", "Gibt es...", "Wie funktioniert..."
+
+4. "status" – fragt nach eigenen Buchungen/Fahrten
+
+5. "greeting" – Begrüßung, Smalltalk, Danke, Tschüss
+
+6. "unclear" – passt in keine Kategorie
+
+WICHTIG: Im Zweifel lieber "booking" als "question"! Der Buchungsassistent kann gut mit unvollständigen Anfragen umgehen und fragt fehlende Infos nach.
+
+Bei "question", "price_inquiry", "greeting", "unclear": Antworte freundlich, kurz und hilfreich auf Deutsch.
+
+Über uns:
+- Funk Taxi Heringsdorf, Insel Usedom, 24/7 erreichbar
+- Tel: 038378 / 22022
+- Fahrzeuge: 2× Toyota Prius (4 Pax), Tesla Model Y (4 Pax), Renault Traffic (8 Pax), Mercedes Vito (8 Pax)
+- Bezahlung: Bar oder Kartenzahlung im Fahrzeug
+- Kindersitze: Auf Anfrage (bei Buchung als Bemerkung angeben)
+- Haustiere: Nach Absprache erlaubt
+- Gebiete: Insel Usedom, Swinemünde (PL), Flughafen Heringsdorf, Transfers zum Festland (Berlin, Rostock etc.)
+- Grundgebühr: ca. 4€ (Tag) / 5,50€ (Nacht 22-6 Uhr), dann km-abhängig
+- Großraumtaxi für Gruppen bis 8 Personen
+- Vorbestellung + Sofortfahrt möglich
+- Flughafentransfers (BER, Heringsdorf) und Fährtransfers Swinemünde
+
+Antwort als JSON: {"intent": "booking|price_inquiry|question|status|greeting|unclear", "response": "Deine Antwort (nur bei question/price_inquiry/greeting/unclear, HTML erlaubt, max 3 Sätze)"}`
+        }]);
+
+        const content = response?.content?.[0]?.text || '';
+        const jsonText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const result = JSON.parse(jsonText);
+        return result;
+    } catch (e) {
+        console.warn('Smart-Konversation Fehler:', e.message);
+        return { intent: 'booking' }; // Fallback
+    }
 }
 
 async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
@@ -1988,6 +2141,28 @@ async function handleMessage(message) {
         return;
     }
 
+    // Admin: Nutzer entblocken
+    if (textCmd.startsWith('/entblocken ') || textCmd.startsWith('/unblock ')) {
+        if (await isTelegramAdmin(chatId)) {
+            const targetId = text.split(' ')[1]?.trim();
+            if (!targetId) {
+                await sendTelegramMessage(chatId, '⚠️ Bitte Chat-ID angeben: <code>/entblocken 123456789</code>');
+                return;
+            }
+            try {
+                await db.ref(`settings/telegram/blockedUsers/${targetId}`).remove();
+                if (spamTracker[targetId]) delete spamTracker[targetId];
+                await addTelegramLog('✅', chatId, `Admin: Nutzer ${targetId} entblockt`);
+                await sendTelegramMessage(chatId, `✅ <b>Nutzer ${targetId} entblockt!</b>\n\nDer Nutzer kann den Bot wieder nutzen.`);
+                // Den entblockten Nutzer informieren
+                sendTelegramMessage(targetId, '✅ <b>Ihre Sperre wurde aufgehoben.</b>\n\nSie können den Bot wieder nutzen. Bitte senden Sie Ihre Nachrichten normal.').catch(() => {});
+            } catch(e) {
+                await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+            }
+        }
+        return;
+    }
+
     // Admin-Befehle
     if (textCmd === '/fahrten' || textCmd === '/rides') {
         if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'today'); return; }
@@ -2360,8 +2535,16 @@ async function handleMessage(message) {
         return;
     }
 
-    // Admin-Modus
+    // Admin-Modus: Erst prüfen ob es eine Frage ist, sonst Buchung
     if (isAdminUser) {
+        const adminClass = await handleSmartConversation(chatId, text, userName, knownForGreeting);
+        if (['question', 'price_inquiry', 'greeting'].includes(adminClass.intent)) {
+            await addTelegramLog('🧠', chatId, `Admin-Intent: ${adminClass.intent}`);
+            let adminResponse = adminClass.response || '';
+            if (adminClass.intent !== 'greeting') adminResponse += '\n\n💡 <i>Willst du buchen? Schreib einfach den Fahrtwunsch.</i>';
+            await sendTelegramMessage(chatId, adminResponse);
+            return;
+        }
         await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
         await setPending(chatId, { taxiChoice: { text, userName } });
         await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
@@ -2373,7 +2556,39 @@ async function handleMessage(message) {
         return;
     }
 
-    // Normale Buchungsanalyse
+    // 🧠 Intelligente Konversation: Erst klassifizieren, dann reagieren
+    const classification = await handleSmartConversation(chatId, text, userName, knownForGreeting);
+    await addTelegramLog('🧠', chatId, `Intent: ${classification.intent}`);
+
+    if (classification.intent === 'question' || classification.intent === 'price_inquiry' || classification.intent === 'greeting' || classification.intent === 'unclear') {
+        let response = classification.response || '';
+        // Bei "unclear": Hilfe-Hinweis anhängen
+        if (classification.intent === 'unclear' && !response) {
+            response = '🤔 Ich bin mir nicht sicher, was Sie meinen.';
+        }
+        if (classification.intent === 'unclear') {
+            response += '\n\n💡 <b>Das kann ich für Sie tun:</b>\n🚕 Fahrt buchen – schreiben Sie wann & wohin\n📊 /status – Ihre Fahrten\n✏️ /ändern – Fahrt bearbeiten\n🗑️ /löschen – Fahrt stornieren\nℹ️ /hilfe – Alle Befehle';
+        }
+        // Bei Fragen + Preisanfragen: Buchungs-Hinweis anhängen
+        if (classification.intent === 'question' || classification.intent === 'price_inquiry') {
+            response += '\n\n🚕 <i>Möchten Sie gleich buchen? Schreiben Sie einfach wann und wohin – ich zeige Ihnen den genauen Preis!</i>';
+        }
+        await sendTelegramMessage(chatId, response);
+        return;
+    }
+
+    if (classification.intent === 'status') {
+        if (knownForGreeting) {
+            await handleTelegramBookingQuery(chatId, 'meine Fahrten', knownForGreeting);
+        } else {
+            await sendTelegramMessage(chatId, '📊 <b>Ihre Fahrten</b>\n\nBitte teilen Sie Ihre Telefonnummer, damit ich Ihre Buchungen finden kann.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+        }
+        return;
+    }
+
+    // Intent "booking" → normale Buchungsanalyse
     sendTelegramMessage(chatId, '🤖 <i>Analysiere Ihre Nachricht...</i>').catch(() => {});
     await analyzeTelegramBooking(chatId, text, userName);
 }
@@ -3892,6 +4107,76 @@ exports.telegramWebhook = onRequest(
 
         try {
             const update = req.body;
+
+            // 🛡️ Spam-Schutz: chatId ermitteln
+            const spamChatId = update.callback_query?.message?.chat?.id || update.message?.chat?.id;
+            if (spamChatId) {
+                // Zuerst prüfen ob in Firebase dauerhaft geblockt
+                if (!spamTracker[spamChatId]?.permBlocked) {
+                    try {
+                        const blockSnap = await db.ref(`settings/telegram/blockedUsers/${spamChatId}`).once('value');
+                        if (blockSnap.val()) {
+                            if (!spamTracker[spamChatId]) spamTracker[spamChatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: true };
+                            else spamTracker[spamChatId].permBlocked = true;
+                        }
+                    } catch(e) {}
+                }
+
+                const spamStatus = checkSpam(spamChatId);
+                if (spamStatus === 'permblocked' || spamStatus === 'blocked') {
+                    // Still ignorieren – keine Antwort
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'permblock_new') {
+                    // Neuer permanenter Block → in Firebase speichern + Admin benachrichtigen
+                    const userName = update.message?.from?.first_name || update.callback_query?.from?.first_name || 'Unbekannt';
+                    await addTelegramLog('🚫', spamChatId, `PERMANENT GEBLOCKT – 3× Spam-Sperre (${userName})`);
+                    await sendTelegramMessage(spamChatId,
+                        '🚫 <b>Ihr Zugang wurde gesperrt.</b>\n\n' +
+                        'Sie haben wiederholt zu viele Nachrichten gesendet.\n' +
+                        'Bitte kontaktieren Sie uns telefonisch: <b>038378 / 22022</b>'
+                    );
+                    // In Firebase speichern (überlebt Cloud Function Restart)
+                    try {
+                        await db.ref(`settings/telegram/blockedUsers/${spamChatId}`).set({
+                            blockedAt: Date.now(),
+                            reason: '3x Spam-Sperre',
+                            userName
+                        });
+                    } catch(e) {}
+                    // Admins benachrichtigen
+                    try {
+                        const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                        const adminChats = adminSnap.val() || [];
+                        for (const adminChatId of adminChats) {
+                            sendTelegramMessage(adminChatId,
+                                `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`
+                            ).catch(() => {});
+                        }
+                    } catch(e) {}
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'spam') {
+                    const tracker = spamTracker[spamChatId];
+                    const remaining = SPAM_MAX_STRIKES - (tracker?.strikes || 0);
+                    await addTelegramLog('🛡️', spamChatId, `SPAM erkannt – 3 Min Sperre (Strike ${tracker?.strikes || '?'}/${SPAM_MAX_STRIKES})`);
+                    await sendTelegramMessage(spamChatId,
+                        '⚠️ <b>Zu viele Nachrichten!</b>\n\n' +
+                        'Bitte warten Sie einen Moment, bevor Sie weitere Nachrichten senden.\n' +
+                        `<i>Sperre wird in 3 Minuten aufgehoben.</i>\n\n` +
+                        (remaining > 0 ? `⚠️ <b>Warnung:</b> Nach ${remaining} weiteren Sperre(n) wird Ihr Zugang dauerhaft gesperrt.` : '')
+                    );
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'warning') {
+                    await sendTelegramMessage(spamChatId,
+                        '⏳ <i>Bitte etwas langsamer – ich bearbeite Ihre Anfragen nacheinander.</i>'
+                    );
+                }
+            }
 
             if (update.callback_query) {
                 await handleCallback(update.callback_query);

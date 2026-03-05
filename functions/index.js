@@ -1212,6 +1212,12 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
     }
     if (booking.pickup) msg += `📍 Von: ${booking.pickup} ✅\n`;
+    // 🔧 v6.11.0: Zwischenstopps anzeigen
+    if (booking.waypoints && booking.waypoints.length > 0) {
+        booking.waypoints.forEach((wp, i) => {
+            msg += `📍 Stopp ${i + 1}: ${wp}\n`;
+        });
+    }
     if (booking.destination) msg += `🎯 Nach: ${booking.destination} ✅\n`;
     msg += `👥 ${booking.passengers || 1} Person(en)\n`;
     if (booking.name) msg += `👤 ${booking.name}\n`;
@@ -1239,6 +1245,11 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
         { text: '✅ Ja, eintragen!', callback_data: `book_yes_${bookingId}` },
         { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
     ]);
+    // 🔧 v6.11.0: Tauschen + Zwischenstopp
+    keyboard.inline_keyboard.push([
+        { text: '🔄 Tauschen', callback_data: `swap_${bookingId}` },
+        { text: '📍 Zwischenstopp', callback_data: `waypoint_${bookingId}` }
+    ]);
     // Zahlungsmethode umschalten
     const currentPay = booking?.paymentMethod || 'bar';
     keyboard.inline_keyboard.push([
@@ -1250,18 +1261,8 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
             { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
         ]);
     }
-    if (booking && booking.datetime) {
-        const dt = new Date(parseGermanDatetime(booking.datetime));
-        const timeRow = [];
-        for (const offset of [-60, -30, 30, 60]) {
-            const alt = new Date(dt.getTime() + offset * 60000);
-            const altTime = alt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
-            const [hh, mm] = altTime.split(':');
-            const label = offset < 0 ? `◀ ${hh}:${mm}` : `${hh}:${mm} ▶`;
-            timeRow.push({ text: label, callback_data: `slot_${chatId}_${hh}_${mm}` });
-        }
-        keyboard.inline_keyboard.push(timeRow);
-    }
+    // 🔧 v6.11.0: Alternative Zeiten ENTFERNT – waren verwirrend für Kunden
+    // (Zeitslot-Buttons kommen nur noch bei echten Konflikten)
     return keyboard;
 }
 
@@ -1944,6 +1945,26 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🔧 v6.11.0: Zwischenstopp-Eingabe verarbeiten
+    if (pending && pending._awaitingWaypoint && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
+        const waypointText = text.trim().slice(0, 200);
+        const updatedBooking = { ...pending.booking };
+        // Zwischenstopps als Array speichern
+        if (!updatedBooking.waypoints) updatedBooking.waypoints = [];
+        updatedBooking.waypoints.push(waypointText);
+        // Bemerkung mit Zwischenstopps ergänzen
+        const wpNote = `Zwischenstopp: ${updatedBooking.waypoints.join(' → ')}`;
+        updatedBooking.notes = updatedBooking.notes ? `${updatedBooking.notes} | ${wpNote}` : wpNote;
+        const updatedPending = { ...pending, booking: updatedBooking };
+        delete updatedPending._awaitingWaypoint;
+        await setPending(chatId, updatedPending);
+        await addTelegramLog('📍', chatId, `Zwischenstopp: ${waypointText}`);
+        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending.routePrice || null);
+        const keyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, updatedBooking);
+        await sendTelegramMessage(chatId, `✅ Zwischenstopp "<b>${waypointText}</b>" hinzugefügt!\n\n` + confirmMsg, { reply_markup: keyboard });
+        return;
+    }
+
     // Profil-Bearbeitung: Freitext-Eingabe
     if (pending && pending._profilEdit && !isPendingExpired(pending)) {
         const field = pending._profilEdit;
@@ -2507,10 +2528,14 @@ async function handleCallback(callback) {
                 createdAt: Date.now(),
                 createdBy: booking._adminBooked ? `admin-telegram-${booking._adminChatId}` : 'telegram-cloud-function',
                 ...(booking._adminBooked && { adminBookedBy: String(booking._adminChatId), bookedForCustomer: booking._forCustomer || booking.name }),
-                ...(booking.pickupLat && { pickupLat: booking.pickupLat, pickupLon: booking.pickupLon }),
-                ...(booking.destinationLat && { destinationLat: booking.destinationLat, destinationLon: booking.destinationLon }),
-                ...(telegramRoutePrice && { estimatedPrice: telegramRoutePrice.price, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
-                paymentMethod: booking.paymentMethod || 'bar'
+                // 🔧 v6.11.0: Koordinaten als flache Felder UND Objekte (für Kalender/AutoAssign)
+                ...(booking.pickupLat && { pickupLat: booking.pickupLat, pickupLon: booking.pickupLon, pickupCoords: { lat: booking.pickupLat, lon: booking.pickupLon } }),
+                ...(booking.destinationLat && { destinationLat: booking.destinationLat, destinationLon: booking.destinationLon, destCoords: { lat: booking.destinationLat, lon: booking.destinationLon } }),
+                // 🔧 v6.11.0: Preis als 'price' UND 'estimatedPrice' (Kalender zeigt ride.price)
+                ...(telegramRoutePrice && { price: telegramRoutePrice.price, estimatedPrice: telegramRoutePrice.price, distance: telegramRoutePrice.distance, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
+                paymentMethod: booking.paymentMethod || 'bar',
+                // 🔧 v6.11.0: Zwischenstopps
+                ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
 
             const newRef = db.ref('rides').push();
@@ -2521,6 +2546,11 @@ async function handleCallback(callback) {
             const successHeader = booking._adminBooked
                 ? `✅ <b>Buchung für ${booking._forCustomer || rideData.customerName} eingetragen!</b>\n\n`
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
+            // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
+            const returnKeyboard = { inline_keyboard: [
+                [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
+                [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }]
+            ]};
             await sendTelegramMessage(chatId,
                 successHeader +
                 `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
@@ -2528,7 +2558,8 @@ async function handleCallback(callback) {
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!`
+                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!`,
+                { reply_markup: returnKeyboard }
             );
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
@@ -2627,6 +2658,58 @@ async function handleCallback(callback) {
                 await sendTelegramMessage(chatId, updatedMsg, { reply_markup: updatedKeyboard });
             }
             await addTelegramLog('💳', chatId, `Zahlungsmethode: ${isKarte ? 'Karte' : 'Bar'}`);
+        }
+        return;
+    }
+
+    // 🔧 v6.11.0: Tauschen (Von ↔ Nach) in der Bestätigungsansicht
+    if (data.startsWith('swap_')) {
+        const swapBookingId = data.replace('swap_', '');
+        const swapPending = await getPending(chatId);
+        if (swapPending && swapPending.bookingId === swapBookingId && swapPending.booking) {
+            const b = swapPending.booking;
+            // Adressen tauschen
+            const tmpPickup = b.pickup;
+            b.pickup = b.destination;
+            b.destination = tmpPickup;
+            // Koordinaten tauschen
+            const tmpLat = b.pickupLat; const tmpLon = b.pickupLon;
+            b.pickupLat = b.destinationLat; b.pickupLon = b.destinationLon;
+            b.destinationLat = tmpLat; b.destinationLon = tmpLon;
+            // Route neu berechnen
+            let newRoutePrice = null;
+            if (b.pickupLat && b.destinationLat) {
+                try { newRoutePrice = await calculateRoutePrice(b); } catch(e) {}
+            }
+            swapPending.routePrice = newRoutePrice;
+            await setPending(chatId, swapPending);
+            // Nachricht aktualisieren
+            const swapMsg = buildTelegramConfirmMsg(b, newRoutePrice);
+            const swapKeyboard = buildBookingConfirmKeyboard(swapBookingId, chatId, b);
+            const msgId = callback.message?.message_id;
+            if (msgId) {
+                await editTelegramMessage(chatId, msgId, '🔄 <b>Getauscht!</b>\n\n' + swapMsg, { reply_markup: swapKeyboard });
+            } else {
+                await sendTelegramMessage(chatId, '🔄 <b>Getauscht!</b>\n\n' + swapMsg, { reply_markup: swapKeyboard });
+            }
+            await addTelegramLog('🔄', chatId, `Adressen getauscht: ${b.pickup} → ${b.destination}`);
+        }
+        return;
+    }
+
+    // 🔧 v6.11.0: Zwischenstopp hinzufügen
+    if (data.startsWith('waypoint_')) {
+        const wpBookingId = data.replace('waypoint_', '');
+        const wpPending = await getPending(chatId);
+        if (wpPending && wpPending.bookingId === wpBookingId && wpPending.booking) {
+            await setPending(chatId, { ...wpPending, _awaitingWaypoint: true });
+            await sendTelegramMessage(chatId,
+                '📍 <b>Zwischenstopp hinzufügen</b>\n\n' +
+                'Wo soll der Zwischenstopp sein?\n' +
+                '<i>z.B. "Edeka Heringsdorf" oder "Bahnhof Bansin"</i>\n\n' +
+                '💡 Der Zwischenstopp wird zwischen Abholort und Zielort eingefügt.'
+            );
+            await addTelegramLog('📍', chatId, 'Zwischenstopp wird abgefragt');
         }
         return;
     }
@@ -2756,6 +2839,49 @@ async function handleCallback(callback) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
         await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords });
+        return;
+    }
+
+    // 🔧 v6.11.0: Rückfahrt buchen (Von ↔ Nach tauschen)
+    if (data.startsWith('return_')) {
+        const origRideId = data.replace('return_', '');
+        try {
+            const rideSnap = await db.ref(`rides/${origRideId}`).once('value');
+            const origRide = rideSnap.val();
+            if (!origRide) {
+                await sendTelegramMessage(chatId, '⚠️ Originalfahrt nicht gefunden.');
+                return;
+            }
+            // Rückfahrt-Text zusammenbauen: Von und Nach getauscht
+            const returnText = `${origRide.destination} nach ${origRide.pickup}`;
+            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
+            // Pending mit vorausgefüllten Adressen erstellen
+            const returnBooking = {
+                pickup: origRide.destination,
+                destination: origRide.pickup,
+                name: origRide.customerName || '',
+                phone: origRide.customerPhone || '',
+                // Koordinaten tauschen
+                pickupLat: origRide.destinationLat || origRide.destCoords?.lat || null,
+                pickupLon: origRide.destinationLon || origRide.destCoords?.lon || null,
+                destinationLat: origRide.pickupLat || origRide.pickupCoords?.lat || null,
+                destinationLon: origRide.pickupLon || origRide.pickupCoords?.lon || null,
+                missing: ['datetime'],
+                _returnOf: origRideId
+            };
+            const bookingId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            await setPending(chatId, {
+                booking: returnBooking,
+                bookingId,
+                _awaitingDateTime: true,
+                _createdAt: Date.now(),
+                originalText: `Rückfahrt: ${returnText}`
+            });
+            await addTelegramLog('🔄', chatId, `Rückfahrt gestartet: ${origRide.destination} → ${origRide.pickup}`);
+        } catch (e) {
+            console.error('Rückfahrt-Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler beim Erstellen der Rückfahrt.');
+        }
         return;
     }
 

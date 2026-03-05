@@ -150,33 +150,56 @@ async function editTelegramMessage(chatId, messageId, text, extraParams = {}) {
     }
 }
 
+// Tages-Key für Log-Strukturierung (Berlin-Zeit)
+function getTodayLogKey() {
+    const now = new Date();
+    const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    return berlin.toISOString().slice(0, 10); // "2026-03-05"
+}
+
 async function addTelegramLog(emoji, chatId, msg, details = null) {
     try {
-        const logRef = db.ref('settings/telegram/botlog');
+        const dayKey = getTodayLogKey();
+        const logRef = db.ref(`settings/telegram/botlog/${dayKey}`);
         const entry = {
             time: Date.now(),
             emoji, chatId: String(chatId), msg,
             ...(details ? { details: JSON.stringify(details).substring(0, 500) } : {})
         };
         await logRef.push(entry);
-        // Max 200 Logs behalten - nur gelegentlich aufraeumen (ca. 1 von 10 Aufrufen)
-        if (Math.random() < 0.1) {
-            trimTelegramLogs(logRef);
+        // Tages-Logs auf max 500 pro Tag begrenzen + alte Tage aufräumen (ca. 1 von 20 Aufrufen)
+        if (Math.random() < 0.05) {
+            trimTelegramLogs(dayKey);
         }
     } catch (e) { /* Log-Fehler ignorieren */ }
     console.log(`${emoji} [${chatId}] ${msg}`);
 }
 
-function trimTelegramLogs(logRef) {
-    logRef.once('value').then(snap => {
-        const count = snap.numChildren();
-        if (count > 220) {
-            const toDelete = count - 200;
-            let deleted = 0;
-            snap.forEach(child => {
-                if (deleted < toDelete) { child.ref.remove(); deleted++; }
-            });
+function trimTelegramLogs(currentDay) {
+    const rootRef = db.ref('settings/telegram/botlog');
+    rootRef.once('value').then(snap => {
+        if (!snap.exists()) return;
+        const days = [];
+        snap.forEach(dayChild => { days.push(dayChild.key); });
+        // Alte Tage löschen (älter als 7 Tage behalten)
+        const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        for (const day of days) {
+            if (day < cutoffDate) {
+                rootRef.child(day).remove().catch(() => {});
+            }
         }
+        // Heutigen Tag auf max 500 Einträge begrenzen
+        const todayRef = rootRef.child(currentDay);
+        todayRef.once('value').then(todaySnap => {
+            const count = todaySnap.numChildren();
+            if (count > 520) {
+                const toDelete = count - 500;
+                let deleted = 0;
+                todaySnap.forEach(child => {
+                    if (deleted < toDelete) { child.ref.remove(); deleted++; }
+                });
+            }
+        }).catch(() => {});
     }).catch(() => {});
 }
 
@@ -1850,6 +1873,7 @@ async function handleMessage(message) {
         greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
         greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        greeting += '\n\n📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>';
         if (!knownCustomer) {
             greeting += '\n\n📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         }
@@ -1882,6 +1906,7 @@ async function handleMessage(message) {
             hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
         }
         if (knownCustomer) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownCustomer.name}\n📱 ${knownCustomer.phone || 'keine Telefonnummer'}`;
+        hilfeMsg += '\n\n📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
         await sendTelegramMessage(chatId, hilfeMsg);
         return;
     }
@@ -2149,14 +2174,30 @@ async function handleMessage(message) {
 
         if (field === 'pickup' || field === 'destination') {
             try {
-                const update = { editedAt: Date.now(), editedBy: 'telegram-customer' };
-                update[field] = text;
-                const geo = await geocode(text);
-                if (geo) { update[field + 'Lat'] = geo.lat; update[field + 'Lon'] = geo.lon; }
-                await db.ref(`rides/${rideId}`).update(update);
                 const label = field === 'pickup' ? 'Abholort' : 'Zielort';
-                await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"`);
-                await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+                // Nominatim-Suche → Vorschläge anzeigen
+                const suggestions = await searchNominatimForTelegram(text);
+                if (suggestions.length > 0) {
+                    const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `cust_asel_${i}_${rideId}_${field}` }]);
+                    keyboard.push([{ text: '✖ Abbrechen', callback_data: `cust_edit_${rideId}` }]);
+                    await setPending(chatId, { _custAddrResults: suggestions, _custAddrRaw: text, _custAddrRide: rideId, _custAddrField: field });
+                    await addTelegramLog('🔍', chatId, `Kunde: ${label} "${text}" → ${suggestions.length} Vorschläge`);
+                    await sendTelegramMessage(chatId, `🔍 <b>${label}: "${text}"</b>\n\nBitte wählen Sie die korrekte Adresse:`, { reply_markup: { inline_keyboard: keyboard } });
+                } else {
+                    // Keine Ergebnisse → Geocode-Fallback
+                    const geo = await geocode(text);
+                    const update = { editedAt: Date.now(), editedBy: 'telegram-customer', [field]: text };
+                    let geoNote = '';
+                    if (geo) {
+                        update[field + 'Lat'] = geo.lat; update[field + 'Lon'] = geo.lon;
+                        update[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: geo.lat, lon: geo.lon };
+                    } else {
+                        geoNote = '\n\n⚠️ <i>Adresse konnte nicht verifiziert werden. Bitte prüfe Schreibweise.</i>';
+                    }
+                    await db.ref(`rides/${rideId}`).update(update);
+                    await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"${geo ? '' : ' (nicht geocodiert)'}`);
+                    await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>${geoNote}\n\n<i>Wir freuen uns auf Sie!</i>`);
+                }
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
         }
@@ -2205,19 +2246,21 @@ async function handleMessage(message) {
 
         if (field === 'pickup' || field === 'destination') {
             try {
-                const update = { editedAt: Date.now(), editedBy: 'telegram-admin' };
-                update[field] = text;
-                // Geocode die neue Adresse
-                const geo = await geocode(text);
-                if (geo) {
-                    update[field + 'Lat'] = geo.lat;
-                    update[field + 'Lon'] = geo.lon;
-                }
-                await db.ref(`rides/${rideId}`).update(update);
                 const label = field === 'pickup' ? 'Abholort' : 'Zielort';
-                await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${text}"`);
-                await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${text}</b>`);
-                await handleAdminRideDetail(chatId, rideId);
+                // Nominatim-Suche → Vorschläge anzeigen statt blind speichern
+                const suggestions = await searchNominatimForTelegram(text);
+                if (suggestions.length > 0) {
+                    const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `adm_addr_${i}_${rideId}_${field}` }]);
+                    keyboard.push([{ text: '💾 Trotzdem speichern: ' + (text.length > 25 ? text.slice(0, 23) + '…' : text), callback_data: `adm_addr_raw_${rideId}_${field}` }]);
+                    keyboard.push([{ text: '✖ Abbrechen', callback_data: `adm_ride_${rideId}` }]);
+                    // Vorschläge + Rohtext im Pending speichern
+                    await setPending(chatId, { _adminAddrResults: suggestions, _adminAddrRaw: text, _adminAddrRide: rideId, _adminAddrField: field });
+                    await addTelegramLog('🔍', chatId, `${label} "${text}" → ${suggestions.length} Vorschläge`);
+                    await sendTelegramMessage(chatId, `🔍 <b>${label}: "${text}"</b>\n\nBitte wähle die korrekte Adresse:`, { reply_markup: { inline_keyboard: keyboard } });
+                } else {
+                    // Keine Ergebnisse → direkt speichern mit Warnung
+                    await applyAdminAddressChange(chatId, rideId, field, text, null);
+                }
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
         }
@@ -2248,6 +2291,7 @@ async function handleMessage(message) {
         welcomeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
         welcomeMsg += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>\n\n';
+        welcomeMsg += '📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>\n\n';
         welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         const welcomeKeyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
@@ -2310,6 +2354,52 @@ async function handleMessage(message) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Adressänderung anwenden (Admin + Kunden-Edit)
+async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) {
+    try {
+        const update = { editedAt: Date.now(), editedBy: 'telegram-admin' };
+        update[field] = addressText;
+        let geoInfo = '';
+        if (geo) {
+            update[field + 'Lat'] = geo.lat;
+            update[field + 'Lon'] = geo.lon;
+            const coordsKey = field === 'pickup' ? 'pickupCoords' : 'destCoords';
+            update[coordsKey] = { lat: geo.lat, lon: geo.lon };
+            geoInfo = ` (📍 ${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)})`;
+        } else {
+            geoInfo = ' ⚠️ (nicht geocodiert)';
+        }
+        // Preis/Strecke neu berechnen wenn beide Koordinaten vorhanden
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const existingRide = snap.val() || {};
+        const pLat = field === 'pickup' ? (geo ? geo.lat : null) : existingRide.pickupLat;
+        const pLon = field === 'pickup' ? (geo ? geo.lon : null) : existingRide.pickupLon;
+        const dLat = field === 'destination' ? (geo ? geo.lat : null) : existingRide.destinationLat;
+        const dLon = field === 'destination' ? (geo ? geo.lon : null) : existingRide.destinationLon;
+        if (pLat && pLon && dLat && dLon) {
+            try {
+                const route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon });
+                if (route && route.distance && parseFloat(route.distance) <= 500) {
+                    const pickupTs = existingRide.pickupTimestamp || Date.now();
+                    const pricing = calculatePrice(parseFloat(route.distance), pickupTs);
+                    update.price = pricing.total;
+                    update.estimatedPrice = pricing.total;
+                    update.distance = route.distance;
+                    update.estimatedDistance = route.distance;
+                    update.duration = route.duration;
+                    update.estimatedDuration = route.duration;
+                    geoInfo += ` | ${route.distance} km, ~${pricing.total} €`;
+                }
+            } catch (routeErr) { /* Preis-Update optional */ }
+        }
+        await db.ref(`rides/${rideId}`).update(update);
+        const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+        await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${addressText}"${geoInfo}`);
+        await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${addressText}</b>${geoInfo}`);
+        await handleAdminRideDetail(chatId, rideId);
+    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+}
+
 // CALLBACK-HANDLER (Inline Keyboard Buttons)
 // ═══════════════════════════════════════════════════════════════
 
@@ -2353,7 +2443,8 @@ async function handleCallback(callback) {
         hilfeMsg += '• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n';
         hilfeMsg += '• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n';
         hilfeMsg += '• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n';
-        hilfeMsg += '• „<i>Meine Fahrten</i>" oder „<i>Status</i>"\n';
+        hilfeMsg += '• „<i>Meine Fahrten</i>" oder „<i>Status</i>"\n\n';
+        hilfeMsg += '📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
         await sendTelegramMessage(chatId, hilfeMsg);
         return;
     }
@@ -2882,14 +2973,27 @@ async function handleCallback(callback) {
         enrichedText += ` nach ${fav.destination}`;
 
         // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
+        // Falls Koordinaten fehlen (alte Fahrten), per Geocoding nachladen
         const prefilledCoords = {};
         if (fav.destinationLat && fav.destinationLon) {
             prefilledCoords.destinationLat = fav.destinationLat;
             prefilledCoords.destinationLon = fav.destinationLon;
+        } else if (fav.destination) {
+            const destGeo = await geocode(fav.destination);
+            if (destGeo) {
+                prefilledCoords.destinationLat = destGeo.lat;
+                prefilledCoords.destinationLon = destGeo.lon;
+            }
         }
         if (pickup && fav.pickupLat && fav.pickupLon) {
             prefilledCoords.pickupLat = fav.pickupLat;
             prefilledCoords.pickupLon = fav.pickupLon;
+        } else if (pickup) {
+            const pickGeo = await geocode(pickup);
+            if (pickGeo) {
+                prefilledCoords.pickupLat = pickGeo.lat;
+                prefilledCoords.pickupLon = pickGeo.lon;
+            }
         }
 
         await deletePending(chatId);
@@ -3049,6 +3153,40 @@ async function handleCallback(callback) {
         return;
     }
 
+    // Admin: Adress-Vorschlag auswählen (Nominatim-Ergebnis)
+    if (data.startsWith('adm_addr_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminAddrResults) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage abgelaufen. Bitte nochmal versuchen.');
+            return;
+        }
+        // adm_addr_raw_{rideId}_{field} → Rohtext speichern
+        if (data.startsWith('adm_addr_raw_')) {
+            const rest = data.replace('adm_addr_raw_', '');
+            const lastUs = rest.lastIndexOf('_');
+            const rideId = rest.substring(0, lastUs);
+            const field = rest.substring(lastUs + 1);
+            const rawText = pending._adminAddrRaw || '';
+            await deletePending(chatId);
+            const geo = await geocode(rawText);
+            await applyAdminAddressChange(chatId, rideId, field, rawText, geo);
+            return;
+        }
+        // adm_addr_{index}_{rideId}_{field} → Vorschlag auswählen
+        const rest = data.replace('adm_addr_', '');
+        const firstUs = rest.indexOf('_');
+        const index = parseInt(rest.substring(0, firstUs));
+        const remainder = rest.substring(firstUs + 1);
+        const lastUs = remainder.lastIndexOf('_');
+        const rideId = remainder.substring(0, lastUs);
+        const field = remainder.substring(lastUs + 1);
+        const selected = pending._adminAddrResults[index];
+        if (!selected) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+        await deletePending(chatId);
+        await applyAdminAddressChange(chatId, rideId, field, selected.name, { lat: selected.lat, lon: selected.lon });
+        return;
+    }
+
     // Admin: Personenzahl setzen
     if (data.startsWith('adm_setpax_')) {
         const parts = data.replace('adm_setpax_', '').split('_');
@@ -3114,6 +3252,37 @@ async function handleCallback(callback) {
                 [{ text: '📍 Abholort ändern', callback_data: `cust_addr_${rideId}_pickup` }, { text: '🎯 Ziel ändern', callback_data: `cust_addr_${rideId}_destination` }],
                 [{ text: '🗑️ Stornieren', callback_data: `cust_del_${rideId}` }, { text: '✖ Zurück', callback_data: 'cust_edit_cancel' }]
             ]}});
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // Kunden: Adress-Vorschlag auswählen (Nominatim-Ergebnis)
+    if (data.startsWith('cust_asel_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._custAddrResults) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage abgelaufen. Bitte nochmal versuchen.');
+            return;
+        }
+        const rest = data.replace('cust_asel_', '');
+        const firstUs = rest.indexOf('_');
+        const index = parseInt(rest.substring(0, firstUs));
+        const remainder = rest.substring(firstUs + 1);
+        const lastUs = remainder.lastIndexOf('_');
+        const rideId = remainder.substring(0, lastUs);
+        const field = remainder.substring(lastUs + 1);
+        const selected = pending._custAddrResults[index];
+        if (!selected) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+        await deletePending(chatId);
+        try {
+            const update = { editedAt: Date.now(), editedBy: 'telegram-customer' };
+            update[field] = selected.name;
+            update[field + 'Lat'] = selected.lat;
+            update[field + 'Lon'] = selected.lon;
+            update[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: selected.lat, lon: selected.lon };
+            await db.ref(`rides/${rideId}`).update(update);
+            const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+            await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${selected.name}"`);
+            await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${selected.name}</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
@@ -3506,9 +3675,13 @@ async function handleContact(message) {
 
     await addTelegramLog('📱', chatId, `Kontakt geteilt: ${phone} (${firstName})`);
 
-    // Admin-Check
+    // Admin-Check: Auch Admins als Kunde speichern (für /profil)
     if (await isTelegramAdmin(chatId)) {
-        await sendTelegramMessage(chatId, '✅ <b>Admin-Kontakt erkannt.</b>\n\nKeine Kunden-Verknüpfung nötig.', removeKeyboard);
+        const existing = await getTelegramCustomer(chatId);
+        if (!existing) {
+            await saveTelegramCustomer(chatId, { name: firstName, phone, isAdmin: true, linkedAt: Date.now() });
+        }
+        await sendTelegramMessage(chatId, `✅ <b>Admin-Profil gespeichert.</b>\n\n👤 ${firstName}\n📱 ${phone}\n\n/profil um Daten zu verwalten.`, removeKeyboard);
         return;
     }
 

@@ -809,27 +809,47 @@ Klassifiziere diese Nachricht und antworte als JSON:
 
 Nachricht: "${text}"
 
-Regeln:
-- "booking": Wenn der Nutzer ein Taxi buchen will, eine Fahrt plant, Abholort/Zielort/Zeit nennt
-- "question": Wenn der Nutzer eine Frage hat (Preise, Öffnungszeiten, Service, Kindersitze, Großraumtaxi, Bezahlung, Flughafentransfer, Gebiete etc.)
-- "status": Wenn der Nutzer nach seinen Fahrten/Buchungen fragt
-- "greeting": Wenn der Nutzer grüßt oder Smalltalk macht
-- "unclear": Wenn unklar ist was gemeint ist
+ENTSCHEIDUNGSREGELN (in dieser Reihenfolge prüfen!):
 
-Bei "question" oder "greeting": Antworte freundlich, kurz und hilfreich auf Deutsch.
+1. "booking" – wenn MINDESTENS EINES zutrifft:
+   - Enthält Ort + Zeit ("morgen 10 Uhr Bahnhof")
+   - Enthält Start UND Ziel ("von X nach Y")
+   - Enthält klare Buchungsabsicht ("ich brauche ein Taxi", "Fahrt bestellen", "abholen")
+   - Nennt konkrete Orte auf Usedom mit Kontext ("zum Flughafen bitte", "nach Ahlbeck")
+   - Enthält Zeitangabe + Absicht ("übermorgen brauche ich", "um 14 Uhr")
+
+2. "price_inquiry" – wenn der Nutzer NUR einen Preis wissen will OHNE buchen zu wollen:
+   - "Was kostet eine Fahrt nach...?", "Wie teuer ist...?", "Preise?"
+   → Beantworte mit ungefährer Preisinfo UND biete Buchung an
+
+3. "question" – allgemeine Info-Frage OHNE Buchungsabsicht:
+   - Bezahlung, Kindersitze, Öffnungszeiten, Fahrzeugtypen, Gepäck, Tiere
+   - "Kann man...", "Habt ihr...", "Gibt es...", "Wie funktioniert..."
+
+4. "status" – fragt nach eigenen Buchungen/Fahrten
+
+5. "greeting" – Begrüßung, Smalltalk, Danke, Tschüss
+
+6. "unclear" – passt in keine Kategorie
+
+WICHTIG: Im Zweifel lieber "booking" als "question"! Der Buchungsassistent kann gut mit unvollständigen Anfragen umgehen und fragt fehlende Infos nach.
+
+Bei "question", "price_inquiry", "greeting", "unclear": Antworte freundlich, kurz und hilfreich auf Deutsch.
 
 Über uns:
-- Funk Taxi Heringsdorf, Insel Usedom
-- 24/7 erreichbar, Tel: 038378 / 22022
-- Fahrzeuge: Toyota Prius (4 Personen), Tesla Model Y (4 Personen), Renault Traffic (8 Personen), Mercedes Vito (8 Personen)
-- Bezahlung: Bar oder Karte
-- Kindersitze: Auf Anfrage verfügbar (bei Buchung als Bemerkung angeben)
-- Gebiete: Usedom, Swinemünde, Flughafen Heringsdorf, Transfers zu Flughäfen/Bahnhöfen auf dem Festland
-- Preise: Grundgebühr ca. 4€, dann km-abhängig (Tages-/Nachttarif). Preisanzeige nach Adresseingabe.
-- Vorbestellung möglich, Sofortfahrt möglich
-- Großraumtaxi für bis zu 8 Personen verfügbar
+- Funk Taxi Heringsdorf, Insel Usedom, 24/7 erreichbar
+- Tel: 038378 / 22022
+- Fahrzeuge: 2× Toyota Prius (4 Pax), Tesla Model Y (4 Pax), Renault Traffic (8 Pax), Mercedes Vito (8 Pax)
+- Bezahlung: Bar oder Kartenzahlung im Fahrzeug
+- Kindersitze: Auf Anfrage (bei Buchung als Bemerkung angeben)
+- Haustiere: Nach Absprache erlaubt
+- Gebiete: Insel Usedom, Swinemünde (PL), Flughafen Heringsdorf, Transfers zum Festland (Berlin, Rostock etc.)
+- Grundgebühr: ca. 4€ (Tag) / 5,50€ (Nacht 22-6 Uhr), dann km-abhängig
+- Großraumtaxi für Gruppen bis 8 Personen
+- Vorbestellung + Sofortfahrt möglich
+- Flughafentransfers (BER, Heringsdorf) und Fährtransfers Swinemünde
 
-Antwort als JSON: {"intent": "booking|question|status|greeting|unclear", "response": "Deine Antwort (nur bei question/greeting/unclear, HTML-Format erlaubt, max 3 Sätze)"}`
+Antwort als JSON: {"intent": "booking|price_inquiry|question|status|greeting|unclear", "response": "Deine Antwort (nur bei question/price_inquiry/greeting/unclear, HTML erlaubt, max 3 Sätze)"}`
         }]);
 
         const content = response?.content?.[0]?.text || '';
@@ -2426,10 +2446,10 @@ async function handleMessage(message) {
     // Admin-Modus: Erst prüfen ob es eine Frage ist, sonst Buchung
     if (isAdminUser) {
         const adminClass = await handleSmartConversation(chatId, text, userName, knownForGreeting);
-        if (adminClass.intent === 'question' || adminClass.intent === 'greeting') {
+        if (['question', 'price_inquiry', 'greeting'].includes(adminClass.intent)) {
             await addTelegramLog('🧠', chatId, `Admin-Intent: ${adminClass.intent}`);
             let adminResponse = adminClass.response || '';
-            if (adminClass.intent === 'question') adminResponse += '\n\n💡 <i>Willst du buchen? Schreib einfach den Fahrtwunsch.</i>';
+            if (adminClass.intent !== 'greeting') adminResponse += '\n\n💡 <i>Willst du buchen? Schreib einfach den Fahrtwunsch.</i>';
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
@@ -2448,7 +2468,7 @@ async function handleMessage(message) {
     const classification = await handleSmartConversation(chatId, text, userName, knownForGreeting);
     await addTelegramLog('🧠', chatId, `Intent: ${classification.intent}`);
 
-    if (classification.intent === 'question' || classification.intent === 'greeting' || classification.intent === 'unclear') {
+    if (classification.intent === 'question' || classification.intent === 'price_inquiry' || classification.intent === 'greeting' || classification.intent === 'unclear') {
         let response = classification.response || '';
         // Bei "unclear": Hilfe-Hinweis anhängen
         if (classification.intent === 'unclear' && !response) {
@@ -2457,9 +2477,9 @@ async function handleMessage(message) {
         if (classification.intent === 'unclear') {
             response += '\n\n💡 <b>Das kann ich für Sie tun:</b>\n🚕 Fahrt buchen – schreiben Sie wann & wohin\n📊 /status – Ihre Fahrten\n✏️ /ändern – Fahrt bearbeiten\n🗑️ /löschen – Fahrt stornieren\nℹ️ /hilfe – Alle Befehle';
         }
-        // Bei Fragen: Buchungs-Hinweis anhängen
-        if (classification.intent === 'question') {
-            response += '\n\n💡 <i>Möchten Sie gleich buchen? Schreiben Sie einfach wann und wohin!</i>';
+        // Bei Fragen + Preisanfragen: Buchungs-Hinweis anhängen
+        if (classification.intent === 'question' || classification.intent === 'price_inquiry') {
+            response += '\n\n🚕 <i>Möchten Sie gleich buchen? Schreiben Sie einfach wann und wohin – ich zeige Ihnen den genauen Preis!</i>';
         }
         await sendTelegramMessage(chatId, response);
         return;

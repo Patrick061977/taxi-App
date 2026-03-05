@@ -373,20 +373,48 @@ async function reverseGeocode(lat, lon) {
         const data = await resp.json();
         if (data && data.address) {
             const addr = data.address;
-            let name = '';
-            if (addr.road) name = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
-            else if (addr.pedestrian) name = addr.pedestrian;
-            else if (data.display_name) name = data.display_name.split(',')[0];
+            const poiName = (data.namedetails?.name || data.name || addr.amenity || addr.tourism || addr.shop || addr.leisure || '');
+            let streetPart = '';
+            if (addr.road) streetPart = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
+            else if (addr.pedestrian) streetPart = addr.pedestrian;
             const town = addr.town || addr.city || addr.village || addr.municipality || '';
             const postcode = addr.postcode || '';
-            const fullName = name + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
-            return { name: fullName, lat: parseFloat(data.lat), lon: parseFloat(data.lon), display_name: data.display_name };
+            let fullName;
+            if (poiName && streetPart && !poiName.includes(streetPart.split(' ')[0])) {
+                fullName = `${poiName}, ${streetPart}` + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+            } else if (streetPart) {
+                fullName = streetPart + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+            } else if (poiName) {
+                fullName = poiName + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+            } else if (data.display_name) {
+                fullName = data.display_name.split(',').slice(0, 3).join(',').trim();
+            } else {
+                fullName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+            }
+            return { name: fullName, lat: parseFloat(data.lat), lon: parseFloat(data.lon), display_name: data.display_name, address: addr };
         }
         return null;
     } catch (e) {
         console.warn('Reverse-Geocoding Fehler:', e.message);
         return null;
     }
+}
+
+// 🔧 v6.11.0: Adresse sauber validieren – wenn nur POI-Name ohne Straße, per Reverse-Geocoding nachrüsten
+async function cleanupAddress(currentName, lat, lon) {
+    if (!lat || !lon) return currentName;
+    // Prüfe ob Adresse schon "sauber" ist (enthält Nummer + PLZ oder Komma)
+    const hasStreetNumber = /\d/.test(currentName) && currentName.includes(',');
+    if (hasStreetNumber) return currentName;
+    // Reverse-Geocoding für saubere Adresse
+    try {
+        const rev = await reverseGeocode(lat, lon);
+        if (rev && rev.name && rev.name.length > currentName.length) {
+            console.log(`[CleanupAddr] "${currentName}" → "${rev.name}"`);
+            return rev.name;
+        }
+    } catch (e) {}
+    return currentName;
 }
 
 async function searchNominatimForTelegram(query) {
@@ -427,12 +455,26 @@ async function searchNominatimForTelegram(query) {
             if (!seen.has(coordKey)) {
                 seen.add(coordKey);
                 const addr = item.address || {};
-                let name = item.name || '';
-                if (!name && addr.road) name = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
-                if (!name) name = item.display_name.split(',')[0];
+                const poiName = item.name || '';
+                const road = addr.road || '';
+                const houseNr = addr.house_number || '';
                 const town = addr.town || addr.city || addr.village || addr.municipality || '';
                 const postcode = addr.postcode || '';
-                const displayName = name + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+                // Vollständige Adresse bauen: POI-Name + Straße + Hausnr + PLZ + Ort
+                let streetPart = road ? (road + (houseNr ? ' ' + houseNr : '')) : '';
+                let displayName;
+                if (poiName && streetPart && !poiName.includes(road)) {
+                    // POI mit Straße: "Café Asgard, Strandpromenade 15, 17429 Bansin"
+                    displayName = `${poiName}, ${streetPart}` + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+                } else if (streetPart) {
+                    // Nur Straße: "Dünenweg 8, 17424 Heringsdorf"
+                    displayName = streetPart + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+                } else if (poiName) {
+                    // Nur POI-Name (kein Straßenname verfügbar)
+                    displayName = poiName + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
+                } else {
+                    displayName = item.display_name.split(',').slice(0, 3).join(',').trim();
+                }
                 results.push({ name: displayName, lat, lon, source: 'nominatim' });
             }
         }
@@ -1153,6 +1195,14 @@ Nur gültiges JSON, kein Markdown:
 // ═══════════════════════════════════════════════════════════════
 
 async function askPassengersOrConfirm(chatId, booking, routePrice, originalText) {
+    // 🔧 v6.11.0: Adressen sauber validieren (POI-Namen durch vollständige Adressen ersetzen)
+    if (booking.pickup && booking.pickupLat && booking.pickupLon) {
+        booking.pickup = await cleanupAddress(booking.pickup, booking.pickupLat, booking.pickupLon);
+    }
+    if (booking.destination && booking.destinationLat && booking.destinationLon) {
+        booking.destination = await cleanupAddress(booking.destination, booking.destinationLat, booking.destinationLon);
+    }
+
     // Sicherheitscheck: datetime muss gesetzt sein bevor Buchung bestätigt werden kann
     if (!booking.datetime) {
         await addTelegramLog('🛡️', chatId, 'Datum fehlt → zurück zur Abfrage');
@@ -3234,10 +3284,16 @@ async function handleCallback(callback) {
                 favorites,
                 favId
             });
+            // 🔧 v6.11.0: Favoriten-Adressen per Reverse-Geocoding aufhübschen
+            for (const f of favorites) {
+                if (f.destinationLat && f.destinationLon) {
+                    f.destination = await cleanupAddress(f.destination, f.destinationLat, f.destinationLon);
+                }
+            }
             let favMsg = `✅ <b>${found.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
             const buttons = favorites.map((f, i) => {
                 favMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
-                const label = f.destination.length > 28 ? f.destination.slice(0, 26) + '…' : f.destination;
+                const label = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
                 return [{ text: `📍 ${label}`, callback_data: `fav_dest_${i}_${favId}` }];
             });
             buttons.push([{ text: '📝 Anderes Ziel', callback_data: `fav_dest_other_${favId}` }]);

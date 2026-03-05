@@ -16,6 +16,62 @@ const db = admin.database();
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
 
+// 🛡️ SPAM-SCHUTZ: Max Nachrichten pro Zeitfenster
+const SPAM_MAX_MESSAGES = 8;       // Max 8 Nachrichten...
+const SPAM_WINDOW_MS = 60 * 1000;  // ...pro 60 Sekunden
+const SPAM_COOLDOWN_MS = 3 * 60 * 1000; // 3 Min Sperre nach Spam
+const spamTracker = {}; // { chatId: { timestamps: [], blocked: false, blockedUntil: 0, warned: false } }
+
+function checkSpam(chatId) {
+    const now = Date.now();
+    if (!spamTracker[chatId]) {
+        spamTracker[chatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false };
+    }
+    const tracker = spamTracker[chatId];
+
+    // Sperre aktiv?
+    if (tracker.blocked && now < tracker.blockedUntil) {
+        return 'blocked';
+    }
+    // Sperre abgelaufen → zurücksetzen
+    if (tracker.blocked && now >= tracker.blockedUntil) {
+        tracker.blocked = false;
+        tracker.warned = false;
+        tracker.timestamps = [];
+    }
+
+    // Alte Timestamps entfernen (außerhalb des Zeitfensters)
+    tracker.timestamps = tracker.timestamps.filter(t => now - t < SPAM_WINDOW_MS);
+    tracker.timestamps.push(now);
+
+    // Spam erkannt?
+    if (tracker.timestamps.length > SPAM_MAX_MESSAGES) {
+        tracker.blocked = true;
+        tracker.blockedUntil = now + SPAM_COOLDOWN_MS;
+        return 'spam';
+    }
+
+    // Warnung bei 6+ Nachrichten (kurz vor Limit)
+    if (tracker.timestamps.length >= SPAM_MAX_MESSAGES - 2 && !tracker.warned) {
+        tracker.warned = true;
+        return 'warning';
+    }
+
+    return 'ok';
+}
+
+// Speicher alle 10 Minuten aufräumen (verhindert Memory-Leak bei Cloud Functions)
+setInterval(() => {
+    const now = Date.now();
+    for (const chatId of Object.keys(spamTracker)) {
+        if (now - (spamTracker[chatId].blockedUntil || 0) > 600000 &&
+            (spamTracker[chatId].timestamps.length === 0 ||
+             now - spamTracker[chatId].timestamps[spamTracker[chatId].timestamps.length - 1] > 600000)) {
+            delete spamTracker[chatId];
+        }
+    }
+}, 600000);
+
 // Standard-Tarif (wird beim Start aus Firebase überschrieben falls vorhanden)
 const TARIF = {
     grundgebuehr: 4.00,
@@ -4015,6 +4071,32 @@ exports.telegramWebhook = onRequest(
 
         try {
             const update = req.body;
+
+            // 🛡️ Spam-Schutz: chatId ermitteln
+            const spamChatId = update.callback_query?.message?.chat?.id || update.message?.chat?.id;
+            if (spamChatId) {
+                const spamStatus = checkSpam(spamChatId);
+                if (spamStatus === 'blocked') {
+                    // Still ignorieren – keine Antwort (spart API-Kosten)
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'spam') {
+                    await addTelegramLog('🛡️', spamChatId, 'SPAM erkannt – 3 Min Sperre');
+                    await sendTelegramMessage(spamChatId,
+                        '⚠️ <b>Zu viele Nachrichten!</b>\n\n' +
+                        'Bitte warten Sie einen Moment, bevor Sie weitere Nachrichten senden.\n' +
+                        '<i>Sperre wird in 3 Minuten aufgehoben.</i>'
+                    );
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'warning') {
+                    await sendTelegramMessage(spamChatId,
+                        '⏳ <i>Bitte etwas langsamer – ich bearbeite Ihre Anfragen nacheinander.</i>'
+                    );
+                }
+            }
 
             if (update.callback_query) {
                 await handleCallback(update.callback_query);

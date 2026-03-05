@@ -150,38 +150,56 @@ async function editTelegramMessage(chatId, messageId, text, extraParams = {}) {
     }
 }
 
+// Tages-Key für Log-Strukturierung (Berlin-Zeit)
+function getTodayLogKey() {
+    const now = new Date();
+    const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    return berlin.toISOString().slice(0, 10); // "2026-03-05"
+}
+
 async function addTelegramLog(emoji, chatId, msg, details = null) {
     try {
-        const logRef = db.ref('settings/telegram/botlog');
+        const dayKey = getTodayLogKey();
+        const logRef = db.ref(`settings/telegram/botlog/${dayKey}`);
         const entry = {
             time: Date.now(),
             emoji, chatId: String(chatId), msg,
             ...(details ? { details: JSON.stringify(details).substring(0, 500) } : {})
         };
         await logRef.push(entry);
-        // Max 200 Logs behalten - nur gelegentlich aufraeumen (ca. 1 von 10 Aufrufen)
-        if (Math.random() < 0.1) {
-            trimTelegramLogs(logRef);
+        // Tages-Logs auf max 500 pro Tag begrenzen + alte Tage aufräumen (ca. 1 von 20 Aufrufen)
+        if (Math.random() < 0.05) {
+            trimTelegramLogs(dayKey);
         }
     } catch (e) { /* Log-Fehler ignorieren */ }
     console.log(`${emoji} [${chatId}] ${msg}`);
 }
 
-function trimTelegramLogs(logRef) {
-    logRef.once('value').then(snap => {
-        const count = snap.numChildren();
-        // Max 200 Logs + alte Einträge (>48h) aufräumen
-        const cutoff = Date.now() - 48 * 60 * 60 * 1000;
-        let deleted = 0;
-        const toDeleteByCount = count > 220 ? count - 200 : 0;
-        snap.forEach(child => {
-            const e = child.val();
-            const age = e && e.time ? e.time : 0;
-            if (deleted < toDeleteByCount || age < cutoff) {
-                child.ref.remove();
-                deleted++;
+function trimTelegramLogs(currentDay) {
+    const rootRef = db.ref('settings/telegram/botlog');
+    rootRef.once('value').then(snap => {
+        if (!snap.exists()) return;
+        const days = [];
+        snap.forEach(dayChild => { days.push(dayChild.key); });
+        // Alte Tage löschen (älter als 7 Tage behalten)
+        const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        for (const day of days) {
+            if (day < cutoffDate) {
+                rootRef.child(day).remove().catch(() => {});
             }
-        });
+        }
+        // Heutigen Tag auf max 500 Einträge begrenzen
+        const todayRef = rootRef.child(currentDay);
+        todayRef.once('value').then(todaySnap => {
+            const count = todaySnap.numChildren();
+            if (count > 520) {
+                const toDelete = count - 500;
+                let deleted = 0;
+                todaySnap.forEach(child => {
+                    if (deleted < toDelete) { child.ref.remove(); deleted++; }
+                });
+            }
+        }).catch(() => {});
     }).catch(() => {});
 }
 

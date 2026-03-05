@@ -140,7 +140,25 @@ const KNOWN_PLACES = {
     'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
     'flughafen heringsdorf': { lat: 53.8787, lon: 14.1524, name: 'Flughafen Heringsdorf (HDF)' },
     'swinemünde': { lat: 53.9100, lon: 14.2472, name: 'Swinemünde' },
-    'świnoujście': { lat: 53.9100, lon: 14.2472, name: 'Świnoujście' }
+    'świnoujście': { lat: 53.9100, lon: 14.2472, name: 'Świnoujście' },
+    // Wichtige Ziele außerhalb Usedom
+    'greifswald': { lat: 54.0865, lon: 13.3923, name: 'Greifswald' },
+    'uni klinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'uniklinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'universitätsklinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'universitätsmedizin greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'krankenhaus greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'klinikum greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'fleischmannstraße greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
+    'sauerbruchstraße greifswald': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
+    'greifswald sauerbruchstraße': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
+    'bahnhof greifswald': { lat: 54.0937, lon: 13.3780, name: 'Bahnhof Greifswald' },
+    'wolgast': { lat: 54.0515, lon: 13.7704, name: 'Wolgast' },
+    'bahnhof wolgast': { lat: 54.0515, lon: 13.7704, name: 'Bahnhof Wolgast' },
+    'anklam': { lat: 53.8549, lon: 13.6909, name: 'Anklam' },
+    'bahnhof anklam': { lat: 53.8549, lon: 13.6909, name: 'Bahnhof Anklam' },
+    'züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' },
+    'bahnhof züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' }
 };
 
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minuten
@@ -531,7 +549,7 @@ async function searchNominatimForTelegram(query) {
         }
     }
 
-    // Nominatim API - Usedom-Ergebnisse zuerst
+    // Nominatim API - Usedom-Ergebnisse zuerst, dann breitere Suche (Greifswald, Berlin etc.)
     try {
         const [usedomResp, generalResp] = await Promise.all([
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`, fetchOpts),
@@ -539,10 +557,19 @@ async function searchNominatimForTelegram(query) {
         ]);
         const usedomData = await usedomResp.json();
         const generalData = await generalResp.json();
+
+        // Fallback: Unbounded-Suche für Orte außerhalb Usedom (Greifswald, Berlin, Anklam etc.)
+        let wideData = [];
+        if (usedomData.length === 0 && generalData.length === 0) {
+            try {
+                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=5&addressdetails=1`, fetchOpts);
+                wideData = await wideResp.json();
+            } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
+        }
         const seen = new Set(results.map(r => `${r.lat.toFixed(3)}_${r.lon.toFixed(3)}`));
 
-        // Usedom-Ergebnisse zuerst, dann allgemeine
-        const allItems = [...usedomData, ...generalData];
+        // Usedom-Ergebnisse zuerst, dann allgemeine, dann weite Suche
+        const allItems = [...usedomData, ...generalData, ...wideData];
         // Sortiere: Usedom-Region zuerst
         allItems.sort((a, b) => {
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
@@ -893,31 +920,38 @@ async function findPOISuggestionsForText(text) {
     }
     if (!matchedCat) return null;
 
-    // POIs aus Firebase laden
+    const results = [];
+    const seen = new Set();
+
+    // 1. POIs aus /pois laden
     try {
         const snap = await db.ref('pois').orderByChild('category').equalTo(matchedCat).once('value');
-        if (!snap.exists()) return null;
+        if (snap.exists()) {
+            snap.forEach(child => {
+                const p = child.val();
+                if (p.name && !seen.has(p.name.toLowerCase())) {
+                    seen.add(p.name.toLowerCase());
+                    results.push({ name: p.name, address: p.address || null, lat: p.lat || null, lon: p.lon || null, matchedCategory: matchedLabel });
+                }
+            });
+        }
+    } catch (e) { console.warn('⚠️ POI-Suche (/pois) fehlgeschlagen:', e.message); }
 
-        const pois = [];
-        snap.forEach(child => {
-            const p = child.val();
-            if (p.name) {
-                pois.push({
-                    name: p.name,
-                    address: p.address || null,
-                    lat: p.lat || null,
-                    lon: p.lon || null,
-                    matchedCategory: matchedLabel
-                });
-            }
-        });
+    // 2. CRM-Kunden aus /customers mit passender Kategorie laden
+    try {
+        const custSnap = await db.ref('customers').orderByChild('category').equalTo(matchedCat).once('value');
+        if (custSnap.exists()) {
+            custSnap.forEach(child => {
+                const c = child.val();
+                if (c.name && !seen.has(c.name.toLowerCase())) {
+                    seen.add(c.name.toLowerCase());
+                    results.push({ name: c.name, address: c.address || null, lat: c.lat || null, lon: c.lon || null, matchedCategory: matchedLabel });
+                }
+            });
+        }
+    } catch (e) { console.warn('⚠️ POI-Suche (/customers) fehlgeschlagen:', e.message); }
 
-        // Max 5 Vorschläge
-        return pois.length > 0 ? pois.slice(0, 5) : null;
-    } catch (e) {
-        console.warn('⚠️ POI-Suche fehlgeschlagen:', e.message);
-        return null;
-    }
+    return results.length > 0 ? results.slice(0, 5) : null;
 }
 
 // ═══════════════════════════════════════════════════════════════

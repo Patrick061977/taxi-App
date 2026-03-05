@@ -850,6 +850,77 @@ async function getAnthropicApiKey() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.10.1: POI-VORSCHLÄGE AUS FAVORITEN
+// Durchsucht /pois in Firebase nach passender Kategorie
+// ═══════════════════════════════════════════════════════════════
+
+const POI_CATEGORY_KEYWORDS = {
+    restaurant:       { keywords: ['restaurant', 'essen', 'essen gehen', 'mittag', 'abendessen', 'speisen', 'küche', 'lokal', 'gaststätte', 'gasthof'], label: 'Restaurant' },
+    cafe:             { keywords: ['café', 'cafe', 'kaffee', 'kuchen', 'frühstück', 'frühstücken', 'torte'], label: 'Café' },
+    arzt:             { keywords: ['arzt', 'ärztin', 'doktor', 'praxis', 'arztpraxis', 'hausarzt', 'zahnarzt', 'augenarzt', 'kinderarzt', 'orthopäde'], label: 'Arzt' },
+    krankenhaus:      { keywords: ['krankenhaus', 'klinik', 'klinikum', 'hospital', 'notaufnahme', 'notarzt'], label: 'Krankenhaus' },
+    apotheke:         { keywords: ['apotheke', 'medikamente', 'medizin', 'rezept'], label: 'Apotheke' },
+    supermarkt:       { keywords: ['supermarkt', 'einkaufen', 'lebensmittel', 'edeka', 'rewe', 'aldi', 'lidl', 'netto', 'penny'], label: 'Supermarkt' },
+    hotel:            { keywords: ['hotel', 'pension', 'unterkunft', 'übernachtung', 'ferienwohnung'], label: 'Hotel' },
+    bahnhof:          { keywords: ['bahnhof', 'bahn', 'zug', 'zugfahrt', 'gleis'], label: 'Bahnhof' },
+    strand:           { keywords: ['strand', 'meer', 'ostsee', 'baden', 'schwimmen', 'strandkorb'], label: 'Strand' },
+    bank:             { keywords: ['bank', 'geldautomat', 'sparkasse', 'volksbank', 'atm', 'geld abheben'], label: 'Bank' },
+    bar:              { keywords: ['bar', 'kneipe', 'cocktail', 'ausgehen', 'trinken gehen', 'nachtleben', 'disco', 'club'], label: 'Bar' },
+    kirche:           { keywords: ['kirche', 'gottesdienst', 'kapelle', 'dom'], label: 'Kirche' },
+    museum:           { keywords: ['museum', 'ausstellung', 'galerie', 'kultur', 'sehenswürdigkeit', 'besichtigung'], label: 'Museum' },
+    post:             { keywords: ['post', 'postamt', 'paket', 'brief', 'dhl'], label: 'Post' },
+    behoerde:         { keywords: ['behörde', 'amt', 'rathaus', 'bürgeramt', 'gemeinde', 'verwaltung', 'standesamt'], label: 'Behörde' },
+    tankstelle:       { keywords: ['tankstelle', 'tanken', 'benzin', 'diesel', 'laden', 'ladestation'], label: 'Tankstelle' },
+    friseur:          { keywords: ['friseur', 'frisör', 'haare', 'haarschnitt', 'friseurin'], label: 'Friseur' },
+    fitness:          { keywords: ['fitness', 'sport', 'gym', 'fitnessstudio', 'schwimmbad', 'hallenbad', 'therme', 'spa', 'wellness'], label: 'Fitness & Wellness' },
+    schule:           { keywords: ['schule', 'kindergarten', 'kita', 'gymnasium', 'grundschule'], label: 'Schule' },
+    einkaufszentrum:  { keywords: ['einkaufszentrum', 'shopping', 'mall', 'geschäft', 'laden', 'boutique'], label: 'Einkaufszentrum' },
+    werkstatt:        { keywords: ['werkstatt', 'autowerkstatt', 'reparatur', 'tüv', 'reifenwechsel'], label: 'Werkstatt' }
+};
+
+async function findPOISuggestionsForText(text) {
+    const lower = text.toLowerCase();
+
+    // Finde passende Kategorie(n)
+    let matchedCat = null;
+    let matchedLabel = null;
+    for (const [cat, config] of Object.entries(POI_CATEGORY_KEYWORDS)) {
+        if (config.keywords.some(kw => lower.includes(kw))) {
+            matchedCat = cat;
+            matchedLabel = config.label;
+            break;
+        }
+    }
+    if (!matchedCat) return null;
+
+    // POIs aus Firebase laden
+    try {
+        const snap = await db.ref('pois').orderByChild('category').equalTo(matchedCat).once('value');
+        if (!snap.exists()) return null;
+
+        const pois = [];
+        snap.forEach(child => {
+            const p = child.val();
+            if (p.name) {
+                pois.push({
+                    name: p.name,
+                    address: p.address || null,
+                    lat: p.lat || null,
+                    lon: p.lon || null,
+                    matchedCategory: matchedLabel
+                });
+            }
+        });
+
+        // Max 5 Vorschläge
+        return pois.length > 0 ? pois.slice(0, 5) : null;
+    } catch (e) {
+        console.warn('⚠️ POI-Suche fehlgeschlagen:', e.message);
+        return null;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 🧠 INTELLIGENTER KONVERSATIONS-HANDLER
 // Klassifiziert Nachrichten und antwortet kontextbezogen
 // ═══════════════════════════════════════════════════════════════
@@ -2573,6 +2644,22 @@ async function handleMessage(message) {
         if (classification.intent === 'question' || classification.intent === 'price_inquiry') {
             response += '\n\n🚕 <i>Möchten Sie gleich buchen? Schreiben Sie einfach wann und wohin – ich zeige Ihnen den genauen Preis!</i>';
         }
+
+        // 🆕 v6.10.1: POI-Vorschläge wenn Nachricht eine Kategorie enthält
+        if (classification.intent !== 'greeting') {
+            const poiSuggestions = await findPOISuggestionsForText(text);
+            if (poiSuggestions && poiSuggestions.length > 0) {
+                const catLabel = poiSuggestions[0].matchedCategory || 'Ort';
+                response += `\n\n📍 <b>Unsere ${catLabel}-Empfehlungen:</b>`;
+                poiSuggestions.forEach((poi, i) => {
+                    response += `\n${i + 1}. <b>${poi.name}</b>`;
+                    if (poi.address) response += ` – ${poi.address}`;
+                });
+                response += '\n\n🚕 <i>Schreiben Sie z.B. "Fahrt zum ' + poiSuggestions[0].name + '" und ich buche für Sie!</i>';
+                await addTelegramLog('📍', chatId, `POI-Vorschläge (${catLabel}): ${poiSuggestions.map(p => p.name).join(', ')}`);
+            }
+        }
+
         await sendTelegramMessage(chatId, response);
         return;
     }

@@ -920,31 +920,38 @@ async function findPOISuggestionsForText(text) {
     }
     if (!matchedCat) return null;
 
-    // POIs aus Firebase laden
+    const results = [];
+    const seen = new Set();
+
+    // 1. POIs aus /pois laden
     try {
         const snap = await db.ref('pois').orderByChild('category').equalTo(matchedCat).once('value');
-        if (!snap.exists()) return null;
+        if (snap.exists()) {
+            snap.forEach(child => {
+                const p = child.val();
+                if (p.name && !seen.has(p.name.toLowerCase())) {
+                    seen.add(p.name.toLowerCase());
+                    results.push({ name: p.name, address: p.address || null, lat: p.lat || null, lon: p.lon || null, matchedCategory: matchedLabel });
+                }
+            });
+        }
+    } catch (e) { console.warn('⚠️ POI-Suche (/pois) fehlgeschlagen:', e.message); }
 
-        const pois = [];
-        snap.forEach(child => {
-            const p = child.val();
-            if (p.name) {
-                pois.push({
-                    name: p.name,
-                    address: p.address || null,
-                    lat: p.lat || null,
-                    lon: p.lon || null,
-                    matchedCategory: matchedLabel
-                });
-            }
-        });
+    // 2. CRM-Kunden aus /customers mit passender Kategorie laden
+    try {
+        const custSnap = await db.ref('customers').orderByChild('category').equalTo(matchedCat).once('value');
+        if (custSnap.exists()) {
+            custSnap.forEach(child => {
+                const c = child.val();
+                if (c.name && !seen.has(c.name.toLowerCase())) {
+                    seen.add(c.name.toLowerCase());
+                    results.push({ name: c.name, address: c.address || null, lat: c.lat || null, lon: c.lon || null, matchedCategory: matchedLabel });
+                }
+            });
+        }
+    } catch (e) { console.warn('⚠️ POI-Suche (/customers) fehlgeschlagen:', e.message); }
 
-        // Max 5 Vorschläge
-        return pois.length > 0 ? pois.slice(0, 5) : null;
-    } catch (e) {
-        console.warn('⚠️ POI-Suche fehlgeschlagen:', e.message);
-        return null;
-    }
+    return results.length > 0 ? results.slice(0, 5) : null;
 }
 
 // ═══════════════════════════════════════════════════════════════

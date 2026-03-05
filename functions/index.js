@@ -2613,6 +2613,20 @@ async function handleMessage(message) {
             await addTelegramLog('🧠', chatId, `Admin-Intent: ${adminClass.intent}`);
             let adminResponse = adminClass.response || '';
             if (adminClass.intent !== 'greeting') adminResponse += '\n\n💡 <i>Willst du buchen? Schreib einfach den Fahrtwunsch.</i>';
+            // 🆕 POI-Vorschläge auch für Admins (Restaurant, Krankenhaus etc.)
+            if (adminClass.intent !== 'greeting') {
+                const poiSuggestions = await findPOISuggestionsForText(text);
+                if (poiSuggestions && poiSuggestions.length > 0) {
+                    const catLabel = poiSuggestions[0].matchedCategory || 'Ort';
+                    adminResponse += `\n\n📍 <b>${catLabel}-Empfehlungen:</b>`;
+                    poiSuggestions.forEach((poi, i) => {
+                        adminResponse += `\n${i + 1}. <b>${poi.name}</b>`;
+                        if (poi.address) adminResponse += ` – ${poi.address}`;
+                    });
+                    adminResponse += '\n\n🚕 <i>Schreib z.B. "Fahrt zum ' + poiSuggestions[0].name + '" um zu buchen!</i>';
+                    await addTelegramLog('📍', chatId, `POI-Vorschläge (${catLabel}): ${poiSuggestions.map(p => p.name).join(', ')}`);
+                }
+            }
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }

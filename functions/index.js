@@ -17,19 +17,25 @@ const db = admin.database();
 // ═══════════════════════════════════════════════════════════════
 
 // 🛡️ SPAM-SCHUTZ: Max Nachrichten pro Zeitfenster
-const SPAM_MAX_MESSAGES = 8;       // Max 8 Nachrichten...
+const SPAM_MAX_MESSAGES = 20;      // Max 20 Nachrichten...
 const SPAM_WINDOW_MS = 60 * 1000;  // ...pro 60 Sekunden
 const SPAM_COOLDOWN_MS = 3 * 60 * 1000; // 3 Min Sperre nach Spam
-const spamTracker = {}; // { chatId: { timestamps: [], blocked: false, blockedUntil: 0, warned: false } }
+const SPAM_MAX_STRIKES = 3;        // Nach 3 Sperren → dauerhafter Block
+const spamTracker = {}; // { chatId: { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: false } }
 
 function checkSpam(chatId) {
     const now = Date.now();
     if (!spamTracker[chatId]) {
-        spamTracker[chatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false };
+        spamTracker[chatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: false };
     }
     const tracker = spamTracker[chatId];
 
-    // Sperre aktiv?
+    // Dauerhaft geblockt? → Nur Admin kann das aufheben (in Firebase)
+    if (tracker.permBlocked) {
+        return 'permblocked';
+    }
+
+    // Temporäre Sperre aktiv?
     if (tracker.blocked && now < tracker.blockedUntil) {
         return 'blocked';
     }
@@ -46,13 +52,20 @@ function checkSpam(chatId) {
 
     // Spam erkannt?
     if (tracker.timestamps.length > SPAM_MAX_MESSAGES) {
+        tracker.strikes++;
         tracker.blocked = true;
         tracker.blockedUntil = now + SPAM_COOLDOWN_MS;
+
+        // 3. Strike → dauerhaft blocken
+        if (tracker.strikes >= SPAM_MAX_STRIKES) {
+            tracker.permBlocked = true;
+            return 'permblock_new';
+        }
         return 'spam';
     }
 
-    // Warnung bei 6+ Nachrichten (kurz vor Limit)
-    if (tracker.timestamps.length >= SPAM_MAX_MESSAGES - 2 && !tracker.warned) {
+    // Warnung bei 15+ Nachrichten (kurz vor Limit)
+    if (tracker.timestamps.length >= SPAM_MAX_MESSAGES - 5 && !tracker.warned) {
         tracker.warned = true;
         return 'warning';
     }
@@ -2127,6 +2140,28 @@ async function handleMessage(message) {
         return;
     }
 
+    // Admin: Nutzer entblocken
+    if (textCmd.startsWith('/entblocken ') || textCmd.startsWith('/unblock ')) {
+        if (await isTelegramAdmin(chatId)) {
+            const targetId = text.split(' ')[1]?.trim();
+            if (!targetId) {
+                await sendTelegramMessage(chatId, '⚠️ Bitte Chat-ID angeben: <code>/entblocken 123456789</code>');
+                return;
+            }
+            try {
+                await db.ref(`settings/telegram/blockedUsers/${targetId}`).remove();
+                if (spamTracker[targetId]) delete spamTracker[targetId];
+                await addTelegramLog('✅', chatId, `Admin: Nutzer ${targetId} entblockt`);
+                await sendTelegramMessage(chatId, `✅ <b>Nutzer ${targetId} entblockt!</b>\n\nDer Nutzer kann den Bot wieder nutzen.`);
+                // Den entblockten Nutzer informieren
+                sendTelegramMessage(targetId, '✅ <b>Ihre Sperre wurde aufgehoben.</b>\n\nSie können den Bot wieder nutzen. Bitte senden Sie Ihre Nachrichten normal.').catch(() => {});
+            } catch(e) {
+                await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+            }
+        }
+        return;
+    }
+
     // Admin-Befehle
     if (textCmd === '/fahrten' || textCmd === '/rides') {
         if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'today'); return; }
@@ -4075,18 +4110,62 @@ exports.telegramWebhook = onRequest(
             // 🛡️ Spam-Schutz: chatId ermitteln
             const spamChatId = update.callback_query?.message?.chat?.id || update.message?.chat?.id;
             if (spamChatId) {
+                // Zuerst prüfen ob in Firebase dauerhaft geblockt
+                if (!spamTracker[spamChatId]?.permBlocked) {
+                    try {
+                        const blockSnap = await db.ref(`settings/telegram/blockedUsers/${spamChatId}`).once('value');
+                        if (blockSnap.val()) {
+                            if (!spamTracker[spamChatId]) spamTracker[spamChatId] = { timestamps: [], blocked: false, blockedUntil: 0, warned: false, strikes: 0, permBlocked: true };
+                            else spamTracker[spamChatId].permBlocked = true;
+                        }
+                    } catch(e) {}
+                }
+
                 const spamStatus = checkSpam(spamChatId);
-                if (spamStatus === 'blocked') {
-                    // Still ignorieren – keine Antwort (spart API-Kosten)
+                if (spamStatus === 'permblocked' || spamStatus === 'blocked') {
+                    // Still ignorieren – keine Antwort
+                    res.status(200).send('OK');
+                    return;
+                }
+                if (spamStatus === 'permblock_new') {
+                    // Neuer permanenter Block → in Firebase speichern + Admin benachrichtigen
+                    const userName = update.message?.from?.first_name || update.callback_query?.from?.first_name || 'Unbekannt';
+                    await addTelegramLog('🚫', spamChatId, `PERMANENT GEBLOCKT – 3× Spam-Sperre (${userName})`);
+                    await sendTelegramMessage(spamChatId,
+                        '🚫 <b>Ihr Zugang wurde gesperrt.</b>\n\n' +
+                        'Sie haben wiederholt zu viele Nachrichten gesendet.\n' +
+                        'Bitte kontaktieren Sie uns telefonisch: <b>038378 / 22022</b>'
+                    );
+                    // In Firebase speichern (überlebt Cloud Function Restart)
+                    try {
+                        await db.ref(`settings/telegram/blockedUsers/${spamChatId}`).set({
+                            blockedAt: Date.now(),
+                            reason: '3x Spam-Sperre',
+                            userName
+                        });
+                    } catch(e) {}
+                    // Admins benachrichtigen
+                    try {
+                        const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                        const adminChats = adminSnap.val() || [];
+                        for (const adminChatId of adminChats) {
+                            sendTelegramMessage(adminChatId,
+                                `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`
+                            ).catch(() => {});
+                        }
+                    } catch(e) {}
                     res.status(200).send('OK');
                     return;
                 }
                 if (spamStatus === 'spam') {
-                    await addTelegramLog('🛡️', spamChatId, 'SPAM erkannt – 3 Min Sperre');
+                    const tracker = spamTracker[spamChatId];
+                    const remaining = SPAM_MAX_STRIKES - (tracker?.strikes || 0);
+                    await addTelegramLog('🛡️', spamChatId, `SPAM erkannt – 3 Min Sperre (Strike ${tracker?.strikes || '?'}/${SPAM_MAX_STRIKES})`);
                     await sendTelegramMessage(spamChatId,
                         '⚠️ <b>Zu viele Nachrichten!</b>\n\n' +
                         'Bitte warten Sie einen Moment, bevor Sie weitere Nachrichten senden.\n' +
-                        '<i>Sperre wird in 3 Minuten aufgehoben.</i>'
+                        `<i>Sperre wird in 3 Minuten aufgehoben.</i>\n\n` +
+                        (remaining > 0 ? `⚠️ <b>Warnung:</b> Nach ${remaining} weiteren Sperre(n) wird Ihr Zugang dauerhaft gesperrt.` : '')
                     );
                     res.status(200).send('OK');
                     return;

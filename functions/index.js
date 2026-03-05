@@ -779,6 +779,69 @@ async function getAnthropicApiKey() {
     return snap.val() || null;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🧠 INTELLIGENTER KONVERSATIONS-HANDLER
+// Klassifiziert Nachrichten und antwortet kontextbezogen
+// ═══════════════════════════════════════════════════════════════
+
+async function handleSmartConversation(chatId, text, userName, knownCustomer) {
+    const apiKey = await getAnthropicApiKey();
+    if (!apiKey) {
+        // Ohne API-Key: Fallback auf Buchungsanalyse
+        return { intent: 'booking' };
+    }
+
+    try {
+        const customerContext = knownCustomer
+            ? `Der Kunde heißt ${knownCustomer.name}, Tel: ${knownCustomer.phone || 'unbekannt'}.`
+            : `Der Nutzer ist noch nicht registriert.`;
+
+        const now = new Date();
+        const berlinTime = now.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
+            role: 'user',
+            content: `Du bist der Telegram-Bot von "Funk Taxi Heringsdorf" auf der Insel Usedom.
+Aktuell: ${berlinTime}
+${customerContext}
+
+Klassifiziere diese Nachricht und antworte als JSON:
+
+Nachricht: "${text}"
+
+Regeln:
+- "booking": Wenn der Nutzer ein Taxi buchen will, eine Fahrt plant, Abholort/Zielort/Zeit nennt
+- "question": Wenn der Nutzer eine Frage hat (Preise, Öffnungszeiten, Service, Kindersitze, Großraumtaxi, Bezahlung, Flughafentransfer, Gebiete etc.)
+- "status": Wenn der Nutzer nach seinen Fahrten/Buchungen fragt
+- "greeting": Wenn der Nutzer grüßt oder Smalltalk macht
+- "unclear": Wenn unklar ist was gemeint ist
+
+Bei "question" oder "greeting": Antworte freundlich, kurz und hilfreich auf Deutsch.
+
+Über uns:
+- Funk Taxi Heringsdorf, Insel Usedom
+- 24/7 erreichbar, Tel: 038378 / 22022
+- Fahrzeuge: Toyota Prius (4 Personen), Tesla Model Y (4 Personen), Renault Traffic (8 Personen), Mercedes Vito (8 Personen)
+- Bezahlung: Bar oder Karte
+- Kindersitze: Auf Anfrage verfügbar (bei Buchung als Bemerkung angeben)
+- Gebiete: Usedom, Swinemünde, Flughafen Heringsdorf, Transfers zu Flughäfen/Bahnhöfen auf dem Festland
+- Preise: Grundgebühr ca. 4€, dann km-abhängig (Tages-/Nachttarif). Preisanzeige nach Adresseingabe.
+- Vorbestellung möglich, Sofortfahrt möglich
+- Großraumtaxi für bis zu 8 Personen verfügbar
+
+Antwort als JSON: {"intent": "booking|question|status|greeting|unclear", "response": "Deine Antwort (nur bei question/greeting/unclear, HTML-Format erlaubt, max 3 Sätze)"}`
+        }]);
+
+        const content = response?.content?.[0]?.text || '';
+        const jsonText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const result = JSON.parse(jsonText);
+        return result;
+    } catch (e) {
+        console.warn('Smart-Konversation Fehler:', e.message);
+        return { intent: 'booking' }; // Fallback
+    }
+}
+
 async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const apiKey = await getAnthropicApiKey();
     if (!apiKey) {
@@ -2360,8 +2423,16 @@ async function handleMessage(message) {
         return;
     }
 
-    // Admin-Modus
+    // Admin-Modus: Erst prüfen ob es eine Frage ist, sonst Buchung
     if (isAdminUser) {
+        const adminClass = await handleSmartConversation(chatId, text, userName, knownForGreeting);
+        if (adminClass.intent === 'question' || adminClass.intent === 'greeting') {
+            await addTelegramLog('🧠', chatId, `Admin-Intent: ${adminClass.intent}`);
+            let adminResponse = adminClass.response || '';
+            if (adminClass.intent === 'question') adminResponse += '\n\n💡 <i>Willst du buchen? Schreib einfach den Fahrtwunsch.</i>';
+            await sendTelegramMessage(chatId, adminResponse);
+            return;
+        }
         await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
         await setPending(chatId, { taxiChoice: { text, userName } });
         await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
@@ -2373,7 +2444,39 @@ async function handleMessage(message) {
         return;
     }
 
-    // Normale Buchungsanalyse
+    // 🧠 Intelligente Konversation: Erst klassifizieren, dann reagieren
+    const classification = await handleSmartConversation(chatId, text, userName, knownForGreeting);
+    await addTelegramLog('🧠', chatId, `Intent: ${classification.intent}`);
+
+    if (classification.intent === 'question' || classification.intent === 'greeting' || classification.intent === 'unclear') {
+        let response = classification.response || '';
+        // Bei "unclear": Hilfe-Hinweis anhängen
+        if (classification.intent === 'unclear' && !response) {
+            response = '🤔 Ich bin mir nicht sicher, was Sie meinen.';
+        }
+        if (classification.intent === 'unclear') {
+            response += '\n\n💡 <b>Das kann ich für Sie tun:</b>\n🚕 Fahrt buchen – schreiben Sie wann & wohin\n📊 /status – Ihre Fahrten\n✏️ /ändern – Fahrt bearbeiten\n🗑️ /löschen – Fahrt stornieren\nℹ️ /hilfe – Alle Befehle';
+        }
+        // Bei Fragen: Buchungs-Hinweis anhängen
+        if (classification.intent === 'question') {
+            response += '\n\n💡 <i>Möchten Sie gleich buchen? Schreiben Sie einfach wann und wohin!</i>';
+        }
+        await sendTelegramMessage(chatId, response);
+        return;
+    }
+
+    if (classification.intent === 'status') {
+        if (knownForGreeting) {
+            await handleTelegramBookingQuery(chatId, 'meine Fahrten', knownForGreeting);
+        } else {
+            await sendTelegramMessage(chatId, '📊 <b>Ihre Fahrten</b>\n\nBitte teilen Sie Ihre Telefonnummer, damit ich Ihre Buchungen finden kann.', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
+        }
+        return;
+    }
+
+    // Intent "booking" → normale Buchungsanalyse
     sendTelegramMessage(chatId, '🤖 <i>Analysiere Ihre Nachricht...</i>').catch(() => {});
     await analyzeTelegramBooking(chatId, text, userName);
 }

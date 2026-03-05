@@ -44,6 +44,14 @@ async function loadTarifFromFirebase() {
 
 const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
 
+const OFFICIAL_VEHICLES = {
+    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4 },
+    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4 },
+    'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4 },
+    'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8 },
+    'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8 }
+};
+
 const KNOWN_PLACES = {
     'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
     'bahnhof heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Bahnhof Heringsdorf' },
@@ -1635,6 +1643,11 @@ async function handleAdminRideDetail(chatId, rideId) {
         if (r.estimatedPrice) msg += `💰 ~${r.estimatedPrice} €\n`;
         if (r.estimatedDistance) msg += `🗺️ ~${r.estimatedDistance} km\n`;
         if (r.notes) msg += `📝 ${r.notes}\n`;
+        if (r.assignedVehicleName || r.vehicle || r.vehicleLabel) {
+            msg += `🚗 Fahrzeug: ${r.assignedVehicleName || r.vehicle || r.vehicleLabel}`;
+            if (r.assignedVehiclePlate || r.vehiclePlate) msg += ` (${r.assignedVehiclePlate || r.vehiclePlate})`;
+            msg += '\n';
+        }
         msg += `\n🔑 ID: <code>${rideId}</code>`;
         if (r.source) msg += `\n📡 Quelle: ${r.source}`;
 
@@ -1650,7 +1663,10 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '👥 Personen', callback_data: `adm_edit_pax_${rideId}` },
                 { text: '📋 Status', callback_data: `adm_edit_status_${rideId}` }
             ]);
-            keyboard.push([{ text: '🗑️ Fahrt löschen', callback_data: `adm_del_${rideId}` }]);
+            keyboard.push([
+                { text: '🚗 Fahrzeug', callback_data: `adm_assign_${rideId}` },
+                { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
+            ]);
         }
         keyboard.push([{ text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' }]);
 
@@ -2264,6 +2280,15 @@ async function handleMessage(message) {
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
         }
+    }
+
+    // "Anderes Ziel" → Admin hat Freitext für neue Buchung eingegeben
+    if (pending && pending._awaitingNewBookingText) {
+        const { preselectedCustomer, userName: savedUserName } = pending;
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, `🤖 <i>Analysiere Buchung für ${preselectedCustomer.name}...</i>`);
+        await analyzeTelegramBooking(chatId, text, savedUserName || userName, { isAdmin: true, preselectedCustomer });
+        return;
     }
 
     // Follow-Up: Unvollständige Buchung ergänzen
@@ -2951,10 +2976,13 @@ async function handleCallback(callback) {
         const { preselectedCustomer, originalText, userName, favorites } = pending;
 
         if (data.startsWith('fav_dest_other_')) {
-            // "Anderes Ziel" → normaler Buchungsflow
-            await deletePending(chatId);
-            await sendTelegramMessage(chatId, `🤖 <i>Analysiere Buchung für ${preselectedCustomer.name}...</i>`);
-            await analyzeTelegramBooking(chatId, originalText, userName, { isAdmin: true, preselectedCustomer });
+            // "Anderes Ziel" → Freitext-Eingabe für neue Buchung
+            await setPending(chatId, {
+                _awaitingNewBookingText: true,
+                preselectedCustomer,
+                userName
+            });
+            await sendTelegramMessage(chatId, `📝 <b>Neue Buchung für ${preselectedCustomer.name}</b>\n\nBitte schreibe den Fahrtwunsch (z.B. <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>):`);
             return;
         }
 
@@ -3113,6 +3141,57 @@ async function handleCallback(callback) {
     }
     if (data.startsWith('adm_del_')) {
         await handleAdminDeleteRide(chatId, data.replace('adm_del_', ''));
+        return;
+    }
+    if (data.startsWith('adm_assign_')) {
+        const rideId = data.replace('adm_assign_', '');
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+        const currentVehicle = r.assignedVehicleName || r.vehicle || r.vehicleLabel || 'Keins';
+        const keyboard = Object.entries(OFFICIAL_VEHICLES).map(([id, v]) => {
+            const label = id === (r.assignedVehicle || r.vehicleId) ? `✅ ${v.name}` : `🚗 ${v.name}`;
+            return [{ text: label, callback_data: `adm_setvehicle_${rideId}_${id}` }];
+        });
+        keyboard.push([{ text: '❌ Zuweisung entfernen', callback_data: `adm_setvehicle_${rideId}_none` }]);
+        keyboard.push([{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]);
+        await sendTelegramMessage(chatId,
+            `🚗 <b>Fahrzeug zuweisen</b>\n\nAktuell: <b>${currentVehicle}</b>`,
+            { reply_markup: { inline_keyboard: keyboard } }
+        );
+        return;
+    }
+    if (data.startsWith('adm_setvehicle_')) {
+        const rest = data.replace('adm_setvehicle_', '');
+        const lastUs = rest.lastIndexOf('_');
+        const rideId = rest.substring(0, lastUs);
+        const vehicleId = rest.substring(lastUs + 1);
+        try {
+            if (vehicleId === 'none') {
+                await db.ref(`rides/${rideId}`).update({
+                    assignedVehicle: null, vehicleId: null, assignedTo: null,
+                    vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                    assignedVehicleName: null, assignedVehiclePlate: null,
+                    assignedBy: null, assignedAt: null,
+                    editedAt: Date.now(), editedBy: 'telegram-admin'
+                });
+                await addTelegramLog('✏️', chatId, 'Admin: Fahrzeug-Zuweisung entfernt');
+                await sendTelegramMessage(chatId, '✅ Fahrzeug-Zuweisung entfernt');
+            } else {
+                const v = OFFICIAL_VEHICLES[vehicleId];
+                if (!v) { await sendTelegramMessage(chatId, '⚠️ Fahrzeug nicht gefunden.'); return; }
+                await db.ref(`rides/${rideId}`).update({
+                    assignedVehicle: vehicleId, vehicleId: vehicleId, assignedTo: vehicleId,
+                    vehicle: v.name, vehicleLabel: v.name, vehiclePlate: v.plate,
+                    assignedVehicleName: v.name, assignedVehiclePlate: v.plate,
+                    assignedBy: 'telegram-admin', assignedAt: Date.now(),
+                    editedAt: Date.now(), editedBy: 'telegram-admin'
+                });
+                await addTelegramLog('✏️', chatId, `Admin: Fahrzeug zugewiesen → ${v.name} (${v.plate})`);
+                await sendTelegramMessage(chatId, `✅ Fahrzeug zugewiesen: <b>${v.name}</b> (${v.plate})`);
+            }
+            await handleAdminRideDetail(chatId, rideId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
 

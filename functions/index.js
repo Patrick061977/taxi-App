@@ -2523,6 +2523,11 @@ async function handleCallback(callback) {
             const successHeader = booking._adminBooked
                 ? `✅ <b>Buchung für ${booking._forCustomer || rideData.customerName} eingetragen!</b>\n\n`
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
+            // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
+            const returnKeyboard = { inline_keyboard: [
+                [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
+                [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }]
+            ]};
             await sendTelegramMessage(chatId,
                 successHeader +
                 `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
@@ -2530,7 +2535,8 @@ async function handleCallback(callback) {
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!`
+                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!`,
+                { reply_markup: returnKeyboard }
             );
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
@@ -2758,6 +2764,49 @@ async function handleCallback(callback) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
         await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords });
+        return;
+    }
+
+    // 🔧 v6.11.0: Rückfahrt buchen (Von ↔ Nach tauschen)
+    if (data.startsWith('return_')) {
+        const origRideId = data.replace('return_', '');
+        try {
+            const rideSnap = await db.ref(`rides/${origRideId}`).once('value');
+            const origRide = rideSnap.val();
+            if (!origRide) {
+                await sendTelegramMessage(chatId, '⚠️ Originalfahrt nicht gefunden.');
+                return;
+            }
+            // Rückfahrt-Text zusammenbauen: Von und Nach getauscht
+            const returnText = `${origRide.destination} nach ${origRide.pickup}`;
+            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
+            // Pending mit vorausgefüllten Adressen erstellen
+            const returnBooking = {
+                pickup: origRide.destination,
+                destination: origRide.pickup,
+                name: origRide.customerName || '',
+                phone: origRide.customerPhone || '',
+                // Koordinaten tauschen
+                pickupLat: origRide.destinationLat || origRide.destCoords?.lat || null,
+                pickupLon: origRide.destinationLon || origRide.destCoords?.lon || null,
+                destinationLat: origRide.pickupLat || origRide.pickupCoords?.lat || null,
+                destinationLon: origRide.pickupLon || origRide.pickupCoords?.lon || null,
+                missing: ['datetime'],
+                _returnOf: origRideId
+            };
+            const bookingId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            await setPending(chatId, {
+                booking: returnBooking,
+                bookingId,
+                _awaitingDateTime: true,
+                _createdAt: Date.now(),
+                originalText: `Rückfahrt: ${returnText}`
+            });
+            await addTelegramLog('🔄', chatId, `Rückfahrt gestartet: ${origRide.destination} → ${origRide.pickup}`);
+        } catch (e) {
+            console.error('Rückfahrt-Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler beim Erstellen der Rückfahrt.');
+        }
         return;
     }
 

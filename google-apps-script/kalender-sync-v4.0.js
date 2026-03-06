@@ -1,9 +1,13 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.0 - SICHERHEITSFIX + ALLE STATUS SYNC
-// 🔧 FIX 1: Blacklist statt Whitelist - alle Status außer storniert werden synchronisiert
-// 🔧 FIX 2: Sicherheitscheck - bei leerem Firebase-Ergebnis NICHT löschen
-// 🔧 FIX 3: Minimum-Check verhindert versehentliches Massen-Löschen
+// Version: 4.1 - VOLLSTÄNDIGE SYNC
+// REGELN:
+//   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
+//   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
+//   3. Alle zukünftigen Fahrten die noch keinen Eintrag haben → erstellen
+//   4. Geänderte zukünftige Fahrten (updatedAt neuer) → aktualisieren
+//   5. Nur stornierte → aus Kalender löschen
+//   6. Abgeschlossene/abgelaufene → im Kalender lassen!
 // ═══════════════════════════════════════════════════════════════
 // 🔧 KONFIGURATION
 // ═══════════════════════════════════════════════════════════════
@@ -84,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.0...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.1...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -134,50 +138,68 @@ function syncFirebaseToCalendar() {
 
     console.log('📌 Zukünftige Fahrten:', futureRides.length);
 
-    // 🆕 v3.8: FILTER NUR GEÄNDERTE TERMINE!
-    const changedRides = futureRides.filter(ride => {
-      // Prüfe ob Fahrt seit letztem Sync geändert wurde
+    // 🔧 v4.0: BLACKLIST - stornierte Fahrten ausschließen
+    const excludeStatuses = ['storniert', 'cancelled', 'deleted'];
+    const activeFutureRides = futureRides.filter(ride => !excludeStatuses.includes(ride.status));
+
+    console.log('✅ Aktive zukünftige Fahrten:', activeFutureRides.length);
+
+    // 🆕 v4.1: ZWEISTUFIGER SYNC
+    // Stufe 1: Geänderte Fahrten seit letztem Sync (schnell)
+    const changedRides = activeFutureRides.filter(ride => {
       const updatedAt = ride.updatedAt || ride.createdAt || 0;
-
-      // Wenn updatedAt neuer als lastSync → geändert!
-      if (updatedAt > lastSync) {
-        return true;
-      }
-
-      // Neue Fahrten (noch kein updatedAt)
+      if (updatedAt > lastSync) return true;
       const createdAt = ride.createdAt || 0;
-      if (createdAt > lastSync) {
-        return true;
-      }
-
+      if (createdAt > lastSync) return true;
       return false;
     });
 
     console.log('🔄 Geänderte Termine seit letztem Sync:', changedRides.length);
-    console.log('⏭️ Unverändert (übersprungen):', futureRides.length - changedRides.length);
+
+    // Stufe 2: Prüfe ALLE aktiven Fahrten auf fehlende Kalender-Einträge
+    // (fängt Fahrten auf die vor dem ersten Sync erstellt wurden)
+    const unchangedRides = activeFutureRides.filter(ride => !changedRides.includes(ride));
+    const missingRides = [];
+
+    if (unchangedRides.length > 0) {
+      console.log('🔍 Prüfe', unchangedRides.length, 'unveränderte Fahrten auf fehlende Kalender-Einträge...');
+      for (const ride of unchangedRides) {
+        let startTime;
+        if (ride.pickupTimestamp) {
+          startTime = new Date(ride.pickupTimestamp);
+        } else if (ride.pickupDate && ride.pickupTime) {
+          startTime = new Date(ride.pickupDate + 'T' + ride.pickupTime + ':00');
+        }
+        if (!startTime || isNaN(startTime.getTime())) continue;
+
+        const existing = findExistingEvent(calendar, ride.firebaseId, startTime);
+        if (!existing) {
+          missingRides.push(ride);
+          console.log('📌 Fehlender Eintrag gefunden:', ride.firebaseId);
+        }
+      }
+      console.log('📌 Fehlende Kalender-Einträge:', missingRides.length);
+    }
+
+    // Kombiniere: geänderte + fehlende
+    const ridesToSync = [...changedRides, ...missingRides];
+    console.log('📊 Gesamt zu synchronisieren:', ridesToSync.length);
+    console.log('⏭️ Übersprungen (bereits aktuell):', activeFutureRides.length - ridesToSync.length);
     console.log('');
 
-    // 🔧 v4.0: BLACKLIST statt Whitelist - NUR stornierte ausschließen!
-    const activeChangedRides = changedRides.filter(ride => {
-      const excludeStatuses = ['storniert', 'cancelled', 'deleted'];
-      return !excludeStatuses.includes(ride.status);
-    });
-
-    console.log('✅ Aktive geänderte Termine:', activeChangedRides.length);
-
-    // Erstelle/Aktualisiere nur die geänderten
+    // Erstelle/Aktualisiere
     let created = 0;
     let updated = 0;
     let skipped = 0;
 
-    activeChangedRides.forEach(ride => {
+    ridesToSync.forEach(ride => {
       const result = createOrUpdateCalendarEvent(calendar, ride);
       if (result === 'created') created++;
       else if (result === 'updated') updated++;
       else skipped++;
     });
 
-    // Entferne alte/stornierte (immer prüfen!)
+    // Nur stornierte zukünftige Events entfernen (vergangene NIE anfassen!)
     const removed = removeOldEvents(calendar, allRides);
 
     // 🆕 v3.8: Speichere aktuellen Zeitstempel
@@ -186,7 +208,7 @@ function syncFirebaseToCalendar() {
     // Zusammenfassung
     console.log('\n✅ SYNCHRONISATION ABGESCHLOSSEN:');
     console.log('  📊 Geprüft:', futureRides.length, 'zukünftige Fahrten');
-    console.log('  🔍 Geändert:', changedRides.length);
+    console.log('  🔍 Geändert:', changedRides.length, '| Fehlend nachgeholt:', missingRides.length);
     console.log('  ➕ Erstellt:', created);
     console.log('  🔄 Aktualisiert:', updated);
     console.log('  ⏭️ Übersprungen:', skipped);
@@ -404,7 +426,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.0 (Safe Sync)');
+  lines.push('📝 Erstellt von: CalendarSync v4.1 (Vollständige Sync)');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -444,98 +466,64 @@ function findExistingEvent(calendar, firebaseId, startTime) {
   return matchingEvents.length > 0 ? matchingEvents[0] : null;
 }
 // ═══════════════════════════════════════════════════════════════
-// 🗑️ ALTE & STORNIERTE EVENTS ENTFERNEN
-// 🔧 v4.0: MIT SICHERHEITSCHECKS!
+// 🗑️ NUR STORNIERTE EVENTS ENTFERNEN + DUPLIKATE BEREINIGEN
+// 🔧 v4.1: Vergangene/abgeschlossene Termine werden NIE angefasst!
+// Nur ZUKÜNFTIGE stornierte Fahrten werden aus dem Kalender entfernt.
+// Alles andere bleibt wie es ist.
 // ═══════════════════════════════════════════════════════════════
 function removeOldEvents(calendar, currentRides) {
-  // 🔧 v4.0: SICHERHEITSCHECK #1 - Niemals bei leeren Daten löschen!
+  // SICHERHEITSCHECK - Bei leerem Firebase-Ergebnis NICHTS tun
   if (!currentRides || currentRides.length === 0) {
-    console.log('⚠️ SICHERHEITSCHECK: Keine Rides vorhanden - überspringe Löschung!');
-    console.log('⚠️ Dies verhindert versehentliches Massen-Löschen bei Firebase-Fehlern');
+    console.log('⚠️ SICHERHEITSCHECK: Keine Rides vorhanden - überspringe komplett!');
     return 0;
   }
 
-  // 🔧 v4.0: SICHERHEITSCHECK #2 - Minimum-Anzahl prüfen
-  if (currentRides.length < 10) {
-    console.log('⚠️ WARNUNG: Nur ' + currentRides.length + ' Rides in Firebase (erwartet: >100)');
-    console.log('⚠️ Möglicher partieller Datenverlust - Löschung wird trotzdem ausgeführt');
-    // Trotzdem fortfahren, aber warnen
-  }
-
-  const currentIds = new Set(currentRides.map(r => r.firebaseId));
-
-  // 🔧 v4.0: Auch 'deleted' als storniert behandeln
+  // Nur stornierte/gelöschte Fahrten → deren Kalender-Einträge sollen weg
   const cancelledIds = new Set(
     currentRides
       .filter(r => ['storniert', 'cancelled', 'deleted'].includes(r.status))
       .map(r => r.firebaseId)
   );
 
+  if (cancelledIds.size === 0) {
+    console.log('✅ Keine stornierten Fahrten → nichts zu löschen');
+    return 0;
+  }
+
+  // NUR zukünftige Events prüfen (Vergangenheit = nicht anfassen!)
   const now = new Date();
-  const future = new Date(now.getTime() + 30 * 24 * 3600000);
+  const future = new Date(now.getTime() + 90 * 24 * 3600000); // 90 Tage voraus
   const events = calendar.getEvents(now, future);
 
   let removed = 0;
 
+  // Duplikate bereinigen (gleiches firebaseId → nur 1 Event behalten)
   const eventsByFirebaseId = new Map();
-
   events.forEach(event => {
     const title = event.getTitle();
     if (!title || !title.startsWith('🚕')) return;
-
     const description = event.getDescription() || '';
     const match = description.match(/🆔 Firebase ID: ([^\s\n]+)/);
-    const firebaseId = match ? match[1] : null;
-
-    if (firebaseId) {
-      if (!eventsByFirebaseId.has(firebaseId)) {
-        eventsByFirebaseId.set(firebaseId, []);
-      }
-      eventsByFirebaseId.get(firebaseId).push(event);
+    if (match && match[1]) {
+      if (!eventsByFirebaseId.has(match[1])) eventsByFirebaseId.set(match[1], []);
+      eventsByFirebaseId.get(match[1]).push(event);
     }
   });
 
   eventsByFirebaseId.forEach((eventsWithSameId, firebaseId) => {
+    // Duplikate entfernen (erstes behalten)
     if (eventsWithSameId.length > 1) {
       console.log('🔍 Duplikate für ' + firebaseId + ': ' + eventsWithSameId.length);
       for (let i = 1; i < eventsWithSameId.length; i++) {
         eventsWithSameId[i].deleteEvent();
         removed++;
-        console.log('🗑️ Duplikat entfernt');
       }
     }
-  });
-
-  events.forEach(event => {
-    const title = event.getTitle();
-    if (!title || !title.startsWith('🚕')) return;
-
-    const firebaseId = event.getTag('firebaseId');
-    let shouldDelete = false;
-
-    if (!firebaseId) {
-      const description = event.getDescription();
-      const match = description ? description.match(/🆔 Firebase ID: (.+)/) : null;
-      const extractedId = match ? match[1].trim() : null;
-
-      if (!extractedId) return;
-
-      // 🔧 v4.0: NUR stornierte löschen, NICHT "nicht mehr vorhanden"
-      // Grund: Bei Firebase-Fehlern könnten Rides temporär fehlen
-      if (cancelledIds.has(extractedId)) {
-        shouldDelete = true;
-      }
-    } else {
-      // 🔧 v4.0: NUR stornierte löschen
-      if (cancelledIds.has(firebaseId)) {
-        shouldDelete = true;
-      }
-    }
-
-    if (shouldDelete) {
-      event.deleteEvent();
+    // Stornierte entfernen
+    if (cancelledIds.has(firebaseId)) {
+      eventsWithSameId[0].deleteEvent();
       removed++;
-      console.log('🗑️ Entfernt (storniert):', title.substring(0, 50) + '...');
+      console.log('🗑️ Storniert entfernt:', firebaseId);
     }
   });
 
@@ -589,11 +577,12 @@ function setupAutomaticSync() {
 // 🧪 TEST-FUNKTION
 // ═══════════════════════════════════════════════════════════════
 function testSync() {
-  console.log('🧪 TEST-MODUS v4.0 - SAFE SYNC');
+  console.log('🧪 TEST-MODUS v4.1 - VOLLSTÄNDIGE SYNC');
   console.log('═══════════════════════════════════════════');
   console.log('🔧 FIX 1: Blacklist statt Whitelist (alle Status außer storniert)');
   console.log('🔧 FIX 2: Sicherheitscheck bei leerem Firebase-Ergebnis');
   console.log('🔧 FIX 3: Nur stornierte Termine löschen (nicht fehlende)');
+  console.log('🔧 FIX 4: Fehlende Kalender-Einträge werden automatisch nachgeholt');
   console.log('');
 
   syncFirebaseToCalendar();

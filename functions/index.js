@@ -1227,12 +1227,13 @@ async function handleSmartConversation(chatId, text, userName, knownCustomer) {
         const now = new Date();
         const berlinTime = now.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
+        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 1200, [{
             role: 'user',
             content: `Du bist "Sven", der freundliche Telegram-Assistent von Funk Taxi Heringsdorf auf Usedom.
 Du antwortest wie ein netter, hilfsbereiter Taxifahrer – locker aber respektvoll, mit "Sie".
 Du denkst mit: Wenn jemand "Tierarzt" schreibt, weisst du dass er einen Tierarzt sucht (nicht einen normalen Arzt).
 Wenn jemand "Essen" schreibt, will er Restaurant-Tipps. Du verstehst Kontext und Absicht.
+Du beantwortest JEDE Frage – du bist nicht nur ein Buchungsbot, sondern ein hilfreicher Assistent der sich auf Usedom auskennt.
 
 ZEIT: ${berlinTime}
 KUNDE: ${customerContext}
@@ -1250,6 +1251,7 @@ KLASSIFIZIERE die Nachricht:
   - Einzelne Woerter wie "Essen", "Tierarzt", "Hotel", "Strand" = sucht Empfehlungen
   - "Wo ist...", "Gibt es...", "Wann hat... geoeffnet?"
   - Fragen ueber uns (Bezahlung, Kindersitze, Fahrzeuge)
+  - Fragen ueber Usedom, Sehenswuerdigkeiten, Tipps, Wetter, Events
 
 "status" = Fragt nach eigenen Buchungen
 
@@ -1260,16 +1262,38 @@ KLASSIFIZIERE die Nachricht:
 WICHTIG: Ein einzelnes Wort (Ort/Einrichtung) ohne "Fahrt/Taxi/zum/nach" = question, NICHT booking!
 
 ANTWORT (nur bei question/price_inquiry/greeting/unclear):
-- Antworte natuerlich und menschlich, 1-3 Saetze, Deutsch
+- Antworte natuerlich und menschlich, 2-5 Saetze, Deutsch, informativ und hilfreich
 - HTML-Tags <b> und <i> erlaubt
-- Bei Orts-Fragen: Antworte empathisch ("Klar, da kann ich helfen!") – konkrete Vorschlaege haengt das System automatisch an
-- Erfinde KEINE Adressen/Orte/Telefonnummern – das System liefert die echten Daten
-- Bei allgemeinen Fragen: Nutze diese Fakten:
-  Funk Taxi Heringsdorf, 24/7, Tel: 038378/22022
-  Fahrzeuge: 2x Toyota Prius (4P), Tesla Model Y (4P), Renault Traffic (8P), Mercedes Vito (8P)
-  Bezahlung: Bar + Karte | Kindersitze: auf Anfrage | Haustiere: nach Absprache
-  Gebiete: Usedom, Swinemuende, Flughafen, Festland-Transfers
-  Grundgebuehr: ~4€ (Tag) / ~5,50€ (Nacht 22-6h), dann km-Preis
+- Beantworte die Frage VOLLSTAENDIG mit deinem Wissen – gib echte, nuetzliche Infos!
+- Wenn du etwas nicht sicher weisst, sag es ehrlich, aber versuche trotzdem zu helfen
+
+DEIN WISSEN UEBER FUNK TAXI HERINGSDORF:
+- 24/7 erreichbar, Tel: 038378/22022
+- Fahrzeuge: 2x Toyota Prius (4 Personen), Tesla Model Y (4P), Renault Traffic (8P), Mercedes Vito (8P)
+- Bezahlung: Bar + Karte | Kindersitze: auf Anfrage | Haustiere: nach Absprache
+- Gebiete: ganz Usedom, Swinemuende (Polen), Flughafen Heringsdorf, Festland-Transfers (Greifswald, Wolgast, Anklam)
+- Grundgebuehr: ~4€ (Tag) / ~5,50€ (Nacht 22-6h), dann km-Preis nach Taxameter
+- Flughafentransfers, Krankenhaus-Fahrten, Hotelabholung, Ausfluege
+
+DEIN WISSEN UEBER USEDOM (Insel, Ostsee, Mecklenburg-Vorpommern):
+Drei Kaiserbaeder: Heringsdorf (groesste, laengste Seebruecke Europas 508m), Ahlbeck (historische Seebruecke von 1882), Bansin (familiaer)
+Weitere Orte: Zinnowitz (zweitgroesster Badeort, Seebruecke, Vineta-Festspiele), Koserow (Seebruecke, Streckelsberg 58m hohe Steilkueste, Salzhütten), Ückeritz, Loddin (Loddiner Hoeft Aussichtspunkt), Zempin (kleinster Badeort), Trassenheide (Schmetterlingsfarm), Karlshagen (laengster Sandstrand), Peenemünde (Historisch-Technisches Museum, U-Boot), Wolgast (Tor zur Insel, Peene-Bruecke)
+Swinemuende/Swinoujscie (Polen): Grenze zu Fuss/Rad, Mueller-Strand, Festungsanlage, Leuchtturm (hoechster an der Ostsee 68m)
+
+SEHENSWUERDIGKEITEN: Seebruecken (Heringsdorf, Ahlbeck, Zinnowitz, Koserow, Bansin), Baederarchitektur (Villen der Kaiserzeit), Schmetterlingsfarm Trassenheide, Phänomenta Peenemünde, Historisch-Technisches Museum Peenemünde, Wildlife Usedom, Tropenhaus Bansin, Hans-Werner-Richter-Haus Bansin, Kunstpavillon Heringsdorf, OstSee-Therme Ahlbeck/Usedom, Achterland (Naturschutzgebiet), Gothensee, Schmollensee, Achterwasser
+
+STRAENDE: Alle Orte haben Ostsee-Sandstraende, FKK-Straende bei Ückeritz und Bansin, Hundestraende in jedem Ort ausgeschildert
+
+ESSEN & TRINKEN (bekannte Orte):
+- Zum Bierkutscher (Bansin, Seestrasse) – rustikal, Fleisch
+- Fischbrötchen/Raeucherfisch: Fischkisten an Seebruecken, Aal- und Fischräuchereien
+- Café Asgard (Bansin, Strandpromenade) – Kaffee, Kuchen
+- Waterfront (Heringsdorf, Seebruecke) – gehobene Kueche
+- Typisch: Fischbroetchen, Matjes, Raeucherfisch, Sanddorn-Produkte
+
+NATUR & AKTIVITAETEN: Ostsee-Radweg (Kuesten-Radweg), Wandern (Streckelsberg, Loddiner Hoeft), Bernstein-Suche (nach Sturm), Kitesurfen, SUP, Segeln, Reiten, Golf Balm
+
+ANREISE/TRANSFER: Flughafen Heringsdorf (HDF, saisonal Zuerich/Dortmund), Bahnhof Heringsdorf/Ahlbeck/Zinnowitz (Usedomer Baederbahn UBB von Zuerich/Stralsund/Greifswald), Wolgast (A20 Festland), Faehre Swinemuende
 
 NUR gueltiges JSON, sonst nichts:
 {"intent": "...", "response": "..."}`
@@ -1674,6 +1698,7 @@ REGELN:
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
+7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 
 Nur gültiges JSON, kein Markdown:
 {
@@ -2883,6 +2908,38 @@ async function handleMessage(message) {
 
     // Follow-Up: Unvollständige Buchung ergänzen
     if (pending && pending.partial && !isPendingExpired(pending)) {
+        // 🆕 v6.11.4: Prüfe ob der Kunde eine FRAGE stellt statt Buchungsdaten zu liefern
+        const questionPattern = /^(wo |wann |wie |was |gibt es |welche |kannst du |kennt |hast du |weißt du |sag mir |erzähl|öffnungszeit|sehenswürd|empfehl|tipp)/i;
+        const isQuestion = questionPattern.test(text.trim()) && !(/\b(uhr|morgen|heute|taxi|abhol|fahr)\b/i.test(text));
+        if (isQuestion) {
+            await addTelegramLog('💬', chatId, `Frage während Buchung erkannt: "${text}"`);
+            // Frage beantworten, Buchung bleibt im Pending
+            const knownForQ = await getTelegramCustomer(chatId);
+            const isAdminQ = await isTelegramAdmin(chatId);
+            const classification = await handleSmartConversation(chatId, text, userName, knownForQ);
+            if (classification.response) {
+                let qResponse = classification.response;
+                // POI-Vorschläge anhängen
+                const poiSuggestions = await findPOISuggestionsForText(text);
+                if (poiSuggestions && poiSuggestions.length > 0) {
+                    const catLabel = poiSuggestions[0].matchedCategory || 'Ort';
+                    qResponse += `\n\n📍 <b>${catLabel}-Empfehlungen:</b>`;
+                    poiSuggestions.forEach((poi, i) => {
+                        qResponse += `\n${i + 1}. <b>${poi.name}</b>`;
+                        if (poi.address) qResponse += ` – ${poi.address}`;
+                    });
+                }
+                // Erinnerung an laufende Buchung
+                const missing = pending.partial.missing || [];
+                if (missing.length > 0) {
+                    const fieldNames = { datetime: 'Wann', pickup: 'Abholort', destination: 'Zielort', phone: 'Telefonnummer' };
+                    const missingNames = missing.map(f => fieldNames[f] || f).join(', ');
+                    qResponse += `\n\n📋 <i>Ihre Buchung läuft noch – mir fehlt: ${missingNames}</i>`;
+                }
+                await sendTelegramMessage(chatId, qResponse);
+                return;
+            }
+        }
         await addTelegramLog('🔄', chatId, 'Follow-Up Analyse');
         await sendTelegramMessage(chatId, '🤖 <i>Ergänze fehlende Infos...</i>');
         await analyzeTelegramFollowUp(chatId, text, userName, pending);

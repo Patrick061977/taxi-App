@@ -876,6 +876,12 @@ async function getAnthropicApiKey() {
     return snap.val() || null;
 }
 
+// 🆕 v6.11.3: OpenAI API Key für Whisper Spracherkennung
+async function getOpenAIApiKey() {
+    const snap = await db.ref('settings/openai/apiKey').once('value');
+    return snap.val() || null;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.10.1: POI-VORSCHLÄGE AUS FAVORITEN
 // Durchsucht /pois in Firebase nach passender Kategorie
@@ -2218,7 +2224,8 @@ async function handleMessage(message) {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
         }
         greeting += '<b>Das kann ich für Sie tun:</b>\n';
-        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben oder sprechen Sie einfach wann und wohin\n';
+        greeting += '🎙️ <b>Sprachnachricht</b> – Sagen Sie z.B. "Morgen 10 Uhr vom Bahnhof nach Ahlbeck"\n';
         greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
         greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
@@ -2242,7 +2249,7 @@ async function handleMessage(message) {
     }
 
     if (textCmd === '/buchen') {
-        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n✍️ Schreiben oder 🎙️ sprechen Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
         await sendTelegramMessage(chatId, msg);
         return;
     }
@@ -4300,6 +4307,125 @@ async function handleContact(message) {
 // STANDORT-HANDLER (GPS-Standort als Abholort)
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → OpenAI Whisper → Text
+// ═══════════════════════════════════════════════════════════════
+
+async function handleVoice(message) {
+    const chatId = message.chat.id;
+    const voice = message.voice;
+    if (!voice || !voice.file_id) {
+        await sendTelegramMessage(chatId, '⚠️ Sprachnachricht konnte nicht verarbeitet werden.');
+        return;
+    }
+
+    try {
+        // 1. Prüfe ob OpenAI API Key vorhanden
+        const openaiKey = await getOpenAIApiKey();
+        if (!openaiKey) {
+            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein OpenAI API Key konfiguriert');
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung ist nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        // 2. Sende "Verarbeite..." Status
+        await sendTelegramMessage(chatId, '🎙️ <i>Sprachnachricht wird verarbeitet...</i>');
+
+        // 3. Hole Datei-Info von Telegram
+        const token = await loadBotToken();
+        const fileResp = await fetch(`https://api.telegram.org/bot${token}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: voice.file_id })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) {
+            await sendTelegramMessage(chatId, '⚠️ Audio-Datei konnte nicht geladen werden.');
+            return;
+        }
+
+        // 4. Lade die Audio-Datei herunter
+        const fileUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+        const audioResp = await fetch(fileUrl);
+        if (!audioResp.ok) {
+            await sendTelegramMessage(chatId, '⚠️ Audio-Download fehlgeschlagen.');
+            return;
+        }
+        const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+
+        // 5. Sende an OpenAI Whisper API zur Transkription
+        const boundary = '----FormBoundary' + Date.now().toString(36);
+        const fileName = fileData.result.file_path.split('/').pop() || 'voice.ogg';
+
+        // Multipart Form Data manuell bauen (kein extra npm Package nötig)
+        const formParts = [];
+        // File part
+        formParts.push(Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: audio/ogg\r\n\r\n`
+        ));
+        formParts.push(audioBuffer);
+        formParts.push(Buffer.from('\r\n'));
+        // Model part
+        formParts.push(Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n`
+        ));
+        // Language part (Deutsch)
+        formParts.push(Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde\r\n`
+        ));
+        // Prompt part (hilft bei Eigennamen auf Usedom)
+        formParts.push(Buffer.from(
+            `--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\nHeringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Ückeritz, Wolgast, Usedom, Bahnhof, Seebrücke, Strandpromenade\r\n`
+        ));
+        // End boundary
+        formParts.push(Buffer.from(`--${boundary}--\r\n`));
+
+        const formBody = Buffer.concat(formParts);
+
+        const whisperResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${openaiKey}`,
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            },
+            body: formBody
+        });
+
+        if (!whisperResp.ok) {
+            const errText = await whisperResp.text();
+            console.error('Whisper API Fehler:', whisperResp.status, errText);
+            await addTelegramLog('❌', chatId, `Whisper Fehler ${whisperResp.status}: ${errText.substring(0, 200)}`);
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung fehlgeschlagen. Bitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        const whisperResult = await whisperResp.json();
+        const transcript = (whisperResult.text || '').trim();
+
+        if (!transcript) {
+            await sendTelegramMessage(chatId, '⚠️ Konnte keine Sprache erkennen. Bitte sprechen Sie deutlicher oder schreiben Sie Ihre Anfrage.');
+            return;
+        }
+
+        // 6. Zeige Transkript dem User
+        await addTelegramLog('🎙️', chatId, `Sprachnachricht transkribiert: "${transcript}"`);
+        await sendTelegramMessage(chatId, `🎙️ <b>Erkannt:</b>\n<i>"${transcript}"</i>\n\n⏳ Wird verarbeitet...`);
+
+        // 7. Verarbeite Transkript wie eine normale Textnachricht
+        const fakeMessage = {
+            ...message,
+            text: transcript,
+            _isVoiceTranscript: true
+        };
+        await handleMessage(fakeMessage);
+
+    } catch (error) {
+        console.error('handleVoice Fehler:', error);
+        await addTelegramLog('❌', chatId, `Voice-Fehler: ${error.message}`);
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Sprachverarbeitung: ' + error.message + '\n\nBitte schreiben Sie Ihre Anfrage als Text.');
+    }
+}
+
 async function handleLocation(message) {
     const chatId = message.chat.id;
     const lat = message.location.latitude;
@@ -4473,6 +4599,9 @@ exports.telegramWebhook = onRequest(
                     await handleContact(update.message);
                 } else if (update.message.location) {
                     await handleLocation(update.message);
+                } else if (update.message.voice) {
+                    // 🆕 v6.11.3: Sprachnachrichten transkribieren
+                    await handleVoice(update.message);
                 } else if (update.message.text) {
                     await handleMessage(update.message);
                 }

@@ -876,6 +876,7 @@ async function getAnthropicApiKey() {
     return snap.val() || null;
 }
 
+
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.10.1: POI-VORSCHLÄGE AUS FAVORITEN
 // Durchsucht /pois in Firebase nach passender Kategorie
@@ -2218,7 +2219,8 @@ async function handleMessage(message) {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
         }
         greeting += '<b>Das kann ich für Sie tun:</b>\n';
-        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben oder sprechen Sie einfach wann und wohin\n';
+        greeting += '🎙️ <b>Sprachnachricht</b> – Sagen Sie z.B. "Morgen 10 Uhr vom Bahnhof nach Ahlbeck"\n';
         greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
         greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
@@ -2242,7 +2244,7 @@ async function handleMessage(message) {
     }
 
     if (textCmd === '/buchen') {
-        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n✍️ Schreiben oder 🎙️ sprechen Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
         await sendTelegramMessage(chatId, msg);
         return;
     }
@@ -4300,6 +4302,121 @@ async function handleContact(message) {
 // STANDORT-HANDLER (GPS-Standort als Abholort)
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → Claude AI → Text
+// Nutzt den bereits vorhandenen Anthropic API Key (kein zweiter Key nötig!)
+// ═══════════════════════════════════════════════════════════════
+
+async function handleVoice(message) {
+    const chatId = message.chat.id;
+    const voice = message.voice;
+    if (!voice || !voice.file_id) {
+        await sendTelegramMessage(chatId, '⚠️ Sprachnachricht konnte nicht verarbeitet werden.');
+        return;
+    }
+
+    try {
+        // 1. Prüfe ob Anthropic API Key vorhanden (gleicher Key wie für Textanalyse)
+        const apiKey = await getAnthropicApiKey();
+        if (!apiKey) {
+            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein Anthropic API Key');
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        // 2. Sende "Verarbeite..." Status
+        await sendTelegramMessage(chatId, '🎙️ <i>Sprachnachricht wird verarbeitet...</i>');
+
+        // 3. Hole Datei-Info von Telegram
+        const token = await loadBotToken();
+        const fileResp = await fetch(`https://api.telegram.org/bot${token}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: voice.file_id })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) {
+            await sendTelegramMessage(chatId, '⚠️ Audio-Datei konnte nicht geladen werden.');
+            return;
+        }
+
+        // 4. Lade die Audio-Datei herunter
+        const fileUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+        const audioResp = await fetch(fileUrl);
+        if (!audioResp.ok) {
+            await sendTelegramMessage(chatId, '⚠️ Audio-Download fehlgeschlagen.');
+            return;
+        }
+        const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+        const audioBase64 = audioBuffer.toString('base64');
+
+        // 5. Sende an Claude API zur Transkription
+        const transcribeResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2025-01-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 500,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'input_audio',
+                            source: {
+                                type: 'base64',
+                                media_type: 'audio/ogg',
+                                data: audioBase64
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: 'Transkribiere diese deutschsprachige Sprachnachricht wortgetreu. Kontext: Taxi-Buchung auf der Insel Usedom (Orte: Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Wolgast, Swinemünde). Antworte NUR mit dem transkribierten Text, ohne Anführungszeichen, ohne Erklärung.'
+                        }
+                    ]
+                }]
+            })
+        });
+
+        if (!transcribeResp.ok) {
+            const errData = await transcribeResp.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `HTTP ${transcribeResp.status}`;
+            console.error('Claude Transkription Fehler:', errMsg);
+            await addTelegramLog('❌', chatId, `Claude Voice-Fehler: ${errMsg}`);
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung fehlgeschlagen. Bitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        const transcribeResult = await transcribeResp.json();
+        const transcript = (transcribeResult.content?.[0]?.text || '').trim();
+
+        if (!transcript) {
+            await sendTelegramMessage(chatId, '⚠️ Konnte keine Sprache erkennen. Bitte sprechen Sie deutlicher oder schreiben Sie Ihre Anfrage.');
+            return;
+        }
+
+        // 6. Zeige Transkript dem User
+        await addTelegramLog('🎙️', chatId, `Sprachnachricht transkribiert: "${transcript}"`);
+        await sendTelegramMessage(chatId, `🎙️ <b>Erkannt:</b>\n<i>"${transcript}"</i>\n\n⏳ Wird verarbeitet...`);
+
+        // 7. Verarbeite Transkript wie eine normale Textnachricht
+        const fakeMessage = {
+            ...message,
+            text: transcript,
+            _isVoiceTranscript: true
+        };
+        await handleMessage(fakeMessage);
+
+    } catch (error) {
+        console.error('handleVoice Fehler:', error);
+        await addTelegramLog('❌', chatId, `Voice-Fehler: ${error.message}`);
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Sprachverarbeitung: ' + error.message + '\n\nBitte schreiben Sie Ihre Anfrage als Text.');
+    }
+}
+
 async function handleLocation(message) {
     const chatId = message.chat.id;
     const lat = message.location.latitude;
@@ -4473,6 +4590,9 @@ exports.telegramWebhook = onRequest(
                     await handleContact(update.message);
                 } else if (update.message.location) {
                     await handleLocation(update.message);
+                } else if (update.message.voice) {
+                    // 🆕 v6.11.3: Sprachnachrichten transkribieren
+                    await handleVoice(update.message);
                 } else if (update.message.text) {
                     await handleMessage(update.message);
                 }

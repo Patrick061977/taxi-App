@@ -883,14 +883,17 @@ async function getAnthropicApiKey() {
 // ═══════════════════════════════════════════════════════════════
 
 const POI_CATEGORY_KEYWORDS = {
-    restaurant:       { keywords: ['restaurant', 'essen', 'essen gehen', 'mittag', 'abendessen', 'speisen', 'küche', 'lokal', 'gaststätte', 'gasthof'], label: 'Restaurant' },
+    tierarzt:         { keywords: ['tierarzt', 'tierärztin', 'tierarztpraxis', 'tierklinik', 'tiermedizin', 'veterinär'], label: 'Tierarzt' },
+    restaurant:       { keywords: ['restaurant', 'essen', 'essen gehen', 'mittag', 'abendessen', 'speisen', 'gaststätte', 'gasthof', 'lokal'], label: 'Restaurant' },
     cafe:             { keywords: ['café', 'cafe', 'kaffee', 'kuchen', 'frühstück', 'frühstücken', 'torte'], label: 'Café' },
-    arzt:             { keywords: ['arzt', 'ärztin', 'doktor', 'praxis', 'arztpraxis', 'hausarzt', 'zahnarzt', 'augenarzt', 'kinderarzt', 'orthopäde'], label: 'Arzt' },
+    arzt:             { keywords: ['arzt', 'ärztin', 'doktor', 'praxis', 'arztpraxis', 'hausarzt', 'zahnarzt', 'augenarzt', 'kinderarzt', 'orthopäde', 'facharzt', 'frauenarzt', 'hautarzt', 'hno'], label: 'Arzt' },
     krankenhaus:      { keywords: ['krankenhaus', 'klinik', 'klinikum', 'hospital', 'notaufnahme', 'notarzt'], label: 'Krankenhaus' },
     apotheke:         { keywords: ['apotheke', 'medikamente', 'medizin', 'rezept'], label: 'Apotheke' },
     supermarkt:       { keywords: ['supermarkt', 'einkaufen', 'lebensmittel', 'edeka', 'rewe', 'aldi', 'lidl', 'netto', 'penny'], label: 'Supermarkt' },
     hotel:            { keywords: ['hotel', 'pension', 'unterkunft', 'übernachtung', 'ferienwohnung'], label: 'Hotel' },
     bahnhof:          { keywords: ['bahnhof', 'bahn', 'zug', 'zugfahrt', 'gleis'], label: 'Bahnhof' },
+    flughafen:        { keywords: ['flughafen', 'airport', 'fliegen', 'flug'], label: 'Flughafen' },
+    faehre:           { keywords: ['fähre', 'faehre', 'fährhafen', 'fährverbindung', 'überfahrt'], label: 'Fähre' },
     strand:           { keywords: ['strand', 'meer', 'ostsee', 'baden', 'schwimmen', 'strandkorb'], label: 'Strand' },
     bank:             { keywords: ['bank', 'geldautomat', 'sparkasse', 'volksbank', 'atm', 'geld abheben'], label: 'Bank' },
     bar:              { keywords: ['bar', 'kneipe', 'cocktail', 'ausgehen', 'trinken gehen', 'nachtleben', 'disco', 'club'], label: 'Bar' },
@@ -898,25 +901,38 @@ const POI_CATEGORY_KEYWORDS = {
     museum:           { keywords: ['museum', 'ausstellung', 'galerie', 'kultur', 'sehenswürdigkeit', 'besichtigung'], label: 'Museum' },
     post:             { keywords: ['post', 'postamt', 'paket', 'brief', 'dhl'], label: 'Post' },
     behoerde:         { keywords: ['behörde', 'amt', 'rathaus', 'bürgeramt', 'gemeinde', 'verwaltung', 'standesamt'], label: 'Behörde' },
-    tankstelle:       { keywords: ['tankstelle', 'tanken', 'benzin', 'diesel', 'laden', 'ladestation'], label: 'Tankstelle' },
+    tankstelle:       { keywords: ['tankstelle', 'tanken', 'benzin', 'diesel', 'ladestation'], label: 'Tankstelle' },
     friseur:          { keywords: ['friseur', 'frisör', 'haare', 'haarschnitt', 'friseurin'], label: 'Friseur' },
     fitness:          { keywords: ['fitness', 'sport', 'gym', 'fitnessstudio', 'schwimmbad', 'hallenbad', 'therme', 'spa', 'wellness'], label: 'Fitness & Wellness' },
     schule:           { keywords: ['schule', 'kindergarten', 'kita', 'gymnasium', 'grundschule'], label: 'Schule' },
-    einkaufszentrum:  { keywords: ['einkaufszentrum', 'shopping', 'mall', 'geschäft', 'laden', 'boutique'], label: 'Einkaufszentrum' },
+    einkaufszentrum:  { keywords: ['einkaufszentrum', 'shopping', 'mall', 'geschäft', 'boutique'], label: 'Einkaufszentrum' },
     werkstatt:        { keywords: ['werkstatt', 'autowerkstatt', 'reparatur', 'tüv', 'reifenwechsel'], label: 'Werkstatt' }
 };
 
 async function findPOISuggestionsForText(text) {
-    const lower = text.toLowerCase();
+    const lower = text.toLowerCase().replace(/[?!.,;:]/g, '');
+    const words = lower.split(/\s+/);
 
-    // Finde passende Kategorie(n)
+    // Finde passende Kategorie – spezifische zuerst (tierarzt vor arzt)
     let matchedCat = null;
     let matchedLabel = null;
+    let bestScore = 0;
     for (const [cat, config] of Object.entries(POI_CATEGORY_KEYWORDS)) {
-        if (config.keywords.some(kw => lower.includes(kw))) {
-            matchedCat = cat;
-            matchedLabel = config.label;
-            break;
+        for (const kw of config.keywords) {
+            const kwWords = kw.split(/\s+/);
+            let matches = false;
+            if (kwWords.length > 1) {
+                // Mehrwort-Keyword: muss als Phrase vorkommen
+                matches = lower.includes(kw);
+            } else {
+                // Einzel-Keyword: muss als ganzes Wort vorkommen
+                matches = words.some(w => w === kw);
+            }
+            if (matches && kw.length > bestScore) {
+                bestScore = kw.length;
+                matchedCat = cat;
+                matchedLabel = config.label;
+            }
         }
     }
     if (!matchedCat) return null;
@@ -977,80 +993,50 @@ async function handleSmartConversation(chatId, text, userName, knownCustomer) {
 
         const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
             role: 'user',
-            content: `ROLLE:
-Du bist der Telegram-Assistent von "Funk Taxi Heringsdorf" auf der Insel Usedom.
-Dein Job: Kundennachrichten klassifizieren und bei Fragen kurz antworten.
-Du bist freundlich, professionell und siezt die Kunden (immer "Sie").
+            content: `Du bist "Sven", der freundliche Telegram-Assistent von Funk Taxi Heringsdorf auf Usedom.
+Du antwortest wie ein netter, hilfsbereiter Taxifahrer – locker aber respektvoll, mit "Sie".
+Du denkst mit: Wenn jemand "Tierarzt" schreibt, weisst du dass er einen Tierarzt sucht (nicht einen normalen Arzt).
+Wenn jemand "Essen" schreibt, will er Restaurant-Tipps. Du verstehst Kontext und Absicht.
 
-AKTUELL: ${berlinTime}
+ZEIT: ${berlinTime}
 KUNDE: ${customerContext}
-
 NACHRICHT: "${text}"
 
-DEINE AUFGABE: Klassifiziere die Nachricht und antworte als JSON.
+KLASSIFIZIERE die Nachricht:
 
-INTENTS (in dieser Reihenfolge pruefen):
+"booking" = Will eine FAHRT (nennt Ziel, Zeit, oder sagt "Taxi/abholen/Fahrt"):
+  - "Zum Flughafen", "Morgen 10 Uhr Bahnhof", "Kannst du mich zu Dr. Sabel fahren"
+  - Entscheidend: Es geht um TRANSPORT von A nach B
 
-1. "booking" = Kunde will eine FAHRT:
-   - Nennt Ort + Zeit ("morgen 10 Uhr Bahnhof")
-   - Nennt Start UND Ziel ("von X nach Y")
-   - Will ein Taxi ("brauche ein Taxi", "abholen", "Fahrt bestellen")
-   - Nennt konkretes Fahrt-Ziel ("zum Flughafen", "nach Ahlbeck")
-   - NUR "booking" wenn eine FAHRT gemeint ist!
+"price_inquiry" = Fragt nach PREIS: "Was kostet...", "Wie teuer..."
 
-2. "price_inquiry" = Kunde fragt NUR nach dem Preis:
-   - "Was kostet...?", "Wie teuer...?", "Preise?"
+"question" = Hat eine FRAGE oder sucht EMPFEHLUNGEN:
+  - Einzelne Woerter wie "Essen", "Tierarzt", "Hotel", "Strand" = sucht Empfehlungen
+  - "Wo ist...", "Gibt es...", "Wann hat... geoeffnet?"
+  - Fragen ueber uns (Bezahlung, Kindersitze, Fahrzeuge)
 
-3. "question" = Kunde hat eine FRAGE (keine Fahrt!):
-   - Ueber uns: Bezahlung, Kindersitze, Fahrzeuge, Tiere, Gepaeck
-   - Ueber Orte: Restaurant, Krankenhaus, Apotheke, Einkaufen, Strand
-   - "Gibt es...", "Wo kann ich...", "Habt ihr..."
-   - AUCH: "Essen", "Ich will essen", "Restaurant", "Krankenhaus" = FRAGE nach Empfehlungen, KEINE Buchung!
+"status" = Fragt nach eigenen Buchungen
 
-4. "status" = Fragt nach eigenen Buchungen/Fahrten
+"greeting" = Hallo, Danke, Tschuess
 
-5. "greeting" = Begruessung, Danke, Tschuess, Smalltalk
+"unclear" = Passt nicht rein
 
-6. "unclear" = Passt nirgends rein
+WICHTIG: Ein einzelnes Wort (Ort/Einrichtung) ohne "Fahrt/Taxi/zum/nach" = question, NICHT booking!
 
-ABGRENZUNG booking vs. question:
-- "Krankenhaus" / "Wo ist ein Krankenhaus?" / "Ich will essen" = question (fragt nach Empfehlung)
-- "Fahrt zum Krankenhaus" / "Taxi zum Restaurant" / "Bring mich zum Essen" = booking (will eine Fahrt)
-- Bei Orten/Einrichtungen ohne Fahrtwunsch: immer "question"
-- Bei Fahrtwuenschen im Zweifel: immer "booking"
+ANTWORT (nur bei question/price_inquiry/greeting/unclear):
+- Antworte natuerlich und menschlich, 1-3 Saetze, Deutsch
+- HTML-Tags <b> und <i> erlaubt
+- Bei Orts-Fragen: Antworte empathisch ("Klar, da kann ich helfen!") – konkrete Vorschlaege haengt das System automatisch an
+- Erfinde KEINE Adressen/Orte/Telefonnummern – das System liefert die echten Daten
+- Bei allgemeinen Fragen: Nutze diese Fakten:
+  Funk Taxi Heringsdorf, 24/7, Tel: 038378/22022
+  Fahrzeuge: 2x Toyota Prius (4P), Tesla Model Y (4P), Renault Traffic (8P), Mercedes Vito (8P)
+  Bezahlung: Bar + Karte | Kindersitze: auf Anfrage | Haustiere: nach Absprache
+  Gebiete: Usedom, Swinemuende, Flughafen, Festland-Transfers
+  Grundgebuehr: ~4€ (Tag) / ~5,50€ (Nacht 22-6h), dann km-Preis
 
-ANTWORT-REGELN (nur bei question/price_inquiry/greeting/unclear):
-
-1. Antworte freundlich, kurz, max 2-3 Saetze, auf Deutsch.
-2. HTML-Tags <b> und <i> sind erlaubt.
-3. Beantworte NUR Fragen ueber unser Taxi-Unternehmen mit den Fakten unten.
-
-STRENG VERBOTEN:
-- Erfinde NIEMALS Orte, Adressen, Restaurants, Krankenhaeuser oder andere Einrichtungen!
-- Nenne KEINE Ortsnamen, Adressen oder Telefonnummern von fremden Einrichtungen!
-- Du hast KEIN Wissen ueber Orte auf Usedom! Alles was du "weisst" koennte falsch sein!
-- Rate NICHT und vermute NICHT! Wenn du etwas nicht sicher weisst, sag es nicht.
-
-Bei Fragen nach Orten (Restaurant, Krankenhaus, Apotheke, Strand etc.):
-- Antworte NUR: "Gerne! Hier sind unsere Empfehlungen:" oder aehnlich neutral
-- Die konkreten Vorschlaege mit Namen und Adressen werden vom System automatisch angehaengt
-- Nenne SELBST keine Orte, keine Namen, keine Adressen - das macht das System!
-
-FAKTEN UEBER UNS (nur diese darfst du verwenden):
-- Funk Taxi Heringsdorf, Insel Usedom, 24/7 erreichbar
-- Tel: 038378 / 22022
-- Fahrzeuge: 2x Toyota Prius (4 Pax), Tesla Model Y (4 Pax), Renault Traffic (8 Pax), Mercedes Vito (8 Pax)
-- Bezahlung: Bar oder Kartenzahlung im Fahrzeug
-- Kindersitze: Auf Anfrage (bei Buchung als Bemerkung angeben)
-- Haustiere: Nach Absprache erlaubt
-- Gebiete: Insel Usedom, Swinemuende (PL), Flughafen Heringsdorf, Transfers zum Festland
-- Grundgebuehr: ca. 4 EUR (Tag) / 5,50 EUR (Nacht 22-6 Uhr), dann km-abhaengig
-- Grossraumtaxi fuer Gruppen bis 8 Personen
-- Vorbestellung + Sofortfahrt moeglich
-- Flughafentransfers (BER, Heringsdorf) und Faehrtransfers Swinemuende
-
-ANTWORT-FORMAT (nur gueltiges JSON, sonst nichts!):
-{"intent": "booking|price_inquiry|question|status|greeting|unclear", "response": "Deine Antwort (nur bei question/price_inquiry/greeting/unclear)"}`
+NUR gueltiges JSON, sonst nichts:
+{"intent": "...", "response": "..."}`
         }]);
 
         const content = response?.content?.[0]?.text || '';
@@ -1683,6 +1669,7 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
 }
 
 async function showTelegramConfirmation(chatId, booking, routePrice) {
+    routePrice = routePrice || null;
     const confirmMsg = buildTelegramConfirmMsg(booking, routePrice);
     const bookingId = Date.now().toString(36);
     await setPending(chatId, { booking, bookingId, routePrice });
@@ -2737,7 +2724,7 @@ async function handleMessage(message) {
                         adminResponse += `\n${i + 1}. <b>${poi.name}</b>`;
                         if (poi.address) adminResponse += ` – ${poi.address}`;
                     });
-                    adminResponse += '\n\n🚕 <i>Schreib z.B. "Fahrt zum ' + poiSuggestions[0].name + '" um zu buchen!</i>';
+                    adminResponse += '\n\n🚕 <i>Buchung? Schreib z.B. "Fahrt zum ' + poiSuggestions[0].name + '"</i>';
                     await addTelegramLog('📍', chatId, `POI-Vorschläge (${catLabel}): ${poiSuggestions.map(p => p.name).join(', ')}`);
                 }
             }
@@ -2783,7 +2770,7 @@ async function handleMessage(message) {
                     response += `\n${i + 1}. <b>${poi.name}</b>`;
                     if (poi.address) response += ` – ${poi.address}`;
                 });
-                response += '\n\n🚕 <i>Schreiben Sie z.B. "Fahrt zum ' + poiSuggestions[0].name + '" und ich buche für Sie!</i>';
+                response += '\n\n🚕 <i>Soll ich Sie hinfahren? Schreiben Sie einfach z.B. "Fahrt zum ' + poiSuggestions[0].name + '"!</i>';
                 await addTelegramLog('📍', chatId, `POI-Vorschläge (${catLabel}): ${poiSuggestions.map(p => p.name).join(', ')}`);
             }
         }
@@ -3415,32 +3402,6 @@ async function handleCallback(callback) {
     }
 
     // 🆕 v6.11.3: Favoriten-Ziel als Quick-Button
-    if (data.startsWith('fav_dest_')) {
-        const _favIdx = parseInt(data.replace('fav_dest_', ''));
-        const _favPending = await getPending(chatId);
-        const _favBooking = _favPending && _favPending.partial;
-        if (_favBooking) {
-            const _favCust = await getTelegramCustomer(chatId);
-            if (_favCust?.customerId) {
-                try {
-                    const _favDests = await getCustomerFavoriteDestinations(_favCust.name, _favCust.phone);
-                    if (_favDests && _favDests[_favIdx]) {
-                        const _chosenDest = _favDests[_favIdx];
-                        _favBooking.destination = _chosenDest.address || _chosenDest.name;
-                        if (_chosenDest.lat) _favBooking.destinationLat = _chosenDest.lat;
-                        if (_chosenDest.lon) _favBooking.destinationLon = _chosenDest.lon;
-                        if (_favBooking.missing) _favBooking.missing = _favBooking.missing.filter(m => m !== 'destination');
-                        await sendTelegramMessage(chatId, '✅ Ziel gesetzt: <b>' + (_chosenDest.address || _chosenDest.name) + '</b>');
-                        await continueBookingFlow(chatId, _favBooking, _favPending.originalText || '');
-                    }
-                } catch(_e) {
-                    await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Favoriten.');
-                }
-            }
-        }
-        return;
-    }
-
     // Personenzahl
     if (data.startsWith('pax_')) {
         const match = data.match(/^pax_(\d+)_(.+)$/);
@@ -3461,7 +3422,11 @@ async function handleCallback(callback) {
         pending.booking._passengersExplicit = true;
         await addTelegramLog('👥', chatId, `${paxCount} Person(en) gewählt → zeige Bestätigung`);
         try {
-            await showTelegramConfirmation(chatId, pending.booking, pending.routePrice);
+            let rp = pending.routePrice || null;
+            if (!rp && pending.booking.pickupLat && pending.booking.destinationLat) {
+                rp = await calculateTelegramRoutePrice(pending.booking);
+            }
+            await showTelegramConfirmation(chatId, pending.booking, rp);
             await addTelegramLog('✅', chatId, 'Bestätigung gesendet');
         } catch (confirmErr) {
             await addTelegramLog('❌', chatId, `Bestätigung Fehler: ${confirmErr.message}`);
@@ -4356,7 +4321,7 @@ async function handleVoice(message) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
-                'anthropic-version': '2025-01-01'
+                'anthropic-version': '2025-04-01'
             },
             body: JSON.stringify({
                 model: 'claude-haiku-4-5-20251001',

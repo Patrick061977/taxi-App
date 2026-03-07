@@ -4348,7 +4348,7 @@ async function handleVoice(message) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
-                'anthropic-version': '2025-02-19'
+                'anthropic-version': '2025-04-01'
             },
             body: JSON.stringify({
                 model: 'claude-haiku-4-5-20251001',

@@ -1361,8 +1361,11 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 }
             }
 
-            // Abbrechen-Button immer als letzte Zeile
-            _inlineButtons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+            // Menü + Abbrechen als letzte Zeile
+            _inlineButtons.push([
+                { text: '🏠 Menü', callback_data: 'back_to_menu' },
+                { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
+            ]);
 
             await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
             await sendTelegramMessage(chatId, msg, {
@@ -1597,7 +1600,10 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
                 { text: '6', callback_data: `pax_6_${bookingId}` },
                 { text: '7+', callback_data: `pax_7_${bookingId}` }
             ],
-            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            [
+                { text: '🏠 Menü', callback_data: 'back_to_menu' },
+                { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
+            ]
         ]}
     });
     if (!msgResult) await addTelegramLog('❌', chatId, 'Personenzahl-Buttons senden FEHLGESCHLAGEN!');
@@ -1661,8 +1667,9 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
             { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
         ]);
     }
-    // 🆕 v6.11.3: Abbrechen-Button
+    // Menü + Abbrechen unten
     keyboard.inline_keyboard.push([
+        { text: '🏠 Menü', callback_data: 'back_to_menu' },
         { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
     ]);
     return keyboard;
@@ -2450,7 +2457,7 @@ async function handleMessage(message) {
     // Warte auf Bestätigung
     if (pending && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
         await sendTelegramMessage(chatId, '⏳ <b>Bitte erst die aktuelle Buchung bestätigen oder ablehnen!</b>', {
-            reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }
+            reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }
         });
         return;
     }
@@ -3326,7 +3333,7 @@ async function handleCallback(callback) {
                 reply_markup: { inline_keyboard: [
                     [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }],
                     [{ text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }, { text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
-                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ]}
             });
         } else {
@@ -3369,10 +3376,30 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.12.0: Zurück zum Hauptmenü
+    if (data === 'back_to_menu') {
+        await deletePending(chatId);
+        const knownCustomer = await getTelegramCustomer(chatId);
+        let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        if (knownCustomer) greeting += `👋 Hallo <b>${knownCustomer.name}</b>!\n\n`;
+        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        const keyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '🗑️ Fahrt stornieren', callback_data: 'menu_loeschen' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
+        return;
+    }
+
     // 🆕 v6.11.3: Abbrechen-Button (überall in der Konversation)
     if (data === 'cancel_booking') {
         await deletePending(chatId);
-        await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\nSchreiben Sie jederzeit eine neue Anfrage.');
+        const keyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\n💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>', { reply_markup: keyboard });
         return;
     }
 
@@ -4321,7 +4348,7 @@ async function handleVoice(message) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
-                'anthropic-version': '2025-04-01'
+                'anthropic-version': '2025-02-19'
             },
             body: JSON.stringify({
                 model: 'claude-haiku-4-5-20251001',

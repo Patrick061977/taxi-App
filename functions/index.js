@@ -2106,7 +2106,9 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);
 
         if (upcoming.length === 0) {
-            await sendTelegramMessage(chatId, `📋 <b>${knownCustomer.name}</b>, Sie haben keine bevorstehenden Buchungen.\n\nSchreiben Sie jederzeit eine neue Anfrage!`);
+            await sendTelegramMessage(chatId, `📋 <b>${knownCustomer.name}</b>, Sie haben keine bevorstehenden Buchungen.\n\nSchreiben Sie jederzeit eine neue Anfrage!`, {
+                reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }]] }
+            });
             return;
         }
         let msg = `📋 <b>Ihre Buchungen, ${knownCustomer.name}:</b>\n\n`;
@@ -2131,8 +2133,9 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         if (buttons.length === 0) {
             msg += '<i>Keine Fahrten zum Bearbeiten verfügbar.</i>';
         }
+        buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
-        await sendTelegramMessage(chatId, msg, buttons.length > 0 ? { reply_markup: { inline_keyboard: buttons } } : undefined);
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
@@ -2232,6 +2235,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         if (filter !== 'tomorrow') navRow.push({ text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' });
         if (filter !== 'open') navRow.push({ text: '📋 Offene', callback_data: 'adm_rides_open' });
         if (navRow.length > 0) buttons.push(navRow);
+        buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
         await addTelegramLog('📋', chatId, `Admin: ${filtered.length} Fahrten angezeigt (${filter})`);
@@ -2291,7 +2295,10 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
         }
-        keyboard.push([{ text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' }]);
+        keyboard.push([
+            { text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' },
+            { text: '🏠 Menü', callback_data: 'back_to_menu' }
+        ]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
 

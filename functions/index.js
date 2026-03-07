@@ -122,15 +122,13 @@ const OFFICIAL_VEHICLES = {
     'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8 }
 };
 
+// 🆕 v6.11.4: KNOWN_PLACES synchronisiert mit index.html (vollständige Liste)
 const KNOWN_PLACES = {
+    // Usedom Orte
     'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
-    'bahnhof heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Bahnhof Heringsdorf' },
     'ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
-    'seebrücke ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Seebrücke Ahlbeck' },
     'bansin': { lat: 53.9633, lon: 14.1433, name: 'Bansin' },
-    'seebrücke bansin': { lat: 53.9633, lon: 14.1433, name: 'Seebrücke Bansin' },
     'zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz' },
-    'bahnhof zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Bahnhof Zinnowitz' },
     'ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Ückeritz' },
     'loddin': { lat: 54.0083, lon: 13.9917, name: 'Loddin' },
     'zempin': { lat: 54.0194, lon: 13.9611, name: 'Zempin' },
@@ -138,11 +136,67 @@ const KNOWN_PLACES = {
     'karlshagen': { lat: 54.1078, lon: 13.8333, name: 'Karlshagen' },
     'peenemünde': { lat: 54.1422, lon: 13.7753, name: 'Peenemünde' },
     'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
-    'flughafen heringsdorf': { lat: 53.8787, lon: 14.1524, name: 'Flughafen Heringsdorf (HDF)' },
-    'swinemünde': { lat: 53.9100, lon: 14.2472, name: 'Swinemünde' },
-    'świnoujście': { lat: 53.9100, lon: 14.2472, name: 'Świnoujście' },
-    // Wichtige Ziele außerhalb Usedom
-    'greifswald': { lat: 54.0865, lon: 13.3923, name: 'Greifswald' },
+    'usedom': { lat: 53.9533, lon: 14.1633, name: 'Usedom' },
+    // Seebrücken (mit Adresse)
+    'seebrücke ahlbeck': { lat: 53.9375, lon: 14.1983, name: 'Seebrücke Ahlbeck, Dünenstraße, 17419 Ahlbeck' },
+    'seebrücke bansin': { lat: 53.9652, lon: 14.1350, name: 'Seebrücke Bansin, Bergstraße, 17429 Bansin' },
+    'seebrücke heringsdorf': { lat: 53.9504, lon: 14.1656, name: 'Seebrücke Heringsdorf, Strandpromenade, 17424 Heringsdorf' },
+    'seebrücke zinnowitz': { lat: 54.0747, lon: 13.9130, name: 'Seebrücke Zinnowitz, Strandpromenade, 17454 Zinnowitz' },
+    'seebrücke koserow': { lat: 54.0536, lon: 13.9792, name: 'Seebrücke Koserow, Am Strande, 17459 Koserow' },
+    // Polen
+    'swinemünde': { lat: 53.9108, lon: 14.2482, name: 'Swinemünde' },
+    'swinemunde': { lat: 53.9108, lon: 14.2482, name: 'Swinemünde' },
+    'świnoujście': { lat: 53.9108, lon: 14.2482, name: 'Świnoujście' },
+    'swinoujscie': { lat: 53.9108, lon: 14.2482, name: 'Świnoujście' },
+    'misdroy': { lat: 53.9283, lon: 14.4017, name: 'Misdroy' },
+    'międzyzdroje': { lat: 53.9283, lon: 14.4017, name: 'Międzyzdroje' },
+    'miedzyzdroje': { lat: 53.9283, lon: 14.4017, name: 'Międzyzdroje' },
+    'wollin': { lat: 53.8406, lon: 14.6175, name: 'Wollin' },
+    'wolin': { lat: 53.8406, lon: 14.6175, name: 'Wolin' },
+    'stettin': { lat: 53.4285, lon: 14.5528, name: 'Stettin' },
+    'szczecin': { lat: 53.4285, lon: 14.5528, name: 'Szczecin' },
+    'kolberg': { lat: 54.1756, lon: 15.5831, name: 'Kolberg' },
+    'kołobrzeg': { lat: 54.1756, lon: 15.5831, name: 'Kołobrzeg' },
+    'kolobrzeg': { lat: 54.1756, lon: 15.5831, name: 'Kołobrzeg' },
+    // Bahnhöfe (alle Varianten)
+    'bahnhof heringsdorf': { lat: 53.9492, lon: 14.1700, name: 'Bahnhof Heringsdorf, Bahnhofstraße 2, 17424 Heringsdorf' },
+    'heringsdorf bahnhof': { lat: 53.9492, lon: 14.1700, name: 'Bahnhof Heringsdorf, Bahnhofstraße 2, 17424 Heringsdorf' },
+    'bahnhof ahlbeck': { lat: 53.9356, lon: 14.1878, name: 'Bahnhof Ahlbeck, Bahnhofstraße 5, 17419 Ahlbeck' },
+    'ahlbeck bahnhof': { lat: 53.9356, lon: 14.1878, name: 'Bahnhof Ahlbeck, Bahnhofstraße 5, 17419 Ahlbeck' },
+    'bahnhof bansin': { lat: 53.9644, lon: 14.1293, name: 'Bahnhof Bansin, Bahnhofstraße 3, 17429 Bansin' },
+    'bansin bahnhof': { lat: 53.9644, lon: 14.1293, name: 'Bahnhof Bansin, Bahnhofstraße 3, 17429 Bansin' },
+    'bahnhof zinnowitz': { lat: 54.0758, lon: 13.9028, name: 'Bahnhof Zinnowitz, Bahnhofstraße 40, 17454 Zinnowitz' },
+    'zinnowitz bahnhof': { lat: 54.0758, lon: 13.9028, name: 'Bahnhof Zinnowitz, Bahnhofstraße 40, 17454 Zinnowitz' },
+    'bahnhof koserow': { lat: 54.0681, lon: 13.9764, name: 'Bahnhof Koserow, 17459 Koserow' },
+    'koserow bahnhof': { lat: 54.0681, lon: 13.9764, name: 'Bahnhof Koserow, 17459 Koserow' },
+    'bahnhof zempin': { lat: 54.0194, lon: 13.9611, name: 'Bahnhof Zempin, 17459 Zempin' },
+    'bahnhof ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Bahnhof Ückeritz, 17459 Ückeritz' },
+    'bahnhof karlshagen': { lat: 54.1078, lon: 13.8333, name: 'Bahnhof Karlshagen, 17449 Karlshagen' },
+    'bahnhof wolgast': { lat: 54.0525, lon: 13.7619, name: 'Bahnhof Wolgast, 17438 Wolgast' },
+    'wolgast bahnhof': { lat: 54.0525, lon: 13.7619, name: 'Bahnhof Wolgast, 17438 Wolgast' },
+    'bahnhof greifswald': { lat: 54.0939, lon: 13.3878, name: 'Bahnhof Greifswald, Bahnhofsstraße 1, 17489 Greifswald' },
+    'bahnhof anklam': { lat: 53.8549, lon: 13.6909, name: 'Bahnhof Anklam' },
+    'züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' },
+    'bahnhof züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' },
+    // Flughäfen
+    'flughafen heringsdorf': { lat: 53.8786, lon: 14.1525, name: 'Flughafen Heringsdorf (HDF), 17459 Peenemünde' },
+    'flughafen hdf': { lat: 53.8786, lon: 14.1525, name: 'Flughafen Heringsdorf (HDF), 17459 Peenemünde' },
+    'hdf': { lat: 53.8786, lon: 14.1525, name: 'Flughafen Heringsdorf (HDF), 17459 Peenemünde' },
+    'airport heringsdorf': { lat: 53.8786, lon: 14.1525, name: 'Flughafen Heringsdorf (HDF), 17459 Peenemünde' },
+    'ber': { lat: 52.3667, lon: 13.5033, name: 'Flughafen BER Berlin, 12529 Schönefeld' },
+    'flughafen ber': { lat: 52.3667, lon: 13.5033, name: 'Flughafen BER Berlin, 12529 Schönefeld' },
+    'flughafen berlin': { lat: 52.3667, lon: 13.5033, name: 'Flughafen BER Berlin, 12529 Schönefeld' },
+    'berlin schönefeld': { lat: 52.3667, lon: 13.5033, name: 'Flughafen BER Berlin, 12529 Schönefeld' },
+    // Fernziele + Kliniken
+    'wolgast': { lat: 54.0525, lon: 13.7619, name: 'Wolgast' },
+    'greifswald': { lat: 54.0939, lon: 13.3878, name: 'Greifswald' },
+    'anklam': { lat: 53.8614, lon: 13.6908, name: 'Anklam' },
+    'stralsund': { lat: 54.3130, lon: 13.0881, name: 'Stralsund' },
+    'rostock': { lat: 54.0887, lon: 12.1404, name: 'Rostock' },
+    'berlin': { lat: 52.5200, lon: 13.4050, name: 'Berlin' },
+    'hamburg': { lat: 53.5753, lon: 10.0153, name: 'Hamburg' },
+    'berlin hbf': { lat: 52.5251, lon: 13.3694, name: 'Bahnhof Berlin Hbf, Europaplatz 1, 10557 Berlin' },
+    'bahnhof berlin': { lat: 52.5251, lon: 13.3694, name: 'Bahnhof Berlin Hbf, Europaplatz 1, 10557 Berlin' },
     'uni klinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'uniklinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'universitätsklinik greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
@@ -151,14 +205,7 @@ const KNOWN_PLACES = {
     'klinikum greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'fleischmannstraße greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'sauerbruchstraße greifswald': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
-    'greifswald sauerbruchstraße': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
-    'bahnhof greifswald': { lat: 54.0937, lon: 13.3780, name: 'Bahnhof Greifswald' },
-    'wolgast': { lat: 54.0515, lon: 13.7704, name: 'Wolgast' },
-    'bahnhof wolgast': { lat: 54.0515, lon: 13.7704, name: 'Bahnhof Wolgast' },
-    'anklam': { lat: 53.8549, lon: 13.6909, name: 'Anklam' },
-    'bahnhof anklam': { lat: 53.8549, lon: 13.6909, name: 'Bahnhof Anklam' },
-    'züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' },
-    'bahnhof züssow': { lat: 53.9224, lon: 13.5287, name: 'Bahnhof Züssow' }
+    'greifswald sauerbruchstraße': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' }
 };
 
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minuten
@@ -363,7 +410,9 @@ async function getPending(chatId) {
 
 async function setPending(chatId, data) {
     data._createdAt = data._createdAt || Date.now();
-    await db.ref('settings/telegram/pending/' + chatId).set(data);
+    // Firebase erlaubt kein undefined – rekursiv entfernen
+    const clean = JSON.parse(JSON.stringify(data));
+    await db.ref('settings/telegram/pending/' + chatId).set(clean);
 }
 
 async function deletePending(chatId) {
@@ -542,18 +591,104 @@ async function searchNominatimForTelegram(query) {
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
 
-    // KNOWN_PLACES durchsuchen
+    // KNOWN_PLACES durchsuchen (Fuzzy: alle Suchworte müssen im Key oder Name vorkommen)
+    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
     for (const [key, place] of Object.entries(KNOWN_PLACES)) {
-        if (key.includes(searchKey) || (place.name && place.name.toLowerCase().includes(searchKey))) {
+        const placeName = (place.name || '').toLowerCase();
+        const allWordsMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
+        if (key.includes(searchKey) || placeName.includes(searchKey) || allWordsMatch) {
             results.push({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known' });
         }
     }
 
-    // Nominatim API - Usedom-Ergebnisse zuerst, dann breitere Suche (Greifswald, Berlin etc.)
+    // 🆕 v6.11.4: POIs aus Firebase durchsuchen (wie Autocomplete)
+    try {
+        const poisSnap = await db.ref('pois').once('value');
+        if (poisSnap.exists()) {
+            poisSnap.forEach(child => {
+                const poi = child.val();
+                if (!poi.name || !poi.lat || !poi.lon) return;
+                const poiName = poi.name.toLowerCase();
+                const poiAddr = (poi.address || '').toLowerCase();
+                if (poiName.includes(searchKey) || poiAddr.includes(searchKey) ||
+                    (searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w)))) {
+                    const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                    results.push({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi' });
+                }
+            });
+        }
+    } catch (e) { console.warn('POI-Suche Fehler:', e.message); }
+
+    // 🆕 v6.11.4: Häufige Ziele aus letzten Buchungen (wie Autocomplete)
+    try {
+        const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
+        const destCount = {};
+        ridesSnap.forEach(child => {
+            const ride = child.val();
+            const dest = ride.destination;
+            const lat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
+            const lon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
+            if (dest && lat && lon) {
+                const key = dest.toLowerCase().trim();
+                if (!destCount[key]) destCount[key] = { name: dest, lat, lon, count: 0 };
+                destCount[key].count++;
+            }
+            // Auch Abholorte
+            const pickup = ride.pickup;
+            const pLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
+            const pLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
+            if (pickup && pLat && pLon) {
+                const key = pickup.toLowerCase().trim();
+                if (!destCount[key]) destCount[key] = { name: pickup, lat: pLat, lon: pLon, count: 0 };
+                destCount[key].count++;
+            }
+        });
+        // Sortiere nach Häufigkeit und matche gegen Suche
+        const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
+        for (const freq of frequent) {
+            const freqName = freq.name.toLowerCase();
+            if (freqName.includes(searchKey) ||
+                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w)))) {
+                const alreadyExists = results.some(r =>
+                    Math.abs(r.lat - freq.lat) < 0.001 && Math.abs(r.lon - freq.lon) < 0.001);
+                if (!alreadyExists) {
+                    results.push({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking' });
+                }
+            }
+        }
+    } catch (e) { console.warn('Buchungs-Suche Fehler:', e.message); }
+
+    // 🆕 v6.11.4: Stammkunden mit Adressen (wie Autocomplete)
+    try {
+        const custSnap = await db.ref('customers').once('value');
+        if (custSnap.exists()) {
+            custSnap.forEach(child => {
+                const c = child.val();
+                if (!c.name || !c.address) return;
+                const cName = c.name.toLowerCase();
+                const cAddr = c.address.toLowerCase();
+                if (cName.includes(searchKey) || cAddr.includes(searchKey) ||
+                    (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)))) {
+                    const lat = c.lat || c.pickupLat;
+                    const lon = c.lon || c.pickupLon;
+                    if (lat && lon) {
+                        const alreadyExists = results.some(r =>
+                            Math.abs(r.lat - lat) < 0.001 && Math.abs(r.lon - lon) < 0.001);
+                        if (!alreadyExists) {
+                            results.push({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer' });
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
+
+    // 🆕 v6.11.4: Nominatim API – gleiche Qualität wie Autocomplete in index.html
+    // Größere Viewbox, mehr Ergebnisse, extratags+namedetails für POI-Namen
     try {
         const [usedomResp, generalResp] = await Promise.all([
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`, fetchOpts),
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`, fetchOpts)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=11.0,54.7,14.5,53.3&bounded=0`, fetchOpts),
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=11.0,54.7,14.5,53.3&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
         ]);
         const usedomData = await usedomResp.json();
         const generalData = await generalResp.json();
@@ -562,7 +697,7 @@ async function searchNominatimForTelegram(query) {
         let wideData = [];
         if (usedomData.length === 0 && generalData.length === 0) {
             try {
-                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=5&addressdetails=1`, fetchOpts);
+                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts);
                 wideData = await wideResp.json();
             } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
         }
@@ -824,11 +959,114 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 );
                 return null; // Warte auf Kundenauswahl
             } else {
-                // Keine Ergebnisse → Adresse neu eingeben lassen
+                // Keine exakten Ergebnisse → Fuzzy-Suche in KNOWN_PLACES + POIs + Buchungen + Kunden
+                const fuzzyWords = addressToResolve.toLowerCase().replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+                const similarPlaces = [];
+                // 1. KNOWN_PLACES
+                for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+                    const pName = (place.name || '').toLowerCase();
+                    const matchCount = fuzzyWords.filter(w => key.includes(w) || pName.includes(w)).length;
+                    if (matchCount > 0) {
+                        similarPlaces.push({ ...place, name: place.name || key, score: matchCount });
+                    }
+                }
+                // 2. POIs aus Firebase
+                try {
+                    const poisSnap = await db.ref('pois').once('value');
+                    if (poisSnap.exists()) {
+                        poisSnap.forEach(child => {
+                            const poi = child.val();
+                            if (!poi.name || !poi.lat || !poi.lon) return;
+                            const pName = poi.name.toLowerCase();
+                            const pAddr = (poi.address || '').toLowerCase();
+                            const matchCount = fuzzyWords.filter(w => pName.includes(w) || pAddr.includes(w)).length;
+                            if (matchCount > 0) {
+                                const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                                similarPlaces.push({ name: displayName, lat: poi.lat, lon: poi.lon, score: matchCount });
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Fuzzy POI-Suche Fehler:', e.message); }
+                // 3. Häufige Ziele aus Buchungen
+                try {
+                    const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
+                    const seen = new Set();
+                    ridesSnap.forEach(child => {
+                        const r = child.val();
+                        for (const [addr, lat, lon] of [
+                            [r.destination, r.destinationLat || (r.destCoords && r.destCoords.lat), r.destinationLon || (r.destCoords && r.destCoords.lon)],
+                            [r.pickup, r.pickupLat || (r.pickupCoords && r.pickupCoords.lat), r.pickupLon || (r.pickupCoords && r.pickupCoords.lon)]
+                        ]) {
+                            if (!addr || !lat || !lon) continue;
+                            const key = addr.toLowerCase().trim();
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            const matchCount = fuzzyWords.filter(w => key.includes(w)).length;
+                            if (matchCount > 0) {
+                                similarPlaces.push({ name: addr, lat, lon, score: matchCount });
+                            }
+                        }
+                    });
+                } catch (e) { console.warn('Fuzzy Buchungs-Suche Fehler:', e.message); }
+                // 4. Kunden mit Adressen
+                try {
+                    const custSnap = await db.ref('customers').once('value');
+                    if (custSnap.exists()) {
+                        custSnap.forEach(child => {
+                            const c = child.val();
+                            if (!c.name || !c.address) return;
+                            const cName = c.name.toLowerCase();
+                            const cAddr = c.address.toLowerCase();
+                            const lat = c.lat || c.pickupLat;
+                            const lon = c.lon || c.pickupLon;
+                            if (!lat || !lon) return;
+                            const matchCount = fuzzyWords.filter(w => cName.includes(w) || cAddr.includes(w)).length;
+                            if (matchCount > 0) {
+                                similarPlaces.push({ name: `${c.name}, ${c.address}`, lat, lon, score: matchCount });
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Fuzzy Kunden-Suche Fehler:', e.message); }
+                // Deduplizieren und sortieren
+                const deduped = [];
+                for (const p of similarPlaces) {
+                    const exists = deduped.some(d => Math.abs(d.lat - p.lat) < 0.001 && Math.abs(d.lon - p.lon) < 0.001);
+                    if (!exists) deduped.push(p);
+                }
+                deduped.sort((a, b) => b.score - a.score);
+                const topSimilar = deduped.slice(0, 5);
+
+                if (topSimilar.length > 0) {
+                    // Ähnliche Orte gefunden → als Buttons anbieten
+                    const simSuggestions = topSimilar.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, source: 'known' }));
+                    const keyboard = {
+                        inline_keyboard: [
+                            ...simSuggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
+                        ]
+                    };
+                    const pendingState = { partial: { ...booking, missing: [] }, originalText };
+                    pendingState.nominatimResults = simSuggestions;
+                    if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
+                    if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
+                    pendingState.pendingDestValidation = (needPickup && needDest);
+                    await setPending(chatId, pendingState);
+
+                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${topSimilar.length} ähnliche Vorschläge`);
+                    await sendTelegramMessage(chatId,
+                        `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                        `Exakte Adresse nicht gefunden. Meinten Sie vielleicht:`,
+                        { reply_markup: keyboard }
+                    );
+                    return null;
+                }
+
+                // Wirklich nichts gefunden → Neu eingeben (aber freundlicher)
                 await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → keine Ergebnisse`);
                 await sendTelegramMessage(chatId,
                     `⚠️ <b>${fieldLabel}: "${addressToResolve}" nicht gefunden.</b>\n\n` +
-                    `Bitte geben Sie die vollständige Adresse ein:\n<b>Straße + Hausnummer, PLZ Ort</b>\n<i>z.B. Dünenweg 10, 17424 Heringsdorf</i>`
+                    `Bitte versuchen Sie es mit:\n• Einem bekannten Ortsnamen (z.B. <i>Seebrücke Heringsdorf</i>)\n• Einer Adresse (z.B. <i>Dünenweg 10, Heringsdorf</i>)\n• Oder senden Sie einen 📍 Standort`
                 );
                 booking[fieldToResolve] = null;
                 if (!booking.missing) booking.missing = [];
@@ -991,12 +1229,13 @@ async function handleSmartConversation(chatId, text, userName, knownCustomer) {
         const now = new Date();
         const berlinTime = now.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
+        const response = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 1200, [{
             role: 'user',
             content: `Du bist "Sven", der freundliche Telegram-Assistent von Funk Taxi Heringsdorf auf Usedom.
 Du antwortest wie ein netter, hilfsbereiter Taxifahrer – locker aber respektvoll, mit "Sie".
 Du denkst mit: Wenn jemand "Tierarzt" schreibt, weisst du dass er einen Tierarzt sucht (nicht einen normalen Arzt).
 Wenn jemand "Essen" schreibt, will er Restaurant-Tipps. Du verstehst Kontext und Absicht.
+Du beantwortest JEDE Frage – du bist nicht nur ein Buchungsbot, sondern ein hilfreicher Assistent der sich auf Usedom auskennt.
 
 ZEIT: ${berlinTime}
 KUNDE: ${customerContext}
@@ -1014,6 +1253,7 @@ KLASSIFIZIERE die Nachricht:
   - Einzelne Woerter wie "Essen", "Tierarzt", "Hotel", "Strand" = sucht Empfehlungen
   - "Wo ist...", "Gibt es...", "Wann hat... geoeffnet?"
   - Fragen ueber uns (Bezahlung, Kindersitze, Fahrzeuge)
+  - Fragen ueber Usedom, Sehenswuerdigkeiten, Tipps, Wetter, Events
 
 "status" = Fragt nach eigenen Buchungen
 
@@ -1024,16 +1264,38 @@ KLASSIFIZIERE die Nachricht:
 WICHTIG: Ein einzelnes Wort (Ort/Einrichtung) ohne "Fahrt/Taxi/zum/nach" = question, NICHT booking!
 
 ANTWORT (nur bei question/price_inquiry/greeting/unclear):
-- Antworte natuerlich und menschlich, 1-3 Saetze, Deutsch
+- Antworte natuerlich und menschlich, 2-5 Saetze, Deutsch, informativ und hilfreich
 - HTML-Tags <b> und <i> erlaubt
-- Bei Orts-Fragen: Antworte empathisch ("Klar, da kann ich helfen!") – konkrete Vorschlaege haengt das System automatisch an
-- Erfinde KEINE Adressen/Orte/Telefonnummern – das System liefert die echten Daten
-- Bei allgemeinen Fragen: Nutze diese Fakten:
-  Funk Taxi Heringsdorf, 24/7, Tel: 038378/22022
-  Fahrzeuge: 2x Toyota Prius (4P), Tesla Model Y (4P), Renault Traffic (8P), Mercedes Vito (8P)
-  Bezahlung: Bar + Karte | Kindersitze: auf Anfrage | Haustiere: nach Absprache
-  Gebiete: Usedom, Swinemuende, Flughafen, Festland-Transfers
-  Grundgebuehr: ~4€ (Tag) / ~5,50€ (Nacht 22-6h), dann km-Preis
+- Beantworte die Frage VOLLSTAENDIG mit deinem Wissen – gib echte, nuetzliche Infos!
+- Wenn du etwas nicht sicher weisst, sag es ehrlich, aber versuche trotzdem zu helfen
+
+DEIN WISSEN UEBER FUNK TAXI HERINGSDORF:
+- 24/7 erreichbar, Tel: 038378/22022
+- Fahrzeuge: 2x Toyota Prius (4 Personen), Tesla Model Y (4P), Renault Traffic (8P), Mercedes Vito (8P)
+- Bezahlung: Bar + Karte | Kindersitze: auf Anfrage | Haustiere: nach Absprache
+- Gebiete: ganz Usedom, Swinemuende (Polen), Flughafen Heringsdorf, Festland-Transfers (Greifswald, Wolgast, Anklam)
+- Grundgebuehr: ~4€ (Tag) / ~5,50€ (Nacht 22-6h), dann km-Preis nach Taxameter
+- Flughafentransfers, Krankenhaus-Fahrten, Hotelabholung, Ausfluege
+
+DEIN WISSEN UEBER USEDOM (Insel, Ostsee, Mecklenburg-Vorpommern):
+Drei Kaiserbaeder: Heringsdorf (groesste, laengste Seebruecke Europas 508m), Ahlbeck (historische Seebruecke von 1882), Bansin (familiaer)
+Weitere Orte: Zinnowitz (zweitgroesster Badeort, Seebruecke, Vineta-Festspiele), Koserow (Seebruecke, Streckelsberg 58m hohe Steilkueste, Salzhütten), Ückeritz, Loddin (Loddiner Hoeft Aussichtspunkt), Zempin (kleinster Badeort), Trassenheide (Schmetterlingsfarm), Karlshagen (laengster Sandstrand), Peenemünde (Historisch-Technisches Museum, U-Boot), Wolgast (Tor zur Insel, Peene-Bruecke)
+Swinemuende/Swinoujscie (Polen): Grenze zu Fuss/Rad, Mueller-Strand, Festungsanlage, Leuchtturm (hoechster an der Ostsee 68m)
+
+SEHENSWUERDIGKEITEN: Seebruecken (Heringsdorf, Ahlbeck, Zinnowitz, Koserow, Bansin), Baederarchitektur (Villen der Kaiserzeit), Schmetterlingsfarm Trassenheide, Phänomenta Peenemünde, Historisch-Technisches Museum Peenemünde, Wildlife Usedom, Tropenhaus Bansin, Hans-Werner-Richter-Haus Bansin, Kunstpavillon Heringsdorf, OstSee-Therme Ahlbeck/Usedom, Achterland (Naturschutzgebiet), Gothensee, Schmollensee, Achterwasser
+
+STRAENDE: Alle Orte haben Ostsee-Sandstraende, FKK-Straende bei Ückeritz und Bansin, Hundestraende in jedem Ort ausgeschildert
+
+ESSEN & TRINKEN (bekannte Orte):
+- Zum Bierkutscher (Bansin, Seestrasse) – rustikal, Fleisch
+- Fischbrötchen/Raeucherfisch: Fischkisten an Seebruecken, Aal- und Fischräuchereien
+- Café Asgard (Bansin, Strandpromenade) – Kaffee, Kuchen
+- Waterfront (Heringsdorf, Seebruecke) – gehobene Kueche
+- Typisch: Fischbroetchen, Matjes, Raeucherfisch, Sanddorn-Produkte
+
+NATUR & AKTIVITAETEN: Ostsee-Radweg (Kuesten-Radweg), Wandern (Streckelsberg, Loddiner Hoeft), Bernstein-Suche (nach Sturm), Kitesurfen, SUP, Segeln, Reiten, Golf Balm
+
+ANREISE/TRANSFER: Flughafen Heringsdorf (HDF, saisonal Zuerich/Dortmund), Bahnhof Heringsdorf/Ahlbeck/Zinnowitz (Usedomer Baederbahn UBB von Zuerich/Stralsund/Greifswald), Wolgast (A20 Festland), Faehre Swinemuende
 
 NUR gueltiges JSON, sonst nichts:
 {"intent": "...", "response": "..."}`
@@ -1299,6 +1561,69 @@ async function continueBookingFlow(chatId, booking, originalText) {
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
+        // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
+        // Nur wenn Adresse da ist ABER noch keine Koordinaten
+        const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon;
+        const needsDestResolve = booking.destination && !booking.destinationLat && !booking.destinationLon;
+
+        if (needsPickupResolve || needsDestResolve) {
+            const fieldToResolve = needsPickupResolve ? 'pickup' : 'destination';
+            const addressToResolve = needsPickupResolve ? booking.pickup : booking.destination;
+            const fieldLabel = needsPickupResolve ? '📍 Abholort' : '🎯 Zielort';
+            const prefix = needsPickupResolve ? 'np' : 'nd';
+
+            const suggestions = await searchNominatimForTelegram(addressToResolve);
+
+            if (suggestions.length > 0) {
+                // Prüfe ob erster Treffer exakt passt (Name enthält Suchbegriff und umgekehrt)
+                const topHit = suggestions[0];
+                const searchLower = addressToResolve.toLowerCase().trim();
+                const topLower = topHit.name.toLowerCase().trim();
+                const isExactMatch = topLower === searchLower || (topLower.startsWith(searchLower) && topHit.source === 'known');
+
+                if (isExactMatch && suggestions.length === 1) {
+                    // Exakter Treffer – direkt übernehmen, keine Rückfrage nötig
+                    if (needsPickupResolve) {
+                        booking.pickup = topHit.name;
+                        booking.pickupLat = topHit.lat;
+                        booking.pickupLon = topHit.lon;
+                    } else {
+                        booking.destination = topHit.name;
+                        booking.destinationLat = topHit.lat;
+                        booking.destinationLon = topHit.lon;
+                    }
+                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → exakt: ${topHit.name}`);
+                    // Falls die andere Adresse auch aufgelöst werden muss, rekursiv
+                    if (needsPickupResolve && needsDestResolve) {
+                        return await continueBookingFlow(chatId, booking, originalText);
+                    }
+                } else {
+                    // Mehrere Treffer oder kein exakter → "Meinten Sie...?" Buttons zeigen
+                    const keyboard = {
+                        inline_keyboard: [
+                            ...suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ]
+                    };
+
+                    const pendingState = { partial: { ...booking, missing: booking.missing }, originalText };
+                    pendingState.nominatimResults = suggestions;
+                    pendingState.pendingDestValidation = (needsPickupResolve && needsDestResolve);
+                    await setPending(chatId, pendingState);
+
+                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${suggestions.length} Vorschläge`);
+                    await sendTelegramMessage(chatId,
+                        `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                        `Meinten Sie:`,
+                        { reply_markup: keyboard }
+                    );
+                    return; // Warte auf Kundenauswahl
+                }
+            }
+            // Keine Ergebnisse → Adresse trotzdem behalten, wird am Ende nochmal validiert
+        }
+
         if (booking.missing && booking.missing.length > 0) {
             let msg = '';
             const noted = [];
@@ -1438,6 +1763,7 @@ REGELN:
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
+7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 
 Nur gültiges JSON, kein Markdown:
 {
@@ -1482,34 +1808,6 @@ Nur gültiges JSON, kein Markdown:
 
         await addTelegramLog('🤖', chatId, 'Follow-Up Antwort', { summary: booking.summary, missing: booking.missing });
 
-        // Noch Felder fehlend?
-        if (booking.missing && booking.missing.length > 0) {
-            let msg = '';
-            const noted = [];
-            if (booking.datetime) { const d = new Date(parseGermanDatetime(booking.datetime)); noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`); }
-            if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
-            if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
-            if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-            if (booking.question) msg += `💬 ${booking.question}`;
-            else {
-                const firstMissing = booking.missing[0];
-                const fallbacks = { datetime: 'Für wann soll ich buchen?', pickup: 'Von wo holen wir Sie ab?', destination: 'Wohin geht die Fahrt?', phone: 'Ihre Handynummer bitte?' };
-                msg += `💬 ${fallbacks[firstMissing] || 'Was fehlt noch?'}`;
-            }
-            msg += '\n\n<i>Tippe /abbrechen oder drücke den ❌ Button zum Abbrechen</i>';
-
-            if (isAdminFollowUp) {
-                booking._adminBooked = partial._adminBooked || true;
-                booking._adminChatId = partial._adminChatId || chatId;
-                booking._forCustomer = booking._forCustomer || booking.forCustomer || partial._forCustomer;
-                booking._customerAddress = partial._customerAddress;
-                if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
-            }
-            await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
-            await sendTelegramMessage(chatId, msg);
-            return;
-        }
-
         // Admin-Flags übertragen
         if (isAdminFollowUp) {
             booking._adminBooked = partial._adminBooked || true;
@@ -1519,7 +1817,7 @@ Nur gültiges JSON, kein Markdown:
             if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
         }
 
-        // 🆕 Koordinaten aus partial übernehmen (z.B. aus Favoriten)
+        // Koordinaten aus partial übernehmen (z.B. aus Favoriten)
         if (partial.pickupLat && partial.pickupLon && !booking.pickupLat) {
             booking.pickupLat = partial.pickupLat;
             booking.pickupLon = partial.pickupLon;
@@ -1529,12 +1827,8 @@ Nur gültiges JSON, kein Markdown:
             booking.destinationLon = partial.destinationLon;
         }
 
-        // Adressen validieren
-        const validatedFU = await validateTelegramAddresses(chatId, booking, originalText);
-        if (!validatedFU) return;
-        Object.assign(booking, validatedFU);
-        const routePriceFU = await calculateTelegramRoutePrice(booking);
-        await askPassengersOrConfirm(chatId, booking, routePriceFU, originalText);
+        // 🆕 v6.11.4: Follow-Up nutzt jetzt continueBookingFlow für sofortige Adress-Validierung
+        await continueBookingFlow(chatId, booking, originalText);
 
     } catch (e) {
         console.error('Follow-Up Fehler:', e);
@@ -1812,7 +2106,9 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);
 
         if (upcoming.length === 0) {
-            await sendTelegramMessage(chatId, `📋 <b>${knownCustomer.name}</b>, Sie haben keine bevorstehenden Buchungen.\n\nSchreiben Sie jederzeit eine neue Anfrage!`);
+            await sendTelegramMessage(chatId, `📋 <b>${knownCustomer.name}</b>, Sie haben keine bevorstehenden Buchungen.\n\nSchreiben Sie jederzeit eine neue Anfrage!`, {
+                reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }]] }
+            });
             return;
         }
         let msg = `📋 <b>Ihre Buchungen, ${knownCustomer.name}:</b>\n\n`;
@@ -1837,8 +2133,9 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         if (buttons.length === 0) {
             msg += '<i>Keine Fahrten zum Bearbeiten verfügbar.</i>';
         }
+        buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
-        await sendTelegramMessage(chatId, msg, buttons.length > 0 ? { reply_markup: { inline_keyboard: buttons } } : undefined);
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
@@ -1938,6 +2235,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         if (filter !== 'tomorrow') navRow.push({ text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' });
         if (filter !== 'open') navRow.push({ text: '📋 Offene', callback_data: 'adm_rides_open' });
         if (navRow.length > 0) buttons.push(navRow);
+        buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
         await addTelegramLog('📋', chatId, `Admin: ${filtered.length} Fahrten angezeigt (${filter})`);
@@ -1997,7 +2295,10 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
         }
-        keyboard.push([{ text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' }]);
+        keyboard.push([
+            { text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' },
+            { text: '🏠 Menü', callback_data: 'back_to_menu' }
+        ]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
 
@@ -2647,6 +2948,38 @@ async function handleMessage(message) {
 
     // Follow-Up: Unvollständige Buchung ergänzen
     if (pending && pending.partial && !isPendingExpired(pending)) {
+        // 🆕 v6.11.4: Prüfe ob der Kunde eine FRAGE stellt statt Buchungsdaten zu liefern
+        const questionPattern = /^(wo |wann |wie |was |gibt es |welche |kannst du |kennt |hast du |weißt du |sag mir |erzähl|öffnungszeit|sehenswürd|empfehl|tipp)/i;
+        const isQuestion = questionPattern.test(text.trim()) && !(/\b(uhr|morgen|heute|taxi|abhol|fahr)\b/i.test(text));
+        if (isQuestion) {
+            await addTelegramLog('💬', chatId, `Frage während Buchung erkannt: "${text}"`);
+            // Frage beantworten, Buchung bleibt im Pending
+            const knownForQ = await getTelegramCustomer(chatId);
+            const isAdminQ = await isTelegramAdmin(chatId);
+            const classification = await handleSmartConversation(chatId, text, userName, knownForQ);
+            if (classification.response) {
+                let qResponse = classification.response;
+                // POI-Vorschläge anhängen
+                const poiSuggestions = await findPOISuggestionsForText(text);
+                if (poiSuggestions && poiSuggestions.length > 0) {
+                    const catLabel = poiSuggestions[0].matchedCategory || 'Ort';
+                    qResponse += `\n\n📍 <b>${catLabel}-Empfehlungen:</b>`;
+                    poiSuggestions.forEach((poi, i) => {
+                        qResponse += `\n${i + 1}. <b>${poi.name}</b>`;
+                        if (poi.address) qResponse += ` – ${poi.address}`;
+                    });
+                }
+                // Erinnerung an laufende Buchung
+                const missing = pending.partial.missing || [];
+                if (missing.length > 0) {
+                    const fieldNames = { datetime: 'Wann', pickup: 'Abholort', destination: 'Zielort', phone: 'Telefonnummer' };
+                    const missingNames = missing.map(f => fieldNames[f] || f).join(', ');
+                    qResponse += `\n\n📋 <i>Ihre Buchung läuft noch – mir fehlt: ${missingNames}</i>`;
+                }
+                await sendTelegramMessage(chatId, qResponse);
+                return;
+            }
+        }
         await addTelegramLog('🔄', chatId, 'Follow-Up Analyse');
         await sendTelegramMessage(chatId, '🤖 <i>Ergänze fehlende Infos...</i>');
         await analyzeTelegramFollowUp(chatId, text, userName, pending);

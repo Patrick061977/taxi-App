@@ -957,9 +957,10 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 );
                 return null; // Warte auf Kundenauswahl
             } else {
-                // Keine exakten Ergebnisse → Ähnliche Vorschläge aus KNOWN_PLACES suchen
+                // Keine exakten Ergebnisse → Fuzzy-Suche in KNOWN_PLACES + POIs + Buchungen + Kunden
                 const fuzzyWords = addressToResolve.toLowerCase().replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2);
                 const similarPlaces = [];
+                // 1. KNOWN_PLACES
                 for (const [key, place] of Object.entries(KNOWN_PLACES)) {
                     const pName = (place.name || '').toLowerCase();
                     const matchCount = fuzzyWords.filter(w => key.includes(w) || pName.includes(w)).length;
@@ -967,8 +968,71 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         similarPlaces.push({ ...place, name: place.name || key, score: matchCount });
                     }
                 }
-                similarPlaces.sort((a, b) => b.score - a.score);
-                const topSimilar = similarPlaces.slice(0, 5);
+                // 2. POIs aus Firebase
+                try {
+                    const poisSnap = await db.ref('pois').once('value');
+                    if (poisSnap.exists()) {
+                        poisSnap.forEach(child => {
+                            const poi = child.val();
+                            if (!poi.name || !poi.lat || !poi.lon) return;
+                            const pName = poi.name.toLowerCase();
+                            const pAddr = (poi.address || '').toLowerCase();
+                            const matchCount = fuzzyWords.filter(w => pName.includes(w) || pAddr.includes(w)).length;
+                            if (matchCount > 0) {
+                                const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                                similarPlaces.push({ name: displayName, lat: poi.lat, lon: poi.lon, score: matchCount });
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Fuzzy POI-Suche Fehler:', e.message); }
+                // 3. Häufige Ziele aus Buchungen
+                try {
+                    const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
+                    const seen = new Set();
+                    ridesSnap.forEach(child => {
+                        const r = child.val();
+                        for (const [addr, lat, lon] of [
+                            [r.destination, r.destinationLat || (r.destCoords && r.destCoords.lat), r.destinationLon || (r.destCoords && r.destCoords.lon)],
+                            [r.pickup, r.pickupLat || (r.pickupCoords && r.pickupCoords.lat), r.pickupLon || (r.pickupCoords && r.pickupCoords.lon)]
+                        ]) {
+                            if (!addr || !lat || !lon) continue;
+                            const key = addr.toLowerCase().trim();
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            const matchCount = fuzzyWords.filter(w => key.includes(w)).length;
+                            if (matchCount > 0) {
+                                similarPlaces.push({ name: addr, lat, lon, score: matchCount });
+                            }
+                        }
+                    });
+                } catch (e) { console.warn('Fuzzy Buchungs-Suche Fehler:', e.message); }
+                // 4. Kunden mit Adressen
+                try {
+                    const custSnap = await db.ref('customers').once('value');
+                    if (custSnap.exists()) {
+                        custSnap.forEach(child => {
+                            const c = child.val();
+                            if (!c.name || !c.address) return;
+                            const cName = c.name.toLowerCase();
+                            const cAddr = c.address.toLowerCase();
+                            const lat = c.lat || c.pickupLat;
+                            const lon = c.lon || c.pickupLon;
+                            if (!lat || !lon) return;
+                            const matchCount = fuzzyWords.filter(w => cName.includes(w) || cAddr.includes(w)).length;
+                            if (matchCount > 0) {
+                                similarPlaces.push({ name: `${c.name}, ${c.address}`, lat, lon, score: matchCount });
+                            }
+                        });
+                    }
+                } catch (e) { console.warn('Fuzzy Kunden-Suche Fehler:', e.message); }
+                // Deduplizieren und sortieren
+                const deduped = [];
+                for (const p of similarPlaces) {
+                    const exists = deduped.some(d => Math.abs(d.lat - p.lat) < 0.001 && Math.abs(d.lon - p.lon) < 0.001);
+                    if (!exists) deduped.push(p);
+                }
+                deduped.sort((a, b) => b.score - a.score);
+                const topSimilar = deduped.slice(0, 5);
 
                 if (topSimilar.length > 0) {
                     // Ähnliche Orte gefunden → als Buttons anbieten

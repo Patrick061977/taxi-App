@@ -876,11 +876,6 @@ async function getAnthropicApiKey() {
     return snap.val() || null;
 }
 
-// 🆕 v6.11.3: OpenAI API Key für Whisper Spracherkennung
-async function getOpenAIApiKey() {
-    const snap = await db.ref('settings/openai/apiKey').once('value');
-    return snap.val() || null;
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.10.1: POI-VORSCHLÄGE AUS FAVORITEN
@@ -4308,7 +4303,8 @@ async function handleContact(message) {
 // ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → OpenAI Whisper → Text
+// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → Claude AI → Text
+// Nutzt den bereits vorhandenen Anthropic API Key (kein zweiter Key nötig!)
 // ═══════════════════════════════════════════════════════════════
 
 async function handleVoice(message) {
@@ -4320,11 +4316,11 @@ async function handleVoice(message) {
     }
 
     try {
-        // 1. Prüfe ob OpenAI API Key vorhanden
-        const openaiKey = await getOpenAIApiKey();
-        if (!openaiKey) {
-            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein OpenAI API Key konfiguriert');
-            await sendTelegramMessage(chatId, '⚠️ Spracherkennung ist nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
+        // 1. Prüfe ob Anthropic API Key vorhanden (gleicher Key wie für Textanalyse)
+        const apiKey = await getAnthropicApiKey();
+        if (!apiKey) {
+            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein Anthropic API Key');
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
             return;
         }
 
@@ -4352,55 +4348,50 @@ async function handleVoice(message) {
             return;
         }
         const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+        const audioBase64 = audioBuffer.toString('base64');
 
-        // 5. Sende an OpenAI Whisper API zur Transkription
-        const boundary = '----FormBoundary' + Date.now().toString(36);
-        const fileName = fileData.result.file_path.split('/').pop() || 'voice.ogg';
-
-        // Multipart Form Data manuell bauen (kein extra npm Package nötig)
-        const formParts = [];
-        // File part
-        formParts.push(Buffer.from(
-            `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: audio/ogg\r\n\r\n`
-        ));
-        formParts.push(audioBuffer);
-        formParts.push(Buffer.from('\r\n'));
-        // Model part
-        formParts.push(Buffer.from(
-            `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n`
-        ));
-        // Language part (Deutsch)
-        formParts.push(Buffer.from(
-            `--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde\r\n`
-        ));
-        // Prompt part (hilft bei Eigennamen auf Usedom)
-        formParts.push(Buffer.from(
-            `--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\nHeringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Ückeritz, Wolgast, Usedom, Bahnhof, Seebrücke, Strandpromenade\r\n`
-        ));
-        // End boundary
-        formParts.push(Buffer.from(`--${boundary}--\r\n`));
-
-        const formBody = Buffer.concat(formParts);
-
-        const whisperResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        // 5. Sende an Claude API zur Transkription
+        const transcribeResp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiKey}`,
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2025-01-01'
             },
-            body: formBody
+            body: JSON.stringify({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 500,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'input_audio',
+                            source: {
+                                type: 'base64',
+                                media_type: 'audio/ogg',
+                                data: audioBase64
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: 'Transkribiere diese deutschsprachige Sprachnachricht wortgetreu. Kontext: Taxi-Buchung auf der Insel Usedom (Orte: Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Wolgast, Swinemünde). Antworte NUR mit dem transkribierten Text, ohne Anführungszeichen, ohne Erklärung.'
+                        }
+                    ]
+                }]
+            })
         });
 
-        if (!whisperResp.ok) {
-            const errText = await whisperResp.text();
-            console.error('Whisper API Fehler:', whisperResp.status, errText);
-            await addTelegramLog('❌', chatId, `Whisper Fehler ${whisperResp.status}: ${errText.substring(0, 200)}`);
+        if (!transcribeResp.ok) {
+            const errData = await transcribeResp.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `HTTP ${transcribeResp.status}`;
+            console.error('Claude Transkription Fehler:', errMsg);
+            await addTelegramLog('❌', chatId, `Claude Voice-Fehler: ${errMsg}`);
             await sendTelegramMessage(chatId, '⚠️ Spracherkennung fehlgeschlagen. Bitte schreiben Sie Ihre Anfrage als Text.');
             return;
         }
 
-        const whisperResult = await whisperResp.json();
-        const transcript = (whisperResult.text || '').trim();
+        const transcribeResult = await transcribeResp.json();
+        const transcript = (transcribeResult.content?.[0]?.text || '').trim();
 
         if (!transcript) {
             await sendTelegramMessage(chatId, '⚠️ Konnte keine Sprache erkennen. Bitte sprechen Sie deutlicher oder schreiben Sie Ihre Anfrage.');

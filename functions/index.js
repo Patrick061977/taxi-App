@@ -142,7 +142,7 @@ const KNOWN_PLACES = {
     'seebrücke bansin': { lat: 53.9652, lon: 14.1350, name: 'Seebrücke Bansin, Bergstraße, 17429 Bansin' },
     'seebrücke heringsdorf': { lat: 53.9504, lon: 14.1656, name: 'Seebrücke Heringsdorf, Strandpromenade, 17424 Heringsdorf' },
     'seebrücke zinnowitz': { lat: 54.0747, lon: 13.9130, name: 'Seebrücke Zinnowitz, Strandpromenade, 17454 Zinnowitz' },
-    'seebrücke koserow': { lat: 54.0536, lon: 13.9792, name: 'Seebrücke Koserow, Strandstraße, 17459 Koserow' },
+    'seebrücke koserow': { lat: 54.0536, lon: 13.9792, name: 'Seebrücke Koserow, Am Strande, 17459 Koserow' },
     // Polen
     'swinemünde': { lat: 53.9108, lon: 14.2482, name: 'Swinemünde' },
     'swinemunde': { lat: 53.9108, lon: 14.2482, name: 'Swinemünde' },
@@ -600,11 +600,12 @@ async function searchNominatimForTelegram(query) {
         }
     }
 
-    // Nominatim API - Usedom-Ergebnisse zuerst, dann breitere Suche (Greifswald, Berlin etc.)
+    // 🆕 v6.11.4: Nominatim API – gleiche Qualität wie Autocomplete in index.html
+    // Größere Viewbox, mehr Ergebnisse, extratags+namedetails für POI-Namen
     try {
         const [usedomResp, generalResp] = await Promise.all([
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`, fetchOpts),
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`, fetchOpts)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=11.0,54.7,14.5,53.3&bounded=0`, fetchOpts),
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=11.0,54.7,14.5,53.3&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
         ]);
         const usedomData = await usedomResp.json();
         const generalData = await generalResp.json();
@@ -613,7 +614,7 @@ async function searchNominatimForTelegram(query) {
         let wideData = [];
         if (usedomData.length === 0 && generalData.length === 0) {
             try {
-                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=5&addressdetails=1`, fetchOpts);
+                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts);
                 wideData = await wideResp.json();
             } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
         }

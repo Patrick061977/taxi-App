@@ -3196,6 +3196,15 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
         return;
     }
+    // 🆕 "Meine Buchungen" Button nach Buchungsbestätigung
+    if (data === 'cmd_meine') {
+        const knownForMeine = await getTelegramCustomer(chatId);
+        if (knownForMeine) await handleTelegramBookingQuery(chatId, 'meine Fahrten', knownForMeine);
+        else await sendTelegramMessage(chatId, '📋 <b>Meine Buchungen</b>\n\nBitte teilen Sie Ihre Telefonnummer!', {
+            reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+        });
+        return;
+    }
     if (data === 'menu_status') {
         const knownForStatus = await getTelegramCustomer(chatId);
         if (knownForStatus) await handleTelegramBookingQuery(chatId, 'meine Fahrten', knownForStatus);
@@ -3472,7 +3481,7 @@ async function handleCallback(callback) {
             // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
             const returnKeyboard = { inline_keyboard: [
                 [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
-                [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }]
+                [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             await sendTelegramMessage(chatId,
                 successHeader +
@@ -3481,7 +3490,7 @@ async function handleCallback(callback) {
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!`,
+                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
                 { reply_markup: returnKeyboard }
             );
 
@@ -4019,6 +4028,40 @@ async function handleCallback(callback) {
                 });
                 await addTelegramLog('✏️', chatId, `Admin: Fahrzeug zugewiesen → ${v.name} (${v.plate})`);
                 await sendTelegramMessage(chatId, `✅ Fahrzeug zugewiesen: <b>${v.name}</b> (${v.plate})`);
+
+                // 🆕 Kunden per Telegram benachrichtigen
+                try {
+                    const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+                    const ride = rideSnap.val();
+                    if (ride) {
+                        const customerPhone = ride.customerPhone || ride.phone;
+                        let customerChatId = null;
+                        if (customerPhone) {
+                            const normalizedPhone = customerPhone.replace(/\s+/g, '');
+                            const custSnap = await db.ref('settings/telegram/customers').once('value');
+                            const telegramCustomers = custSnap.val() || {};
+                            for (const tcId in telegramCustomers) {
+                                const tc = telegramCustomers[tcId];
+                                if (tc.phone && tc.phone.replace(/\s+/g, '') === normalizedPhone) {
+                                    customerChatId = tcId;
+                                    break;
+                                }
+                            }
+                        }
+                        if (customerChatId && String(customerChatId) !== String(chatId)) {
+                            const dt = new Date(ride.pickupTimestamp || Date.now());
+                            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+                            await sendTelegramMessage(customerChatId,
+                                `🚕 <b>Fahrzeug zugewiesen!</b>\n\n` +
+                                `🚗 <b>${v.name}</b>\n` +
+                                `📍 ${ride.pickup} → ${ride.destination}\n` +
+                                `🕐 Abholung: ${timeStr} Uhr\n\n` +
+                                `✅ <i>Ihr Fahrer wird pünktlich vor Ort sein.</i>`
+                            );
+                            await addTelegramLog('📱', chatId, `Kunde benachrichtigt: Fahrzeug ${v.name} zugewiesen`);
+                        }
+                    }
+                } catch (notifyErr) { /* Nicht kritisch */ }
             }
             await handleAdminRideDetail(chatId, rideId);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
@@ -4120,6 +4163,50 @@ async function handleCallback(callback) {
             await db.ref(`rides/${rideId}`).update({ status: newStatus, editedAt: Date.now(), editedBy: 'telegram-admin' });
             await addTelegramLog('✏️', chatId, `Admin: Status geändert auf "${newStatus}"`);
             await sendTelegramMessage(chatId, `✅ Status geändert auf <b>${statusLabels[newStatus] || newStatus}</b>`);
+
+            // 🆕 Kunden-Benachrichtigung wenn Fahrer unterwegs
+            if (newStatus === 'unterwegs') {
+                try {
+                    const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+                    const ride = rideSnap.val();
+                    if (ride) {
+                        // Kunden-ChatId finden über Telefonnummer
+                        let customerChatId = null;
+                        const customerPhone = ride.customerPhone || ride.phone;
+                        if (customerPhone) {
+                            const normalizedPhone = customerPhone.replace(/\s+/g, '');
+                            const custSnap = await db.ref('settings/telegram/customers').once('value');
+                            const telegramCustomers = custSnap.val() || {};
+                            for (const tcId in telegramCustomers) {
+                                const tc = telegramCustomers[tcId];
+                                if (tc.phone && tc.phone.replace(/\s+/g, '') === normalizedPhone) {
+                                    customerChatId = tcId;
+                                    break;
+                                }
+                            }
+                        }
+                        if (customerChatId && String(customerChatId) !== String(chatId)) {
+                            const vehicleName = ride.assignedVehicleName || ride.vehicle || ride.vehicleLabel || '';
+                            const dt = new Date(ride.pickupTimestamp || Date.now());
+                            const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+                            await sendTelegramMessage(customerChatId,
+                                `🚗 <b>Ihr Fahrer ist unterwegs!</b>\n\n` +
+                                (vehicleName ? `🚕 Fahrzeug: <b>${vehicleName}</b>\n` : '') +
+                                `📍 ${ride.pickup} → ${ride.destination}\n` +
+                                `🕐 Abholung: ${timeStr} Uhr\n\n` +
+                                `✅ <i>Bitte halten Sie sich bereit!</i>`,
+                                { reply_markup: { inline_keyboard: [
+                                    [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }]
+                                ]}}
+                            );
+                            await addTelegramLog('📱', chatId, `Kunde benachrichtigt: Fahrer unterwegs (ChatId: ${customerChatId})`);
+                        }
+                    }
+                } catch (notifyErr) {
+                    console.error('Kunden-Benachrichtigung Fehler:', notifyErr.message);
+                }
+            }
+
             await handleAdminRideDetail(chatId, rideId);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
@@ -4296,7 +4383,11 @@ async function handleCallback(callback) {
             const snap = await db.ref(`rides/${rideId}`).once('value');
             const r = snap.val();
             await addTelegramLog('🗑️', chatId, `Kunde hat storniert: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
-            await sendTelegramMessage(chatId, `✅ <b>Fahrt storniert!</b>\n\n📍 ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}\n\n<i>Möchten Sie ein neues Taxi? Schreiben Sie einfach wann und wohin!</i>`);
+            const cancelKeyboard = { inline_keyboard: [
+                [{ text: '🚕 Neue Fahrt buchen', callback_data: 'menu_buchen' }],
+                [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
+            ]};
+            await sendTelegramMessage(chatId, `✅ <b>Fahrt storniert!</b>\n\n📍 ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}\n\n💡 <i>Möchten Sie ein neues Taxi buchen?</i>`, { reply_markup: cancelKeyboard });
 
             // Admin benachrichtigen
             try {

@@ -593,12 +593,93 @@ async function searchNominatimForTelegram(query) {
     const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
     for (const [key, place] of Object.entries(KNOWN_PLACES)) {
         const placeName = (place.name || '').toLowerCase();
-        // Exakte Suche oder alle Wörter matchen
         const allWordsMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
         if (key.includes(searchKey) || placeName.includes(searchKey) || allWordsMatch) {
             results.push({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known' });
         }
     }
+
+    // 🆕 v6.11.4: POIs aus Firebase durchsuchen (wie Autocomplete)
+    try {
+        const poisSnap = await db.ref('pois').once('value');
+        if (poisSnap.exists()) {
+            poisSnap.forEach(child => {
+                const poi = child.val();
+                if (!poi.name || !poi.lat || !poi.lon) return;
+                const poiName = poi.name.toLowerCase();
+                const poiAddr = (poi.address || '').toLowerCase();
+                if (poiName.includes(searchKey) || poiAddr.includes(searchKey) ||
+                    (searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w)))) {
+                    const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                    results.push({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi' });
+                }
+            });
+        }
+    } catch (e) { console.warn('POI-Suche Fehler:', e.message); }
+
+    // 🆕 v6.11.4: Häufige Ziele aus letzten Buchungen (wie Autocomplete)
+    try {
+        const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
+        const destCount = {};
+        ridesSnap.forEach(child => {
+            const ride = child.val();
+            const dest = ride.destination;
+            const lat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
+            const lon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
+            if (dest && lat && lon) {
+                const key = dest.toLowerCase().trim();
+                if (!destCount[key]) destCount[key] = { name: dest, lat, lon, count: 0 };
+                destCount[key].count++;
+            }
+            // Auch Abholorte
+            const pickup = ride.pickup;
+            const pLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
+            const pLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
+            if (pickup && pLat && pLon) {
+                const key = pickup.toLowerCase().trim();
+                if (!destCount[key]) destCount[key] = { name: pickup, lat: pLat, lon: pLon, count: 0 };
+                destCount[key].count++;
+            }
+        });
+        // Sortiere nach Häufigkeit und matche gegen Suche
+        const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
+        for (const freq of frequent) {
+            const freqName = freq.name.toLowerCase();
+            if (freqName.includes(searchKey) ||
+                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w)))) {
+                const alreadyExists = results.some(r =>
+                    Math.abs(r.lat - freq.lat) < 0.001 && Math.abs(r.lon - freq.lon) < 0.001);
+                if (!alreadyExists) {
+                    results.push({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking' });
+                }
+            }
+        }
+    } catch (e) { console.warn('Buchungs-Suche Fehler:', e.message); }
+
+    // 🆕 v6.11.4: Stammkunden mit Adressen (wie Autocomplete)
+    try {
+        const custSnap = await db.ref('customers').once('value');
+        if (custSnap.exists()) {
+            custSnap.forEach(child => {
+                const c = child.val();
+                if (!c.name || !c.address) return;
+                const cName = c.name.toLowerCase();
+                const cAddr = c.address.toLowerCase();
+                if (cName.includes(searchKey) || cAddr.includes(searchKey) ||
+                    (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)))) {
+                    const lat = c.lat || c.pickupLat;
+                    const lon = c.lon || c.pickupLon;
+                    if (lat && lon) {
+                        const alreadyExists = results.some(r =>
+                            Math.abs(r.lat - lat) < 0.001 && Math.abs(r.lon - lon) < 0.001);
+                        if (!alreadyExists) {
+                            results.push({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer' });
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
 
     // 🆕 v6.11.4: Nominatim API – gleiche Qualität wie Autocomplete in index.html
     // Größere Viewbox, mehr Ergebnisse, extratags+namedetails für POI-Namen

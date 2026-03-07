@@ -1330,9 +1330,57 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const fallbacks = { datetime: 'Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.', pickup: 'Von welcher Adresse holen wir ab?', destination: 'Wohin geht die Fahrt?', phone: 'Welche Telefonnummer hat der Kunde?' };
                 msg += `💬 ${fallbacks[firstMissing] || 'Können Sie mir noch mehr Details geben?'}`;
             }
-            msg += '\n\n<i>/abbrechen zum Zurücksetzen</i>';
+            // 🆕 v6.11.3: Inline-Buttons für GPS-Standort, Kundenadresse und Abbrechen
+            const _inlineButtons = [];
+            const _firstMissing = (booking.missing && booking.missing.length > 0) ? booking.missing[0] : null;
+
+            // GPS-Standort-Button bei Abholort oder Ziel
+            if (_firstMissing === 'pickup' || _firstMissing === 'destination') {
+                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
+            }
+
+            // Kunden-Adresse als Quick-Button (wenn bekannt und Abholort fehlt)
+            if (_firstMissing === 'pickup' && !booking._adminBooked) {
+                const _knownCust = await getTelegramCustomer(chatId);
+                if (_knownCust && _knownCust.address) {
+                    _inlineButtons.push([{ text: '🏠 ' + (_knownCust.address.length > 35 ? _knownCust.address.substring(0, 33) + '…' : _knownCust.address), callback_data: 'use_home_pickup' }]);
+                }
+                // Favoriten-Ziele als Abholort (letzte bekannte Orte)
+                if (_knownCust && _knownCust.customerId) {
+                    try {
+                        const _custSnap = await db.ref('customers/' + _knownCust.customerId).once('value');
+                        const _custData = _custSnap.val();
+                        if (_custData && _custData.defaultPickup && _custData.defaultPickup !== _knownCust.address) {
+                            _inlineButtons.push([{ text: '📍 ' + (_custData.defaultPickup.length > 35 ? _custData.defaultPickup.substring(0, 33) + '…' : _custData.defaultPickup), callback_data: 'use_default_pickup' }]);
+                        }
+                    } catch(_e) { /* ignore */ }
+                }
+            }
+
+            // Favoriten-Ziele als Quick-Buttons (wenn Ziel fehlt)
+            if (_firstMissing === 'destination' && !booking._adminBooked) {
+                const _knownCust2 = await getTelegramCustomer(chatId);
+                if (_knownCust2 && _knownCust2.customerId) {
+                    try {
+                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone);
+                        if (favDests && favDests.length > 0) {
+                            const destBtns = favDests.slice(0, 3).map((d, i) => ({
+                                text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
+                                callback_data: 'fav_dest_' + i
+                            }));
+                            _inlineButtons.push(destBtns);
+                        }
+                    } catch(_e) { /* ignore */ }
+                }
+            }
+
+            // Abbrechen-Button immer als letzte Zeile
+            _inlineButtons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+
             await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
-            await sendTelegramMessage(chatId, msg);
+            await sendTelegramMessage(chatId, msg, {
+                reply_markup: { inline_keyboard: _inlineButtons }
+            });
             return;
         }
 
@@ -1458,7 +1506,7 @@ Nur gültiges JSON, kein Markdown:
                 const fallbacks = { datetime: 'Für wann soll ich buchen?', pickup: 'Von wo holen wir Sie ab?', destination: 'Wohin geht die Fahrt?', phone: 'Ihre Handynummer bitte?' };
                 msg += `💬 ${fallbacks[firstMissing] || 'Was fehlt noch?'}`;
             }
-            msg += '\n\n<i>/abbrechen zum Zurücksetzen</i>';
+            msg += '\n\n<i>Tippe /abbrechen oder drücke den ❌ Button zum Abbrechen</i>';
 
             if (isAdminFollowUp) {
                 booking._adminBooked = partial._adminBooked || true;
@@ -1561,7 +1609,8 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
                 { text: '5', callback_data: `pax_5_${bookingId}` },
                 { text: '6', callback_data: `pax_6_${bookingId}` },
                 { text: '7+', callback_data: `pax_7_${bookingId}` }
-            ]
+            ],
+            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
         ]}
     });
     if (!msgResult) await addTelegramLog('❌', chatId, 'Personenzahl-Buttons senden FEHLGESCHLAGEN!');
@@ -1625,8 +1674,10 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
             { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
         ]);
     }
-    // 🔧 v6.11.0: Alternative Zeiten ENTFERNT – waren verwirrend für Kunden
-    // (Zeitslot-Buttons kommen nur noch bei echten Konflikten)
+    // 🆕 v6.11.3: Abbrechen-Button
+    keyboard.inline_keyboard.push([
+        { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
+    ]);
     return keyboard;
 }
 
@@ -2409,7 +2460,9 @@ async function handleMessage(message) {
 
     // Warte auf Bestätigung
     if (pending && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
-        await sendTelegramMessage(chatId, '⏳ <b>Bitte erst die aktuelle Buchung bestätigen oder ablehnen!</b>\n\n<i>/abbrechen zum Zurücksetzen</i>');
+        await sendTelegramMessage(chatId, '⏳ <b>Bitte erst die aktuelle Buchung bestätigen oder ablehnen!</b>', {
+            reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }
+        });
         return;
     }
 
@@ -2910,7 +2963,7 @@ async function handleCallback(callback) {
         const current = { name: knownCustomer.name || '—', phone: knownCustomer.phone || '—', address: knownCustomer.address || 'nicht hinterlegt' };
         await setPending(chatId, { _profilEdit: field });
         await sendTelegramMessage(chatId,
-            `✏️ <b>${labels[field]} ändern</b>\n\nAktuell: <b>${current[field]}</b>\n\nBitte geben Sie ${hints[field]} ein:\n\n<i>/abbrechen zum Zurücksetzen</i>`
+            `✏️ <b>${labels[field]} ändern</b>\n\nAktuell: <b>${current[field]}</b>\n\nBitte geben Sie ${hints[field]} ein:\n\n<i>Tippe /abbrechen zum Abbrechen</i>`
         );
         return;
     }
@@ -3283,12 +3336,28 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '✏️ <b>Was möchten Sie ändern?</b>', {
                 reply_markup: { inline_keyboard: [
                     [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }],
-                    [{ text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }, { text: '🗑️ Verwerfen', callback_data: `discard_${noBookingId}` }]
+                    [{ text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }, { text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ]}
             });
         } else {
             await deletePending(chatId);
             await sendTelegramMessage(chatId, '👍 OK, Buchung verworfen.');
+        }
+        return;
+    }
+
+    // 🆕 v6.11.3: Zurück zur Bestätigung
+    if (data.startsWith('back_to_confirm_')) {
+        const _backPending = await getPending(chatId);
+        const _backBooking = _backPending && (_backPending.booking || _backPending.partial);
+        if (_backBooking && _backPending.routePrice) {
+            await showTelegramConfirmation(chatId, _backBooking, _backPending.routePrice);
+        } else if (_backBooking) {
+            const routePrice = await calculateTelegramRoutePrice(_backBooking);
+            await showTelegramConfirmation(chatId, _backBooking, routePrice);
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden. Bitte starten Sie eine neue Anfrage.');
         }
         return;
     }
@@ -3308,6 +3377,65 @@ async function handleCallback(callback) {
     if (data.startsWith('discard_')) {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, '👍 OK, Buchung verworfen.');
+        return;
+    }
+
+    // 🆕 v6.11.3: Abbrechen-Button (überall in der Konversation)
+    if (data === 'cancel_booking') {
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\nSchreiben Sie jederzeit eine neue Anfrage.');
+        return;
+    }
+
+    // 🆕 v6.11.3: Kundenadresse als Abholort übernehmen
+    if (data === 'use_home_pickup' || data === 'use_default_pickup') {
+        const _homePending = await getPending(chatId);
+        const _homeBooking = _homePending && _homePending.partial;
+        if (_homeBooking) {
+            const _homeCust = await getTelegramCustomer(chatId);
+            let _homeAddr = '';
+            if (data === 'use_home_pickup' && _homeCust?.address) {
+                _homeAddr = _homeCust.address;
+            } else if (data === 'use_default_pickup' && _homeCust?.customerId) {
+                const _dpSnap = await db.ref('customers/' + _homeCust.customerId + '/defaultPickup').once('value');
+                _homeAddr = _dpSnap.val() || '';
+            }
+            if (_homeAddr) {
+                _homeBooking.pickup = _homeAddr;
+                if (_homeBooking.missing) _homeBooking.missing = _homeBooking.missing.filter(m => m !== 'pickup');
+                await sendTelegramMessage(chatId, '✅ Abholort gesetzt: <b>' + _homeAddr + '</b>');
+                await continueBookingFlow(chatId, _homeBooking, _homePending.originalText || '');
+            } else {
+                await sendTelegramMessage(chatId, '⚠️ Adresse nicht gefunden. Bitte tippen Sie den Abholort ein.');
+            }
+        }
+        return;
+    }
+
+    // 🆕 v6.11.3: Favoriten-Ziel als Quick-Button
+    if (data.startsWith('fav_dest_')) {
+        const _favIdx = parseInt(data.replace('fav_dest_', ''));
+        const _favPending = await getPending(chatId);
+        const _favBooking = _favPending && _favPending.partial;
+        if (_favBooking) {
+            const _favCust = await getTelegramCustomer(chatId);
+            if (_favCust?.customerId) {
+                try {
+                    const _favDests = await getCustomerFavoriteDestinations(_favCust.name, _favCust.phone);
+                    if (_favDests && _favDests[_favIdx]) {
+                        const _chosenDest = _favDests[_favIdx];
+                        _favBooking.destination = _chosenDest.address || _chosenDest.name;
+                        if (_chosenDest.lat) _favBooking.destinationLat = _chosenDest.lat;
+                        if (_chosenDest.lon) _favBooking.destinationLon = _chosenDest.lon;
+                        if (_favBooking.missing) _favBooking.missing = _favBooking.missing.filter(m => m !== 'destination');
+                        await sendTelegramMessage(chatId, '✅ Ziel gesetzt: <b>' + (_chosenDest.address || _chosenDest.name) + '</b>');
+                        await continueBookingFlow(chatId, _favBooking, _favPending.originalText || '');
+                    }
+                } catch(_e) {
+                    await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Favoriten.');
+                }
+            }
+        }
         return;
     }
 

@@ -410,7 +410,9 @@ async function getPending(chatId) {
 
 async function setPending(chatId, data) {
     data._createdAt = data._createdAt || Date.now();
-    await db.ref('settings/telegram/pending/' + chatId).set(data);
+    // Firebase erlaubt kein undefined – rekursiv entfernen
+    const clean = JSON.parse(JSON.stringify(data));
+    await db.ref('settings/telegram/pending/' + chatId).set(clean);
 }
 
 async function deletePending(chatId) {

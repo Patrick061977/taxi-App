@@ -3454,6 +3454,7 @@ async function handleCallback(callback) {
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
+                telegramChatId: String(chatId),
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
                 status: isVorbestellung ? 'vorbestellt' : 'open',
                 source: booking._adminBooked ? 'telegram-admin' : 'telegram-bot',

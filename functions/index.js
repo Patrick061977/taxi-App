@@ -4295,9 +4295,14 @@ async function handleContact(message) {
 // ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → Claude AI → Text
-// Nutzt den bereits vorhandenen Anthropic API Key (kein zweiter Key nötig!)
+// 🆕 v6.11.3: SPRACHNACHRICHTEN – Telegram Voice → OpenAI Whisper → Text
+// Whisper API für Transkription, dann Weiterverarbeitung als Textnachricht
 // ═══════════════════════════════════════════════════════════════
+
+async function getOpenAiApiKey() {
+    const snap = await db.ref('settings/openai/apiKey').once('value');
+    return snap.val() || null;
+}
 
 async function handleVoice(message) {
     const chatId = message.chat.id;
@@ -4308,10 +4313,10 @@ async function handleVoice(message) {
     }
 
     try {
-        // 1. Prüfe ob Anthropic API Key vorhanden (gleicher Key wie für Textanalyse)
-        const apiKey = await getAnthropicApiKey();
-        if (!apiKey) {
-            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein Anthropic API Key');
+        // 1. Prüfe ob OpenAI API Key vorhanden
+        const openaiKey = await getOpenAiApiKey();
+        if (!openaiKey) {
+            await addTelegramLog('⚠️', chatId, 'Sprachnachricht empfangen, aber kein OpenAI API Key (settings/openai/apiKey)');
             await sendTelegramMessage(chatId, '⚠️ Spracherkennung nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
             return;
         }
@@ -4340,50 +4345,53 @@ async function handleVoice(message) {
             return;
         }
         const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
-        const audioBase64 = audioBuffer.toString('base64');
 
-        // 5. Sende an Claude API zur Transkription
-        const transcribeResp = await fetch('https://api.anthropic.com/v1/messages', {
+        // 5. Sende an OpenAI Whisper API zur Transkription
+        // Whisper erwartet multipart/form-data mit der Audio-Datei
+        const boundary = '----WhisperBoundary' + Date.now();
+        const formParts = [];
+        // model
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
+        // language (Deutsch)
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
+        // prompt (Kontext für bessere Erkennung)
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\nTaxi-Buchung Usedom: Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Wolgast, Swinemünde, Peenemünde, Trassenheide, Karlshagen, Ückeritz, Loddin, Zempin`);
+        // file (Audio als OGG)
+        const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="voice.ogg"\r\nContent-Type: audio/ogg\r\n\r\n`;
+        const fileFooter = `\r\n--${boundary}--\r\n`;
+
+        // Baue den multipart Body zusammen
+        const textParts = formParts.join('\r\n') + '\r\n';
+        const textEncoder = new TextEncoder();
+        const textBefore = textEncoder.encode(textParts + fileHeader);
+        const textAfter = textEncoder.encode(fileFooter);
+
+        const bodyBuffer = Buffer.concat([
+            Buffer.from(textBefore),
+            audioBuffer,
+            Buffer.from(textAfter)
+        ]);
+
+        const transcribeResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2025-04-01'
+                'Authorization': `Bearer ${openaiKey}`,
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             },
-            body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 500,
-                messages: [{
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'input_audio',
-                            source: {
-                                type: 'base64',
-                                media_type: 'audio/ogg',
-                                data: audioBase64
-                            }
-                        },
-                        {
-                            type: 'text',
-                            text: 'Transkribiere diese deutschsprachige Sprachnachricht wortgetreu. Kontext: Taxi-Buchung auf der Insel Usedom (Orte: Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Wolgast, Swinemünde). Antworte NUR mit dem transkribierten Text, ohne Anführungszeichen, ohne Erklärung.'
-                        }
-                    ]
-                }]
-            })
+            body: bodyBuffer
         });
 
         if (!transcribeResp.ok) {
             const errData = await transcribeResp.json().catch(() => ({}));
             const errMsg = errData.error?.message || `HTTP ${transcribeResp.status}`;
-            console.error('Claude Transkription Fehler:', errMsg);
-            await addTelegramLog('❌', chatId, `Claude Voice-Fehler: ${errMsg}`);
+            console.error('Whisper Transkription Fehler:', errMsg);
+            await addTelegramLog('❌', chatId, `Whisper Voice-Fehler: ${errMsg}`);
             await sendTelegramMessage(chatId, '⚠️ Spracherkennung fehlgeschlagen. Bitte schreiben Sie Ihre Anfrage als Text.');
             return;
         }
 
         const transcribeResult = await transcribeResp.json();
-        const transcript = (transcribeResult.content?.[0]?.text || '').trim();
+        const transcript = (transcribeResult.text || '').trim();
 
         if (!transcript) {
             await sendTelegramMessage(chatId, '⚠️ Konnte keine Sprache erkennen. Bitte sprechen Sie deutlicher oder schreiben Sie Ihre Anfrage.');

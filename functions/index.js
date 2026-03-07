@@ -1683,6 +1683,7 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
 }
 
 async function showTelegramConfirmation(chatId, booking, routePrice) {
+    routePrice = routePrice || null;
     const confirmMsg = buildTelegramConfirmMsg(booking, routePrice);
     const bookingId = Date.now().toString(36);
     await setPending(chatId, { booking, bookingId, routePrice });
@@ -3415,32 +3416,6 @@ async function handleCallback(callback) {
     }
 
     // 🆕 v6.11.3: Favoriten-Ziel als Quick-Button
-    if (data.startsWith('fav_dest_')) {
-        const _favIdx = parseInt(data.replace('fav_dest_', ''));
-        const _favPending = await getPending(chatId);
-        const _favBooking = _favPending && _favPending.partial;
-        if (_favBooking) {
-            const _favCust = await getTelegramCustomer(chatId);
-            if (_favCust?.customerId) {
-                try {
-                    const _favDests = await getCustomerFavoriteDestinations(_favCust.name, _favCust.phone);
-                    if (_favDests && _favDests[_favIdx]) {
-                        const _chosenDest = _favDests[_favIdx];
-                        _favBooking.destination = _chosenDest.address || _chosenDest.name;
-                        if (_chosenDest.lat) _favBooking.destinationLat = _chosenDest.lat;
-                        if (_chosenDest.lon) _favBooking.destinationLon = _chosenDest.lon;
-                        if (_favBooking.missing) _favBooking.missing = _favBooking.missing.filter(m => m !== 'destination');
-                        await sendTelegramMessage(chatId, '✅ Ziel gesetzt: <b>' + (_chosenDest.address || _chosenDest.name) + '</b>');
-                        await continueBookingFlow(chatId, _favBooking, _favPending.originalText || '');
-                    }
-                } catch(_e) {
-                    await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Favoriten.');
-                }
-            }
-        }
-        return;
-    }
-
     // Personenzahl
     if (data.startsWith('pax_')) {
         const match = data.match(/^pax_(\d+)_(.+)$/);
@@ -3461,7 +3436,11 @@ async function handleCallback(callback) {
         pending.booking._passengersExplicit = true;
         await addTelegramLog('👥', chatId, `${paxCount} Person(en) gewählt → zeige Bestätigung`);
         try {
-            await showTelegramConfirmation(chatId, pending.booking, pending.routePrice);
+            let rp = pending.routePrice || null;
+            if (!rp && pending.booking.pickupLat && pending.booking.destinationLat) {
+                rp = await calculateTelegramRoutePrice(pending.booking);
+            }
+            await showTelegramConfirmation(chatId, pending.booking, rp);
             await addTelegramLog('✅', chatId, 'Bestätigung gesendet');
         } catch (confirmErr) {
             await addTelegramLog('❌', chatId, `Bestätigung Fehler: ${confirmErr.message}`);

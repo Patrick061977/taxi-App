@@ -126,15 +126,18 @@ const KNOWN_PLACES = {
     'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
     'bahnhof heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Bahnhof Heringsdorf' },
     'ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
-    'seebrücke ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Seebrücke Ahlbeck' },
+    'seebrücke ahlbeck': { lat: 53.9375, lon: 14.1983, name: 'Seebrücke Ahlbeck, Dünenstraße, 17419 Ahlbeck' },
     'bansin': { lat: 53.9633, lon: 14.1433, name: 'Bansin' },
-    'seebrücke bansin': { lat: 53.9633, lon: 14.1433, name: 'Seebrücke Bansin' },
+    'seebrücke bansin': { lat: 53.9652, lon: 14.1350, name: 'Seebrücke Bansin, Bergstraße, 17429 Bansin' },
     'zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz' },
     'bahnhof zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Bahnhof Zinnowitz' },
+    'seebrücke zinnowitz': { lat: 54.0747, lon: 13.9130, name: 'Seebrücke Zinnowitz, Strandpromenade, 17454 Zinnowitz' },
     'ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Ückeritz' },
     'loddin': { lat: 54.0083, lon: 13.9917, name: 'Loddin' },
     'zempin': { lat: 54.0194, lon: 13.9611, name: 'Zempin' },
     'koserow': { lat: 54.0681, lon: 13.9764, name: 'Koserow' },
+    'seebrücke koserow': { lat: 54.0536, lon: 13.9792, name: 'Seebrücke Koserow, Strandstraße, 17459 Koserow' },
+    'seebrücke heringsdorf': { lat: 53.9504, lon: 14.1656, name: 'Seebrücke Heringsdorf, Strandpromenade, 17424 Heringsdorf' },
     'karlshagen': { lat: 54.1078, lon: 13.8333, name: 'Karlshagen' },
     'peenemünde': { lat: 54.1422, lon: 13.7753, name: 'Peenemünde' },
     'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
@@ -542,9 +545,13 @@ async function searchNominatimForTelegram(query) {
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
 
-    // KNOWN_PLACES durchsuchen
+    // KNOWN_PLACES durchsuchen (Fuzzy: alle Suchworte müssen im Key oder Name vorkommen)
+    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
     for (const [key, place] of Object.entries(KNOWN_PLACES)) {
-        if (key.includes(searchKey) || (place.name && place.name.toLowerCase().includes(searchKey))) {
+        const placeName = (place.name || '').toLowerCase();
+        // Exakte Suche oder alle Wörter matchen
+        const allWordsMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
+        if (key.includes(searchKey) || placeName.includes(searchKey) || allWordsMatch) {
             results.push({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known' });
         }
     }
@@ -824,11 +831,50 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 );
                 return null; // Warte auf Kundenauswahl
             } else {
-                // Keine Ergebnisse → Adresse neu eingeben lassen
+                // Keine exakten Ergebnisse → Ähnliche Vorschläge aus KNOWN_PLACES suchen
+                const fuzzyWords = addressToResolve.toLowerCase().replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+                const similarPlaces = [];
+                for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+                    const pName = (place.name || '').toLowerCase();
+                    const matchCount = fuzzyWords.filter(w => key.includes(w) || pName.includes(w)).length;
+                    if (matchCount > 0) {
+                        similarPlaces.push({ ...place, name: place.name || key, score: matchCount });
+                    }
+                }
+                similarPlaces.sort((a, b) => b.score - a.score);
+                const topSimilar = similarPlaces.slice(0, 5);
+
+                if (topSimilar.length > 0) {
+                    // Ähnliche Orte gefunden → als Buttons anbieten
+                    const simSuggestions = topSimilar.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, source: 'known' }));
+                    const keyboard = {
+                        inline_keyboard: [
+                            ...simSuggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
+                        ]
+                    };
+                    const pendingState = { partial: { ...booking, missing: [] }, originalText };
+                    pendingState.nominatimResults = simSuggestions;
+                    if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
+                    if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
+                    pendingState.pendingDestValidation = (needPickup && needDest);
+                    await setPending(chatId, pendingState);
+
+                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${topSimilar.length} ähnliche Vorschläge`);
+                    await sendTelegramMessage(chatId,
+                        `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                        `Exakte Adresse nicht gefunden. Meinten Sie vielleicht:`,
+                        { reply_markup: keyboard }
+                    );
+                    return null;
+                }
+
+                // Wirklich nichts gefunden → Neu eingeben (aber freundlicher)
                 await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → keine Ergebnisse`);
                 await sendTelegramMessage(chatId,
                     `⚠️ <b>${fieldLabel}: "${addressToResolve}" nicht gefunden.</b>\n\n` +
-                    `Bitte geben Sie die vollständige Adresse ein:\n<b>Straße + Hausnummer, PLZ Ort</b>\n<i>z.B. Dünenweg 10, 17424 Heringsdorf</i>`
+                    `Bitte versuchen Sie es mit:\n• Einem bekannten Ortsnamen (z.B. <i>Seebrücke Heringsdorf</i>)\n• Einer Adresse (z.B. <i>Dünenweg 10, Heringsdorf</i>)\n• Oder senden Sie einen 📍 Standort`
                 );
                 booking[fieldToResolve] = null;
                 if (!booking.missing) booking.missing = [];

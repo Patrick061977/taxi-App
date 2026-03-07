@@ -1559,6 +1559,69 @@ async function continueBookingFlow(chatId, booking, originalText) {
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
+        // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
+        // Nur wenn Adresse da ist ABER noch keine Koordinaten
+        const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon;
+        const needsDestResolve = booking.destination && !booking.destinationLat && !booking.destinationLon;
+
+        if (needsPickupResolve || needsDestResolve) {
+            const fieldToResolve = needsPickupResolve ? 'pickup' : 'destination';
+            const addressToResolve = needsPickupResolve ? booking.pickup : booking.destination;
+            const fieldLabel = needsPickupResolve ? '📍 Abholort' : '🎯 Zielort';
+            const prefix = needsPickupResolve ? 'np' : 'nd';
+
+            const suggestions = await searchNominatimForTelegram(addressToResolve);
+
+            if (suggestions.length > 0) {
+                // Prüfe ob erster Treffer exakt passt (Name enthält Suchbegriff und umgekehrt)
+                const topHit = suggestions[0];
+                const searchLower = addressToResolve.toLowerCase().trim();
+                const topLower = topHit.name.toLowerCase().trim();
+                const isExactMatch = topLower === searchLower || (topLower.startsWith(searchLower) && topHit.source === 'known');
+
+                if (isExactMatch && suggestions.length === 1) {
+                    // Exakter Treffer – direkt übernehmen, keine Rückfrage nötig
+                    if (needsPickupResolve) {
+                        booking.pickup = topHit.name;
+                        booking.pickupLat = topHit.lat;
+                        booking.pickupLon = topHit.lon;
+                    } else {
+                        booking.destination = topHit.name;
+                        booking.destinationLat = topHit.lat;
+                        booking.destinationLon = topHit.lon;
+                    }
+                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → exakt: ${topHit.name}`);
+                    // Falls die andere Adresse auch aufgelöst werden muss, rekursiv
+                    if (needsPickupResolve && needsDestResolve) {
+                        return await continueBookingFlow(chatId, booking, originalText);
+                    }
+                } else {
+                    // Mehrere Treffer oder kein exakter → "Meinten Sie...?" Buttons zeigen
+                    const keyboard = {
+                        inline_keyboard: [
+                            ...suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ]
+                    };
+
+                    const pendingState = { partial: { ...booking, missing: booking.missing }, originalText };
+                    pendingState.nominatimResults = suggestions;
+                    pendingState.pendingDestValidation = (needsPickupResolve && needsDestResolve);
+                    await setPending(chatId, pendingState);
+
+                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${suggestions.length} Vorschläge`);
+                    await sendTelegramMessage(chatId,
+                        `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                        `Meinten Sie:`,
+                        { reply_markup: keyboard }
+                    );
+                    return; // Warte auf Kundenauswahl
+                }
+            }
+            // Keine Ergebnisse → Adresse trotzdem behalten, wird am Ende nochmal validiert
+        }
+
         if (booking.missing && booking.missing.length > 0) {
             let msg = '';
             const noted = [];
@@ -1743,34 +1806,6 @@ Nur gültiges JSON, kein Markdown:
 
         await addTelegramLog('🤖', chatId, 'Follow-Up Antwort', { summary: booking.summary, missing: booking.missing });
 
-        // Noch Felder fehlend?
-        if (booking.missing && booking.missing.length > 0) {
-            let msg = '';
-            const noted = [];
-            if (booking.datetime) { const d = new Date(parseGermanDatetime(booking.datetime)); noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`); }
-            if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
-            if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
-            if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-            if (booking.question) msg += `💬 ${booking.question}`;
-            else {
-                const firstMissing = booking.missing[0];
-                const fallbacks = { datetime: 'Für wann soll ich buchen?', pickup: 'Von wo holen wir Sie ab?', destination: 'Wohin geht die Fahrt?', phone: 'Ihre Handynummer bitte?' };
-                msg += `💬 ${fallbacks[firstMissing] || 'Was fehlt noch?'}`;
-            }
-            msg += '\n\n<i>Tippe /abbrechen oder drücke den ❌ Button zum Abbrechen</i>';
-
-            if (isAdminFollowUp) {
-                booking._adminBooked = partial._adminBooked || true;
-                booking._adminChatId = partial._adminChatId || chatId;
-                booking._forCustomer = booking._forCustomer || booking.forCustomer || partial._forCustomer;
-                booking._customerAddress = partial._customerAddress;
-                if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
-            }
-            await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
-            await sendTelegramMessage(chatId, msg);
-            return;
-        }
-
         // Admin-Flags übertragen
         if (isAdminFollowUp) {
             booking._adminBooked = partial._adminBooked || true;
@@ -1780,7 +1815,7 @@ Nur gültiges JSON, kein Markdown:
             if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
         }
 
-        // 🆕 Koordinaten aus partial übernehmen (z.B. aus Favoriten)
+        // Koordinaten aus partial übernehmen (z.B. aus Favoriten)
         if (partial.pickupLat && partial.pickupLon && !booking.pickupLat) {
             booking.pickupLat = partial.pickupLat;
             booking.pickupLon = partial.pickupLon;
@@ -1790,12 +1825,8 @@ Nur gültiges JSON, kein Markdown:
             booking.destinationLon = partial.destinationLon;
         }
 
-        // Adressen validieren
-        const validatedFU = await validateTelegramAddresses(chatId, booking, originalText);
-        if (!validatedFU) return;
-        Object.assign(booking, validatedFU);
-        const routePriceFU = await calculateTelegramRoutePrice(booking);
-        await askPassengersOrConfirm(chatId, booking, routePriceFU, originalText);
+        // 🆕 v6.11.4: Follow-Up nutzt jetzt continueBookingFlow für sofortige Adress-Validierung
+        await continueBookingFlow(chatId, booking, originalText);
 
     } catch (e) {
         console.error('Follow-Up Fehler:', e);

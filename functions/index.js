@@ -1642,36 +1642,47 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const fallbacks = { datetime: 'Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.', pickup: 'Von welcher Adresse holen wir ab?', destination: 'Wohin geht die Fahrt?', phone: 'Welche Telefonnummer hat der Kunde?' };
                 msg += `💬 ${fallbacks[firstMissing] || 'Können Sie mir noch mehr Details geben?'}`;
             }
-            // 🆕 v6.11.3: Inline-Buttons für GPS-Standort, Kundenadresse und Abbrechen
+            // 🆕 v6.14.0: Inline-Buttons für Abholort/Zielort mit Zuhause-Frage
             const _inlineButtons = [];
             const _firstMissing = (booking.missing && booking.missing.length > 0) ? booking.missing[0] : null;
 
-            // GPS-Standort-Button bei Abholort oder Ziel
-            if (_firstMissing === 'pickup' || _firstMissing === 'destination') {
-                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
-            }
-
-            // Kunden-Adresse als Quick-Button (wenn bekannt und Abholort fehlt)
+            // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
             if (_firstMissing === 'pickup' && !booking._adminBooked) {
                 const _knownCust = await getTelegramCustomer(chatId);
                 if (_knownCust && _knownCust.address) {
-                    _inlineButtons.push([{ text: '🏠 ' + (_knownCust.address.length > 35 ? _knownCust.address.substring(0, 33) + '…' : _knownCust.address), callback_data: 'use_home_pickup' }]);
+                    // Kunde hat Adresse → Zuhause-Button + Anderer Ort
+                    msg = '';
+                    if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+                    msg += '📍 <b>Wo sollen wir Sie abholen?</b>';
+                    _inlineButtons.push([{ text: '🏠 Von zu Hause (' + (_knownCust.address.length > 25 ? _knownCust.address.substring(0, 23) + '…' : _knownCust.address) + ')', callback_data: 'use_home_pickup' }]);
                 }
-                // Favoriten-Ziele als Abholort (letzte bekannte Orte)
+                // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
                 if (_knownCust && _knownCust.customerId) {
                     try {
                         const _custSnap = await db.ref('customers/' + _knownCust.customerId).once('value');
                         const _custData = _custSnap.val();
-                        if (_custData && _custData.defaultPickup && _custData.defaultPickup !== _knownCust.address) {
+                        if (_custData && _custData.defaultPickup && _custData.defaultPickup !== (_knownCust ? _knownCust.address : '')) {
                             _inlineButtons.push([{ text: '📍 ' + (_custData.defaultPickup.length > 35 ? _custData.defaultPickup.substring(0, 33) + '…' : _custData.defaultPickup), callback_data: 'use_default_pickup' }]);
                         }
                     } catch(_e) { /* ignore */ }
                 }
+                _inlineButtons.push([{ text: '📍 Anderer Ort (Standort senden)', callback_data: 'pickup_other_location' }]);
+            } else if (_firstMissing === 'pickup') {
+                // Admin-Modus oder kein Kunde → nur Standort-Tipp
+                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
             }
 
-            // Favoriten-Ziele als Quick-Buttons (wenn Ziel fehlt)
+            // 🆕 v6.14.0: ZIELORT → Frage "Nach Hause oder anderes Ziel?"
             if (_firstMissing === 'destination' && !booking._adminBooked) {
                 const _knownCust2 = await getTelegramCustomer(chatId);
+                if (_knownCust2 && _knownCust2.address) {
+                    // Kunde hat Adresse → Nach-Hause-Button
+                    msg = '';
+                    if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+                    msg += '🎯 <b>Wohin soll die Fahrt gehen?</b>';
+                    _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                }
+                // Favoriten-Ziele
                 if (_knownCust2 && _knownCust2.customerId) {
                     try {
                         const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone);
@@ -1684,6 +1695,9 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     } catch(_e) { /* ignore */ }
                 }
+                _inlineButtons.push([{ text: '📍 Anderes Ziel (Standort/Adresse)', callback_data: 'dest_other_location' }]);
+            } else if (_firstMissing === 'destination') {
+                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
             }
 
             // Menü + Abbrechen als letzte Zeile
@@ -2133,11 +2147,80 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         if (buttons.length === 0) {
             msg += '<i>Keine Fahrten zum Bearbeiten verfügbar.</i>';
         }
+        buttons.push([{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }]);
         buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+    }
+}
+
+// 🆕 v6.14.0: VERGANGENE FAHRTEN ANZEIGEN (Kunden)
+async function handleTelegramHistoryQuery(chatId, knownCustomer) {
+    if (!knownCustomer) {
+        await sendTelegramMessage(chatId, '❓ Bitte zuerst Telefonnummer teilen.');
+        return;
+    }
+    const phone = knownCustomer.phone || knownCustomer.mobile || '';
+    const cleanPhone = phone.replace(/\s/g, '');
+    try {
+        const ridesSnap = await db.ref('rides').once('value');
+        const allRides = Object.entries(ridesSnap.val() || {});
+        const now = Date.now();
+
+        // Vergangene Fahrten (abgeschlossen, storniert, nicht erschienen - letzte 30 Tage)
+        const thirtyDaysAgo = now - (30 * 86400000);
+        const pastRides = allRides.filter(([, r]) => {
+            const rPhone = (r.customerPhone || '').replace(/\s/g, '');
+            const phoneMatch = rPhone && cleanPhone && rPhone.slice(-9) === cleanPhone.slice(-9);
+            if (!phoneMatch) return false;
+            const ts = r.pickupTimestamp || 0;
+            // Vergangene oder abgeschlossene Fahrten
+            return ts < now && ts > thirtyDaysAgo;
+        }).sort((a, b) => (b[1].pickupTimestamp || 0) - (a[1].pickupTimestamp || 0)).slice(0, 10);
+
+        if (pastRides.length === 0) {
+            await sendTelegramMessage(chatId,
+                `📋 <b>${knownCustomer.name}</b>, Sie haben keine vergangenen Fahrten in den letzten 30 Tagen.\n\nSchreiben Sie jederzeit eine neue Anfrage!`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '🚕 Neue Fahrt buchen', callback_data: 'menu_buchen' }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] } }
+            );
+            return;
+        }
+
+        let msg = `📋 <b>Ihre vergangenen Fahrten, ${knownCustomer.name}:</b>\n\n`;
+        msg += '<i>Tippen Sie auf „Nochmal buchen" um eine Fahrt zu wiederholen.</i>\n\n';
+        const buttons = [];
+        const statusIcons = { completed: '✅', abgeschlossen: '✅', storniert: '❌', 'nicht erschienen': '🚫', abgesagt: '❌' };
+
+        pastRides.forEach(([rideId, r]) => {
+            const dt = new Date(r.pickupTimestamp || 0);
+            const dateStr = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit' });
+            const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const icon = statusIcons[r.status] || '⚪';
+            const pickup = (r.pickup || '?').substring(0, 30);
+            const dest = (r.destination || '?').substring(0, 30);
+            const price = r.price ? ` · ${parseFloat(r.price).toFixed(2)}€` : '';
+
+            msg += `${icon} <b>${dateStr} ${timeStr}</b>${price}\n`;
+            msg += `   📍 ${pickup} → ${dest}\n\n`;
+
+            buttons.push([{ text: `🔄 Nochmal: ${pickup.substring(0, 12)} → ${dest.substring(0, 12)}`, callback_data: `rebook_ride_${rideId}` }]);
+        });
+
+        buttons.push([
+            { text: '🚕 Neue Fahrt', callback_data: 'menu_buchen' },
+            { text: '🏠 Menü', callback_data: 'back_to_menu' }
+        ]);
+
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
+        await addTelegramLog('📋', chatId, `Vergangene Fahrten: ${pastRides.length} angezeigt`);
+    } catch (e) {
+        console.error('Vergangene Fahrten Fehler:', e);
+        await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der vergangenen Fahrten.');
     }
 }
 
@@ -2527,7 +2610,8 @@ async function handleMessage(message) {
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
             [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
-            [{ text: '🗑️ Fahrt stornieren', callback_data: 'menu_loeschen' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
+            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -3007,7 +3091,8 @@ async function handleMessage(message) {
         welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         const welcomeKeyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '📋 Vergangene', callback_data: 'menu_history' }],
+            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, welcomeMsg, { reply_markup: welcomeKeyboard });
         await sendTelegramMessage(chatId, '📱 <b>Telefonnummer teilen</b> – einmalig, damit wir Sie sofort erkennen:', {
@@ -3729,7 +3814,8 @@ async function handleCallback(callback) {
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
             [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
-            [{ text: '🗑️ Fahrt stornieren', callback_data: 'menu_loeschen' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
+            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -3740,7 +3826,8 @@ async function handleCallback(callback) {
         await deletePending(chatId);
         const keyboard = { inline_keyboard: [
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
-            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '📋 Vergangene', callback_data: 'menu_history' }],
+            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\n💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>', { reply_markup: keyboard });
         return;
@@ -3767,6 +3854,100 @@ async function handleCallback(callback) {
             } else {
                 await sendTelegramMessage(chatId, '⚠️ Adresse nicht gefunden. Bitte tippen Sie den Abholort ein.');
             }
+        }
+        return;
+    }
+
+    // 🆕 v6.14.0: "Nach Hause" als Zielort
+    if (data === 'use_home_dest') {
+        const _destPending = await getPending(chatId);
+        const _destBooking = _destPending && _destPending.partial;
+        if (_destBooking) {
+            const _destCust = await getTelegramCustomer(chatId);
+            if (_destCust && _destCust.address) {
+                _destBooking.destination = _destCust.address;
+                if (_destBooking.missing) _destBooking.missing = _destBooking.missing.filter(m => m !== 'destination');
+                await sendTelegramMessage(chatId, '✅ Zielort gesetzt: <b>' + _destCust.address + '</b>');
+                await continueBookingFlow(chatId, _destBooking, _destPending.originalText || '');
+            } else {
+                await sendTelegramMessage(chatId, '⚠️ Adresse nicht gefunden. Bitte tippen Sie das Ziel ein.');
+            }
+        }
+        return;
+    }
+
+    // 🆕 v6.14.0: "Anderer Ort" → Standort oder Adresse eingeben
+    if (data === 'pickup_other_location' || data === 'dest_other_location') {
+        const _locPending = await getPending(chatId);
+        if (_locPending && _locPending.partial) {
+            const isPickup = data === 'pickup_other_location';
+            const label = isPickup ? 'Abholort' : 'Zielort';
+            await sendTelegramMessage(chatId,
+                `📍 <b>${label} eingeben</b>\n\n` +
+                `Sie haben 2 Möglichkeiten:\n\n` +
+                `1️⃣ <b>Standort senden:</b> Tippen Sie auf 📎 und dann auf „Standort"\n\n` +
+                `2️⃣ <b>Adresse eintippen:</b> Schreiben Sie einfach die Adresse als Nachricht`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] } }
+            );
+        }
+        return;
+    }
+
+    // 🆕 v6.14.0: Vergangene Fahrt nochmal buchen (Kopieren)
+    if (data.startsWith('rebook_ride_')) {
+        const rideId = data.replace('rebook_ride_', '');
+        const _rebookSnap = await db.ref('rides/' + rideId).once('value');
+        const _rebookRide = _rebookSnap.val();
+        if (!_rebookRide) {
+            await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.');
+            return;
+        }
+        // Erstelle Buchungs-Objekt aus vergangener Fahrt
+        const _rebookData = {
+            intent: 'buchung',
+            pickup: _rebookRide.pickup || null,
+            destination: _rebookRide.destination || null,
+            pickupLat: _rebookRide.pickupCoords ? _rebookRide.pickupCoords.lat : null,
+            pickupLon: _rebookRide.pickupCoords ? _rebookRide.pickupCoords.lon : null,
+            destinationLat: _rebookRide.destCoords ? _rebookRide.destCoords.lat : null,
+            destinationLon: _rebookRide.destCoords ? _rebookRide.destCoords.lon : null,
+            passengers: _rebookRide.passengers || 1,
+            datetime: null,
+            name: _rebookRide.customerName || '',
+            phone: _rebookRide.customerPhone || '',
+            notes: _rebookRide.notes || '',
+            missing: ['datetime'], // Nur Datum fehlt noch
+            summary: 'Nochmal buchen von vergangener Fahrt'
+        };
+        // Kundeninfo setzen
+        const _rebookCust = await getTelegramCustomer(chatId);
+        if (_rebookCust) {
+            _rebookData.name = _rebookCust.name || _rebookData.name;
+            _rebookData.phone = _rebookCust.phone || _rebookData.phone;
+        }
+        await sendTelegramMessage(chatId,
+            '📋 <b>Fahrt nochmal buchen:</b>\n\n' +
+            `📍 Von: <b>${_rebookData.pickup || '?'}</b>\n` +
+            `🎯 Nach: <b>${_rebookData.destination || '?'}</b>\n` +
+            `👥 ${_rebookData.passengers} Person(en)\n\n` +
+            '💬 <b>Für wann soll ich das Taxi bestellen?</b>\n<i>Bitte mit Datum und Uhrzeit.</i>'
+        );
+        await setPending(chatId, { partial: _rebookData, originalText: 'Nochmal buchen' });
+        await addTelegramLog('📋', chatId, `Rebook: ${_rebookData.pickup} → ${_rebookData.destination}`);
+        return;
+    }
+
+    // 🆕 v6.14.0: Vergangene Fahrten anzeigen
+    if (data === 'menu_history') {
+        const knownForHistory = await getTelegramCustomer(chatId);
+        if (knownForHistory) {
+            await handleTelegramHistoryQuery(chatId, knownForHistory);
+        } else {
+            await sendTelegramMessage(chatId, '📋 <b>Vergangene Fahrten</b>\n\nBitte teilen Sie Ihre Telefonnummer!', {
+                reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+            });
         }
         return;
     }

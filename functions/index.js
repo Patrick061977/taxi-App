@@ -378,23 +378,81 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
     const normalized = searchName.toLowerCase().trim();
     const seen = new Set();
     const results = [];
-    // Exakt
+
+    // Hilfsfunktion: Levenshtein-Distanz für Fuzzy-Matching (Whisper-Tippfehler)
+    function levenshtein(a, b) {
+        const m = a.length, n = b.length;
+        if (m === 0) return n;
+        if (n === 0) return m;
+        const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                dp[i][j] = Math.min(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+                );
+            }
+        }
+        return dp[m][n];
+    }
+
+    // Hilfsfunktion: Prüfe ob Name fuzzy passt (max 2 Zeichen Unterschied bei langen Namen, max 1 bei kurzen)
+    function fuzzyMatch(name, search) {
+        const maxDist = Math.max(name.length, search.length) >= 6 ? 2 : 1;
+        return levenshtein(name, search) <= maxDist;
+    }
+
+    // 1. Exakt
     for (const c of allCustomers) {
         if (results.length >= 5) break;
         if (!seen.has(c.id) && (c.name || '').toLowerCase() === normalized) { seen.add(c.id); results.push(c); }
     }
-    // Partiell
+    // 2. Partiell (Substring)
     for (const c of allCustomers) {
         if (results.length >= 5) break;
         const name = (c.name || '').toLowerCase();
-        if (!seen.has(c.id) && (name.includes(normalized) || normalized.includes(name))) { seen.add(c.id); results.push(c); }
+        if (!seen.has(c.id) && (name.includes(normalized) || normalized.includes(name))) {
+            // Falsch-Positive vermeiden: wenn Suchbegriff > 4 Zeichen, muss Match mindestens 60% des kürzeren Namens abdecken
+            const shorter = Math.min(name.length, normalized.length);
+            const longer = Math.max(name.length, normalized.length);
+            if (shorter >= longer * 0.5) {
+                seen.add(c.id); results.push(c);
+            }
+        }
     }
-    // Nachname
+    // 3. Nachname-Match (exakt + Substring)
     for (const c of allCustomers) {
         if (results.length >= 5) break;
         const lastName = (c.name || '').toLowerCase().split(' ').pop();
         const searchLast = normalized.split(' ').pop();
         if (!seen.has(c.id) && lastName.length > 2 && (lastName === searchLast || lastName.includes(searchLast) || searchLast.includes(lastName))) { seen.add(c.id); results.push(c); }
+    }
+    // 4. 🆕 v6.14.1: Fuzzy-Match (Levenshtein) für Whisper-Tippfehler
+    // z.B. "Nicole Schindl" findet "Nicole Schindel" (1 Buchstabe Unterschied)
+    for (const c of allCustomers) {
+        if (results.length >= 5) break;
+        const name = (c.name || '').toLowerCase();
+        if (!seen.has(c.id)) {
+            // Ganzen Namen fuzzy vergleichen
+            if (fuzzyMatch(name, normalized)) {
+                seen.add(c.id); results.push(c);
+            } else {
+                // Nachnamen fuzzy vergleichen
+                const lastName = name.split(' ').pop();
+                const searchLast = normalized.split(' ').pop();
+                if (lastName.length > 2 && searchLast.length > 2 && fuzzyMatch(lastName, searchLast)) {
+                    // Prüfe auch ob Vorname halbwegs passt (wenn angegeben)
+                    const searchParts = normalized.split(' ');
+                    const nameParts = name.split(' ');
+                    if (searchParts.length < 2 || nameParts.length < 2 || nameParts[0].startsWith(searchParts[0]) || searchParts[0].startsWith(nameParts[0])) {
+                        seen.add(c.id); results.push(c);
+                    }
+                }
+            }
+        }
     }
     return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
 }
@@ -2726,6 +2784,29 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.14.2: Natürliche Sprach-Befehle (ohne Slash) — wichtig für Sprachnachrichten
+    if (/^(abbrechen|abbruch|stopp?|cancel|nein danke|doch nicht|lass gut|vergiss es)[\s!.?]*$/i.test(text)) {
+        await addTelegramLog('🎙️', chatId, `Sprach-Befehl erkannt: "${text}" → Abbrechen`);
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\nSchreiben Sie jederzeit eine neue Anfrage.');
+        return;
+    }
+    if (/^(hilfe|help|info)[\s!.?]*$/i.test(text)) {
+        await addTelegramLog('🎙️', chatId, `Sprach-Befehl erkannt: "${text}" → Hilfe`);
+        // Hilfe-Inhalt identisch mit /hilfe
+        const knownForHelp = await getTelegramCustomer(chatId);
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n• <i>Freitag 14:30 Seebrücke Bansin – Flughafen Berlin</i>\n\n';
+        hilfeMsg += '<b>Befehle (Slash):</b>\n/buchen – 🚕 Neue Fahrt bestellen\n/status – 📊 Ihre Fahrten\n/ändern – ✏️ Fahrt bearbeiten\n/löschen – 🗑️ Fahrt stornieren\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht\n\n';
+        hilfeMsg += '<b>Oder einfach als Text schreiben:</b>\n• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n• „<i>Meine Fahrten</i>" oder „<i>Status</i>"';
+        if (await isTelegramAdmin(chatId)) {
+            hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
+        }
+        if (knownForHelp) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownForHelp.name}\n📱 ${knownForHelp.phone || 'keine Telefonnummer'}`;
+        hilfeMsg += '\n\n📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
+        await sendTelegramMessage(chatId, hilfeMsg);
+        return;
+    }
+
     // 🆕 v6.10.0: /löschen, /stornieren → Fahrt löschen
     if (textCmd === '/löschen' || textCmd === '/loeschen' || textCmd === '/stornieren') {
         const knownForDelete = await getTelegramCustomer(chatId);
@@ -3303,11 +3384,12 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        // 🆕 v6.14.1: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
-        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:frau|herrn?|herr|familie|fam\.?)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
+        // Prefix-Gruppe: optionale Artikel (den/einen) + optionale Anrede (Frau/Herr/Kunde/Kunden/Familie)
+        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:den|einen?|unseren?)\s+)?(?:(?:frau|herrn?|herr|familie|fam\.?|kunde[n]?|gast)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
         const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr'];
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung'];
         const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
 
         if (extractedCustomerName && !isGenericWord) {

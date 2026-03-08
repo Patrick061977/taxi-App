@@ -415,11 +415,23 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
         if (results.length >= 5) break;
         const name = (c.name || '').toLowerCase();
         if (!seen.has(c.id) && (name.includes(normalized) || normalized.includes(name))) {
-            // Falsch-Positive vermeiden: wenn Suchbegriff > 4 Zeichen, muss Match mindestens 60% des kürzeren Namens abdecken
             const shorter = Math.min(name.length, normalized.length);
             const longer = Math.max(name.length, normalized.length);
             if (shorter >= longer * 0.5) {
                 seen.add(c.id); results.push(c);
+            }
+        }
+    }
+    // 2b. 🆕 v6.14.2: Vorname-Match — "Nicole" findet "Nicole Schindel"
+    if (normalized.length >= 3) {
+        for (const c of allCustomers) {
+            if (results.length >= 5) break;
+            const nameParts = (c.name || '').toLowerCase().split(/\s+/);
+            if (!seen.has(c.id) && nameParts.length >= 1) {
+                // Exakter Vorname-Match oder Vorname beginnt mit Suchbegriff (min 3 Zeichen)
+                if (nameParts[0] === normalized || (normalized.length >= 4 && nameParts[0].startsWith(normalized))) {
+                    seen.add(c.id); results.push(c);
+                }
             }
         }
     }
@@ -429,6 +441,19 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
         const lastName = (c.name || '').toLowerCase().split(' ').pop();
         const searchLast = normalized.split(' ').pop();
         if (!seen.has(c.id) && lastName.length > 2 && (lastName === searchLast || lastName.includes(searchLast) || searchLast.includes(lastName))) { seen.add(c.id); results.push(c); }
+    }
+    // 3b. 🆕 v6.14.2: Fuzzy Vorname + Nachname separat — "Schindl" findet "Nicole Schindel"
+    for (const c of allCustomers) {
+        if (results.length >= 5) break;
+        const nameParts = (c.name || '').toLowerCase().split(/\s+/);
+        if (!seen.has(c.id) && normalized.length >= 3) {
+            for (const part of nameParts) {
+                if (part.length >= 3 && (part.startsWith(normalized) || normalized.startsWith(part))) {
+                    seen.add(c.id); results.push(c);
+                    break;
+                }
+            }
+        }
     }
     // 4. 🆕 v6.14.1: Fuzzy-Match (Levenshtein) für Whisper-Tippfehler
     // z.B. "Nicole Schindl" findet "Nicole Schindel" (1 Buchstabe Unterschied)
@@ -451,6 +476,36 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
                         seen.add(c.id); results.push(c);
                     }
                 }
+                // 🆕 v6.14.2: Einzelne Namensteile fuzzy vergleichen
+                if (!seen.has(c.id)) {
+                    const nameParts = name.split(/\s+/);
+                    for (const part of nameParts) {
+                        if (part.length >= 3 && fuzzyMatch(part, normalized)) {
+                            seen.add(c.id); results.push(c);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 5. 🆕 v6.14.2: Kreuz-Match — Wörter des Suchbegriffs gegen Wörter des CRM-Namens
+    // "Hotel Kaiserhof" findet "Kaiserhof Heringsdorf" (weil "Kaiserhof" in beiden vorkommt)
+    if (normalized.includes(' ') && results.length === 0) {
+        const searchWords = normalized.split(/\s+/).filter(w => w.length >= 4);
+        for (const c of allCustomers) {
+            if (results.length >= 5) break;
+            if (seen.has(c.id)) continue;
+            const nameParts = (c.name || '').toLowerCase().split(/\s+/);
+            for (const sw of searchWords) {
+                let matched = false;
+                for (const np of nameParts) {
+                    if (np.length >= 4 && (np === sw || np.startsWith(sw) || sw.startsWith(np) || fuzzyMatch(np, sw))) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) { seen.add(c.id); results.push(c); break; }
             }
         }
     }
@@ -3061,6 +3116,102 @@ async function handleMessage(message) {
         }
     }
 
+    // 🆕 v6.14.2: Admin hat "Für Kunden oder für sich?" offen aber tippt direkt einen Kundennamen
+    // → Behandle Text als Kundenname (überspringe Button-Auswahl)
+    if (pending && pending.taxiChoice && !isPendingExpired(pending)) {
+        const customerName = text.trim();
+        await addTelegramLog('🔄', chatId, `Admin tippt Kundenname "${customerName}" direkt (statt Button)`);
+        const { text: originalText, userName: savedUserName } = pending.taxiChoice;
+        const allCust = await loadAllCustomers();
+        const matches = findAllCustomersForSecretary(allCust, customerName);
+        if (matches.length === 1) {
+            const found = matches[0];
+            const confirmId = Date.now().toString(36);
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText, userName: savedUserName, crmConfirm: { found, confirmId }, customerName });
+            let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+            if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+            if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+            confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
+                { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
+            ]] } });
+        } else if (matches.length > 1) {
+            const confirmId = Date.now().toString(36);
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText, userName: savedUserName, crmMultiSelect: { matches, confirmId }, customerName });
+            let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${customerName}":</b>`;
+            const buttons = matches.map((m, i) => {
+                let label = `👤 ${m.name}`;
+                if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
+            });
+            buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+        } else {
+            // Nicht gefunden → Kundennamen-Suche anbieten
+            await setPending(chatId, { awaitingCustomerName: true, originalText, userName: savedUserName });
+            await sendTelegramMessage(chatId,
+                `🔍 <b>"${customerName}" nicht im CRM gefunden.</b>\n\nBitte nochmal den Kundennamen eingeben oder:`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] }
+            });
+        }
+        return;
+    }
+
+    // 🆕 v6.14.2: Admin hat Kunden-Bestätigung offen aber tippt statt Button zu drücken
+    // → Text als neue Kundensuche behandeln (Kontext beibehalten!)
+    if (pending && pending.awaitingAdminCrmConfirm && !isPendingExpired(pending)) {
+        const customerName = text.trim();
+        await addTelegramLog('🔄', chatId, `Kundensuche aktualisiert: "${customerName}" (statt Button)`);
+        const allCust = await loadAllCustomers();
+        const matches = findAllCustomersForSecretary(allCust, customerName);
+        if (matches.length === 1) {
+            const found = matches[0];
+            const confirmId = Date.now().toString(36);
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmConfirm: { found, confirmId }, customerName });
+            let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+            if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+            if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+            confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
+                { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
+            ]] } });
+        } else if (matches.length > 1) {
+            const confirmId = Date.now().toString(36);
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmMultiSelect: { matches, confirmId }, customerName });
+            let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${customerName}":</b>`;
+            const buttons = matches.map((m, i) => {
+                let label = `👤 ${m.name}`;
+                if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
+            });
+            buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+        } else {
+            const _newCustId = Date.now().toString(36);
+            await setPending(chatId, {
+                awaitingNewCustomerChoice: true,
+                newCustomerName: customerName,
+                originalText: pending.originalText,
+                userName: pending.userName,
+                _newCustId
+            });
+            await sendTelegramMessage(chatId,
+                `🔍 <b>"${customerName}" nicht im CRM gefunden.</b>\n\nWas möchtest du tun?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: `admin_create_cust_${_newCustId}` }],
+                    [{ text: '➡️ Trotzdem buchen (ohne CRM)', callback_data: `admin_skip_crm_${_newCustId}` }],
+                    [{ text: '🔍 Anderen Namen suchen', callback_data: `admin_retry_name_${_newCustId}` }]
+                ] }
+            });
+        }
+        return;
+    }
+
     // Admin wartet auf Kundennamen
     if (pending && pending.awaitingCustomerName && !isPendingExpired(pending)) {
         const customerName = text.trim();
@@ -3384,20 +3535,29 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
-        // Prefix-Gruppe: optionale Artikel (den/einen) + optionale Anrede (Frau/Herr/Kunde/Kunden/Familie)
+        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
+        // Pattern 1: "für [Name]" — "für Nicole Schindel", "für Kunde Kaiserhof"
         const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:den|einen?|unseren?)\s+)?(?:(?:frau|herrn?|herr|familie|fam\.?|kunde[n]?|gast)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
-        const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
+        // Pattern 2: "vom/von [Name]" — "Taxi vom Kaiserhof", "von Hotel Residenz"
+        const vomMatch = !fuerMatch && text.match(/\b(?:vom|von(?:\s+dem)?)\s+(?:(?:hotel|pension|haus|gasthof|gasthaus)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        let extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : (vomMatch ? vomMatch[1].trim() : null);
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung'];
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus'];
         const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+        // 🆕 v6.14.2: Bei "vom"-Pattern nur akzeptieren wenn CRM-Treffer existiert (sonst ist es ein Ortsname)
+        const isVomPattern = !fuerMatch && !!vomMatch;
 
         if (extractedCustomerName && !isGenericWord) {
             // Kundenname erkannt → direkt CRM-Suche, kein Nachfragen
-            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden, überspringe Auswahl`);
+            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden${isVomPattern ? ' (vom-Pattern)' : ''}, überspringe Auswahl`);
             const allCust = await loadAllCustomers();
             const matches = findAllCustomersForSecretary(allCust, extractedCustomerName);
-            if (matches.length === 1) {
+
+            // 🆕 v6.14.2: Bei "vom"-Pattern ohne CRM-Treffer → ist kein Kundenname sondern ein Ort
+            if (isVomPattern && matches.length === 0) {
+                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" (vom-Pattern) nicht im CRM → normaler Buchungsflow`);
+                // Weiter unten als normale Buchung ohne Kundenname behandeln
+            } else if (matches.length === 1) {
                 const found = matches[0];
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
@@ -3409,6 +3569,7 @@ async function handleMessage(message) {
                     { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
                     { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
                 ]] } });
+                return;
             } else if (matches.length > 1) {
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmMultiSelect: { matches, confirmId }, customerName: extractedCustomerName });
@@ -3420,13 +3581,18 @@ async function handleMessage(message) {
                 });
                 buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
                 await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+                return;
             } else {
-                // Nicht im CRM → direkt als Kundenname verwenden und Buchung analysieren
-                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
-                await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
-                await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+                // "für"-Pattern aber nicht im CRM → direkt als Kundenname verwenden
+                if (!isVomPattern) {
+                    await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
+                    await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+                    return;
+                }
             }
-        } else {
+        }
+        {
             // Kein Kundenname erkannt → Auswahl anzeigen wie bisher
             await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
             await setPending(chatId, { taxiChoice: { text, userName } });

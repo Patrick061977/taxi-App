@@ -2784,6 +2784,29 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.14.2: Natürliche Sprach-Befehle (ohne Slash) — wichtig für Sprachnachrichten
+    if (/^(abbrechen|abbruch|stopp?|cancel|nein danke|doch nicht|lass gut|vergiss es)[\s!.?]*$/i.test(text)) {
+        await addTelegramLog('🎙️', chatId, `Sprach-Befehl erkannt: "${text}" → Abbrechen`);
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\nSchreiben Sie jederzeit eine neue Anfrage.');
+        return;
+    }
+    if (/^(hilfe|help|info)[\s!.?]*$/i.test(text)) {
+        await addTelegramLog('🎙️', chatId, `Sprach-Befehl erkannt: "${text}" → Hilfe`);
+        // Hilfe-Inhalt identisch mit /hilfe
+        const knownForHelp = await getTelegramCustomer(chatId);
+        let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n<b>So buchen Sie:</b>\nSchreiben Sie einfach eine Nachricht, z.B.:\n• <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>\n• <i>Freitag 14:30 Seebrücke Bansin – Flughafen Berlin</i>\n\n';
+        hilfeMsg += '<b>Befehle (Slash):</b>\n/buchen – 🚕 Neue Fahrt bestellen\n/status – 📊 Ihre Fahrten\n/ändern – ✏️ Fahrt bearbeiten\n/löschen – 🗑️ Fahrt stornieren\n/profil – 👤 Profil bearbeiten\n/abbrechen – ❌ Buchung abbrechen\n/abmelden – 🔓 Abmelden\n/hilfe – ℹ️ Übersicht\n\n';
+        hilfeMsg += '<b>Oder einfach als Text schreiben:</b>\n• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n• „<i>Meine Fahrten</i>" oder „<i>Status</i>"';
+        if (await isTelegramAdmin(chatId)) {
+            hilfeMsg += '\n\n<b>Admin-Befehle:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen\n\n💡 <i>Du kannst auch schreiben: "Welche Fahrten haben wir heute?"</i>';
+        }
+        if (knownForHelp) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownForHelp.name}\n📱 ${knownForHelp.phone || 'keine Telefonnummer'}`;
+        hilfeMsg += '\n\n📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
+        await sendTelegramMessage(chatId, hilfeMsg);
+        return;
+    }
+
     // 🆕 v6.10.0: /löschen, /stornieren → Fahrt löschen
     if (textCmd === '/löschen' || textCmd === '/loeschen' || textCmd === '/stornieren') {
         const knownForDelete = await getTelegramCustomer(chatId);

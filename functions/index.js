@@ -2934,8 +2934,48 @@ async function handleMessage(message) {
         }
 
         if (step === 'address') {
-            // Adresse eingegeben → Kunden anlegen!
-            await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', text.trim(), pending.originalText, pending.userName);
+            // 🆕 v6.14.1: Adresse per Nominatim geocodieren und zur Bestätigung vorschlagen
+            const rawAddress = text.trim();
+            const geo = await geocode(rawAddress);
+            if (geo && geo.display_name) {
+                // Aufgelöste Adresse aus display_name kürzen (nur relevante Teile)
+                const parts = geo.display_name.split(',').map(p => p.trim());
+                // Straße + Hausnummer + PLZ + Ort (erste 4-5 Teile, ohne Land/Bundesland)
+                const shortAddress = parts.slice(0, Math.min(parts.length, 4)).join(', ');
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'address_confirm',
+                    _adminNewCustAddr: shortAddress,
+                    _adminNewCustAddrLat: geo.lat,
+                    _adminNewCustAddrLon: geo.lon,
+                    _addrConfirmId: confirmId
+                });
+                await sendTelegramMessage(chatId,
+                    `📍 <b>Adresse aufgelöst:</b>\n\n🏠 <b>${shortAddress}</b>\n\n<b>Ist das korrekt?</b>`, {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, übernehmen', callback_data: `admin_newcust_addr_yes_${confirmId}` }],
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }],
+                        [{ text: '📝 Original verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }]
+                    ] }
+                });
+            } else {
+                // Geocoding fehlgeschlagen → trotzdem anlegen oder neu eingeben
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'address_confirm',
+                    _adminNewCustAddr: rawAddress,
+                    _addrConfirmId: confirmId
+                });
+                await sendTelegramMessage(chatId,
+                    `⚠️ <b>Adresse konnte nicht aufgelöst werden:</b>\n\n"${rawAddress}"\n\nWas möchtest du tun?`, {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '📝 Trotzdem verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }],
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]
+                    ] }
+                });
+            }
             return;
         }
     }
@@ -4909,6 +4949,43 @@ async function handleCallback(callback) {
                 [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
             ] } }
         );
+        return;
+    }
+
+    // 🆕 v6.14.1: Admin — Geocodierte Adresse bestätigt → Kunden anlegen
+    if (data.startsWith('admin_newcust_addr_yes_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        const resolvedAddress = pending._adminNewCustAddr || '';
+        await addTelegramLog('📍', chatId, `Adresse bestätigt: ${resolvedAddress}`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', resolvedAddress, pending.originalText, pending.userName);
+        return;
+    }
+
+    // 🆕 v6.14.1: Admin — Adresse als Rohtext verwenden
+    if (data.startsWith('admin_newcust_addr_raw_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        const rawAddr = pending._adminNewCustAddr || '';
+        await addTelegramLog('📝', chatId, `Adresse ohne Geocoding übernommen: ${rawAddr}`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', rawAddr, pending.originalText, pending.userName);
+        return;
+    }
+
+    // 🆕 v6.14.1: Admin — Andere Adresse eingeben
+    if (data.startsWith('admin_newcust_addr_retry_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await setPending(chatId, {
+            ...pending,
+            _adminNewCustStep: 'address'
+        });
+        await sendTelegramMessage(chatId,
+            `🏠 Bitte die <b>Adresse</b> nochmal eingeben:`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+            ] }
+        });
         return;
     }
 

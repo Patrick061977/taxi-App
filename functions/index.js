@@ -3745,29 +3745,40 @@ async function handleCallback(callback) {
                 console.error('Admin-Benachrichtigung Fehler:', e.message);
             }
 
-            // Admin CRM-Anlage anbieten
+            // 🆕 v6.14.0: Admin-Buchung → CRM-Eintrag AUTOMATISCH anlegen!
             if (booking._adminBooked && booking._forCustomer && booking._crmCustomerId === null) {
                 try {
-                    await db.ref('settings/telegram/pending/crm_' + chatId).set({
-                        customerName: booking._forCustomer || booking.name,
-                        customerPhone: booking.phone || '',
-                        pickupAddress: booking.pickup || '',
-                        rideId: rideData.id
+                    const _crmName = booking._forCustomer || booking.name;
+                    const _crmPhone = booking.phone || '';
+                    const _crmPickup = booking.pickup || '';
+
+                    const newCrmRef = db.ref('customers').push();
+                    await newCrmRef.set({
+                        name: _crmName,
+                        phone: _crmPhone,
+                        address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
+                        defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
+                        email: '',
+                        createdAt: Date.now(),
+                        createdBy: 'telegram-admin-auto',
+                        source: 'telegram-admin',
+                        totalRides: 1,
+                        isVIP: false,
+                        notes: ''
                     });
-                    const pickupHint = booking.pickup
-                        ? `\n📍 Abholadresse: <i>${booking.pickup}</i>\n\nSoll diese Adresse als <b>Wohnanschrift</b> gespeichert werden?`
-                        : `\n\nSoll ich diesen Kunden im CRM anlegen?`;
+
+                    // Fahrt mit CRM verknüpfen
+                    await db.ref('rides/' + rideData.id + '/customerId').set(newCrmRef.key);
+
+                    await addTelegramLog('🆕', chatId, `CRM auto-angelegt: ${_crmName} (${newCrmRef.key})`);
                     await sendTelegramMessage(chatId,
-                        `👤 <b>${booking._forCustomer}</b> ist noch nicht im CRM.\n📱 ${booking.phone || '(keine Angabe)'}` + pickupHint,
-                        { reply_markup: { inline_keyboard: [
-                            booking.pickup ? [
-                                { text: '✅ Mit Wohnanschrift', callback_data: `crm_create_yes_${rideData.id}` },
-                                { text: '📋 Ohne Adresse', callback_data: `crm_create_yesnoaddr_${rideData.id}` }
-                            ] : [{ text: '✅ Im CRM anlegen', callback_data: `crm_create_yesnoaddr_${rideData.id}` }],
-                            [{ text: '❌ Nein', callback_data: `crm_create_no_${rideData.id}` }]
-                        ]}}
+                        `✅ <b>${_crmName}</b> automatisch im CRM angelegt!\n` +
+                        (_crmPhone ? `📱 ${_crmPhone}\n` : '') +
+                        (_crmPickup ? `📍 Standard-Abholort: ${_crmPickup}` : '')
                     );
-                } catch (e) {}
+                } catch (e) {
+                    console.error('CRM Auto-Anlage Fehler:', e);
+                }
             }
         } catch (e) {
             await addTelegramLog('❌', chatId, 'Fehler: ' + e.message);

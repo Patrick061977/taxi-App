@@ -3263,14 +3263,58 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
-        await setPending(chatId, { taxiChoice: { text, userName } });
-        await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
-            reply_markup: { inline_keyboard: [
-                [{ text: '👤 Für einen Kunden', callback_data: 'taxi_for_customer' }],
-                [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
-            ]}
-        });
+        // 🆕 v6.14.1: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
+        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:frau|herrn?|herr|familie|fam\.?)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
+        // Filtere generische Wörter die kein Kundenname sind
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr'];
+        const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+
+        if (extractedCustomerName && !isGenericWord) {
+            // Kundenname erkannt → direkt CRM-Suche, kein Nachfragen
+            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden, überspringe Auswahl`);
+            const allCust = await loadAllCustomers();
+            const matches = findAllCustomersForSecretary(allCust, extractedCustomerName);
+            if (matches.length === 1) {
+                const found = matches[0];
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
+                let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+                if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+                if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+                confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+                await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                    { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
+                    { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
+                ]] } });
+            } else if (matches.length > 1) {
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmMultiSelect: { matches, confirmId }, customerName: extractedCustomerName });
+                let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${extractedCustomerName}":</b>`;
+                const buttons = matches.map((m, i) => {
+                    let label = `👤 ${m.name}`;
+                    if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                    return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
+                });
+                buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+                await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+            } else {
+                // Nicht im CRM → direkt als Kundenname verwenden und Buchung analysieren
+                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
+                await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
+                await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+            }
+        } else {
+            // Kein Kundenname erkannt → Auswahl anzeigen wie bisher
+            await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
+            await setPending(chatId, { taxiChoice: { text, userName } });
+            await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '👤 Für einen Kunden', callback_data: 'taxi_for_customer' }],
+                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                ]}
+            });
+        }
         return;
     }
 
@@ -5249,6 +5293,146 @@ async function handleVoice(message) {
     }
 }
 
+// 🆕 v6.14.0: Prüfe ob ein Dokument eine Audio-Datei ist
+function isAudioDocument(doc) {
+    if (!doc) return false;
+    const mime = (doc.mime_type || '').toLowerCase();
+    const name = (doc.file_name || '').toLowerCase();
+    const audioMimes = ['audio/', 'video/ogg', 'application/ogg'];
+    const audioExts = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma', '.opus', '.webm', '.mp4', '.3gp', '.amr'];
+    if (audioMimes.some(m => mime.startsWith(m) || mime === m)) return true;
+    if (audioExts.some(ext => name.endsWith(ext))) return true;
+    return false;
+}
+
+// 🆕 v6.14.0: Audio-Dateien und Dokumente transkribieren (MP3, WAV, M4A etc.)
+async function handleAudioFile(message) {
+    const chatId = message.chat.id;
+    // Audio kann als message.audio ODER message.document kommen
+    const audioObj = message.audio || message.document;
+    if (!audioObj || !audioObj.file_id) {
+        await sendTelegramMessage(chatId, '⚠️ Audio-Datei konnte nicht verarbeitet werden.');
+        return;
+    }
+
+    const fileName = audioObj.file_name || audioObj.title || 'audio';
+    const mimeType = audioObj.mime_type || 'audio/mpeg';
+    const fileSize = audioObj.file_size || 0;
+
+    // Telegram erlaubt max 20MB Download
+    if (fileSize > 20 * 1024 * 1024) {
+        await sendTelegramMessage(chatId, '⚠️ Die Datei ist zu groß (max. 20 MB). Bitte eine kürzere Aufnahme senden.');
+        return;
+    }
+
+    try {
+        // 1. OpenAI Key prüfen
+        const openaiKey = await getOpenAiApiKey();
+        if (!openaiKey) {
+            await addTelegramLog('⚠️', chatId, `Audio-Datei empfangen (${fileName}), aber kein OpenAI API Key`);
+            await sendTelegramMessage(chatId, '⚠️ Spracherkennung nicht konfiguriert.\nBitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        await sendTelegramMessage(chatId, `🎙️ <i>Audio-Datei "${fileName}" wird transkribiert...</i>`);
+        await addTelegramLog('🎙️', chatId, `Audio-Datei empfangen: ${fileName} (${(fileSize / 1024).toFixed(0)} KB, ${mimeType})`);
+
+        // 2. Datei von Telegram herunterladen
+        const token = await loadBotToken();
+        const fileResp = await fetch(`https://api.telegram.org/bot${token}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: audioObj.file_id })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) {
+            await sendTelegramMessage(chatId, '⚠️ Datei konnte nicht geladen werden.');
+            return;
+        }
+
+        const fileUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+        const audioResp = await fetch(fileUrl);
+        if (!audioResp.ok) {
+            await sendTelegramMessage(chatId, '⚠️ Audio-Download fehlgeschlagen.');
+            return;
+        }
+        const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+
+        // 3. An OpenAI Whisper senden
+        // Dateiendung aus dem Dateinamen oder MIME-Type ableiten
+        let ext = 'mp3';
+        if (fileName.includes('.')) ext = fileName.split('.').pop().toLowerCase();
+        else if (mimeType.includes('ogg')) ext = 'ogg';
+        else if (mimeType.includes('wav')) ext = 'wav';
+        else if (mimeType.includes('m4a') || mimeType.includes('mp4')) ext = 'm4a';
+        else if (mimeType.includes('flac')) ext = 'flac';
+        else if (mimeType.includes('webm')) ext = 'webm';
+
+        const boundary = '----WhisperBoundary' + Date.now();
+        const formParts = [];
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\nTaxi-Buchung Usedom: Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Wolgast, Swinemünde, Peenemünde, Trassenheide, Karlshagen, Ückeritz, Loddin, Zempin`);
+
+        const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.${ext}"\r\nContent-Type: ${mimeType}\r\n\r\n`;
+        const fileFooter = `\r\n--${boundary}--\r\n`;
+
+        const textParts = formParts.join('\r\n') + '\r\n';
+        const textEncoder = new TextEncoder();
+        const textBefore = textEncoder.encode(textParts + fileHeader);
+        const textAfter = textEncoder.encode(fileFooter);
+
+        const bodyBuffer = Buffer.concat([
+            Buffer.from(textBefore),
+            audioBuffer,
+            Buffer.from(textAfter)
+        ]);
+
+        const transcribeResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${openaiKey}`,
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            },
+            body: bodyBuffer
+        });
+
+        if (!transcribeResp.ok) {
+            const errData = await transcribeResp.json().catch(() => ({}));
+            const errMsg = errData.error?.message || `HTTP ${transcribeResp.status}`;
+            console.error('Whisper Audio-Datei Fehler:', errMsg);
+            await addTelegramLog('❌', chatId, `Whisper Audio-Fehler: ${errMsg}`);
+            await sendTelegramMessage(chatId, '⚠️ Transkription fehlgeschlagen: ' + errMsg + '\n\nBitte schreiben Sie Ihre Anfrage als Text.');
+            return;
+        }
+
+        const transcribeResult = await transcribeResp.json();
+        const transcript = (transcribeResult.text || '').trim();
+
+        if (!transcript) {
+            await sendTelegramMessage(chatId, '⚠️ Konnte keine Sprache in der Datei erkennen. Ist die Aufnahme deutlich genug?');
+            return;
+        }
+
+        await addTelegramLog('🎙️', chatId, `Audio-Datei transkribiert (${fileName}): "${transcript.substring(0, 100)}..."`);
+        await sendTelegramMessage(chatId, `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>\n\n⏳ Wird verarbeitet...`);
+
+        // Als normale Textnachricht weiterverarbeiten
+        const fakeMessage = {
+            ...message,
+            text: transcript,
+            _isVoiceTranscript: true,
+            _isAudioFile: true
+        };
+        await handleMessage(fakeMessage);
+
+    } catch (error) {
+        console.error('handleAudioFile Fehler:', error);
+        await addTelegramLog('❌', chatId, `Audio-Datei Fehler: ${error.message}`);
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Audio-Verarbeitung: ' + error.message);
+    }
+}
+
 async function handleLocation(message) {
     const chatId = message.chat.id;
     const lat = message.location.latitude;
@@ -5425,6 +5609,12 @@ exports.telegramWebhook = onRequest(
                 } else if (update.message.voice) {
                     // 🆕 v6.11.3: Sprachnachrichten transkribieren
                     await handleVoice(update.message);
+                } else if (update.message.audio) {
+                    // 🆕 v6.14.0: Audio-Dateien (MP3 etc.) transkribieren
+                    await handleAudioFile(update.message);
+                } else if (update.message.document && isAudioDocument(update.message.document)) {
+                    // 🆕 v6.14.0: Dokumente die Audio sind (WAV, M4A, OGG etc.)
+                    await handleAudioFile(update.message);
                 } else if (update.message.text) {
                     await handleMessage(update.message);
                 }

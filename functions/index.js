@@ -399,6 +399,52 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
     return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
 }
 
+// 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
+async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName) {
+    try {
+        const newRef = db.ref('customers').push();
+        await newRef.set({
+            name: name,
+            phone: phone || '',
+            address: address || '',
+            email: '',
+            createdAt: Date.now(),
+            createdBy: 'telegram-admin',
+            source: 'telegram-admin',
+            totalRides: 0,
+            isVIP: false,
+            notes: ''
+        });
+
+        const customerId = newRef.key;
+        await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde angelegt: ${name} (${customerId})`);
+
+        let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
+        confirmMsg += `👤 <b>${name}</b>\n`;
+        if (phone) confirmMsg += `📱 ${phone}\n`;
+        if (address) confirmMsg += `🏠 ${address}\n`;
+
+        await sendTelegramMessage(chatId, confirmMsg);
+        await deletePending(chatId);
+
+        // Buchung mit dem neuen Kunden fortsetzen
+        if (originalText) {
+            const preselectedCustomer = {
+                name: name,
+                phone: phone || '',
+                address: address || '',
+                defaultPickup: address || '',
+                customerId: customerId
+            };
+            await sendTelegramMessage(chatId, '🤖 <i>Analysiere Buchung...</i>');
+            await analyzeTelegramBooking(chatId, originalText, userName, { isAdmin: true, preselectedCustomer });
+        }
+    } catch (e) {
+        console.error('CRM-Fehler:', e);
+        await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message);
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // PENDING-BUCHUNGEN (Firebase statt Memory)
 // ═══════════════════════════════════════════════════════════════
@@ -2847,6 +2893,53 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.14.0: Admin — Neuen Kunden Schritt für Schritt anlegen
+    if (pending && pending._adminNewCust && !isPendingExpired(pending)) {
+        const step = pending._adminNewCustStep;
+
+        if (step === 'name') {
+            // Name eingegeben → weiter mit Telefon
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'phone',
+                _adminNewCustName: text.trim()
+            });
+            await sendTelegramMessage(chatId,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${text.trim()}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+                ] } }
+            );
+            return;
+        }
+
+        if (step === 'phone') {
+            // Telefon eingegeben → weiter mit Adresse
+            let normalizedPhone = text.trim().replace(/\s/g, '');
+            if (normalizedPhone.startsWith('0') && !normalizedPhone.startsWith('00')) {
+                normalizedPhone = '+49' + normalizedPhone.slice(1);
+            }
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'address',
+                _adminNewCustPhone: normalizedPhone
+            });
+            await sendTelegramMessage(chatId,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+                ] } }
+            );
+            return;
+        }
+
+        if (step === 'address') {
+            // Adresse eingegeben → Kunden anlegen!
+            await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', text.trim(), pending.originalText, pending.userName);
+            return;
+        }
+    }
+
     // Admin wartet auf Kundennamen
     if (pending && pending.awaitingCustomerName && !isPendingExpired(pending)) {
         const customerName = text.trim();
@@ -2883,9 +2976,23 @@ async function handleMessage(message) {
             buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
             await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
         } else {
-            await deletePending(chatId);
-            await sendTelegramMessage(chatId, `🔍 <i>"${customerName}" nicht im CRM.</i>\n🤖 <i>Analysiere Buchung...</i>`);
-            await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, forCustomerName: customerName });
+            // 🆕 v6.14.0: Nicht gefunden → Neuen Kunden anlegen anbieten
+            const _newCustId = Date.now().toString(36);
+            await setPending(chatId, {
+                awaitingNewCustomerChoice: true,
+                newCustomerName: customerName,
+                originalText: pending.originalText,
+                userName: pending.userName,
+                _newCustId
+            });
+            await sendTelegramMessage(chatId,
+                `🔍 <b>"${customerName}" nicht im CRM gefunden.</b>\n\nWas möchtest du tun?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: `admin_create_cust_${_newCustId}` }],
+                    [{ text: '➡️ Trotzdem buchen (ohne CRM)', callback_data: `admin_skip_crm_${_newCustId}` }],
+                    [{ text: '🔍 Anderen Namen suchen', callback_data: `admin_retry_name_${_newCustId}` }]
+                ] }
+            });
         }
         return;
     }
@@ -3405,7 +3512,12 @@ async function handleCallback(callback) {
             await analyzeTelegramBooking(chatId, text, userName, { forSelf: true });
         } else {
             await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName });
-            await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:');
+            await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] }
+            });
         }
         return;
     }
@@ -4661,7 +4773,95 @@ async function handleCallback(callback) {
         const pending = await getPending(chatId);
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
         await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName });
-        await sendTelegramMessage(chatId, '👤 <b>Anderen Kundennamen eingeben:</b>\n\n<i>Oder "neu" für ohne CRM-Zuordnung.</i>');
+        await sendTelegramMessage(chatId, '👤 <b>Anderen Kundennamen eingeben:</b>', {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }
+        });
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Neuen Kunden anlegen (direkt aus Menü)
+    if (data === 'admin_new_customer') {
+        const pending = await getPending(chatId);
+        await setPending(chatId, {
+            _adminNewCust: true,
+            _adminNewCustStep: 'name',
+            originalText: pending ? pending.originalText : '',
+            userName: pending ? pending.userName : ''
+        });
+        await sendTelegramMessage(chatId, '🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Bitte den <b>Namen</b> eingeben:');
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Neuen Kunden anlegen nach Suche (nicht gefunden)
+    if (data.startsWith('admin_create_cust_')) {
+        const pending = await getPending(chatId);
+        if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await setPending(chatId, {
+            _adminNewCust: true,
+            _adminNewCustStep: 'phone',
+            _adminNewCustName: pending.newCustomerName || '',
+            originalText: pending.originalText || '',
+            userName: pending.userName || ''
+        });
+        await sendTelegramMessage(chatId,
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+            ] } }
+        );
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Ohne CRM buchen
+    if (data.startsWith('admin_skip_crm_')) {
+        const pending = await getPending(chatId);
+        if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, '🤖 <i>Analysiere Buchung...</i>');
+        await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, forCustomerName: pending.newCustomerName || '' });
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Anderen Namen suchen
+    if (data.startsWith('admin_retry_name_')) {
+        const pending = await getPending(chatId);
+        if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName });
+        await sendTelegramMessage(chatId, '👤 <b>Anderen Kundennamen eingeben:</b>', {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }
+        });
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Neuer Kunde ohne Telefon weiter
+    if (data === 'admin_newcust_nophone') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await setPending(chatId, {
+            ...pending,
+            _adminNewCustStep: 'address',
+            _adminNewCustPhone: ''
+        });
+        await sendTelegramMessage(chatId,
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+            ] } }
+        );
+        return;
+    }
+
+    // 🆕 v6.14.0: Admin — Neuer Kunde ohne Adresse → Anlegen
+    if (data === 'admin_newcust_noaddr') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', '', pending.originalText, pending.userName);
         return;
     }
 
@@ -4888,7 +5088,22 @@ async function handleContact(message) {
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
             await sendTelegramMessage(chatId, `✅ <b>Willkommen zurück, ${customerData.name}!</b>\n\nIhre Nummer <b>${phone}</b> ist gespeichert.${commandHint}`, removeKeyboard);
         } else {
-            await saveTelegramCustomer(chatId, { customerId: null, name: firstName, phone, linkedAt: Date.now() });
+            // 🆕 v6.14.0: Neuen Kunden AUCH im CRM anlegen!
+            const newCustRef = db.ref('customers').push();
+            await newCustRef.set({
+                name: firstName,
+                phone: phone,
+                address: '',
+                email: '',
+                createdAt: Date.now(),
+                createdBy: 'telegram-self',
+                source: 'telegram',
+                totalRides: 0,
+                telegramChatId: String(chatId)
+            });
+            const newCustId = newCustRef.key;
+            await saveTelegramCustomer(chatId, { customerId: newCustId, name: firstName, phone, linkedAt: Date.now() });
+            await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde automatisch angelegt: ${firstName} (${newCustId})`);
             await sendTelegramMessage(chatId, `✅ <b>Danke, ${firstName}!</b>\n\nIhre Nummer <b>${phone}</b> wurde gespeichert.${commandHint}`, removeKeyboard);
         }
     } catch (e) {

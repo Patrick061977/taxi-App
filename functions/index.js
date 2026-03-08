@@ -3384,11 +3384,12 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        // 🆕 v6.14.1: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
-        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:frau|herrn?|herr|familie|fam\.?)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
+        // Prefix-Gruppe: optionale Artikel (den/einen) + optionale Anrede (Frau/Herr/Kunde/Kunden/Familie)
+        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:den|einen?|unseren?)\s+)?(?:(?:frau|herrn?|herr|familie|fam\.?|kunde[n]?|gast)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
         const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr'];
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung'];
         const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
 
         if (extractedCustomerName && !isGenericWord) {

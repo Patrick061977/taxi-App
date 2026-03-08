@@ -3263,14 +3263,58 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
-        await setPending(chatId, { taxiChoice: { text, userName } });
-        await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
-            reply_markup: { inline_keyboard: [
-                [{ text: '👤 Für einen Kunden', callback_data: 'taxi_for_customer' }],
-                [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
-            ]}
-        });
+        // 🆕 v6.14.1: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
+        const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:frau|herrn?|herr|familie|fam\.?)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
+        // Filtere generische Wörter die kein Kundenname sind
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr'];
+        const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+
+        if (extractedCustomerName && !isGenericWord) {
+            // Kundenname erkannt → direkt CRM-Suche, kein Nachfragen
+            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden, überspringe Auswahl`);
+            const allCust = await loadAllCustomers();
+            const matches = findAllCustomersForSecretary(allCust, extractedCustomerName);
+            if (matches.length === 1) {
+                const found = matches[0];
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
+                let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+                if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+                if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+                confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+                await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                    { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
+                    { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
+                ]] } });
+            } else if (matches.length > 1) {
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmMultiSelect: { matches, confirmId }, customerName: extractedCustomerName });
+                let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${extractedCustomerName}":</b>`;
+                const buttons = matches.map((m, i) => {
+                    let label = `👤 ${m.name}`;
+                    if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                    return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
+                });
+                buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+                await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+            } else {
+                // Nicht im CRM → direkt als Kundenname verwenden und Buchung analysieren
+                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
+                await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
+                await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+            }
+        } else {
+            // Kein Kundenname erkannt → Auswahl anzeigen wie bisher
+            await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
+            await setPending(chatId, { taxiChoice: { text, userName } });
+            await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '👤 Für einen Kunden', callback_data: 'taxi_for_customer' }],
+                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                ]}
+            });
+        }
         return;
     }
 

@@ -27,6 +27,30 @@ Bei größeren Änderungen APP_VERSION hochzählen UND Timestamp aktualisieren.
 
 ---
 
+## Deploy-Pflicht bei Cloud Functions (WICHTIG!)
+
+Nach JEDEM Commit der `functions/index.js` ändert, MUSS ein Deploy-Hinweis gegeben werden.
+Die Cloud Function läuft auf Firebase-Servern — Code-Änderungen sind erst nach Deploy aktiv!
+
+```bash
+# Nach dem Push den User erinnern:
+# "WICHTIG: functions/index.js wurde geändert → Deploy nötig:"
+firebase deploy --only functions
+```
+
+### Was wird über Cloud Functions gesteuert:
+- **Telegram-Webhook** — alle Bot-Nachrichten, Buchungen, Admin-Befehle
+- **Konversations-Flow** — Pending-States, Follow-Ups, CRM-Suche
+- **KI-Analyse** — Buchungs-Parsing via Anthropic API
+- **Benachrichtigungen** — Buchungsbestätigungen an Kunden + Admins
+
+### Regel:
+- Änderungen an `index.html` → Build-Timestamp aktualisieren
+- Änderungen an `functions/index.js` → User auf `firebase deploy --only functions` hinweisen
+- Änderungen an beiden → beides tun
+
+---
+
 ## Architektur-Übersicht
 
 ### Tech-Stack

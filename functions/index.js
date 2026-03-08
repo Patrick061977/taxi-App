@@ -3750,13 +3750,14 @@ async function handleCallback(callback) {
                 try {
                     const _crmName = booking._forCustomer || booking.name;
                     const _crmPhone = booking.phone || '';
-                    const _crmAddress = booking.pickup || '';
+                    const _crmPickup = booking.pickup || '';
 
                     const newCrmRef = db.ref('customers').push();
                     await newCrmRef.set({
                         name: _crmName,
                         phone: _crmPhone,
-                        address: _crmAddress,
+                        address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
+                        defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
                         email: '',
                         createdAt: Date.now(),
                         createdBy: 'telegram-admin-auto',
@@ -3773,7 +3774,7 @@ async function handleCallback(callback) {
                     await sendTelegramMessage(chatId,
                         `✅ <b>${_crmName}</b> automatisch im CRM angelegt!\n` +
                         (_crmPhone ? `📱 ${_crmPhone}\n` : '') +
-                        (_crmAddress ? `🏠 ${_crmAddress}` : '')
+                        (_crmPickup ? `📍 Standard-Abholort: ${_crmPickup}` : '')
                     );
                 } catch (e) {
                     console.error('CRM Auto-Anlage Fehler:', e);

@@ -489,6 +489,26 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
             }
         }
     }
+    // 5. 🆕 v6.14.2: Kreuz-Match — Wörter des Suchbegriffs gegen Wörter des CRM-Namens
+    // "Hotel Kaiserhof" findet "Kaiserhof Heringsdorf" (weil "Kaiserhof" in beiden vorkommt)
+    if (normalized.includes(' ') && results.length === 0) {
+        const searchWords = normalized.split(/\s+/).filter(w => w.length >= 4);
+        for (const c of allCustomers) {
+            if (results.length >= 5) break;
+            if (seen.has(c.id)) continue;
+            const nameParts = (c.name || '').toLowerCase().split(/\s+/);
+            for (const sw of searchWords) {
+                let matched = false;
+                for (const np of nameParts) {
+                    if (np.length >= 4 && (np === sw || np.startsWith(sw) || sw.startsWith(np) || fuzzyMatch(np, sw))) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) { seen.add(c.id); results.push(c); break; }
+            }
+        }
+    }
     return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
 }
 
@@ -3515,20 +3535,29 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
-        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht (z.B. "für Holzschindel")
-        // Prefix-Gruppe: optionale Artikel (den/einen) + optionale Anrede (Frau/Herr/Kunde/Kunden/Familie)
+        // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
+        // Pattern 1: "für [Name]" — "für Nicole Schindel", "für Kunde Kaiserhof"
         const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:den|einen?|unseren?)\s+)?(?:(?:frau|herrn?|herr|familie|fam\.?|kunde[n]?|gast)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
-        const extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : null;
+        // Pattern 2: "vom/von [Name]" — "Taxi vom Kaiserhof", "von Hotel Residenz"
+        const vomMatch = !fuerMatch && text.match(/\b(?:vom|von(?:\s+dem)?)\s+(?:(?:hotel|pension|haus|gasthof|gasthaus)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
+        let extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : (vomMatch ? vomMatch[1].trim() : null);
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung'];
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus'];
         const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+        // 🆕 v6.14.2: Bei "vom"-Pattern nur akzeptieren wenn CRM-Treffer existiert (sonst ist es ein Ortsname)
+        const isVomPattern = !fuerMatch && !!vomMatch;
 
         if (extractedCustomerName && !isGenericWord) {
             // Kundenname erkannt → direkt CRM-Suche, kein Nachfragen
-            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden, überspringe Auswahl`);
+            await addTelegramLog('👔', chatId, `Admin erkannt → Kundenname "${extractedCustomerName}" in Nachricht gefunden${isVomPattern ? ' (vom-Pattern)' : ''}, überspringe Auswahl`);
             const allCust = await loadAllCustomers();
             const matches = findAllCustomersForSecretary(allCust, extractedCustomerName);
-            if (matches.length === 1) {
+
+            // 🆕 v6.14.2: Bei "vom"-Pattern ohne CRM-Treffer → ist kein Kundenname sondern ein Ort
+            if (isVomPattern && matches.length === 0) {
+                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" (vom-Pattern) nicht im CRM → normaler Buchungsflow`);
+                // Weiter unten als normale Buchung ohne Kundenname behandeln
+            } else if (matches.length === 1) {
                 const found = matches[0];
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
@@ -3540,6 +3569,7 @@ async function handleMessage(message) {
                     { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
                     { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
                 ]] } });
+                return;
             } else if (matches.length > 1) {
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmMultiSelect: { matches, confirmId }, customerName: extractedCustomerName });
@@ -3551,13 +3581,18 @@ async function handleMessage(message) {
                 });
                 buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
                 await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+                return;
             } else {
-                // Nicht im CRM → direkt als Kundenname verwenden und Buchung analysieren
-                await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
-                await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
-                await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+                // "für"-Pattern aber nicht im CRM → direkt als Kundenname verwenden
+                if (!isVomPattern) {
+                    await addTelegramLog('👔', chatId, `"${extractedCustomerName}" nicht im CRM → Buchung ohne CRM`);
+                    await sendTelegramMessage(chatId, `🤖 <i>Buchung für <b>${extractedCustomerName}</b> wird analysiert...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, forCustomerName: extractedCustomerName });
+                    return;
+                }
             }
-        } else {
+        }
+        {
             // Kein Kundenname erkannt → Auswahl anzeigen wie bisher
             await addTelegramLog('👔', chatId, 'Admin erkannt → Frage: Für Kunden oder für sich selbst?');
             await setPending(chatId, { taxiChoice: { text, userName } });

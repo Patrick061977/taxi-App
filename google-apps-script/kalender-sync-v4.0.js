@@ -273,6 +273,20 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const durationMinutes = ride.duration || 30;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
+    // 🔧 v4.2: Telefonnummer aus CRM nachladen wenn in Fahrt fehlend
+    if (EXPORT_SETTINGS.showPhone && !ride.customerPhone && !ride.customerMobile && ride.customerId) {
+      try {
+        const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
+        const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
+        const custData = JSON.parse(custResp.getContentText());
+        if (custData) {
+          if (custData.mobilePhone) ride.customerMobile = custData.mobilePhone;
+          if (custData.phone) ride.customerPhone = custData.phone;
+          console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, ride.customerMobile || ride.customerPhone || 'keine');
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     const vehicleName = ride.vehicleLabel || ride.vehicle || ride.assignedVehicle || ride.assignedDriver || '';
     const vehiclePlate = ride.vehiclePlate ? ` (${ride.vehiclePlate})` : '';
     const vehicleDisplay = vehicleName ? vehicleName + vehiclePlate : '';
@@ -321,6 +335,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       existingEvent.setLocation(ride.pickup || '');
       existingEvent.setColor(CONFIG.EVENT_COLOR);
 
+      // 🔧 v4.2: Erinnerung setzen wenn aktiviert
+      if (EXPORT_SETTINGS.showReminder) {
+        existingEvent.removeAllReminders();
+        existingEvent.addPopupReminder(30); // 30 Min vorher
+      }
+
       console.log('🔄 Aktualisiert:', ride.firebaseId);
       return 'updated';
 
@@ -334,6 +354,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
 
       event.setColor(CONFIG.EVENT_COLOR);
       event.setTag('firebaseId', ride.firebaseId);
+
+      // 🔧 v4.2: Erinnerung setzen wenn aktiviert
+      if (EXPORT_SETTINGS.showReminder) {
+        event.removeAllReminders();
+        event.addPopupReminder(30); // 30 Min vorher
+      }
 
       console.log('➕ Erstellt:', ride.firebaseId);
       return 'created';

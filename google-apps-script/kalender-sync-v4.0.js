@@ -321,6 +321,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       existingEvent.setLocation(ride.pickup || '');
       existingEvent.setColor(CONFIG.EVENT_COLOR);
 
+      // 🔧 v4.2: Erinnerung setzen wenn aktiviert
+      if (EXPORT_SETTINGS.showReminder) {
+        existingEvent.removeAllReminders();
+        existingEvent.addPopupReminder(30); // 30 Min vorher
+      }
+
       console.log('🔄 Aktualisiert:', ride.firebaseId);
       return 'updated';
 
@@ -334,6 +340,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
 
       event.setColor(CONFIG.EVENT_COLOR);
       event.setTag('firebaseId', ride.firebaseId);
+
+      // 🔧 v4.2: Erinnerung setzen wenn aktiviert
+      if (EXPORT_SETTINGS.showReminder) {
+        event.removeAllReminders();
+        event.addPopupReminder(30); // 30 Min vorher
+      }
 
       console.log('➕ Erstellt:', ride.firebaseId);
       return 'created';

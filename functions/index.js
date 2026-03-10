@@ -559,6 +559,7 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
             const preselectedCustomer = {
                 name: name,
                 phone: phone || '',
+                mobilePhone: isMobileNumber(phone) ? phone : '', // 🔧 v6.14.7: mobilePhone weitergeben
                 address: address || '',
                 defaultPickup: address || '',
                 customerId: customerId
@@ -1639,11 +1640,12 @@ Nur gültiges JSON, kein Markdown:
             booking._adminChatId = chatId;
             if (preselected) {
                 booking.name = preselected.name;
-                booking.phone = preselected.phone || booking.phone;
+                // 🔧 v6.14.7: mobilePhone bevorzugen — nicht nur phone!
+                booking.phone = preselected.mobilePhone || preselected.phone || booking.phone;
                 booking._customerAddress = preselected.address;
                 booking._forCustomer = preselected.name;
                 booking._crmCustomerId = preselected.customerId || null;
-                if (preselected.phone && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
+                if ((preselected.mobilePhone || preselected.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
                 const pickupDefault = preselected.defaultPickup || preselected.address;
                 if (pickupDefault) {
                     if (!booking.pickup || /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test((booking.pickup || '').trim())) {
@@ -1681,7 +1683,9 @@ Nur gültiges JSON, kein Markdown:
                     const confirmId = Date.now().toString(36);
                     await setPending(chatId, { partial: booking, crmConfirm: { found, confirmId }, originalText: text });
                     let confirmMsg = `🔍 <b>Kunden im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-                    if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+                    // 🔧 v6.14.7: Auch mobilePhone anzeigen
+            const _dispPhone = found.mobilePhone || found.phone;
+            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                     if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                     confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
                     await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -2223,7 +2227,8 @@ async function linkTelegramChatToCustomer(chatId, booking) {
         snap.forEach(child => {
             if (customerId) return;
             const c = child.val();
-            const cPhone = (c.phone || c.mobile || '').replace(/\D/g, '');
+            // 🔧 v6.14.7: Auch mobilePhone in CRM-Suche berücksichtigen
+            const cPhone = (c.mobilePhone || c.phone || c.mobile || '').replace(/\D/g, '');
             if (digits && digits.length > 5 && cPhone.endsWith(digits.slice(-9))) {
                 customerId = child.key;
                 customerData = c;
@@ -3170,7 +3175,9 @@ async function handleMessage(message) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText, userName: savedUserName, crmConfirm: { found, confirmId }, customerName });
             let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-            if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+            // 🔧 v6.14.7: Auch mobilePhone anzeigen
+            const _dispPhone = found.mobilePhone || found.phone;
+            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
             await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -3214,7 +3221,9 @@ async function handleMessage(message) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmConfirm: { found, confirmId }, customerName });
             let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-            if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+            // 🔧 v6.14.7: Auch mobilePhone anzeigen
+            const _dispPhone = found.mobilePhone || found.phone;
+            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
             await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -3270,7 +3279,9 @@ async function handleMessage(message) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmConfirm: { found, confirmId }, customerName });
             let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-            if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+            // 🔧 v6.14.7: Auch mobilePhone anzeigen
+            const _dispPhone = found.mobilePhone || found.phone;
+            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
             await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -3603,7 +3614,9 @@ async function handleMessage(message) {
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
                 let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-                if (found.phone) confirmMsg += `📱 ${found.phone}\n`;
+                // 🔧 v6.14.7: Auch mobilePhone anzeigen
+            const _dispPhone = found.mobilePhone || found.phone;
+            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                 if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                 confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
                 await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -4473,7 +4486,8 @@ async function handleCallback(callback) {
             passengers: _rebookRide.passengers || 1,
             datetime: null,
             name: _rebookRide.customerName || '',
-            phone: _rebookRide.customerPhone || '',
+            // 🔧 v6.14.7: Auch customerMobile als Fallback
+            phone: _rebookRide.customerPhone || _rebookRide.customerMobile || '',
             notes: _rebookRide.notes || '',
             missing: ['datetime'], // Nur Datum fehlt noch
             summary: 'Nochmal buchen von vergangener Fahrt'
@@ -4642,13 +4656,15 @@ async function handleCallback(callback) {
             const returnText = `${origRide.destination} nach ${origRide.pickup}`;
             await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
             // Pending mit vorausgefüllten Adressen erstellen
-            let _returnPhone = origRide.customerPhone || '';
+            // 🔧 v6.14.7: Auch customerMobile als Fallback
+            let _returnPhone = origRide.customerPhone || origRide.customerMobile || '';
             // 🔧 v6.14.2: Telefon aus CRM nachladen wenn in Fahrt fehlend
             if (!_returnPhone && origRide.customerId) {
                 try {
                     const _rcSnap = await db.ref('customers/' + origRide.customerId).once('value');
                     const _rcData = _rcSnap.val();
-                    if (_rcData && _rcData.phone) _returnPhone = _rcData.phone;
+                    // 🔧 v6.14.7: mobilePhone bevorzugen
+                    if (_rcData && (_rcData.mobilePhone || _rcData.phone)) _returnPhone = _rcData.mobilePhone || _rcData.phone;
                 } catch (_e) { /* ignore */ }
             }
             const returnBooking = {
@@ -5217,7 +5233,8 @@ async function handleCallback(callback) {
         await addTelegramLog('👤', chatId, `Admin: Vorausgewählter Kunde: ${found.name}`);
 
         // Beliebte Ziele des Kunden laden
-        const favorites = await getCustomerFavoriteDestinations(found.name, found.phone);
+        // 🔧 v6.14.7: Auch mobilePhone für Favoriten-Suche nutzen
+        const favorites = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone);
         if (favorites.length > 0) {
             const favId = Date.now().toString(36);
             await setPending(chatId, {
@@ -5392,13 +5409,14 @@ async function handleCallback(callback) {
         const { found } = pending.crmConfirm;
         const booking = { ...(pending.partial || {}) };
         booking.name = found.name;
-        booking.phone = found.phone || booking.phone;
+        // 🔧 v6.14.7: mobilePhone bevorzugen — nicht nur phone!
+        booking.phone = found.mobilePhone || found.phone || booking.phone;
         booking._customerAddress = found.address;
         booking._forCustomer = found.name;
         booking._crmCustomerId = found.customerId || null;
         booking._adminBooked = true;
         booking._adminChatId = chatId;
-        if (found.phone && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
+        if ((found.mobilePhone || found.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
         const pickupDefault = found.defaultPickup || found.address;
         if (pickupDefault) {
             if (!booking.pickup || /^(zu hause|zuhause|von zu hause)$/i.test((booking.pickup || '').trim())) {
@@ -5436,13 +5454,14 @@ async function handleCallback(callback) {
         if (!found) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
         const booking = { ...(pending.partial || {}) };
         booking.name = found.name;
-        booking.phone = found.phone || booking.phone;
+        // 🔧 v6.14.7: mobilePhone bevorzugen — nicht nur phone!
+        booking.phone = found.mobilePhone || found.phone || booking.phone;
         booking._customerAddress = found.address;
         booking._forCustomer = found.name;
         booking._crmCustomerId = found.customerId || null;
         booking._adminBooked = true;
         booking._adminChatId = chatId;
-        if (found.phone && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
+        if ((found.mobilePhone || found.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
         if (!booking.missing) booking.missing = [];
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
@@ -5595,7 +5614,8 @@ async function handleContact(message) {
         snap.forEach(child => {
             if (customerId) return;
             const c = child.val();
-            const cPhone = (c.phone || c.mobile || '').replace(/\D/g, '');
+            // 🔧 v6.14.7: Auch mobilePhone in CRM-Suche berücksichtigen
+            const cPhone = (c.mobilePhone || c.phone || c.mobile || '').replace(/\D/g, '');
             if (digits && digits.length > 5 && (cPhone.endsWith(digits.slice(-9)))) {
                 customerId = child.key;
                 customerData = c;

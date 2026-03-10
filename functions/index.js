@@ -520,6 +520,7 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
             name: name,
             phone: phone || '',
             address: address || '',
+            defaultPickup: address || '',  // 🔧 v6.14.2: Adresse auch als Standard-Abholort
             email: '',
             createdAt: Date.now(),
             createdBy: 'telegram-admin',
@@ -1981,13 +1982,20 @@ Nur gültiges JSON, kein Markdown:
 
         await addTelegramLog('🤖', chatId, 'Follow-Up Antwort', { summary: booking.summary, missing: booking.missing });
 
-        // Admin-Flags übertragen
+        // Admin-Flags übertragen — partial hat immer Vorrang vor KI-Antwort!
         if (isAdminFollowUp) {
             booking._adminBooked = partial._adminBooked || true;
             booking._adminChatId = partial._adminChatId || chatId;
-            booking._forCustomer = booking._forCustomer || booking.forCustomer || partial._forCustomer;
+            // 🔧 v6.14.2: partial._forCustomer hat Vorrang – KI darf Admin-Kundennamen nicht überschreiben
+            booking._forCustomer = partial._forCustomer || booking._forCustomer || booking.forCustomer;
             booking._customerAddress = partial._customerAddress;
-            if (partial._crmCustomerId !== undefined) booking._crmCustomerId = partial._crmCustomerId;
+            // 🔧 v6.14.2: CRM-ID zuverlässig übertragen (auch null/undefined aus Firebase)
+            if (partial._crmCustomerId !== undefined) {
+                booking._crmCustomerId = partial._crmCustomerId;
+            } else if (booking._crmCustomerId === undefined) {
+                // Firebase entfernt null-Werte → wenn partial keinen Key hat, prüfe ob ursprünglich gesetzt
+                booking._crmCustomerId = null;
+            }
         }
 
         // Koordinaten aus partial übernehmen (z.B. aus Favoriten)
@@ -3974,6 +3982,18 @@ async function handleCallback(callback) {
                 try { telegramRoutePrice = await calculateTelegramRoutePrice(booking); } catch (e) {}
             }
 
+            // 🔧 v6.14.2: Telefonnummer-Absicherung — wenn phone fehlt, aus CRM nachladen
+            if (!booking.phone && booking._crmCustomerId) {
+                try {
+                    const _custSnap = await db.ref('customers/' + booking._crmCustomerId).once('value');
+                    const _custData = _custSnap.val();
+                    if (_custData && _custData.phone) {
+                        booking.phone = _custData.phone;
+                        await addTelegramLog('📱', chatId, `Telefon aus CRM nachgeladen: ${_custData.phone}`);
+                    }
+                } catch (_e) { /* ignore */ }
+            }
+
             const rideData = {
                 pickup: booking.pickup || 'Abholort offen',
                 destination: booking.destination || 'Zielort offen',
@@ -4078,36 +4098,59 @@ async function handleCallback(callback) {
             }
 
             // 🆕 v6.14.0: Admin-Buchung → CRM-Eintrag AUTOMATISCH anlegen!
-            if (booking._adminBooked && booking._forCustomer && booking._crmCustomerId === null) {
+            // 🔧 v6.14.2: Auch undefined prüfen (Firebase entfernt null-Werte) + Duplikat-Check
+            if (booking._adminBooked && booking._forCustomer && (booking._crmCustomerId === null || booking._crmCustomerId === undefined)) {
                 try {
                     const _crmName = booking._forCustomer || booking.name;
                     const _crmPhone = booking.phone || '';
                     const _crmPickup = booking.pickup || '';
 
-                    const newCrmRef = db.ref('customers').push();
-                    await newCrmRef.set({
-                        name: _crmName,
-                        phone: _crmPhone,
-                        address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
-                        defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
-                        email: '',
-                        createdAt: Date.now(),
-                        createdBy: 'telegram-admin-auto',
-                        source: 'telegram-admin',
-                        totalRides: 1,
-                        isVIP: false,
-                        notes: ''
-                    });
+                    // 🔧 v6.14.2: Duplikat-Check — nicht anlegen wenn Kunde mit gleichem Namen/Telefon schon existiert
+                    let _alreadyExists = false;
+                    try {
+                        const _allCust = await loadAllCustomers();
+                        const _nameLower = _crmName.toLowerCase().trim();
+                        const _phoneDigits = _crmPhone.replace(/\D/g, '');
+                        for (const c of _allCust) {
+                            const cNameMatch = (c.name || '').toLowerCase().trim() === _nameLower;
+                            const cPhoneDigits = (c.phone || '').replace(/\D/g, '');
+                            const cPhoneMatch = _phoneDigits.length > 5 && cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9));
+                            if (cNameMatch || cPhoneMatch) {
+                                _alreadyExists = true;
+                                // Fahrt mit gefundenem Kunden verknüpfen
+                                await db.ref('rides/' + rideData.id + '/customerId').set(c.customerId);
+                                await addTelegramLog('🔗', chatId, `CRM-Kunde bereits vorhanden: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
+                                break;
+                            }
+                        }
+                    } catch (_dupErr) { console.warn('CRM Duplikat-Check Fehler:', _dupErr.message); }
 
-                    // Fahrt mit CRM verknüpfen
-                    await db.ref('rides/' + rideData.id + '/customerId').set(newCrmRef.key);
+                    if (!_alreadyExists) {
+                        const newCrmRef = db.ref('customers').push();
+                        await newCrmRef.set({
+                            name: _crmName,
+                            phone: _crmPhone,
+                            address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
+                            defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
+                            email: '',
+                            createdAt: Date.now(),
+                            createdBy: 'telegram-admin-auto',
+                            source: 'telegram-admin',
+                            totalRides: 1,
+                            isVIP: false,
+                            notes: ''
+                        });
 
-                    await addTelegramLog('🆕', chatId, `CRM auto-angelegt: ${_crmName} (${newCrmRef.key})`);
-                    await sendTelegramMessage(chatId,
-                        `✅ <b>${_crmName}</b> automatisch im CRM angelegt!\n` +
-                        (_crmPhone ? `📱 ${_crmPhone}\n` : '') +
-                        (_crmPickup ? `📍 Standard-Abholort: ${_crmPickup}` : '')
-                    );
+                        // Fahrt mit CRM verknüpfen
+                        await db.ref('rides/' + rideData.id + '/customerId').set(newCrmRef.key);
+
+                        await addTelegramLog('🆕', chatId, `CRM auto-angelegt: ${_crmName} (${newCrmRef.key})`);
+                        await sendTelegramMessage(chatId,
+                            `✅ <b>${_crmName}</b> automatisch im CRM angelegt!\n` +
+                            (_crmPhone ? `📱 ${_crmPhone}\n` : '') +
+                            (_crmPickup ? `📍 Standard-Abholort: ${_crmPickup}` : '')
+                        );
+                    }
                 } catch (e) {
                     console.error('CRM Auto-Anlage Fehler:', e);
                 }

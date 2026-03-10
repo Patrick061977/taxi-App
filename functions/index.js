@@ -4155,12 +4155,15 @@ async function handleCallback(callback) {
                     } catch (_dupErr) { console.warn('CRM Duplikat-Check Fehler:', _dupErr.message); }
 
                     if (!_alreadyExists) {
+                        // 🔧 v6.14.5: Auto-Erkennung Mobil vs. Festnetz
+                        const _isCrmMobil = _crmPhone && /^(\+49|0049|0)?1[567]\d/.test(String(_crmPhone).replace(/[\s\-\/\(\)]/g, ''));
                         const newCrmRef = db.ref('customers').push();
                         await newCrmRef.set({
                             name: _crmName,
-                            phone: _crmPhone,
-                            address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
-                            defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
+                            phone: _isCrmMobil ? '' : (_crmPhone || ''),
+                            mobilePhone: _isCrmMobil ? _crmPhone : '',
+                            address: '',
+                            defaultPickup: _crmPickup,
                             email: booking.email || '',
                             createdAt: Date.now(),
                             createdBy: 'telegram-admin-auto',

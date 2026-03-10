@@ -1051,6 +1051,70 @@ async function checkTelegramTimeConflict(pickupTimestamp, estimatedDuration) {
     }
 }
 
+// 🆕 v6.14.7: Freitext-Datum parsen ("morgen 14:00", "15.03. 10 Uhr", "14:30", etc.)
+function parseFreeformDatetime(text) {
+    if (!text) return null;
+    const now = new Date();
+    const berlinNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+
+    let targetDate = new Date(berlinNow);
+    let hours = null, minutes = null;
+
+    const t = text.toLowerCase().trim();
+
+    // "morgen", "übermorgen", "heute"
+    if (/morgen/i.test(t) && !/übermorgen/i.test(t)) {
+        targetDate.setDate(targetDate.getDate() + 1);
+    } else if (/übermorgen/i.test(t)) {
+        targetDate.setDate(targetDate.getDate() + 2);
+    }
+    // Wochentage
+    const wochentage = { montag: 1, dienstag: 2, mittwoch: 3, donnerstag: 4, freitag: 5, samstag: 6, sonntag: 0 };
+    for (const [tag, dow] of Object.entries(wochentage)) {
+        if (t.includes(tag)) {
+            let diff = dow - targetDate.getDay();
+            if (diff <= 0) diff += 7;
+            targetDate.setDate(targetDate.getDate() + diff);
+            break;
+        }
+    }
+    // Datum: "15.03.", "15.3.2026", "15.03.2026"
+    const dateMatch = t.match(/(\d{1,2})\.(\d{1,2})\.?(\d{2,4})?/);
+    if (dateMatch) {
+        targetDate.setDate(parseInt(dateMatch[1]));
+        targetDate.setMonth(parseInt(dateMatch[2]) - 1);
+        if (dateMatch[3]) {
+            let year = parseInt(dateMatch[3]);
+            if (year < 100) year += 2000;
+            targetDate.setFullYear(year);
+        }
+        // Wenn Datum in Vergangenheit → nächstes Jahr
+        if (targetDate < berlinNow && !dateMatch[3]) {
+            targetDate.setFullYear(targetDate.getFullYear() + 1);
+        }
+    }
+    // Uhrzeit: "14:00", "14 Uhr", "14.30", "14:30 Uhr"
+    const timeMatch = t.match(/(\d{1,2})[:\.](\d{2})/);
+    const timeMatch2 = t.match(/(\d{1,2})\s*uhr/i);
+    if (timeMatch) {
+        hours = parseInt(timeMatch[1]);
+        minutes = parseInt(timeMatch[2]);
+    } else if (timeMatch2) {
+        hours = parseInt(timeMatch2[1]);
+        minutes = 0;
+    }
+
+    if (hours === null) return null; // Mindestens Uhrzeit muss angegeben sein
+
+    targetDate.setHours(hours, minutes, 0, 0);
+
+    // Convert Berlin local time to UTC timestamp
+    const berlinStr = targetDate.toLocaleString('en-US');
+    const berlinAsUTC = new Date(berlinStr);
+    const offsetMs = berlinAsUTC.getTime() - targetDate.getTime();
+    return targetDate.getTime() - offsetMs;
+}
+
 function parseGermanDatetime(datetimeStr) {
     if (!datetimeStr) return Date.now();
     const d = new Date(datetimeStr);
@@ -2980,6 +3044,75 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, '⏰ <b>Ihre vorherige Anfrage ist abgelaufen</b> (nach 30 Minuten).\n\nSchreiben Sie einfach eine neue Anfrage!');
     }
 
+    // 🆕 v6.14.7: DATUM ÄNDERN — User hat neues Datum eingegeben
+    if (pending && pending._awaitingDateChange && pending._dateChangeRideId && !isPendingExpired(pending)) {
+        const rideId = pending._dateChangeRideId;
+        const rideInfo = pending._dateChangeRide || {};
+        try {
+            // Datum parsen: Unterstützt "morgen 14:00", "15.03. 10 Uhr", "14:30", etc.
+            const newTimestamp = parseFreeformDatetime(text);
+            if (!newTimestamp) {
+                await sendTelegramMessage(chatId, '⚠️ Konnte Datum nicht erkennen.\n\nBitte versuche es nochmal, z.B.:\n<i>"morgen 14:00"</i> oder <i>"15.03. 10 Uhr"</i>');
+                return;
+            }
+            const newDt = new Date(newTimestamp);
+            const newTimeStr = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const newDateStr = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' });
+
+            // Firebase updaten
+            await db.ref('rides/' + rideId).update({
+                pickupTimestamp: newTimestamp,
+                pickupTime: newDt.toISOString(),
+                pickupDate: newDt.toLocaleDateString('de-DE', TZ_BERLIN),
+                timestamp: newTimestamp,
+                updatedAt: Date.now()
+            });
+            await deletePending(chatId);
+
+            await sendTelegramMessage(chatId,
+                `✅ <b>Datum geändert!</b>\n\n` +
+                `👤 ${rideInfo.customerName || 'Kunde'}\n` +
+                `📍 ${rideInfo.pickup || '?'} → ${rideInfo.destination || '?'}\n` +
+                `📅 <b>${newDateStr} um ${newTimeStr} Uhr</b>`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
+                ] } }
+            );
+            await addTelegramLog('📅', chatId, `Datum geändert für ${rideId}: ${newDateStr} ${newTimeStr}`);
+        } catch (e) {
+            console.error('Datum-Ändern Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
+            await deletePending(chatId);
+        }
+        return;
+    }
+
+    // 🆕 v6.14.7: GASTNAME — User hat Gastnamen eingegeben
+    if (pending && pending._awaitingGuestName && pending._guestNameRideId && !isPendingExpired(pending)) {
+        const rideId = pending._guestNameRideId;
+        const guestName = text.trim().slice(0, 100);
+        try {
+            await db.ref('rides/' + rideId).update({
+                guestName: guestName,
+                updatedAt: Date.now()
+            });
+            await deletePending(chatId);
+
+            await sendTelegramMessage(chatId,
+                `✅ <b>Gastname gespeichert!</b>\n\n👤 Fahrgast: <b>${guestName}</b>`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
+                ] } }
+            );
+            await addTelegramLog('👤', chatId, `Gastname "${guestName}" für Fahrt ${rideId}`);
+        } catch (e) {
+            console.error('Gastname Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
+            await deletePending(chatId);
+        }
+        return;
+    }
+
     // Bemerkung zur Buchung hinzufügen (Freitext)
     if (pending && pending._awaitingNote && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
         const noteText = text.trim().slice(0, 500);
@@ -4080,8 +4213,10 @@ async function handleCallback(callback) {
                 ? `✅ <b>Buchung für ${booking._forCustomer || rideData.customerName} eingetragen!</b>\n\n`
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
             // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
+            // 🔧 v6.14.7: + Datum ändern + Gastname Buttons
             const returnKeyboard = { inline_keyboard: [
                 [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
+                [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             await sendTelegramMessage(chatId,
@@ -4700,6 +4835,69 @@ async function handleCallback(callback) {
         } catch (e) {
             console.error('Rückfahrt-Fehler:', e);
             await sendTelegramMessage(chatId, '❌ Fehler beim Erstellen der Rückfahrt.');
+        }
+        return;
+    }
+
+    // 🆕 v6.14.7: DATUM ÄNDERN für bestellte Fahrt
+    if (data.startsWith('chdate_')) {
+        const rideId = data.replace('chdate_', '');
+        try {
+            const rideSnap = await db.ref('rides/' + rideId).once('value');
+            const ride = rideSnap.val();
+            if (!ride) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            await setPending(chatId, {
+                _awaitingDateChange: true,
+                _dateChangeRideId: rideId,
+                _dateChangeRide: { customerName: ride.customerName, pickup: ride.pickup, destination: ride.destination },
+                _createdAt: Date.now()
+            });
+
+            const currentTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'unbekannt';
+            await sendTelegramMessage(chatId,
+                `📅 <b>Datum/Zeit ändern</b>\n\n` +
+                `👤 ${ride.customerName}\n` +
+                `📍 ${ride.pickup} → ${ride.destination}\n` +
+                `🕐 Aktuell: <b>${currentTime}</b>\n\n` +
+                `Neues Datum/Uhrzeit eingeben:\n` +
+                `<i>z.B. "morgen 14:00" oder "15.03. 10 Uhr"</i>`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+            );
+            await addTelegramLog('📅', chatId, `Datum ändern gestartet für Fahrt ${rideId}`);
+        } catch (e) {
+            console.error('Datum-Ändern Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
+        }
+        return;
+    }
+
+    // 🆕 v6.14.7: GASTNAME EINTRAGEN für Fahrt
+    if (data.startsWith('chguest_')) {
+        const rideId = data.replace('chguest_', '');
+        try {
+            const rideSnap = await db.ref('rides/' + rideId).once('value');
+            const ride = rideSnap.val();
+            if (!ride) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            await setPending(chatId, {
+                _awaitingGuestName: true,
+                _guestNameRideId: rideId,
+                _createdAt: Date.now()
+            });
+
+            await sendTelegramMessage(chatId,
+                `👤 <b>Gastname eintragen</b>\n\n` +
+                `📍 ${ride.pickup} → ${ride.destination}\n` +
+                `👤 Auftraggeber: ${ride.customerName}\n` +
+                (ride.guestName ? `👤 Aktueller Gast: <b>${ride.guestName}</b>\n` : '') +
+                `\nWie heißt der Fahrgast?`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+            );
+            await addTelegramLog('👤', chatId, `Gastname eintragen gestartet für Fahrt ${rideId}`);
+        } catch (e) {
+            console.error('Gastname Fehler:', e);
+            await sendTelegramMessage(chatId, '❌ Fehler: ' + e.message);
         }
         return;
     }

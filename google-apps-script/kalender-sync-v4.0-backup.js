@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.4 - CRM-Lookup auch bei Festnetz → Mobilnummer nachladen
+// Version: 4.6 - CRM-Lookup IMMER wenn customerMobile fehlt (nicht nur bei Festnetz)
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.4...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.6...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -280,20 +280,27 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       console.log('📱 phone → customerPhone übernommen für:', ride.firebaseId);
     }
 
-    // 🔧 v4.4: CRM-Lookup wenn KEINE Mobilnummer vorhanden (nicht nur wenn gar keine Nummer)
-    // Auch auslösen wenn customerPhone nur Festnetz ist — CRM könnte mobilePhone haben
-    const hasMobileInRide = ride.customerMobile || (ride.customerPhone && isMobileNumber(ride.customerPhone));
-    if (EXPORT_SETTINGS.showPhone && !hasMobileInRide && ride.customerId) {
+    // 🔧 v4.6: CRM-Lookup IMMER wenn customerMobile fehlt und customerId vorhanden
+    // Festnetz (customerPhone) war schon immer da — aber customerMobile ist neu (v6.14.4)
+    // Ältere Fahrten haben es nicht → IMMER aus CRM nachladen!
+    if (!ride.customerMobile && ride.customerId) {
       try {
         const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
         const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
         const custData = JSON.parse(custResp.getContentText());
         if (custData) {
-          if (custData.mobilePhone) ride.customerMobile = custData.mobilePhone;
+          if (custData.mobilePhone) {
+            ride.customerMobile = custData.mobilePhone;
+            console.log('📱 CRM mobilePhone → customerMobile:', ride.customerMobile, 'für:', ride.firebaseId);
+          } else if (custData.phone && isMobileNumber(custData.phone)) {
+            ride.customerMobile = custData.phone;
+            console.log('📱 CRM phone (ist Mobil) → customerMobile:', ride.customerMobile, 'für:', ride.firebaseId);
+          }
           if (custData.phone && !ride.customerPhone) ride.customerPhone = custData.phone;
-          console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, 'Mobil:', ride.customerMobile || 'keine', 'Festnetz:', ride.customerPhone || 'keine');
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        console.log('⚠️ CRM-Lookup fehlgeschlagen für:', ride.firebaseId, e.message || e);
+      }
     }
 
     const vehicleName = ride.vehicleLabel || ride.vehicle || ride.assignedVehicle || ride.assignedDriver || '';

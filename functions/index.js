@@ -4419,6 +4419,26 @@ async function handleCallback(callback) {
             missing: ['datetime'], // Nur Datum fehlt noch
             summary: 'Nochmal buchen von vergangener Fahrt'
         };
+        // 🔧 v6.14.2: Admin-Flags + CRM-Daten aus Originalfahrt übernehmen
+        if (_rebookRide.source === 'telegram-admin' || _rebookRide.adminBookedBy) {
+            _rebookData._adminBooked = true;
+            _rebookData._adminChatId = chatId;
+            _rebookData._forCustomer = _rebookRide.bookedForCustomer || _rebookRide.customerName || '';
+            if (_rebookRide.customerId) {
+                _rebookData._crmCustomerId = _rebookRide.customerId;
+                // Telefon aus CRM nachladen wenn in Fahrt fehlend
+                if (!_rebookData.phone) {
+                    try {
+                        const _cSnap = await db.ref('customers/' + _rebookRide.customerId).once('value');
+                        const _cData = _cSnap.val();
+                        if (_cData) {
+                            _rebookData.phone = _cData.phone || '';
+                            _rebookData._customerAddress = _cData.address || '';
+                        }
+                    } catch (_e) { /* ignore */ }
+                }
+            }
+        }
         // Kundeninfo setzen
         const _rebookCust = await getTelegramCustomer(chatId);
         if (_rebookCust) {
@@ -4563,11 +4583,20 @@ async function handleCallback(callback) {
             const returnText = `${origRide.destination} nach ${origRide.pickup}`;
             await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
             // Pending mit vorausgefüllten Adressen erstellen
+            let _returnPhone = origRide.customerPhone || '';
+            // 🔧 v6.14.2: Telefon aus CRM nachladen wenn in Fahrt fehlend
+            if (!_returnPhone && origRide.customerId) {
+                try {
+                    const _rcSnap = await db.ref('customers/' + origRide.customerId).once('value');
+                    const _rcData = _rcSnap.val();
+                    if (_rcData && _rcData.phone) _returnPhone = _rcData.phone;
+                } catch (_e) { /* ignore */ }
+            }
             const returnBooking = {
                 pickup: origRide.destination,
                 destination: origRide.pickup,
                 name: origRide.customerName || '',
-                phone: origRide.customerPhone || '',
+                phone: _returnPhone,
                 // Koordinaten tauschen
                 pickupLat: origRide.destinationLat || origRide.destCoords?.lat || null,
                 pickupLon: origRide.destinationLon || origRide.destCoords?.lon || null,
@@ -4576,6 +4605,13 @@ async function handleCallback(callback) {
                 missing: ['datetime'],
                 _returnOf: origRideId
             };
+            // 🔧 v6.14.2: Admin-Flags aus Originalfahrt übernehmen
+            if (origRide.source === 'telegram-admin' || origRide.adminBookedBy) {
+                returnBooking._adminBooked = true;
+                returnBooking._adminChatId = chatId;
+                returnBooking._forCustomer = origRide.bookedForCustomer || origRide.customerName || '';
+                if (origRide.customerId) returnBooking._crmCustomerId = origRide.customerId;
+            }
             const bookingId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             await setPending(chatId, {
                 booking: returnBooking,

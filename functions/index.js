@@ -708,7 +708,8 @@ async function reverseGeocode(lat, lon) {
             const addr = data.address;
             const poiName = (data.namedetails?.name || data.name || addr.amenity || addr.tourism || addr.shop || addr.leisure || '');
             let streetPart = '';
-            if (addr.road) streetPart = addr.road + (addr.house_number ? ' ' + addr.house_number : '');
+            const _road = addr.road || addr.residential || addr.neighbourhood || addr.suburb || addr.hamlet || '';
+            if (_road) streetPart = _road + (addr.house_number ? ' ' + addr.house_number : '');
             else if (addr.pedestrian) streetPart = addr.pedestrian;
             const town = addr.town || addr.city || addr.village || addr.municipality || '';
             const postcode = addr.postcode || '';
@@ -884,7 +885,7 @@ async function searchNominatimForTelegram(query) {
                 seen.add(coordKey);
                 const addr = item.address || {};
                 const poiName = item.name || '';
-                const road = addr.road || '';
+                const road = addr.road || addr.residential || addr.neighbourhood || addr.suburb || addr.hamlet || addr.pedestrian || '';
                 const houseNr = addr.house_number || '';
                 const town = addr.town || addr.city || addr.village || addr.municipality || '';
                 const postcode = addr.postcode || '';
@@ -1546,9 +1547,11 @@ ADRESSEN:
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
 
+EMAIL: Wenn eine E-Mail-Adresse im Text vorkommt → in "email" speichern. NICHT aktiv danach fragen.
+
 ━━━ SCHRITT 3: FEHLENDE PFLICHTFELDER ━━━
 Pflicht: datetime, pickup, destination${phoneRequired ? ', phone' : ''}
-Optional (NICHT in missing): passengers (default 1), notes${!phoneRequired ? ' | phone ist gespeichert – nicht fragen' : ''}
+Optional (NICHT in missing): passengers (default 1), notes, email${!phoneRequired ? ' | phone ist gespeichert – nicht fragen' : ''}
 
 ━━━ SCHRITT 4: RÜCKFRAGE FORMULIEREN ━━━
 Wenn Felder fehlen → "question" = EINE einzige, kurze, natürliche Frage
@@ -1570,7 +1573,8 @@ Nur gültiges JSON, kein Markdown:
   "passengers": 1,
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
-  "notes": null,${isAdmin ? '\n  "forCustomer": null,' : ''}
+  "notes": null,
+  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}
   "missing": ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}],
   "question": "Für wann und von wo nach wo soll die Fahrt gehen?",
   "summary": "Kurze Zusammenfassung der Buchung"
@@ -4018,6 +4022,7 @@ async function handleCallback(callback) {
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
+                ...(booking.email && { customerEmail: booking.email }),
                 telegramChatId: String(chatId),
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
                 status: isVorbestellung ? 'vorbestellt' : 'open',
@@ -4153,7 +4158,7 @@ async function handleCallback(callback) {
                             phone: _crmPhone,
                             address: '',              // Wohnanschrift bleibt leer (muss separat gepflegt werden)
                             defaultPickup: _crmPickup, // Abholort als Standard-Abholort speichern
-                            email: '',
+                            email: booking.email || '',
                             createdAt: Date.now(),
                             createdBy: 'telegram-admin-auto',
                             source: 'telegram-admin',

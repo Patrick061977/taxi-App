@@ -47,7 +47,39 @@ firebase deploy --only functions
 ### Regel:
 - Änderungen an `index.html` → Build-Timestamp aktualisieren
 - Änderungen an `functions/index.js` → User auf `firebase deploy --only functions` hinweisen
-- Änderungen an beiden → beides tun
+- Änderungen an `google-apps-script/kalender-sync-v4.0.js` → User erinnern: Code manuell ins Google Apps Script kopieren
+- Änderungen an beiden/allen → alles tun
+
+---
+
+## Google Apps Script — Kalender-Sync (WICHTIG!)
+
+### Datei: `google-apps-script/kalender-sync-v4.0.js`
+
+Das Google Apps Script läuft **extern** auf Google-Servern (nicht Firebase!) und synchronisiert Fahrten aus Firebase in den Google Kalender.
+
+### Deployment:
+- Code wird **nicht** automatisch deployed!
+- Nach Änderungen muss der User den Code **manuell** ins Google Apps Script Projekt kopieren
+- Google Apps Script Editor: https://script.google.com
+
+### Was das Script macht:
+- Liest alle Fahrten aus `/rides` in Firebase
+- Erstellt/aktualisiert Google Kalender Events für zukünftige Fahrten
+- Löscht Events für stornierte Fahrten
+- Läuft automatisch alle 5 Minuten (Timer-Trigger)
+- Erkennt Änderungen über `updatedAt` Feld in Rides
+
+### Wichtige Abhängigkeiten:
+- **`updatedAt`** in Rides MUSS gesetzt werden bei jeder Änderung (Fahrzeug, Status, etc.)
+  → Sonst erkennt das Script die Änderung nicht und Kalender wird nicht aktualisiert
+- **`customerPhone`/`customerMobile`** in Rides für Telefonnummern-Anzeige im Kalender
+- **`customerId`** als Fallback: Script lädt CRM-Daten nach wenn Phone fehlt
+- **Export-Einstellungen** aus `settings/calendarExport` in Firebase
+
+### NICHT VERGESSEN:
+- Bei JEDER Ride-Änderung `updatedAt: Date.now()` setzen!
+- Telefonnummer aus CRM in Ride speichern (customerPhone/customerMobile)
 
 ---
 

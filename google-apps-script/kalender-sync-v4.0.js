@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.1 - VOLLSTÄNDIGE SYNC
+// Version: 4.3 - VOLLSTÄNDIGE SYNC + TELEFONNUMMER-FIX
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.1...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.3...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -273,7 +273,14 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const durationMinutes = ride.duration || 30;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-    // 🔧 v4.2: Telefonnummer aus CRM nachladen wenn in Fahrt fehlend
+    // 🔧 v4.3: Fallback - 'phone' Feld als customerPhone übernehmen
+    // Manche Buchungsflows (AI-Assistant, ältere Buchungen) speichern als 'phone' statt 'customerPhone'
+    if (!ride.customerPhone && ride.phone) {
+      ride.customerPhone = ride.phone;
+      console.log('📱 phone → customerPhone übernommen für:', ride.firebaseId);
+    }
+
+    // 🔧 v4.3: Telefonnummer aus CRM nachladen wenn in Fahrt fehlend
     if (EXPORT_SETTINGS.showPhone && !ride.customerPhone && !ride.customerMobile && ride.customerId) {
       try {
         const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
@@ -311,6 +318,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       titleParts.push(guestText);
     }
 
+    // 🔧 v4.3: Nur Mobilnummern im Titel (Festnetz nur in Beschreibung)
     if (EXPORT_SETTINGS.showPhone) {
       if (ride.customerMobile) {
         titleParts.push('📱' + ride.customerMobile);
@@ -452,7 +460,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.1 (Vollständige Sync)');
+  lines.push('📝 Erstellt von: CalendarSync v4.3 (Telefonnummer-Fix)');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -603,7 +611,7 @@ function setupAutomaticSync() {
 // 🧪 TEST-FUNKTION
 // ═══════════════════════════════════════════════════════════════
 function testSync() {
-  console.log('🧪 TEST-MODUS v4.1 - VOLLSTÄNDIGE SYNC');
+  console.log('🧪 TEST-MODUS v4.3 - TELEFONNUMMER-FIX');
   console.log('═══════════════════════════════════════════');
   console.log('🔧 FIX 1: Blacklist statt Whitelist (alle Status außer storniert)');
   console.log('🔧 FIX 2: Sicherheitscheck bei leerem Firebase-Ergebnis');

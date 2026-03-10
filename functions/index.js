@@ -4022,6 +4022,8 @@ async function handleCallback(callback) {
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
+                // 🔧 v6.14.4: Mobilnummer separat für Google Calendar Sync!
+                ...((booking.phone && /^(\+49|0049|0)?1[567]\d/.test(String(booking.phone).replace(/[\s\-\/\(\)]/g, ''))) && { customerMobile: booking.phone }),
                 ...(booking.email && { customerEmail: booking.email }),
                 telegramChatId: String(chatId),
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
@@ -4170,6 +4172,10 @@ async function handleCallback(callback) {
                         // Fahrt mit CRM verknüpfen + Telefonnummer übernehmen
                         const _newCrmUpdate = { customerId: newCrmRef.key };
                         if (_crmPhone && !rideData.customerPhone) _newCrmUpdate.customerPhone = _crmPhone;
+                        // 🔧 v6.14.4: Mobilnummer für Google Calendar Sync
+                        if (_crmPhone && /^(\+49|0049|0)?1[567]\d/.test(String(_crmPhone).replace(/[\s\-\/\(\)]/g, ''))) {
+                            _newCrmUpdate.customerMobile = _crmPhone;
+                        }
                         await db.ref('rides/' + rideData.id).update(_newCrmUpdate);
 
                         await addTelegramLog('🆕', chatId, `CRM auto-angelegt: ${_crmName} (${newCrmRef.key})`);

@@ -4132,8 +4132,14 @@ async function handleCallback(callback) {
                             const cPhoneMatch = _phoneDigits.length > 5 && cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9));
                             if (cNameMatch || cPhoneMatch) {
                                 _alreadyExists = true;
-                                // Fahrt mit gefundenem Kunden verknüpfen
-                                await db.ref('rides/' + rideData.id + '/customerId').set(c.customerId);
+                                // Fahrt mit gefundenem Kunden verknüpfen + Telefonnummer übernehmen
+                                const _rideUpdate = { customerId: c.customerId };
+                                // 🔧 v6.14.3: Telefonnummer aus CRM in Fahrt speichern (für Google Calendar Sync)
+                                if (c.mobilePhone) _rideUpdate.customerMobile = c.mobilePhone;
+                                if (!rideData.customerPhone && (c.mobilePhone || c.phone)) {
+                                    _rideUpdate.customerPhone = c.mobilePhone || c.phone;
+                                }
+                                await db.ref('rides/' + rideData.id).update(_rideUpdate);
                                 await addTelegramLog('🔗', chatId, `CRM-Kunde bereits vorhanden: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
                                 break;
                             }
@@ -4156,8 +4162,10 @@ async function handleCallback(callback) {
                             notes: ''
                         });
 
-                        // Fahrt mit CRM verknüpfen
-                        await db.ref('rides/' + rideData.id + '/customerId').set(newCrmRef.key);
+                        // Fahrt mit CRM verknüpfen + Telefonnummer übernehmen
+                        const _newCrmUpdate = { customerId: newCrmRef.key };
+                        if (_crmPhone && !rideData.customerPhone) _newCrmUpdate.customerPhone = _crmPhone;
+                        await db.ref('rides/' + rideData.id).update(_newCrmUpdate);
 
                         await addTelegramLog('🆕', chatId, `CRM auto-angelegt: ${_crmName} (${newCrmRef.key})`);
                         await sendTelegramMessage(chatId,

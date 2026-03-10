@@ -273,6 +273,20 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const durationMinutes = ride.duration || 30;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
+    // 🔧 v4.2: Telefonnummer aus CRM nachladen wenn in Fahrt fehlend
+    if (EXPORT_SETTINGS.showPhone && !ride.customerPhone && !ride.customerMobile && ride.customerId) {
+      try {
+        const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
+        const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
+        const custData = JSON.parse(custResp.getContentText());
+        if (custData) {
+          if (custData.mobilePhone) ride.customerMobile = custData.mobilePhone;
+          if (custData.phone) ride.customerPhone = custData.phone;
+          console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, ride.customerMobile || ride.customerPhone || 'keine');
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     const vehicleName = ride.vehicleLabel || ride.vehicle || ride.assignedVehicle || ride.assignedDriver || '';
     const vehiclePlate = ride.vehiclePlate ? ` (${ride.vehiclePlate})` : '';
     const vehicleDisplay = vehicleName ? vehicleName + vehiclePlate : '';

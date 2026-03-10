@@ -16,6 +16,19 @@ const db = admin.database();
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
 
+// 🔧 v6.14.6: Mobilnummer-Erkennung (DE/AT/CH) — gleiche Logik wie index.html
+function isMobileNumber(phone) {
+    if (!phone) return false;
+    const n = String(phone).replace(/[\s\-\/\(\)]/g, '');
+    if (/^\+49(1[567])/.test(n)) return true;   // DE: +4915x, +4916x, +4917x
+    if (/^\+43(6)/.test(n)) return true;         // AT: +436xx
+    if (/^\+41(7[5-9])/.test(n)) return true;    // CH: +417x
+    if (/^\+491/.test(n)) return true;            // DE allgemein
+    // Ohne Vorwahl (lokales Format)
+    if (/^(0049|0)?1[567]\d/.test(n)) return true;
+    return false;
+}
+
 // 🛡️ SPAM-SCHUTZ: Nachrichten pro Minute
 const SPAM_WARN_THRESHOLD = 40;    // Ab 40/Min → Warnung
 const SPAM_MAX_MESSAGES = 60;      // Ab 60/Min → Sperre
@@ -4024,7 +4037,8 @@ async function handleCallback(callback) {
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
                 // 🔧 v6.14.4: Mobilnummer separat für Google Calendar Sync!
-                ...((booking.phone && /^(\+49|0049|0)?1[567]\d/.test(String(booking.phone).replace(/[\s\-\/\(\)]/g, ''))) && { customerMobile: booking.phone }),
+                // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex — erkennt jetzt auch AT/CH
+                ...(isMobileNumber(booking.phone) && { customerMobile: booking.phone }),
                 ...(booking.email && { customerEmail: booking.email }),
                 telegramChatId: String(chatId),
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
@@ -4136,8 +4150,13 @@ async function handleCallback(callback) {
                         const _phoneDigits = _crmPhone.replace(/\D/g, '');
                         for (const c of _allCust) {
                             const cNameMatch = (c.name || '').toLowerCase().trim() === _nameLower;
-                            const cPhoneDigits = (c.phone || '').replace(/\D/g, '');
-                            const cPhoneMatch = _phoneDigits.length > 5 && cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9));
+                            // 🔧 v6.14.6: Auch mobilePhone prüfen — nicht nur phone!
+                            const cPhoneDigits = (c.mobilePhone || c.phone || '').replace(/\D/g, '');
+                            const cPhone2Digits = (c.mobilePhone && c.phone) ? (c.phone || '').replace(/\D/g, '') : '';
+                            const cPhoneMatch = _phoneDigits.length > 5 && (
+                                (cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9))) ||
+                                (cPhone2Digits.length > 5 && cPhone2Digits.endsWith(_phoneDigits.slice(-9)))
+                            );
                             if (cNameMatch || cPhoneMatch) {
                                 _alreadyExists = true;
                                 // Fahrt mit gefundenem Kunden verknüpfen + Telefonnummer übernehmen
@@ -4156,7 +4175,8 @@ async function handleCallback(callback) {
 
                     if (!_alreadyExists) {
                         // 🔧 v6.14.5: Auto-Erkennung Mobil vs. Festnetz
-                        const _isCrmMobil = _crmPhone && /^(\+49|0049|0)?1[567]\d/.test(String(_crmPhone).replace(/[\s\-\/\(\)]/g, ''));
+                        // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex
+                        const _isCrmMobil = isMobileNumber(_crmPhone);
                         const newCrmRef = db.ref('customers').push();
                         await newCrmRef.set({
                             name: _crmName,
@@ -4177,7 +4197,8 @@ async function handleCallback(callback) {
                         const _newCrmUpdate = { customerId: newCrmRef.key };
                         if (_crmPhone && !rideData.customerPhone) _newCrmUpdate.customerPhone = _crmPhone;
                         // 🔧 v6.14.4: Mobilnummer für Google Calendar Sync
-                        if (_crmPhone && /^(\+49|0049|0)?1[567]\d/.test(String(_crmPhone).replace(/[\s\-\/\(\)]/g, ''))) {
+                        // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex
+                        if (isMobileNumber(_crmPhone)) {
                             _newCrmUpdate.customerMobile = _crmPhone;
                         }
                         await db.ref('rides/' + rideData.id).update(_newCrmUpdate);

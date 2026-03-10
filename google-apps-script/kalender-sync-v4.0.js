@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.3 - VOLLSTÄNDIGE SYNC + TELEFONNUMMER-FIX
+// Version: 4.4 - CRM-Lookup auch bei Festnetz → Mobilnummer nachladen
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.3...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.4...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -273,23 +273,25 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const durationMinutes = ride.duration || 30;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-    // 🔧 v4.3: Fallback - 'phone' Feld als customerPhone übernehmen
+    // 🔧 v4.4: Fallback - 'phone' Feld als customerPhone übernehmen
     // Manche Buchungsflows (AI-Assistant, ältere Buchungen) speichern als 'phone' statt 'customerPhone'
     if (!ride.customerPhone && ride.phone) {
       ride.customerPhone = ride.phone;
       console.log('📱 phone → customerPhone übernommen für:', ride.firebaseId);
     }
 
-    // 🔧 v4.3: Telefonnummer aus CRM nachladen wenn in Fahrt fehlend
-    if (EXPORT_SETTINGS.showPhone && !ride.customerPhone && !ride.customerMobile && ride.customerId) {
+    // 🔧 v4.4: CRM-Lookup wenn KEINE Mobilnummer vorhanden (nicht nur wenn gar keine Nummer)
+    // Auch auslösen wenn customerPhone nur Festnetz ist — CRM könnte mobilePhone haben
+    const hasMobileInRide = ride.customerMobile || (ride.customerPhone && isMobileNumber(ride.customerPhone));
+    if (EXPORT_SETTINGS.showPhone && !hasMobileInRide && ride.customerId) {
       try {
         const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
         const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
         const custData = JSON.parse(custResp.getContentText());
         if (custData) {
           if (custData.mobilePhone) ride.customerMobile = custData.mobilePhone;
-          if (custData.phone) ride.customerPhone = custData.phone;
-          console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, ride.customerMobile || ride.customerPhone || 'keine');
+          if (custData.phone && !ride.customerPhone) ride.customerPhone = custData.phone;
+          console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, 'Mobil:', ride.customerMobile || 'keine', 'Festnetz:', ride.customerPhone || 'keine');
         }
       } catch (e) { /* ignore */ }
     }
@@ -318,7 +320,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       titleParts.push(guestText);
     }
 
-    // 🔧 v4.3: Nur Mobilnummern im Titel (Festnetz nur in Beschreibung)
+    // 🔧 v4.4: Nur Mobilnummern im Titel (Festnetz nur in Beschreibung)
     if (EXPORT_SETTINGS.showPhone) {
       if (ride.customerMobile) {
         titleParts.push('📱' + ride.customerMobile);
@@ -460,7 +462,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.3 (Telefonnummer-Fix)');
+  lines.push('📝 Erstellt von: CalendarSync v4.4 (Telefonnummer-Fix)');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -611,7 +613,7 @@ function setupAutomaticSync() {
 // 🧪 TEST-FUNKTION
 // ═══════════════════════════════════════════════════════════════
 function testSync() {
-  console.log('🧪 TEST-MODUS v4.3 - TELEFONNUMMER-FIX');
+  console.log('🧪 TEST-MODUS v4.4 - TELEFONNUMMER-FIX');
   console.log('═══════════════════════════════════════════');
   console.log('🔧 FIX 1: Blacklist statt Whitelist (alle Status außer storniert)');
   console.log('🔧 FIX 2: Sicherheitscheck bei leerem Firebase-Ergebnis');

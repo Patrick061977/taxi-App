@@ -1490,7 +1490,7 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
 
     const knownCustomer = preselected ? null : (isAdmin ? null : await getTelegramCustomer(chatId));
     const prefilledName = preselected ? preselected.name : (knownCustomer ? knownCustomer.name : (isAdmin ? forCustomerName : userName));
-    const prefilledPhone = preselected ? (preselected.phone || null) : (knownCustomer ? (knownCustomer.phone || knownCustomer.mobile || null) : null);
+    const prefilledPhone = preselected ? (preselected.mobilePhone || preselected.phone || null) : (knownCustomer ? (knownCustomer.mobile || knownCustomer.phone || null) : null);
     const phoneRequired = !knownCustomer && !preselected && !isAdmin;
 
     let homeAddressHint = '';
@@ -2220,7 +2220,8 @@ async function linkTelegramChatToCustomer(chatId, booking) {
         if (customerId && customerData) {
             await saveTelegramCustomer(chatId, {
                 customerId, name: customerData.name || name,
-                phone: customerData.phone || phone,
+                phone: customerData.mobilePhone || customerData.phone || phone,
+                mobile: customerData.mobilePhone || null,
                 address: customerData.address || null, linkedAt: Date.now()
             });
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
@@ -4006,9 +4007,9 @@ async function handleCallback(callback) {
                 try {
                     const _custSnap = await db.ref('customers/' + booking._crmCustomerId).once('value');
                     const _custData = _custSnap.val();
-                    if (_custData && _custData.phone) {
-                        booking.phone = _custData.phone;
-                        await addTelegramLog('📱', chatId, `Telefon aus CRM nachgeladen: ${_custData.phone}`);
+                    if (_custData && (_custData.mobilePhone || _custData.phone)) {
+                        booking.phone = _custData.mobilePhone || _custData.phone;
+                        await addTelegramLog('📱', chatId, `Telefon aus CRM nachgeladen: ${booking.phone}`);
                     }
                 } catch (_e) { /* ignore */ }
             }
@@ -5934,7 +5935,7 @@ async function handleLocation(message) {
     const customer = await getTelegramCustomer(chatId);
     if (customer) {
         newBooking.name = customer.name;
-        newBooking.phone = customer.phone;
+        newBooking.phone = customer.mobile || customer.phone || '';
     }
 
     await sendTelegramMessage(chatId, `📍 <b>Standort empfangen!</b>\n🏠 Abholort: ${addressName}\n\n💬 Wohin möchten Sie fahren?`);

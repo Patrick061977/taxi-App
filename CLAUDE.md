@@ -58,6 +58,15 @@ firebase deploy --only functions
 
 Das Google Apps Script läuft **extern** auf Google-Servern (nicht Firebase!) und synchronisiert Fahrten aus Firebase in den Google Kalender.
 
+### Versionierung (WICHTIG!):
+- **VOR** jeder Änderung an einer Script-Datei: aktuelle Version als Backup kopieren!
+- Namensschema: `kalender-sync-v4.0-backup.js` (Version aus dem Dateinamen übernehmen)
+- Beispiel: Bevor `kalender-sync-v4.0.js` geändert wird:
+  ```bash
+  cp google-apps-script/kalender-sync-v4.0.js google-apps-script/kalender-sync-v4.0-backup.js
+  ```
+- Alte Backups bleiben im Ordner — NICHT löschen!
+
 ### Deployment:
 - Code wird **nicht** automatisch deployed!
 - Nach Änderungen muss der User den Code **manuell** ins Google Apps Script Projekt kopieren

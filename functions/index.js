@@ -513,7 +513,7 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
 }
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
-async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName) {
+async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords) {
     try {
         const newRef = db.ref('customers').push();
         await newRef.set({
@@ -550,6 +550,11 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
                 defaultPickup: address || '',
                 customerId: customerId
             };
+            // 🔧 v6.14.3: Koordinaten weitergeben damit Adresse nicht erneut per Nominatim aufgelöst wird
+            if (addrCoords && addrCoords.lat && addrCoords.lon) {
+                preselectedCustomer.addressLat = addrCoords.lat;
+                preselectedCustomer.addressLon = addrCoords.lon;
+            }
             await sendTelegramMessage(chatId, '🤖 <i>Analysiere Buchung...</i>');
             await analyzeTelegramBooking(chatId, originalText, userName, { isAdmin: true, preselectedCustomer });
         }
@@ -1627,10 +1632,20 @@ Nur gültiges JSON, kein Markdown:
                     if (!booking.pickup || /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test((booking.pickup || '').trim())) {
                         booking.pickup = pickupDefault;
                         booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
+                        // 🔧 v6.14.3: Koordinaten aus Kunden-Geocoding übernehmen → keine erneute Nominatim-Abfrage
+                        if (preselected.addressLat && preselected.addressLon) {
+                            booking.pickupLat = parseFloat(preselected.addressLat);
+                            booking.pickupLon = parseFloat(preselected.addressLon);
+                        }
                     }
                     if (preselected.address && /^(zu hause|zuhause|nach hause)$/i.test((booking.destination || '').trim())) {
                         booking.destination = preselected.address;
                         booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+                        // 🔧 v6.14.3: Koordinaten für Ziel übernehmen
+                        if (preselected.addressLat && preselected.addressLon) {
+                            booking.destinationLat = parseFloat(preselected.addressLat);
+                            booking.destinationLon = parseFloat(preselected.addressLon);
+                        }
                     }
                 }
             } else if (forCustomerName) {
@@ -5285,7 +5300,9 @@ async function handleCallback(callback) {
         if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
         const resolvedAddress = pending._adminNewCustAddr || '';
         await addTelegramLog('📍', chatId, `Adresse bestätigt: ${resolvedAddress}`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', resolvedAddress, pending.originalText, pending.userName);
+        // 🔧 v6.14.3: Koordinaten weitergeben damit Nominatim nicht erneut fragt
+        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', resolvedAddress, pending.originalText, pending.userName, addrCoords);
         return;
     }
 

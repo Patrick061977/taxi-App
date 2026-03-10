@@ -3032,6 +3032,15 @@ async function handleMessage(message) {
             try {
                 const update = {};
                 update[field] = finalValue;
+                // 🔧 v6.14.6: Mobil vs. Festnetz erkennen bei Telefon-Änderung
+                if (field === 'phone') {
+                    const _isMobil = /^(\+49|0049|0)?1[567]\d/.test(String(finalValue).replace(/[\s\-\/\(\)]/g, ''));
+                    if (_isMobil) {
+                        update.mobilePhone = finalValue;
+                    } else {
+                        update.phone = finalValue;
+                    }
+                }
                 await db.ref('customers/' + knownCustomer.customerId).update(update);
                 await addTelegramLog('✏️', chatId, `Profil+CRM: ${field} = "${finalValue}"`);
             } catch (e) {
@@ -4143,7 +4152,9 @@ async function handleCallback(callback) {
                                 // Fahrt mit gefundenem Kunden verknüpfen + Telefonnummer übernehmen
                                 const _rideUpdate = { customerId: c.customerId };
                                 // 🔧 v6.14.3: Telefonnummer aus CRM in Fahrt speichern (für Google Calendar Sync)
-                                if (c.mobilePhone) _rideUpdate.customerMobile = c.mobilePhone;
+                                // 🔧 v6.14.6: Auch alte CRM-Kunden mit Mobilnummer nur in 'phone' abfangen
+                                const _cMobile = c.mobilePhone || (c.phone && /^(\+49|0049|0)?1[567]\d/.test(String(c.phone).replace(/[\s\-\/\(\)]/g, '')) ? c.phone : null);
+                                if (_cMobile) _rideUpdate.customerMobile = _cMobile;
                                 if (!rideData.customerPhone && (c.mobilePhone || c.phone)) {
                                     _rideUpdate.customerPhone = c.mobilePhone || c.phone;
                                 }
@@ -5438,8 +5449,10 @@ async function handleCallback(callback) {
         if (!crmPending) { await sendTelegramMessage(chatId, '⚠️ Kundendaten nicht mehr vorhanden.'); return; }
         try {
             const newRef = db.ref('customers').push();
-            await newRef.set({ name: crmPending.customerName, phone: crmPending.customerPhone || '', address: crmPending.pickupAddress || '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
-            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key });
+            // 🔧 v6.14.6: Mobil vs. Festnetz erkennen
+            const _isCrmMobil1 = crmPending.customerPhone && /^(\+49|0049|0)?1[567]\d/.test(String(crmPending.customerPhone).replace(/[\s\-\/\(\)]/g, ''));
+            await newRef.set({ name: crmPending.customerName, phone: _isCrmMobil1 ? '' : (crmPending.customerPhone || ''), mobilePhone: _isCrmMobil1 ? crmPending.customerPhone : '', address: crmPending.pickupAddress || '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
+            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key, ...(_isCrmMobil1 && { customerMobile: crmPending.customerPhone }) });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt!\n📱 ${crmPending.customerPhone || '(kein Tel.)'}\n🏠 ${crmPending.pickupAddress || '(keine Adresse)'}`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message); }
@@ -5452,7 +5465,9 @@ async function handleCallback(callback) {
         if (!crmPending) { await sendTelegramMessage(chatId, '⚠️ Kundendaten nicht mehr vorhanden.'); return; }
         try {
             const newRef = db.ref('customers').push();
-            await newRef.set({ name: crmPending.customerName, phone: crmPending.customerPhone || '', address: '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
+            // 🔧 v6.14.6: Mobil vs. Festnetz erkennen
+            const _isCrmMobil2 = crmPending.customerPhone && /^(\+49|0049|0)?1[567]\d/.test(String(crmPending.customerPhone).replace(/[\s\-\/\(\)]/g, ''));
+            await newRef.set({ name: crmPending.customerName, phone: _isCrmMobil2 ? '' : (crmPending.customerPhone || ''), mobilePhone: _isCrmMobil2 ? crmPending.customerPhone : '', address: '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
             if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt (ohne Adresse)!`);

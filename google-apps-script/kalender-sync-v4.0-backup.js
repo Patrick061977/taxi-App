@@ -289,12 +289,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
         const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
         const custData = JSON.parse(custResp.getContentText());
         if (custData) {
-          // 🔧 v4.5: Auch phone-Feld prüfen ob Mobilnummer (Alt-Kunden ohne mobilePhone)
-          if (custData.mobilePhone) {
-            ride.customerMobile = custData.mobilePhone;
-          } else if (custData.phone && isMobileNumber(custData.phone)) {
-            ride.customerMobile = custData.phone;
-          }
+          if (custData.mobilePhone) ride.customerMobile = custData.mobilePhone;
           if (custData.phone && !ride.customerPhone) ride.customerPhone = custData.phone;
           console.log('📱 CRM-Telefon nachgeladen für:', ride.firebaseId, 'Mobil:', ride.customerMobile || 'keine', 'Festnetz:', ride.customerPhone || 'keine');
         }

@@ -526,30 +526,36 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
 }
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
-async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords) {
+// 🆕 v6.11.5: customerKind Parameter (stammkunde/gelegenheitskunde)
+async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords, customerKind) {
     try {
+        const kind = customerKind || 'stammkunde';
+        const isStammkunde = kind === 'stammkunde';
         const newRef = db.ref('customers').push();
         await newRef.set({
             name: name,
             phone: phone || '',
             address: address || '',
-            defaultPickup: address || '',  // 🔧 v6.14.2: Adresse auch als Standard-Abholort
+            defaultPickup: isStammkunde ? (address || '') : '',  // 🆕 v6.11.5: Nur bei Stammkunde als Standard-Abholort
             email: '',
             createdAt: Date.now(),
             createdBy: 'telegram-admin',
             source: 'telegram-admin',
+            customerKind: kind,  // 🆕 v6.11.5: stammkunde oder gelegenheitskunde
             totalRides: 0,
             isVIP: false,
             notes: ''
         });
 
         const customerId = newRef.key;
-        await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde angelegt: ${name} (${customerId})`);
+        const kindLabel = isStammkunde ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde';
+        await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde angelegt: ${name} (${customerId}) [${kind}]`);
 
         let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
         confirmMsg += `👤 <b>${name}</b>\n`;
+        confirmMsg += `${kindLabel}\n`;
         if (phone) confirmMsg += `📱 ${phone}\n`;
-        if (address) confirmMsg += `🏠 ${address}\n`;
+        if (address) confirmMsg += `${isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse'}: ${address}\n`;
 
         await sendTelegramMessage(chatId, confirmMsg);
         await deletePending(chatId);
@@ -1681,6 +1687,24 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
+        // 🕐 v6.11.6: "jetzt"/"sofort"/"gleich" Fix — aktuelle Zeit + 10 Min statt 00:00
+        const _jetztKeywords = /\b(jetzt|sofort|gleich|so schnell wie möglich|asap|schnellstmöglich)\b/i;
+        if (_jetztKeywords.test(text)) {
+            const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            berlinNow.setMinutes(berlinNow.getMinutes() + 10);
+            const pad = n => String(n).padStart(2, '0');
+            const jetztDatetime = `${berlinNow.getFullYear()}-${pad(berlinNow.getMonth() + 1)}-${pad(berlinNow.getDate())}T${pad(berlinNow.getHours())}:${pad(berlinNow.getMinutes())}`;
+            if (!booking.datetime || booking.datetime.endsWith('T00:00')) {
+                await addTelegramLog('🕐', chatId, `Jetzt-Fix: "${text}" → ${jetztDatetime} (aktuelle Zeit + 10 Min)`);
+                booking.datetime = jetztDatetime;
+                booking._isJetzt = true;  // Flag für Sofortfahrt-Anzeige
+                // "datetime" aus missing entfernen falls vorhanden
+                if (booking.missing && Array.isArray(booking.missing)) {
+                    booking.missing = booking.missing.filter(m => m !== 'datetime');
+                }
+            }
+        }
+
         await addTelegramLog('🤖', chatId, `KI-Analyse: ${booking.summary || '(kein Summary)'}`, {
             intent: booking.intent, datetime: booking.datetime, pickup: booking.pickup,
             destination: booking.destination, missing: booking.missing
@@ -2189,8 +2213,12 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         ? `🕵️ <b>Buchung für ${booking._forCustomer || booking.name}</b>\n\n`
         : '✅ <b>Termin erkannt!</b>\n\n';
     if (booking.datetime) {
-        const dt = new Date(parseGermanDatetime(booking.datetime));
-        msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
+        if (booking._isJetzt) {
+            msg += `🚖 <b>Sofortfahrt</b> – ein verfügbarer Fahrer wird für Sie gesucht!\n`;
+        } else {
+            const dt = new Date(parseGermanDatetime(booking.datetime));
+            msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
+        }
     }
     if (booking.pickup) msg += `📍 Von: ${booking.pickup} ✅\n`;
     // 🔧 v6.11.0: Zwischenstopps anzeigen
@@ -2202,6 +2230,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     if (booking.destination) msg += `🎯 Nach: ${booking.destination} ✅\n`;
     msg += `👥 ${booking.passengers || 1} Person(en)\n`;
     if (booking.name) msg += `👤 ${booking.name}\n`;
+    if (booking.guestName) msg += `🧑 Fahrgast: ${booking.guestName}\n`;
     if (booking.phone) {
         const cleanPhone = String(booking.phone).replace(/[^+\d\s\-()]/g, '').trim();
         if (cleanPhone) msg += `📱 ${cleanPhone}\n`;
@@ -2222,9 +2251,10 @@ function buildTelegramConfirmMsg(booking, routePrice) {
 
 function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
     const keyboard = { inline_keyboard: [] };
+    // 🆕 v6.11.5: Datum ändern + Gastname oben
     keyboard.inline_keyboard.push([
-        { text: '✅ Ja, eintragen!', callback_data: `book_yes_${bookingId}` },
-        { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
+        { text: '📅 Datum ändern', callback_data: `change_time_${bookingId}` },
+        { text: '👤 Gastname', callback_data: `book_guest_${bookingId}` }
     ]);
     // 🔧 v6.11.0: Tauschen + Zwischenstopp
     keyboard.inline_keyboard.push([
@@ -2242,7 +2272,12 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
             { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
         ]);
     }
-    // Menü + Abbrechen unten
+    // 🆕 v6.11.5: Eintragen + Ändern unten links (statt oben)
+    keyboard.inline_keyboard.push([
+        { text: '✅ Jetzt eintragen!', callback_data: `book_yes_${bookingId}` },
+        { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
+    ]);
+    // Menü + Abbrechen ganz unten
     keyboard.inline_keyboard.push([
         { text: '🏠 Menü', callback_data: 'back_to_menu' },
         { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
@@ -3088,6 +3123,22 @@ async function handleMessage(message) {
     }
 
     // 🆕 v6.14.7: GASTNAME — User hat Gastnamen eingegeben
+    // 🆕 v6.11.5: Gastname für laufende Buchung (vor dem Speichern)
+    if (pending && pending._awaitingBookingGuest && !isPendingExpired(pending)) {
+        const guestName = text.trim().slice(0, 100);
+        const booking = pending.booking || pending.partial;
+        if (booking) {
+            booking.guestName = guestName;
+            delete pending._awaitingBookingGuest;
+            await addTelegramLog('👤', chatId, `Gastname für Buchung: "${guestName}"`);
+            await showTelegramConfirmation(chatId, booking, pending.routePrice);
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.');
+            await deletePending(chatId);
+        }
+        return;
+    }
+
     if (pending && pending._awaitingGuestName && pending._guestNameRideId && !isPendingExpired(pending)) {
         const rideId = pending._guestNameRideId;
         const guestName = text.trim().slice(0, 100);
@@ -3213,14 +3264,29 @@ async function handleMessage(message) {
         const step = pending._adminNewCustStep;
 
         if (step === 'name') {
+            const custName = text.trim();
+            // 🆕 v6.11.5: Wenn Telefon aus Audio bekannt → Telefon-Schritt überspringen
+            if (pending._callerPhone) {
+                await addTelegramLog('📱', chatId, `Telefon aus Audio übernommen: ${pending._callerPhone} → weiter zu Adresse`);
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'address',
+                    _adminNewCustName: custName,
+                    _adminNewCustPhone: pending._callerPhone
+                });
+                await sendTelegramMessage(chatId,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                );
+                return;
+            }
             // Name eingegeben → weiter mit Telefon
             await setPending(chatId, {
                 ...pending,
                 _adminNewCustStep: 'phone',
-                _adminNewCustName: text.trim()
+                _adminNewCustName: custName
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${text.trim()}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
                 { reply_markup: { inline_keyboard: [
                     [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
                 ] } }
@@ -3240,42 +3306,36 @@ async function handleMessage(message) {
                 _adminNewCustPhone: normalizedPhone
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
-                { reply_markup: { inline_keyboard: [
-                    [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-                ] } }
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
             );
             return;
         }
 
         if (step === 'address') {
-            // 🆕 v6.14.1: Adresse per Nominatim geocodieren und zur Bestätigung vorschlagen
+            // 🆕 v6.11.5: Erweiterte Suche — POIs, Kunden, Buchungen + Nominatim
             const rawAddress = text.trim();
-            const geo = await geocode(rawAddress);
-            if (geo && geo.display_name) {
-                // Aufgelöste Adresse aus display_name kürzen (nur relevante Teile)
-                const parts = geo.display_name.split(',').map(p => p.trim());
-                // Straße + Hausnummer + PLZ + Ort (erste 4-5 Teile, ohne Land/Bundesland)
-                const shortAddress = parts.slice(0, Math.min(parts.length, 4)).join(', ');
+            const suggestions = await searchNominatimForTelegram(rawAddress);
+
+            if (suggestions.length > 0) {
+                // Vorschläge als Buttons zeigen (max 5)
                 const confirmId = Date.now().toString(36);
+                const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+                keyboard.push([{ text: '📝 Original verwenden: ' + (rawAddress.length > 25 ? rawAddress.slice(0, 23) + '…' : rawAddress), callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
+                keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
+
                 await setPending(chatId, {
                     ...pending,
-                    _adminNewCustStep: 'address_confirm',
-                    _adminNewCustAddr: shortAddress,
-                    _adminNewCustAddrLat: geo.lat,
-                    _adminNewCustAddrLon: geo.lon,
+                    _adminNewCustStep: 'address_select',
+                    _adminNewCustAddr: rawAddress,
+                    _adminNewCustSuggestions: suggestions,
                     _addrConfirmId: confirmId
                 });
                 await sendTelegramMessage(chatId,
-                    `📍 <b>Adresse aufgelöst:</b>\n\n🏠 <b>${shortAddress}</b>\n\n<b>Ist das korrekt?</b>`, {
-                    reply_markup: { inline_keyboard: [
-                        [{ text: '✅ Ja, übernehmen', callback_data: `admin_newcust_addr_yes_${confirmId}` }],
-                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }],
-                        [{ text: '📝 Original verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }]
-                    ] }
+                    `🔍 <b>Adresse: "${rawAddress}"</b>\n\nBitte wähle die richtige Adresse:`, {
+                    reply_markup: { inline_keyboard: keyboard }
                 });
             } else {
-                // Geocoding fehlgeschlagen → trotzdem anlegen oder neu eingeben
+                // Keine Treffer → trotzdem verwenden oder neu eingeben
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, {
                     ...pending,
@@ -3284,7 +3344,7 @@ async function handleMessage(message) {
                     _addrConfirmId: confirmId
                 });
                 await sendTelegramMessage(chatId,
-                    `⚠️ <b>Adresse konnte nicht aufgelöst werden:</b>\n\n"${rawAddress}"\n\nWas möchtest du tun?`, {
+                    `⚠️ <b>Keine Ergebnisse für:</b> "${rawAddress}"\n\nWas möchtest du tun?`, {
                     reply_markup: { inline_keyboard: [
                         [{ text: '📝 Trotzdem verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }],
                         [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]
@@ -3381,6 +3441,7 @@ async function handleMessage(message) {
                 newCustomerName: customerName,
                 originalText: pending.originalText,
                 userName: pending.userName,
+                _callerPhone: pending._callerPhone || null, // 🆕 v6.11.5: Telefon durchreichen
                 _newCustId
             });
             await sendTelegramMessage(chatId,
@@ -3440,6 +3501,7 @@ async function handleMessage(message) {
                 newCustomerName: customerName,
                 originalText: pending.originalText,
                 userName: pending.userName,
+                _callerPhone: pending._callerPhone || null, // 🆕 v6.11.5: Telefon durchreichen
                 _newCustId
             });
             await sendTelegramMessage(chatId,
@@ -3743,7 +3805,9 @@ async function handleMessage(message) {
         // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
-            // Weiter mit normalem Flow, aber Telefonnummer wird bei Kunden-Anlage vorausgefüllt
+            // 🆕 v6.11.5: _callerPhone in Pending speichern → wird beim Kunden-Anlegen durchgereicht
+            const existingPending = await getPending(chatId);
+            await setPending(chatId, { ...(existingPending || {}), _callerPhone: message._callerPhone });
         }
 
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
@@ -4216,6 +4280,7 @@ async function handleCallback(callback) {
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
                 // 🔧 v6.14.7: 'new' statt 'open' — damit Auto-Assign auch Telegram-Sofortfahrten zuweist!
                 status: isVorbestellung ? 'vorbestellt' : 'new',
+                ...(booking._isJetzt && { isJetzt: true }),
                 source: booking._adminBooked ? 'telegram-admin' : 'telegram-bot',
                 createdAt: Date.now(),
                 createdBy: booking._adminBooked ? `admin-telegram-${booking._adminChatId}` : 'telegram-cloud-function',
@@ -4226,6 +4291,8 @@ async function handleCallback(callback) {
                 // 🔧 v6.11.0: Preis als 'price' UND 'estimatedPrice' (Kalender zeigt ride.price)
                 ...(telegramRoutePrice && { price: telegramRoutePrice.price, estimatedPrice: telegramRoutePrice.price, distance: telegramRoutePrice.distance, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
                 paymentMethod: booking.paymentMethod || 'bar',
+                // 🆕 v6.11.5: Gastname (wenn eingetragen)
+                ...(booking.guestName && { guestName: booking.guestName }),
                 // 🔧 v6.11.0: Zwischenstopps
                 ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
@@ -4245,14 +4312,17 @@ async function handleCallback(callback) {
                 [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
+            const _isJetztFahrt = booking._isJetzt;
             await sendTelegramMessage(chatId,
                 successHeader +
-                `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
+                (_isJetztFahrt
+                    ? `🚖 <b>Sofortfahrt</b> – ein verfügbarer Fahrer wird gesucht!\n`
+                    : `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n`) +
                 `📍 ${rideData.pickup} → ${rideData.destination}\n` +
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
+                `📋 Status: ${_isJetztFahrt ? 'Sofortfahrt' : (isVorbestellung ? 'Vorbestellt' : 'Offen')}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
                 { reply_markup: returnKeyboard }
             );
 
@@ -4491,8 +4561,9 @@ async function handleCallback(callback) {
         if (noBooking && noPending.bookingId === noBookingId) {
             await sendTelegramMessage(chatId, '✏️ <b>Was möchten Sie ändern?</b>', {
                 reply_markup: { inline_keyboard: [
-                    [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }],
-                    [{ text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }, { text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
+                    [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📅 Datum', callback_data: `change_time_${noBookingId}` }],
+                    [{ text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }, { text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }],
+                    [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ]}
             });
@@ -4527,6 +4598,24 @@ async function handleCallback(callback) {
         else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null; booking.missing = ['pickup']; }
         else { booking.destination = null; booking.destinationLat = null; booking.destinationLon = null; booking.missing = ['destination']; }
         await continueBookingFlow(chatId, booking, '');
+        return;
+    }
+
+    // 🆕 v6.11.5: Gastname für laufende Buchung eintragen (vor dem Speichern)
+    if (data.startsWith('book_guest_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await setPending(chatId, { ...pending, _awaitingBookingGuest: true });
+        await sendTelegramMessage(chatId,
+            `👤 <b>Gastname eintragen</b>\n\n` +
+            (booking.name ? `👤 Auftraggeber: ${booking.name}\n` : '') +
+            (booking.guestName ? `👤 Aktueller Gast: <b>${booking.guestName}</b>\n` : '') +
+            `\nWie heißt der Fahrgast?`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${pending.bookingId}` }]
+            ] } }
+        );
         return;
     }
 
@@ -5495,7 +5584,7 @@ async function handleCallback(callback) {
     if (data.startsWith('admin_cust_no_')) {
         const pending = await getPending(chatId);
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName });
+        await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName, _callerPhone: pending._callerPhone || null });
         await sendTelegramMessage(chatId, '👤 <b>Anderen Kundennamen eingeben:</b>', {
             reply_markup: { inline_keyboard: [
                 [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
@@ -5511,6 +5600,7 @@ async function handleCallback(callback) {
         await setPending(chatId, {
             _adminNewCust: true,
             _adminNewCustStep: 'name',
+            _callerPhone: pending ? pending._callerPhone || null : null, // 🆕 v6.11.5: Telefon durchreichen
             originalText: pending ? pending.originalText : '',
             userName: pending ? pending.userName : ''
         });
@@ -5522,6 +5612,26 @@ async function handleCallback(callback) {
     if (data.startsWith('admin_create_cust_')) {
         const pending = await getPending(chatId);
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+
+        // 🆕 v6.11.5: Wenn Telefonnummer aus Audio-Dateiname bekannt → Schritt überspringen
+        const knownPhone = pending._callerPhone || '';
+        if (knownPhone) {
+            await addTelegramLog('📱', chatId, `Telefon aus Audio-Datei übernommen: ${knownPhone} → überspringe Telefon-Schritt`);
+            await setPending(chatId, {
+                _adminNewCust: true,
+                _adminNewCustStep: 'address',
+                _adminNewCustName: pending.newCustomerName || '',
+                _adminNewCustPhone: knownPhone,
+                _callerPhone: knownPhone,
+                originalText: pending.originalText || '',
+                userName: pending.userName || ''
+            });
+            await sendTelegramMessage(chatId,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+            );
+            return;
+        }
+
         await setPending(chatId, {
             _adminNewCust: true,
             _adminNewCustStep: 'phone',
@@ -5572,33 +5682,84 @@ async function handleCallback(callback) {
             _adminNewCustPhone: ''
         });
         await sendTelegramMessage(chatId,
-            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
-            { reply_markup: { inline_keyboard: [
-                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-            ] } }
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
         );
         return;
     }
 
-    // 🆕 v6.14.1: Admin — Geocodierte Adresse bestätigt → Kunden anlegen
+    // 🆕 v6.14.1: Admin — Geocodierte Adresse bestätigt → Kundenart fragen
     if (data.startsWith('admin_newcust_addr_yes_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
         const resolvedAddress = pending._adminNewCustAddr || '';
         await addTelegramLog('📍', chatId, `Adresse bestätigt: ${resolvedAddress}`);
-        // 🔧 v6.14.3: Koordinaten weitergeben damit Nominatim nicht erneut fragt
-        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', resolvedAddress, pending.originalText, pending.userName, addrCoords);
+        // 🆕 v6.11.5: Kundenart fragen (Stammkunde vs. Gelegenheitskunde)
+        await setPending(chatId, {
+            ...pending,
+            _adminNewCustStep: 'customerKind'
+        });
+        await sendTelegramMessage(chatId,
+            `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n🏠 ${resolvedAddress}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+            ] }
+        });
         return;
     }
 
-    // 🆕 v6.14.1: Admin — Adresse als Rohtext verwenden
+    // 🆕 v6.11.5: Admin — Adresse aus Vorschlagsliste gewählt → Kundenart fragen
+    if (data.startsWith('admin_newcust_adr_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        // Parse Index aus callback_data: admin_newcust_adr_0_confirmId
+        const parts = data.replace('admin_newcust_adr_', '').split('_');
+        const idx = parseInt(parts[0], 10);
+        const suggestions = pending._adminNewCustSuggestions || [];
+        if (idx >= 0 && idx < suggestions.length) {
+            const selected = suggestions[idx];
+            await addTelegramLog('📍', chatId, `Adresse aus Vorschlag gewählt: ${selected.name}`);
+            // Kundenart fragen
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'customerKind',
+                _adminNewCustAddr: selected.name,
+                _adminNewCustAddrLat: selected.lat,
+                _adminNewCustAddrLon: selected.lon
+            });
+            await sendTelegramMessage(chatId,
+                `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${selected.name}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                ] }
+            });
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Vorschlag nicht mehr gefunden. Bitte Adresse nochmal eingeben.');
+            await setPending(chatId, { ...pending, _adminNewCustStep: 'address' });
+        }
+        return;
+    }
+
+    // 🆕 v6.14.1: Admin — Adresse als Rohtext verwenden → Kundenart fragen
     if (data.startsWith('admin_newcust_addr_raw_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
         const rawAddr = pending._adminNewCustAddr || '';
         await addTelegramLog('📝', chatId, `Adresse ohne Geocoding übernommen: ${rawAddr}`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', rawAddr, pending.originalText, pending.userName);
+        // 🆕 v6.11.5: Kundenart fragen
+        await setPending(chatId, {
+            ...pending,
+            _adminNewCustStep: 'customerKind',
+            _adminNewCustAddr: rawAddr
+        });
+        await sendTelegramMessage(chatId,
+            `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${rawAddr}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+            ] }
+        });
         return;
     }
 
@@ -5611,19 +5772,30 @@ async function handleCallback(callback) {
             _adminNewCustStep: 'address'
         });
         await sendTelegramMessage(chatId,
-            `🏠 Bitte die <b>Adresse</b> nochmal eingeben:`, {
-            reply_markup: { inline_keyboard: [
-                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-            ] }
-        });
+            `🏠 Bitte die <b>Adresse</b> nochmal eingeben oder 📎 <b>Standort senden</b>:`
+        );
         return;
     }
 
-    // 🆕 v6.14.0: Admin — Neuer Kunde ohne Adresse → Anlegen
-    if (data === 'admin_newcust_noaddr') {
+    // 🆕 v6.11.5: Admin — Kundenart gewählt: Stammkunde (Wohnanschrift)
+    if (data === 'admin_newcust_kind_stamm') {
         const pending = await getPending(chatId);
         if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', '', pending.originalText, pending.userName);
+        const addr = pending._adminNewCustAddr || '';
+        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
+        await addTelegramLog('🏠', chatId, `Kundenart: Stammkunde (Wohnanschrift: ${addr})`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'stammkunde');
+        return;
+    }
+
+    // 🆕 v6.11.5: Admin — Kundenart gewählt: Gelegenheitskunde (nur Abholadresse)
+    if (data === 'admin_newcust_kind_gelegenheit') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        const addr = pending._adminNewCustAddr || '';
+        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
+        await addTelegramLog('🧳', chatId, `Kundenart: Gelegenheitskunde (Abholadresse: ${addr})`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'gelegenheitskunde');
         return;
     }
 
@@ -6160,9 +6332,11 @@ async function handleAudioFile(message) {
         // Transkript + Anrufer-Info anzeigen
         let transcriptMsg = `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>`;
         if (callerCustomer) {
+            const kindLabel = callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde';
             transcriptMsg += `\n\n👤 <b>Anrufer erkannt:</b> ${callerCustomer.name}`;
+            transcriptMsg += `\n${kindLabel}`;
             if (callerCustomer.mobilePhone || callerCustomer.phone) transcriptMsg += `\n📱 ${callerCustomer.mobilePhone || callerCustomer.phone}`;
-            if (callerCustomer.address) transcriptMsg += `\n🏠 ${callerCustomer.address}`;
+            if (callerCustomer.address) transcriptMsg += `\n${callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠'} ${callerCustomer.address}`;
         } else if (callerPhone) {
             transcriptMsg += `\n\n📞 <b>Anrufer:</b> ${callerPhone} (nicht im CRM)`;
         }
@@ -6203,8 +6377,52 @@ async function handleLocation(message) {
         await addTelegramLog('📍', chatId, `Reverse-Geocoding: ${addressName}`);
     }
 
-    // Prüfe ob eine Buchung läuft und Abholort fehlt
+    // 🆕 v6.11.5: Prüfe ob Neukunden-Adress-Schritt aktiv → Standort als Kundenadresse übernehmen
     const pending = await getPending(chatId);
+    if (pending && pending._adminNewCust && (pending._adminNewCustStep === 'address' || pending._adminNewCustStep === 'address_select')) {
+        await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse übernommen: ${addressName}`);
+        // Wie Adresseingabe behandeln → Vorschläge zeigen mit dieser Adresse
+        const suggestions = await searchNominatimForTelegram(addressName);
+        const confirmId = Date.now().toString(36);
+
+        if (suggestions.length > 0) {
+            const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+            keyboard.push([{ text: `📝 GPS-Adresse verwenden: ${addressName.length > 30 ? addressName.slice(0, 28) + '…' : addressName}`, callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
+            keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
+
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'address_select',
+                _adminNewCustAddr: addressName,
+                _adminNewCustAddrLat: lat,
+                _adminNewCustAddrLon: lon,
+                _adminNewCustSuggestions: suggestions,
+                _addrConfirmId: confirmId
+            });
+            await sendTelegramMessage(chatId,
+                `📍 <b>GPS-Standort erkannt:</b>\n🏠 ${addressName}\n\nBitte wähle die richtige Adresse:`, {
+                reply_markup: { inline_keyboard: keyboard }
+            });
+        } else {
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'customerKind',
+                _adminNewCustAddr: addressName,
+                _adminNewCustAddrLat: lat,
+                _adminNewCustAddrLon: lon
+            });
+            await sendTelegramMessage(chatId,
+                `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${addressName}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                ] }
+            });
+        }
+        return;
+    }
+
+    // Prüfe ob eine Buchung läuft und Abholort fehlt
     if (pending) {
         const booking = pending.booking || pending.partial;
         if (booking && (!booking.pickup || (booking.missing && booking.missing.includes('pickup')))) {

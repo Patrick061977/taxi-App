@@ -525,6 +525,12 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
     return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
 }
 
+// 🆕 v6.15.0: Auftraggeber-Erkennung — Hotels, Firmen, Kliniken die für Andere buchen
+// 🆕 v6.15.1: Auch Lieferanten (type='supplier') buchen für Gäste → Gastname + Gast-Telefon abfragen
+function isAuftraggeber(customerKind, customerType) {
+    return customerKind === 'hotel' || customerKind === 'auftraggeber' || customerType === 'supplier';
+}
+
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
 // 🆕 v6.11.5: customerKind Parameter (stammkunde/gelegenheitskunde)
 async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords, customerKind) {
@@ -532,12 +538,13 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         const kind = customerKind || 'stammkunde';
         const isStammkunde = kind === 'stammkunde';
         const isHotel = kind === 'hotel';
+        const _isAuftraggeber = isAuftraggeber(kind, null);
         const newRef = db.ref('customers').push();
         await newRef.set({
             name: name,
             phone: phone || '',
             address: address || '',
-            defaultPickup: (isStammkunde || isHotel) ? (address || '') : '',  // Stammkunde + Hotel: Adresse = Standard-Abholort
+            defaultPickup: (isStammkunde || _isAuftraggeber) ? (address || '') : '',  // Stammkunde + Auftraggeber: Adresse = Standard-Abholort
             email: '',
             createdAt: Date.now(),
             createdBy: 'telegram-admin',
@@ -549,14 +556,14 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         });
 
         const customerId = newRef.key;
-        const kindLabel = isHotel ? '🏨 Hotel/Pension' : (isStammkunde ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde');
+        const kindLabel = isHotel ? '🏨 Hotel/Pension' : (_isAuftraggeber ? '🏢 Auftraggeber (bucht für Andere)' : (isStammkunde ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde'));
         await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde angelegt: ${name} (${customerId}) [${kind}]`);
 
         let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
         confirmMsg += `👤 <b>${name}</b>\n`;
         confirmMsg += `${kindLabel}\n`;
         if (phone) confirmMsg += `📱 ${phone}\n`;
-        if (address) confirmMsg += `${isHotel ? '🏨 Hoteladresse' : (isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse')}: ${address}\n`;
+        if (address) confirmMsg += `${isHotel ? '🏨 Hoteladresse' : (_isAuftraggeber ? '🏢 Firmenadresse' : (isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse'))}: ${address}\n`;
 
         await sendTelegramMessage(chatId, confirmMsg);
         await deletePending(chatId);
@@ -569,7 +576,8 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
                 mobilePhone: isMobileNumber(phone) ? phone : '', // 🔧 v6.14.7: mobilePhone weitergeben
                 address: address || '',
                 defaultPickup: address || '',
-                customerId: customerId
+                customerId: customerId,
+                customerKind: kind  // 🆕 v6.15.0: Kundenart weitergeben
             };
             // 🔧 v6.14.3: Koordinaten weitergeben damit Adresse nicht erneut per Nominatim aufgelöst wird
             if (addrCoords && addrCoords.lat && addrCoords.lon) {
@@ -1636,7 +1644,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
 ${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}
-${hotelGuestName ? `HOTEL-GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && preselected.customerKind === 'hotel' ? `🏨 HOTEL-ANRUF: ${preselected.name} bucht für einen GAST. Extrahiere den GASTNAMEN aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt"). Speichere ihn in "guestName". Wenn kein Gastname erkennbar → guestName = null` : '')}
+${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
 Ist das eine Taxi-Buchung (oder könnte es eine sein)?
@@ -1693,7 +1701,7 @@ Nur gültiges JSON, kein Markdown:
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
   "notes": null,
-  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && preselected.customerKind === 'hotel') || hotelGuestName ? '\n  "guestName": null,' : ''}
+  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && isAuftraggeber(preselected.customerKind, preselected.type)) || hotelGuestName ? '\n  "guestName": null,\n  "guestPhone": null,' : ''}
   "missing": ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}],
   "question": "Für wann und von wo nach wo soll die Fahrt gehen?",
   "summary": "Kurze Zusammenfassung der Buchung"
@@ -1770,7 +1778,35 @@ Nur gültiges JSON, kein Markdown:
                 booking._crmCustomerId = preselected.customerId || null;
                 if ((preselected.mobilePhone || preselected.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
                 const pickupDefault = preselected.defaultPickup || preselected.address;
-                if (pickupDefault) {
+                const _isAuftraggeberKunde = isAuftraggeber(preselected.customerKind, preselected.type);
+
+                // 🆕 v6.15.0: Auftraggeber (Hotel/Firma/Klinik) → CRM-Adresse NICHT automatisch als Pickup
+                // Stattdessen: In continueBookingFlow fragen "Abholort oder Zielort?"
+                if (_isAuftraggeberKunde && pickupDefault) {
+                    booking._auftraggeberAddress = pickupDefault;
+                    booking._auftraggeberName = preselected.name;
+                    if (preselected.addressLat && preselected.addressLon) {
+                        booking._auftraggeberLat = parseFloat(preselected.addressLat);
+                        booking._auftraggeberLon = parseFloat(preselected.addressLon);
+                    }
+                    // Nur "zu Hause"/"nach Hause" direkt auflösen
+                    if (booking.pickup && /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test(booking.pickup.trim())) {
+                        booking.pickup = pickupDefault;
+                        booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
+                        if (preselected.addressLat && preselected.addressLon) {
+                            booking.pickupLat = parseFloat(preselected.addressLat);
+                            booking.pickupLon = parseFloat(preselected.addressLon);
+                        }
+                    }
+                    if (booking.destination && /^(zu hause|zuhause|nach hause)$/i.test(booking.destination.trim())) {
+                        booking.destination = pickupDefault;
+                        booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+                        if (preselected.addressLat && preselected.addressLon) {
+                            booking.destinationLat = parseFloat(preselected.addressLat);
+                            booking.destinationLon = parseFloat(preselected.addressLon);
+                        }
+                    }
+                } else if (pickupDefault) {
                     if (!booking.pickup || /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test((booking.pickup || '').trim())) {
                         booking.pickup = pickupDefault;
                         booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
@@ -1796,16 +1832,24 @@ Nur gültiges JSON, kein Markdown:
                 booking._crmCustomerId = null;
             }
 
-            // 🆕 v6.11.6: Hotel-Gastname — manuell übergeben oder von KI aus Transkript extrahiert
+            // 🆕 v6.15.0: Gastname/Gast-Telefon — für alle Auftraggeber (Hotel, Firma, Klinik)
             if (hotelGuestName) {
                 booking.guestName = hotelGuestName;
-                booking._isHotelBooking = true;
-            } else if (preselected && preselected.customerKind === 'hotel') {
-                booking._isHotelBooking = true;
+                booking._isAuftraggeberBooking = true;
+            } else if (preselected && isAuftraggeber(preselected.customerKind, preselected.type)) {
+                booking._isAuftraggeberBooking = true;
+                const _isSupplier = preselected.type === 'supplier';
+                if (_isSupplier) booking._isSupplierBooking = true; // 🆕 v6.15.1: Lieferant-Flag
+                const _logEmoji = _isSupplier ? '🚚' : '🏢';
+                const _logLabel = _isSupplier ? 'Lieferant' : 'Auftraggeber';
                 if (booking.guestName) {
-                    await addTelegramLog('🏨', chatId, `KI hat Gastname aus Transkript erkannt: "${booking.guestName}"`);
+                    await addTelegramLog(_logEmoji, chatId, `KI hat Gastname aus Transkript erkannt: "${booking.guestName}"`);
                 } else {
-                    await addTelegramLog('🏨', chatId, `Hotel-Buchung ohne Gastname — wird nachgefragt`);
+                    await addTelegramLog(_logEmoji, chatId, `${_logLabel}-Buchung ohne Gastname — wird nachgefragt`);
+                }
+                // 🆕 v6.15.0: Gast-Telefonnummer aus KI-Analyse übernehmen
+                if (booking.guestPhone) {
+                    await addTelegramLog('📱', chatId, `KI hat Gast-Telefon aus Transkript erkannt: "${booking.guestPhone}"`);
                 }
             }
 
@@ -1892,6 +1936,46 @@ async function continueBookingFlow(chatId, booking, originalText) {
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
+
+        // 🆕 v6.15.0: Auftraggeber-Adresse → "Abholort oder Zielort?" fragen
+        // Wenn Auftraggeber-Adresse bekannt, aber sowohl pickup als auch destination fehlen
+        if (booking._auftraggeberAddress && !booking._auftraggeberResolved) {
+            const _needsPickup = !booking.pickup || booking.missing.includes('pickup');
+            const _needsDest = !booking.destination || booking.missing.includes('destination');
+            // Prüfe ob die Auftraggeber-Adresse schon als Pickup oder Destination zugeordnet ist
+            const _addrAlreadyUsed = (booking.pickup && booking.pickup === booking._auftraggeberAddress) ||
+                                      (booking.destination && booking.destination === booking._auftraggeberAddress);
+            if ((_needsPickup || _needsDest) && !_addrAlreadyUsed) {
+                const _shortAddr = booking._auftraggeberAddress.length > 35
+                    ? booking._auftraggeberAddress.substring(0, 33) + '…'
+                    : booking._auftraggeberAddress;
+                const bookingId = Date.now().toString(36);
+                await setPending(chatId, {
+                    partial: booking, originalText, bookingId,
+                    _awaitingAuftraggeberRole: true
+                });
+                const noted = [];
+                if (booking.datetime) {
+                    const d = new Date(parseGermanDatetime(booking.datetime));
+                    noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
+                }
+                if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
+                if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
+                let msg = '';
+                if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+                msg += `🏢 <b>${booking._auftraggeberName || 'Auftraggeber'}</b>\n📍 ${booking._auftraggeberAddress}\n\n`;
+                msg += `Ist <b>${_shortAddr}</b> der Abholort oder das Ziel?`;
+                await addTelegramLog('🏢', chatId, `Auftraggeber-Adresse: Frage Abholort/Zielort für "${booking._auftraggeberAddress}"`);
+                await sendTelegramMessage(chatId, msg, {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
+                        [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
+                        [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
+                    ] }
+                });
+                return;
+            }
+        }
 
         // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
         // Nur wenn Adresse da ist ABER noch keine Koordinaten
@@ -2218,12 +2302,13 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         return;
     }
 
-    // 🆕 v6.11.6: Hotel-Buchung ohne Gastname → nachfragen bevor Bestätigung
-    if (booking._isHotelBooking && !booking.guestName) {
+    // 🆕 v6.15.0: Auftraggeber-Buchung ohne Gastname → nachfragen bevor Bestätigung
+    if ((booking._isAuftraggeberBooking || booking._isHotelBooking) && !booking.guestName) {
         const bookingId = Date.now().toString(36);
-        await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingHotelGuestForBooking: true });
+        await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingBookingGuest: true });
+        const label = booking._isHotelBooking ? '🏨 Hotel' : (booking._isSupplierBooking ? '🚚 Lieferant' : '🏢 Auftraggeber');
         await sendTelegramMessage(chatId,
-            `🏨 <b>Gastname fehlt</b>\n\n👤 Für welchen Gast ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
+            `${label} <b>Gastname fehlt</b>\n\n👤 Für welchen Gast/Patienten ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
             reply_markup: { inline_keyboard: [
                 [{ text: '⏭️ Ohne Gastname weiter', callback_data: `skip_guest_${bookingId}` }]
             ] }
@@ -2292,6 +2377,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     msg += `👥 ${booking.passengers || 1} Person(en)\n`;
     if (booking.name) msg += `👤 ${booking.name}\n`;
     if (booking.guestName) msg += `🧑 Fahrgast: ${booking.guestName}\n`;
+    if (booking.guestPhone) msg += `📱 Gast-Tel: ${booking.guestPhone}\n`;
     if (booking.phone) {
         const cleanPhone = String(booking.phone).replace(/[^+\d\s\-()]/g, '').trim();
         if (cleanPhone) msg += `📱 ${cleanPhone}\n`;
@@ -3194,17 +3280,17 @@ async function handleMessage(message) {
         }
     }
 
-    // 🆕 v6.11.6: HOTEL-GASTNAME — Hotel ruft an, Gastname wird eingegeben
-    if (pending && pending._awaitingHotelGuestName && !isPendingExpired(pending)) {
+    // 🆕 v6.15.0: AUFTRAGGEBER-GASTNAME — Hotel/Firma/Klinik ruft an, Gastname wird eingegeben
+    if (pending && (pending._awaitingHotelGuestName || pending._awaitingAuftraggeberGuestName) && !isPendingExpired(pending)) {
         const guestName = text.trim().slice(0, 100);
-        const hotelCustomer = pending._hotelCustomer;
-        await addTelegramLog('🏨', chatId, `Hotel-Gastname: "${guestName}" für ${hotelCustomer.name}`);
+        const auftraggeberCustomer = pending._hotelCustomer || pending._auftraggeberCustomer;
+        await addTelegramLog('🏢', chatId, `Auftraggeber-Gastname: "${guestName}" für ${auftraggeberCustomer.name}`);
 
         // Gastname in die Buchung einfügen und Analyse starten
-        await sendTelegramMessage(chatId, `🏨 <b>${hotelCustomer.name}</b> → Gast: <b>${guestName}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+        await sendTelegramMessage(chatId, `🏢 <b>${auftraggeberCustomer.name}</b> → Gast: <b>${guestName}</b>\n🤖 <i>Analysiere Buchung...</i>`);
         await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, {
             isAdmin: true,
-            preselectedCustomer: hotelCustomer,
+            preselectedCustomer: auftraggeberCustomer,
             hotelGuestName: guestName
         });
         return;
@@ -3916,8 +4002,11 @@ async function handleMessage(message) {
         // 🆕 v6.14.8: AUDIO-ANRUFER — wenn Kunde aus Dateiname erkannt wurde, direkt vorauswählen
         if (message._callerCustomer && message._isAudioFile) {
             const caller = message._callerCustomer;
+            const _isAuftraggeberCaller = isAuftraggeber(caller.customerKind, caller.type);
             const isHotelCaller = caller.customerKind === 'hotel';
-            await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name}${isHotelCaller ? ' (🏨 Hotel)' : ''} → direkte Buchung`);
+            const isSupplierCaller = caller.type === 'supplier';
+            const callerKindLabel = isHotelCaller ? '🏨 Hotel' : (isSupplierCaller ? '🚚 Lieferant' : (_isAuftraggeberCaller ? '🏢 Auftraggeber' : ''));
+            await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name}${callerKindLabel ? ' (' + callerKindLabel + ')' : ''} → direkte Buchung`);
             const preselectedCustomer = {
                 name: caller.name,
                 phone: caller.phone || '',
@@ -3925,16 +4014,17 @@ async function handleMessage(message) {
                 address: caller.address || '',
                 defaultPickup: caller.defaultPickup || caller.address || '',
                 customerId: caller.customerId || caller.id,
-                customerKind: caller.customerKind || 'stammkunde'
+                customerKind: caller.customerKind || 'stammkunde',
+                type: caller.type || null  // 🆕 v6.15.1: Lieferant-Typ weitergeben
             };
             if (caller.lat && caller.lon) {
                 preselectedCustomer.addressLat = caller.lat;
                 preselectedCustomer.addressLon = caller.lon;
             }
 
-            // 🆕 v6.11.6: Hotel-Anrufer → KI extrahiert Gastname aus Transkript
-            if (isHotelCaller) {
-                await sendTelegramMessage(chatId, `🏨 <b>${caller.name} ruft an!</b>\n📍 ${caller.address || ''}\n🤖 <i>Analysiere Buchung + Gastname...</i>`);
+            // 🆕 v6.15.0: Auftraggeber-Anrufer → KI extrahiert Gastname + Gast-Telefon aus Transkript
+            if (_isAuftraggeberCaller) {
+                await sendTelegramMessage(chatId, `${callerKindLabel} <b>${caller.name} ruft an!</b>\n📍 ${caller.address || ''}\n🤖 <i>Analysiere Buchung + Gastname...</i>`);
             } else {
                 await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
             }
@@ -4564,6 +4654,8 @@ async function handleCallback(callback) {
                 paymentMethod: booking.paymentMethod || 'bar',
                 // 🆕 v6.11.5: Gastname (wenn eingetragen)
                 ...(booking.guestName && { guestName: booking.guestName }),
+                // 🆕 v6.15.0: Gast-Telefon (bei Auftraggeber-Buchungen)
+                ...(booking.guestPhone && { guestPhone: booking.guestPhone }),
                 // 🔧 v6.11.0: Zwischenstopps
                 ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
@@ -4821,6 +4913,41 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '📝 <b>Bemerkung zur Fahrt</b>\n\nBitte schreiben Sie Ihre Bemerkung:\n<i>z.B. Kindersitz, Rollstuhl, großer Koffer, Hund, etc.</i>');
         } else {
             await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal senden.');
+        }
+        return;
+    }
+
+    // 🆕 v6.15.0: Gastname überspringen → weiter mit Personenzahl/Bestätigung
+    if (data.startsWith('skip_guest_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (booking) {
+            delete pending._awaitingBookingGuest;
+            await addTelegramLog('⏭️', chatId, 'Gastname übersprungen');
+            const routePrice = pending.routePrice || await calculateTelegramRoutePrice(booking);
+            // Weiter zu Personenzahl
+            const hasExplicitPassengers = booking._passengersExplicit || (booking.passengers && booking.passengers > 1);
+            if (hasExplicitPassengers) {
+                return showTelegramConfirmation(chatId, booking, routePrice);
+            }
+            const bookingId = Date.now().toString(36);
+            await setPending(chatId, { booking, bookingId, routePrice, originalText: pending.originalText || '', _awaitingPassengers: true });
+            await sendTelegramMessage(chatId, '👥 <b>Wie viele Personen fahren mit?</b>', {
+                reply_markup: { inline_keyboard: [
+                    [
+                        { text: '🧑 1', callback_data: `pax_1_${bookingId}` },
+                        { text: '👥 2', callback_data: `pax_2_${bookingId}` },
+                        { text: '👨‍👩‍👦 3', callback_data: `pax_3_${bookingId}` },
+                        { text: '👨‍👩‍👧‍👦 4', callback_data: `pax_4_${bookingId}` }
+                    ],
+                    [
+                        { text: '5', callback_data: `pax_5_${bookingId}` },
+                        { text: '6', callback_data: `pax_6_${bookingId}` },
+                        { text: '7+', callback_data: `pax_7_${bookingId}` }
+                    ],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}
+            });
         }
         return;
     }
@@ -5974,7 +6101,8 @@ async function handleCallback(callback) {
             reply_markup: { inline_keyboard: [
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
                 [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
-                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }]
+                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
+                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }]
             ] }
         });
         return;
@@ -6003,7 +6131,9 @@ async function handleCallback(callback) {
                 `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${selected.name}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
                 reply_markup: { inline_keyboard: [
                     [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
-                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
+                    [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
+                    [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }]
                 ] }
             });
         } else {
@@ -6030,7 +6160,8 @@ async function handleCallback(callback) {
             reply_markup: { inline_keyboard: [
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
                 [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
-                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }]
+                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
+                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }]
             ] }
         });
         return;
@@ -6080,6 +6211,17 @@ async function handleCallback(callback) {
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🏨', chatId, `Kundenart: Hotel/Pension (Adresse: ${addr})`);
         await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'hotel');
+        return;
+    }
+
+    // 🆕 v6.15.0: Admin — Kundenart gewählt: Auftraggeber/Firma/Klinik (bucht für Andere)
+    if (data === 'admin_newcust_kind_auftraggeber') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        const addr = pending._adminNewCustAddr || '';
+        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
+        await addTelegramLog('🏢', chatId, `Kundenart: Auftraggeber/Firma (Adresse: ${addr})`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'auftraggeber');
         return;
     }
 
@@ -6183,6 +6325,54 @@ async function handleCallback(callback) {
     if (data.startsWith('crm_create_no_')) {
         await db.ref('settings/telegram/pending/crm_' + chatId).remove();
         await sendTelegramMessage(chatId, '✅ OK, ohne CRM-Eintrag.');
+        return;
+    }
+
+    // 🆕 v6.15.0: Auftraggeber-Adresse als Abholort gewählt
+    if (data.startsWith('auftr_pickup_')) {
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            const booking = pending.partial;
+            booking.pickup = booking._auftraggeberAddress;
+            booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
+            if (booking._auftraggeberLat && booking._auftraggeberLon) {
+                booking.pickupLat = booking._auftraggeberLat;
+                booking.pickupLon = booking._auftraggeberLon;
+            }
+            booking._auftraggeberResolved = true;
+            await addTelegramLog('📍', chatId, `Auftraggeber-Adresse als ABHOLORT: ${booking._auftraggeberAddress}`);
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+        }
+        return;
+    }
+
+    // 🆕 v6.15.0: Auftraggeber-Adresse als Zielort gewählt
+    if (data.startsWith('auftr_dest_')) {
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            const booking = pending.partial;
+            booking.destination = booking._auftraggeberAddress;
+            booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+            if (booking._auftraggeberLat && booking._auftraggeberLon) {
+                booking.destinationLat = booking._auftraggeberLat;
+                booking.destinationLon = booking._auftraggeberLon;
+            }
+            booking._auftraggeberResolved = true;
+            await addTelegramLog('🎯', chatId, `Auftraggeber-Adresse als ZIELORT: ${booking._auftraggeberAddress}`);
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+        }
+        return;
+    }
+
+    // 🆕 v6.15.0: Auftraggeber-Adresse weder Abholort noch Zielort
+    if (data.startsWith('auftr_skip_')) {
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            const booking = pending.partial;
+            booking._auftraggeberResolved = true;
+            await addTelegramLog('⏭️', chatId, `Auftraggeber-Adresse übersprungen`);
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+        }
         return;
     }
 
@@ -6628,11 +6818,11 @@ async function handleAudioFile(message) {
         // Transkript + Anrufer-Info anzeigen
         let transcriptMsg = `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>`;
         if (callerCustomer) {
-            const kindLabel = callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde';
+            const kindLabel = callerCustomer.customerKind === 'hotel' ? '🏨 Hotel/Pension' : (callerCustomer.type === 'supplier' ? '🚚 Lieferant' : (callerCustomer.customerKind === 'auftraggeber' ? '🏢 Auftraggeber' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde')));
             transcriptMsg += `\n\n👤 <b>Anrufer erkannt:</b> ${callerCustomer.name}`;
             transcriptMsg += `\n${kindLabel}`;
             if (callerCustomer.mobilePhone || callerCustomer.phone) transcriptMsg += `\n📱 ${callerCustomer.mobilePhone || callerCustomer.phone}`;
-            if (callerCustomer.address) transcriptMsg += `\n${callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠'} ${callerCustomer.address}`;
+            if (callerCustomer.address) transcriptMsg += `\n${callerCustomer.type === 'supplier' ? '🚚' : (isAuftraggeber(callerCustomer.customerKind, callerCustomer.type) ? '🏢' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠'))} ${callerCustomer.address}`;
         } else if (callerPhone) {
             transcriptMsg += `\n\n📞 <b>Anrufer:</b> ${callerPhone} (nicht im CRM)`;
         }

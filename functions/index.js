@@ -526,8 +526,9 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
 }
 
 // 🆕 v6.15.0: Auftraggeber-Erkennung — Hotels, Firmen, Kliniken die für Andere buchen
-function isAuftraggeber(customerKind) {
-    return customerKind === 'hotel' || customerKind === 'auftraggeber';
+// 🆕 v6.15.1: Auch Lieferanten (type='supplier') buchen für Gäste → Gastname + Gast-Telefon abfragen
+function isAuftraggeber(customerKind, customerType) {
+    return customerKind === 'hotel' || customerKind === 'auftraggeber' || customerType === 'supplier';
 }
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
@@ -537,7 +538,7 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         const kind = customerKind || 'stammkunde';
         const isStammkunde = kind === 'stammkunde';
         const isHotel = kind === 'hotel';
-        const _isAuftraggeber = isAuftraggeber(kind);
+        const _isAuftraggeber = isAuftraggeber(kind, null);
         const newRef = db.ref('customers').push();
         await newRef.set({
             name: name,
@@ -1643,7 +1644,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
 ${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}
-${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind) ? `🏢 AUFTRAGGEBER-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
+${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
 Ist das eine Taxi-Buchung (oder könnte es eine sein)?
@@ -1700,7 +1701,7 @@ Nur gültiges JSON, kein Markdown:
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
   "notes": null,
-  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && isAuftraggeber(preselected.customerKind)) || hotelGuestName ? '\n  "guestName": null,\n  "guestPhone": null,' : ''}
+  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && isAuftraggeber(preselected.customerKind, preselected.type)) || hotelGuestName ? '\n  "guestName": null,\n  "guestPhone": null,' : ''}
   "missing": ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}],
   "question": "Für wann und von wo nach wo soll die Fahrt gehen?",
   "summary": "Kurze Zusammenfassung der Buchung"
@@ -1777,7 +1778,7 @@ Nur gültiges JSON, kein Markdown:
                 booking._crmCustomerId = preselected.customerId || null;
                 if ((preselected.mobilePhone || preselected.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
                 const pickupDefault = preselected.defaultPickup || preselected.address;
-                const _isAuftraggeberKunde = isAuftraggeber(preselected.customerKind);
+                const _isAuftraggeberKunde = isAuftraggeber(preselected.customerKind, preselected.type);
 
                 // 🆕 v6.15.0: Auftraggeber (Hotel/Firma/Klinik) → CRM-Adresse NICHT automatisch als Pickup
                 // Stattdessen: In continueBookingFlow fragen "Abholort oder Zielort?"
@@ -1835,12 +1836,16 @@ Nur gültiges JSON, kein Markdown:
             if (hotelGuestName) {
                 booking.guestName = hotelGuestName;
                 booking._isAuftraggeberBooking = true;
-            } else if (preselected && isAuftraggeber(preselected.customerKind)) {
+            } else if (preselected && isAuftraggeber(preselected.customerKind, preselected.type)) {
                 booking._isAuftraggeberBooking = true;
+                const _isSupplier = preselected.type === 'supplier';
+                if (_isSupplier) booking._isSupplierBooking = true; // 🆕 v6.15.1: Lieferant-Flag
+                const _logEmoji = _isSupplier ? '🚚' : '🏢';
+                const _logLabel = _isSupplier ? 'Lieferant' : 'Auftraggeber';
                 if (booking.guestName) {
-                    await addTelegramLog('🏢', chatId, `KI hat Gastname aus Transkript erkannt: "${booking.guestName}"`);
+                    await addTelegramLog(_logEmoji, chatId, `KI hat Gastname aus Transkript erkannt: "${booking.guestName}"`);
                 } else {
-                    await addTelegramLog('🏢', chatId, `Auftraggeber-Buchung ohne Gastname — wird nachgefragt`);
+                    await addTelegramLog(_logEmoji, chatId, `${_logLabel}-Buchung ohne Gastname — wird nachgefragt`);
                 }
                 // 🆕 v6.15.0: Gast-Telefonnummer aus KI-Analyse übernehmen
                 if (booking.guestPhone) {
@@ -2301,7 +2306,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
     if ((booking._isAuftraggeberBooking || booking._isHotelBooking) && !booking.guestName) {
         const bookingId = Date.now().toString(36);
         await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingBookingGuest: true });
-        const label = booking._isHotelBooking ? '🏨 Hotel' : '🏢 Auftraggeber';
+        const label = booking._isHotelBooking ? '🏨 Hotel' : (booking._isSupplierBooking ? '🚚 Lieferant' : '🏢 Auftraggeber');
         await sendTelegramMessage(chatId,
             `${label} <b>Gastname fehlt</b>\n\n👤 Für welchen Gast/Patienten ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
             reply_markup: { inline_keyboard: [
@@ -3997,9 +4002,10 @@ async function handleMessage(message) {
         // 🆕 v6.14.8: AUDIO-ANRUFER — wenn Kunde aus Dateiname erkannt wurde, direkt vorauswählen
         if (message._callerCustomer && message._isAudioFile) {
             const caller = message._callerCustomer;
-            const _isAuftraggeberCaller = isAuftraggeber(caller.customerKind);
+            const _isAuftraggeberCaller = isAuftraggeber(caller.customerKind, caller.type);
             const isHotelCaller = caller.customerKind === 'hotel';
-            const callerKindLabel = isHotelCaller ? '🏨 Hotel' : (_isAuftraggeberCaller ? '🏢 Auftraggeber' : '');
+            const isSupplierCaller = caller.type === 'supplier';
+            const callerKindLabel = isHotelCaller ? '🏨 Hotel' : (isSupplierCaller ? '🚚 Lieferant' : (_isAuftraggeberCaller ? '🏢 Auftraggeber' : ''));
             await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name}${callerKindLabel ? ' (' + callerKindLabel + ')' : ''} → direkte Buchung`);
             const preselectedCustomer = {
                 name: caller.name,
@@ -4008,7 +4014,8 @@ async function handleMessage(message) {
                 address: caller.address || '',
                 defaultPickup: caller.defaultPickup || caller.address || '',
                 customerId: caller.customerId || caller.id,
-                customerKind: caller.customerKind || 'stammkunde'
+                customerKind: caller.customerKind || 'stammkunde',
+                type: caller.type || null  // 🆕 v6.15.1: Lieferant-Typ weitergeben
             };
             if (caller.lat && caller.lon) {
                 preselectedCustomer.addressLat = caller.lat;
@@ -6811,11 +6818,11 @@ async function handleAudioFile(message) {
         // Transkript + Anrufer-Info anzeigen
         let transcriptMsg = `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>`;
         if (callerCustomer) {
-            const kindLabel = callerCustomer.customerKind === 'hotel' ? '🏨 Hotel/Pension' : (callerCustomer.customerKind === 'auftraggeber' ? '🏢 Auftraggeber' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde'));
+            const kindLabel = callerCustomer.customerKind === 'hotel' ? '🏨 Hotel/Pension' : (callerCustomer.type === 'supplier' ? '🚚 Lieferant' : (callerCustomer.customerKind === 'auftraggeber' ? '🏢 Auftraggeber' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde')));
             transcriptMsg += `\n\n👤 <b>Anrufer erkannt:</b> ${callerCustomer.name}`;
             transcriptMsg += `\n${kindLabel}`;
             if (callerCustomer.mobilePhone || callerCustomer.phone) transcriptMsg += `\n📱 ${callerCustomer.mobilePhone || callerCustomer.phone}`;
-            if (callerCustomer.address) transcriptMsg += `\n${isAuftraggeber(callerCustomer.customerKind) ? '🏢' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠')} ${callerCustomer.address}`;
+            if (callerCustomer.address) transcriptMsg += `\n${callerCustomer.type === 'supplier' ? '🚚' : (isAuftraggeber(callerCustomer.customerKind, callerCustomer.type) ? '🏢' : (callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠'))} ${callerCustomer.address}`;
         } else if (callerPhone) {
             transcriptMsg += `\n\n📞 <b>Anrufer:</b> ${callerPhone} (nicht im CRM)`;
         }

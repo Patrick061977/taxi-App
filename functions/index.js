@@ -685,16 +685,24 @@ function isAuftraggeber(customerKind, customerType) {
 
 // 🆕 v6.14.0: Admin — Neuen Kunden im CRM anlegen und Buchung fortsetzen
 // 🆕 v6.11.5: customerKind Parameter (stammkunde/gelegenheitskunde)
-async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords, customerKind) {
+// 🔧 v6.15.1: mobilePhone als separater Parameter (für Festnetz + Mobil getrennt)
+async function createAdminNewCustomer(chatId, name, phone, address, originalText, userName, addrCoords, customerKind, mobilePhone) {
     try {
         const kind = customerKind || 'stammkunde';
         const isStammkunde = kind === 'stammkunde';
         const isHotel = kind === 'hotel';
         const _isAuftraggeber = isAuftraggeber(kind, null);
+        // 🔧 v6.15.1: Festnetz/Mobil-Trennung — wenn mobilePhone separat übergeben, phone = Festnetz
+        // Wenn kein separates mobilePhone → Auto-Erkennung wie bisher
+        const _hasSeparateMobile = mobilePhone && mobilePhone.length > 3;
+        const _phoneIsMobile = isMobileNumber(phone);
+        const crmPhone = _hasSeparateMobile ? phone : (_phoneIsMobile ? '' : phone);
+        const crmMobilePhone = _hasSeparateMobile ? mobilePhone : (_phoneIsMobile ? phone : '');
         const newRef = db.ref('customers').push();
         await newRef.set({
             name: name,
-            phone: phone || '',
+            phone: crmPhone || '',
+            mobilePhone: crmMobilePhone || '',
             address: address || '',
             defaultPickup: (isStammkunde || _isAuftraggeber) ? (address || '') : '',  // Stammkunde + Auftraggeber: Adresse = Standard-Abholort
             email: '',
@@ -714,7 +722,10 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
         confirmMsg += `👤 <b>${name}</b>\n`;
         confirmMsg += `${kindLabel}\n`;
-        if (phone) confirmMsg += `📱 ${phone}\n`;
+        // 🔧 v6.15.1: Festnetz + Mobil getrennt anzeigen
+        if (crmPhone) confirmMsg += `☎️ Festnetz: ${crmPhone}\n`;
+        if (crmMobilePhone) confirmMsg += `📱 Mobil: ${crmMobilePhone}\n`;
+        if (!crmPhone && !crmMobilePhone && phone) confirmMsg += `📱 ${phone}\n`;
         if (address) confirmMsg += `${isHotel ? '🏨 Hoteladresse' : (_isAuftraggeber ? '🏢 Firmenadresse' : (isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse'))}: ${address}\n`;
 
         await sendTelegramMessage(chatId, confirmMsg);
@@ -724,8 +735,8 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         if (originalText) {
             const preselectedCustomer = {
                 name: name,
-                phone: phone || '',
-                mobilePhone: isMobileNumber(phone) ? phone : '', // 🔧 v6.14.7: mobilePhone weitergeben
+                phone: crmPhone || phone || '',
+                mobilePhone: crmMobilePhone || '', // 🔧 v6.15.1: Mobilnummer separat weitergeben
                 address: address || '',
                 defaultPickup: address || '',
                 customerId: customerId,
@@ -1826,7 +1837,15 @@ ADRESSEN:
 • NIEMALS eine Adresse erfinden oder raten! Nur Adressen setzen die EXPLIZIT im Text stehen.
 • Wenn nur ein Name/Titel genannt wird (z.B. "Dr. Krohn", "Hotel Maritim") OHNE Straße → NUR den Namen als Adresse übernehmen, KEINE Straße/Hausnummer dazuerfinden!
 • Pickup und Destination müssen UNTERSCHIEDLICHE Orte sein. NIEMALS Teile der Abholadresse (Straße/Hausnummer) für das Ziel verwenden oder umgekehrt.
-• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.${options.isAudioTranscript ? `
+• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.
+
+ZWISCHENSTOPPS:
+• "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array!
+• Beispiel: "Von A nach C mit Zwischenstopp in B" → pickup="A", waypoints=["B"], destination="C"
+• Beispiel: "Von A über B nach C" → pickup="A", waypoints=["B"], destination="C"
+• Mehrere Stopps möglich: waypoints=["B", "C"] für "über B und C"
+• Zwischenstopps sind ADRESSEN, NICHT Notizen! Nie in notes schreiben!
+• Wenn keine Zwischenstopps → waypoints=[]${options.isAudioTranscript ? `
 ⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
@@ -1854,6 +1873,7 @@ Nur gültiges JSON, kein Markdown:
   "datetime": null,
   "pickup": null,
   "destination": null,
+  "waypoints": [],
   "passengers": 1,
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
@@ -2376,6 +2396,7 @@ BISHERIGE BUCHUNGSDATEN (unveränderlich, außer Fahrgast korrigiert explizit):
 • datetime:    ${_pDatetime || '— fehlt'}
 • pickup:      ${_pPickup || '— fehlt'}
 • destination: ${_pDest || '— fehlt'}
+• waypoints:   ${partial.waypoints && partial.waypoints.length > 0 ? JSON.stringify(partial.waypoints) : '[]'}
 • passengers:  ${_pPax}
 • name:        ${_pName}
 • phone:       ${_pPhone || '— fehlt'}${_pNotes ? `\n• notes: ${_pNotes}` : ''}${_pFor !== undefined ? `\n• forCustomer: ${_pFor || '—'}` : ''}
@@ -2394,12 +2415,14 @@ REGELN:
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
+9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
 
 Nur gültiges JSON, kein Markdown:
 {
   "datetime": ${_pDatetime ? `"${_pDatetime}"` : 'null'},
   "pickup": ${_pPickup ? `"${_pPickup}"` : 'null'},
   "destination": ${_pDest ? `"${_pDest}"` : 'null'},
+  "waypoints": ${partial.waypoints && partial.waypoints.length > 0 ? JSON.stringify(partial.waypoints) : '[]'},
   "passengers": ${_pPax},
   "name": "${_pName}",${isAdminFollowUp ? `\n  "forCustomer": ${_pFor ? `"${_pFor}"` : 'null'},` : ''}
   "phone": ${_pPhone ? `"${_pPhone}"` : 'null'},
@@ -3709,6 +3732,23 @@ async function handleMessage(message) {
             const custName = text.trim();
             // 🆕 v6.11.5: Wenn Telefon aus Audio bekannt → Telefon-Schritt überspringen
             if (pending._callerPhone) {
+                // 🔧 v6.15.1: Festnetz aus Audio → Mobilnummer optional abfragen
+                if (!isMobileNumber(pending._callerPhone)) {
+                    await addTelegramLog('☎️', chatId, `Festnetz aus Audio erkannt: ${pending._callerPhone} → frage nach Mobilnummer`);
+                    await setPending(chatId, {
+                        ...pending,
+                        _adminNewCustStep: 'mobilePhone',
+                        _adminNewCustName: custName,
+                        _adminNewCustPhone: pending._callerPhone
+                    });
+                    await sendTelegramMessage(chatId,
+                        `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n☎️ Festnetz: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                        ] } }
+                    );
+                    return;
+                }
                 await addTelegramLog('📱', chatId, `Telefon aus Audio übernommen: ${pending._callerPhone} → weiter zu Adresse`);
                 await setPending(chatId, {
                     ...pending,
@@ -3737,10 +3777,25 @@ async function handleMessage(message) {
         }
 
         if (step === 'phone') {
-            // Telefon eingegeben → weiter mit Adresse
+            // Telefon eingegeben → prüfen ob Festnetz oder Mobil
             let normalizedPhone = text.trim().replace(/\s/g, '');
             if (normalizedPhone.startsWith('0') && !normalizedPhone.startsWith('00')) {
                 normalizedPhone = '+49' + normalizedPhone.slice(1);
+            }
+            // 🔧 v6.15.1: Festnetz erkannt → Mobilnummer optional abfragen
+            if (!isMobileNumber(normalizedPhone)) {
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'mobilePhone',
+                    _adminNewCustPhone: normalizedPhone
+                });
+                await sendTelegramMessage(chatId,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${normalizedPhone}</b>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                    ] } }
+                );
+                return;
             }
             await setPending(chatId, {
                 ...pending,
@@ -3749,6 +3804,23 @@ async function handleMessage(message) {
             });
             await sendTelegramMessage(chatId,
                 `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+            );
+            return;
+        }
+
+        // 🔧 v6.15.1: Mobilnummer eingegeben nach Festnetz-Erkennung
+        if (step === 'mobilePhone') {
+            let normalizedMobile = text.trim().replace(/\s/g, '');
+            if (normalizedMobile.startsWith('0') && !normalizedMobile.startsWith('00')) {
+                normalizedMobile = '+49' + normalizedMobile.slice(1);
+            }
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'address',
+                _adminNewCustMobilePhone: normalizedMobile
+            });
+            await sendTelegramMessage(chatId,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <b>${normalizedMobile}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
             );
             return;
         }
@@ -6307,8 +6379,28 @@ async function handleCallback(callback) {
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
 
         // 🆕 v6.11.5: Wenn Telefonnummer aus Audio-Dateiname bekannt → Schritt überspringen
+        // 🔧 v6.15.1: Festnetz aus Audio → Mobilnummer optional abfragen
         const knownPhone = pending._callerPhone || '';
         if (knownPhone) {
+            if (!isMobileNumber(knownPhone)) {
+                await addTelegramLog('☎️', chatId, `Festnetz aus Audio erkannt: ${knownPhone} → frage nach Mobilnummer`);
+                await setPending(chatId, {
+                    _adminNewCust: true,
+                    _adminNewCustStep: 'mobilePhone',
+                    _adminNewCustName: pending.newCustomerName || '',
+                    _adminNewCustPhone: knownPhone,
+                    _callerPhone: knownPhone,
+                    originalText: pending.originalText || '',
+                    userName: pending.userName || ''
+                });
+                await sendTelegramMessage(chatId,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n☎️ Festnetz: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                    ] } }
+                );
+                return;
+            }
             await addTelegramLog('📱', chatId, `Telefon aus Audio-Datei übernommen: ${knownPhone} → überspringe Telefon-Schritt`);
             await setPending(chatId, {
                 _adminNewCust: true,
@@ -6362,6 +6454,21 @@ async function handleCallback(callback) {
                 [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] }
         });
+        return;
+    }
+
+    // 🔧 v6.15.1: Admin — Neuer Kunde: Ohne Mobilnummer weiter (Festnetz bereits gespeichert)
+    if (data === 'admin_newcust_nomobile') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        await setPending(chatId, {
+            ...pending,
+            _adminNewCustStep: 'address',
+            _adminNewCustMobilePhone: ''
+        });
+        await sendTelegramMessage(chatId,
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+        );
         return;
     }
 
@@ -6483,7 +6590,7 @@ async function handleCallback(callback) {
         const addr = pending._adminNewCustAddr || '';
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🏠', chatId, `Kundenart: Stammkunde (Wohnanschrift: ${addr})`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'stammkunde');
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'stammkunde', pending._adminNewCustMobilePhone || '');
         return;
     }
 
@@ -6494,7 +6601,7 @@ async function handleCallback(callback) {
         const addr = pending._adminNewCustAddr || '';
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🧳', chatId, `Kundenart: Gelegenheitskunde (Abholadresse: ${addr})`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'gelegenheitskunde');
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'gelegenheitskunde', pending._adminNewCustMobilePhone || '');
         return;
     }
 
@@ -6505,7 +6612,7 @@ async function handleCallback(callback) {
         const addr = pending._adminNewCustAddr || '';
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🏨', chatId, `Kundenart: Hotel/Pension (Adresse: ${addr})`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'hotel');
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'hotel', pending._adminNewCustMobilePhone || '');
         return;
     }
 
@@ -6516,7 +6623,7 @@ async function handleCallback(callback) {
         const addr = pending._adminNewCustAddr || '';
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🏢', chatId, `Kundenart: Auftraggeber/Firma (Adresse: ${addr})`);
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'auftraggeber');
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'auftraggeber', pending._adminNewCustMobilePhone || '');
         return;
     }
 

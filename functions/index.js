@@ -6588,7 +6588,10 @@ async function handleAudioFile(message) {
                 const foundCustomer = allCust.find(c => {
                     const p1 = (c.mobilePhone || '').replace(/\D/g, '');
                     const p2 = (c.phone || '').replace(/\D/g, '');
-                    if ((p1.length > 5 && p1.endsWith(last9)) || (p2.length > 5 && p2.endsWith(last9))) return true;
+                    const p3 = (c.phone2 || '').replace(/\D/g, '');  // 🔧 v6.11.6: Zweite Festnetz-Nummer
+                    if ((p1.length > 5 && p1.endsWith(last9)) ||
+                        (p2.length > 5 && p2.endsWith(last9)) ||
+                        (p3.length > 5 && p3.endsWith(last9))) return true;
                     // 🆕 v6.11.6: Zusätzliche Telefonnummern prüfen (z.B. Hotels mit mehreren Leitungen)
                     if (c.additionalPhones && Array.isArray(c.additionalPhones)) {
                         return c.additionalPhones.some(ap => {

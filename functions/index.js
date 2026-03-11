@@ -3230,10 +3230,7 @@ async function handleMessage(message) {
                     _adminNewCustPhone: pending._callerPhone
                 });
                 await sendTelegramMessage(chatId,
-                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
-                    { reply_markup: { inline_keyboard: [
-                        [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-                    ] } }
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
                 );
                 return;
             }
@@ -3264,10 +3261,7 @@ async function handleMessage(message) {
                 _adminNewCustPhone: normalizedPhone
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
-                { reply_markup: { inline_keyboard: [
-                    [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-                ] } }
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
             );
             return;
         }
@@ -3283,7 +3277,6 @@ async function handleMessage(message) {
                 const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
                 keyboard.push([{ text: '📝 Original verwenden: ' + (rawAddress.length > 25 ? rawAddress.slice(0, 23) + '…' : rawAddress), callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
                 keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
-                keyboard.push([{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]);
 
                 await setPending(chatId, {
                     ...pending,
@@ -3309,8 +3302,7 @@ async function handleMessage(message) {
                     `⚠️ <b>Keine Ergebnisse für:</b> "${rawAddress}"\n\nWas möchtest du tun?`, {
                     reply_markup: { inline_keyboard: [
                         [{ text: '📝 Trotzdem verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }],
-                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }],
-                        [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]
                     ] }
                 });
             }
@@ -5565,10 +5557,7 @@ async function handleCallback(callback) {
                 userName: pending.userName || ''
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
-                { reply_markup: { inline_keyboard: [
-                    [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-                ] } }
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
             );
             return;
         }
@@ -5623,10 +5612,7 @@ async function handleCallback(callback) {
             _adminNewCustPhone: ''
         });
         await sendTelegramMessage(chatId,
-            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
-            { reply_markup: { inline_keyboard: [
-                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-            ] } }
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
         );
         return;
     }
@@ -5716,19 +5702,8 @@ async function handleCallback(callback) {
             _adminNewCustStep: 'address'
         });
         await sendTelegramMessage(chatId,
-            `🏠 Bitte die <b>Adresse</b> nochmal eingeben oder 📎 <b>Standort senden</b>:`, {
-            reply_markup: { inline_keyboard: [
-                [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
-            ] }
-        });
-        return;
-    }
-
-    // 🆕 v6.14.0: Admin — Neuer Kunde ohne Adresse → Anlegen (immer als Gelegenheitskunde)
-    if (data === 'admin_newcust_noaddr') {
-        const pending = await getPending(chatId);
-        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', '', pending.originalText, pending.userName, null, 'gelegenheitskunde');
+            `🏠 Bitte die <b>Adresse</b> nochmal eingeben oder 📎 <b>Standort senden</b>:`
+        );
         return;
     }
 

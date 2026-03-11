@@ -2398,6 +2398,9 @@ async function analyzeTelegramFollowUp(chatId, newText, userName, pending) {
     if (isAdminFollowUp && partial._customerAddress) followUpHomeAddress = partial._customerAddress;
     else if (!isAdminFollowUp && knownCustomer && knownCustomer.address) followUpHomeAddress = knownCustomer.address;
 
+    // 🔧 v6.15.5: Rückfahrt-Datum für KI-Prompt (nur Uhrzeit → Datum der Hinfahrt)
+    const _returnOrigDate = partial._returnOrigDate || null;
+
     try {
         const _pDatetime = partial.datetime || null;
         const _pPickup = partial.pickup || null;
@@ -2430,7 +2433,7 @@ NEUE ANTWORT: "${newText}"
 REGELN:
 1. FELD-ZUORDNUNG: Die Antwort füllt das erste fehlende Feld ("${_missingNow[0] || 'keines'}"), außer der Fahrgast benennt explizit ein anderes
 2. BESTEHENDE FELDER: Nie überschreiben, außer Fahrgast korrigiert explizit
-3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
+3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=${_returnOrigDate ? _returnOrigDate + ' (Rückfahrt-Datum der Hinfahrt!)' : 'heute'} | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
@@ -2671,6 +2674,11 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
     keyboard.inline_keyboard.push([
         { text: '📅 Datum ändern', callback_data: `change_time_${bookingId}` },
         { text: '👤 Gastname', callback_data: `book_guest_${bookingId}` }
+    ]);
+    // 🆕 v6.15.5: Personenzahl ändern
+    const _paxLabel = booking?.passengers ? `👥 ${booking.passengers} Pers.` : '👥 Personen';
+    keyboard.inline_keyboard.push([
+        { text: _paxLabel, callback_data: `change_pax_${bookingId}` }
     ]);
     // 🔧 v6.11.0: Tauschen + Zwischenstopp
     keyboard.inline_keyboard.push([
@@ -5041,9 +5049,11 @@ async function handleCallback(callback) {
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
             // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
             // 🔧 v6.14.7: + Datum ändern + Gastname Buttons
+            // 🔧 v6.15.5: + Personenzahl ändern Button
             const returnKeyboard = { inline_keyboard: [
                 [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
-                [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
+                [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👥 Personen', callback_data: `chpax_${rideData.id}` }],
+                [{ text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             const _isJetztFahrt = booking._isJetzt;
@@ -5387,6 +5397,53 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.15.5: Personenzahl ändern (in Bestätigungs-Übersicht, vor der Buchung)
+    if (data.startsWith('change_pax_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        const currentPax = booking.passengers || 1;
+        const bookingId = pending.bookingId || data.replace('change_pax_', '');
+        await sendTelegramMessage(chatId,
+            `👥 <b>Personenzahl ändern</b>\n\nAktuell: <b>${currentPax} Person(en)</b>`,
+            { reply_markup: { inline_keyboard: [
+                [
+                    { text: currentPax == 1 ? '1 ✓' : '1', callback_data: `setpax_${bookingId}_1` },
+                    { text: currentPax == 2 ? '2 ✓' : '2', callback_data: `setpax_${bookingId}_2` },
+                    { text: currentPax == 3 ? '3 ✓' : '3', callback_data: `setpax_${bookingId}_3` },
+                    { text: currentPax == 4 ? '4 ✓' : '4', callback_data: `setpax_${bookingId}_4` }
+                ],
+                [
+                    { text: currentPax == 5 ? '5 ✓' : '5', callback_data: `setpax_${bookingId}_5` },
+                    { text: currentPax == 6 ? '6 ✓' : '6', callback_data: `setpax_${bookingId}_6` },
+                    { text: currentPax == 7 ? '7 ✓' : '7', callback_data: `setpax_${bookingId}_7` },
+                    { text: currentPax == 8 ? '8 ✓' : '8', callback_data: `setpax_${bookingId}_8` }
+                ],
+                [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${bookingId}` }]
+            ] } }
+        );
+        return;
+    }
+
+    // 🆕 v6.15.5: Personenzahl setzen (Bestätigungs-Flow)
+    if (data.startsWith('setpax_')) {
+        const match = data.match(/^setpax_(.+)_(\d+)$/);
+        if (!match) return;
+        const paxCount = parseInt(match[2]);
+        const pending = await getPending(chatId);
+        if (!pending || !pending.booking) {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.');
+            return;
+        }
+        pending.booking.passengers = paxCount;
+        pending.booking._passengersExplicit = true;
+        await addTelegramLog('👥', chatId, `Personenzahl geändert auf ${paxCount} (Bestätigung)`);
+        // Zurück zur Bestätigungs-Übersicht
+        const rp = pending.routePrice || null;
+        await showTelegramConfirmation(chatId, pending.booking, rp);
+        return;
+    }
+
     // 🆕 v6.11.5: Gastname für laufende Buchung eintragen (vor dem Speichern)
     if (data.startsWith('book_guest_')) {
         const pending = await getPending(chatId);
@@ -5691,7 +5748,13 @@ async function handleCallback(callback) {
             }
             // Rückfahrt-Text zusammenbauen: Von und Nach getauscht
             const returnText = `${origRide.destination} nach ${origRide.pickup}`;
-            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
+            // 🔧 v6.15.5: Datum + Personenzahl aus Hinfahrt anzeigen
+            let _returnDateHint = '';
+            if (_returnOrigDate) {
+                const [_ry, _rm, _rd] = _returnOrigDate.split('-');
+                _returnDateHint = `\n📅 Hinfahrt am ${_rd}.${_rm}.${_ry}`;
+            }
+            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}${_returnDateHint}\n👥 ${origPassengers} Person${origPassengers > 1 ? 'en' : ''}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00")`);
             // Pending mit vorausgefüllten Adressen erstellen
             // 🔧 v6.14.7: Auch customerMobile als Fallback
             let _returnPhone = origRide.customerPhone || origRide.customerMobile || '';
@@ -5704,18 +5767,33 @@ async function handleCallback(callback) {
                     if (_rcData && (_rcData.mobilePhone || _rcData.phone)) _returnPhone = _rcData.mobilePhone || _rcData.phone;
                 } catch (_e) { /* ignore */ }
             }
+            // 🔧 v6.15.5: Personenzahl + Datum der Originalfahrt übernehmen
+            const origPassengers = parseInt(origRide.passengers) || 1;
+            const origDatetime = origRide.datetime || origRide.scheduledTime || null;
+            // Datum aus der Originalfahrt extrahieren (für "nur Uhrzeit" → gleicher Tag)
+            let _returnOrigDate = null;
+            if (origDatetime) {
+                const _dt = new Date(origDatetime);
+                if (!isNaN(_dt.getTime())) {
+                    const _pad = n => String(n).padStart(2, '0');
+                    _returnOrigDate = `${_dt.getFullYear()}-${_pad(_dt.getMonth()+1)}-${_pad(_dt.getDate())}`;
+                }
+            }
             const returnBooking = {
                 pickup: origRide.destination,
                 destination: origRide.pickup,
                 name: origRide.customerName || '',
                 phone: _returnPhone,
+                passengers: origPassengers,
+                _passengersExplicit: true,
                 // Koordinaten tauschen
                 pickupLat: origRide.destinationLat || origRide.destCoords?.lat || null,
                 pickupLon: origRide.destinationLon || origRide.destCoords?.lon || null,
                 destinationLat: origRide.pickupLat || origRide.pickupCoords?.lat || null,
                 destinationLon: origRide.pickupLon || origRide.pickupCoords?.lon || null,
                 missing: ['datetime'],
-                _returnOf: origRideId
+                _returnOf: origRideId,
+                _returnOrigDate: _returnOrigDate
             };
             // 🔧 v6.14.2: Admin-Flags aus Originalfahrt übernehmen
             if (origRide.source === 'telegram-admin' || origRide.adminBookedBy) {
@@ -5737,6 +5815,13 @@ async function handleCallback(callback) {
             console.error('Rückfahrt-Fehler:', e);
             await sendTelegramMessage(chatId, '❌ Fehler beim Erstellen der Rückfahrt.');
         }
+        return;
+    }
+
+    // 🆕 v6.15.5: PERSONENZAHL ÄNDERN für bestellte Fahrt
+    if (data.startsWith('chpax_')) {
+        const rideId = data.replace('chpax_', '');
+        await handleAdminEditPax(chatId, rideId);
         return;
     }
 

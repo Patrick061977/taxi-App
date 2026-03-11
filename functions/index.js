@@ -1697,6 +1697,7 @@ Nur gültiges JSON, kein Markdown:
             if (!booking.datetime || booking.datetime.endsWith('T00:00')) {
                 await addTelegramLog('🕐', chatId, `Jetzt-Fix: "${text}" → ${jetztDatetime} (aktuelle Zeit + 10 Min)`);
                 booking.datetime = jetztDatetime;
+                booking._isJetzt = true;  // Flag für Sofortfahrt-Anzeige
                 // "datetime" aus missing entfernen falls vorhanden
                 if (booking.missing && Array.isArray(booking.missing)) {
                     booking.missing = booking.missing.filter(m => m !== 'datetime');
@@ -2212,8 +2213,12 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         ? `🕵️ <b>Buchung für ${booking._forCustomer || booking.name}</b>\n\n`
         : '✅ <b>Termin erkannt!</b>\n\n';
     if (booking.datetime) {
-        const dt = new Date(parseGermanDatetime(booking.datetime));
-        msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
+        if (booking._isJetzt) {
+            msg += `🚖 <b>Sofortfahrt</b> – ein verfügbarer Fahrer wird für Sie gesucht!\n`;
+        } else {
+            const dt = new Date(parseGermanDatetime(booking.datetime));
+            msg += `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr\n`;
+        }
     }
     if (booking.pickup) msg += `📍 Von: ${booking.pickup} ✅\n`;
     // 🔧 v6.11.0: Zwischenstopps anzeigen
@@ -4275,6 +4280,7 @@ async function handleCallback(callback) {
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
                 // 🔧 v6.14.7: 'new' statt 'open' — damit Auto-Assign auch Telegram-Sofortfahrten zuweist!
                 status: isVorbestellung ? 'vorbestellt' : 'new',
+                ...(booking._isJetzt && { isJetzt: true }),
                 source: booking._adminBooked ? 'telegram-admin' : 'telegram-bot',
                 createdAt: Date.now(),
                 createdBy: booking._adminBooked ? `admin-telegram-${booking._adminChatId}` : 'telegram-cloud-function',
@@ -4306,14 +4312,17 @@ async function handleCallback(callback) {
                 [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
+            const _isJetztFahrt = booking._isJetzt;
             await sendTelegramMessage(chatId,
                 successHeader +
-                `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n` +
+                (_isJetztFahrt
+                    ? `🚖 <b>Sofortfahrt</b> – ein verfügbarer Fahrer wird gesucht!\n`
+                    : `📅 ${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })} um ${timeStr} Uhr\n`) +
                 `📍 ${rideData.pickup} → ${rideData.destination}\n` +
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${isVorbestellung ? 'Vorbestellt' : 'Offen'}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
+                `📋 Status: ${_isJetztFahrt ? 'Sofortfahrt' : (isVorbestellung ? 'Vorbestellt' : 'Offen')}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
                 { reply_markup: returnKeyboard }
             );
 

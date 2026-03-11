@@ -1837,7 +1837,15 @@ ADRESSEN:
 • NIEMALS eine Adresse erfinden oder raten! Nur Adressen setzen die EXPLIZIT im Text stehen.
 • Wenn nur ein Name/Titel genannt wird (z.B. "Dr. Krohn", "Hotel Maritim") OHNE Straße → NUR den Namen als Adresse übernehmen, KEINE Straße/Hausnummer dazuerfinden!
 • Pickup und Destination müssen UNTERSCHIEDLICHE Orte sein. NIEMALS Teile der Abholadresse (Straße/Hausnummer) für das Ziel verwenden oder umgekehrt.
-• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.${options.isAudioTranscript ? `
+• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.
+
+ZWISCHENSTOPPS:
+• "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array!
+• Beispiel: "Von A nach C mit Zwischenstopp in B" → pickup="A", waypoints=["B"], destination="C"
+• Beispiel: "Von A über B nach C" → pickup="A", waypoints=["B"], destination="C"
+• Mehrere Stopps möglich: waypoints=["B", "C"] für "über B und C"
+• Zwischenstopps sind ADRESSEN, NICHT Notizen! Nie in notes schreiben!
+• Wenn keine Zwischenstopps → waypoints=[]${options.isAudioTranscript ? `
 ⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
@@ -1865,6 +1873,7 @@ Nur gültiges JSON, kein Markdown:
   "datetime": null,
   "pickup": null,
   "destination": null,
+  "waypoints": [],
   "passengers": 1,
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
@@ -2387,6 +2396,7 @@ BISHERIGE BUCHUNGSDATEN (unveränderlich, außer Fahrgast korrigiert explizit):
 • datetime:    ${_pDatetime || '— fehlt'}
 • pickup:      ${_pPickup || '— fehlt'}
 • destination: ${_pDest || '— fehlt'}
+• waypoints:   ${partial.waypoints && partial.waypoints.length > 0 ? JSON.stringify(partial.waypoints) : '[]'}
 • passengers:  ${_pPax}
 • name:        ${_pName}
 • phone:       ${_pPhone || '— fehlt'}${_pNotes ? `\n• notes: ${_pNotes}` : ''}${_pFor !== undefined ? `\n• forCustomer: ${_pFor || '—'}` : ''}
@@ -2405,12 +2415,14 @@ REGELN:
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
+9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
 
 Nur gültiges JSON, kein Markdown:
 {
   "datetime": ${_pDatetime ? `"${_pDatetime}"` : 'null'},
   "pickup": ${_pPickup ? `"${_pPickup}"` : 'null'},
   "destination": ${_pDest ? `"${_pDest}"` : 'null'},
+  "waypoints": ${partial.waypoints && partial.waypoints.length > 0 ? JSON.stringify(partial.waypoints) : '[]'},
   "passengers": ${_pPax},
   "name": "${_pName}",${isAdminFollowUp ? `\n  "forCustomer": ${_pFor ? `"${_pFor}"` : 'null'},` : ''}
   "phone": ${_pPhone ? `"${_pPhone}"` : 'null'},

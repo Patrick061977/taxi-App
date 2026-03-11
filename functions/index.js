@@ -1687,6 +1687,23 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
+        // 🕐 v6.11.6: "jetzt"/"sofort"/"gleich" Fix — aktuelle Zeit + 10 Min statt 00:00
+        const _jetztKeywords = /\b(jetzt|sofort|gleich|so schnell wie möglich|asap|schnellstmöglich)\b/i;
+        if (_jetztKeywords.test(text)) {
+            const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            berlinNow.setMinutes(berlinNow.getMinutes() + 10);
+            const pad = n => String(n).padStart(2, '0');
+            const jetztDatetime = `${berlinNow.getFullYear()}-${pad(berlinNow.getMonth() + 1)}-${pad(berlinNow.getDate())}T${pad(berlinNow.getHours())}:${pad(berlinNow.getMinutes())}`;
+            if (!booking.datetime || booking.datetime.endsWith('T00:00')) {
+                await addTelegramLog('🕐', chatId, `Jetzt-Fix: "${text}" → ${jetztDatetime} (aktuelle Zeit + 10 Min)`);
+                booking.datetime = jetztDatetime;
+                // "datetime" aus missing entfernen falls vorhanden
+                if (booking.missing && Array.isArray(booking.missing)) {
+                    booking.missing = booking.missing.filter(m => m !== 'datetime');
+                }
+            }
+        }
+
         await addTelegramLog('🤖', chatId, `KI-Analyse: ${booking.summary || '(kein Summary)'}`, {
             intent: booking.intent, datetime: booking.datetime, pickup: booking.pickup,
             destination: booking.destination, missing: booking.missing
@@ -2208,6 +2225,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     if (booking.destination) msg += `🎯 Nach: ${booking.destination} ✅\n`;
     msg += `👥 ${booking.passengers || 1} Person(en)\n`;
     if (booking.name) msg += `👤 ${booking.name}\n`;
+    if (booking.guestName) msg += `🧑 Fahrgast: ${booking.guestName}\n`;
     if (booking.phone) {
         const cleanPhone = String(booking.phone).replace(/[^+\d\s\-()]/g, '').trim();
         if (cleanPhone) msg += `📱 ${cleanPhone}\n`;
@@ -2228,9 +2246,10 @@ function buildTelegramConfirmMsg(booking, routePrice) {
 
 function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
     const keyboard = { inline_keyboard: [] };
+    // 🆕 v6.11.5: Datum ändern + Gastname oben
     keyboard.inline_keyboard.push([
-        { text: '✅ Ja, eintragen!', callback_data: `book_yes_${bookingId}` },
-        { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
+        { text: '📅 Datum ändern', callback_data: `change_time_${bookingId}` },
+        { text: '👤 Gastname', callback_data: `book_guest_${bookingId}` }
     ]);
     // 🔧 v6.11.0: Tauschen + Zwischenstopp
     keyboard.inline_keyboard.push([
@@ -2248,7 +2267,12 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
             { text: '📝 Bemerkung hinzufügen', callback_data: `book_note_${bookingId}` }
         ]);
     }
-    // Menü + Abbrechen unten
+    // 🆕 v6.11.5: Eintragen + Ändern unten links (statt oben)
+    keyboard.inline_keyboard.push([
+        { text: '✅ Jetzt eintragen!', callback_data: `book_yes_${bookingId}` },
+        { text: '✏️ Ändern', callback_data: `book_no_${bookingId}` }
+    ]);
+    // Menü + Abbrechen ganz unten
     keyboard.inline_keyboard.push([
         { text: '🏠 Menü', callback_data: 'back_to_menu' },
         { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
@@ -3094,6 +3118,22 @@ async function handleMessage(message) {
     }
 
     // 🆕 v6.14.7: GASTNAME — User hat Gastnamen eingegeben
+    // 🆕 v6.11.5: Gastname für laufende Buchung (vor dem Speichern)
+    if (pending && pending._awaitingBookingGuest && !isPendingExpired(pending)) {
+        const guestName = text.trim().slice(0, 100);
+        const booking = pending.booking || pending.partial;
+        if (booking) {
+            booking.guestName = guestName;
+            delete pending._awaitingBookingGuest;
+            await addTelegramLog('👤', chatId, `Gastname für Buchung: "${guestName}"`);
+            await showTelegramConfirmation(chatId, booking, pending.routePrice);
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.');
+            await deletePending(chatId);
+        }
+        return;
+    }
+
     if (pending && pending._awaitingGuestName && pending._guestNameRideId && !isPendingExpired(pending)) {
         const rideId = pending._guestNameRideId;
         const guestName = text.trim().slice(0, 100);
@@ -4245,6 +4285,8 @@ async function handleCallback(callback) {
                 // 🔧 v6.11.0: Preis als 'price' UND 'estimatedPrice' (Kalender zeigt ride.price)
                 ...(telegramRoutePrice && { price: telegramRoutePrice.price, estimatedPrice: telegramRoutePrice.price, distance: telegramRoutePrice.distance, estimatedDistance: telegramRoutePrice.distance, estimatedDuration: telegramRoutePrice.duration, duration: telegramRoutePrice.duration }),
                 paymentMethod: booking.paymentMethod || 'bar',
+                // 🆕 v6.11.5: Gastname (wenn eingetragen)
+                ...(booking.guestName && { guestName: booking.guestName }),
                 // 🔧 v6.11.0: Zwischenstopps
                 ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
@@ -4510,8 +4552,9 @@ async function handleCallback(callback) {
         if (noBooking && noPending.bookingId === noBookingId) {
             await sendTelegramMessage(chatId, '✏️ <b>Was möchten Sie ändern?</b>', {
                 reply_markup: { inline_keyboard: [
-                    [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }],
-                    [{ text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }, { text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
+                    [{ text: '⏰ Zeit', callback_data: `change_time_${noBookingId}` }, { text: '📅 Datum', callback_data: `change_time_${noBookingId}` }],
+                    [{ text: '📍 Abholort', callback_data: `change_pickup_${noBookingId}` }, { text: '🎯 Ziel', callback_data: `change_dest_${noBookingId}` }],
+                    [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${noBookingId}` }],
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ]}
             });
@@ -4546,6 +4589,24 @@ async function handleCallback(callback) {
         else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null; booking.missing = ['pickup']; }
         else { booking.destination = null; booking.destinationLat = null; booking.destinationLon = null; booking.missing = ['destination']; }
         await continueBookingFlow(chatId, booking, '');
+        return;
+    }
+
+    // 🆕 v6.11.5: Gastname für laufende Buchung eintragen (vor dem Speichern)
+    if (data.startsWith('book_guest_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await setPending(chatId, { ...pending, _awaitingBookingGuest: true });
+        await sendTelegramMessage(chatId,
+            `👤 <b>Gastname eintragen</b>\n\n` +
+            (booking.name ? `👤 Auftraggeber: ${booking.name}\n` : '') +
+            (booking.guestName ? `👤 Aktueller Gast: <b>${booking.guestName}</b>\n` : '') +
+            `\nWie heißt der Fahrgast?`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${pending.bookingId}` }]
+            ] } }
+        );
         return;
     }
 

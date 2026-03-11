@@ -1057,6 +1057,38 @@ async function checkTelegramTimeConflict(pickupTimestamp, estimatedDuration) {
     }
 }
 
+// 🆕 v6.11.6: Fahrer-Online-Check für Sofortfahrten
+async function checkDriversOnline() {
+    try {
+        const vehiclesSnap = await db.ref('vehicles').once('value');
+        const vehicles = vehiclesSnap.val();
+        if (!vehicles) return { online: false, count: 0, total: 0 };
+
+        const now = Date.now();
+        const maxAge = 10 * 60 * 1000; // 10 Minuten
+
+        let total = 0;
+        let onlineCount = 0;
+        const onlineDrivers = [];
+
+        for (const [id, v] of Object.entries(vehicles)) {
+            if (v.active === false) continue;
+            total++;
+            const gpsAge = v.timestamp ? (now - v.timestamp) : Infinity;
+            const isOnline = gpsAge <= maxAge && v.online !== false && v.dispatchStatus !== 'offline' && v.lat && v.lon;
+            if (isOnline) {
+                onlineCount++;
+                onlineDrivers.push({ id, name: v.name || id, lat: v.lat, lon: v.lon });
+            }
+        }
+
+        return { online: onlineCount > 0, count: onlineCount, total, drivers: onlineDrivers };
+    } catch (e) {
+        console.error('[DriverCheck] Fehler:', e.message);
+        return { online: true, count: 0, total: 0 }; // Im Fehlerfall optimistisch
+    }
+}
+
 // 🆕 v6.14.7: Freitext-Datum parsen ("morgen 14:00", "15.03. 10 Uhr", "14:30", etc.)
 function parseFreeformDatetime(text) {
     if (!text) return null;
@@ -3803,11 +3835,18 @@ async function handleMessage(message) {
             return;
         }
         // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM
+        // 🔧 v6.11.6: Direkt Admin-Auswahl zeigen, Namens-Matching überspringen (zu fehleranfällig bei Transkripten)
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
-            // 🆕 v6.11.5: _callerPhone in Pending speichern → wird beim Kunden-Anlegen durchgereicht
-            const existingPending = await getPending(chatId);
-            await setPending(chatId, { ...(existingPending || {}), _callerPhone: message._callerPhone });
+            await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone });
+            await sendTelegramMessage(chatId,
+                `📞 <b>Neuer Anrufer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Neue Buchung</b>\n\nMöchtest du für diesen Kunden buchen?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '👤 Für Kunden buchen (Neukunde anlegen)', callback_data: 'taxi_for_customer' }],
+                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                ]}
+            });
+            return;
         }
 
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
@@ -4131,16 +4170,22 @@ async function handleCallback(callback) {
         return;
     }
 
-    // Buchung trotz Zeitkonflikt eintragen (Override)
+    // Buchung trotz Zeitkonflikt / kein Fahrer eintragen (Override)
     if (data.startsWith('book_force_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending.booking) {
             await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal senden.');
             return;
         }
-        pending._conflictOverride = true;
-        await setPending(chatId, pending);
-        await addTelegramLog('⚡', chatId, 'Zeitkonflikt-Override: Buchung wird trotzdem eingetragen');
+        if (data.includes('nodriver')) {
+            pending._noDriverOverride = true;
+            await setPending(chatId, pending);
+            await addTelegramLog('⚡', chatId, 'Kein-Fahrer-Override: Sofortfahrt wird trotzdem eingetragen');
+        } else {
+            pending._conflictOverride = true;
+            await setPending(chatId, pending);
+            await addTelegramLog('⚡', chatId, 'Zeitkonflikt-Override: Buchung wird trotzdem eingetragen');
+        }
         // Weiterleiten an book_yes_ Handler
         data = 'book_yes_' + (pending.bookingId || '');
     }
@@ -4243,6 +4288,28 @@ async function handleCallback(callback) {
                 await sendTelegramMessage(chatId, conflictMsg, { reply_markup: conflictKeyboard });
                 await addTelegramLog('⚠️', chatId, `Zeitkonflikt: ${timeStr} Uhr – ${conflict.conflicts.length} Fahrt(en) belegt, frei ab ${conflict.earliestFreeTime}`);
                 return;
+            }
+
+            // 🆕 v6.11.6: Sofortfahrt — Fahrer-Verfügbarkeit prüfen
+            if (booking._isJetzt && !pending._noDriverOverride) {
+                const driverCheck = await checkDriversOnline();
+                if (!driverCheck.online) {
+                    let noDriverMsg = '😔 <b>Aktuell ist leider kein Fahrer online.</b>\n\n';
+                    noDriverMsg += 'Sobald ein Fahrer verfügbar ist, wird Ihre Fahrt automatisch zugewiesen.\n\n';
+                    noDriverMsg += '<b>Was möchten Sie tun?</b>';
+
+                    const noDriverKeyboard = { inline_keyboard: [
+                        [{ text: '✅ Trotzdem eintragen (Fahrer wird gesucht)', callback_data: `book_force_nodriver_${pending.bookingId}` }],
+                        [{ text: '📅 Für später buchen', callback_data: `change_time_${pending.bookingId}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ]};
+
+                    await sendTelegramMessage(chatId, noDriverMsg, { reply_markup: noDriverKeyboard });
+                    await addTelegramLog('😔', chatId, `Sofortfahrt: Kein Fahrer online (${driverCheck.total} Fahrzeuge gesamt)`);
+                    return;
+                } else {
+                    await addTelegramLog('🟢', chatId, `Sofortfahrt: ${driverCheck.count}/${driverCheck.total} Fahrer online`);
+                }
             }
 
             // Preis: gespeicherten verwenden, nur als Fallback neu berechnen
@@ -6299,11 +6366,12 @@ async function handleAudioFile(message) {
         await addTelegramLog('🎙️', chatId, `Audio-Datei transkribiert (${fileName}): "${transcript.substring(0, 100)}..."`);
 
         // 🆕 v6.14.8: TELEFONNUMMER AUS DATEINAMEN EXTRAHIEREN + CRM-SUCHE
-        // Dateiname-Format: "+49_172_6324074_+491726324074_2026_03_10_Eingehend.m4a"
-        // oder: "Steigenberger_+4938378495901_2026_03_10_Eingehend.m4a"
+        // Dateiname-Format: "+49_172_6324074_+491726324074_2026_03_10_09_33_20_Eingehend.m4a"
+        // oder: "Steigenberger_+4938378495901_2026_03_11_08_13_15_Eingehend.m4a"
+        // 🔧 v6.11.6: Regex stoppt vor dem Datumsteil _YYYY_ (z.B. _2026_)
         let callerPhone = null;
         let callerCustomer = null;
-        const phoneMatch = fileName.match(/\+(\d[\d_]{8,})/);
+        const phoneMatch = fileName.match(/\+(\d[\d_]{8,}?)(?=_20\d{2}_)/);
         if (phoneMatch) {
             callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
             await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);

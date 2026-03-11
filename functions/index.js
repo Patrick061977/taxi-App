@@ -1753,6 +1753,33 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
+        // 🛡️ v6.15.1: Vergangenheits-Schutz — wenn Datum+Uhrzeit in der Vergangenheit liegt, nachfragen
+        if (booking.datetime && typeof booking.datetime === 'string' && booking.datetime.includes('T')) {
+            const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const [datePart, timePart] = booking.datetime.split('T');
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hours, minutes] = timePart.split(':').map(Number);
+            const bookingDate = new Date(year, month - 1, day, hours, minutes);
+            // Prüfe ob der Termin mehr als 15 Minuten in der Vergangenheit liegt
+            const diffMinutes = (bookingDate - berlinNow) / 60000;
+            if (diffMinutes < -15) {
+                const pad = n => String(n).padStart(2, '0');
+                const bookingTimeStr = `${pad(hours)}:${pad(minutes)}`;
+                const nowTimeStr = `${pad(berlinNow.getHours())}:${pad(berlinNow.getMinutes())}`;
+                await addTelegramLog('🛡️', chatId, `Vergangenheits-Schutz: Termin ${booking.datetime} liegt in der Vergangenheit (jetzt: ${nowTimeStr}) → datetime gelöscht, wird nachgefragt`);
+                booking.datetime = null;
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+                // Spezifische Rückfrage: Heute-gleicher-Tag oder anderer Tag?
+                const isToday = bookingDate.getDate() === berlinNow.getDate() && bookingDate.getMonth() === berlinNow.getMonth();
+                if (isToday) {
+                    booking.question = `⏰ ${bookingTimeStr} Uhr ist leider schon vorbei (es ist ${nowTimeStr} Uhr). Meinen Sie morgen ${bookingTimeStr} Uhr, oder eine andere Uhrzeit?`;
+                } else {
+                    booking.question = `⏰ Der Termin ${pad(day)}.${pad(month)}. ${bookingTimeStr} Uhr liegt in der Vergangenheit. Bitte nennen Sie ein aktuelles Datum.`;
+                }
+            }
+        }
+
         // 🛡️ v6.15.1: Adress-Duplikat-Schutz — wenn Destination Teile der Pickup-Adresse enthält (oder umgekehrt), Destination löschen
         if (booking.pickup && booking.destination) {
             const _pickupParts = booking.pickup.toLowerCase().replace(/[,.\-\/]/g, ' ').split(/\s+/).filter(p => p.length > 3);
@@ -2253,6 +2280,31 @@ Nur gültiges JSON, kein Markdown:
             const correctYear = new Date().getFullYear();
             const dtYear = parseInt(booking.datetime.slice(0, 4));
             if (dtYear < correctYear || dtYear > correctYear + 1) booking.datetime = correctYear + booking.datetime.slice(4);
+        }
+
+        // 🛡️ v6.15.1: Vergangenheits-Schutz auch im Follow-Up
+        if (booking.datetime && typeof booking.datetime === 'string' && booking.datetime.includes('T')) {
+            const _fuBerlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const [_fuDatePart, _fuTimePart] = booking.datetime.split('T');
+            const [_fuYear, _fuMonth, _fuDay] = _fuDatePart.split('-').map(Number);
+            const [_fuHours, _fuMinutes] = _fuTimePart.split(':').map(Number);
+            const _fuBookingDate = new Date(_fuYear, _fuMonth - 1, _fuDay, _fuHours, _fuMinutes);
+            const _fuDiffMinutes = (_fuBookingDate - _fuBerlinNow) / 60000;
+            if (_fuDiffMinutes < -15) {
+                const _fuPad = n => String(n).padStart(2, '0');
+                const _fuBookingTimeStr = `${_fuPad(_fuHours)}:${_fuPad(_fuMinutes)}`;
+                const _fuNowTimeStr = `${_fuPad(_fuBerlinNow.getHours())}:${_fuPad(_fuBerlinNow.getMinutes())}`;
+                await addTelegramLog('🛡️', chatId, `Follow-Up Vergangenheits-Schutz: ${booking.datetime} liegt in der Vergangenheit (jetzt: ${_fuNowTimeStr}) → nachfragen`);
+                booking.datetime = null;
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+                const _fuIsToday = _fuBookingDate.getDate() === _fuBerlinNow.getDate() && _fuBookingDate.getMonth() === _fuBerlinNow.getMonth();
+                if (_fuIsToday) {
+                    booking.question = `⏰ ${_fuBookingTimeStr} Uhr ist leider schon vorbei (es ist ${_fuNowTimeStr} Uhr). Meinen Sie morgen ${_fuBookingTimeStr} Uhr, oder eine andere Uhrzeit?`;
+                } else {
+                    booking.question = `⏰ Der Termin ${_fuPad(_fuDay)}.${_fuPad(_fuMonth)}. ${_fuBookingTimeStr} Uhr liegt in der Vergangenheit. Bitte nennen Sie ein aktuelles Datum.`;
+                }
+            }
         }
 
         if (isAdminFollowUp && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');

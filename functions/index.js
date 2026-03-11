@@ -943,23 +943,32 @@ async function cleanupAddress(currentName, lat, lon) {
     return currentName;
 }
 
+// 🔧 v6.15.1: Komplett überarbeitet — POIs + Kunden priorisiert, Nominatim nur als Ergänzung
+// Gleiche Logik wie Browser-Autocomplete in index.html
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
-    const results = [];
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
-
-    // KNOWN_PLACES durchsuchen (Fuzzy: alle Suchworte müssen im Key oder Name vorkommen)
     const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
-    for (const [key, place] of Object.entries(KNOWN_PLACES)) {
-        const placeName = (place.name || '').toLowerCase();
-        const allWordsMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
-        if (key.includes(searchKey) || placeName.includes(searchKey) || allWordsMatch) {
-            results.push({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known' });
-        }
-    }
 
-    // 🆕 v6.11.4: POIs aus Firebase durchsuchen (wie Autocomplete)
+    // Hilfsfunktion: Wort-Anfang-Match (höhere Priorität als includes)
+    const wordBoundaryRegex = new RegExp('(^|\\s|,)' + searchKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+    // ═══════════════════════════════════════════════════════════
+    // STUFE 1: LOKALE QUELLEN (gepflegte Daten — höchste Priorität)
+    // ═══════════════════════════════════════════════════════════
+    const localResults = [];
+    const seen = new Set();
+
+    const addIfNew = (entry) => {
+        const coordKey = `${parseFloat(entry.lat).toFixed(3)}_${parseFloat(entry.lon).toFixed(3)}`;
+        if (!seen.has(coordKey)) {
+            seen.add(coordKey);
+            localResults.push(entry);
+        }
+    };
+
+    // 1a) POIs aus Firebase (⭐ deine gepflegten Favoriten)
     try {
         const poisSnap = await db.ref('pois').once('value');
         if (poisSnap.exists()) {
@@ -968,21 +977,57 @@ async function searchNominatimForTelegram(query) {
                 if (!poi.name || !poi.lat || !poi.lon) return;
                 const poiName = poi.name.toLowerCase();
                 const poiAddr = (poi.address || '').toLowerCase();
-                if (poiName.includes(searchKey) || poiAddr.includes(searchKey) ||
-                    (searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w)))) {
+                const isExact = wordBoundaryRegex.test(poiName) || wordBoundaryRegex.test(poiAddr);
+                const isIncludes = poiName.includes(searchKey) || poiAddr.includes(searchKey);
+                const isWordMatch = searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w));
+                if (isExact || isIncludes || isWordMatch) {
                     const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
-                    results.push({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi' });
+                    addIfNew({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi', priority: isExact ? 0 : 1 });
                 }
             });
         }
     } catch (e) { console.warn('POI-Suche Fehler:', e.message); }
 
-    // 🆕 v6.11.4: Häufige Ziele aus letzten Buchungen (wie Autocomplete)
+    // 1b) KNOWN_PLACES (hardcoded Bahnhöfe, Flughäfen etc. — Fallback bis in POIs gepflegt)
+    for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+        const placeName = (place.name || '').toLowerCase();
+        const isExact = wordBoundaryRegex.test(key) || wordBoundaryRegex.test(placeName);
+        const isIncludes = key.includes(searchKey) || placeName.includes(searchKey);
+        const isWordMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
+        if (isExact || isIncludes || isWordMatch) {
+            addIfNew({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known', priority: isExact ? 0 : 1 });
+        }
+    }
+
+    // 1c) CRM-Kunden mit Adressen
+    try {
+        const custSnap = await db.ref('customers').once('value');
+        if (custSnap.exists()) {
+            custSnap.forEach(child => {
+                const c = child.val();
+                if (!c.name || !c.address) return;
+                const cName = c.name.toLowerCase();
+                const cAddr = c.address.toLowerCase();
+                const isMatch = cName.includes(searchKey) || cAddr.includes(searchKey) ||
+                    (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)));
+                if (isMatch) {
+                    const lat = c.lat || c.pickupLat;
+                    const lon = c.lon || c.pickupLon;
+                    if (lat && lon) {
+                        addIfNew({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer', priority: 2 });
+                    }
+                }
+            });
+        }
+    } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
+
+    // 1d) Häufige Ziele aus letzten Buchungen
     try {
         const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
         const destCount = {};
         ridesSnap.forEach(child => {
             const ride = child.val();
+            // Zielorte
             const dest = ride.destination;
             const lat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
             const lon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
@@ -991,7 +1036,7 @@ async function searchNominatimForTelegram(query) {
                 if (!destCount[key]) destCount[key] = { name: dest, lat, lon, count: 0 };
                 destCount[key].count++;
             }
-            // Auch Abholorte
+            // Abholorte
             const pickup = ride.pickup;
             const pLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
             const pLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
@@ -1001,48 +1046,26 @@ async function searchNominatimForTelegram(query) {
                 destCount[key].count++;
             }
         });
-        // Sortiere nach Häufigkeit und matche gegen Suche
         const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
         for (const freq of frequent) {
             const freqName = freq.name.toLowerCase();
             if (freqName.includes(searchKey) ||
                 (searchWords.length > 0 && searchWords.every(w => freqName.includes(w)))) {
-                const alreadyExists = results.some(r =>
-                    Math.abs(r.lat - freq.lat) < 0.001 && Math.abs(r.lon - freq.lon) < 0.001);
-                if (!alreadyExists) {
-                    results.push({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking' });
-                }
+                addIfNew({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking', priority: 3 });
             }
         }
     } catch (e) { console.warn('Buchungs-Suche Fehler:', e.message); }
 
-    // 🆕 v6.11.4: Stammkunden mit Adressen (wie Autocomplete)
-    try {
-        const custSnap = await db.ref('customers').once('value');
-        if (custSnap.exists()) {
-            custSnap.forEach(child => {
-                const c = child.val();
-                if (!c.name || !c.address) return;
-                const cName = c.name.toLowerCase();
-                const cAddr = c.address.toLowerCase();
-                if (cName.includes(searchKey) || cAddr.includes(searchKey) ||
-                    (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)))) {
-                    const lat = c.lat || c.pickupLat;
-                    const lon = c.lon || c.pickupLon;
-                    if (lat && lon) {
-                        const alreadyExists = results.some(r =>
-                            Math.abs(r.lat - lat) < 0.001 && Math.abs(r.lon - lon) < 0.001);
-                        if (!alreadyExists) {
-                            results.push({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer' });
-                        }
-                    }
-                }
-            });
-        }
-    } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
+    // Sortiere lokale Ergebnisse: exakte Treffer zuerst, dann nach Quelle
+    localResults.sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-    // 🆕 v6.11.4: Nominatim API – gleiche Qualität wie Autocomplete in index.html
-    // Größere Viewbox, mehr Ergebnisse, extratags+namedetails für POI-Namen
+    // ═══════════════════════════════════════════════════════════
+    // STUFE 2: NOMINATIM (nur als Ergänzung — wenn lokale Treffer da sind, weniger Nominatim)
+    // ═══════════════════════════════════════════════════════════
+    const nominatimResults = [];
+    // Wenn schon 3+ lokale Treffer → max 2 Nominatim, sonst bis zu 5
+    const maxNominatim = localResults.length >= 3 ? 2 : (localResults.length >= 1 ? 3 : 5);
+
     try {
         const [usedomResp, generalResp] = await Promise.all([
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=11.0,54.7,14.5,53.3&bounded=0`, fetchOpts),
@@ -1059,11 +1082,9 @@ async function searchNominatimForTelegram(query) {
                 wideData = await wideResp.json();
             } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
         }
-        const seen = new Set(results.map(r => `${r.lat.toFixed(3)}_${r.lon.toFixed(3)}`));
 
         // Usedom-Ergebnisse zuerst, dann allgemeine, dann weite Suche
         const allItems = [...usedomData, ...generalData, ...wideData];
-        // Sortiere: Usedom-Region zuerst
         allItems.sort((a, b) => {
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
             const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
@@ -1071,6 +1092,7 @@ async function searchNominatimForTelegram(query) {
         });
 
         for (const item of allItems) {
+            if (nominatimResults.length >= maxNominatim) break;
             const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
             const coordKey = `${lat.toFixed(3)}_${lon.toFixed(3)}`;
             if (!seen.has(coordKey)) {
@@ -1081,27 +1103,26 @@ async function searchNominatimForTelegram(query) {
                 const houseNr = addr.house_number || '';
                 const town = addr.town || addr.city || addr.village || addr.municipality || '';
                 const postcode = addr.postcode || '';
-                // Vollständige Adresse bauen: POI-Name + Straße + Hausnr + PLZ + Ort
                 let streetPart = road ? (road + (houseNr ? ' ' + houseNr : '')) : '';
                 let displayName;
                 if (poiName && streetPart && !poiName.includes(road)) {
-                    // POI mit Straße: "Café Asgard, Strandpromenade 15, 17429 Bansin"
                     displayName = `${poiName}, ${streetPart}` + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
                 } else if (streetPart) {
-                    // Nur Straße: "Dünenweg 8, 17424 Heringsdorf"
                     displayName = streetPart + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
                 } else if (poiName) {
-                    // Nur POI-Name (kein Straßenname verfügbar)
                     displayName = poiName + (town ? `, ${postcode ? postcode + ' ' : ''}${town}` : '');
                 } else {
                     displayName = item.display_name.split(',').slice(0, 3).join(',').trim();
                 }
-                results.push({ name: displayName, lat, lon, source: 'nominatim' });
+                nominatimResults.push({ name: displayName, lat, lon, source: 'nominatim' });
             }
         }
     } catch (e) { console.warn('Nominatim Fehler:', e); }
 
-    return results.slice(0, 5);
+    // ═══════════════════════════════════════════════════════════
+    // ERGEBNIS: Lokale Treffer zuerst, dann Nominatim — max 5 gesamt
+    // ═══════════════════════════════════════════════════════════
+    return [...localResults, ...nominatimResults].slice(0, 5);
 }
 
 async function calculateRoute(from, to) {
@@ -1391,7 +1412,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
             if (suggestions.length > 0) {
                 const keyboard = {
                     inline_keyboard: [
-                        ...suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                        ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                         [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                         [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
                     ]
@@ -1495,7 +1516,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     const simSuggestions = topSimilar.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, source: 'known' }));
                     const keyboard = {
                         inline_keyboard: [
-                            ...simSuggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            ...simSuggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
                         ]
@@ -2236,7 +2257,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // Mehrere Treffer oder kein exakter → "Meinten Sie...?" Buttons zeigen
                     const keyboard = {
                         inline_keyboard: [
-                            ...suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                         ]
@@ -3833,7 +3854,7 @@ async function handleMessage(message) {
             if (suggestions.length > 0) {
                 // Vorschläge als Buttons zeigen (max 5)
                 const confirmId = Date.now().toString(36);
-                const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+                const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
                 keyboard.push([{ text: '📝 Original verwenden: ' + (rawAddress.length > 25 ? rawAddress.slice(0, 23) + '…' : rawAddress), callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
                 keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
 
@@ -4094,7 +4115,7 @@ async function handleMessage(message) {
                 // Nominatim-Suche → Vorschläge anzeigen
                 const suggestions = await searchNominatimForTelegram(text);
                 if (suggestions.length > 0) {
-                    const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `cust_asel_${i}_${rideId}_${field}` }]);
+                    const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `cust_asel_${i}_${rideId}_${field}` }]);
                     keyboard.push([{ text: '✖ Abbrechen', callback_data: `cust_edit_${rideId}` }]);
                     await setPending(chatId, { _custAddrResults: suggestions, _custAddrRaw: text, _custAddrRide: rideId, _custAddrField: field });
                     await addTelegramLog('🔍', chatId, `Kunde: ${label} "${text}" → ${suggestions.length} Vorschläge`);
@@ -4166,7 +4187,7 @@ async function handleMessage(message) {
                 // Nominatim-Suche → Vorschläge anzeigen statt blind speichern
                 const suggestions = await searchNominatimForTelegram(text);
                 if (suggestions.length > 0) {
-                    const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `adm_addr_${i}_${rideId}_${field}` }]);
+                    const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `adm_addr_${i}_${rideId}_${field}` }]);
                     keyboard.push([{ text: '💾 Trotzdem speichern: ' + (text.length > 25 ? text.slice(0, 23) + '…' : text), callback_data: `adm_addr_raw_${rideId}_${field}` }]);
                     keyboard.push([{ text: '✖ Abbrechen', callback_data: `adm_ride_${rideId}` }]);
                     // Vorschläge + Rohtext im Pending speichern
@@ -7274,7 +7295,7 @@ async function handleLocation(message) {
         const confirmId = Date.now().toString(36);
 
         if (suggestions.length > 0) {
-            const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+            const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
             keyboard.push([{ text: `📝 GPS-Adresse verwenden: ${addressName.length > 30 ? addressName.slice(0, 28) + '…' : addressName}`, callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
             keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
 

@@ -2398,6 +2398,9 @@ async function analyzeTelegramFollowUp(chatId, newText, userName, pending) {
     if (isAdminFollowUp && partial._customerAddress) followUpHomeAddress = partial._customerAddress;
     else if (!isAdminFollowUp && knownCustomer && knownCustomer.address) followUpHomeAddress = knownCustomer.address;
 
+    // 🔧 v6.15.5: Rückfahrt-Datum für KI-Prompt (nur Uhrzeit → Datum der Hinfahrt)
+    const _returnOrigDate = partial._returnOrigDate || null;
+
     try {
         const _pDatetime = partial.datetime || null;
         const _pPickup = partial.pickup || null;
@@ -2430,7 +2433,7 @@ NEUE ANTWORT: "${newText}"
 REGELN:
 1. FELD-ZUORDNUNG: Die Antwort füllt das erste fehlende Feld ("${_missingNow[0] || 'keines'}"), außer der Fahrgast benennt explizit ein anderes
 2. BESTEHENDE FELDER: Nie überschreiben, außer Fahrgast korrigiert explizit
-3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=heute | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
+3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=${_returnOrigDate ? _returnOrigDate + ' (Rückfahrt-Datum der Hinfahrt!)' : 'heute'} | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
@@ -5691,7 +5694,13 @@ async function handleCallback(callback) {
             }
             // Rückfahrt-Text zusammenbauen: Von und Nach getauscht
             const returnText = `${origRide.destination} nach ${origRide.pickup}`;
-            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00") oder "heute 18 Uhr"`);
+            // 🔧 v6.15.5: Datum + Personenzahl aus Hinfahrt anzeigen
+            let _returnDateHint = '';
+            if (_returnOrigDate) {
+                const [_ry, _rm, _rd] = _returnOrigDate.split('-');
+                _returnDateHint = `\n📅 Hinfahrt am ${_rd}.${_rm}.${_ry}`;
+            }
+            await sendTelegramMessage(chatId, `🔄 <b>Rückfahrt:</b> ${origRide.destination} → ${origRide.pickup}${_returnDateHint}\n👥 ${origPassengers} Person${origPassengers > 1 ? 'en' : ''}\n\n🤖 <i>Wann soll die Rückfahrt sein?</i>\n\n💡 Schreibe einfach die Uhrzeit (z.B. "18:00")`);
             // Pending mit vorausgefüllten Adressen erstellen
             // 🔧 v6.14.7: Auch customerMobile als Fallback
             let _returnPhone = origRide.customerPhone || origRide.customerMobile || '';
@@ -5704,18 +5713,33 @@ async function handleCallback(callback) {
                     if (_rcData && (_rcData.mobilePhone || _rcData.phone)) _returnPhone = _rcData.mobilePhone || _rcData.phone;
                 } catch (_e) { /* ignore */ }
             }
+            // 🔧 v6.15.5: Personenzahl + Datum der Originalfahrt übernehmen
+            const origPassengers = parseInt(origRide.passengers) || 1;
+            const origDatetime = origRide.datetime || origRide.scheduledTime || null;
+            // Datum aus der Originalfahrt extrahieren (für "nur Uhrzeit" → gleicher Tag)
+            let _returnOrigDate = null;
+            if (origDatetime) {
+                const _dt = new Date(origDatetime);
+                if (!isNaN(_dt.getTime())) {
+                    const _pad = n => String(n).padStart(2, '0');
+                    _returnOrigDate = `${_dt.getFullYear()}-${_pad(_dt.getMonth()+1)}-${_pad(_dt.getDate())}`;
+                }
+            }
             const returnBooking = {
                 pickup: origRide.destination,
                 destination: origRide.pickup,
                 name: origRide.customerName || '',
                 phone: _returnPhone,
+                passengers: origPassengers,
+                _passengersExplicit: true,
                 // Koordinaten tauschen
                 pickupLat: origRide.destinationLat || origRide.destCoords?.lat || null,
                 pickupLon: origRide.destinationLon || origRide.destCoords?.lon || null,
                 destinationLat: origRide.pickupLat || origRide.pickupCoords?.lat || null,
                 destinationLon: origRide.pickupLon || origRide.pickupCoords?.lon || null,
                 missing: ['datetime'],
-                _returnOf: origRideId
+                _returnOf: origRideId,
+                _returnOrigDate: _returnOrigDate
             };
             // 🔧 v6.14.2: Admin-Flags aus Originalfahrt übernehmen
             if (origRide.source === 'telegram-admin' || origRide.adminBookedBy) {

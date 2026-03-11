@@ -1636,6 +1636,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
 ${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}
+${hotelGuestName ? `HOTEL-GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && preselected.customerKind === 'hotel' ? `🏨 HOTEL-ANRUF: ${preselected.name} bucht für einen GAST. Extrahiere den GASTNAMEN aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt"). Speichere ihn in "guestName". Wenn kein Gastname erkennbar → guestName = null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
 Ist das eine Taxi-Buchung (oder könnte es eine sein)?
@@ -1692,7 +1693,7 @@ Nur gültiges JSON, kein Markdown:
   "name": "${prefilledName || (isAdmin ? 'Admin' : userName)}",
   "phone": ${prefilledPhone ? `"${prefilledPhone}"` : 'null'},
   "notes": null,
-  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}
+  "email": null,${isAdmin ? '\n  "forCustomer": null,' : ''}${(preselected && preselected.customerKind === 'hotel') || hotelGuestName ? '\n  "guestName": null,' : ''}
   "missing": ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}],
   "question": "Für wann und von wo nach wo soll die Fahrt gehen?",
   "summary": "Kurze Zusammenfassung der Buchung"
@@ -1795,10 +1796,17 @@ Nur gültiges JSON, kein Markdown:
                 booking._crmCustomerId = null;
             }
 
-            // 🆕 v6.11.6: Hotel-Gastname automatisch eintragen
+            // 🆕 v6.11.6: Hotel-Gastname — manuell übergeben oder von KI aus Transkript extrahiert
             if (hotelGuestName) {
                 booking.guestName = hotelGuestName;
                 booking._isHotelBooking = true;
+            } else if (preselected && preselected.customerKind === 'hotel') {
+                booking._isHotelBooking = true;
+                if (booking.guestName) {
+                    await addTelegramLog('🏨', chatId, `KI hat Gastname aus Transkript erkannt: "${booking.guestName}"`);
+                } else {
+                    await addTelegramLog('🏨', chatId, `Hotel-Buchung ohne Gastname — wird nachgefragt`);
+                }
             }
 
             // CRM-Suche wenn Kundenname in Nachricht
@@ -2207,6 +2215,19 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         msg += '💬 Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.\n\n<i>/abbrechen zum Zurücksetzen</i>';
         await setPending(chatId, { partial: booking, originalText, lastQuestion: 'Für wann soll ich das Taxi bestellen?' });
         await sendTelegramMessage(chatId, msg);
+        return;
+    }
+
+    // 🆕 v6.11.6: Hotel-Buchung ohne Gastname → nachfragen bevor Bestätigung
+    if (booking._isHotelBooking && !booking.guestName) {
+        const bookingId = Date.now().toString(36);
+        await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingHotelGuestForBooking: true });
+        await sendTelegramMessage(chatId,
+            `🏨 <b>Gastname fehlt</b>\n\n👤 Für welchen Gast ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '⏭️ Ohne Gastname weiter', callback_data: `skip_guest_${bookingId}` }]
+            ] }
+        });
         return;
     }
 
@@ -3911,20 +3932,12 @@ async function handleMessage(message) {
                 preselectedCustomer.addressLon = caller.lon;
             }
 
-            // 🆕 v6.11.6: Hotel-Anrufer → automatisch nach Gastname fragen
+            // 🆕 v6.11.6: Hotel-Anrufer → KI extrahiert Gastname aus Transkript
             if (isHotelCaller) {
-                await sendTelegramMessage(chatId, `🏨 <b>${caller.name} ruft an!</b>\n📍 ${caller.address || ''}\n\n👤 <b>Für welchen Gast?</b>\n<i>Bitte den Gastnamen eingeben:</i>`);
-                await setPending(chatId, {
-                    _awaitingHotelGuestName: true,
-                    _hotelCustomer: preselectedCustomer,
-                    originalText: text,
-                    userName,
-                    _callerPhone: message._callerPhone || caller.phone || ''
-                });
-                return;
+                await sendTelegramMessage(chatId, `🏨 <b>${caller.name} ruft an!</b>\n📍 ${caller.address || ''}\n🤖 <i>Analysiere Buchung + Gastname...</i>`);
+            } else {
+                await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
             }
-
-            await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
             await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer });
             return;
         }

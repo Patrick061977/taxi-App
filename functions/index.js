@@ -3720,6 +3720,32 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, adminResponse);
             return;
         }
+        // 🆕 v6.14.8: AUDIO-ANRUFER — wenn Kunde aus Dateiname erkannt wurde, direkt vorauswählen
+        if (message._callerCustomer && message._isAudioFile) {
+            const caller = message._callerCustomer;
+            await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name} → direkte Buchung`);
+            const preselectedCustomer = {
+                name: caller.name,
+                phone: caller.phone || '',
+                mobilePhone: caller.mobilePhone || '',
+                address: caller.address || '',
+                defaultPickup: caller.defaultPickup || caller.address || '',
+                customerId: caller.customerId || caller.id
+            };
+            if (caller.lat && caller.lon) {
+                preselectedCustomer.addressLat = caller.lat;
+                preselectedCustomer.addressLon = caller.lon;
+            }
+            await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
+            await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer });
+            return;
+        }
+        // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM
+        if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
+            await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
+            // Weiter mit normalem Flow, aber Telefonnummer wird bei Kunden-Anlage vorausgefüllt
+        }
+
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
         // Pattern 1: "für [Name]" — "für Nicole Schindel", "für Kunde Kaiserhof"
         const fuerMatch = text.match(/\bf[üu]r\s+(?:(?:den|einen?|unseren?)\s+)?(?:(?:frau|herrn?|herr|familie|fam\.?|kunde[n]?|gast)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
@@ -6099,14 +6125,58 @@ async function handleAudioFile(message) {
         }
 
         await addTelegramLog('🎙️', chatId, `Audio-Datei transkribiert (${fileName}): "${transcript.substring(0, 100)}..."`);
-        await sendTelegramMessage(chatId, `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>\n\n⏳ Wird verarbeitet...`);
+
+        // 🆕 v6.14.8: TELEFONNUMMER AUS DATEINAMEN EXTRAHIEREN + CRM-SUCHE
+        // Dateiname-Format: "+49_172_6324074_+491726324074_2026_03_10_Eingehend.m4a"
+        // oder: "Steigenberger_+4938378495901_2026_03_10_Eingehend.m4a"
+        let callerPhone = null;
+        let callerCustomer = null;
+        const phoneMatch = fileName.match(/\+(\d[\d_]{8,})/);
+        if (phoneMatch) {
+            callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
+            await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
+
+            // CRM-Suche nach dieser Telefonnummer
+            try {
+                const allCust = await loadAllCustomers();
+                const phoneDigits = callerPhone.replace(/\D/g, '');
+                const foundCustomer = allCust.find(c => {
+                    const p1 = (c.mobilePhone || '').replace(/\D/g, '');
+                    const p2 = (c.phone || '').replace(/\D/g, '');
+                    return (p1.length > 5 && p1.endsWith(phoneDigits.slice(-9))) ||
+                           (p2.length > 5 && p2.endsWith(phoneDigits.slice(-9)));
+                });
+                if (foundCustomer) {
+                    callerCustomer = foundCustomer;
+                    await addTelegramLog('✅', chatId, `Anrufer im CRM gefunden: ${foundCustomer.name} (${foundCustomer.customerId || foundCustomer.id})`);
+                } else {
+                    await addTelegramLog('🆕', chatId, `Anrufer ${callerPhone} nicht im CRM — Neukunde`);
+                }
+            } catch(e) {
+                console.error('CRM-Suche für Audio-Telefon fehlgeschlagen:', e.message);
+            }
+        }
+
+        // Transkript + Anrufer-Info anzeigen
+        let transcriptMsg = `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>`;
+        if (callerCustomer) {
+            transcriptMsg += `\n\n👤 <b>Anrufer erkannt:</b> ${callerCustomer.name}`;
+            if (callerCustomer.mobilePhone || callerCustomer.phone) transcriptMsg += `\n📱 ${callerCustomer.mobilePhone || callerCustomer.phone}`;
+            if (callerCustomer.address) transcriptMsg += `\n🏠 ${callerCustomer.address}`;
+        } else if (callerPhone) {
+            transcriptMsg += `\n\n📞 <b>Anrufer:</b> ${callerPhone} (nicht im CRM)`;
+        }
+        transcriptMsg += '\n\n⏳ Wird verarbeitet...';
+        await sendTelegramMessage(chatId, transcriptMsg);
 
         // Als normale Textnachricht weiterverarbeiten
         const fakeMessage = {
             ...message,
             text: transcript,
             _isVoiceTranscript: true,
-            _isAudioFile: true
+            _isAudioFile: true,
+            _callerPhone: callerPhone,
+            _callerCustomer: callerCustomer
         };
         await handleMessage(fakeMessage);
 

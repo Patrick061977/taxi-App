@@ -531,12 +531,13 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
     try {
         const kind = customerKind || 'stammkunde';
         const isStammkunde = kind === 'stammkunde';
+        const isHotel = kind === 'hotel';
         const newRef = db.ref('customers').push();
         await newRef.set({
             name: name,
             phone: phone || '',
             address: address || '',
-            defaultPickup: isStammkunde ? (address || '') : '',  // 🆕 v6.11.5: Nur bei Stammkunde als Standard-Abholort
+            defaultPickup: (isStammkunde || isHotel) ? (address || '') : '',  // Stammkunde + Hotel: Adresse = Standard-Abholort
             email: '',
             createdAt: Date.now(),
             createdBy: 'telegram-admin',
@@ -548,14 +549,14 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         });
 
         const customerId = newRef.key;
-        const kindLabel = isStammkunde ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde';
+        const kindLabel = isHotel ? '🏨 Hotel/Pension' : (isStammkunde ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde');
         await addTelegramLog('🆕', chatId, `Neuer CRM-Kunde angelegt: ${name} (${customerId}) [${kind}]`);
 
         let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
         confirmMsg += `👤 <b>${name}</b>\n`;
         confirmMsg += `${kindLabel}\n`;
         if (phone) confirmMsg += `📱 ${phone}\n`;
-        if (address) confirmMsg += `${isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse'}: ${address}\n`;
+        if (address) confirmMsg += `${isHotel ? '🏨 Hoteladresse' : (isStammkunde ? '🏠 Wohnanschrift' : '📍 Abholadresse')}: ${address}\n`;
 
         await sendTelegramMessage(chatId, confirmMsg);
         await deletePending(chatId);
@@ -1603,6 +1604,7 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const isAdmin = options.forSelf ? false : (options.isAdmin !== undefined ? options.isAdmin : await isTelegramAdmin(chatId));
     const preselected = options.preselectedCustomer || null;
     const forCustomerName = options.forCustomerName || (preselected ? preselected.name : null);
+    const hotelGuestName = options.hotelGuestName || null;
 
     const knownCustomer = preselected ? null : (isAdmin ? null : await getTelegramCustomer(chatId));
     const prefilledName = preselected ? preselected.name : (knownCustomer ? knownCustomer.name : (isAdmin ? forCustomerName : userName));
@@ -1791,6 +1793,12 @@ Nur gültiges JSON, kein Markdown:
                 booking.name = forCustomerName;
                 booking._forCustomer = forCustomerName;
                 booking._crmCustomerId = null;
+            }
+
+            // 🆕 v6.11.6: Hotel-Gastname automatisch eintragen
+            if (hotelGuestName) {
+                booking.guestName = hotelGuestName;
+                booking._isHotelBooking = true;
             }
 
             // CRM-Suche wenn Kundenname in Nachricht
@@ -3111,6 +3119,76 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, '⏰ <b>Ihre vorherige Anfrage ist abgelaufen</b> (nach 30 Minuten).\n\nSchreiben Sie einfach eine neue Anfrage!');
     }
 
+    // 🆕 v6.11.6: NUMMER ZU BESTEHENDEM KUNDEN HINZUFÜGEN — Admin sucht Kunden
+    if (pending && pending._awaitingAddPhoneToCustomer && !isPendingExpired(pending)) {
+        const searchName = text.trim();
+        const phoneToAdd = pending._callerPhone;
+        try {
+            const allCust = await loadAllCustomers();
+            const matches = findAllCustomersForSecretary(allCust, searchName);
+            if (matches.length === 0) {
+                await sendTelegramMessage(chatId, `❌ Kein Kunde "${searchName}" gefunden.\n\nBitte nochmal versuchen oder /abbrechen`);
+                return;
+            }
+            if (matches.length === 1) {
+                const found = matches[0];
+                const confirmId = Date.now().toString(36);
+                await setPending(chatId, {
+                    ...pending,
+                    _awaitingAddPhoneToCustomer: false,
+                    _addPhoneConfirm: { customerId: found.customerId || found.id, name: found.name, confirmId }
+                });
+                await sendTelegramMessage(chatId,
+                    `📞 <b>Nummer ${phoneToAdd} zu diesem Kunden hinzufügen?</b>\n\n` +
+                    `👤 <b>${found.name}</b>\n` +
+                    (found.address ? `📍 ${found.address}\n` : '') +
+                    (found.phone ? `📱 ${found.phone}\n` : '') +
+                    (found.mobilePhone ? `📱 ${found.mobilePhone}\n` : ''), {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, Nummer hinzufügen', callback_data: `confirm_addphone_${confirmId}` }],
+                        [{ text: '❌ Nein, anderer Kunde', callback_data: 'add_phone_to_existing' }]
+                    ] }
+                });
+                return;
+            }
+            // Mehrere Treffer → Auswahl
+            const confirmId = Date.now().toString(36);
+            await setPending(chatId, {
+                ...pending,
+                _awaitingAddPhoneToCustomer: false,
+                _addPhoneMulti: { matches, confirmId }
+            });
+            let selectMsg = `📞 <b>Mehrere Kunden gefunden für "${searchName}":</b>\n\nWelchem soll ${phoneToAdd} zugeordnet werden?`;
+            const buttons = matches.map((m, i) => {
+                let label = `👤 ${m.name}`;
+                if (m.address) label += ` · 📍 ${m.address.length > 25 ? m.address.slice(0, 23) + '…' : m.address}`;
+                return [{ text: label, callback_data: `addphone_sel_${i}_${confirmId}` }];
+            });
+            buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+            await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+            return;
+        } catch(e) {
+            await sendTelegramMessage(chatId, '⚠️ Fehler bei der Kundensuche. Bitte nochmal versuchen.');
+            return;
+        }
+    }
+
+    // 🆕 v6.11.6: HOTEL-GASTNAME — Hotel ruft an, Gastname wird eingegeben
+    if (pending && pending._awaitingHotelGuestName && !isPendingExpired(pending)) {
+        const guestName = text.trim().slice(0, 100);
+        const hotelCustomer = pending._hotelCustomer;
+        await addTelegramLog('🏨', chatId, `Hotel-Gastname: "${guestName}" für ${hotelCustomer.name}`);
+
+        // Gastname in die Buchung einfügen und Analyse starten
+        await sendTelegramMessage(chatId, `🏨 <b>${hotelCustomer.name}</b> → Gast: <b>${guestName}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+        await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, {
+            isAdmin: true,
+            preselectedCustomer: hotelCustomer,
+            hotelGuestName: guestName
+        });
+        return;
+    }
+
     // 🆕 v6.14.7: DATUM ÄNDERN — User hat neues Datum eingegeben
     if (pending && pending._awaitingDateChange && pending._dateChangeRideId && !isPendingExpired(pending)) {
         const rideId = pending._dateChangeRideId;
@@ -3817,19 +3895,35 @@ async function handleMessage(message) {
         // 🆕 v6.14.8: AUDIO-ANRUFER — wenn Kunde aus Dateiname erkannt wurde, direkt vorauswählen
         if (message._callerCustomer && message._isAudioFile) {
             const caller = message._callerCustomer;
-            await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name} → direkte Buchung`);
+            const isHotelCaller = caller.customerKind === 'hotel';
+            await addTelegramLog('📞', chatId, `Audio-Anrufer erkannt: ${caller.name}${isHotelCaller ? ' (🏨 Hotel)' : ''} → direkte Buchung`);
             const preselectedCustomer = {
                 name: caller.name,
                 phone: caller.phone || '',
                 mobilePhone: caller.mobilePhone || '',
                 address: caller.address || '',
                 defaultPickup: caller.defaultPickup || caller.address || '',
-                customerId: caller.customerId || caller.id
+                customerId: caller.customerId || caller.id,
+                customerKind: caller.customerKind || 'stammkunde'
             };
             if (caller.lat && caller.lon) {
                 preselectedCustomer.addressLat = caller.lat;
                 preselectedCustomer.addressLon = caller.lon;
             }
+
+            // 🆕 v6.11.6: Hotel-Anrufer → automatisch nach Gastname fragen
+            if (isHotelCaller) {
+                await sendTelegramMessage(chatId, `🏨 <b>${caller.name} ruft an!</b>\n📍 ${caller.address || ''}\n\n👤 <b>Für welchen Gast?</b>\n<i>Bitte den Gastnamen eingeben:</i>`);
+                await setPending(chatId, {
+                    _awaitingHotelGuestName: true,
+                    _hotelCustomer: preselectedCustomer,
+                    originalText: text,
+                    userName,
+                    _callerPhone: message._callerPhone || caller.phone || ''
+                });
+                return;
+            }
+
             await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
             await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer });
             return;
@@ -3840,10 +3934,11 @@ async function handleMessage(message) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
             await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone });
             await sendTelegramMessage(chatId,
-                `📞 <b>Neuer Anrufer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Neue Buchung</b>\n\nMöchtest du für diesen Kunden buchen?`, {
+                `📞 <b>Unbekannte Nummer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Was möchtest du tun?</b>`, {
                 reply_markup: { inline_keyboard: [
-                    [{ text: '👤 Für Kunden buchen (Neukunde anlegen)', callback_data: 'taxi_for_customer' }],
-                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                    [{ text: '👤 Neukunde anlegen & buchen', callback_data: 'taxi_for_customer' }],
+                    [{ text: '📞 Nummer zu bestehendem Kunden hinzufügen', callback_data: 'add_phone_to_existing' }],
+                    [{ text: '🙋 Für mich selber buchen', callback_data: 'taxi_for_self' }]
                 ]}
             });
             return;
@@ -4143,6 +4238,102 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId,
             `✏️ <b>${labels[field]} ändern</b>\n\nAktuell: <b>${current[field]}</b>\n\nBitte geben Sie ${hints[field]} ein:\n\n<i>Tippe /abbrechen zum Abbrechen</i>`
         );
+        return;
+    }
+
+    // 🆕 v6.11.6: Nummer-Zuordnung bestätigt → additionalPhones aktualisieren
+    if (data.startsWith('confirm_addphone_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._addPhoneConfirm || !pending._callerPhone) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.');
+            return;
+        }
+        const { customerId, name } = pending._addPhoneConfirm;
+        const phoneToAdd = pending._callerPhone;
+        try {
+            // additionalPhones Array laden und erweitern
+            const custSnap = await db.ref('customers/' + customerId).once('value');
+            const custData = custSnap.val();
+            const existing = custData.additionalPhones || [];
+            if (!existing.includes(phoneToAdd)) {
+                existing.push(phoneToAdd);
+                await db.ref('customers/' + customerId).update({
+                    additionalPhones: existing,
+                    updatedAt: Date.now()
+                });
+            }
+            await addTelegramLog('📞', chatId, `Nummer ${phoneToAdd} zu ${name} (${customerId}) hinzugefügt`);
+            await sendTelegramMessage(chatId,
+                `✅ <b>Nummer hinzugefügt!</b>\n\n` +
+                `👤 ${name}\n📞 Neue Nummer: ${phoneToAdd}\n` +
+                `📱 Gesamt: ${existing.length} Nummer(n) hinterlegt\n\n` +
+                `🤖 <i>Nächster Anruf von dieser Nummer wird automatisch erkannt!</i>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🚕 Jetzt für diesen Kunden buchen', callback_data: 'taxi_for_customer' }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+            // Pending aktualisieren damit taxi_for_customer den Kunden findet
+            await setPending(chatId, {
+                taxiChoice: { text: pending.taxiChoice?.text || '', userName: pending.taxiChoice?.userName || '' },
+                _callerPhone: phoneToAdd,
+                awaitingCustomerName: false
+            });
+        } catch(e) {
+            await sendTelegramMessage(chatId, '⚠️ Fehler beim Speichern: ' + e.message);
+        }
+        return;
+    }
+
+    // 🆕 v6.11.6: Kunde aus Multi-Select für Nummer-Zuordnung gewählt
+    if (data.startsWith('addphone_sel_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._addPhoneMulti || !pending._callerPhone) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.');
+            return;
+        }
+        const parts = data.replace('addphone_sel_', '').split('_');
+        const idx = parseInt(parts[0]);
+        const selected = pending._addPhoneMulti.matches[idx];
+        if (!selected) {
+            await sendTelegramMessage(chatId, '⚠️ Auswahl nicht mehr gefunden.');
+            return;
+        }
+        const confirmId = Date.now().toString(36);
+        await setPending(chatId, {
+            ...pending,
+            _addPhoneMulti: null,
+            _addPhoneConfirm: { customerId: selected.customerId || selected.id, name: selected.name, confirmId }
+        });
+        await sendTelegramMessage(chatId,
+            `📞 <b>Nummer ${pending._callerPhone} zu ${selected.name} hinzufügen?</b>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, Nummer hinzufügen', callback_data: `confirm_addphone_${confirmId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }
+        });
+        return;
+    }
+
+    // 🆕 v6.11.6: Nummer zu bestehendem Kunden hinzufügen
+    if (data === 'add_phone_to_existing') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._callerPhone) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.');
+            return;
+        }
+        await setPending(chatId, {
+            ...pending,
+            _awaitingAddPhoneToCustomer: true
+        });
+        await sendTelegramMessage(chatId,
+            `📞 <b>Nummer ${pending._callerPhone} zuordnen</b>\n\n` +
+            `Welchem Kunden soll diese Nummer hinzugefügt werden?\n` +
+            `<i>Bitte den Kundennamen eingeben:</i>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }
+        });
         return;
     }
 
@@ -5769,7 +5960,8 @@ async function handleCallback(callback) {
             `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n🏠 ${resolvedAddress}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
             reply_markup: { inline_keyboard: [
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
-                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
+                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }]
             ] }
         });
         return;
@@ -5824,7 +6016,8 @@ async function handleCallback(callback) {
             `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${rawAddr}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
             reply_markup: { inline_keyboard: [
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
-                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
+                [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }]
             ] }
         });
         return;
@@ -5863,6 +6056,17 @@ async function handleCallback(callback) {
         const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
         await addTelegramLog('🧳', chatId, `Kundenart: Gelegenheitskunde (Abholadresse: ${addr})`);
         await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'gelegenheitskunde');
+        return;
+    }
+
+    // 🆕 v6.11.6: Admin — Kundenart gewählt: Hotel/Pension (bucht für Gäste)
+    if (data === 'admin_newcust_kind_hotel') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._adminNewCust) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+        const addr = pending._adminNewCustAddr || '';
+        const addrCoords = { lat: pending._adminNewCustAddrLat || null, lon: pending._adminNewCustAddrLon || null };
+        await addTelegramLog('🏨', chatId, `Kundenart: Hotel/Pension (Adresse: ${addr})`);
+        await createAdminNewCustomer(chatId, pending._adminNewCustName || '', pending._adminNewCustPhone || '', addr, pending.originalText, pending.userName, addrCoords, 'hotel');
         return;
     }
 
@@ -6376,15 +6580,23 @@ async function handleAudioFile(message) {
             callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
             await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
 
-            // CRM-Suche nach dieser Telefonnummer
+            // CRM-Suche nach dieser Telefonnummer (inkl. zusätzliche Nummern bei Hotels)
             try {
                 const allCust = await loadAllCustomers();
                 const phoneDigits = callerPhone.replace(/\D/g, '');
+                const last9 = phoneDigits.slice(-9);
                 const foundCustomer = allCust.find(c => {
                     const p1 = (c.mobilePhone || '').replace(/\D/g, '');
                     const p2 = (c.phone || '').replace(/\D/g, '');
-                    return (p1.length > 5 && p1.endsWith(phoneDigits.slice(-9))) ||
-                           (p2.length > 5 && p2.endsWith(phoneDigits.slice(-9)));
+                    if ((p1.length > 5 && p1.endsWith(last9)) || (p2.length > 5 && p2.endsWith(last9))) return true;
+                    // 🆕 v6.11.6: Zusätzliche Telefonnummern prüfen (z.B. Hotels mit mehreren Leitungen)
+                    if (c.additionalPhones && Array.isArray(c.additionalPhones)) {
+                        return c.additionalPhones.some(ap => {
+                            const apDigits = (ap || '').replace(/\D/g, '');
+                            return apDigits.length > 5 && apDigits.endsWith(last9);
+                        });
+                    }
+                    return false;
                 });
                 if (foundCustomer) {
                     callerCustomer = foundCustomer;

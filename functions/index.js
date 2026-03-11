@@ -1671,6 +1671,11 @@ ADRESSEN:
 • Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → kurz nachfragen
 • NUR ORTSNAME (z.B. "Bansin", "Ahlbeck", "Heringsdorf") OHNE Straße → Adresse übernehmen ABER in question freundlich nach genauer Straße fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer wäre ideal – oder soll ich den Ortskern nehmen?"
 • "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, nach Straße fragen
+• NIEMALS eine Adresse erfinden oder raten! Nur Adressen setzen die EXPLIZIT im Text stehen.
+• Wenn nur ein Name/Titel genannt wird (z.B. "Dr. Krohn", "Hotel Maritim") OHNE Straße → NUR den Namen als Adresse übernehmen, KEINE Straße/Hausnummer dazuerfinden!
+• Pickup und Destination müssen UNTERSCHIEDLICHE Orte sein. NIEMALS Teile der Abholadresse (Straße/Hausnummer) für das Ziel verwenden oder umgekehrt.
+• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.${options.isAudioTranscript ? `
+⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
 
 TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
 
@@ -1745,6 +1750,21 @@ Nur gültiges JSON, kein Markdown:
                 if (booking.missing && Array.isArray(booking.missing)) {
                     booking.missing = booking.missing.filter(m => m !== 'datetime');
                 }
+            }
+        }
+
+        // 🛡️ v6.15.1: Adress-Duplikat-Schutz — wenn Destination Teile der Pickup-Adresse enthält (oder umgekehrt), Destination löschen
+        if (booking.pickup && booking.destination) {
+            const _pickupParts = booking.pickup.toLowerCase().replace(/[,.\-\/]/g, ' ').split(/\s+/).filter(p => p.length > 3);
+            const _destLower = booking.destination.toLowerCase();
+            // Prüfe ob Hausnummer+Straße aus Pickup in Destination auftaucht
+            const _streetMatch = _pickupParts.filter(p => /\d/.test(p) || p.length > 5).filter(p => _destLower.includes(p));
+            if (_streetMatch.length >= 2 && booking.pickup.toLowerCase() !== _destLower) {
+                await addTelegramLog('🛡️', chatId, `Adress-Schutz: Ziel "${booking.destination}" enthält Teile der Abholadresse "${booking.pickup}" → Ziel gelöscht, wird nachgefragt`);
+                booking.destination = null;
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('destination')) booking.missing.push('destination');
+                booking.question = booking.question || 'Wohin soll die Fahrt gehen?';
             }
         }
 
@@ -2194,6 +2214,7 @@ REGELN:
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
+8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
 
 Nur gültiges JSON, kein Markdown:
 {
@@ -4049,7 +4070,7 @@ async function handleMessage(message) {
             } else {
                 await sendTelegramMessage(chatId, `📞 <b>Anrufer erkannt:</b> ${caller.name}\n🤖 <i>Analysiere Buchung...</i>`);
             }
-            await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer });
+            await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer, isAudioTranscript: true });
             return;
         }
         // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM

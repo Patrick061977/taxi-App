@@ -2675,6 +2675,11 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
         { text: '📅 Datum ändern', callback_data: `change_time_${bookingId}` },
         { text: '👤 Gastname', callback_data: `book_guest_${bookingId}` }
     ]);
+    // 🆕 v6.15.5: Personenzahl ändern
+    const _paxLabel = booking?.passengers ? `👥 ${booking.passengers} Pers.` : '👥 Personen';
+    keyboard.inline_keyboard.push([
+        { text: _paxLabel, callback_data: `change_pax_${bookingId}` }
+    ]);
     // 🔧 v6.11.0: Tauschen + Zwischenstopp
     keyboard.inline_keyboard.push([
         { text: '🔄 Tauschen', callback_data: `swap_${bookingId}` },
@@ -5044,9 +5049,11 @@ async function handleCallback(callback) {
                 : '🎉 <b>Termin eingetragen!</b>\n\n';
             // 🔧 v6.11.0: Rückfahrt-Button nach Buchung
             // 🔧 v6.14.7: + Datum ändern + Gastname Buttons
+            // 🔧 v6.15.5: + Personenzahl ändern Button
             const returnKeyboard = { inline_keyboard: [
                 [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
-                [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
+                [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👥 Personen', callback_data: `chpax_${rideData.id}` }],
+                [{ text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             const _isJetztFahrt = booking._isJetzt;
@@ -5387,6 +5394,53 @@ async function handleCallback(callback) {
         else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null; booking.missing = ['pickup']; }
         else { booking.destination = null; booking.destinationLat = null; booking.destinationLon = null; booking.missing = ['destination']; }
         await continueBookingFlow(chatId, booking, '');
+        return;
+    }
+
+    // 🆕 v6.15.5: Personenzahl ändern (in Bestätigungs-Übersicht, vor der Buchung)
+    if (data.startsWith('change_pax_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        const currentPax = booking.passengers || 1;
+        const bookingId = pending.bookingId || data.replace('change_pax_', '');
+        await sendTelegramMessage(chatId,
+            `👥 <b>Personenzahl ändern</b>\n\nAktuell: <b>${currentPax} Person(en)</b>`,
+            { reply_markup: { inline_keyboard: [
+                [
+                    { text: currentPax == 1 ? '1 ✓' : '1', callback_data: `setpax_${bookingId}_1` },
+                    { text: currentPax == 2 ? '2 ✓' : '2', callback_data: `setpax_${bookingId}_2` },
+                    { text: currentPax == 3 ? '3 ✓' : '3', callback_data: `setpax_${bookingId}_3` },
+                    { text: currentPax == 4 ? '4 ✓' : '4', callback_data: `setpax_${bookingId}_4` }
+                ],
+                [
+                    { text: currentPax == 5 ? '5 ✓' : '5', callback_data: `setpax_${bookingId}_5` },
+                    { text: currentPax == 6 ? '6 ✓' : '6', callback_data: `setpax_${bookingId}_6` },
+                    { text: currentPax == 7 ? '7 ✓' : '7', callback_data: `setpax_${bookingId}_7` },
+                    { text: currentPax == 8 ? '8 ✓' : '8', callback_data: `setpax_${bookingId}_8` }
+                ],
+                [{ text: '↩️ Zurück', callback_data: `back_to_confirm_${bookingId}` }]
+            ] } }
+        );
+        return;
+    }
+
+    // 🆕 v6.15.5: Personenzahl setzen (Bestätigungs-Flow)
+    if (data.startsWith('setpax_')) {
+        const match = data.match(/^setpax_(.+)_(\d+)$/);
+        if (!match) return;
+        const paxCount = parseInt(match[2]);
+        const pending = await getPending(chatId);
+        if (!pending || !pending.booking) {
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.');
+            return;
+        }
+        pending.booking.passengers = paxCount;
+        pending.booking._passengersExplicit = true;
+        await addTelegramLog('👥', chatId, `Personenzahl geändert auf ${paxCount} (Bestätigung)`);
+        // Zurück zur Bestätigungs-Übersicht
+        const rp = pending.routePrice || null;
+        await showTelegramConfirmation(chatId, pending.booking, rp);
         return;
     }
 
@@ -5761,6 +5815,13 @@ async function handleCallback(callback) {
             console.error('Rückfahrt-Fehler:', e);
             await sendTelegramMessage(chatId, '❌ Fehler beim Erstellen der Rückfahrt.');
         }
+        return;
+    }
+
+    // 🆕 v6.15.5: PERSONENZAHL ÄNDERN für bestellte Fahrt
+    if (data.startsWith('chpax_')) {
+        const rideId = data.replace('chpax_', '');
+        await handleAdminEditPax(chatId, rideId);
         return;
     }
 

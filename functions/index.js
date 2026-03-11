@@ -1875,7 +1875,7 @@ EMAIL: Wenn eine E-Mail-Adresse im Text vorkommt → in "email" speichern. NICHT
 
 ━━━ SCHRITT 3: FEHLENDE PFLICHTFELDER ━━━
 Pflicht: datetime, pickup, destination${phoneRequired ? ', phone' : ''}
-Optional (NICHT in missing): passengers (default 1), notes, email${!phoneRequired ? ' | phone ist gespeichert – nicht fragen' : ''}
+Optional (NICHT in missing): passengers (default 1), notes, email${!phoneRequired ? ' | phone ist gespeichert – ABER wenn eine Telefonnummer im Text steht, trotzdem in "phone" extrahieren!' : ''}
 
 ━━━ SCHRITT 4: RÜCKFRAGE FORMULIEREN ━━━
 Wenn Felder fehlen → "question" = EINE einzige, kurze, natürliche Frage
@@ -2129,6 +2129,20 @@ Nur gültiges JSON, kein Markdown:
                     booking.name = customerSearchName;
                     booking._forCustomer = customerSearchName;
                     booking._crmCustomerId = null;
+                    // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
+                    if (!booking.phone && text) {
+                        const _phoneMatch = text.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
+                        if (_phoneMatch) {
+                            let _extractedPhone = _phoneMatch[0].replace(/[\s\-\/]/g, '');
+                            if (_extractedPhone.startsWith('0') && !_extractedPhone.startsWith('00')) {
+                                _extractedPhone = '+49' + _extractedPhone.slice(1);
+                            } else if (_extractedPhone.startsWith('0049')) {
+                                _extractedPhone = '+49' + _extractedPhone.slice(4);
+                            }
+                            booking.phone = _extractedPhone;
+                            await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                        }
+                    }
                     if (!booking.phone) {
                         booking.missing = booking.missing || [];
                         if (!booking.missing.includes('phone')) booking.missing.push('phone');
@@ -6769,6 +6783,23 @@ async function handleCallback(callback) {
         booking._adminBooked = true;
         booking._adminChatId = chatId;
         booking._crmCustomerId = null;
+        // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
+        if (!booking.phone && pending.originalText) {
+            const _phoneMatch = pending.originalText.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
+            if (_phoneMatch) {
+                let _extractedPhone = _phoneMatch[0].replace(/[\s\-\/]/g, '');
+                if (_extractedPhone.startsWith('0') && !_extractedPhone.startsWith('00')) {
+                    _extractedPhone = '+49' + _extractedPhone.slice(1);
+                } else if (_extractedPhone.startsWith('0049')) {
+                    _extractedPhone = '+49' + _extractedPhone.slice(4);
+                }
+                booking.phone = _extractedPhone;
+            }
+        }
+        if (!booking.phone) {
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('phone')) booking.missing.push('phone');
+        }
         if (!booking.missing) booking.missing = [];
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');

@@ -3219,14 +3219,32 @@ async function handleMessage(message) {
         const step = pending._adminNewCustStep;
 
         if (step === 'name') {
+            const custName = text.trim();
+            // 🆕 v6.11.5: Wenn Telefon aus Audio bekannt → Telefon-Schritt überspringen
+            if (pending._callerPhone) {
+                await addTelegramLog('📱', chatId, `Telefon aus Audio übernommen: ${pending._callerPhone} → weiter zu Adresse`);
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'address',
+                    _adminNewCustName: custName,
+                    _adminNewCustPhone: pending._callerPhone
+                });
+                await sendTelegramMessage(chatId,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+                    ] } }
+                );
+                return;
+            }
             // Name eingegeben → weiter mit Telefon
             await setPending(chatId, {
                 ...pending,
                 _adminNewCustStep: 'phone',
-                _adminNewCustName: text.trim()
+                _adminNewCustName: custName
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${text.trim()}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
                 { reply_markup: { inline_keyboard: [
                     [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
                 ] } }
@@ -3386,6 +3404,7 @@ async function handleMessage(message) {
                 newCustomerName: customerName,
                 originalText: pending.originalText,
                 userName: pending.userName,
+                _callerPhone: pending._callerPhone || null, // 🆕 v6.11.5: Telefon durchreichen
                 _newCustId
             });
             await sendTelegramMessage(chatId,
@@ -3445,6 +3464,7 @@ async function handleMessage(message) {
                 newCustomerName: customerName,
                 originalText: pending.originalText,
                 userName: pending.userName,
+                _callerPhone: pending._callerPhone || null, // 🆕 v6.11.5: Telefon durchreichen
                 _newCustId
             });
             await sendTelegramMessage(chatId,
@@ -3748,7 +3768,9 @@ async function handleMessage(message) {
         // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
-            // Weiter mit normalem Flow, aber Telefonnummer wird bei Kunden-Anlage vorausgefüllt
+            // 🆕 v6.11.5: _callerPhone in Pending speichern → wird beim Kunden-Anlegen durchgereicht
+            const existingPending = await getPending(chatId);
+            await setPending(chatId, { ...(existingPending || {}), _callerPhone: message._callerPhone });
         }
 
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht
@@ -5500,7 +5522,7 @@ async function handleCallback(callback) {
     if (data.startsWith('admin_cust_no_')) {
         const pending = await getPending(chatId);
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
-        await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName });
+        await setPending(chatId, { awaitingCustomerName: true, originalText: pending.originalText, userName: pending.userName, _callerPhone: pending._callerPhone || null });
         await sendTelegramMessage(chatId, '👤 <b>Anderen Kundennamen eingeben:</b>', {
             reply_markup: { inline_keyboard: [
                 [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
@@ -5516,6 +5538,7 @@ async function handleCallback(callback) {
         await setPending(chatId, {
             _adminNewCust: true,
             _adminNewCustStep: 'name',
+            _callerPhone: pending ? pending._callerPhone || null : null, // 🆕 v6.11.5: Telefon durchreichen
             originalText: pending ? pending.originalText : '',
             userName: pending ? pending.userName : ''
         });
@@ -5527,6 +5550,29 @@ async function handleCallback(callback) {
     if (data.startsWith('admin_create_cust_')) {
         const pending = await getPending(chatId);
         if (!pending) { await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.'); return; }
+
+        // 🆕 v6.11.5: Wenn Telefonnummer aus Audio-Dateiname bekannt → Schritt überspringen
+        const knownPhone = pending._callerPhone || '';
+        if (knownPhone) {
+            await addTelegramLog('📱', chatId, `Telefon aus Audio-Datei übernommen: ${knownPhone} → überspringe Telefon-Schritt`);
+            await setPending(chatId, {
+                _adminNewCust: true,
+                _adminNewCustStep: 'address',
+                _adminNewCustName: pending.newCustomerName || '',
+                _adminNewCustPhone: knownPhone,
+                _callerPhone: knownPhone,
+                originalText: pending.originalText || '',
+                userName: pending.userName || ''
+            });
+            await sendTelegramMessage(chatId,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
+                ] } }
+            );
+            return;
+        }
+
         await setPending(chatId, {
             _adminNewCust: true,
             _adminNewCustStep: 'phone',

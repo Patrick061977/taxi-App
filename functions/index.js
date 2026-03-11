@@ -3684,7 +3684,28 @@ async function handleMessage(message) {
         }
 
         const allCust = await loadAllCustomers();
-        const matches = findAllCustomersForSecretary(allCust, customerName);
+
+        // 🆕 v6.15.1: Telefonnummer-Suche — wenn Eingabe wie Telefonnummer aussieht, CRM nach Nummer durchsuchen
+        const normalizedInput = customerName.replace(/[\s\-\/\(\)]/g, '');
+        const looksLikePhone = /^(\+?\d{6,})$/.test(normalizedInput);
+        let matches = [];
+        if (looksLikePhone) {
+            // Suche nach Telefonnummer in allen CRM-Feldern
+            matches = allCust.filter(c => {
+                const phones = [c.phone, c.mobilePhone, ...(c.additionalPhones || []).map(p => p.number)].filter(Boolean);
+                return phones.some(p => {
+                    const norm = String(p).replace(/[\s\-\/\(\)]/g, '');
+                    return norm === normalizedInput || norm.endsWith(normalizedInput.slice(-8)) || normalizedInput.endsWith(norm.slice(-8));
+                });
+            }).slice(0, 5);
+            if (matches.length > 0) {
+                await addTelegramLog('📱', chatId, `Telefonnummer-Suche: "${customerName}" → ${matches.length} Treffer (${matches.map(m => m.name).join(', ')})`);
+            }
+        }
+        // Fallback: Namenssuche wenn keine Telefon-Treffer
+        if (matches.length === 0) {
+            matches = findAllCustomersForSecretary(allCust, customerName);
+        }
         if (matches.length === 1) {
             const found = matches[0];
             const confirmId = Date.now().toString(36);
@@ -4045,6 +4066,38 @@ async function handleMessage(message) {
                 ]}
             });
             return;
+        }
+
+        // 🆕 v6.15.1: Telefonnummer in Nachricht → CRM-Suche nach Nummer
+        const phoneInText = text.match(/(\+?\d[\d\s\-\/]{7,})/);
+        if (phoneInText) {
+            const phoneNorm = phoneInText[1].replace(/[\s\-\/\(\)]/g, '');
+            if (/^\+?\d{8,}$/.test(phoneNorm)) {
+                const allCustPhone = await loadAllCustomers();
+                const phoneMatches = allCustPhone.filter(c => {
+                    const phones = [c.phone, c.mobilePhone, ...(c.additionalPhones || []).map(p => p.number)].filter(Boolean);
+                    return phones.some(p => {
+                        const norm = String(p).replace(/[\s\-\/\(\)]/g, '');
+                        return norm === phoneNorm || norm.endsWith(phoneNorm.slice(-8)) || phoneNorm.endsWith(norm.slice(-8));
+                    });
+                });
+                if (phoneMatches.length >= 1) {
+                    const found = phoneMatches[0];
+                    await addTelegramLog('📱', chatId, `Admin: Telefonnummer "${phoneInText[1]}" in Nachricht → CRM-Treffer: ${found.name}`);
+                    const confirmId = Date.now().toString(36);
+                    await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: found.name });
+                    let confirmMsg = `📱 <b>Kunde per Telefonnummer gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+                    const _dispPhone = found.mobilePhone || found.phone;
+                    if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
+                    if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+                    confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+                    await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                        { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
+                        { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
+                    ]] } });
+                    return;
+                }
+            }
         }
 
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht

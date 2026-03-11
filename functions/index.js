@@ -3230,7 +3230,7 @@ async function handleMessage(message) {
                     _adminNewCustPhone: pending._callerPhone
                 });
                 await sendTelegramMessage(chatId,
-                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
                     { reply_markup: { inline_keyboard: [
                         [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
                     ] } }
@@ -3264,7 +3264,7 @@ async function handleMessage(message) {
                 _adminNewCustPhone: normalizedPhone
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
                 { reply_markup: { inline_keyboard: [
                     [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
                 ] } }
@@ -5565,7 +5565,7 @@ async function handleCallback(callback) {
                 userName: pending.userName || ''
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
                 { reply_markup: { inline_keyboard: [
                     [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
                 ] } }
@@ -5623,7 +5623,7 @@ async function handleCallback(callback) {
             _adminNewCustPhone: ''
         });
         await sendTelegramMessage(chatId,
-            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`,
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
             { reply_markup: { inline_keyboard: [
                 [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
             ] } }
@@ -5716,7 +5716,7 @@ async function handleCallback(callback) {
             _adminNewCustStep: 'address'
         });
         await sendTelegramMessage(chatId,
-            `🏠 Bitte die <b>Adresse</b> nochmal eingeben:`, {
+            `🏠 Bitte die <b>Adresse</b> nochmal eingeben oder 📎 <b>Standort senden</b>:`, {
             reply_markup: { inline_keyboard: [
                 [{ text: '⏩ Ohne Adresse weiter', callback_data: 'admin_newcust_noaddr' }]
             ] }
@@ -6332,8 +6332,52 @@ async function handleLocation(message) {
         await addTelegramLog('📍', chatId, `Reverse-Geocoding: ${addressName}`);
     }
 
-    // Prüfe ob eine Buchung läuft und Abholort fehlt
+    // 🆕 v6.11.5: Prüfe ob Neukunden-Adress-Schritt aktiv → Standort als Kundenadresse übernehmen
     const pending = await getPending(chatId);
+    if (pending && pending._adminNewCust && (pending._adminNewCustStep === 'address' || pending._adminNewCustStep === 'address_select')) {
+        await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse übernommen: ${addressName}`);
+        // Wie Adresseingabe behandeln → Vorschläge zeigen mit dieser Adresse
+        const suggestions = await searchNominatimForTelegram(addressName);
+        const confirmId = Date.now().toString(36);
+
+        if (suggestions.length > 0) {
+            const keyboard = suggestions.map((s, i) => [{ text: `📍 ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+            keyboard.push([{ text: `📝 GPS-Adresse verwenden: ${addressName.length > 30 ? addressName.slice(0, 28) + '…' : addressName}`, callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
+            keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
+
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'address_select',
+                _adminNewCustAddr: addressName,
+                _adminNewCustAddrLat: lat,
+                _adminNewCustAddrLon: lon,
+                _adminNewCustSuggestions: suggestions,
+                _addrConfirmId: confirmId
+            });
+            await sendTelegramMessage(chatId,
+                `📍 <b>GPS-Standort erkannt:</b>\n🏠 ${addressName}\n\nBitte wähle die richtige Adresse:`, {
+                reply_markup: { inline_keyboard: keyboard }
+            });
+        } else {
+            await setPending(chatId, {
+                ...pending,
+                _adminNewCustStep: 'customerKind',
+                _adminNewCustAddr: addressName,
+                _adminNewCustAddrLat: lat,
+                _adminNewCustAddrLon: lon
+            });
+            await sendTelegramMessage(chatId,
+                `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${addressName}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                ] }
+            });
+        }
+        return;
+    }
+
+    // Prüfe ob eine Buchung läuft und Abholort fehlt
     if (pending) {
         const booking = pending.booking || pending.partial;
         if (booking && (!booking.pickup || (booking.missing && booking.missing.includes('pickup')))) {

@@ -6241,9 +6241,11 @@ async function handleAudioFile(message) {
         // Transkript + Anrufer-Info anzeigen
         let transcriptMsg = `🎙️ <b>Transkript aus "${fileName}":</b>\n<i>"${transcript}"</i>`;
         if (callerCustomer) {
+            const kindLabel = callerCustomer.customerKind === 'gelegenheitskunde' ? '🧳 Gelegenheitskunde' : '🏠 Stammkunde';
             transcriptMsg += `\n\n👤 <b>Anrufer erkannt:</b> ${callerCustomer.name}`;
+            transcriptMsg += `\n${kindLabel}`;
             if (callerCustomer.mobilePhone || callerCustomer.phone) transcriptMsg += `\n📱 ${callerCustomer.mobilePhone || callerCustomer.phone}`;
-            if (callerCustomer.address) transcriptMsg += `\n🏠 ${callerCustomer.address}`;
+            if (callerCustomer.address) transcriptMsg += `\n${callerCustomer.customerKind === 'gelegenheitskunde' ? '📍' : '🏠'} ${callerCustomer.address}`;
         } else if (callerPhone) {
             transcriptMsg += `\n\n📞 <b>Anrufer:</b> ${callerPhone} (nicht im CRM)`;
         }

@@ -3835,11 +3835,18 @@ async function handleMessage(message) {
             return;
         }
         // 🆕 v6.14.8: AUDIO-NEUKUNDE — Telefonnummer aus Dateiname, aber nicht im CRM
+        // 🔧 v6.11.6: Direkt Admin-Auswahl zeigen, Namens-Matching überspringen (zu fehleranfällig bei Transkripten)
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
-            // 🆕 v6.11.5: _callerPhone in Pending speichern → wird beim Kunden-Anlegen durchgereicht
-            const existingPending = await getPending(chatId);
-            await setPending(chatId, { ...(existingPending || {}), _callerPhone: message._callerPhone });
+            await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone });
+            await sendTelegramMessage(chatId,
+                `📞 <b>Neuer Anrufer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Neue Buchung</b>\n\nMöchtest du für diesen Kunden buchen?`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '👤 Für Kunden buchen (Neukunde anlegen)', callback_data: 'taxi_for_customer' }],
+                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                ]}
+            });
+            return;
         }
 
         // 🆕 v6.14.2: Prüfe ob Kundenname schon in der Nachricht steht

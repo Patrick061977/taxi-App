@@ -128,12 +128,164 @@ async function loadTarifFromFirebase() {
 const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
 
 const OFFICIAL_VEHICLES = {
-    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4 },
-    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4 },
-    'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4 },
-    'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8 },
-    'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8 }
+    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 1 },
+    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 2 },
+    'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4, priority: 3 },
+    'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8, priority: 4 },
+    'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8, priority: 5 }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.15.1: AUTO-ZUWEISUNG FÜR TELEGRAM-SOFORTFAHRTEN
+// Läuft server-seitig → funktioniert 24/7 ohne Browser!
+// ═══════════════════════════════════════════════════════════════
+
+function gpsDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
+    const shifts = shiftsData[vehicleId];
+    if (!shifts) return Object.keys(shiftsData).length === 0;
+
+    // Tag aktiv?
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    if (shifts[dateStr] !== undefined) {
+        if (shifts[dateStr].active === false) return false;
+    } else {
+        const defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+        if (defaults[dow] !== true) return false;
+    }
+
+    // Schichtzeiten ermitteln
+    let times = null;
+    const dayEntry = shifts[dateStr];
+    if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
+        const defaultEntry = (shifts.defaultTimes || {})[dow] || null;
+        if (dayEntry.additiveException && defaultEntry) {
+            const defRanges = (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1)
+                ? defaultEntry.timeRanges
+                : [{ startTime: defaultEntry.startTime || '06:00', endTime: defaultEntry.endTime || '22:00' }];
+            const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
+                ? dayEntry.timeRanges
+                : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
+            times = { timeRanges: [...defRanges, ...exRanges] };
+        } else {
+            times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
+            if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
+        }
+    } else {
+        const defaultEntry = (shifts.defaultTimes || {})[dow];
+        if (defaultEntry) {
+            times = { startTime: defaultEntry.startTime || '00:00', endTime: defaultEntry.endTime || '23:59' };
+            if (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1) times.timeRanges = defaultEntry.timeRanges;
+        }
+    }
+
+    if (!times) return Object.keys(shiftsData).length === 0;
+    if (!timeStr) return true;
+
+    if (times.timeRanges && times.timeRanges.length > 1) {
+        return times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+    }
+    return timeStr >= times.startTime && timeStr <= times.endTime;
+}
+
+async function autoAssignRide(rideId, rideData) {
+    console.log('🎯 v6.15.1: Cloud-AutoAssign für Fahrt:', rideId);
+    try {
+        const [vehiclesSnap, shiftsSnap, ridesSnap] = await Promise.all([
+            db.ref('vehicles').once('value'),
+            db.ref('vehicleShifts').once('value'),
+            db.ref('rides').once('value')
+        ]);
+        const vehicles = vehiclesSnap.val() || {};
+        const shiftsData = shiftsSnap.val() || {};
+        const allRides = [];
+        ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+
+        // Berliner Zeit
+        const now = new Date();
+        const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        const dateStr = berlin.getFullYear() + '-' + String(berlin.getMonth()+1).padStart(2,'0') + '-' + String(berlin.getDate()).padStart(2,'0');
+        const timeStr = String(berlin.getHours()).padStart(2,'0') + ':' + String(berlin.getMinutes()).padStart(2,'0');
+        const MAX_GPS_AGE = 10 * 60 * 1000;
+        const passengers = rideData.passengers || 1;
+        const candidates = [];
+
+        for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
+            const driver = vehicles[vehicleId];
+            if (!driver || !driver.lat || !driver.lon || !driver.timestamp) continue;
+            if (Date.now() - driver.timestamp > MAX_GPS_AGE) continue;
+            if (info.capacity < passengers) continue;
+            if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+
+            const busy = allRides.some(r =>
+                (r.vehicleId === vehicleId || r.assignedTo === vehicleId) &&
+                (r.status === 'on_way' || r.status === 'picked_up')
+            );
+            if (busy) continue;
+
+            if (!rideData.pickupCoords) continue;
+            const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, driver.lat, driver.lon);
+            candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver.telegramChatId });
+            console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km`);
+        }
+
+        if (candidates.length === 0) {
+            console.log('⚠️ v6.15.1: Kein Fahrzeug verfügbar');
+            return null;
+        }
+
+        candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
+        const best = candidates[0];
+        const drivingTimeMin = Math.max(3, Math.round((best.distance / 40) * 60));
+
+        await db.ref('rides/' + rideId).update({
+            status: 'assigned',
+            assignedTo: best.vehicleId,
+            vehicleId: best.vehicleId,
+            vehicle: best.name,
+            vehicleLabel: best.name,
+            assignedVehicleName: best.name,
+            assignedAt: Date.now(),
+            assignedBy: 'cloud-auto-assign',
+            assignmentDistance: best.distance,
+            drivingTimeToPickup: drivingTimeMin,
+            estimatedArrivalAt: Date.now() + (drivingTimeMin * 60000),
+            assignmentExpiresAt: Date.now() + 60000,
+            updatedAt: Date.now()
+        });
+
+        console.log(`✅ v6.15.1: ${rideId} → ${best.name} (${best.distance.toFixed(1)} km, ~${drivingTimeMin} Min)`);
+
+        // Fahrer per Telegram benachrichtigen
+        if (best.telegramChatId) {
+            await sendTelegramMessage(best.telegramChatId,
+                `🚕 <b>NEUE FAHRT!</b>\n\n` +
+                `📍 <b>Von:</b> ${rideData.pickup}\n` +
+                `🎯 <b>Nach:</b> ${rideData.destination}\n` +
+                `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
+                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                `🕐 <b>Abholung:</b> ${rideData.pickupTime || 'Sofort'}\n` +
+                `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min (${best.distance.toFixed(1)} km)\n\n` +
+                `⏱️ <i>60 Sek zum Annehmen</i>`
+            );
+        }
+
+        return best;
+    } catch (err) {
+        console.error('❌ v6.15.1: AutoAssign Fehler:', err);
+        return null;
+    }
+}
 
 // 🆕 v6.11.4: KNOWN_PLACES synchronisiert mit index.html (vollständige Liste)
 const KNOWN_PLACES = {
@@ -4816,6 +4968,23 @@ async function handleCallback(callback) {
             );
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
+
+            // 🆕 v6.15.1: Auto-Zuweisung für Sofortfahrten direkt in der Cloud Function!
+            if (!isVorbestellung && rideData.pickupCoords) {
+                const assignResult = await autoAssignRide(rideData.id, rideData);
+                if (assignResult) {
+                    await sendTelegramMessage(chatId,
+                        `🚗 <b>Fahrer gefunden!</b>\n\n` +
+                        `🚕 ${assignResult.name}\n` +
+                        `📏 ${assignResult.distance.toFixed(1)} km entfernt\n\n` +
+                        `💡 <i>Sie werden benachrichtigt sobald der Fahrer losfährt.</i>`
+                    );
+                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance.toFixed(1)} km)`);
+                } else {
+                    await addTelegramLog('⚠️', chatId, 'Kein Fahrzeug für Auto-Zuweisung verfügbar');
+                }
+            }
+
             await deletePending(chatId);
 
             // Kunden-Erkennung

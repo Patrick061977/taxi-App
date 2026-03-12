@@ -224,18 +224,13 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
         const defaultEntry = (shifts.defaultTimes || {})[dow] || null;
         if (dayEntry.additiveException) {
-            // 🔧 v6.15.9: Fallback wenn defaultEntry fehlt aber Tag im Wochenplan aktiv ist
-            let _effDefault = defaultEntry;
-            if (!_effDefault) {
-                const _defs = shifts.defaults || {};
-                if (_defs[dow] === true) {
-                    _effDefault = { startTime: '06:00', endTime: '22:00' };
-                }
-            }
+            // 🔧 v6.15.10: KEIN Fallback auf 06:00-22:00!
+            // Wochenplan (defaultTimes) ist Gesetz – ohne eingetragene Zeiten = kein Standard-Block
+            const _effDefault = defaultEntry;
             if (_effDefault) {
                 const defRanges = (_effDefault.timeRanges && _effDefault.timeRanges.length > 1)
                     ? _effDefault.timeRanges
-                    : [{ startTime: _effDefault.startTime || '06:00', endTime: _effDefault.endTime || '22:00' }];
+                    : [{ startTime: _effDefault.startTime, endTime: _effDefault.endTime }];
                 const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
                     ? dayEntry.timeRanges
                     : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
@@ -257,15 +252,7 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
         }
     }
 
-    // 🔧 v6.15.10: Wenn Tag aktiv aber keine Zeiten → ganzer Tag verfügbar
-    if (!times) {
-        const _defs = shifts.defaults || {};
-        if (_defs[dow] === true) {
-            console.log(`⚠️ isVehicleInShift: ${vehicleId} aktiv am ${dateStr} (Tag ${dow}) aber keine Zeiten → ganzer Tag`);
-            return !timeStr || true; // Immer verfügbar wenn Tag aktiv
-        }
-        return Object.keys(shiftsData).length === 0;
-    }
+    if (!times) return Object.keys(shiftsData).length === 0;
     if (!timeStr) return true;
 
     if (times.timeRanges && times.timeRanges.length > 1) {

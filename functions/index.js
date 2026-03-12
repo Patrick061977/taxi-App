@@ -365,10 +365,16 @@ async function autoAssignRide(rideId, rideData) {
                     console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${info.priority}`);
                 }
             } else {
-                // ═══ VORBESTELLUNG: Schichtplan + Priorität ═══
-                // GPS ist irrelevant — Fahrzeug mit höchster Priorität gewinnt
-                candidates.push({ vehicleId, name: info.name, distance: 0, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
-                console.log(`   ✅ ${info.name}: Im Dienst, Priorität ${info.priority}`);
+                // ═══ VORBESTELLUNG: Warteschlange (faire Verteilung) ═══
+                // Fahrzeug mit wenigsten Fahrten am Abholtag bekommt die nächste Fahrt
+                const dayRideCount = allRides.filter(r =>
+                    (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
+                    r.pickupTimestamp &&
+                    !['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status) &&
+                    new Date(new Date(r.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toISOString().slice(0,10) === dateStr
+                ).length;
+                candidates.push({ vehicleId, name: info.name, distance: 0, priority: info.priority, dayRideCount, telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
+                console.log(`   ✅ ${info.name}: Im Dienst, ${dayRideCount} Fahrten am ${dateStr}, Prio ${info.priority}`);
             }
         }
 
@@ -377,11 +383,13 @@ async function autoAssignRide(rideId, rideData) {
             return null;
         }
 
-        // Sortierung: Sofort = GPS-Distanz first, Vorbestellung = Priorität first
+        // Sortierung:
+        // Sofort = GPS-Distanz first (nächstes Taxi), Priorität als Tiebreaker
+        // Vorbestellung = Warteschlange (wenigste Fahrten first), Priorität als Tiebreaker
         if (isSofort) {
             candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
         } else {
-            candidates.sort((a, b) => a.priority - b.priority);
+            candidates.sort((a, b) => (a.dayRideCount || 0) - (b.dayRideCount || 0) || a.priority - b.priority);
         }
         const best = candidates[0];
         const drivingTimeMin = isSofort ? Math.max(3, Math.round((best.distance / 40) * 60)) : 0;

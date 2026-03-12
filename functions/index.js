@@ -2747,9 +2747,12 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
         let msg = '';
         if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-        msg += '💬 Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.\n\n<i>/abbrechen zum Zurücksetzen</i>';
+        msg += '💬 Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.';
         await setPending(chatId, { partial: booking, originalText, lastQuestion: 'Für wann soll ich das Taxi bestellen?' });
-        await sendTelegramMessage(chatId, msg);
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
+            [{ text: '🕐 Jetzt / Sofort', callback_data: 'datetime_now' }],
+            [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+        ]}});
         return;
     }
 
@@ -4099,7 +4102,8 @@ async function handleMessage(message) {
                     _adminNewCustPhone: pending._callerPhone
                 });
                 await sendTelegramMessage(chatId,
-                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n📱 Telefon: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+                    { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
                 );
                 return;
             }
@@ -4146,7 +4150,8 @@ async function handleMessage(message) {
                     _callerPhone: audioPhone
                 });
                 await sendTelegramMessage(chatId,
-                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${audioPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${audioPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+                    { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
                 );
                 return;
             }
@@ -4190,7 +4195,8 @@ async function handleMessage(message) {
                 _adminNewCustPhone: normalizedPhone
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${normalizedPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
             );
             return;
         }
@@ -4219,7 +4225,8 @@ async function handleMessage(message) {
                 _adminNewCustMobilePhone: normalizedMobile
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <b>${normalizedMobile}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <b>${normalizedMobile}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
             );
             return;
         }
@@ -4863,7 +4870,8 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, '🚕 <b>Neue Buchung</b>\n\nMöchtest du für einen Kunden buchen oder für dich selber?', {
                 reply_markup: { inline_keyboard: [
                     [{ text: '👤 Für einen Kunden', callback_data: 'taxi_for_customer' }],
-                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }]
+                    [{ text: '🙋 Für mich selber', callback_data: 'taxi_for_self' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ]}
             });
         }
@@ -5857,7 +5865,10 @@ async function handleCallback(callback) {
                 '📍 <b>Zwischenstopp hinzufügen</b>\n\n' +
                 'Wo soll der Zwischenstopp sein?\n' +
                 '<i>z.B. "Edeka Heringsdorf" oder "Bahnhof Bansin"</i>\n\n' +
-                '💡 Der Zwischenstopp wird zwischen Abholort und Zielort eingefügt.'
+                '💡 Der Zwischenstopp wird zwischen Abholort und Zielort eingefügt.',
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '◀️ Zurück', callback_data: 'back_to_confirm_' + wpBookingId }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}}
             );
             await addTelegramLog('📍', chatId, 'Zwischenstopp wird abgefragt');
         }
@@ -5871,7 +5882,9 @@ async function handleCallback(callback) {
         const notePending = await getPending(chatId);
         if (notePending && notePending.bookingId === noteBookingId && notePending.booking) {
             await setPending(chatId, { ...notePending, _awaitingNote: true });
-            await sendTelegramMessage(chatId, '📝 <b>Bemerkung zur Fahrt</b>\n\nBitte schreiben Sie Ihre Bemerkung:\n<i>z.B. Kindersitz, Rollstuhl, großer Koffer, Hund, etc.</i>');
+            await sendTelegramMessage(chatId, '📝 <b>Bemerkung zur Fahrt</b>\n\nBitte schreiben Sie Ihre Bemerkung:\n<i>z.B. Kindersitz, Rollstuhl, großer Koffer, Hund, etc.</i>', { reply_markup: { inline_keyboard: [
+                [{ text: '◀️ Zurück', callback_data: 'back_to_confirm_' + noteBookingId }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}});
         } else {
             await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal senden.');
         }
@@ -6062,6 +6075,30 @@ async function handleCallback(callback) {
             [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\n💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>', { reply_markup: keyboard });
+        return;
+    }
+
+    // 🔧 v6.15.10: "Jetzt/Sofort" Button für Datum/Zeit
+    if (data === 'datetime_now') {
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            pending.partial.datetime = 'jetzt';
+            await setPending(chatId, { ...pending, partial: pending.partial });
+            // Nachricht simulieren als wäre "jetzt" getippt worden
+            const fakeMsg = { chat: { id: chatId }, text: 'jetzt', from: message?.from || {} };
+            // Einfach pending aktualisieren und Flow fortsetzen
+            await addTelegramLog('🕐', chatId, 'Sofort-Button gedrückt → "jetzt"');
+        }
+        // Pending neu laden und als Text-Nachricht verarbeiten lassen
+        // Wir setzen lastQuestion zurück und lassen den normalen Flow weiterlaufen
+        const p = await getPending(chatId);
+        if (p && p.partial) {
+            p.partial.datetime = 'jetzt';
+            delete p.lastQuestion;
+            await setPending(chatId, p);
+            // Weiterleitung an handleSmartConversation
+            await handleSmartConversation(chatId, 'jetzt', message?.from?.first_name || '', p);
+        }
         return;
     }
 
@@ -7079,7 +7116,9 @@ async function handleCallback(callback) {
             originalText: pending ? pending.originalText : '',
             userName: pending ? pending.userName : ''
         });
-        await sendTelegramMessage(chatId, '🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Bitte den <b>Namen</b> eingeben:');
+        await sendTelegramMessage(chatId, '🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Bitte den <b>Namen</b> eingeben:', { reply_markup: { inline_keyboard: [
+            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+        ]}});
         return;
     }
 
@@ -7122,7 +7161,10 @@ async function handleCallback(callback) {
                 userName: pending.userName || ''
             });
             await sendTelegramMessage(chatId,
-                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n📱 Telefon: <b>${knownPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}}
             );
             return;
         }
@@ -7137,7 +7179,8 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId,
             `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending.newCustomerName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
             { reply_markup: { inline_keyboard: [
-                [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+                [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] } }
         );
         return;
@@ -7177,7 +7220,8 @@ async function handleCallback(callback) {
             _adminNewCustMobilePhone: ''
         });
         await sendTelegramMessage(chatId,
-            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${pending._adminNewCustPhone}</b>\n📱 Mobil: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
         );
         return;
     }
@@ -7192,7 +7236,8 @@ async function handleCallback(callback) {
             _adminNewCustPhone: ''
         });
         await sendTelegramMessage(chatId,
-            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+            `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <i>ohne</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`,
+            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }}
         );
         return;
     }
@@ -7214,7 +7259,8 @@ async function handleCallback(callback) {
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
                 [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
                 [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
-                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }]
+                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] }
         });
         return;
@@ -7273,7 +7319,8 @@ async function handleCallback(callback) {
                 [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
                 [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
                 [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
-                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }]
+                [{ text: '🏢 Firma / Klinik (bucht für Andere)', callback_data: 'admin_newcust_kind_auftraggeber' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] }
         });
         return;

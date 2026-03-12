@@ -5070,7 +5070,8 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '🤖 <i>Analysiere deine Nachricht...</i>');
             await analyzeTelegramBooking(chatId, text, userName, { forSelf: true });
         } else {
-            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName });
+            // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
+            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null });
             await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
                 reply_markup: { inline_keyboard: [
                     [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],

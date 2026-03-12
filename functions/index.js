@@ -274,13 +274,15 @@ async function autoAssignRide(rideId, rideData) {
         const allRides = [];
         ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
-        // Berliner Zeit
+        // 🔧 v6.15.10: Bei Vorbestellungen Abholzeit für Schicht-Check verwenden, nicht aktuelle Zeit!
         const now = new Date();
         const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-        const dateStr = berlin.getFullYear() + '-' + String(berlin.getMonth()+1).padStart(2,'0') + '-' + String(berlin.getDate()).padStart(2,'0');
-        const timeStr = String(berlin.getHours()).padStart(2,'0') + ':' + String(berlin.getMinutes()).padStart(2,'0');
+        // Abholzeit für Schicht-Prüfung (bei Vorbestellung = Zukunft, bei Sofort = jetzt)
+        const pickupDate = rideData.pickupTimestamp ? new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })) : berlin;
+        const dateStr = pickupDate.getFullYear() + '-' + String(pickupDate.getMonth()+1).padStart(2,'0') + '-' + String(pickupDate.getDate()).padStart(2,'0');
+        const timeStr = String(pickupDate.getHours()).padStart(2,'0') + ':' + String(pickupDate.getMinutes()).padStart(2,'0');
         const MAX_GPS_AGE = 10 * 60 * 1000;
-        const dow = berlin.getDay(); // 0=So, 1=Mo, ..., 6=Sa
+        const dow = pickupDate.getDay(); // 0=So, 1=Mo, ..., 6=Sa
         const passengers = rideData.passengers || 1;
         const candidates = [];
 
@@ -5620,8 +5622,9 @@ async function handleCallback(callback) {
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
 
-            // 🆕 v6.15.1: Auto-Zuweisung für Sofortfahrten direkt in der Cloud Function!
-            if (!isVorbestellung && rideData.pickupCoords) {
+            // 🔧 v6.15.10: Auto-Zuweisung für ALLE Fahrten (Sofort + Vorbestellung)!
+            // Vorher nur Sofortfahrten → Vorbestellungen blieben ohne Fahrzeug bis Browser geöffnet
+            if (rideData.pickupCoords) {
                 const assignResult = await autoAssignRide(rideData.id, rideData);
                 if (assignResult) {
                     await sendTelegramMessage(chatId,

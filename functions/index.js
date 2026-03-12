@@ -29,6 +29,25 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🧠 v6.15.8: KI-Trainings-Regeln aus Firebase laden
+// Gespeichert unter settings/aiRules als Array von { rule, createdAt, createdBy }
+async function loadAiRules() {
+    try {
+        const snap = await db.ref('settings/aiRules').once('value');
+        if (!snap.exists()) return '';
+        const rules = snap.val();
+        const ruleList = Object.values(rules)
+            .filter(r => r && r.rule)
+            .map((r, i) => `${i + 1}. ${r.rule}`)
+            .join('\n');
+        if (!ruleList) return '';
+        return `\n━━━ GELERNTE REGELN (Admin-definiert) ━━━\n${ruleList}\n`;
+    } catch (e) {
+        console.warn('AI-Regeln laden fehlgeschlagen:', e.message);
+        return '';
+    }
+}
+
 // 🛡️ SPAM-SCHUTZ: Nachrichten pro Minute
 const SPAM_WARN_THRESHOLD = 40;    // Ab 40/Min → Warnung
 const SPAM_MAX_MESSAGES = 60;      // Ab 60/Min → Sperre
@@ -1839,6 +1858,9 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const _todayName = _dayNames[_today.getDay()];
     const _timeStr = `${String(_today.getHours()).padStart(2, '0')}:${String(_today.getMinutes()).padStart(2, '0')}`;
 
+    // 🧠 v6.15.8: KI-Trainings-Regeln laden
+    const aiRulesBlock = await loadAiRules();
+
     try {
         const data = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
             role: 'user',
@@ -1847,7 +1869,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
-${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}
+${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}${aiRulesBlock}
 ${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
@@ -2435,6 +2457,9 @@ async function analyzeTelegramFollowUp(chatId, newText, userName, pending) {
     // 🔧 v6.15.5: Rückfahrt-Datum für KI-Prompt (nur Uhrzeit → Datum der Hinfahrt)
     const _returnOrigDate = partial._returnOrigDate || null;
 
+    // 🧠 v6.15.8: KI-Trainings-Regeln laden
+    const aiRulesBlock = await loadAiRules();
+
     try {
         const _pDatetime = partial.datetime || null;
         const _pPickup = partial.pickup || null;
@@ -2474,7 +2499,7 @@ REGELN:
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
 9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
-
+${aiRulesBlock}
 Nur gültiges JSON, kein Markdown:
 {
   "datetime": ${_pDatetime ? `"${_pDatetime}"` : 'null'},
@@ -3375,9 +3400,10 @@ async function handleMessage(message) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -3881,6 +3907,37 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, '⏳ <b>Bitte erst die aktuelle Buchung bestätigen oder ablehnen!</b>', {
             reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }
         });
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Training — Neue Regel speichern
+    if (pending && pending._aiRuleAdd) {
+        const ruleText = text.trim();
+        if (ruleText.length < 5) {
+            await sendTelegramMessage(chatId, '⚠️ Regel zu kurz. Bitte einen vollständigen Satz eingeben.');
+            return;
+        }
+        if (ruleText.length > 500) {
+            await sendTelegramMessage(chatId, '⚠️ Regel zu lang (max. 500 Zeichen). Bitte kürzer formulieren.');
+            return;
+        }
+        try {
+            const newRef = db.ref('settings/aiRules').push();
+            await newRef.set({
+                rule: ruleText,
+                createdAt: Date.now(),
+                createdBy: userName || 'Admin'
+            });
+            await deletePending(chatId);
+            await addTelegramLog('🧠', chatId, `KI-Regel hinzugefügt: "${ruleText}"`);
+            await sendTelegramMessage(chatId, `✅ <b>KI-Regel gespeichert!</b>\n\n🧠 <i>"${ruleText}"</i>\n\n<i>Die KI wird diese Regel ab sofort bei jeder Buchungsanalyse beachten.</i>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '➕ Noch eine Regel', callback_data: 'ai_rule_add' }],
+                    [{ text: '↩️ Alle Regeln anzeigen', callback_data: 'menu_ai_rules' }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
 
@@ -4406,7 +4463,8 @@ async function handleMessage(message) {
         welcomeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
         welcomeMsg += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
         welcomeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
-        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
+        welcomeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort, um sofort eine Fahrt ab Ihrem Standort zu starten\n\n';
         welcomeMsg += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>\n\n';
         welcomeMsg += '📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>\n\n';
         welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
@@ -4430,7 +4488,7 @@ async function handleMessage(message) {
     // 🆕 v6.10.0: "Fahrt buchen", "Taxi buchen" etc. → Buchungsassistent
     if (isTelegramBookCommand(text)) {
         await addTelegramLog('🚕', chatId, 'Buchen-Intent erkannt → Buchungsassistent');
-        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
+        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n📍 <b>Oder:</b> Tippen Sie auf 📎 → <b>Standort</b>, um direkt ab Ihrem aktuellen Standort zu buchen!\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
         return;
     }
 
@@ -4768,7 +4826,8 @@ async function handleCallback(callback) {
         hilfeMsg += '📊 <b>Fahrten ansehen</b> – Gebuchte Fahrten einsehen\n';
         hilfeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         hilfeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
-        hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
+        hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n';
+        hilfeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort, um sofort ab Ihrem Standort zu buchen\n\n';
         hilfeMsg += '<b>Befehle (Slash):</b>\n';
         hilfeMsg += '/buchen – 🚕 Neue Fahrt buchen\n';
         hilfeMsg += '/status – 📊 Ihre Fahrten\n';
@@ -4956,6 +5015,83 @@ async function handleCallback(callback) {
                     [{ text: '↩️ Zurück zum Kunden', callback_data: `crm_view_${custId}` }],
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Training Menü
+    if (data === 'menu_ai_rules') {
+        if (!await isTelegramAdmin(chatId)) return;
+        try {
+            const snap = await db.ref('settings/aiRules').once('value');
+            const rules = snap.exists() ? snap.val() : {};
+            const ruleEntries = Object.entries(rules).filter(([, r]) => r && r.rule);
+            let msg = '🧠 <b>KI-Training</b>\n\n';
+            msg += '<i>Hier kannst du Regeln definieren, die die KI bei jeder Buchungsanalyse beachtet.</i>\n\n';
+            if (ruleEntries.length === 0) {
+                msg += '📭 <i>Noch keine Regeln gespeichert.</i>\n\n';
+                msg += '💡 <b>Beispiele:</b>\n';
+                msg += '• "Café Asgard liegt in Bansin, Seestraße 12"\n';
+                msg += '• "Seepark bedeutet immer Seepark Heringsdorf"\n';
+                msg += '• "Bei Klinik-Fahrten immer nach Patientenname fragen"\n';
+            } else {
+                msg += `📋 <b>${ruleEntries.length} Regel(n):</b>\n\n`;
+                ruleEntries.forEach(([key, r], i) => {
+                    const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString('de-DE') : '?';
+                    msg += `${i + 1}. ${r.rule}\n   <i>(${date})</i>\n\n`;
+                });
+            }
+            const keyboard = [[{ text: '➕ Neue Regel hinzufügen', callback_data: 'ai_rule_add' }]];
+            if (ruleEntries.length > 0) {
+                keyboard.push([{ text: '🗑️ Regel löschen', callback_data: 'ai_rule_delete' }]);
+            }
+            keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+            await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel hinzufügen
+    if (data === 'ai_rule_add') {
+        if (!await isTelegramAdmin(chatId)) return;
+        await setPending(chatId, { _aiRuleAdd: true });
+        await sendTelegramMessage(chatId, '🧠 <b>Neue KI-Regel</b>\n\n✏️ Schreibe die Regel als <b>klaren Satz</b>:\n\n💡 <b>Beispiele:</b>\n• <i>"Café Asgard ist in Bansin, Seestraße 12"</i>\n• <i>"Seepark 13 liegt in Bansin, nicht in Heringsdorf"</i>\n• <i>"Bei Hotels immer nach dem Gastnamen fragen"</i>\n• <i>"Köste ist ein Ortsteil von Heringsdorf"</i>', {
+            reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'menu_ai_rules' }]] }
+        });
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel löschen — Liste anzeigen
+    if (data === 'ai_rule_delete') {
+        if (!await isTelegramAdmin(chatId)) return;
+        try {
+            const snap = await db.ref('settings/aiRules').once('value');
+            if (!snap.exists()) { await sendTelegramMessage(chatId, '📭 Keine Regeln vorhanden.'); return; }
+            const rules = snap.val();
+            const entries = Object.entries(rules).filter(([, r]) => r && r.rule);
+            if (entries.length === 0) { await sendTelegramMessage(chatId, '📭 Keine Regeln vorhanden.'); return; }
+            const keyboard = entries.map(([key, r], i) => {
+                const short = r.rule.length > 40 ? r.rule.slice(0, 38) + '…' : r.rule;
+                return [{ text: `🗑️ ${i + 1}. ${short}`, callback_data: `ai_rule_del_${key}` }];
+            });
+            keyboard.push([{ text: '↩️ Zurück', callback_data: 'menu_ai_rules' }]);
+            await sendTelegramMessage(chatId, '🗑️ <b>Welche Regel löschen?</b>', { reply_markup: { inline_keyboard: keyboard } });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel tatsächlich löschen
+    if (data.startsWith('ai_rule_del_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const ruleKey = data.replace('ai_rule_del_', '');
+        try {
+            const ruleSnap = await db.ref('settings/aiRules/' + ruleKey).once('value');
+            const ruleText = ruleSnap.exists() ? ruleSnap.val().rule : '?';
+            await db.ref('settings/aiRules/' + ruleKey).remove();
+            await addTelegramLog('🧠', chatId, `KI-Regel gelöscht: "${ruleText}"`);
+            await sendTelegramMessage(chatId, `✅ <b>Regel gelöscht:</b>\n\n<s>${ruleText}</s>`, {
+                reply_markup: { inline_keyboard: [[{ text: '↩️ Zurück zu KI-Training', callback_data: 'menu_ai_rules' }]] }
             });
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
@@ -5720,9 +5856,10 @@ async function handleCallback(callback) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -5799,6 +5936,42 @@ async function handleCallback(callback) {
                 ] } }
             );
         }
+        return;
+    }
+
+    // 🔧 v6.15.8: GPS-Standort als Abholort oder Zielort setzen (Auswahl)
+    if (data === 'gps_set_pickup' || data === 'gps_set_dest') {
+        const _gpsPending = await getPending(chatId);
+        if (!_gpsPending || !_gpsPending._gpsChoice) {
+            await sendTelegramMessage(chatId, '⚠️ Standort nicht mehr verfügbar. Bitte nochmal senden.');
+            return;
+        }
+        const { addressName: gpsAddr, lat: gpsLat, lon: gpsLon } = _gpsPending._gpsChoice;
+        const booking = _gpsPending.partial || _gpsPending.booking || { missing: ['pickup', 'destination', 'datetime'], intent: 'buchung' };
+        const isPickup = data === 'gps_set_pickup';
+
+        if (isPickup) {
+            booking.pickup = gpsAddr;
+            booking.pickupLat = gpsLat;
+            booking.pickupLon = gpsLon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+            await addTelegramLog('📍', chatId, `GPS als Abholort: ${gpsAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Abholort gesetzt:</b> ${gpsAddr}`);
+        } else {
+            booking.destination = gpsAddr;
+            booking.destinationLat = gpsLat;
+            booking.destinationLon = gpsLon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
+            await addTelegramLog('📍', chatId, `GPS als Zielort: ${gpsAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Zielort gesetzt:</b> ${gpsAddr}`);
+        }
+
+        // _gpsChoice entfernen und Buchungsfluss fortsetzen
+        delete _gpsPending._gpsChoice;
+        if (_gpsPending.partial) _gpsPending.partial = booking;
+        else _gpsPending.booking = booking;
+        await setPending(chatId, _gpsPending);
+        await continueBookingFlow(chatId, booking, _gpsPending.originalText || '');
         return;
     }
 
@@ -7676,55 +7849,74 @@ async function handleLocation(message) {
         return;
     }
 
-    // Prüfe ob eine Buchung läuft und Abholort fehlt
+    // 🔧 v6.15.8: Laufende Buchung → prüfe was fehlt
     if (pending) {
         const booking = pending.booking || pending.partial;
-        if (booking && (!booking.pickup || (booking.missing && booking.missing.includes('pickup')))) {
-            // Standort als Abholort übernehmen
-            booking.pickup = addressName;
-            booking.pickupLat = lat;
-            booking.pickupLon = lon;
-            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+        if (booking) {
+            const missingPickup = !booking.pickup || (booking.missing && booking.missing.includes('pickup'));
+            const missingDest = !booking.destination || (booking.missing && booking.missing.includes('destination'));
 
-            await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
+            // Nur Abholort fehlt → direkt als Abholort setzen
+            if (missingPickup && !missingDest) {
+                booking.pickup = addressName;
+                booking.pickupLat = lat;
+                booking.pickupLon = lon;
+                if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+                await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}`);
+                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                return;
+            }
 
-            // Buchungsfluss fortsetzen
-            await continueBookingFlow(chatId, booking, pending.originalText || '');
-            return;
-        }
+            // Nur Zielort fehlt → direkt als Zielort setzen
+            if (!missingPickup && missingDest) {
+                booking.destination = addressName;
+                booking.destinationLat = lat;
+                booking.destinationLon = lon;
+                if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
+                await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}`);
+                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                return;
+            }
 
-        // Wenn Zielort fehlt → als Zielort setzen
-        if (booking && (!booking.destination || (booking.missing && booking.missing.includes('destination')))) {
-            booking.destination = addressName;
-            booking.destinationLat = lat;
-            booking.destinationLon = lon;
-            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
-
-            await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
-
-            await continueBookingFlow(chatId, booking, pending.originalText || '');
+            // Beides fehlt oder beides schon da → Fragen: Abholort oder Zielort?
+            await setPending(chatId, {
+                ...pending,
+                _gpsChoice: { addressName, lat, lon }
+            });
+            await sendTelegramMessage(chatId,
+                `📍 <b>Standort empfangen:</b>\n🏠 ${addressName}\n\n❓ <b>Ist das der Abholort oder der Zielort?</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '📍 Abholort', callback_data: 'gps_set_pickup' }, { text: '🎯 Zielort', callback_data: 'gps_set_dest' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] }
+            });
             return;
         }
     }
 
-    // Kein laufender Buchungsvorgang → neue Buchung mit Standort als Abholort starten
+    // 🔧 v6.15.8: Kein laufender Buchungsvorgang → Fragen ob Abhol- oder Zielort
+    const customer = await getTelegramCustomer(chatId);
     const newBooking = {
-        pickup: addressName,
-        pickupLat: lat,
-        pickupLon: lon,
-        missing: ['destination', 'datetime'],
+        missing: ['pickup', 'destination', 'datetime'],
         intent: 'buchung'
     };
-
-    // Kundenname laden
-    const customer = await getTelegramCustomer(chatId);
     if (customer) {
         newBooking.name = customer.name;
         newBooking.phone = customer.mobile || customer.phone || '';
     }
 
-    await sendTelegramMessage(chatId, `📍 <b>Standort empfangen!</b>\n🏠 Abholort: ${addressName}\n\n💬 Wohin möchten Sie fahren?`);
-    await setPending(chatId, { partial: newBooking, originalText: `GPS: ${addressName}` });
+    await setPending(chatId, {
+        partial: newBooking,
+        originalText: `GPS: ${addressName}`,
+        _gpsChoice: { addressName, lat, lon }
+    });
+    await sendTelegramMessage(chatId,
+        `📍 <b>Standort empfangen!</b>\n🏠 ${addressName}\n\n❓ <b>Ist das der Abholort oder der Zielort?</b>`, {
+        reply_markup: { inline_keyboard: [
+            [{ text: '📍 Abholort (hier abholen)', callback_data: 'gps_set_pickup' }, { text: '🎯 Zielort (dorthin fahren)', callback_data: 'gps_set_dest' }],
+            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+        ] }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════

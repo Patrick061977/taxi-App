@@ -1000,6 +1000,13 @@ async function searchNominatimForTelegram(query) {
     }
 
     // 1c) CRM-Kunden mit Adressen
+    // 🔧 v6.15.7: Usedom-PLZ-Erkennung für Koordinaten-Validierung
+    const USEDOM_PLZ = ['17424', '17429', '17419', '17438', '17440', '17449', '17454', '17459'];
+    const _looksLikeUsedom = (text) => {
+        const t = text.toLowerCase();
+        return USEDOM_PLZ.some(p => t.includes(p)) ||
+            /\b(usedom|heringsdorf|ahlbeck|bansin|zinnowitz|trassenheide|karlshagen|koserow|loddin|ückeritz|zempin|peenemünde|wolgast)\b/i.test(t);
+    };
     try {
         const custSnap = await db.ref('customers').once('value');
         if (custSnap.exists()) {
@@ -1014,6 +1021,10 @@ async function searchNominatimForTelegram(query) {
                     const lat = c.lat || c.pickupLat;
                     const lon = c.lon || c.pickupLon;
                     if (lat && lon) {
+                        // 🔧 v6.15.7: Usedom-Adresse muss Usedom-Koordinaten haben
+                        if (_looksLikeUsedom(c.address) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) {
+                            return; // Falsche Koordinaten → überspringen
+                        }
                         addIfNew({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer', priority: 2 });
                     }
                 }
@@ -1021,7 +1032,7 @@ async function searchNominatimForTelegram(query) {
         }
     } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
 
-    // 1d) Häufige Ziele aus letzten Buchungen
+    // 1d) Häufige Ziele aus letzten Buchungen (nutzt USEDOM_PLZ/_looksLikeUsedom von oben)
     try {
         const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
         const destCount = {};
@@ -1032,6 +1043,11 @@ async function searchNominatimForTelegram(query) {
             const lat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
             const lon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
             if (dest && lat && lon) {
+                // 🔧 v6.15.7: Koordinaten-Plausibilitätsprüfung — Usedom-Adresse muss Usedom-Koordinaten haben!
+                if (_looksLikeUsedom(dest) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) {
+                    // Falsche Koordinaten: Usedom-Adresse aber Koordinaten woanders → NICHT übernehmen
+                    return;
+                }
                 const key = dest.toLowerCase().trim();
                 if (!destCount[key]) destCount[key] = { name: dest, lat, lon, count: 0 };
                 destCount[key].count++;
@@ -1041,6 +1057,10 @@ async function searchNominatimForTelegram(query) {
             const pLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
             const pLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
             if (pickup && pLat && pLon) {
+                // 🔧 v6.15.7: Gleiches für Abholorte
+                if (_looksLikeUsedom(pickup) && !isNearUsedom(parseFloat(pLat), parseFloat(pLon))) {
+                    return;
+                }
                 const key = pickup.toLowerCase().trim();
                 if (!destCount[key]) destCount[key] = { name: pickup, lat: pLat, lon: pLon, count: 0 };
                 destCount[key].count++;
@@ -5050,7 +5070,8 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '🤖 <i>Analysiere deine Nachricht...</i>');
             await analyzeTelegramBooking(chatId, text, userName, { forSelf: true });
         } else {
-            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName });
+            // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
+            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null });
             await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
                 reply_markup: { inline_keyboard: [
                     [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],

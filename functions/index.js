@@ -29,6 +29,25 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🧠 v6.15.8: KI-Trainings-Regeln aus Firebase laden
+// Gespeichert unter settings/aiRules als Array von { rule, createdAt, createdBy }
+async function loadAiRules() {
+    try {
+        const snap = await db.ref('settings/aiRules').once('value');
+        if (!snap.exists()) return '';
+        const rules = snap.val();
+        const ruleList = Object.values(rules)
+            .filter(r => r && r.rule)
+            .map((r, i) => `${i + 1}. ${r.rule}`)
+            .join('\n');
+        if (!ruleList) return '';
+        return `\n━━━ GELERNTE REGELN (Admin-definiert) ━━━\n${ruleList}\n`;
+    } catch (e) {
+        console.warn('AI-Regeln laden fehlgeschlagen:', e.message);
+        return '';
+    }
+}
+
 // 🛡️ SPAM-SCHUTZ: Nachrichten pro Minute
 const SPAM_WARN_THRESHOLD = 40;    // Ab 40/Min → Warnung
 const SPAM_MAX_MESSAGES = 60;      // Ab 60/Min → Sperre
@@ -1839,6 +1858,9 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const _todayName = _dayNames[_today.getDay()];
     const _timeStr = `${String(_today.getHours()).padStart(2, '0')}:${String(_today.getMinutes()).padStart(2, '0')}`;
 
+    // 🧠 v6.15.8: KI-Trainings-Regeln laden
+    const aiRulesBlock = await loadAiRules();
+
     try {
         const data = await callAnthropicAPI(apiKey, 'claude-haiku-4-5-20251001', 800, [{
             role: 'user',
@@ -1847,7 +1869,7 @@ Ein Fahrgast schreibt per Telegram. Deine Aufgabe: Buchungsdaten extrahieren und
 
 FAHRGAST-NACHRICHT: "${text}"
 ${prefilledName ? `BEKANNTER KUNDE: ${prefilledName}${prefilledPhone ? ` | Tel: ${prefilledPhone}` : ''}` : ''}
-${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}
+${homeAddressHint ? `HEIMADRESSE: "${homeAddressHint}" → bei "zu Hause" / "von zu Hause" verwenden` : ''}${aiRulesBlock}
 ${hotelGuestName ? `GASTNAME (bereits bekannt): ${hotelGuestName}` : (preselected && isAuftraggeber(preselected.customerKind, preselected.type) ? `${preselected.type === 'supplier' ? '🚚 LIEFERANT' : '🏢 AUFTRAGGEBER'}-ANRUF: ${preselected.name} bucht für einen GAST/PATIENTEN/KUNDEN. Extrahiere:\n- GASTNAME aus dem Gespräch (z.B. "Frau Dahn", "Herr Müller", "Familie Schmidt") → "guestName"\n- GAST-TELEFONNUMMER falls genannt (z.B. Handynummer des Fahrgasts) → "guestPhone"\nWenn nicht erkennbar → null` : '')}
 
 ━━━ SCHRITT 1: INTENT ━━━
@@ -2435,6 +2457,9 @@ async function analyzeTelegramFollowUp(chatId, newText, userName, pending) {
     // 🔧 v6.15.5: Rückfahrt-Datum für KI-Prompt (nur Uhrzeit → Datum der Hinfahrt)
     const _returnOrigDate = partial._returnOrigDate || null;
 
+    // 🧠 v6.15.8: KI-Trainings-Regeln laden
+    const aiRulesBlock = await loadAiRules();
+
     try {
         const _pDatetime = partial.datetime || null;
         const _pPickup = partial.pickup || null;
@@ -2474,7 +2499,7 @@ REGELN:
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
 9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
-
+${aiRulesBlock}
 Nur gültiges JSON, kein Markdown:
 {
   "datetime": ${_pDatetime ? `"${_pDatetime}"` : 'null'},
@@ -3375,9 +3400,10 @@ async function handleMessage(message) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -3881,6 +3907,37 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, '⏳ <b>Bitte erst die aktuelle Buchung bestätigen oder ablehnen!</b>', {
             reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] }
         });
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Training — Neue Regel speichern
+    if (pending && pending._aiRuleAdd) {
+        const ruleText = text.trim();
+        if (ruleText.length < 5) {
+            await sendTelegramMessage(chatId, '⚠️ Regel zu kurz. Bitte einen vollständigen Satz eingeben.');
+            return;
+        }
+        if (ruleText.length > 500) {
+            await sendTelegramMessage(chatId, '⚠️ Regel zu lang (max. 500 Zeichen). Bitte kürzer formulieren.');
+            return;
+        }
+        try {
+            const newRef = db.ref('settings/aiRules').push();
+            await newRef.set({
+                rule: ruleText,
+                createdAt: Date.now(),
+                createdBy: userName || 'Admin'
+            });
+            await deletePending(chatId);
+            await addTelegramLog('🧠', chatId, `KI-Regel hinzugefügt: "${ruleText}"`);
+            await sendTelegramMessage(chatId, `✅ <b>KI-Regel gespeichert!</b>\n\n🧠 <i>"${ruleText}"</i>\n\n<i>Die KI wird diese Regel ab sofort bei jeder Buchungsanalyse beachten.</i>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '➕ Noch eine Regel', callback_data: 'ai_rule_add' }],
+                    [{ text: '↩️ Alle Regeln anzeigen', callback_data: 'menu_ai_rules' }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
 
@@ -4961,6 +5018,83 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🧠 v6.15.8: KI-Training Menü
+    if (data === 'menu_ai_rules') {
+        if (!await isTelegramAdmin(chatId)) return;
+        try {
+            const snap = await db.ref('settings/aiRules').once('value');
+            const rules = snap.exists() ? snap.val() : {};
+            const ruleEntries = Object.entries(rules).filter(([, r]) => r && r.rule);
+            let msg = '🧠 <b>KI-Training</b>\n\n';
+            msg += '<i>Hier kannst du Regeln definieren, die die KI bei jeder Buchungsanalyse beachtet.</i>\n\n';
+            if (ruleEntries.length === 0) {
+                msg += '📭 <i>Noch keine Regeln gespeichert.</i>\n\n';
+                msg += '💡 <b>Beispiele:</b>\n';
+                msg += '• "Café Asgard liegt in Bansin, Seestraße 12"\n';
+                msg += '• "Seepark bedeutet immer Seepark Heringsdorf"\n';
+                msg += '• "Bei Klinik-Fahrten immer nach Patientenname fragen"\n';
+            } else {
+                msg += `📋 <b>${ruleEntries.length} Regel(n):</b>\n\n`;
+                ruleEntries.forEach(([key, r], i) => {
+                    const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString('de-DE') : '?';
+                    msg += `${i + 1}. ${r.rule}\n   <i>(${date})</i>\n\n`;
+                });
+            }
+            const keyboard = [[{ text: '➕ Neue Regel hinzufügen', callback_data: 'ai_rule_add' }]];
+            if (ruleEntries.length > 0) {
+                keyboard.push([{ text: '🗑️ Regel löschen', callback_data: 'ai_rule_delete' }]);
+            }
+            keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+            await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel hinzufügen
+    if (data === 'ai_rule_add') {
+        if (!await isTelegramAdmin(chatId)) return;
+        await setPending(chatId, { _aiRuleAdd: true });
+        await sendTelegramMessage(chatId, '🧠 <b>Neue KI-Regel</b>\n\n✏️ Schreibe die Regel als <b>klaren Satz</b>:\n\n💡 <b>Beispiele:</b>\n• <i>"Café Asgard ist in Bansin, Seestraße 12"</i>\n• <i>"Seepark 13 liegt in Bansin, nicht in Heringsdorf"</i>\n• <i>"Bei Hotels immer nach dem Gastnamen fragen"</i>\n• <i>"Köste ist ein Ortsteil von Heringsdorf"</i>', {
+            reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'menu_ai_rules' }]] }
+        });
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel löschen — Liste anzeigen
+    if (data === 'ai_rule_delete') {
+        if (!await isTelegramAdmin(chatId)) return;
+        try {
+            const snap = await db.ref('settings/aiRules').once('value');
+            if (!snap.exists()) { await sendTelegramMessage(chatId, '📭 Keine Regeln vorhanden.'); return; }
+            const rules = snap.val();
+            const entries = Object.entries(rules).filter(([, r]) => r && r.rule);
+            if (entries.length === 0) { await sendTelegramMessage(chatId, '📭 Keine Regeln vorhanden.'); return; }
+            const keyboard = entries.map(([key, r], i) => {
+                const short = r.rule.length > 40 ? r.rule.slice(0, 38) + '…' : r.rule;
+                return [{ text: `🗑️ ${i + 1}. ${short}`, callback_data: `ai_rule_del_${key}` }];
+            });
+            keyboard.push([{ text: '↩️ Zurück', callback_data: 'menu_ai_rules' }]);
+            await sendTelegramMessage(chatId, '🗑️ <b>Welche Regel löschen?</b>', { reply_markup: { inline_keyboard: keyboard } });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🧠 v6.15.8: KI-Regel tatsächlich löschen
+    if (data.startsWith('ai_rule_del_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const ruleKey = data.replace('ai_rule_del_', '');
+        try {
+            const ruleSnap = await db.ref('settings/aiRules/' + ruleKey).once('value');
+            const ruleText = ruleSnap.exists() ? ruleSnap.val().rule : '?';
+            await db.ref('settings/aiRules/' + ruleKey).remove();
+            await addTelegramLog('🧠', chatId, `KI-Regel gelöscht: "${ruleText}"`);
+            await sendTelegramMessage(chatId, `✅ <b>Regel gelöscht:</b>\n\n<s>${ruleText}</s>`, {
+                reply_markup: { inline_keyboard: [[{ text: '↩️ Zurück zu KI-Training', callback_data: 'menu_ai_rules' }]] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
     // 🆕 v6.11.6: Nummer-Zuordnung bestätigt → additionalPhones aktualisieren
     if (data.startsWith('confirm_addphone_')) {
         const pending = await getPending(chatId);
@@ -5720,9 +5854,10 @@ async function handleCallback(callback) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;

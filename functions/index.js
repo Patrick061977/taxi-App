@@ -3353,8 +3353,12 @@ async function handleMessage(message) {
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
             [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
-            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
+        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        if (await isTelegramAdmin(chatId)) {
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+        }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
             await sendTelegramMessage(chatId, '📱 <b>Telefonnummer teilen</b> – einmalig, damit wir Sie sofort erkennen:', {
@@ -3710,6 +3714,99 @@ async function handleMessage(message) {
         const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending.routePrice || null);
         const keyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, updatedBooking);
         await sendTelegramMessage(chatId, `✅ Zwischenstopp "<b>${waypointText}</b>" hinzugefügt!\n\n` + confirmMsg, { reply_markup: keyboard });
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Kundensuche (Admin-Feature)
+    if (pending && pending._crmSearch && !isPendingExpired(pending) && await isTelegramAdmin(chatId)) {
+        await deletePending(chatId);
+        const searchTerm = text.trim().toLowerCase();
+        if (!searchTerm) {
+            await sendTelegramMessage(chatId, '⚠️ Bitte einen Suchbegriff eingeben.');
+            return;
+        }
+        try {
+            const snap = await db.ref('customers').once('value');
+            const results = [];
+            snap.forEach(child => {
+                const c = child.val();
+                const id = child.key;
+                const nameMatch = (c.name || '').toLowerCase().includes(searchTerm);
+                const phoneMatch = (c.phone || '').replace(/\s/g, '').includes(searchTerm.replace(/\s/g, ''));
+                const mobileMatch = (c.mobilePhone || '').replace(/\s/g, '').includes(searchTerm.replace(/\s/g, ''));
+                const addrMatch = (c.address || '').toLowerCase().includes(searchTerm);
+                if (nameMatch || phoneMatch || mobileMatch || addrMatch) {
+                    results.push({ id, name: c.name || '?', phone: c.phone || c.mobilePhone || '?', address: c.address || '' });
+                }
+            });
+            if (results.length === 0) {
+                await sendTelegramMessage(chatId, `🔍 Keine Kunden gefunden für "<b>${text.trim()}</b>".\n\nVersuchen Sie einen anderen Suchbegriff:`, {
+                    reply_markup: { inline_keyboard: [[{ text: '🏠 Menü', callback_data: 'back_to_menu' }]] }
+                });
+                await setPending(chatId, { _crmSearch: true });
+                return;
+            }
+            const buttons = results.slice(0, 8).map(c => [{
+                text: `${c.name} (${c.phone})`,
+                callback_data: `crm_view_${c.id}`
+            }]);
+            buttons.push([{ text: '🔍 Andere Suche', callback_data: 'menu_crm_edit' }, { text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+            await sendTelegramMessage(chatId,
+                `🔍 <b>${results.length} Kunde(n) gefunden</b> für "<b>${text.trim()}</b>":\n\nWählen Sie einen Kunden:`, {
+                reply_markup: { inline_keyboard: buttons }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Feld-Bearbeitung (Admin-Freitext-Eingabe)
+    if (pending && pending._crmEditCustomer && pending._crmEditField && !isPendingExpired(pending) && await isTelegramAdmin(chatId)) {
+        const custId = pending._crmEditCustomer;
+        const field = pending._crmEditField;
+        await deletePending(chatId);
+        const newValue = text.trim();
+        if (!newValue) {
+            await sendTelegramMessage(chatId, '⚠️ Leerer Wert.');
+            return;
+        }
+        let finalValue = newValue;
+        // Telefonnummer normalisieren
+        if (field === 'phone' || field === 'mobilePhone') {
+            finalValue = newValue.replace(/\s/g, '');
+            if (finalValue.startsWith('+')) { /* ok */ }
+            else if (finalValue.startsWith('00')) finalValue = '+' + finalValue.slice(2);
+            else if (finalValue.startsWith('49') && finalValue.length >= 12) finalValue = '+' + finalValue;
+            else if (finalValue.startsWith('0')) finalValue = '+49' + finalValue.slice(1);
+            else finalValue = '+49' + finalValue;
+        }
+        try {
+            const update = {};
+            update[field] = finalValue;
+            update.updatedAt = Date.now();
+            await db.ref('customers/' + custId).update(update);
+            const labels = { name: 'Name', phone: 'Telefon', mobilePhone: 'Mobilnummer', address: 'Adresse', defaultPickup: 'Standard-Abholort', notes: 'Notizen' };
+            await addTelegramLog('📋', chatId, `CRM: ${field} = "${finalValue}" für ${custId}`);
+            // Auch Telegram-Customer-Cache aktualisieren falls verknüpft
+            if (field === 'name' || field === 'phone' || field === 'address') {
+                try {
+                    const tgSnap = await db.ref('settings/telegram/customers').once('value');
+                    const tgCustomers = tgSnap.val() || {};
+                    for (const [tgChatId, tgCust] of Object.entries(tgCustomers)) {
+                        if (tgCust.customerId === custId) {
+                            await db.ref('settings/telegram/customers/' + tgChatId + '/' + field).set(finalValue);
+                            break;
+                        }
+                    }
+                } catch(e) { /* Telegram-Cache optional */ }
+            }
+            await sendTelegramMessage(chatId,
+                `✅ <b>${labels[field] || field} aktualisiert!</b>\n\nNeu: <b>${finalValue}</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '↩️ Zurück zum Kunden', callback_data: `crm_view_${custId}` }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
 
@@ -4737,6 +4834,113 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.15.7: CRM Kundendaten bearbeiten (Admin-Feature)
+    if (data === 'menu_crm_edit') {
+        if (!await isTelegramAdmin(chatId)) {
+            await sendTelegramMessage(chatId, '⚠️ Nur für Admins verfügbar.');
+            return;
+        }
+        await setPending(chatId, { _crmSearch: true });
+        await sendTelegramMessage(chatId,
+            '📋 <b>Kundendaten bearbeiten</b>\n\n🔍 Geben Sie den <b>Namen</b> oder die <b>Telefonnummer</b> des Kunden ein:', {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+            ] }
+        });
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Kunde ausgewählt → Details anzeigen
+    if (data.startsWith('crm_view_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const custId = data.replace('crm_view_', '');
+        try {
+            const snap = await db.ref('customers/' + custId).once('value');
+            const cust = snap.val();
+            if (!cust) { await sendTelegramMessage(chatId, '⚠️ Kunde nicht gefunden.'); return; }
+            let msg = '📋 <b>Kundendaten</b>\n\n';
+            msg += `📛 Name: <b>${cust.name || '—'}</b>\n`;
+            msg += `📱 Telefon: <b>${cust.phone || '—'}</b>\n`;
+            msg += `📱 Mobil: <b>${cust.mobilePhone || '—'}</b>\n`;
+            msg += `🏠 Adresse: <b>${cust.address || '—'}</b>\n`;
+            msg += `📍 Std. Abholort: <b>${cust.defaultPickup || '—'}</b>\n`;
+            msg += `🏷️ Kategorie: <b>${cust.customerKind || '—'}</b>\n`;
+            msg += `📝 Notizen: <b>${cust.notes || '—'}</b>\n`;
+            msg += `\n<i>Tippen Sie auf ein Feld zum Ändern:</i>`;
+            await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
+                [{ text: '📛 Name', callback_data: `crm_edit_${custId}_name` }, { text: '📱 Telefon', callback_data: `crm_edit_${custId}_phone` }],
+                [{ text: '📱 Mobil', callback_data: `crm_edit_${custId}_mobilePhone` }, { text: '🏠 Adresse', callback_data: `crm_edit_${custId}_address` }],
+                [{ text: '📍 Std. Abholort', callback_data: `crm_edit_${custId}_defaultPickup` }, { text: '📝 Notizen', callback_data: `crm_edit_${custId}_notes` }],
+                [{ text: '🏷️ Stammkunde/Gelegenheit', callback_data: `crm_kind_${custId}` }],
+                [{ text: '🔍 Anderen Kunden suchen', callback_data: 'menu_crm_edit' }, { text: '🏠 Menü', callback_data: 'back_to_menu' }]
+            ] } });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Feld bearbeiten
+    if (data.startsWith('crm_edit_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const rest = data.replace('crm_edit_', '');
+        const lastUnderscore = rest.lastIndexOf('_');
+        const custId = rest.substring(0, lastUnderscore);
+        const field = rest.substring(lastUnderscore + 1);
+        const labels = { name: '📛 Name', phone: '📱 Telefon', mobilePhone: '📱 Mobilnummer', address: '🏠 Adresse', defaultPickup: '📍 Standard-Abholort', notes: '📝 Notizen' };
+        const hints = { name: 'den neuen Namen', phone: 'die neue Festnetznummer', mobilePhone: 'die neue Mobilnummer', address: 'die neue Adresse (Straße Hausnr, Ort)', defaultPickup: 'den neuen Standard-Abholort', notes: 'die neuen Notizen' };
+        try {
+            const snap = await db.ref('customers/' + custId + '/' + field).once('value');
+            const currentVal = snap.val() || '—';
+            await setPending(chatId, { _crmEditCustomer: custId, _crmEditField: field });
+            await sendTelegramMessage(chatId,
+                `✏️ <b>${labels[field] || field} ändern</b>\n\nAktuell: <b>${currentVal}</b>\n\nBitte geben Sie ${hints[field] || 'den neuen Wert'} ein:`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '↩️ Zurück zum Kunden', callback_data: `crm_view_${custId}` }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Kundenart (Stammkunde/Gelegenheit) per Button
+    if (data.startsWith('crm_kind_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const custId = data.replace('crm_kind_', '');
+        try {
+            const snap = await db.ref('customers/' + custId + '/customerKind').once('value');
+            const current = snap.val() || '—';
+            await sendTelegramMessage(chatId,
+                `🏷️ <b>Kundenart ändern</b>\n\nAktuell: <b>${current}</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '⭐ Stammkunde', callback_data: `crm_setkind_${custId}_stammkunde` }],
+                    [{ text: '👤 Gelegenheitskunde', callback_data: `crm_setkind_${custId}_gelegenheitskunde` }],
+                    [{ text: '↩️ Zurück', callback_data: `crm_view_${custId}` }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.15.7: CRM Kundenart setzen
+    if (data.startsWith('crm_setkind_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const rest = data.replace('crm_setkind_', '');
+        const lastUnderscore = rest.lastIndexOf('_');
+        const custId = rest.substring(0, lastUnderscore);
+        const kind = rest.substring(lastUnderscore + 1);
+        try {
+            await db.ref('customers/' + custId).update({ customerKind: kind, updatedAt: Date.now() });
+            await addTelegramLog('🏷️', chatId, `CRM: customerKind = "${kind}" für ${custId}`);
+            await sendTelegramMessage(chatId, `✅ <b>Kundenart aktualisiert!</b>\n\n🏷️ ${kind === 'stammkunde' ? '⭐ Stammkunde' : '👤 Gelegenheitskunde'}`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '↩️ Zurück zum Kunden', callback_data: `crm_view_${custId}` }],
+                    [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                ] }
+            });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
     // 🆕 v6.11.6: Nummer-Zuordnung bestätigt → additionalPhones aktualisieren
     if (data.startsWith('confirm_addphone_')) {
         const pending = await getPending(chatId);
@@ -5493,8 +5697,12 @@ async function handleCallback(callback) {
             [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
             [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
-            [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+            [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
+        // 🆕 v6.15.7: Admin bekommt CRM-Button
+        if (await isTelegramAdmin(chatId)) {
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+        }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
     }

@@ -4463,7 +4463,8 @@ async function handleMessage(message) {
         welcomeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
         welcomeMsg += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
         welcomeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
-        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        welcomeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
+        welcomeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort, um sofort eine Fahrt ab Ihrem Standort zu starten\n\n';
         welcomeMsg += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>\n\n';
         welcomeMsg += '📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>\n\n';
         welcomeMsg += '📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
@@ -4487,7 +4488,7 @@ async function handleMessage(message) {
     // 🆕 v6.10.0: "Fahrt buchen", "Taxi buchen" etc. → Buchungsassistent
     if (isTelegramBookCommand(text)) {
         await addTelegramLog('🚕', chatId, 'Buchen-Intent erkannt → Buchungsassistent');
-        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
+        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n📍 <b>Oder:</b> Tippen Sie auf 📎 → <b>Standort</b>, um direkt ab Ihrem aktuellen Standort zu buchen!\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
         return;
     }
 
@@ -4825,7 +4826,8 @@ async function handleCallback(callback) {
         hilfeMsg += '📊 <b>Fahrten ansehen</b> – Gebuchte Fahrten einsehen\n';
         hilfeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         hilfeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
-        hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n\n';
+        hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n';
+        hilfeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort, um sofort ab Ihrem Standort zu buchen\n\n';
         hilfeMsg += '<b>Befehle (Slash):</b>\n';
         hilfeMsg += '/buchen – 🚕 Neue Fahrt buchen\n';
         hilfeMsg += '/status – 📊 Ihre Fahrten\n';
@@ -5934,6 +5936,42 @@ async function handleCallback(callback) {
                 ] } }
             );
         }
+        return;
+    }
+
+    // 🔧 v6.15.8: GPS-Standort als Abholort oder Zielort setzen (Auswahl)
+    if (data === 'gps_set_pickup' || data === 'gps_set_dest') {
+        const _gpsPending = await getPending(chatId);
+        if (!_gpsPending || !_gpsPending._gpsChoice) {
+            await sendTelegramMessage(chatId, '⚠️ Standort nicht mehr verfügbar. Bitte nochmal senden.');
+            return;
+        }
+        const { addressName: gpsAddr, lat: gpsLat, lon: gpsLon } = _gpsPending._gpsChoice;
+        const booking = _gpsPending.partial || _gpsPending.booking || { missing: ['pickup', 'destination', 'datetime'], intent: 'buchung' };
+        const isPickup = data === 'gps_set_pickup';
+
+        if (isPickup) {
+            booking.pickup = gpsAddr;
+            booking.pickupLat = gpsLat;
+            booking.pickupLon = gpsLon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+            await addTelegramLog('📍', chatId, `GPS als Abholort: ${gpsAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Abholort gesetzt:</b> ${gpsAddr}`);
+        } else {
+            booking.destination = gpsAddr;
+            booking.destinationLat = gpsLat;
+            booking.destinationLon = gpsLon;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
+            await addTelegramLog('📍', chatId, `GPS als Zielort: ${gpsAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Zielort gesetzt:</b> ${gpsAddr}`);
+        }
+
+        // _gpsChoice entfernen und Buchungsfluss fortsetzen
+        delete _gpsPending._gpsChoice;
+        if (_gpsPending.partial) _gpsPending.partial = booking;
+        else _gpsPending.booking = booking;
+        await setPending(chatId, _gpsPending);
+        await continueBookingFlow(chatId, booking, _gpsPending.originalText || '');
         return;
     }
 
@@ -7811,55 +7849,74 @@ async function handleLocation(message) {
         return;
     }
 
-    // Prüfe ob eine Buchung läuft und Abholort fehlt
+    // 🔧 v6.15.8: Laufende Buchung → prüfe was fehlt
     if (pending) {
         const booking = pending.booking || pending.partial;
-        if (booking && (!booking.pickup || (booking.missing && booking.missing.includes('pickup')))) {
-            // Standort als Abholort übernehmen
-            booking.pickup = addressName;
-            booking.pickupLat = lat;
-            booking.pickupLon = lon;
-            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+        if (booking) {
+            const missingPickup = !booking.pickup || (booking.missing && booking.missing.includes('pickup'));
+            const missingDest = !booking.destination || (booking.missing && booking.missing.includes('destination'));
 
-            await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
+            // Nur Abholort fehlt → direkt als Abholort setzen
+            if (missingPickup && !missingDest) {
+                booking.pickup = addressName;
+                booking.pickupLat = lat;
+                booking.pickupLon = lon;
+                if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
+                await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}`);
+                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                return;
+            }
 
-            // Buchungsfluss fortsetzen
-            await continueBookingFlow(chatId, booking, pending.originalText || '');
-            return;
-        }
+            // Nur Zielort fehlt → direkt als Zielort setzen
+            if (!missingPickup && missingDest) {
+                booking.destination = addressName;
+                booking.destinationLat = lat;
+                booking.destinationLon = lon;
+                if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
+                await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}`);
+                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                return;
+            }
 
-        // Wenn Zielort fehlt → als Zielort setzen
-        if (booking && (!booking.destination || (booking.missing && booking.missing.includes('destination')))) {
-            booking.destination = addressName;
-            booking.destinationLat = lat;
-            booking.destinationLon = lon;
-            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
-
-            await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}\n\n<i>Koordinaten: ${lat.toFixed(5)}, ${lon.toFixed(5)}</i>`);
-
-            await continueBookingFlow(chatId, booking, pending.originalText || '');
+            // Beides fehlt oder beides schon da → Fragen: Abholort oder Zielort?
+            await setPending(chatId, {
+                ...pending,
+                _gpsChoice: { addressName, lat, lon }
+            });
+            await sendTelegramMessage(chatId,
+                `📍 <b>Standort empfangen:</b>\n🏠 ${addressName}\n\n❓ <b>Ist das der Abholort oder der Zielort?</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '📍 Abholort', callback_data: 'gps_set_pickup' }, { text: '🎯 Zielort', callback_data: 'gps_set_dest' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] }
+            });
             return;
         }
     }
 
-    // Kein laufender Buchungsvorgang → neue Buchung mit Standort als Abholort starten
+    // 🔧 v6.15.8: Kein laufender Buchungsvorgang → Fragen ob Abhol- oder Zielort
+    const customer = await getTelegramCustomer(chatId);
     const newBooking = {
-        pickup: addressName,
-        pickupLat: lat,
-        pickupLon: lon,
-        missing: ['destination', 'datetime'],
+        missing: ['pickup', 'destination', 'datetime'],
         intent: 'buchung'
     };
-
-    // Kundenname laden
-    const customer = await getTelegramCustomer(chatId);
     if (customer) {
         newBooking.name = customer.name;
         newBooking.phone = customer.mobile || customer.phone || '';
     }
 
-    await sendTelegramMessage(chatId, `📍 <b>Standort empfangen!</b>\n🏠 Abholort: ${addressName}\n\n💬 Wohin möchten Sie fahren?`);
-    await setPending(chatId, { partial: newBooking, originalText: `GPS: ${addressName}` });
+    await setPending(chatId, {
+        partial: newBooking,
+        originalText: `GPS: ${addressName}`,
+        _gpsChoice: { addressName, lat, lon }
+    });
+    await sendTelegramMessage(chatId,
+        `📍 <b>Standort empfangen!</b>\n🏠 ${addressName}\n\n❓ <b>Ist das der Abholort oder der Zielort?</b>`, {
+        reply_markup: { inline_keyboard: [
+            [{ text: '📍 Abholort (hier abholen)', callback_data: 'gps_set_pickup' }, { text: '🎯 Zielort (dorthin fahren)', callback_data: 'gps_set_dest' }],
+            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+        ] }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════

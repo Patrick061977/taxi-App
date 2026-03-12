@@ -223,14 +223,28 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     const dayEntry = shifts[dateStr];
     if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
         const defaultEntry = (shifts.defaultTimes || {})[dow] || null;
-        if (dayEntry.additiveException && defaultEntry) {
-            const defRanges = (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1)
-                ? defaultEntry.timeRanges
-                : [{ startTime: defaultEntry.startTime || '06:00', endTime: defaultEntry.endTime || '22:00' }];
-            const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
-                ? dayEntry.timeRanges
-                : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
-            times = { timeRanges: [...defRanges, ...exRanges] };
+        if (dayEntry.additiveException) {
+            // 🔧 v6.15.9: Fallback wenn defaultEntry fehlt aber Tag im Wochenplan aktiv ist
+            let _effDefault = defaultEntry;
+            if (!_effDefault) {
+                const _defs = shifts.defaults || {};
+                if (_defs[dow] === true) {
+                    _effDefault = { startTime: '06:00', endTime: '22:00' };
+                }
+            }
+            if (_effDefault) {
+                const defRanges = (_effDefault.timeRanges && _effDefault.timeRanges.length > 1)
+                    ? _effDefault.timeRanges
+                    : [{ startTime: _effDefault.startTime || '06:00', endTime: _effDefault.endTime || '22:00' }];
+                const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
+                    ? dayEntry.timeRanges
+                    : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
+                times = { timeRanges: [...defRanges, ...exRanges] };
+            } else {
+                // Kein Standard und kein aktiver Wochentag → nur Exception-Zeiten
+                times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
+                if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
+            }
         } else {
             times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
             if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;

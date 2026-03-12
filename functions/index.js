@@ -3498,6 +3498,24 @@ async function handleMessage(message) {
     // === COMMANDS ===
     if (textCmd === '/start') {
         await addTelegramLog('🚀', chatId, '/start Kommando');
+        // Bot-Menü bei Telegram registrieren (≡ Menü Button unten links)
+        const token = await loadBotToken();
+        if (token) {
+            fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    commands: [
+                        { command: 'start', description: '🏠 Hauptmenü anzeigen' },
+                        { command: 'buchen', description: '🚕 Neue Fahrt buchen' },
+                        { command: 'status', description: '📊 Meine heutigen Fahrten' },
+                        { command: 'profil', description: '👤 Profil bearbeiten' },
+                        { command: 'hilfe', description: 'ℹ️ Alle Funktionen anzeigen' },
+                        { command: 'abbrechen', description: '❌ Aktuelle Buchung abbrechen' }
+                    ]
+                })
+            }).catch(err => console.warn('setMyCommands Fehler:', err.message));
+        }
         const knownCustomer = await getTelegramCustomer(chatId);
         let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
         if (knownCustomer) {
@@ -3553,7 +3571,9 @@ async function handleMessage(message) {
         }
         if (knownCustomer) hilfeMsg += `\n\n<b>Ihr Profil:</b>\n👤 ${knownCustomer.name}\n📱 ${knownCustomer.phone || 'keine Telefonnummer'}`;
         hilfeMsg += '\n\n📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
-        await sendTelegramMessage(chatId, hilfeMsg);
+        await sendTelegramMessage(chatId, hilfeMsg, { reply_markup: { inline_keyboard: [
+            [{ text: '🏠 Menü', callback_data: 'main_menu' }]
+        ] } });
         return;
     }
 
@@ -3578,7 +3598,8 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, profilMsg, { reply_markup: { inline_keyboard: [
             [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
             [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
-            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }]
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }],
+            [{ text: '🏠 Menü', callback_data: 'main_menu' }]
         ] } });
         return;
     }
@@ -5033,7 +5054,9 @@ async function handleCallback(callback) {
         hilfeMsg += '• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n';
         hilfeMsg += '• „<i>Meine Fahrten</i>" oder „<i>Status</i>"\n\n';
         hilfeMsg += '📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
-        await sendTelegramMessage(chatId, hilfeMsg);
+        await sendTelegramMessage(chatId, hilfeMsg, { reply_markup: { inline_keyboard: [
+            [{ text: '🏠 Menü', callback_data: 'main_menu' }]
+        ] } });
         return;
     }
     if (data === 'menu_abmelden') {
@@ -5085,7 +5108,8 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
             [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
             [{ text: '📱 Telefon ändern', callback_data: 'profil_edit_phone' }],
-            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }]
+            [{ text: '🏠 Adresse ändern', callback_data: 'profil_edit_address' }],
+            [{ text: '🏠 Menü', callback_data: 'main_menu' }]
         ] } });
         return;
     }

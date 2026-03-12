@@ -3442,10 +3442,15 @@ async function handleMessage(message) {
             });
             return;
         }
+        // 🔧 v6.15.8: Admin-Status im Profil anzeigen
+        const isAdminProfil = await isTelegramAdmin(chatId);
         let profilMsg = '👤 <b>Mein Profil</b>\n\n';
+        if (isAdminProfil) profilMsg += '🔑 Rolle: <b>Administrator</b>\n\n';
         profilMsg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
         profilMsg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        if (knownCustomer.mobile) profilMsg += `📱 Mobil: <b>${knownCustomer.mobile}</b>\n`;
         profilMsg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        if (isAdminProfil) profilMsg += `\n🆔 Chat-ID: <code>${chatId}</code>\n`;
         profilMsg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
         await sendTelegramMessage(chatId, profilMsg, { reply_markup: { inline_keyboard: [
             [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],
@@ -4882,10 +4887,15 @@ async function handleCallback(callback) {
             });
             return;
         }
+        // 🔧 v6.15.8: Admin-Status im Profil anzeigen
+        const isAdminProfile = await isTelegramAdmin(chatId);
         let msg = '👤 <b>Mein Profil</b>\n\n';
+        if (isAdminProfile) msg += '🔑 Rolle: <b>Administrator</b>\n\n';
         msg += `📛 Name: <b>${knownCustomer.name || '—'}</b>\n`;
         msg += `📱 Telefon: <b>${knownCustomer.phone || '—'}</b>\n`;
+        if (knownCustomer.mobile) msg += `📱 Mobil: <b>${knownCustomer.mobile}</b>\n`;
         msg += `🏠 Adresse: <b>${knownCustomer.address || 'nicht hinterlegt'}</b>\n`;
+        if (isAdminProfile) msg += `\n🆔 Chat-ID: <code>${chatId}</code>\n`;
         msg += '\n<i>Tippen Sie auf einen Button um Ihre Daten zu ändern:</i>';
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
             [{ text: '📛 Name ändern', callback_data: 'profil_edit_name' }],

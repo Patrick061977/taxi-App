@@ -274,37 +274,47 @@ async function autoAssignRide(rideId, rideData) {
         const allRides = [];
         ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
-        // 🔧 v6.15.10: Bei Vorbestellungen Abholzeit für Schicht-Check verwenden, nicht aktuelle Zeit!
+        // 🔧 v6.15.10: Zwei Modi — Sofortfahrt (GPS first) vs. Vorbestellung (Schichtplan/Priorität)
         const now = new Date();
         const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-        // Abholzeit für Schicht-Prüfung (bei Vorbestellung = Zukunft, bei Sofort = jetzt)
-        const pickupDate = rideData.pickupTimestamp ? new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })) : berlin;
+        const minutesUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) / 60000 : 0;
+        const isSofort = minutesUntilPickup <= 60;
+
+        // Abholzeit für Schicht-Check (Vorbestellung = Abholzeit, Sofort = jetzt)
+        const pickupDate = rideData.pickupTimestamp && !isSofort
+            ? new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }))
+            : berlin;
         const dateStr = pickupDate.getFullYear() + '-' + String(pickupDate.getMonth()+1).padStart(2,'0') + '-' + String(pickupDate.getDate()).padStart(2,'0');
         const timeStr = String(pickupDate.getHours()).padStart(2,'0') + ':' + String(pickupDate.getMinutes()).padStart(2,'0');
         const MAX_GPS_AGE = 10 * 60 * 1000;
-        const dow = pickupDate.getDay(); // 0=So, 1=Mo, ..., 6=Sa
+        const dow = pickupDate.getDay();
         const passengers = rideData.passengers || 1;
         const candidates = [];
 
+        console.log(`🎯 Modus: ${isSofort ? 'SOFORTFAHRT (GPS schlägt alles)' : 'VORBESTELLUNG (Schichtplan + Priorität)'} | Abholzeit: ${dateStr} ${timeStr}`);
+
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
             if (info.capacity < passengers) continue;
-            if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+            if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
+                console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr}`);
+                continue;
+            }
 
-            // 🔧 v6.11.3: Prüfe ob Fahrzeug aktuell aktiv ODER zur Abholzeit bereits belegt ist
+            // Besetzt-Check: Fahrzeug gerade aktiv unterwegs?
             const busy = allRides.some(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
                 (r.status === 'on_way' || r.status === 'picked_up')
             );
-            if (busy) continue;
+            if (busy && isSofort) { console.log(`   ❌ ${info.name}: Aktuell besetzt`); continue; }
 
-            // 🔧 v6.11.3: Zeitkonflikt mit Vorbestellungen prüfen!
+            // Zeitkonflikt mit bestehenden Fahrten prüfen
             if (rideData.pickupTimestamp) {
                 const newPickup = rideData.pickupTimestamp;
                 const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
-                const bufferMs = 4 * 60000; // 2 Min Ein- + 2 Min Aussteigen
+                const bufferMs = 4 * 60000;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
-                    if ((r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId)) return false;
+                    if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
                     if (!r.pickupTimestamp) return false;
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
@@ -314,99 +324,101 @@ async function autoAssignRide(rideId, rideData) {
                     return (newPickup < rEnd) && (rStart < newEnd);
                 });
                 if (hasTimeConflict) {
-                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit bestehender Vorbestellung → übersprungen`);
+                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt → übersprungen`);
                     continue;
                 }
             }
 
-            // 🔧 v6.15.10: GPS-Position ODER Heimatstandort aus Schichtplan als Fallback
             const driver = vehicles[vehicleId];
-            let vLat = null, vLon = null;
-            let posSource = '';
-            if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= MAX_GPS_AGE)) {
-                vLat = driver.lat;
-                vLon = driver.lon;
-                posSource = 'GPS';
-            } else {
-                // Fallback: Heimatstandort aus Schichtplan
-                const vShift = shiftsData[vehicleId];
-                if (vShift) {
-                    const defTimes = vShift.defaultTimes || {};
-                    const dayEntry = vShift[dateStr];
-                    let homeCoords = null;
-                    // Erst Tages-Override prüfen
-                    if (dayEntry && dayEntry.homeCoords) {
-                        homeCoords = dayEntry.homeCoords;
-                    } else if (defTimes[dow] && defTimes[dow].homeCoords) {
-                        homeCoords = defTimes[dow].homeCoords;
-                    }
-                    if (homeCoords && homeCoords.lat && homeCoords.lon) {
-                        vLat = homeCoords.lat;
-                        vLon = homeCoords.lon;
-                        posSource = 'Schichtplan-Home';
-                    }
-                }
-                // Letzter bekannter GPS-Standort als weiterer Fallback
-                if (!vLat && driver && driver.lat && driver.lon) {
-                    vLat = driver.lat;
-                    vLon = driver.lon;
-                    posSource = 'Letzter-GPS';
-                }
-            }
 
-            if (rideData.pickupCoords && vLat && vLon) {
-                const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
-                candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource });
-                console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource})`);
-            } else if (!rideData.pickupCoords) {
-                // Keine Abholkoordinaten → nach Priorität zuweisen
-                candidates.push({ vehicleId, name: info.name, distance: 999, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'keine-Coords' });
-                console.log(`   ✅ ${info.name}: Keine Abholkoordinaten → Priorität ${info.priority}`);
+            if (isSofort) {
+                // ═══ SOFORTFAHRT: GPS schlägt alles ═══
+                let vLat = null, vLon = null, posSource = '';
+
+                // 1. Aktives GPS (< 10 Min)
+                if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= MAX_GPS_AGE)) {
+                    vLat = driver.lat; vLon = driver.lon; posSource = 'GPS';
+                } else {
+                    // 2. Heimatstandort aus Schichtplan
+                    const vShift = shiftsData[vehicleId];
+                    if (vShift) {
+                        const defTimes = vShift.defaultTimes || {};
+                        const dayEntry = vShift[dateStr];
+                        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
+                        if (homeCoords && homeCoords.lat && homeCoords.lon) {
+                            vLat = homeCoords.lat; vLon = homeCoords.lon; posSource = 'Schichtplan-Home';
+                        }
+                    }
+                    // 3. Letzter bekannter GPS-Standort
+                    if (!vLat && driver && driver.lat && driver.lon) {
+                        vLat = driver.lat; vLon = driver.lon; posSource = 'Letzter-GPS';
+                    }
+                }
+
+                if (rideData.pickupCoords && vLat && vLon) {
+                    const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
+                    candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource });
+                    console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource})`);
+                } else {
+                    // Kein Standort → trotzdem aufnehmen, nach Priorität
+                    candidates.push({ vehicleId, name: info.name, distance: 999, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
+                    console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${info.priority}`);
+                }
             } else {
-                // Kein Standort ermittelbar → trotzdem aufnehmen mit hoher Distanz
-                candidates.push({ vehicleId, name: info.name, distance: 998, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'kein-Standort' });
-                console.log(`   ⚠️ ${info.name}: Kein Standort ermittelbar → Priorität ${info.priority}`);
+                // ═══ VORBESTELLUNG: Schichtplan + Priorität ═══
+                candidates.push({ vehicleId, name: info.name, distance: 0, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
+                console.log(`   ✅ ${info.name}: Im Dienst, Prio ${info.priority}`);
             }
         }
 
         if (candidates.length === 0) {
-            console.log('⚠️ v6.15.1: Kein Fahrzeug verfügbar');
+            console.log('⚠️ Kein Fahrzeug verfügbar für ' + (isSofort ? 'Sofortfahrt' : 'Vorbestellung'));
             return null;
         }
 
-        candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
+        if (isSofort) {
+            candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
+        } else {
+            candidates.sort((a, b) => a.priority - b.priority);
+        }
         const best = candidates[0];
-        const drivingTimeMin = Math.max(3, Math.round((best.distance / 40) * 60));
+        const drivingTimeMin = isSofort ? Math.max(3, Math.round((best.distance / 40) * 60)) : 0;
 
-        await db.ref('rides/' + rideId).update({
-            status: 'assigned',
+        // Status: Sofortfahrt → assigned, Vorbestellung → vorbestellt (mit zugewiesenem Fahrzeug)
+        const rideUpdate = {
+            status: isSofort ? 'assigned' : 'vorbestellt',
             assignedTo: best.vehicleId,
             vehicleId: best.vehicleId,
             vehicle: best.name,
             vehicleLabel: best.name,
             assignedVehicleName: best.name,
+            assignedVehicle: best.vehicleId,
             assignedAt: Date.now(),
             assignedBy: 'cloud-auto-assign',
-            assignmentDistance: best.distance,
-            drivingTimeToPickup: drivingTimeMin,
-            estimatedArrivalAt: Date.now() + (drivingTimeMin * 60000),
-            assignmentExpiresAt: Date.now() + 60000,
             updatedAt: Date.now()
-        });
+        };
+        if (isSofort) {
+            rideUpdate.assignmentDistance = best.distance;
+            rideUpdate.drivingTimeToPickup = drivingTimeMin;
+            rideUpdate.estimatedArrivalAt = Date.now() + (drivingTimeMin * 60000);
+            rideUpdate.assignmentExpiresAt = Date.now() + 60000;
+        }
+        await db.ref('rides/' + rideId).update(rideUpdate);
 
-        console.log(`✅ v6.15.1: ${rideId} → ${best.name} (${best.distance.toFixed(1)} km, ~${drivingTimeMin} Min)`);
+        console.log(`✅ ${rideId} → ${best.name} (${isSofort ? best.distance.toFixed(1) + ' km, ~' + drivingTimeMin + ' Min' : 'Prio ' + best.priority}) [${isSofort ? 'Sofort' : 'Vorbestellung'}]`);
 
         // Fahrer per Telegram benachrichtigen
         if (best.telegramChatId) {
+            const pickupLabel = rideData.pickupTime || (isSofort ? 'Sofort' : timeStr + ' Uhr');
             await sendTelegramMessage(best.telegramChatId,
-                `🚕 <b>NEUE FAHRT!</b>\n\n` +
+                `🚕 <b>${isSofort ? 'NEUE FAHRT!' : '📅 NEUE VORBESTELLUNG!'}</b>\n\n` +
                 `📍 <b>Von:</b> ${rideData.pickup}\n` +
                 `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                 `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
                 (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
-                `🕐 <b>Abholung:</b> ${rideData.pickupTime || 'Sofort'}\n` +
-                `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min (${best.distance.toFixed(1)} km)\n\n` +
-                `⏱️ <i>60 Sek zum Annehmen</i>`
+                `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
+                (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min (${best.distance.toFixed(1)} km)\n\n` : '\n') +
+                (isSofort ? `⏱️ <i>60 Sek zum Annehmen</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
             );
         }
 
@@ -5457,7 +5469,7 @@ async function handleCallback(callback) {
             const pickupTimestamp = parseGermanDatetime(booking.datetime);
             const dt = new Date(pickupTimestamp);
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / 60000;
-            const isVorbestellung = minutesUntilPickup > 30;
+            const isVorbestellung = minutesUntilPickup > 60;
             const passengers = booking.passengers || 1;
             const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
 

@@ -278,7 +278,7 @@ async function autoAssignRide(rideId, rideData) {
         const now = new Date();
         const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
         const minutesUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) / 60000 : 0;
-        const isSofort = minutesUntilPickup <= 30;
+        const isSofort = minutesUntilPickup <= 60;
 
         // Abholzeit für Schicht-Check (Vorbestellung = Abholzeit, Sofort = jetzt)
         const pickupDate = rideData.pickupTimestamp && !isSofort
@@ -5471,7 +5471,7 @@ async function handleCallback(callback) {
             const pickupTimestamp = parseGermanDatetime(booking.datetime);
             const dt = new Date(pickupTimestamp);
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / 60000;
-            const isVorbestellung = minutesUntilPickup > 30;
+            const isVorbestellung = minutesUntilPickup > 60;
             const passengers = booking.passengers || 1;
             const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
 

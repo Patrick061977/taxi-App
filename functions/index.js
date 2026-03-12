@@ -246,11 +246,35 @@ async function autoAssignRide(rideId, rideData) {
             if (info.capacity < passengers) continue;
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
+            // 🔧 v6.11.3: Prüfe ob Fahrzeug aktuell aktiv ODER zur Abholzeit bereits belegt ist
             const busy = allRides.some(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId) &&
                 (r.status === 'on_way' || r.status === 'picked_up')
             );
             if (busy) continue;
+
+            // 🔧 v6.11.3: Zeitkonflikt mit Vorbestellungen prüfen!
+            // Vorher wurden nur aktive Fahrten geprüft → Doppelbuchungen bei Vorbestellungen!
+            if (rideData.pickupTimestamp) {
+                const newPickup = rideData.pickupTimestamp;
+                const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
+                const bufferMs = 4 * 60000; // 2 Min Ein- + 2 Min Aussteigen
+                const hasTimeConflict = allRides.some(r => {
+                    if (r.firebaseId === rideId) return false;
+                    if ((r.vehicleId !== vehicleId && r.assignedTo !== vehicleId)) return false;
+                    if (!r.pickupTimestamp) return false;
+                    if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                    const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
+                    const rStart = r.pickupTimestamp;
+                    const rEnd = rStart + rDur + bufferMs;
+                    const newEnd = newPickup + newDur + bufferMs;
+                    return (newPickup < rEnd) && (rStart < newEnd);
+                });
+                if (hasTimeConflict) {
+                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit bestehender Vorbestellung → übersprungen`);
+                    continue;
+                }
+            }
 
             if (!rideData.pickupCoords) continue;
             const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, driver.lat, driver.lon);

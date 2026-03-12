@@ -29,6 +29,41 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🔧 v6.15.9: Robuste JSON-Extraktion aus KI-Antworten
+// Die KI schreibt manchmal Text vor/nach dem JSON — dieses Hilfsmittel extrahiert nur den JSON-Teil
+function extractJsonFromAiResponse(text) {
+    // Erst Markdown-Code-Blöcke entfernen
+    let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // Versuche direktes Parsing
+    try { return JSON.parse(cleaned); } catch(e) { /* weiter */ }
+    // Suche erstes { und letztes } — extrahiere den JSON-Block
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const jsonCandidate = cleaned.substring(firstBrace, lastBrace + 1);
+        try { return JSON.parse(jsonCandidate); } catch(e) { /* weiter */ }
+    }
+    // Letzter Versuch: Alles nach dem JSON-Block abschneiden (z.B. Erklärungstext)
+    // Finde die erste Zeile die mit { beginnt
+    const lines = cleaned.split('\n');
+    let jsonLines = [];
+    let inJson = false;
+    let braceCount = 0;
+    for (const line of lines) {
+        if (!inJson && line.trim().startsWith('{')) inJson = true;
+        if (inJson) {
+            jsonLines.push(line);
+            braceCount += (line.match(/{/g) || []).length - (line.match(/}/g) || []).length;
+            if (braceCount <= 0) break;
+        }
+    }
+    if (jsonLines.length > 0) {
+        try { return JSON.parse(jsonLines.join('\n')); } catch(e) { /* aufgeben */ }
+    }
+    // Nichts hat funktioniert → Originalfehler werfen
+    return JSON.parse(cleaned);
+}
+
 // 🧠 v6.15.8: KI-Trainings-Regeln aus Firebase laden
 // Gespeichert unter settings/aiRules als Array von { rule, createdAt, createdBy }
 async function loadAiRules() {
@@ -1840,8 +1875,7 @@ NUR gueltiges JSON, sonst nichts:
         }]);
 
         const content = response?.content?.[0]?.text || '';
-        const jsonText = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const result = JSON.parse(jsonText);
+        const result = extractJsonFromAiResponse(content);
         return result;
     } catch (e) {
         console.warn('Smart-Konversation Fehler:', e.message);
@@ -1973,8 +2007,7 @@ Nur gültiges JSON, kein Markdown:
         }]);
 
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
-        let jsonText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const booking = JSON.parse(jsonText);
+        const booking = extractJsonFromAiResponse(textContent);
 
         // Datum-Halluzinations-Schutz: Wenn der User kein Datum/Uhrzeit geschrieben hat, datetime löschen
         const _timeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
@@ -2541,8 +2574,7 @@ Nur gültiges JSON, kein Markdown:
         }]);
 
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
-        let jsonText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const booking = JSON.parse(jsonText);
+        const booking = extractJsonFromAiResponse(textContent);
 
         // Schutzmaßnahmen
         if (partial.phone) booking.phone = partial.phone;
@@ -4023,6 +4055,51 @@ async function handleMessage(message) {
         }
 
         if (step === 'phone') {
+            // 🔧 v6.15.9: Wenn Audio-Datei mit Telefonnummer kommt → Nummer aus Dateiname verwenden
+            const audioPhone = message._callerPhone || pending._callerPhone || null;
+            if (audioPhone && message._isVoiceTranscript) {
+                // Audio-Transkript kam rein, aber Telefonnummer aus Dateiname nutzen (nicht den Text!)
+                await addTelegramLog('📱', chatId, `Telefon aus Audio übernommen (Phone-Step): ${audioPhone} → überspringe manuelle Eingabe`);
+                if (!isMobileNumber(audioPhone)) {
+                    await setPending(chatId, {
+                        ...pending,
+                        _adminNewCustStep: 'mobilePhone',
+                        _adminNewCustPhone: audioPhone,
+                        _callerPhone: audioPhone
+                    });
+                    await sendTelegramMessage(chatId,
+                        `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${audioPhone}</b> <i>(aus Audiodatei)</i>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                        ] } }
+                    );
+                    return;
+                }
+                await setPending(chatId, {
+                    ...pending,
+                    _adminNewCustStep: 'address',
+                    _adminNewCustPhone: audioPhone,
+                    _callerPhone: audioPhone
+                });
+                await sendTelegramMessage(chatId,
+                    `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n📱 Telefon: <b>${audioPhone}</b> <i>(aus Audiodatei)</i>\n\n🏠 Bitte die <b>Adresse</b> eingeben oder 📎 <b>Standort senden</b>:`
+                );
+                return;
+            }
+
+            // 🔧 v6.15.9: Validierung — nur echte Telefonnummern akzeptieren, keine Transkript-Texte
+            const phoneLike = text.trim().replace(/[\s\-\/\(\)]/g, '');
+            if (phoneLike.length > 20 || /[a-zA-ZäöüÄÖÜß]{3,}/.test(phoneLike)) {
+                await addTelegramLog('⚠️', chatId, `Phone-Step: "${text.substring(0, 50)}..." ist keine Telefonnummer → ignoriert`);
+                await sendTelegramMessage(chatId,
+                    `⚠️ Das sieht nicht wie eine Telefonnummer aus.\n\n📱 Bitte eine <b>Telefonnummer</b> eingeben (z.B. +49 171 1234567):`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+                    ] } }
+                );
+                return;
+            }
+
             // Telefon eingegeben → prüfen ob Festnetz oder Mobil
             let normalizedPhone = text.trim().replace(/\s/g, '');
             if (normalizedPhone.startsWith('0') && !normalizedPhone.startsWith('00')) {
@@ -4056,6 +4133,18 @@ async function handleMessage(message) {
 
         // 🔧 v6.15.1: Mobilnummer eingegeben nach Festnetz-Erkennung
         if (step === 'mobilePhone') {
+            // 🔧 v6.15.9: Validierung — keine Transkript-Texte als Mobilnummer akzeptieren
+            const mobileLike = text.trim().replace(/[\s\-\/\(\)]/g, '');
+            if (mobileLike.length > 20 || /[a-zA-ZäöüÄÖÜß]{3,}/.test(mobileLike)) {
+                await addTelegramLog('⚠️', chatId, `MobilePhone-Step: "${text.substring(0, 50)}..." ist keine Telefonnummer → ignoriert`);
+                await sendTelegramMessage(chatId,
+                    `⚠️ Das sieht nicht wie eine Mobilnummer aus.\n\n📱 Bitte eine <b>Mobilnummer</b> eingeben oder überspringen:`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                    ] } }
+                );
+                return;
+            }
             let normalizedMobile = text.trim().replace(/\s/g, '');
             if (normalizedMobile.startsWith('0') && !normalizedMobile.startsWith('00')) {
                 normalizedMobile = '+49' + normalizedMobile.slice(1);

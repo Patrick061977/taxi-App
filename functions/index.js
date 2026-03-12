@@ -223,14 +223,23 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     const dayEntry = shifts[dateStr];
     if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
         const defaultEntry = (shifts.defaultTimes || {})[dow] || null;
-        if (dayEntry.additiveException && defaultEntry) {
-            const defRanges = (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1)
-                ? defaultEntry.timeRanges
-                : [{ startTime: defaultEntry.startTime || '06:00', endTime: defaultEntry.endTime || '22:00' }];
-            const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
-                ? dayEntry.timeRanges
-                : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
-            times = { timeRanges: [...defRanges, ...exRanges] };
+        if (dayEntry.additiveException) {
+            // 🔧 v6.15.10: KEIN Fallback auf 06:00-22:00!
+            // Wochenplan (defaultTimes) ist Gesetz – ohne eingetragene Zeiten = kein Standard-Block
+            const _effDefault = defaultEntry;
+            if (_effDefault) {
+                const defRanges = (_effDefault.timeRanges && _effDefault.timeRanges.length > 1)
+                    ? _effDefault.timeRanges
+                    : [{ startTime: _effDefault.startTime, endTime: _effDefault.endTime }];
+                const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
+                    ? dayEntry.timeRanges
+                    : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
+                times = { timeRanges: [...defRanges, ...exRanges] };
+            } else {
+                // Kein Standard und kein aktiver Wochentag → nur Exception-Zeiten
+                times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
+                if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
+            }
         } else {
             times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
             if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
@@ -271,32 +280,29 @@ async function autoAssignRide(rideId, rideData) {
         const dateStr = berlin.getFullYear() + '-' + String(berlin.getMonth()+1).padStart(2,'0') + '-' + String(berlin.getDate()).padStart(2,'0');
         const timeStr = String(berlin.getHours()).padStart(2,'0') + ':' + String(berlin.getMinutes()).padStart(2,'0');
         const MAX_GPS_AGE = 10 * 60 * 1000;
+        const dow = berlin.getDay(); // 0=So, 1=Mo, ..., 6=Sa
         const passengers = rideData.passengers || 1;
         const candidates = [];
 
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
-            const driver = vehicles[vehicleId];
-            if (!driver || !driver.lat || !driver.lon || !driver.timestamp) continue;
-            if (Date.now() - driver.timestamp > MAX_GPS_AGE) continue;
             if (info.capacity < passengers) continue;
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
             // 🔧 v6.11.3: Prüfe ob Fahrzeug aktuell aktiv ODER zur Abholzeit bereits belegt ist
             const busy = allRides.some(r =>
-                (r.vehicleId === vehicleId || r.assignedTo === vehicleId) &&
+                (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
                 (r.status === 'on_way' || r.status === 'picked_up')
             );
             if (busy) continue;
 
             // 🔧 v6.11.3: Zeitkonflikt mit Vorbestellungen prüfen!
-            // Vorher wurden nur aktive Fahrten geprüft → Doppelbuchungen bei Vorbestellungen!
             if (rideData.pickupTimestamp) {
                 const newPickup = rideData.pickupTimestamp;
                 const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
                 const bufferMs = 4 * 60000; // 2 Min Ein- + 2 Min Aussteigen
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
-                    if ((r.vehicleId !== vehicleId && r.assignedTo !== vehicleId)) return false;
+                    if ((r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId)) return false;
                     if (!r.pickupTimestamp) return false;
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
@@ -311,10 +317,54 @@ async function autoAssignRide(rideId, rideData) {
                 }
             }
 
-            if (!rideData.pickupCoords) continue;
-            const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, driver.lat, driver.lon);
-            candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver.telegramChatId });
-            console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km`);
+            // 🔧 v6.15.10: GPS-Position ODER Heimatstandort aus Schichtplan als Fallback
+            const driver = vehicles[vehicleId];
+            let vLat = null, vLon = null;
+            let posSource = '';
+            if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= MAX_GPS_AGE)) {
+                vLat = driver.lat;
+                vLon = driver.lon;
+                posSource = 'GPS';
+            } else {
+                // Fallback: Heimatstandort aus Schichtplan
+                const vShift = shiftsData[vehicleId];
+                if (vShift) {
+                    const defTimes = vShift.defaultTimes || {};
+                    const dayEntry = vShift[dateStr];
+                    let homeCoords = null;
+                    // Erst Tages-Override prüfen
+                    if (dayEntry && dayEntry.homeCoords) {
+                        homeCoords = dayEntry.homeCoords;
+                    } else if (defTimes[dow] && defTimes[dow].homeCoords) {
+                        homeCoords = defTimes[dow].homeCoords;
+                    }
+                    if (homeCoords && homeCoords.lat && homeCoords.lon) {
+                        vLat = homeCoords.lat;
+                        vLon = homeCoords.lon;
+                        posSource = 'Schichtplan-Home';
+                    }
+                }
+                // Letzter bekannter GPS-Standort als weiterer Fallback
+                if (!vLat && driver && driver.lat && driver.lon) {
+                    vLat = driver.lat;
+                    vLon = driver.lon;
+                    posSource = 'Letzter-GPS';
+                }
+            }
+
+            if (rideData.pickupCoords && vLat && vLon) {
+                const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
+                candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource });
+                console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource})`);
+            } else if (!rideData.pickupCoords) {
+                // Keine Abholkoordinaten → nach Priorität zuweisen
+                candidates.push({ vehicleId, name: info.name, distance: 999, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'keine-Coords' });
+                console.log(`   ✅ ${info.name}: Keine Abholkoordinaten → Priorität ${info.priority}`);
+            } else {
+                // Kein Standort ermittelbar → trotzdem aufnehmen mit hoher Distanz
+                candidates.push({ vehicleId, name: info.name, distance: 998, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'kein-Standort' });
+                console.log(`   ⚠️ ${info.name}: Kein Standort ermittelbar → Priorität ${info.priority}`);
+            }
         }
 
         if (candidates.length === 0) {

@@ -675,6 +675,64 @@ async function isTelegramAdmin(chatId) {
     return admins.includes(id) || admins.includes(String(chatId));
 }
 
+// 🆕 v6.16.3: Admin-Bestätigung für Kunden-Änderungen an Fahrten
+// Speichert die gewünschte Änderung als pendingChange und schickt Admin eine Bestätigungs-Nachricht
+async function requestAdminApprovalForRideChange(customerChatId, rideId, changeType, changeData, rideInfo) {
+    const changeId = `chg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+    // Änderung in Firebase speichern (pendingChanges)
+    await db.ref(`settings/telegram/pendingChanges/${changeId}`).set({
+        rideId,
+        customerChatId: String(customerChatId),
+        changeType, // 'time', 'pickup', 'destination'
+        changeData, // Die Update-Daten für Firebase
+        rideInfo,   // Anzeige-Infos (aktuelle Fahrtdaten)
+        createdAt: Date.now(),
+        status: 'pending'
+    });
+
+    // Admin-Nachricht zusammenbauen
+    let changeDesc = '';
+    if (changeType === 'time') {
+        changeDesc = `⏰ <b>Neue Uhrzeit:</b> ${changeData.pickupTime} Uhr`;
+    } else if (changeType === 'pickup') {
+        changeDesc = `📍 <b>Neuer Abholort:</b> ${changeData.pickup}`;
+    } else if (changeType === 'destination') {
+        changeDesc = `🎯 <b>Neues Ziel:</b> ${changeData.destination}`;
+    }
+
+    const adminMsg = `🔔 <b>Änderungsanfrage von Kunde!</b>\n\n` +
+        `👤 ${rideInfo.customerName || 'Kunde'}\n` +
+        `📅 ${rideInfo.dateStr} um ${rideInfo.timeStr} Uhr\n` +
+        `📍 ${rideInfo.pickup || '?'} → ${rideInfo.destination || '?'}\n\n` +
+        `${changeDesc}\n\n` +
+        `<b>Änderung bestätigen?</b>`;
+
+    // An alle Admins senden
+    const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+    const adminChats = adminSnap.val() || [];
+    for (const adminChatId of adminChats) {
+        try {
+            await sendTelegramMessage(adminChatId, adminMsg, {
+                reply_markup: { inline_keyboard: [
+                    [
+                        { text: '✅ Bestätigen', callback_data: `approve_chg_${changeId}` },
+                        { text: '❌ Ablehnen', callback_data: `reject_chg_${changeId}` }
+                    ]
+                ]}
+            });
+        } catch (e) { console.error('Admin-Benachrichtigung fehlgeschlagen:', e.message); }
+    }
+
+    // Kunde informieren, dass Änderung zur Bestätigung weitergeleitet wurde
+    await sendTelegramMessage(customerChatId,
+        `⏳ <b>Änderung angefragt!</b>\n\n${changeDesc}\n\n<i>Ihre Anfrage wurde an die Zentrale weitergeleitet. Sie erhalten eine Bestätigung sobald die Änderung genehmigt wird.</i>`
+    );
+
+    await addTelegramLog('🔔', customerChatId, `Änderungsanfrage: ${changeType} für Fahrt ${rideId}`);
+    return changeId;
+}
+
 async function loadAllCustomers() {
     const snap = await db.ref('customers').once('value');
     const data = snap.val() || {};
@@ -4583,6 +4641,7 @@ async function handleMessage(message) {
             if (timeMatch) {
                 const hours = parseInt(timeMatch[1]), mins = parseInt(timeMatch[2]);
                 if (hours >= 0 && hours <= 23 && mins >= 0 && mins <= 59) {
+                    // 🔧 v6.16.3: Admin-Bestätigung statt direktem Update
                     try {
                         const snap = await db.ref(`rides/${rideId}`).once('value');
                         const r = snap.val();
@@ -4593,13 +4652,19 @@ async function handleMessage(message) {
                             const berlinAsUTC = new Date(berlinDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                             const offsetMs = berlinAsUTC.getTime() - berlinDate.getTime();
                             const newTimestamp = berlinDate.getTime() - offsetMs;
-                            await db.ref(`rides/${rideId}`).update({
-                                pickupTimestamp: newTimestamp,
-                                pickupTime: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
-                                editedAt: Date.now(), editedBy: 'telegram-customer'
-                            });
-                            await addTelegramLog('✏️', chatId, `Kunde: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
-                            await sendTelegramMessage(chatId, `✅ <b>Uhrzeit geändert!</b>\n\nNeue Zeit: <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+                            const newTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+                            const dt = new Date(r.pickupTimestamp || 0);
+                            const rideInfo = {
+                                customerName: r.guestName || r.customerName || 'Kunde',
+                                dateStr: dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                                timeStr: dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                                pickup: r.pickup || '?',
+                                destination: r.destination || '?'
+                            };
+                            await requestAdminApprovalForRideChange(chatId, rideId, 'time', {
+                                pickupTimestamp: newTimestamp, pickupTime: newTime
+                            }, rideInfo);
                         }
                     } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
                     return;
@@ -4621,19 +4686,29 @@ async function handleMessage(message) {
                     await addTelegramLog('🔍', chatId, `Kunde: ${label} "${text}" → ${suggestions.length} Vorschläge`);
                     await sendTelegramMessage(chatId, `🔍 <b>${label}: "${text}"</b>\n\nBitte wählen Sie die korrekte Adresse:`, { reply_markup: { inline_keyboard: keyboard } });
                 } else {
-                    // Keine Ergebnisse → Geocode-Fallback
+                    // 🔧 v6.16.3: Keine Vorschläge → Geocode + Admin-Bestätigung
                     const geo = await geocode(text);
-                    const update = { editedAt: Date.now(), editedBy: 'telegram-customer', [field]: text };
-                    let geoNote = '';
+                    const changeData = { [field]: text };
                     if (geo) {
-                        update[field + 'Lat'] = geo.lat; update[field + 'Lon'] = geo.lon;
-                        update[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: geo.lat, lon: geo.lon };
-                    } else {
-                        geoNote = '\n\n⚠️ <i>Adresse konnte nicht verifiziert werden. Bitte prüfe Schreibweise.</i>';
+                        changeData[field + 'Lat'] = geo.lat;
+                        changeData[field + 'Lon'] = geo.lon;
+                        changeData[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: geo.lat, lon: geo.lon };
                     }
-                    await db.ref(`rides/${rideId}`).update(update);
-                    await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${text}"${geo ? '' : ' (nicht geocodiert)'}`);
-                    await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${text}</b>${geoNote}\n\n<i>Wir freuen uns auf Sie!</i>`);
+
+                    const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+                    const rideData = rideSnap.val() || {};
+                    const dt = new Date(rideData.pickupTimestamp || 0);
+                    const rideInfo = {
+                        customerName: rideData.guestName || rideData.customerName || 'Kunde',
+                        dateStr: dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                        timeStr: dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                        pickup: rideData.pickup || '?',
+                        destination: rideData.destination || '?'
+                    };
+                    await requestAdminApprovalForRideChange(chatId, rideId, field, changeData, rideInfo);
+                    if (!geo) {
+                        await sendTelegramMessage(chatId, `⚠️ <i>Hinweis: Adresse "${text}" konnte nicht verifiziert werden.</i>`);
+                    }
                 }
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
@@ -7005,15 +7080,24 @@ async function handleCallback(callback) {
         if (!selected) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
         await deletePending(chatId);
         try {
-            const update = { editedAt: Date.now(), editedBy: 'telegram-customer' };
-            update[field] = selected.name;
-            update[field + 'Lat'] = selected.lat;
-            update[field + 'Lon'] = selected.lon;
-            update[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: selected.lat, lon: selected.lon };
-            await db.ref(`rides/${rideId}`).update(update);
-            const label = field === 'pickup' ? 'Abholort' : 'Zielort';
-            await addTelegramLog('✏️', chatId, `Kunde: ${label} geändert auf "${selected.name}"`);
-            await sendTelegramMessage(chatId, `✅ <b>${label} geändert!</b>\n\nNeu: <b>${selected.name}</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+            // 🔧 v6.16.3: Admin-Bestätigung statt direktem Update
+            const changeData = {};
+            changeData[field] = selected.name;
+            changeData[field + 'Lat'] = selected.lat;
+            changeData[field + 'Lon'] = selected.lon;
+            changeData[field === 'pickup' ? 'pickupCoords' : 'destCoords'] = { lat: selected.lat, lon: selected.lon };
+
+            const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+            const rideData = rideSnap.val() || {};
+            const dt = new Date(rideData.pickupTimestamp || 0);
+            const rideInfo = {
+                customerName: rideData.guestName || rideData.customerName || 'Kunde',
+                dateStr: dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                timeStr: dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                pickup: rideData.pickup || '?',
+                destination: rideData.destination || '?'
+            };
+            await requestAdminApprovalForRideChange(chatId, rideId, field, changeData, rideInfo);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
@@ -7069,7 +7153,7 @@ async function handleCallback(callback) {
         return;
     }
 
-    // Kunden: Zeit per Button setzen
+    // Kunden: Zeit per Button setzen — 🔧 v6.16.3: Mit Admin-Bestätigung!
     if (data.startsWith('cust_settime_')) {
         const parts = data.replace('cust_settime_', '').split('_');
         const rideId = parts.slice(0, -1).join('_');
@@ -7081,12 +7165,79 @@ async function handleCallback(callback) {
             const newTs = (r.pickupTimestamp || Date.now()) + offset * 60000;
             const newDt = new Date(newTs);
             const newTime = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
-            await db.ref(`rides/${rideId}`).update({
-                pickupTimestamp: newTs, pickupTime: newTime,
-                editedAt: Date.now(), editedBy: 'telegram-customer'
-            });
-            await addTelegramLog('✏️', chatId, `Kunde: Zeit geändert auf ${newTime}`);
-            await sendTelegramMessage(chatId, `✅ <b>Uhrzeit geändert!</b>\n\nNeue Zeit: <b>${newTime} Uhr</b>\n\n<i>Wir freuen uns auf Sie!</i>`);
+
+            const dt = new Date(r.pickupTimestamp || 0);
+            const rideInfo = {
+                customerName: r.guestName || r.customerName || 'Kunde',
+                dateStr: dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                timeStr: dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                pickup: r.pickup || '?',
+                destination: r.destination || '?'
+            };
+            await requestAdminApprovalForRideChange(chatId, rideId, 'time', {
+                pickupTimestamp: newTs, pickupTime: newTime
+            }, rideInfo);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.16.3: Admin bestätigt Kunden-Änderung
+    if (data.startsWith('approve_chg_')) {
+        const changeId = data.replace('approve_chg_', '');
+        try {
+            const chgSnap = await db.ref(`settings/telegram/pendingChanges/${changeId}`).once('value');
+            const chg = chgSnap.val();
+            if (!chg) { await sendTelegramMessage(chatId, '⚠️ Änderungsanfrage nicht mehr vorhanden.'); return; }
+            if (chg.status !== 'pending') { await sendTelegramMessage(chatId, `ℹ️ Diese Anfrage wurde bereits ${chg.status === 'approved' ? 'bestätigt' : 'abgelehnt'}.`); return; }
+
+            // Änderung anwenden
+            const update = { ...chg.changeData, editedAt: Date.now(), editedBy: 'telegram-customer', approvedBy: 'admin', approvedAt: Date.now(), updatedAt: Date.now() };
+            await db.ref(`rides/${chg.rideId}`).update(update);
+
+            // Status aktualisieren
+            await db.ref(`settings/telegram/pendingChanges/${changeId}`).update({ status: 'approved', approvedAt: Date.now() });
+
+            // Admin bestätigen
+            let changeDesc = '';
+            if (chg.changeType === 'time') changeDesc = `⏰ Uhrzeit → ${chg.changeData.pickupTime} Uhr`;
+            else if (chg.changeType === 'pickup') changeDesc = `📍 Abholort → ${chg.changeData.pickup}`;
+            else if (chg.changeType === 'destination') changeDesc = `🎯 Ziel → ${chg.changeData.destination}`;
+            await sendTelegramMessage(chatId, `✅ <b>Änderung bestätigt!</b>\n\n${changeDesc}\n\nFahrt wurde aktualisiert.`);
+
+            // Kunde informieren
+            try {
+                await sendTelegramMessage(chg.customerChatId, `✅ <b>Ihre Änderung wurde bestätigt!</b>\n\n${changeDesc}\n\n<i>Vielen Dank, wir freuen uns auf Sie!</i>`);
+            } catch (e2) { console.error('Kunde-Benachrichtigung fehlgeschlagen:', e2.message); }
+
+            await addTelegramLog('✅', chatId, `Admin: Änderung bestätigt (${chg.changeType}) für Fahrt ${chg.rideId}`);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.16.3: Admin lehnt Kunden-Änderung ab
+    if (data.startsWith('reject_chg_')) {
+        const changeId = data.replace('reject_chg_', '');
+        try {
+            const chgSnap = await db.ref(`settings/telegram/pendingChanges/${changeId}`).once('value');
+            const chg = chgSnap.val();
+            if (!chg) { await sendTelegramMessage(chatId, '⚠️ Änderungsanfrage nicht mehr vorhanden.'); return; }
+            if (chg.status !== 'pending') { await sendTelegramMessage(chatId, `ℹ️ Diese Anfrage wurde bereits ${chg.status === 'approved' ? 'bestätigt' : 'abgelehnt'}.`); return; }
+
+            // Status aktualisieren
+            await db.ref(`settings/telegram/pendingChanges/${changeId}`).update({ status: 'rejected', rejectedAt: Date.now() });
+
+            let changeDesc = '';
+            if (chg.changeType === 'time') changeDesc = `⏰ Uhrzeit → ${chg.changeData.pickupTime} Uhr`;
+            else if (chg.changeType === 'pickup') changeDesc = `📍 Abholort → ${chg.changeData.pickup}`;
+            else if (chg.changeType === 'destination') changeDesc = `🎯 Ziel → ${chg.changeData.destination}`;
+            await sendTelegramMessage(chatId, `❌ <b>Änderung abgelehnt.</b>\n\n${changeDesc}\n\nFahrt bleibt unverändert.`);
+
+            // Kunde informieren
+            try {
+                await sendTelegramMessage(chg.customerChatId, `❌ <b>Änderung nicht möglich</b>\n\n${changeDesc}\n\n<i>Ihre gewünschte Änderung konnte leider nicht übernommen werden. Bitte kontaktieren Sie uns unter 038378-22200 für weitere Fragen.</i>`);
+            } catch (e2) { console.error('Kunde-Benachrichtigung fehlgeschlagen:', e2.message); }
+
+            await addTelegramLog('❌', chatId, `Admin: Änderung abgelehnt (${chg.changeType}) für Fahrt ${chg.rideId}`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }

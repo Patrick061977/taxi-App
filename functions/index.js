@@ -982,29 +982,69 @@ async function geocode(address) {
         if (cached && typeof cached.lat === 'number' && typeof cached.lon === 'number' && cached.lat !== 0 && cached.lon !== 0) {
             // Cache-Treffer nur verwenden wenn Koordinaten plausibel
             if (isNearUsedom(cached.lat, cached.lon)) {
-                return cached;
+                // 🔧 v6.15.7: PLZ-Validierung — Cache mit falscher PLZ (z.B. Zinnowitz statt Heringsdorf) verwerfen!
+                const plzInAddr = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+                if (plzInAddr && cached.display_name) {
+                    const cachedPLZ = cached.display_name.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+                    if (cachedPLZ && cachedPLZ[1] !== plzInAddr[1]) {
+                        console.log(`[Geocode] Cache-PLZ-Mismatch: Adresse hat PLZ ${plzInAddr[1]}, Cache hat ${cachedPLZ[1]} → wird neu geocodiert`);
+                        try { await db.ref(cacheKey).remove(); } catch (e) {}
+                    } else {
+                        return cached;
+                    }
+                } else {
+                    return cached;
+                }
+            } else {
+                // Cache-Eintrag außerhalb Usedom → löschen und neu geocodieren
+                console.log(`[Geocode] Cache-Eintrag für "${address}" außerhalb Usedom (${cached.lat}, ${cached.lon}) → wird neu geocodiert`);
+                try { await db.ref(cacheKey).remove(); } catch (e) {}
             }
-            // Cache-Eintrag außerhalb Usedom → löschen und neu geocodieren
-            console.log(`[Geocode] Cache-Eintrag für "${address}" außerhalb Usedom (${cached.lat}, ${cached.lon}) → wird neu geocodiert`);
-            try { await db.ref(cacheKey).remove(); } catch (e) {}
         }
     } catch (e) { /* Cache-Fehler ignorieren */ }
 
     try {
-        // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region
+        // 🔧 v6.15.7: PLZ aus Adresse extrahieren für besseres Matching
+        const plzMatch = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+        const addressPLZ = plzMatch ? plzMatch[1] : null;
+        if (addressPLZ) console.log(`[Geocode] PLZ in Adresse erkannt: ${addressPLZ}`);
+
+        // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region + PLZ-Match
         const fetchAndValidate = async (url) => {
             const resp = await fetch(url, { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } });
             const data = await resp.json();
             if (!data || !data.length) return null;
 
-            // 1. Bevorzugt: Ergebnis in der Usedom-Region
+            // Alle Usedom-Treffer sammeln
+            const usedomHits = [];
             for (const item of data) {
                 const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
                 if (isNearUsedom(lat, lon)) {
-                    console.log(`[Geocode] "${address}" → Usedom-Treffer: ${lat}, ${lon} (${item.display_name})`);
-                    return { lat, lon, display_name: item.display_name };
+                    usedomHits.push({ lat, lon, display_name: item.display_name, address: item.address });
                 }
             }
+
+            if (usedomHits.length > 0) {
+                // 🔧 v6.15.7: Wenn PLZ in Adresse → bevorzuge Treffer mit passender PLZ!
+                // Löst Problem: "Dünenweg 10, 17424 Heringsdorf" wurde in Zinnowitz (17454) statt Heringsdorf (17424) geocodiert
+                if (addressPLZ && usedomHits.length > 1) {
+                    const plzMatch = usedomHits.find(h => h.address && h.address.postcode === addressPLZ);
+                    if (plzMatch) {
+                        console.log(`[Geocode] "${address}" → PLZ-Match (${addressPLZ}): ${plzMatch.lat}, ${plzMatch.lon} (${plzMatch.display_name})`);
+                        return plzMatch;
+                    }
+                    // Auch in display_name nach PLZ suchen
+                    const displayMatch = usedomHits.find(h => h.display_name && h.display_name.includes(addressPLZ));
+                    if (displayMatch) {
+                        console.log(`[Geocode] "${address}" → PLZ in display_name (${addressPLZ}): ${displayMatch.lat}, ${displayMatch.lon}`);
+                        return displayMatch;
+                    }
+                }
+                // Kein PLZ-Filter oder nur 1 Treffer → ersten Usedom-Treffer nehmen
+                console.log(`[Geocode] "${address}" → Usedom-Treffer: ${usedomHits[0].lat}, ${usedomHits[0].lon} (${usedomHits[0].display_name})`);
+                return usedomHits[0];
+            }
+
             // 2. Fallback: Erstes Ergebnis (für Fern-Ziele wie Berlin, Hamburg)
             const first = data[0];
             const lat = parseFloat(first.lat), lon = parseFloat(first.lon);
@@ -1245,12 +1285,23 @@ async function searchNominatimForTelegram(query) {
             } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
         }
 
-        // Usedom-Ergebnisse zuerst, dann allgemeine, dann weite Suche
+        // 🔧 v6.15.7: PLZ aus Query extrahieren für besseres Sortieren
+        const queryPLZ = query.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+        const queryPostcode = queryPLZ ? queryPLZ[1] : null;
+
+        // Usedom-Ergebnisse zuerst, PLZ-Match bevorzugt, dann allgemeine
         const allItems = [...usedomData, ...generalData, ...wideData];
         allItems.sort((a, b) => {
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
             const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
-            return aUsedom - bUsedom;
+            if (aUsedom !== bUsedom) return aUsedom - bUsedom;
+            // 🔧 v6.15.7: Bei gleicher Usedom-Zugehörigkeit → PLZ-Match bevorzugen
+            if (queryPostcode) {
+                const aPLZ = (a.address && a.address.postcode === queryPostcode) ? 0 : 1;
+                const bPLZ = (b.address && b.address.postcode === queryPostcode) ? 0 : 1;
+                return aPLZ - bPLZ;
+            }
+            return 0;
         });
 
         for (const item of allItems) {

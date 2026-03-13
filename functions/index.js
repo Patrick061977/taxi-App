@@ -7,6 +7,7 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
@@ -8520,3 +8521,220 @@ exports.setupBotCommands = onRequest(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.16.2: AUTOMATISCHE KONFLIKT-ERKENNUNG & UMPLANUNG
+// Läuft alle 5 Minuten server-seitig — kein Browser nötig!
+// Erkennt Zeitkonflikte (gleiches Fahrzeug, überlappende Zeiten)
+// und plant automatisch auf ein freies Fahrzeug um.
+// ═══════════════════════════════════════════════════════════════
+
+exports.autoResolveConflicts = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        console.log('🔄 Auto-Konflikt-Prüfung gestartet...');
+
+        try {
+            // Daten laden
+            const [ridesSnap, shiftsSnap, settingsSnap] = await Promise.all([
+                db.ref('rides').once('value'),
+                db.ref('vehicleShifts').once('value'),
+                db.ref('settings/pricing').once('value')
+            ]);
+
+            const shiftsData = shiftsSnap.val() || {};
+            const pricingSettings = settingsSnap.val() || {};
+            const vorlaufMin = pricingSettings.autoOptimierungVorlaufMinuten || 60;
+            const boardingTime = pricingSettings.boardingTime || 3;
+            const alightingTime = pricingSettings.alightingTime || 2;
+            const bufferMs = (boardingTime + alightingTime) * 60000;
+
+            // Alle aktiven zukünftigen Fahrten sammeln
+            const now = Date.now();
+            const allRides = [];
+            ridesSnap.forEach(c => {
+                const r = { ...c.val(), firebaseId: c.key };
+                if (r.pickupTimestamp &&
+                    r.pickupTimestamp > now + vorlaufMin * 60000 &&
+                    !['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status) &&
+                    !r.assignmentLocked &&
+                    r.assignedVehicle) {
+                    allRides.push(r);
+                }
+            });
+
+            if (allRides.length === 0) {
+                console.log('✅ Keine relevanten Fahrten gefunden');
+                return;
+            }
+
+            // Berlin-Zeitzone für Datum
+            const berlinDate = (ts) => {
+                const d = new Date(ts);
+                return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }); // YYYY-MM-DD
+            };
+            const berlinTime = (ts) => {
+                const d = new Date(ts);
+                return d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+            };
+
+            // Nach Fahrzeug + Datum gruppieren
+            const byVehicleDate = {};
+            for (const r of allRides) {
+                const dateStr = berlinDate(r.pickupTimestamp);
+                const key = `${r.assignedVehicle}|${dateStr}`;
+                if (!byVehicleDate[key]) byVehicleDate[key] = [];
+                byVehicleDate[key].push(r);
+            }
+
+            let totalReplanned = 0;
+
+            for (const [key, vehicleRides] of Object.entries(byVehicleDate)) {
+                if (vehicleRides.length < 2) continue;
+
+                const [vehicleId, dateStr] = key.split('|');
+                vehicleRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+
+                // Prüfe jedes aufeinanderfolgende Paar
+                for (let i = 0; i < vehicleRides.length - 1; i++) {
+                    const curr = vehicleRides[i];
+                    const next = vehicleRides[i + 1];
+
+                    // Fahrtdauer + Puffer
+                    const currDurMs = (curr.duration || curr.estimatedDuration || 20) * 60000;
+                    const currEndMs = curr.pickupTimestamp + currDurMs + bufferMs;
+                    const nextStartMs = next.pickupTimestamp;
+
+                    // Gibt es Überlappung?
+                    if (currEndMs <= nextStartMs) continue; // Kein Konflikt
+
+                    const overlapMin = Math.round((currEndMs - nextStartMs) / 60000);
+                    const currTime = berlinTime(curr.pickupTimestamp);
+                    const nextTime = berlinTime(next.pickupTimestamp);
+                    const vName = OFFICIAL_VEHICLES[vehicleId]?.name || vehicleId;
+
+                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) überlappen um ${overlapMin} Min`);
+
+                    // Nicht umplanen wenn Fahrer bereits akzeptiert
+                    if (['accepted', 'picked_up', 'on_way'].includes(next.status)) {
+                        console.log(`   🚗 ${next.firebaseId}: Status "${next.status}" → keine Umplanung`);
+                        continue;
+                    }
+
+                    // Alternatives Fahrzeug suchen
+                    const altVehicle = findAlternativeVehicle(
+                        next, vehicleId, allRides, shiftsData, dateStr, pricingSettings
+                    );
+
+                    if (!altVehicle) {
+                        console.warn(`   ❌ Kein alternatives Fahrzeug für ${next.firebaseId}`);
+                        continue;
+                    }
+
+                    const altInfo = OFFICIAL_VEHICLES[altVehicle] || {};
+                    console.log(`   ✅ Umplanung: ${next.firebaseId} → ${altInfo.name || altVehicle}`);
+
+                    // In Firebase aktualisieren
+                    await db.ref(`rides/${next.firebaseId}`).update({
+                        assignedVehicle: altVehicle,
+                        vehicleId: altVehicle,
+                        vehicle: altInfo.name || altVehicle,
+                        vehicleLabel: altInfo.name || altVehicle,
+                        vehiclePlate: altInfo.plate || '',
+                        assignedVehicleName: altInfo.name || altVehicle,
+                        assignedVehiclePlate: altInfo.plate || '',
+                        assignedBy: 'cloud-auto-replan',
+                        assignedAt: Date.now(),
+                        updatedAt: Date.now(),
+                        replanReason: `Zeitkonflikt: ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime}) auf ${vName}`
+                    });
+
+                    // Lokales Array aktualisieren (für nächste Paare)
+                    next.assignedVehicle = altVehicle;
+                    totalReplanned++;
+
+                    // Log in Firebase für Transparenz
+                    try {
+                        await db.ref('optimierungsLog').push({
+                            timestamp: Date.now(),
+                            type: 'cloud-replan',
+                            rideId: next.firebaseId,
+                            vonVehicle: vName,
+                            zuVehicle: altInfo.name || altVehicle,
+                            overlapMin,
+                            kunde: next.customerName || '',
+                            abholung: (next.pickup || '').substring(0, 50),
+                            ziel: (next.destination || '').substring(0, 50),
+                            uhrzeit: nextTime,
+                            datum: dateStr,
+                            grund: `Zeitkonflikt ${overlapMin} Min`
+                        });
+                    } catch(e) { /* non-critical */ }
+                }
+            }
+
+            console.log(`✅ Auto-Konflikt-Prüfung abgeschlossen: ${totalReplanned} Umplanung(en)`);
+
+        } catch (e) {
+            console.error('❌ Auto-Konflikt-Prüfung Fehler:', e.message);
+        }
+    }
+);
+
+// Hilfsfunktion: Alternatives Fahrzeug ohne Zeitkonflikt finden
+function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, dateStr, pricingSettings) {
+    const pickupTs = ride.pickupTimestamp;
+    const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
+    const boardingTime = pricingSettings.boardingTime || 3;
+    const alightingTime = pricingSettings.alightingTime || 2;
+    const bufferMs = (boardingTime + alightingTime) * 60000;
+
+    const berlinTime = (ts) => {
+        const d = new Date(ts);
+        const hours = String(d.getUTCHours()).padStart(2, '0');
+        const mins = String(d.getUTCMinutes()).padStart(2, '0');
+        // Einfache Berlin-Zeit: UTC+1 (Winter) oder UTC+2 (Sommer)
+        const month = d.getUTCMonth() + 1;
+        const isSummer = month >= 4 && month <= 10;
+        const h = (d.getUTCHours() + (isSummer ? 2 : 1)) % 24;
+        return String(h).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+    };
+    const timeStr = berlinTime(pickupTs);
+
+    // Alle Fahrzeuge durchgehen, sortiert nach Priorität
+    const candidates = Object.entries(OFFICIAL_VEHICLES)
+        .filter(([vid]) => vid !== excludeVehicleId)
+        .sort((a, b) => (a[1].priority || 99) - (b[1].priority || 99));
+
+    for (const [vehicleId, vInfo] of candidates) {
+        // Kapazität prüfen
+        if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
+
+        // Im Schichtplan?
+        if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+
+        // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug?
+        const hasConflict = allRides.some(r => {
+            if (r.firebaseId === ride.firebaseId) return false;
+            if (r.assignedVehicle !== vehicleId) return false;
+            if (!r.pickupTimestamp) return false;
+            if (['deleted','cancelled','storniert','completed'].includes(r.status)) return false;
+
+            const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
+            const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
+            const newEnd = pickupTs + rideDurMs + bufferMs;
+            return (pickupTs < rEnd) && (r.pickupTimestamp < newEnd);
+        });
+
+        if (!hasConflict) {
+            return vehicleId;
+        }
+    }
+
+    return null; // Kein freies Fahrzeug gefunden
+}

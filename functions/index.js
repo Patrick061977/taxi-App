@@ -3555,6 +3555,27 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.16.0: /menü Befehl — zeigt das Inline-Button-Hauptmenü (statt nur Slash-Befehle)
+    if (textCmd === '/menü' || textCmd === '/menu' || textCmd === '/menue') {
+        await addTelegramLog('📋', chatId, '/menü Kommando — Hauptmenü angezeigt');
+        const knownCustomer = await getTelegramCustomer(chatId);
+        let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        if (knownCustomer) greeting += `👋 Hallo <b>${knownCustomer.name}</b>!\n\n`;
+        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        const keyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
+            [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        if (await isTelegramAdmin(chatId)) {
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+        }
+        await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
+        return;
+    }
+
     if (textCmd === '/buchen') {
         let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n✍️ Schreiben oder 🎙️ sprechen Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
         await sendTelegramMessage(chatId, msg);
@@ -3618,6 +3639,27 @@ async function handleMessage(message) {
     if (textCmd === '/abbrechen' || textCmd === '/reset' || textCmd === '/neu') {
         await deletePending(chatId);
         await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\nSchreiben Sie jederzeit eine neue Anfrage.');
+        return;
+    }
+
+    // 🆕 v6.16.0: Natürlicher Sprach-Befehl "Menü" / "Hauptmenü" → zeigt Inline-Button-Menü
+    if (/^(men[üu]|menue|hauptmen[üu]|hauptmenue)[\s!.?]*$/i.test(text)) {
+        await addTelegramLog('🎙️', chatId, `Sprach-Befehl erkannt: "${text}" → Hauptmenü`);
+        const knownCustomer = await getTelegramCustomer(chatId);
+        let greeting = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        if (knownCustomer) greeting += `👋 Hallo <b>${knownCustomer.name}</b>!\n\n`;
+        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        const keyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
+            [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        if (await isTelegramAdmin(chatId)) {
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+        }
+        await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
     }
 
@@ -8380,6 +8422,48 @@ exports.removeWebhook = onRequest(
             await db.ref('settings/telegram/webhookActive').set(false);
             await addTelegramLog('🌐', 'system', 'Webhook deaktiviert → Browser-Polling');
             res.status(200).send(data.ok ? '✅ Webhook entfernt. Browser-Polling kann wieder starten.' : `❌ ${data.description}`);
+        } catch (e) {
+            res.status(500).send(`❌ Fehler: ${e.message}`);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.16.0: BOT-BEFEHLE REGISTRIEREN (setMyCommands)
+// Registriert /menu als ersten Befehl im Telegram-Menü
+// ═══════════════════════════════════════════════════════════════
+
+exports.setupBotCommands = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        const token = await loadBotToken();
+        if (!token) { res.status(500).send('Kein Bot-Token!'); return; }
+
+        try {
+            const commands = [
+                { command: 'menu', description: '🏠 Hauptmenü mit allen Funktionen' },
+                { command: 'buchen', description: '🚕 Neue Fahrt buchen' },
+                { command: 'status', description: '📊 Meine heutigen Fahrten' },
+                { command: 'hilfe', description: 'ℹ️ Hilfe & Übersicht' },
+                { command: 'abbrechen', description: '❌ Aktuelle Buchung abbrechen' },
+                { command: 'profil', description: '👤 Mein Profil' },
+                { command: 'abmelden', description: '🔓 Konto abmelden & Daten löschen' },
+                { command: 'start', description: '👋 Bot neu starten' }
+            ];
+
+            const resp = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ commands })
+            });
+            const data = await resp.json();
+            await addTelegramLog('📋', 'system', 'Bot-Befehle registriert (setMyCommands)');
+            res.status(200).send(data.ok ? '✅ Bot-Befehle registriert! /menu ist jetzt im Telegram-Menü.' : `❌ ${data.description}`);
         } catch (e) {
             res.status(500).send(`❌ Fehler: ${e.message}`);
         }

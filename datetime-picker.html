@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Datum & Uhrzeit wählen</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--tg-theme-bg-color, #fff);
+    color: var(--tg-theme-text-color, #000);
+    padding: 16px;
+    min-height: 100vh;
+}
+h2 {
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: var(--tg-theme-text-color, #333);
+}
+
+/* === TABS: Heute / Vorbestellung === */
+.tab-row {
+    display: flex; gap: 8px; margin-bottom: 16px;
+}
+.tab-btn {
+    flex: 1; padding: 12px 8px; border: 2px solid var(--tg-theme-button-color, #3390ec);
+    border-radius: 12px; background: transparent; font-size: 15px; font-weight: 600;
+    color: var(--tg-theme-button-color, #3390ec); cursor: pointer; transition: all 0.2s;
+}
+.tab-btn.active {
+    background: var(--tg-theme-button-color, #3390ec);
+    color: var(--tg-theme-button-text-color, #fff);
+}
+
+/* === Tage-Auswahl (für Vorbestellung) === */
+.days-row {
+    display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; justify-content: center;
+}
+.days-row.visible { display: flex; }
+.day-btn {
+    padding: 10px 14px; border: 2px solid var(--tg-theme-button-color, #3390ec);
+    border-radius: 10px; background: transparent; font-size: 14px; font-weight: 500;
+    color: var(--tg-theme-button-color, #3390ec); cursor: pointer; transition: all 0.2s;
+    min-width: 80px; text-align: center;
+}
+.day-btn.active {
+    background: var(--tg-theme-button-color, #3390ec);
+    color: var(--tg-theme-button-text-color, #fff);
+}
+
+/* === Uhrzeit-Picker === */
+.time-section {
+    background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+}
+.time-display {
+    text-align: center; font-size: 48px; font-weight: 700; letter-spacing: 4px;
+    margin-bottom: 16px; color: var(--tg-theme-text-color, #000);
+    font-variant-numeric: tabular-nums;
+}
+.time-display span.active-digit {
+    color: var(--tg-theme-button-color, #3390ec);
+    background: var(--tg-theme-button-color, #3390ec)22;
+    border-radius: 8px; padding: 2px 6px;
+}
+.time-display span.colon { padding: 0 2px; }
+
+/* Numpad */
+.numpad {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    max-width: 280px; margin: 0 auto;
+}
+.num-btn {
+    padding: 16px; border: none; border-radius: 12px;
+    background: var(--tg-theme-bg-color, #fff); font-size: 24px; font-weight: 600;
+    color: var(--tg-theme-text-color, #000); cursor: pointer; transition: all 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.num-btn:active { transform: scale(0.95); background: var(--tg-theme-button-color, #3390ec)22; }
+.num-btn.backspace { font-size: 20px; }
+
+/* Quick-Time Buttons */
+.quick-times {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; justify-content: center;
+}
+.quick-btn {
+    padding: 8px 14px; border: 1.5px solid var(--tg-theme-hint-color, #999);
+    border-radius: 20px; background: transparent; font-size: 13px;
+    color: var(--tg-theme-hint-color, #666); cursor: pointer; transition: all 0.2s;
+}
+.quick-btn:active { background: var(--tg-theme-button-color, #3390ec)22; }
+
+/* Vorschau */
+.preview {
+    text-align: center; padding: 12px; margin-bottom: 8px;
+    font-size: 16px; font-weight: 500;
+    color: var(--tg-theme-hint-color, #888);
+}
+.preview b { color: var(--tg-theme-text-color, #000); }
+
+/* Error */
+.error-msg {
+    text-align: center; color: #e53935; font-size: 13px;
+    min-height: 20px; margin-top: 4px;
+}
+</style>
+</head>
+<body>
+
+<h2>🚕 Wann soll das Taxi kommen?</h2>
+
+<!-- Tab: Heute / Vorbestellung -->
+<div class="tab-row">
+    <button class="tab-btn active" onclick="selectTab('heute')">📅 Heute</button>
+    <button class="tab-btn" onclick="selectTab('vorbestellung')">📅 Vorbestellung</button>
+</div>
+
+<!-- Tage (nur bei Vorbestellung sichtbar) -->
+<div class="days-row" id="daysRow"></div>
+
+<!-- Vorschau -->
+<div class="preview" id="preview"></div>
+
+<!-- Uhrzeit-Picker -->
+<div class="time-section">
+    <div class="time-display" id="timeDisplay">
+        <span class="active-digit">_</span><span>_</span><span class="colon">:</span><span>_</span><span>_</span>
+    </div>
+    <div class="numpad">
+        <button class="num-btn" onclick="enterDigit(1)">1</button>
+        <button class="num-btn" onclick="enterDigit(2)">2</button>
+        <button class="num-btn" onclick="enterDigit(3)">3</button>
+        <button class="num-btn" onclick="enterDigit(4)">4</button>
+        <button class="num-btn" onclick="enterDigit(5)">5</button>
+        <button class="num-btn" onclick="enterDigit(6)">6</button>
+        <button class="num-btn" onclick="enterDigit(7)">7</button>
+        <button class="num-btn" onclick="enterDigit(8)">8</button>
+        <button class="num-btn" onclick="enterDigit(9)">9</button>
+        <button class="num-btn" onclick="clearTime()">C</button>
+        <button class="num-btn" onclick="enterDigit(0)">0</button>
+        <button class="num-btn backspace" onclick="backspace()">⌫</button>
+    </div>
+    <div class="quick-times">
+        <button class="quick-btn" onclick="setQuickTime(8,0)">08:00</button>
+        <button class="quick-btn" onclick="setQuickTime(9,0)">09:00</button>
+        <button class="quick-btn" onclick="setQuickTime(10,0)">10:00</button>
+        <button class="quick-btn" onclick="setQuickTime(12,0)">12:00</button>
+        <button class="quick-btn" onclick="setQuickTime(14,0)">14:00</button>
+        <button class="quick-btn" onclick="setQuickTime(16,0)">16:00</button>
+        <button class="quick-btn" onclick="setQuickTime(18,0)">18:00</button>
+        <button class="quick-btn" onclick="setQuickTime(20,0)">20:00</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.MainButton.setText('✅ Bestätigen');
+    tg.MainButton.color = tg.themeParams.button_color || '#3390ec';
+    tg.MainButton.textColor = tg.themeParams.button_text_color || '#fff';
+    tg.MainButton.onClick(submitDateTime);
+}
+
+const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const now = new Date();
+
+let selectedTab = 'heute';
+let selectedDayOffset = 0;
+let digits = [null, null, null, null]; // HH:MM
+let cursorPos = 0;
+
+// === Tab-Auswahl ===
+function selectTab(tab) {
+    selectedTab = tab;
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', (i === 0 && tab === 'heute') || (i === 1 && tab === 'vorbestellung'));
+    });
+    const daysRow = document.getElementById('daysRow');
+    if (tab === 'heute') {
+        daysRow.classList.remove('visible');
+        selectedDayOffset = 0;
+    } else {
+        daysRow.classList.add('visible');
+        selectedDayOffset = 1;
+        buildDayButtons();
+    }
+    updatePreview();
+}
+
+// === Tage-Buttons bauen ===
+function buildDayButtons() {
+    const row = document.getElementById('daysRow');
+    row.innerHTML = '';
+    for (let i = 1; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + i);
+        const dn = dayNames[d.getDay()];
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dm = String(d.getMonth() + 1).padStart(2, '0');
+        let label = i === 1 ? 'Morgen' : i === 2 ? 'Überm.' : `${dn} ${dd}.${dm}`;
+        const btn = document.createElement('button');
+        btn.className = 'day-btn' + (i === selectedDayOffset ? ' active' : '');
+        btn.textContent = label;
+        btn.onclick = () => {
+            selectedDayOffset = i;
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updatePreview();
+        };
+        row.appendChild(btn);
+    }
+}
+
+// === Numpad ===
+function enterDigit(d) {
+    if (cursorPos >= 4) return;
+
+    // Validierung: erste Ziffer der Stunde max 2
+    if (cursorPos === 0 && d > 2) return;
+    // Zweite Ziffer: wenn erste 2 → max 3
+    if (cursorPos === 1 && digits[0] === 2 && d > 3) return;
+    // Erste Ziffer der Minute max 5
+    if (cursorPos === 2 && d > 5) return;
+
+    digits[cursorPos] = d;
+    cursorPos++;
+    updateDisplay();
+    updatePreview();
+
+    // Wenn alle 4 Ziffern → MainButton zeigen
+    if (cursorPos === 4 && tg) {
+        const h = digits[0] * 10 + digits[1];
+        const m = digits[2] * 10 + digits[3];
+        if (isValidTime(h, m)) {
+            tg.MainButton.show();
+        }
+    }
+}
+
+function backspace() {
+    if (cursorPos <= 0) return;
+    cursorPos--;
+    digits[cursorPos] = null;
+    updateDisplay();
+    updatePreview();
+    if (tg) tg.MainButton.hide();
+}
+
+function clearTime() {
+    digits = [null, null, null, null];
+    cursorPos = 0;
+    updateDisplay();
+    updatePreview();
+    if (tg) tg.MainButton.hide();
+}
+
+function setQuickTime(h, m) {
+    digits[0] = Math.floor(h / 10);
+    digits[1] = h % 10;
+    digits[2] = Math.floor(m / 10);
+    digits[3] = m % 10;
+    cursorPos = 4;
+    updateDisplay();
+    updatePreview();
+    if (tg && isValidTime(h, m)) tg.MainButton.show();
+}
+
+// === Display aktualisieren ===
+function updateDisplay() {
+    const display = document.getElementById('timeDisplay');
+    const chars = [];
+    for (let i = 0; i < 4; i++) {
+        const val = digits[i] !== null ? digits[i] : '_';
+        const isActive = i === cursorPos;
+        const cls = isActive ? 'active-digit' : '';
+        chars.push(`<span class="${cls}">${val}</span>`);
+        if (i === 1) chars.push('<span class="colon">:</span>');
+    }
+    display.innerHTML = chars.join('');
+}
+
+function updatePreview() {
+    const preview = document.getElementById('preview');
+    const error = document.getElementById('errorMsg');
+    error.textContent = '';
+
+    const d = new Date(now);
+    d.setDate(d.getDate() + selectedDayOffset);
+    const dn = dayNames[d.getDay()];
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dm = String(d.getMonth() + 1).padStart(2, '0');
+    const dateLabel = selectedDayOffset === 0 ? `Heute (${dn}, ${dd}.${dm}.)` :
+                      selectedDayOffset === 1 ? `Morgen (${dn}, ${dd}.${dm}.)` :
+                      `${dn}, ${dd}.${dm}.${d.getFullYear()}`;
+
+    if (cursorPos === 4) {
+        const h = digits[0] * 10 + digits[1];
+        const m = digits[2] * 10 + digits[3];
+        if (isValidTime(h, m)) {
+            preview.innerHTML = `📅 <b>${dateLabel}</b> um <b>${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} Uhr</b>`;
+        } else {
+            error.textContent = '⚠️ Ungültige Uhrzeit';
+            preview.innerHTML = `📅 ${dateLabel}`;
+        }
+    } else {
+        preview.innerHTML = `📅 ${dateLabel}`;
+    }
+}
+
+function isValidTime(h, m) {
+    if (h < 0 || h > 23 || m < 0 || m > 59) return false;
+    // Bei Heute: Uhrzeit muss in der Zukunft liegen
+    if (selectedDayOffset === 0) {
+        const nowH = now.getHours();
+        const nowM = now.getMinutes();
+        if (h < nowH || (h === nowH && m <= nowM)) {
+            document.getElementById('errorMsg').textContent = '⚠️ Uhrzeit liegt in der Vergangenheit';
+            return false;
+        }
+    }
+    return true;
+}
+
+// === Absenden ===
+function submitDateTime() {
+    if (cursorPos < 4) return;
+    const h = digits[0] * 10 + digits[1];
+    const m = digits[2] * 10 + digits[3];
+    if (!isValidTime(h, m)) return;
+
+    const d = new Date(now);
+    d.setDate(d.getDate() + selectedDayOffset);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+    const dn = dayNames[d.getDay()];
+    const dd = String(d.getDate()).padStart(2, '0');
+    const dm = String(d.getMonth() + 1).padStart(2, '0');
+    const dateLabel = selectedDayOffset === 0 ? 'Heute' : selectedDayOffset === 1 ? 'Morgen' : `${dn} ${dd}.${dm}`;
+
+    if (tg) {
+        tg.sendData(JSON.stringify({
+            type: 'datetime',
+            datetime: iso,
+            label: `${dateLabel} um ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} Uhr`
+        }));
+    }
+}
+
+// Init
+updateDisplay();
+updatePreview();
+if (tg) tg.MainButton.hide();
+</script>
+</body>
+</html>

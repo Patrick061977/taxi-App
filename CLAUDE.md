@@ -43,6 +43,7 @@ firebase deploy --only functions
 - **Konversations-Flow** — Pending-States, Follow-Ups, CRM-Suche
 - **KI-Analyse** — Buchungs-Parsing via Anthropic API
 - **Benachrichtigungen** — Buchungsbestätigungen an Kunden + Admins
+- **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen (siehe unten)
 
 ### Regel:
 - Änderungen an `index.html` → Build-Timestamp aktualisieren
@@ -168,6 +169,46 @@ Das Telegram-System hat zwei Modi:
 - `deleteWebhook`-Aufrufe NICHT im Webhook-Modus ausführen
 - Webhook-Flag in Firebase ist die Single Source of Truth
 
+### 🆕 v6.20.0: Server-seitige Telegram-Benachrichtigungen (Database Triggers)
+
+Alle Telegram-Benachrichtigungen für Fahrten laufen jetzt über **Firebase Database Triggers** in `functions/index.js` — **unabhängig vom Browser!**
+
+#### Cloud Function Triggers:
+
+| Export-Name | Trigger-Typ | Auslöser | Was wird gesendet |
+|-------------|-------------|----------|-------------------|
+| `onRideCreated` | `onValueCreated('/rides/{rideId}')` | Neue Fahrt in Firebase | Admin-Benachrichtigung (Sofort/Vorbestellung) |
+| `onRideUpdated` | `onValueUpdated('/rides/{rideId}')` | Fahrt geändert | Status-Updates (accepted/storniert/picked_up/completed), Fahrer-Zuweisung, Kunden-Bestätigung |
+| `onRideDeleted` | `onValueDeleted('/rides/{rideId}')` | Fahrt gelöscht | Admin + Fahrer werden informiert |
+| `scheduledOpenRideCheck` | `onSchedule('every 1 minutes')` | Timer (jede Minute) | Warnung wenn Vorbestellung < 10 Min ohne Fahrer |
+
+#### Duplikat-Schutz (Flags in Rides):
+- `cloudNotificationSent: true` — Admin-Benachrichtigung bei Erstellung bereits gesendet
+- `customerTelegramSent: true` — Kunden-Bestätigung bereits gesendet
+- `openRideWarned: true` — Offene-Fahrt-Warnung bereits gesendet
+
+#### Browser-Fallback:
+Die 7 Browser-Funktionen in `index.html` prüfen `telegramWebhookMode`:
+- `sendTelegramForNewRide()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramStatusUpdate()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramToDriver()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramToDriverCancel()` — ☁️ skip wenn Webhook aktiv
+- `sendCustomerTelegram()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramForDeletedRide()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramOpenRideWarning()` — ☁️ skip wenn Webhook aktiv
+
+**Wenn Webhook deaktiviert wird**, übernehmen die Browser-Funktionen wieder automatisch.
+
+#### Hilfsfunktionen (in functions/index.js):
+- `sendToAllAdmins(message)` — Sendet an alle Admin-Chats
+- `getDriverChatId(vehicleId)` — Ermittelt Fahrer-Telegram-Chat-ID (User → Fahrzeug Fallback)
+- `getCustomerChatId(ride)` — Ermittelt Kunden-Chat-ID (Ride → CRM Fallback)
+- `formatBerlinTime(timestamp)` — Berlin-Zeitzone Formatierung
+
+#### WICHTIG:
+- `autoAssignRide()` sendet Fahrer-Telegram **selbst** — `onRideUpdated` prüft `assignedBy !== 'cloud-auto-assign'` um Duplikate zu verhindern
+- Gleiches gilt für `cloud-auto-replan` (Konflikt-Umplanung)
+
 ---
 
 ## Echtzeit-Daten (Firebase Listener)
@@ -219,5 +260,108 @@ Diese Listener sind essenziell und dürfen NICHT entfernt werden.
 - **Sprache im Code**: Deutsch (Kommentare, Variablennamen, Log-Meldungen)
 - **Versions-Tags im Code**: `// 🌐 v6.3.1:` etc. markieren wann was geändert wurde
 - **Alles in einer Datei**: `index.html` enthält HTML, CSS und JavaScript
-- **Cloud Functions**: Nur `functions/index.js` für den Telegram-Webhook
+- **Cloud Functions**: `functions/index.js` für Telegram-Webhook + Database Triggers + Scheduled Tasks
 - **Keine NPM/Build-Pipeline**: Direkt deployen, kein Bundler
+
+---
+
+## Änderungsprotokoll (Changelog)
+
+### v6.20.0 — 14.03.2026 — Server-seitige Telegram-Benachrichtigungen
+- **NEU:** Firebase Database Triggers für alle Telegram-Benachrichtigungen (funktioniert ohne Browser!)
+- **NEU:** `onRideCreated`, `onRideUpdated`, `onRideDeleted` Cloud Function Triggers
+- **NEU:** `scheduledOpenRideCheck` — prüft jede Minute ob Vorbestellungen ohne Fahrer sind
+- **GEÄNDERT:** 7 Browser-Funktionen skippen im Webhook-Modus (Cloud Function übernimmt)
+- **GEÄNDERT:** Duplikat-Schutz über Firebase-Flags (`cloudNotificationSent`, `customerTelegramSent`, `openRideWarned`)
+
+### v6.19.x — 13.03.2026 — SMS/Kunden-Portal + Kalender-Fixes
+- **NEU:** Kunden-Portal mit SMS-Verifizierung (`kunden.html`)
+- **NEU:** SMS für Stornierung und Änderung + Speichern-Button
+- **NEU:** Bushaltestellen-Erkennung im Karten-Picker und POI-System
+- **NEU:** Bearbeiten-Button in POI- und Kunden-Marker-Popups auf der Karte
+- **NEU:** Cloud-Backup in Firebase + Hotel-Sync Toggle in Admin-UI
+- **NEU:** Zurück-/Abbrechen-Buttons im Telegram-Buchungsflow
+- **FIX:** Doppelte/dreifache SMS an Kunden verhindern (Duplikat-Schutz)
+- **FIX:** SMS-Protokoll in Firebase
+- **FIX:** Hotel-Kalender-Sync deaktivierbar
+- **FIX:** Überfällige Vorbestellungen auto-stornieren → completed statt cancelled
+- **FIX:** Optimierung Oszillation verhindern (Fingerprint-Cache + Stabilitäts-Schwelle)
+- **PERF:** Kalender nutzt globale Daten statt erneuter Firebase-Abfrage + Debouncing
+
+### v6.17.0 — 13.03.2026 — Akzeptierungsfenster + Konflikt-Umplanung
+- **NEU:** 60-Min-Akzeptierungsfenster für Vorbestellungen
+- **NEU:** Cloud Function für automatische Konflikt-Umplanung alle 5 Min (`autoResolveConflicts`)
+- **FIX:** Exakte Zeitkonflikte bei autoAssignVehicleToRide erkennen
+- **FIX:** PLZ-Validierung durchgängig in allen Geocoding-Pfaden
+- **FIX:** Geocoding-PLZ-Match + Adress-Neugeokodierung bei Route-Bearbeitung
+- **FIX:** Admin-Bestätigung für Telegram-Änderungen
+
+### v6.16.x — 12–13.03.2026 — Schichtplan + Telegram-Menü + Auto-Zuweisung
+- **NEU:** Schichtplan-Übersicht im Kalender-Tag
+- **NEU:** Telegram /menü Befehl mit Inline-Button-Hauptmenü
+- **NEU:** `setupBotCommands` Cloud Function
+- **NEU:** Smart Auto-Complete für überfällige Fahrten
+- **NEU:** Auto-updatedAt Interceptor für Google Calendar Sync
+- **NEU:** Fahrzeug-Übersicht zeigt Schichtstatus mit Dienst-Check
+- **NEU:** Abbrechen-Button in jeden Telegram-Bot Buchungsschritt
+- **REFACTOR:** Cloud Function Auto-Zuweisung mit zwei klaren Modi (Sofort vs. Vorbestellung)
+- **FIX:** Schichtplan-Erkennung komplett überarbeitet (keine hardcoded 06:00-22:00 Fallbacks)
+- **FIX:** Additive Ausnahmen überschreiben Wochenplan nicht mehr
+- **FIX:** defaultTimes automatisch anlegen wenn Schichttag aktiviert wird
+- **FIX:** Veraltete accepted-Fahrten blockieren nicht mehr Fahrzeugauswahl
+
+### v6.15.x — 11–12.03.2026 — CRM-Detailansicht + Karten-Picker + Stammrouten
+- **NEU:** Kunden-Detailansicht mit Routen-Übersicht und Bearbeitung
+- **NEU:** Live-Status in Fahrt-Timeline anzeigen
+- **NEU:** Karten-Picker im Bearbeiten-Modal für Abholort und Zielort
+- **NEU:** Stammrouten bearbeiten/löschen + Koordinaten-Validierung
+- **NEU:** Koordinaten neu berechnen Button im Edit-Modal
+- **NEU:** Route neu berechnen Button + CRM-Name in Rechnung bevorzugt
+- **NEU:** Alle Fahrten im CRM-Kundendetail mit Filter + Rechnung-Button
+- **NEU:** Echtzeit-GPS-Tracking mit Live-ETA + Fortschrittsbalken
+- **NEU:** KI-Training-System — Regeln in Firebase speichern und bei Analyse laden
+- **NEU:** GPS-Standort — Abholort/Zielort-Auswahl + Büroklammer-Hinweise
+- **NEU:** Auto-Zuweisung für Telegram-Sofortfahrten in Cloud Function
+- **NEU:** Mobilnummer-Abfrage bei Festnetz-Erkennung
+- **NEU:** Zwischenstopp als Adresse in KI-Analyse erkennen
+- **NEU:** POIs priorisieren in Telegram-Adresssuche
+- **NEU:** 9 neue POI-Kategorien (Vermietung, Ferienwohnung, Flughafen etc.)
+- **NEU:** Koordinaten-Anzeige im Fahrt-Bearbeiten-Modal
+- **NEU:** CRM-Daten via Telegram editieren
+- **NEU:** Personenzahl in Telegram-Buchung änderbar (vor + nach Buchung)
+- **FIX:** updatedAt bei Fleet-Timeline Drag&Drop setzen für Google Calendar Sync
+- **FIX:** Geocoding-Cache + Autocomplete-Überschreibung im Map Picker
+
+### v6.14.x — 07–11.03.2026 — Telegram-Bot + CRM + Audio + Auftraggeber
+- **NEU:** Fahrt auf mehrere Tage kopieren
+- **NEU:** Telegram Bot — Abholort/Zielort Zuhause-Frage + Vergangene Fahrten
+- **NEU:** Admin Kundenanlage im Telegram + CRM-Sync bei Selbstregistrierung
+- **NEU:** Audio-Dateien im Telegram transkribieren (MP3, WAV, M4A etc.)
+- **NEU:** Auftraggeber-System (Hotel/Firma/Klinik bucht für Andere)
+- **NEU:** Hotels als Kundenart + Gastname-Abfrage + Nummer-Zuordnung
+- **NEU:** Lieferanten (type=supplier) als Auftraggeber erkennen
+- **NEU:** Kundenart (Stammkunde/Gelegenheitskunde) im CRM + Telegram
+- **NEU:** Kunden zusammenführen (Merge) im CRM
+- **NEU:** Telefonnummer aus Audio-Dateinamen extrahieren + CRM-Auto-Zuordnung
+- **NEU:** Dynamische zusätzliche Telefonnummern im CRM-Modal
+- **NEU:** KI extrahiert Hotel-Gastname direkt aus Transkript
+- **NEU:** Sofortfahrt-Anzeige bei "jetzt" Buchungen + Fahrer-Online-Check
+- **NEU:** Email im Kurznachricht-Modal + AI Email-Extraktion
+- **NEU:** Telegram Bot Log — Details aufklappen + Log kopieren Button
+- **NEU:** Fahrer-Konto Modal + kompakter Schicht-Badge
+- **NEU:** Schicht-Zusammenfassung per Telegram an Fahrer senden
+- **NEU:** Telegram Datum ändern, Gastname, Losfahrt-Erinnerung + Notif-Settings
+- **NEU:** Stripe API-Keys Eingabe im Admin-Panel
+- **NEU:** System-Protokoll Einträge aufklappbar + Kopier-Button
+- **NEU:** System-Ticker Telegram + Fahrzeugstatus in Fahrzeugauswahl
+- **NEU:** Admin-Status im Telegram-Profil anzeigen
+- **FIX:** Fuzzy-Matching (Levenshtein) für CRM-Kundensuche
+- **FIX:** CRM-Kundensuche + Kontext-Verlust bei Text statt Button
+- **FIX:** Mobilnummern fehlten im Google Kalender — customerMobile in allen Buchungsflows setzen
+- **FIX:** mobilePhone-Fallback an 14+ Stellen — alle Buchungsflows lesen jetzt mobilePhone
+- **FIX:** Telefonnummern beim Bearbeiten einer Fahrt nicht mehr überschreiben
+- **FIX:** Google Calendar Sync — Erinnerungen (Reminder) hinzufügen
+- **FIX:** Festnetz-Nummern Eingabe + kein SMS/WhatsApp für Festnetz
+- **FIX:** Nominatim residential/neighbourhood Fallback in allen Autocompletes
+- **FIX:** Sofort-Buchen Buttons + Zahlungsart + Datum-Picker nach Mitternacht
+- **FIX:** KI-Adress-Halluzination bei abgeschnittenen Audio-Transkripten verhindern

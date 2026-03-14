@@ -2617,7 +2617,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 msg += `💬 ${booking.question}`;
             } else {
                 const firstMissing = booking.missing[0];
-                const fallbacks = { datetime: 'Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.', pickup: 'Von welcher Adresse holen wir ab?', destination: 'Wohin geht die Fahrt?', phone: 'Welche Telefonnummer hat der Kunde?' };
+                const fallbacks = { datetime: '<b>Wann</b> soll das Taxi kommen?\n⌨️ Tippen Sie <b>Datum + Uhrzeit</b> unten ins Eingabefeld, z.B. <b>15.06.2026 14:30</b>', pickup: '<b>Abholort</b> – wo sollen wir Sie abholen?\n⌨️ <b>Adresse</b> unten ins Eingabefeld tippen\n📎 Oder: <b>Büroklammer 📎</b> → <b>Standort senden</b>', destination: '<b>Zielort</b> – wohin soll die Fahrt gehen?\n⌨️ <b>Adresse</b> unten ins Eingabefeld tippen\n📎 Oder: <b>Büroklammer 📎</b> → <b>Standort senden</b>', phone: '⌨️ Bitte <b>Telefonnummer</b> unten ins Eingabefeld tippen, z.B. <b>0171 1234567</b>' };
                 msg += `💬 ${fallbacks[firstMissing] || 'Können Sie mir noch mehr Details geben?'}`;
             }
             // 🆕 v6.16.1: DATETIME → Datum/Uhrzeit-Picker anzeigen
@@ -2637,7 +2637,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // Kunde hat Adresse → Zuhause-Button + Anderer Ort
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                    msg += '📍 <b>Wo sollen wir Sie abholen?</b>';
+                    msg += '📍 <b>Abholort – wo sollen wir Sie abholen?</b>\nWählen Sie unten oder senden Sie Ihren <b>Standort 📎</b>';
                     _inlineButtons.push([{ text: '🏠 Von zu Hause (' + (_knownCust.address.length > 25 ? _knownCust.address.substring(0, 23) + '…' : _knownCust.address) + ')', callback_data: 'use_home_pickup' }]);
                 }
                 // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
@@ -2653,7 +2653,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 _inlineButtons.push([{ text: '📍 Anderer Ort (Standort senden)', callback_data: 'pickup_other_location' }]);
             } else if (_firstMissing === 'pickup') {
                 // Admin-Modus oder kein Kunde → nur Standort-Tipp
-                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
+                msg += '\n\n📍 Oder: <b>Büroklammer 📎</b> antippen → <b>Standort senden</b>';
             }
 
             // 🆕 v6.14.0: ZIELORT → Frage "Nach Hause oder anderes Ziel?"
@@ -2663,7 +2663,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // Kunde hat Adresse → Nach-Hause-Button
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                    msg += '🎯 <b>Wohin soll die Fahrt gehen?</b>';
+                    msg += '🎯 <b>Zielort – wohin soll die Fahrt gehen?</b>\nWählen Sie unten oder senden Sie den <b>Standort 📎</b>';
                     _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
                 }
                 // Favoriten-Ziele
@@ -2681,7 +2681,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 }
                 _inlineButtons.push([{ text: '📍 Anderes Ziel (Standort/Adresse)', callback_data: 'dest_other_location' }]);
             } else if (_firstMissing === 'destination') {
-                msg += '\n\n📍 <i>Tipp: Sie können auch Ihren Standort über die Telegram-Büroklammer 📎 teilen!</i>';
+                msg += '\n\n📍 Oder: <b>Büroklammer 📎</b> antippen → <b>Standort senden</b>';
             }
 
             // Menü + Abbrechen als letzte Zeile
@@ -3756,15 +3756,15 @@ async function handleMessage(message) {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
         }
         greeting += '<b>So buchen Sie am schnellsten:</b>\n';
-        greeting += '📎 Tippen Sie unten auf die <b>Büroklammer 📎</b> → <b>Standort</b> senden = <b>Abholort</b>!\n';
-        greeting += '📍 Danach nochmal Standort senden = <b>Zielort</b>!\n\n';
-        greeting += '<b>Oder schreiben/sprechen Sie:</b>\n';
-        greeting += '✍️ <i>„Morgen 10 Uhr vom Bahnhof nach Ahlbeck"</i>\n';
-        greeting += '🎙️ <i>Sprachnachricht mit Ihrem Fahrtwunsch</i>\n\n';
+        greeting += '1️⃣ <b>Büroklammer 📎 unten antippen</b> → <b>„Standort"</b> wählen → das wird Ihr <b>Abholort</b>\n';
+        greeting += '2️⃣ <b>Nochmal Standort senden</b> → das wird Ihr <b>Zielort</b>\n';
+        greeting += '3️⃣ <b>Datum + Uhrzeit</b> wählen → <b>fertig!</b>\n\n';
+        greeting += '<b>Oder schreiben Sie Ihren Wunsch als Text:</b>\n';
+        greeting += '✍️ z.B. <b>„Morgen 10 Uhr vom Bahnhof nach Ahlbeck"</b>\n';
+        greeting += '🎙️ Oder als <b>Sprachnachricht</b> einsprechen\n\n';
         greeting += '<b>Weitere Funktionen:</b>\n';
         greeting += '📊 Fahrten ansehen · ✏️ Ändern · 🗑️ Stornieren\n\n';
-        greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
-        greeting += '\n\n📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>';
+        greeting += '📞 Fragen? Rufen Sie uns an: <b>038378 / 22022</b>';
         if (!knownCustomer) {
             greeting += '\n\n📱 <i>Tipp: Teilen Sie einmalig Ihre Telefonnummer, damit wir Sie beim nächsten Mal sofort erkennen.</i>';
         }
@@ -3811,13 +3811,14 @@ async function handleMessage(message) {
 
     if (textCmd === '/buchen') {
         let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
-        msg += '📎 <b>Am schnellsten:</b> Tippen Sie auf die <b>Büroklammer 📎</b> unten → <b>Standort</b> senden!\n';
-        msg += '📍 1. Standort = <b>Abholort</b>, 2. Standort = <b>Zielort</b>\n\n';
-        msg += '<b>Oder schreiben/sprechen Sie:</b>\n';
-        msg += '• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n';
-        msg += '• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n';
-        msg += '• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n';
-        msg += '🤖 <i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        msg += '<b>Am schnellsten per Standort:</b>\n';
+        msg += '1️⃣ <b>Büroklammer 📎 unten antippen</b> → <b>„Standort"</b> wählen = <b>Abholort</b>\n';
+        msg += '2️⃣ <b>Nochmal Standort senden</b> = <b>Zielort</b>\n\n';
+        msg += '<b>Oder als Text schreiben:</b>\n';
+        msg += '• <b>„Jetzt vom Bahnhof Heringsdorf nach Ahlbeck"</b>\n';
+        msg += '• <b>„Morgen 10 Uhr Hotel Maritim → Flughafen BER"</b>\n';
+        msg += '• <b>„Freitag 14:30 Seebrücke Bansin, 3 Personen"</b>\n\n';
+        msg += '🎙️ Oder als <b>Sprachnachricht</b> einsprechen';
         await sendTelegramMessage(chatId, msg);
         return;
     }
@@ -5345,12 +5346,13 @@ async function handleCallback(callback) {
     // Menü-Buttons
     if (data === 'menu_buchen') {
         let _buchenMsg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
-        _buchenMsg += '📎 <b>Am schnellsten:</b> Tippen Sie auf die <b>Büroklammer 📎</b> unten → <b>Standort</b> senden!\n';
-        _buchenMsg += '📍 1. Standort = <b>Abholort</b>, 2. Standort = <b>Zielort</b>\n\n';
-        _buchenMsg += '<b>Oder schreiben/sprechen Sie:</b>\n';
-        _buchenMsg += '• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n';
-        _buchenMsg += '• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n\n';
-        _buchenMsg += '🤖 <i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        _buchenMsg += '<b>Am schnellsten per Standort:</b>\n';
+        _buchenMsg += '1️⃣ <b>Büroklammer 📎 unten antippen</b> → <b>„Standort"</b> wählen = <b>Abholort</b>\n';
+        _buchenMsg += '2️⃣ <b>Nochmal Standort senden</b> = <b>Zielort</b>\n\n';
+        _buchenMsg += '<b>Oder als Text schreiben:</b>\n';
+        _buchenMsg += '• <b>„Jetzt vom Bahnhof Heringsdorf nach Ahlbeck"</b>\n';
+        _buchenMsg += '• <b>„Morgen 10 Uhr Hotel Maritim → Flughafen BER"</b>\n\n';
+        _buchenMsg += '🎙️ Oder als <b>Sprachnachricht</b> einsprechen';
         await sendTelegramMessage(chatId, _buchenMsg);
         return;
     }
@@ -6532,7 +6534,7 @@ async function handleCallback(callback) {
 
         await addTelegramLog('📅', chatId, `Heute gewählt → Uhrzeiten anzeigen`);
         await sendTelegramMessage(chatId,
-            header + `📅 <b>${dayLabel}</b>\n\n🕐 <b>Wann soll das Taxi kommen?</b>\n<i>Wählen Sie eine Uhrzeit oder schreiben Sie z.B. "14:30"</i>`, {
+            header + `📅 <b>${dayLabel}</b>\n\n🕐 <b>Uhrzeit wählen:</b>\nButton antippen oder Uhrzeit eintippen, z.B. <b>14:30</b>`, {
             reply_markup: { inline_keyboard: [
                 ...timeRows,
                 [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
@@ -6574,7 +6576,7 @@ async function handleCallback(callback) {
 
         await addTelegramLog('📅', chatId, `Vorbestellen gewählt → Tage anzeigen`);
         await sendTelegramMessage(chatId,
-            header + '📅 <b>Für welchen Tag vorbestellen?</b>\n\n👇 Wählen Sie einen Tag oder tippen Sie ein Datum ein:\n<i>z.B. „21.06.2026 14:30" oder „15. Juni 2026 10 Uhr"</i>', {
+            header + '📅 <b>Für welchen Tag vorbestellen?</b>\n\nButton antippen oder <b>Datum + Uhrzeit</b> unten ins Eingabefeld tippen:\nz.B. <b>21.06.2026 14:30</b> oder <b>15. Juni 2026 10 Uhr</b>', {
             reply_markup: { inline_keyboard: [
                 ...dayRows,
                 [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
@@ -6644,7 +6646,7 @@ async function handleCallback(callback) {
 
         await addTelegramLog('📅', chatId, `Tag gewählt: ${dayLabel}`);
         await sendTelegramMessage(chatId,
-            `📅 <b>${dayLabel}</b>\n\n🕐 <b>Uhrzeit wählen:</b>\n<i>Tippen Sie eine Uhrzeit oder schreiben Sie z.B. "14:30"</i>`, {
+            `📅 <b>${dayLabel}</b>\n\n🕐 <b>Uhrzeit wählen:</b>\nButton antippen oder Uhrzeit eintippen, z.B. <b>14:30</b>`, {
             reply_markup: { inline_keyboard: [
                 ...timeRows,
                 [{ text: '◀️ Anderen Tag', callback_data: 'dtback_day' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]

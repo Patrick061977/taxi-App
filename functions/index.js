@@ -424,10 +424,66 @@ async function autoAssignRide(rideId, rideData) {
             );
         }
 
+        best.drivingTimeMin = drivingTimeMin;
         return best;
     } catch (err) {
         console.error('❌ v6.15.1: AutoAssign Fehler:', err);
         return null;
+    }
+}
+
+// 🔧 v6.20.2: Wartezeit schätzen wenn alle Fahrer besetzt sind
+async function estimateWaitTime(pickupCoords) {
+    try {
+        const [vehiclesSnap, ridesSnap] = await Promise.all([
+            db.ref('vehicles').once('value'),
+            db.ref('rides').once('value')
+        ]);
+        const vehicles = vehiclesSnap.val() || {};
+        const activeRides = [];
+        ridesSnap.forEach(c => {
+            const r = c.val();
+            if (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') {
+                activeRides.push(r);
+            }
+        });
+
+        if (activeRides.length === 0) return { waitMin: 0, busyCount: 0 };
+
+        // Kürzeste verbleibende Fahrzeit aller aktiven Fahrten schätzen
+        let shortestRemaining = Infinity;
+        const now = Date.now();
+
+        for (const ride of activeRides) {
+            let remainingMin;
+            if (ride.status === 'assigned' || ride.status === 'on_way') {
+                // Noch nicht abgeholt → Anfahrt + Fahrzeit
+                const estDuration = ride.duration || ride.estimatedDuration || 20;
+                const startedAt = ride.assignedAt || ride.pickupTimestamp || now;
+                const elapsed = (now - startedAt) / 60000;
+                remainingMin = Math.max(5, estDuration - elapsed + 5); // +5 Min Rückfahrt-Puffer
+            } else if (ride.status === 'picked_up') {
+                // Unterwegs → nur restliche Fahrzeit
+                const estDuration = ride.duration || ride.estimatedDuration || 20;
+                const pickedUpAt = ride.pickedUpAt || ride.assignedAt || now;
+                const elapsed = (now - pickedUpAt) / 60000;
+                remainingMin = Math.max(3, estDuration - elapsed + 5);
+            } else {
+                remainingMin = 20;
+            }
+            if (remainingMin < shortestRemaining) shortestRemaining = remainingMin;
+        }
+
+        // Zusätzliche Anfahrt zum neuen Kunden schätzen (~10 Min Durchschnitt auf Usedom)
+        const totalWait = Math.round(shortestRemaining + 10);
+        // Auf 5er-Schritte runden und Bereich angeben
+        const waitMin = Math.max(10, Math.ceil(totalWait / 5) * 5);
+        const waitMax = waitMin + 10;
+
+        return { waitMin, waitMax, busyCount: activeRides.length };
+    } catch (e) {
+        console.error('[WaitEstimate] Fehler:', e.message);
+        return { waitMin: 20, waitMax: 30, busyCount: 0 };
     }
 }
 
@@ -5953,12 +6009,13 @@ async function handleCallback(callback) {
                 const driverCheck = await checkDriversOnline();
                 if (!driverCheck.online) {
                     let noDriverMsg = '😔 <b>Aktuell ist leider kein Fahrer online.</b>\n\n';
-                    noDriverMsg += 'Sobald ein Fahrer verfügbar ist, wird Ihre Fahrt automatisch zugewiesen.\n\n';
+                    noDriverMsg += '✅ Sie können sich auf die <b>Warteliste</b> setzen lassen!\n';
+                    noDriverMsg += 'Der Fahrer meldet sich <b>automatisch</b> sobald er verfügbar ist.\n\n';
                     noDriverMsg += '<b>Was möchten Sie tun?</b>';
 
                     const noDriverKeyboard = { inline_keyboard: [
-                        [{ text: '✅ Trotzdem eintragen (Fahrer wird gesucht)', callback_data: `book_force_nodriver_${pending.bookingId}` }],
-                        [{ text: '📅 Für später buchen', callback_data: `change_time_${pending.bookingId}` }],
+                        [{ text: '✅ Auf Warteliste setzen', callback_data: `book_force_nodriver_${pending.bookingId}` }],
+                        [{ text: '📅 Lieber für später buchen', callback_data: `change_time_${pending.bookingId}` }],
                         [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ]};
 
@@ -6057,18 +6114,35 @@ async function handleCallback(callback) {
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
 
-            // 🔧 v6.15.10: Auto-Zuweisung für ALLE Fahrten (Sofort + Vorbestellung)!
-            // Vorher nur Sofortfahrten → Vorbestellungen blieben ohne Fahrzeug bis Browser geöffnet
+            // 🔧 v6.20.2: Auto-Zuweisung mit Wartezeit-Schätzung
             if (rideData.pickupCoords) {
                 const assignResult = await autoAssignRide(rideData.id, rideData);
                 if (assignResult) {
+                    const etaMin = assignResult.drivingTimeMin || Math.max(3, Math.round((assignResult.distance / 40) * 60));
                     await sendTelegramMessage(chatId,
                         `🚗 <b>Fahrer gefunden!</b>\n\n` +
-                        `🚕 ${assignResult.name}\n` +
-                        `📏 ${assignResult.distance.toFixed(1)} km entfernt\n\n` +
+                        `🚕 <b>${assignResult.name}</b>\n` +
+                        `📏 ${assignResult.distance.toFixed(1)} km entfernt\n` +
+                        `⏱️ <b>Geschätzte Ankunft: ca. ${etaMin} Minuten</b>\n\n` +
                         `💡 <i>Sie werden benachrichtigt sobald der Fahrer losfährt.</i>`
                     );
-                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance.toFixed(1)} km)`);
+                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance.toFixed(1)} km, ~${etaMin} Min)`);
+                } else if (_isJetztFahrt) {
+                    // Sofortfahrt aber alle besetzt → Wartezeit schätzen + Warteschlange
+                    const waitEst = await estimateWaitTime(rideData.pickupCoords);
+                    await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', waitEstimate: waitEst.waitMin, updatedAt: Date.now() });
+                    await sendTelegramMessage(chatId,
+                        `⏳ <b>Alle Fahrer sind gerade unterwegs.</b>\n\n` +
+                        `⏱️ Geschätzte Wartezeit: <b>ca. ${waitEst.waitMin}–${waitEst.waitMax} Minuten</b>\n\n` +
+                        `✅ Sie stehen auf der <b>Warteliste</b>!\n` +
+                        `Der Fahrer meldet sich <b>automatisch</b> sobald er verfügbar ist.\n\n` +
+                        `💡 <i>Sie werden sofort benachrichtigt — Sie müssen nichts weiter tun.</i>`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '📅 Lieber für später buchen', callback_data: `chdate_${rideData.id}` }],
+                            [{ text: '🗑️ Stornieren', callback_data: `cancel_ride_${rideData.id}` }]
+                        ] } }
+                    );
+                    await addTelegramLog('⏳', chatId, `Warteschlange: ~${waitEst.waitMin}-${waitEst.waitMax} Min (${waitEst.busyCount} aktive Fahrten)`);
                 } else {
                     await addTelegramLog('⚠️', chatId, 'Kein Fahrzeug für Auto-Zuweisung verfügbar');
                 }

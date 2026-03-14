@@ -6019,11 +6019,9 @@ async function handleCallback(callback) {
                 if (!_anyInShift) {
                     await sendTelegramMessage(chatId,
                         `😔 <b>Zur Zeit ist leider kein Fahrer online erreichbar.</b>\n\n` +
-                        `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>\n` +
-                        `📅 Oder buchen Sie für einen anderen Zeitpunkt:`,
+                        `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>`,
                         { reply_markup: { inline_keyboard: [
-                            [{ text: '📅 Für später buchen', callback_data: `change_time_${pending.bookingId}` }],
-                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                            [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                         ] } }
                     );
                     await addTelegramLog('😔', chatId, `Sofortfahrt blockiert: Kein Fahrzeug im Schichtdienst (${_dateStr} ${_timeStr})`);

@@ -1686,7 +1686,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     inline_keyboard: [
                         ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                         [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                        [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
+                        [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ]
                 };
 
@@ -1790,7 +1790,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         inline_keyboard: [
                             ...simSuggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                            [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }]
+                            [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                         ]
                     };
                     const pendingState = { partial: { ...booking, missing: [] }, originalText };
@@ -2874,7 +2874,8 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         await sendTelegramMessage(chatId,
             `${label} <b>Gastname fehlt</b>\n\n👤 Für welchen Gast/Patienten ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
             reply_markup: { inline_keyboard: [
-                [{ text: '⏭️ Ohne Gastname weiter', callback_data: `skip_guest_${bookingId}` }]
+                [{ text: '⏭️ Ohne Gastname weiter', callback_data: `skip_guest_${bookingId}` }],
+                [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] }
         });
         return;
@@ -2910,7 +2911,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
                 { text: '7+', callback_data: `pax_7_${bookingId}` }
             ],
             [
-                { text: '🏠 Menü', callback_data: 'back_to_menu' },
+                { text: '◀️ Zurück', callback_data: 'back_to_menu' },
                 { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
             ]
         ]}

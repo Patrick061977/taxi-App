@@ -6018,8 +6018,8 @@ async function handleCallback(callback) {
                 }
                 if (!_anyInShift) {
                     await sendTelegramMessage(chatId,
-                        `😔 <b>Aktuell ist leider kein Fahrer im Dienst.</b>\n\n` +
-                        `📞 Rufen Sie uns an: <b>038378 / 22022</b>\n` +
+                        `😔 <b>Zur Zeit ist leider kein Fahrer erreichbar.</b>\n\n` +
+                        `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>\n` +
                         `📅 Oder buchen Sie für einen anderen Zeitpunkt:`,
                         { reply_markup: { inline_keyboard: [
                             [{ text: '📅 Für später buchen', callback_data: `change_time_${pending.bookingId}` }],

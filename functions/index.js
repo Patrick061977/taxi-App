@@ -709,11 +709,13 @@ async function requestAdminApprovalForRideChange(customerChatId, rideId, changeT
         `${changeDesc}\n\n` +
         `<b>Änderung bestätigen?</b>`;
 
-    // An alle Admins senden
+    // An alle Admins senden (mit Kategorie-Filter)
     const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
     const adminChats = adminSnap.val() || [];
     for (const adminChatId of adminChats) {
         try {
+            const prefs = await getAdminNotifyPrefs(adminChatId);
+            if (prefs && prefs.change_request === false) continue;
             await sendTelegramMessage(adminChatId, adminMsg, {
                 reply_markup: { inline_keyboard: [
                     [
@@ -2876,8 +2878,8 @@ Nur gültiges JSON, kein Markdown:
 // BESTÄTIGUNG & BUCHUNG
 // ═══════════════════════════════════════════════════════════════
 
-// 🆕 v6.16.2: Datum/Uhrzeit-Picker als Telegram Web App (Mini App)
-// Öffnet eine kleine Webseite mit echtem Numpad-Picker direkt in Telegram
+// 🆕 v6.20.1: Datum/Uhrzeit-Picker als Inline-Buttons (kein Web App nötig!)
+// Schritt 1: Tag wählen → Schritt 2: Uhrzeit wählen oder eintippen
 async function showDateTimePicker(chatId, booking, originalText) {
     const noted = [];
     if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
@@ -2885,13 +2887,36 @@ async function showDateTimePicker(chatId, booking, originalText) {
     let header = '';
     if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
 
+    // Tage berechnen (Heute + 6 weitere Tage)
+    const days = [];
+    const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        d.setDate(d.getDate() + i);
+        const iso = d.toISOString().slice(0, 10);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        let label;
+        if (i === 0) label = '📅 Heute';
+        else if (i === 1) label = '📅 Morgen';
+        else label = `${dayNames[d.getDay()]} ${dd}.${mm}.`;
+        days.push({ text: label, callback_data: `dtday_${iso}` });
+    }
+
+    // 2er-Reihen für Tage
+    const dayRows = [];
+    dayRows.push([days[0], days[1]]); // Heute, Morgen
+    for (let i = 2; i < days.length; i += 3) {
+        dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
+    }
+
     await setPending(chatId, { partial: booking, originalText, _dtPicker: true });
     await sendTelegramMessage(chatId,
-        header + '📅 <b>Wann soll das Taxi kommen?</b>\n\n<i>Tippen Sie auf den Button um Datum und Uhrzeit zu wählen:</i>', {
+        header + '📅 <b>Wann soll das Taxi kommen?</b>\n\n👇 <b>Wählen Sie zuerst den Tag:</b>', {
         reply_markup: { inline_keyboard: [
-            [{ text: '📅 Datum & Uhrzeit wählen', web_app: { url: 'https://taxi-heringsdorf.web.app/datetime-picker.html' } }],
+            ...dayRows,
             [{ text: '🕐 Jetzt / Sofort', callback_data: 'datetime_now' }],
-            [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
         ]}
     });
 }
@@ -3729,7 +3754,7 @@ async function handleMessage(message) {
         // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -3755,7 +3780,7 @@ async function handleMessage(message) {
         ]};
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -3842,7 +3867,7 @@ async function handleMessage(message) {
         ]};
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -4872,6 +4897,31 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.20.1: Freitext-Uhrzeit bei aktivem Datum-Picker (z.B. "14:30" oder "14 Uhr 30")
+    if (pending && pending._selectedDate && pending.partial) {
+        const timeMatch = text.trim().match(/^(\d{1,2})[:\s.]+(\d{2})$|^(\d{1,2})\s*uhr\s*(\d{0,2})$/i);
+        if (timeMatch) {
+            const hh = String(timeMatch[1] || timeMatch[3]).padStart(2, '0');
+            const mi = String(timeMatch[2] || timeMatch[4] || '00').padStart(2, '0');
+            const h = parseInt(hh), m = parseInt(mi);
+            if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+                const datetime = `${pending._selectedDate}T${hh}:${mi}`;
+                const dayLabel = pending._selectedDateLabel || pending._selectedDate;
+                pending.partial.datetime = datetime;
+                if (pending.partial.missing) pending.partial.missing = pending.partial.missing.filter(f => f !== 'datetime');
+                delete pending._dtPicker;
+                delete pending._selectedDate;
+                delete pending._selectedDateLabel;
+                delete pending.lastQuestion;
+                await setPending(chatId, pending);
+                await addTelegramLog('🕐', chatId, `Freitext-Uhrzeit: ${hh}:${mi} am ${dayLabel}`);
+                await sendTelegramMessage(chatId, `✅ <b>${dayLabel} um ${hh}:${mi} Uhr</b>`);
+                await continueBookingFlow(chatId, pending.partial, pending.originalText || '');
+                return;
+            }
+        }
+    }
+
     // Follow-Up: Unvollständige Buchung ergänzen
     if (pending && pending.partial && !isPendingExpired(pending)) {
         // 🆕 v6.11.4: Prüfe ob der Kunde eine FRAGE stellt statt Buchungsdaten zu liefern
@@ -5570,6 +5620,54 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🔔 v6.20.1: Benachrichtigungs-Einstellungen Menü
+    if (data === 'menu_notify_prefs') {
+        if (!await isTelegramAdmin(chatId)) return;
+        const prefs = await getAdminNotifyPrefs(chatId) || {};
+        const keyboard = [];
+        for (const [key, cat] of Object.entries(NOTIFY_CATEGORIES)) {
+            const isOn = prefs[key] !== false; // Standard: alles an
+            keyboard.push([{
+                text: `${isOn ? '✅' : '❌'} ${cat.emoji} ${cat.label}`,
+                callback_data: `notify_toggle_${key}`
+            }]);
+        }
+        keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+        await sendTelegramMessage(chatId,
+            '🔔 <b>Benachrichtigungen</b>\n\n<i>Wählen Sie aus, welche Nachrichten Sie erhalten möchten.\nTippen Sie zum Ein-/Ausschalten:</i>', {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+        return;
+    }
+
+    // 🔔 v6.20.1: Benachrichtigungs-Kategorie umschalten
+    if (data.startsWith('notify_toggle_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const category = data.replace('notify_toggle_', '');
+        if (!NOTIFY_CATEGORIES[category]) return;
+        const prefs = await getAdminNotifyPrefs(chatId) || {};
+        const wasOn = prefs[category] !== false;
+        prefs[category] = !wasOn;
+        await db.ref(`settings/telegram/adminNotifyPrefs/${chatId}`).set(prefs);
+        const cat = NOTIFY_CATEGORIES[category];
+        await addTelegramLog('🔔', chatId, `Benachrichtigung ${wasOn ? 'deaktiviert' : 'aktiviert'}: ${cat.label}`);
+        // Menü aktualisieren
+        const keyboard = [];
+        for (const [key, c] of Object.entries(NOTIFY_CATEGORIES)) {
+            const isOn = prefs[key] !== false;
+            keyboard.push([{
+                text: `${isOn ? '✅' : '❌'} ${c.emoji} ${c.label}`,
+                callback_data: `notify_toggle_${key}`
+            }]);
+        }
+        keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+        await sendTelegramMessage(chatId,
+            `🔔 <b>Benachrichtigungen</b>\n\n${wasOn ? '❌' : '✅'} <b>${cat.label}</b> ${wasOn ? 'deaktiviert' : 'aktiviert'}\n\n<i>Tippen Sie zum Ein-/Ausschalten:</i>`, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+        return;
+    }
+
     // 🆕 v6.11.6: Nummer-Zuordnung bestätigt → additionalPhones aktualisieren
     if (data.startsWith('confirm_addphone_')) {
         const pending = await getPending(chatId);
@@ -5977,7 +6075,9 @@ async function handleCallback(callback) {
                         `📱 <i>Via Telegram-Bot</i>`;
                     // Bei Admin-Buchungen: An ANDERE Admins senden (nicht an den Buchenden selbst)
                     for (const adminChatId of adminChats) {
-                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue; // Sich selbst überspringen
+                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue;
+                        const prefs = await getAdminNotifyPrefs(adminChatId);
+                        if (prefs && prefs.new_ride === false) continue;
                         sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
                     }
                     // Bei Admin-Buchungen: Dem buchenden Admin eine Kurzbestätigung senden (als separater Block)
@@ -6338,7 +6438,7 @@ async function handleCallback(callback) {
         // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -6353,6 +6453,105 @@ async function handleCallback(callback) {
             [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\n💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>', { reply_markup: keyboard });
+        return;
+    }
+
+    // 🆕 v6.20.1: Inline-Datum-Picker — Tag gewählt → Uhrzeit-Buttons zeigen
+    if (data.startsWith('dtday_')) {
+        const selectedDate = data.replace('dtday_', ''); // z.B. "2026-03-15"
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        // Tag-Label erstellen
+        const selDate = new Date(selectedDate + 'T12:00:00');
+        const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+        const dd = String(selDate.getDate()).padStart(2, '0');
+        const mm = String(selDate.getMonth() + 1).padStart(2, '0');
+        const todayISO = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toISOString().slice(0, 10);
+        let dayLabel;
+        if (selectedDate === todayISO) dayLabel = `Heute (${dayNames[selDate.getDay()]}, ${dd}.${mm}.)`;
+        else {
+            const tmrw = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            tmrw.setDate(tmrw.getDate() + 1);
+            if (selectedDate === tmrw.toISOString().slice(0, 10)) dayLabel = `Morgen (${dayNames[selDate.getDay()]}, ${dd}.${mm}.)`;
+            else dayLabel = `${dayNames[selDate.getDay()]}, ${dd}.${mm}.`;
+        }
+
+        // Gewählten Tag im Pending speichern
+        pending._selectedDate = selectedDate;
+        pending._selectedDateLabel = dayLabel;
+        await setPending(chatId, pending);
+
+        // Uhrzeit-Buttons: Häufige Zeiten + Freitext-Hinweis
+        const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        const nowH = berlinNow.getHours();
+        const nowM = berlinNow.getMinutes();
+        const isToday = selectedDate === todayISO;
+
+        // Zeitslots generieren (nur zukünftige wenn heute)
+        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+        const availableSlots = allSlots.filter(s => {
+            if (!isToday) return true;
+            const [h, m] = s.split(':').map(Number);
+            return h > nowH || (h === nowH && m > nowM);
+        });
+
+        // In 4er-Reihen aufteilen
+        const timeRows = [];
+        for (let i = 0; i < availableSlots.length; i += 4) {
+            timeRows.push(availableSlots.slice(i, i + 4).map(t => ({
+                text: `🕐 ${t}`, callback_data: `dttime_${selectedDate}_${t.replace(':', '')}`
+            })));
+        }
+
+        await addTelegramLog('📅', chatId, `Tag gewählt: ${dayLabel}`);
+        await sendTelegramMessage(chatId,
+            `📅 <b>${dayLabel}</b>\n\n🕐 <b>Uhrzeit wählen:</b>\n<i>Tippen Sie eine Uhrzeit oder schreiben Sie z.B. "14:30"</i>`, {
+            reply_markup: { inline_keyboard: [
+                ...timeRows,
+                [{ text: '◀️ Anderen Tag', callback_data: 'dtback_day' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}
+        });
+        return;
+    }
+
+    // 🆕 v6.20.1: Inline-Datum-Picker — Uhrzeit gewählt → Buchung fortsetzen
+    if (data.startsWith('dttime_')) {
+        const parts = data.replace('dttime_', '').split('_'); // z.B. "2026-03-15_1430"
+        const selectedDate = parts[0];
+        const timeStr = parts[1]; // "1430"
+        const hh = timeStr.slice(0, 2);
+        const mi = timeStr.slice(2, 4);
+        const datetime = `${selectedDate}T${hh}:${mi}`;
+
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        pending.partial.datetime = datetime;
+        if (pending.partial.missing) pending.partial.missing = pending.partial.missing.filter(m => m !== 'datetime');
+        delete pending._dtPicker;
+        delete pending._selectedDate;
+        delete pending._selectedDateLabel;
+        delete pending.lastQuestion;
+        await setPending(chatId, pending);
+
+        const dayLabel = pending._selectedDateLabel || selectedDate;
+        await addTelegramLog('🕐', chatId, `Uhrzeit gewählt: ${hh}:${mi} am ${dayLabel}`);
+        await sendTelegramMessage(chatId, `✅ <b>${dayLabel} um ${hh}:${mi} Uhr</b>`);
+
+        // Buchung fortsetzen
+        await continueBookingFlow(chatId, pending.partial, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.20.1: Zurück zur Tag-Auswahl
+    if (data === 'dtback_day') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+        delete pending._selectedDate;
+        delete pending._selectedDateLabel;
+        await setPending(chatId, pending);
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '');
         return;
     }
 
@@ -7362,15 +7561,12 @@ async function handleCallback(callback) {
 
             // Admin benachrichtigen
             try {
-                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                const adminChats = adminSnap.val() || [];
                 const dt = new Date(r.pickupTimestamp || 0);
                 const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                for (const adminChatId of adminChats) {
-                    sendTelegramMessage(adminChatId,
-                        `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`
-                    ).catch(() => {});
-                }
+                await sendToAllAdmins(
+                    `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`,
+                    'cancellation'
+                );
             } catch (e) { /* Admin-Benachrichtigung ist nicht kritisch */ }
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler beim Stornieren.'); }
         return;
@@ -8600,13 +8796,10 @@ exports.telegramWebhook = onRequest(
                     } catch(e) {}
                     // Admins benachrichtigen
                     try {
-                        const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                        const adminChats = adminSnap.val() || [];
-                        for (const adminChatId of adminChats) {
-                            sendTelegramMessage(adminChatId,
-                                `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`
-                            ).catch(() => {});
-                        }
+                        await sendToAllAdmins(
+                            `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`,
+                            'spam_block'
+                        );
                     } catch(e) {}
                     res.status(200).send('OK');
                     return;
@@ -9019,7 +9212,25 @@ function formatBerlinTime(timestamp) {
 }
 
 // Hilfsfunktion: Admin-Chats laden und Nachricht senden
-async function sendToAllAdmins(message) {
+// 🔔 v6.20.1: Benachrichtigungs-Kategorien für Admins
+const NOTIFY_CATEGORIES = {
+    new_ride: { emoji: '🚕', label: 'Neue Buchung', desc: 'Neue Fahrten (Sofort + Vorbestellung)' },
+    status_change: { emoji: '🔄', label: 'Status-Änderung', desc: 'Angenommen / Unterwegs / Abgeschlossen' },
+    cancellation: { emoji: '⚠️', label: 'Stornierung', desc: 'Kunde storniert Fahrt' },
+    ride_deleted: { emoji: '🗑️', label: 'Fahrt gelöscht', desc: 'Fahrt wurde gelöscht' },
+    unassigned: { emoji: '🚨', label: 'Offene Fahrt', desc: 'Fahrt ohne Fahrer kurz vor Abholung' },
+    change_request: { emoji: '🔔', label: 'Änderungsanfrage', desc: 'Kunde möchte Fahrt ändern' },
+    spam_block: { emoji: '🚫', label: 'Spam-Blockierung', desc: 'Nutzer wegen Spam geblockt' }
+};
+
+async function getAdminNotifyPrefs(chatId) {
+    try {
+        const snap = await db.ref(`settings/telegram/adminNotifyPrefs/${chatId}`).once('value');
+        return snap.val() || null; // null = alle aktiv (Standard)
+    } catch (e) { return null; }
+}
+
+async function sendToAllAdmins(message, category) {
     try {
         const snapshot = await db.ref('settings/telegram/adminChats').once('value');
         const adminChats = snapshot.val() || [];
@@ -9028,6 +9239,11 @@ async function sendToAllAdmins(message) {
             return;
         }
         for (const chatId of adminChats) {
+            // 🔔 v6.20.1: Kategorie-Filter prüfen
+            if (category) {
+                const prefs = await getAdminNotifyPrefs(chatId);
+                if (prefs && prefs[category] === false) continue; // Admin hat diese Kategorie deaktiviert
+            }
             await sendTelegramMessage(chatId, message);
         }
     } catch (e) {
@@ -9134,7 +9350,7 @@ exports.onRideCreated = onValueCreated(
             `⏰ <b>Gesendet:</b> ${timestamp}\n` +
             `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
 
-        await sendToAllAdmins(message);
+        await sendToAllAdmins(message, 'new_ride');
 
         // Flag setzen damit Browser nicht nochmal sendet
         try {
@@ -9248,7 +9464,7 @@ exports.onRideUpdated = onValueUpdated(
             }
 
             if (message) {
-                await sendToAllAdmins(message);
+                await sendToAllAdmins(message, 'status_change');
                 await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
             }
         }
@@ -9349,7 +9565,7 @@ exports.onRideDeleted = onValueDeleted(
             `⏰ <b>Gelöscht:</b> ${timestamp}\n` +
             `\n🚨 <b>Diese Fahrt wurde gelöscht!</b>`;
 
-        await sendToAllAdmins(message);
+        await sendToAllAdmins(message, 'ride_deleted');
 
         // Fahrer benachrichtigen falls zugewiesen
         const vehicleId = ride.assignedVehicle || ride.vehicleId;
@@ -9428,7 +9644,7 @@ exports.scheduledOpenRideCheck = onSchedule(
                     `🔴 <b>Bitte SOFORT einen Fahrer zuweisen!</b>\n` +
                     `⏰ <b>Warnung:</b> ${timestamp}`;
 
-                await sendToAllAdmins(message);
+                await sendToAllAdmins(message, 'unassigned');
 
                 // Flag setzen damit nicht nochmal gewarnt wird
                 try {

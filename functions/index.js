@@ -2846,7 +2846,7 @@ Nur gültiges JSON, kein Markdown:
 // ═══════════════════════════════════════════════════════════════
 
 // 🆕 v6.16.1: Datum/Uhrzeit-Picker für Telegram (statt Freitext-Eingabe)
-// Ablauf: 1) Heute/Vorbestellung → 2) [bei Vorbestellung: Tag wählen] → 3) Stunde → 4) Minuten
+// Ablauf: 1) Heute/Vorbestellung → 2) [Tag wählen] → 3) Tageszeit → 4) Stunde → 5) Minuten
 async function showDateTimePicker(chatId, booking, originalText, step, selectedDate, selectedHour) {
     const now = new Date();
     const berlinNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
@@ -2869,8 +2869,17 @@ async function showDateTimePicker(chatId, booking, originalText, step, selectedD
         return `${dn} ${ds}`;
     };
 
+    // Tageszeiten mit Stunden-Bereichen
+    const timeSlots = [
+        { label: '🌅 Früh', sublabel: '05–08 Uhr', start: 5, end: 8, id: 'frueh' },
+        { label: '☀️ Vormittag', sublabel: '08–12 Uhr', start: 8, end: 12, id: 'vormittag' },
+        { label: '🌤️ Mittag', sublabel: '12–15 Uhr', start: 12, end: 15, id: 'mittag' },
+        { label: '🌇 Nachmittag', sublabel: '15–18 Uhr', start: 15, end: 18, id: 'nachmittag' },
+        { label: '🌙 Abend', sublabel: '18–23 Uhr', start: 18, end: 23, id: 'abend' }
+    ];
+
     if (step === 'date') {
-        // SCHRITT 1: Nur 2 Buttons — Heute oder Vorbestellung
+        // SCHRITT 1: Heute oder Vorbestellung
         const keyboard = [
             [{ text: '📅 Heute', callback_data: 'dt_date_0' }],
             [{ text: '📅 Vorbestellung (anderer Tag)', callback_data: 'dt_preorder' }],
@@ -2900,35 +2909,57 @@ async function showDateTimePicker(chatId, booking, originalText, step, selectedD
         return;
     }
 
-    if (step === 'hour') {
-        // SCHRITT 2: Stunde wählen
+    if (step === 'period') {
+        // SCHRITT 2: Tageszeit wählen
         const dayLabel = getDayLabel(selectedDate);
+        const currentHour = selectedDate === 0 ? berlinNow.getHours() : -1;
+        const keyboard = [];
+        for (const slot of timeSlots) {
+            // Bei Heute: nur Tageszeiten die noch verfügbar sind
+            if (currentHour >= 0 && slot.end <= currentHour) continue;
+            keyboard.push([{ text: `${slot.label} (${slot.sublabel})`, callback_data: `dt_period_${selectedDate}_${slot.id}` }]);
+        }
+        keyboard.push([{ text: '◀️ Datum ändern', callback_data: 'dt_back_date' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
 
-        // Verfügbare Stunden: bei Heute ab aktueller Stunde, sonst ab 05
-        const currentHour = selectedDate === 0 ? berlinNow.getHours() : 0;
-        const startHour = Math.max(currentHour, 5);
+        await setPending(chatId, { partial: booking, originalText, _dtPicker: true, _dtSelectedDate: selectedDate });
+        await sendTelegramMessage(chatId,
+            header + `🕐 <b>Welche Tageszeit?</b>\n📅 ${dayLabel}`, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+        return;
+    }
+
+    if (step === 'hour') {
+        // SCHRITT 3: Stunde wählen (nur 3-4 Stunden innerhalb der Tageszeit)
+        const dayLabel = getDayLabel(selectedDate);
+        const currentHour = selectedDate === 0 ? berlinNow.getHours() : -1;
         const keyboard = [];
         let row = [];
-        for (let h = startHour; h <= 23; h++) {
-            row.push({ text: `${String(h).padStart(2, '0')}:00`, callback_data: `dt_hour_${selectedDate}_${h}` });
-            if (row.length === 4) {
+        // selectedHour wird hier als Tageszeit-Startzeit missbraucht (start-end aus timeSlots)
+        const startH = selectedHour; // startHour der Tageszeit
+        const slot = timeSlots.find(s => s.start === startH);
+        const endH = slot ? slot.end : startH + 4;
+        for (let h = startH; h <= endH; h++) {
+            if (currentHour >= 0 && h < currentHour) continue;
+            row.push({ text: `${String(h).padStart(2, '0')} Uhr`, callback_data: `dt_hour_${selectedDate}_${h}` });
+            if (row.length === 3) {
                 keyboard.push(row);
                 row = [];
             }
         }
         if (row.length > 0) keyboard.push(row);
-        keyboard.push([{ text: '◀️ Datum ändern', callback_data: 'dt_back_date' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+        keyboard.push([{ text: '◀️ Tageszeit ändern', callback_data: `dt_back_period_${selectedDate}` }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
 
         await setPending(chatId, { partial: booking, originalText, _dtPicker: true, _dtSelectedDate: selectedDate });
         await sendTelegramMessage(chatId,
-            header + `⏰ <b>Um wie viel Uhr?</b>\n📅 ${dayLabel}`, {
+            header + `⏰ <b>Welche Stunde?</b>\n📅 ${dayLabel}`, {
             reply_markup: { inline_keyboard: keyboard }
         });
         return;
     }
 
     if (step === 'minute') {
-        // SCHRITT 3: Minuten wählen
+        // SCHRITT 4: Minuten wählen (10er-Takt, max 6 Buttons)
         const dayLabel = getDayLabel(selectedDate);
         const hStr = String(selectedHour).padStart(2, '0');
 
@@ -6431,12 +6462,24 @@ async function handleCallback(callback) {
         return;
     }
     if (data.startsWith('dt_date_')) {
-        // Datum gewählt → Stunden anzeigen
+        // Datum gewählt → Tageszeit anzeigen
         const dayOffset = parseInt(data.replace('dt_date_', ''));
         const pending = await getPending(chatId);
         if (!pending || !pending.partial) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
         await addTelegramLog('📅', chatId, `Datum gewählt: +${dayOffset} Tage`);
-        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'hour', dayOffset);
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'period', dayOffset);
+        return;
+    }
+    if (data.startsWith('dt_period_')) {
+        // Tageszeit gewählt → Stunden innerhalb der Tageszeit anzeigen
+        const parts = data.replace('dt_period_', '').split('_');
+        const dayOffset = parseInt(parts[0]);
+        const periodId = parts[1];
+        const periodStarts = { frueh: 5, vormittag: 8, mittag: 12, nachmittag: 15, abend: 18 };
+        const startHour = periodStarts[periodId] || 8;
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'hour', dayOffset, startHour);
         return;
     }
     if (data.startsWith('dt_hour_')) {
@@ -6483,12 +6526,20 @@ async function handleCallback(callback) {
         await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'date');
         return;
     }
+    if (data.startsWith('dt_back_period_')) {
+        // Zurück zur Tageszeit-Auswahl
+        const dayOffset = parseInt(data.replace('dt_back_period_', ''));
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'period', dayOffset);
+        return;
+    }
     if (data.startsWith('dt_back_hour_')) {
-        // Zurück zur Stundenauswahl
+        // Zurück zur Tageszeit-Auswahl (von Minuten → Tageszeit)
         const dayOffset = parseInt(data.replace('dt_back_hour_', ''));
         const pending = await getPending(chatId);
         if (!pending || !pending.partial) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
-        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'hour', dayOffset);
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '', 'period', dayOffset);
         return;
     }
 

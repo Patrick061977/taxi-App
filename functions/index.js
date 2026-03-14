@@ -2466,6 +2466,19 @@ Nur gültiges JSON, kein Markdown:
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
+        // 🆕 v6.20.1: Erkannte Daten als Übersicht anzeigen
+        const _recognized = [];
+        if (booking.datetime) {
+            const _dt = new Date(booking.datetime.includes('T') ? booking.datetime : booking.datetime + 'T00:00');
+            _recognized.push(`📅 ${_dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit' })} um ${_dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
+        }
+        if (booking.pickup) _recognized.push(`📍 Von: ${booking.pickup}`);
+        if (booking.destination) _recognized.push(`🎯 Nach: ${booking.destination}`);
+        if (booking.notes) _recognized.push(`📝 ${booking.notes}`);
+        if (_recognized.length > 0) {
+            await sendTelegramMessage(chatId, `🤖 <b>Erkannt:</b>\n${_recognized.join('\n')}`);
+        }
+
         await continueBookingFlow(chatId, booking, text);
 
     } catch (e) {
@@ -2837,7 +2850,37 @@ Nur gültiges JSON, kein Markdown:
 
         if (isAdminFollowUp && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
 
-        await addTelegramLog('🤖', chatId, 'Follow-Up Antwort', { summary: booking.summary, missing: booking.missing });
+        // 🆕 v6.20.1: Änderungs-Übersicht erstellen (was hat sich gegenüber vorher geändert?)
+        const _changes = [];
+        if (booking.datetime && booking.datetime !== _pDatetime) {
+            const dtNew = new Date(booking.datetime.includes('T') ? booking.datetime : booking.datetime + 'T00:00');
+            const dtLabel = dtNew.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) +
+                ' um ' + dtNew.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+            if (_pDatetime) _changes.push(`📅 Datum: <s>${_pDatetime}</s> → <b>${dtLabel}</b>`);
+            else _changes.push(`📅 Datum: <b>${dtLabel}</b>`);
+        }
+        if (booking.pickup && booking.pickup !== _pPickup) {
+            if (_pPickup) _changes.push(`📍 Abholort: <s>${_pPickup}</s> → <b>${booking.pickup}</b>`);
+            else _changes.push(`📍 Abholort: <b>${booking.pickup}</b>`);
+        }
+        if (booking.destination && booking.destination !== _pDest) {
+            if (_pDest) _changes.push(`🎯 Zielort: <s>${_pDest}</s> → <b>${booking.destination}</b>`);
+            else _changes.push(`🎯 Zielort: <b>${booking.destination}</b>`);
+        }
+        if (booking.passengers && booking.passengers !== _pPax) {
+            _changes.push(`👥 Personen: <s>${_pPax}</s> → <b>${booking.passengers}</b>`);
+        }
+        if (booking.notes && booking.notes !== _pNotes) {
+            if (_pNotes) _changes.push(`📝 Notiz: <s>${_pNotes}</s> → <b>${booking.notes}</b>`);
+            else _changes.push(`📝 Notiz: <b>${booking.notes}</b>`);
+        }
+
+        // Änderungs-Nachricht senden wenn etwas geändert wurde
+        if (_changes.length > 0) {
+            await sendTelegramMessage(chatId, `✏️ <b>Aktualisiert:</b>\n${_changes.join('\n')}`);
+        }
+
+        await addTelegramLog('🤖', chatId, 'Follow-Up Antwort', { summary: booking.summary, missing: booking.missing, changes: _changes.length > 0 ? _changes : undefined });
 
         // Admin-Flags übertragen — partial hat immer Vorrang vor KI-Antwort!
         if (isAdminFollowUp) {

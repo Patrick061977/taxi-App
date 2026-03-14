@@ -9962,8 +9962,8 @@ exports.createStripeCheckout = onRequest(
             }
 
             // Checkout Session erstellen
+            // payment_method_types NICHT setzen → Stripe nutzt automatisch alle im Dashboard aktivierten Methoden
             const sessionParams = {
-                automatic_payment_methods: { enabled: true },
                 mode: 'payment',
                 line_items: [{
                     price_data: {

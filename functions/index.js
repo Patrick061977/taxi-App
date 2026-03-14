@@ -709,11 +709,13 @@ async function requestAdminApprovalForRideChange(customerChatId, rideId, changeT
         `${changeDesc}\n\n` +
         `<b>Änderung bestätigen?</b>`;
 
-    // An alle Admins senden
+    // An alle Admins senden (mit Kategorie-Filter)
     const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
     const adminChats = adminSnap.val() || [];
     for (const adminChatId of adminChats) {
         try {
+            const prefs = await getAdminNotifyPrefs(adminChatId);
+            if (prefs && prefs.change_request === false) continue;
             await sendTelegramMessage(adminChatId, adminMsg, {
                 reply_markup: { inline_keyboard: [
                     [
@@ -3752,7 +3754,7 @@ async function handleMessage(message) {
         // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -3778,7 +3780,7 @@ async function handleMessage(message) {
         ]};
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -3865,7 +3867,7 @@ async function handleMessage(message) {
         ]};
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -5618,6 +5620,54 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🔔 v6.20.1: Benachrichtigungs-Einstellungen Menü
+    if (data === 'menu_notify_prefs') {
+        if (!await isTelegramAdmin(chatId)) return;
+        const prefs = await getAdminNotifyPrefs(chatId) || {};
+        const keyboard = [];
+        for (const [key, cat] of Object.entries(NOTIFY_CATEGORIES)) {
+            const isOn = prefs[key] !== false; // Standard: alles an
+            keyboard.push([{
+                text: `${isOn ? '✅' : '❌'} ${cat.emoji} ${cat.label}`,
+                callback_data: `notify_toggle_${key}`
+            }]);
+        }
+        keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+        await sendTelegramMessage(chatId,
+            '🔔 <b>Benachrichtigungen</b>\n\n<i>Wählen Sie aus, welche Nachrichten Sie erhalten möchten.\nTippen Sie zum Ein-/Ausschalten:</i>', {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+        return;
+    }
+
+    // 🔔 v6.20.1: Benachrichtigungs-Kategorie umschalten
+    if (data.startsWith('notify_toggle_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const category = data.replace('notify_toggle_', '');
+        if (!NOTIFY_CATEGORIES[category]) return;
+        const prefs = await getAdminNotifyPrefs(chatId) || {};
+        const wasOn = prefs[category] !== false;
+        prefs[category] = !wasOn;
+        await db.ref(`settings/telegram/adminNotifyPrefs/${chatId}`).set(prefs);
+        const cat = NOTIFY_CATEGORIES[category];
+        await addTelegramLog('🔔', chatId, `Benachrichtigung ${wasOn ? 'deaktiviert' : 'aktiviert'}: ${cat.label}`);
+        // Menü aktualisieren
+        const keyboard = [];
+        for (const [key, c] of Object.entries(NOTIFY_CATEGORIES)) {
+            const isOn = prefs[key] !== false;
+            keyboard.push([{
+                text: `${isOn ? '✅' : '❌'} ${c.emoji} ${c.label}`,
+                callback_data: `notify_toggle_${key}`
+            }]);
+        }
+        keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+        await sendTelegramMessage(chatId,
+            `🔔 <b>Benachrichtigungen</b>\n\n${wasOn ? '❌' : '✅'} <b>${cat.label}</b> ${wasOn ? 'deaktiviert' : 'aktiviert'}\n\n<i>Tippen Sie zum Ein-/Ausschalten:</i>`, {
+            reply_markup: { inline_keyboard: keyboard }
+        });
+        return;
+    }
+
     // 🆕 v6.11.6: Nummer-Zuordnung bestätigt → additionalPhones aktualisieren
     if (data.startsWith('confirm_addphone_')) {
         const pending = await getPending(chatId);
@@ -6025,7 +6075,9 @@ async function handleCallback(callback) {
                         `📱 <i>Via Telegram-Bot</i>`;
                     // Bei Admin-Buchungen: An ANDERE Admins senden (nicht an den Buchenden selbst)
                     for (const adminChatId of adminChats) {
-                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue; // Sich selbst überspringen
+                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue;
+                        const prefs = await getAdminNotifyPrefs(adminChatId);
+                        if (prefs && prefs.new_ride === false) continue;
                         sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
                     }
                     // Bei Admin-Buchungen: Dem buchenden Admin eine Kurzbestätigung senden (als separater Block)
@@ -6386,7 +6438,7 @@ async function handleCallback(callback) {
         // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
         if (await isTelegramAdmin(chatId)) {
             keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -7509,15 +7561,12 @@ async function handleCallback(callback) {
 
             // Admin benachrichtigen
             try {
-                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                const adminChats = adminSnap.val() || [];
                 const dt = new Date(r.pickupTimestamp || 0);
                 const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                for (const adminChatId of adminChats) {
-                    sendTelegramMessage(adminChatId,
-                        `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`
-                    ).catch(() => {});
-                }
+                await sendToAllAdmins(
+                    `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`,
+                    'cancellation'
+                );
             } catch (e) { /* Admin-Benachrichtigung ist nicht kritisch */ }
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler beim Stornieren.'); }
         return;
@@ -8747,13 +8796,10 @@ exports.telegramWebhook = onRequest(
                     } catch(e) {}
                     // Admins benachrichtigen
                     try {
-                        const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                        const adminChats = adminSnap.val() || [];
-                        for (const adminChatId of adminChats) {
-                            sendTelegramMessage(adminChatId,
-                                `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`
-                            ).catch(() => {});
-                        }
+                        await sendToAllAdmins(
+                            `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`,
+                            'spam_block'
+                        );
                     } catch(e) {}
                     res.status(200).send('OK');
                     return;
@@ -9166,7 +9212,25 @@ function formatBerlinTime(timestamp) {
 }
 
 // Hilfsfunktion: Admin-Chats laden und Nachricht senden
-async function sendToAllAdmins(message) {
+// 🔔 v6.20.1: Benachrichtigungs-Kategorien für Admins
+const NOTIFY_CATEGORIES = {
+    new_ride: { emoji: '🚕', label: 'Neue Buchung', desc: 'Neue Fahrten (Sofort + Vorbestellung)' },
+    status_change: { emoji: '🔄', label: 'Status-Änderung', desc: 'Angenommen / Unterwegs / Abgeschlossen' },
+    cancellation: { emoji: '⚠️', label: 'Stornierung', desc: 'Kunde storniert Fahrt' },
+    ride_deleted: { emoji: '🗑️', label: 'Fahrt gelöscht', desc: 'Fahrt wurde gelöscht' },
+    unassigned: { emoji: '🚨', label: 'Offene Fahrt', desc: 'Fahrt ohne Fahrer kurz vor Abholung' },
+    change_request: { emoji: '🔔', label: 'Änderungsanfrage', desc: 'Kunde möchte Fahrt ändern' },
+    spam_block: { emoji: '🚫', label: 'Spam-Blockierung', desc: 'Nutzer wegen Spam geblockt' }
+};
+
+async function getAdminNotifyPrefs(chatId) {
+    try {
+        const snap = await db.ref(`settings/telegram/adminNotifyPrefs/${chatId}`).once('value');
+        return snap.val() || null; // null = alle aktiv (Standard)
+    } catch (e) { return null; }
+}
+
+async function sendToAllAdmins(message, category) {
     try {
         const snapshot = await db.ref('settings/telegram/adminChats').once('value');
         const adminChats = snapshot.val() || [];
@@ -9175,6 +9239,11 @@ async function sendToAllAdmins(message) {
             return;
         }
         for (const chatId of adminChats) {
+            // 🔔 v6.20.1: Kategorie-Filter prüfen
+            if (category) {
+                const prefs = await getAdminNotifyPrefs(chatId);
+                if (prefs && prefs[category] === false) continue; // Admin hat diese Kategorie deaktiviert
+            }
             await sendTelegramMessage(chatId, message);
         }
     } catch (e) {
@@ -9281,7 +9350,7 @@ exports.onRideCreated = onValueCreated(
             `⏰ <b>Gesendet:</b> ${timestamp}\n` +
             `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
 
-        await sendToAllAdmins(message);
+        await sendToAllAdmins(message, 'new_ride');
 
         // Flag setzen damit Browser nicht nochmal sendet
         try {
@@ -9395,7 +9464,7 @@ exports.onRideUpdated = onValueUpdated(
             }
 
             if (message) {
-                await sendToAllAdmins(message);
+                await sendToAllAdmins(message, 'status_change');
                 await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
             }
         }
@@ -9496,7 +9565,7 @@ exports.onRideDeleted = onValueDeleted(
             `⏰ <b>Gelöscht:</b> ${timestamp}\n` +
             `\n🚨 <b>Diese Fahrt wurde gelöscht!</b>`;
 
-        await sendToAllAdmins(message);
+        await sendToAllAdmins(message, 'ride_deleted');
 
         // Fahrer benachrichtigen falls zugewiesen
         const vehicleId = ride.assignedVehicle || ride.vehicleId;
@@ -9575,7 +9644,7 @@ exports.scheduledOpenRideCheck = onSchedule(
                     `🔴 <b>Bitte SOFORT einen Fahrer zuweisen!</b>\n` +
                     `⏰ <b>Warnung:</b> ${timestamp}`;
 
-                await sendToAllAdmins(message);
+                await sendToAllAdmins(message, 'unassigned');
 
                 // Flag setzen damit nicht nochmal gewarnt wird
                 try {

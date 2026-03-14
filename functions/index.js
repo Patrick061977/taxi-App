@@ -2921,8 +2921,8 @@ Nur gültiges JSON, kein Markdown:
 // BESTÄTIGUNG & BUCHUNG
 // ═══════════════════════════════════════════════════════════════
 
-// 🆕 v6.20.1: Datum/Uhrzeit-Picker als Inline-Buttons (kein Web App nötig!)
-// Schritt 1: Tag wählen → Schritt 2: Uhrzeit wählen oder eintippen
+// 🔧 v6.20.2: Datum-Picker — Schritt 1: "Heute" vs "Vorbestellen"
+// "Jetzt/Sofort" erscheint erst UNTER "Heute" bei den Uhrzeiten
 async function showDateTimePicker(chatId, booking, originalText) {
     const noted = [];
     if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
@@ -2930,35 +2930,12 @@ async function showDateTimePicker(chatId, booking, originalText) {
     let header = '';
     if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
 
-    // Tage berechnen (Heute + 6 weitere Tage)
-    const days = [];
-    const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-        d.setDate(d.getDate() + i);
-        const iso = d.toISOString().slice(0, 10);
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        let label;
-        if (i === 0) label = '📅 Heute';
-        else if (i === 1) label = '📅 Morgen';
-        else label = `${dayNames[d.getDay()]} ${dd}.${mm}.`;
-        days.push({ text: label, callback_data: `dtday_${iso}` });
-    }
-
-    // 2er-Reihen für Tage
-    const dayRows = [];
-    dayRows.push([days[0], days[1]]); // Heute, Morgen
-    for (let i = 2; i < days.length; i += 3) {
-        dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
-    }
-
     await setPending(chatId, { partial: booking, originalText, _dtPicker: true });
     await sendTelegramMessage(chatId,
-        header + '📅 <b>Wann soll das Taxi kommen?</b>\n\n👇 <b>Wählen Sie zuerst den Tag:</b>', {
+        header + '📅 <b>Wann soll das Taxi kommen?</b>', {
         reply_markup: { inline_keyboard: [
-            ...dayRows,
-            [{ text: '🕐 Jetzt / Sofort', callback_data: 'datetime_now' }],
+            [{ text: '🚕 Heute', callback_data: 'dtchoice_heute' }],
+            [{ text: '📅 Vorbestellen (anderer Tag)', callback_data: 'dtchoice_vorbestellen' }],
             [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
         ]}
     });
@@ -6496,6 +6473,108 @@ async function handleCallback(callback) {
             [{ text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         await sendTelegramMessage(chatId, '🔄 Buchung abgebrochen.\n\n💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>', { reply_markup: keyboard });
+        return;
+    }
+
+    // 🔧 v6.20.2: "Heute" gewählt → Uhrzeiten + "Jetzt/Sofort" anzeigen
+    if (data === 'dtchoice_heute') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        const todayISO = berlinNow.toISOString().slice(0, 10);
+        const nowH = berlinNow.getHours();
+        const nowM = berlinNow.getMinutes();
+        const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+        const dd = String(berlinNow.getDate()).padStart(2, '0');
+        const mm = String(berlinNow.getMonth() + 1).padStart(2, '0');
+        const dayLabel = `Heute (${dayNames[berlinNow.getDay()]}, ${dd}.${mm}.)`;
+
+        pending._selectedDate = todayISO;
+        pending._selectedDateLabel = dayLabel;
+        await setPending(chatId, pending);
+
+        // Zeitslots: nur zukünftige Zeiten
+        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+        const availableSlots = allSlots.filter(s => {
+            const [h, m] = s.split(':').map(Number);
+            return h > nowH || (h === nowH && m > nowM);
+        });
+        const timeRows = [];
+        for (let i = 0; i < availableSlots.length; i += 4) {
+            timeRows.push(availableSlots.slice(i, i + 4).map(t => ({
+                text: `🕐 ${t}`, callback_data: `dttime_${todayISO}_${t.replace(':', '')}`
+            })));
+        }
+
+        const noted = [];
+        if (pending.partial.pickup) noted.push(`📍 Von: ${pending.partial.pickup}`);
+        if (pending.partial.destination) noted.push(`🎯 Nach: ${pending.partial.destination}`);
+        let header = '';
+        if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+
+        await addTelegramLog('📅', chatId, `Heute gewählt → Uhrzeiten anzeigen`);
+        await sendTelegramMessage(chatId,
+            header + `📅 <b>${dayLabel}</b>\n\n🕐 <b>Wann soll das Taxi kommen?</b>\n<i>Wählen Sie eine Uhrzeit oder schreiben Sie z.B. "14:30"</i>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🚖 Jetzt / Sofort', callback_data: 'datetime_now' }],
+                ...timeRows,
+                [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}
+        });
+        return;
+    }
+
+    // 🔧 v6.20.2: "Vorbestellen" gewählt → Tage ab morgen anzeigen
+    if (data === 'dtchoice_vorbestellen') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        const dayNamesShort = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        const days = [];
+        for (let i = 1; i <= 7; i++) { // Ab morgen (i=1)
+            const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            d.setDate(d.getDate() + i);
+            const iso = d.toISOString().slice(0, 10);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mmm = String(d.getMonth() + 1).padStart(2, '0');
+            let label;
+            if (i === 1) label = '📅 Morgen';
+            else label = `${dayNamesShort[d.getDay()]} ${dd}.${mmm}.`;
+            days.push({ text: label, callback_data: `dtday_${iso}` });
+        }
+
+        const dayRows = [];
+        dayRows.push([days[0]]); // Morgen allein
+        for (let i = 1; i < days.length; i += 3) {
+            dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
+        }
+
+        const noted = [];
+        if (pending.partial.pickup) noted.push(`📍 Von: ${pending.partial.pickup}`);
+        if (pending.partial.destination) noted.push(`🎯 Nach: ${pending.partial.destination}`);
+        let header = '';
+        if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+
+        await addTelegramLog('📅', chatId, `Vorbestellen gewählt → Tage anzeigen`);
+        await sendTelegramMessage(chatId,
+            header + '📅 <b>Für welchen Tag vorbestellen?</b>', {
+            reply_markup: { inline_keyboard: [
+                ...dayRows,
+                [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}
+        });
+        return;
+    }
+
+    // 🔧 v6.20.2: Zurück zur Heute/Vorbestellen-Auswahl
+    if (data === 'dtback_choice') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+        delete pending._selectedDate;
+        delete pending._selectedDateLabel;
+        await setPending(chatId, pending);
+        await showDateTimePicker(chatId, pending.partial, pending.originalText || '');
         return;
     }
 

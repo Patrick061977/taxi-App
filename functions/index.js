@@ -2586,9 +2586,15 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const fallbacks = { datetime: 'Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.', pickup: 'Von welcher Adresse holen wir ab?', destination: 'Wohin geht die Fahrt?', phone: 'Welche Telefonnummer hat der Kunde?' };
                 msg += `💬 ${fallbacks[firstMissing] || 'Können Sie mir noch mehr Details geben?'}`;
             }
+            // 🆕 v6.16.1: DATETIME → Datum/Uhrzeit-Picker anzeigen
+            const _firstMissing = (booking.missing && booking.missing.length > 0) ? booking.missing[0] : null;
+            if (_firstMissing === 'datetime') {
+                await showDateTimePicker(chatId, booking, originalText);
+                return;
+            }
+
             // 🆕 v6.14.0: Inline-Buttons für Abholort/Zielort mit Zuhause-Frage
             const _inlineButtons = [];
-            const _firstMissing = (booking.missing && booking.missing.length > 0) ? booking.missing[0] : null;
 
             // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
             if (_firstMissing === 'pickup' && !booking._adminBooked) {
@@ -2839,6 +2845,26 @@ Nur gültiges JSON, kein Markdown:
 // BESTÄTIGUNG & BUCHUNG
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.16.2: Datum/Uhrzeit-Picker als Telegram Web App (Mini App)
+// Öffnet eine kleine Webseite mit echtem Numpad-Picker direkt in Telegram
+async function showDateTimePicker(chatId, booking, originalText) {
+    const noted = [];
+    if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
+    if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
+    let header = '';
+    if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+
+    await setPending(chatId, { partial: booking, originalText, _dtPicker: true });
+    await sendTelegramMessage(chatId,
+        header + '📅 <b>Wann soll das Taxi kommen?</b>\n\n<i>Tippen Sie auf den Button um Datum und Uhrzeit zu wählen:</i>', {
+        reply_markup: { inline_keyboard: [
+            [{ text: '📅 Datum & Uhrzeit wählen', web_app: { url: 'https://taxi-heringsdorf.web.app/datetime-picker.html' } }],
+            [{ text: '🕐 Jetzt / Sofort', callback_data: 'datetime_now' }],
+            [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+        ]}
+    });
+}
+
 async function askPassengersOrConfirm(chatId, booking, routePrice, originalText) {
     // 🔧 v6.11.0: Adressen sauber validieren (POI-Namen durch vollständige Adressen ersetzen)
     if (booking.pickup && booking.pickupLat && booking.pickupLon) {
@@ -2849,21 +2875,12 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
     }
 
     // Sicherheitscheck: datetime muss gesetzt sein bevor Buchung bestätigt werden kann
+    // 🔧 v6.16.1: Datum/Uhrzeit-Picker statt "Jetzt/Sofort"-Button
     if (!booking.datetime) {
-        await addTelegramLog('🛡️', chatId, 'Datum fehlt → zurück zur Abfrage');
+        await addTelegramLog('🛡️', chatId, 'Datum fehlt → Datum/Uhrzeit-Picker anzeigen');
         if (!booking.missing) booking.missing = [];
         if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
-        const noted = [];
-        if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
-        if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
-        let msg = '';
-        if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-        msg += '💬 Für wann soll ich das Taxi bestellen? Bitte mit Datum und Uhrzeit.';
-        await setPending(chatId, { partial: booking, originalText, lastQuestion: 'Für wann soll ich das Taxi bestellen?' });
-        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
-            [{ text: '🕐 Jetzt / Sofort', callback_data: 'datetime_now' }],
-            [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-        ]}});
+        await showDateTimePicker(chatId, booking, originalText);
         return;
     }
 
@@ -3595,6 +3612,31 @@ async function handleTelegramModifyQuery(chatId, knownCustomer) {
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+    }
+}
+
+// 🆕 v6.16.2: Web App Daten verarbeiten (Datetime-Picker)
+async function handleWebAppData(message) {
+    const chatId = message.chat.id;
+    try {
+        const data = JSON.parse(message.web_app_data.data);
+        if (data.type === 'datetime' && data.datetime) {
+            const pending = await getPending(chatId);
+            if (!pending || !pending.partial) {
+                await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden. Bitte neu starten.');
+                return;
+            }
+            const booking = pending.partial;
+            booking.datetime = data.datetime;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'datetime');
+            await addTelegramLog('📅', chatId, `Web-App Datum/Uhrzeit: ${data.label || data.datetime}`);
+            await sendTelegramMessage(chatId, `✅ <b>${data.label || data.datetime}</b>`);
+            // Weiter im Buchungsflow
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+        }
+    } catch (e) {
+        console.error('handleWebAppData Fehler:', e);
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Verarbeitung. Bitte erneut versuchen.');
     }
 }
 
@@ -8574,6 +8616,9 @@ exports.telegramWebhook = onRequest(
                 } else if (update.message.document && isAudioDocument(update.message.document)) {
                     // 🆕 v6.14.0: Dokumente die Audio sind (WAV, M4A, OGG etc.)
                     await handleAudioFile(update.message);
+                } else if (update.message.web_app_data) {
+                    // 🆕 v6.16.2: Daten aus Telegram Web App (Datetime-Picker etc.)
+                    await handleWebAppData(update.message);
                 } else if (update.message.text) {
                     await handleMessage(update.message);
                 }

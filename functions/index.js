@@ -8,6 +8,7 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onValueCreated, onValueUpdated, onValueDeleted } = require('firebase-functions/v2/database');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
@@ -8890,3 +8891,444 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
 
     return null; // Kein freies Fahrzeug gefunden
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.20.0: SERVER-SEITIGE TELEGRAM-BENACHRICHTIGUNGEN
+// Firebase Database Triggers — funktionieren OHNE offenen Browser!
+// ═══════════════════════════════════════════════════════════════
+
+// Hilfsfunktion: Berlin-Zeit formatieren
+function formatBerlinTime(timestamp) {
+    const d = new Date(timestamp || Date.now());
+    return d.toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin',
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+}
+
+// Hilfsfunktion: Admin-Chats laden und Nachricht senden
+async function sendToAllAdmins(message) {
+    try {
+        const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+        const adminChats = snapshot.val() || [];
+        if (adminChats.length === 0) {
+            console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+            return;
+        }
+        for (const chatId of adminChats) {
+            await sendTelegramMessage(chatId, message);
+        }
+    } catch (e) {
+        console.error('❌ sendToAllAdmins Fehler:', e.message);
+    }
+}
+
+// Hilfsfunktion: Telegram Chat-ID eines Fahrers ermitteln
+async function getDriverChatId(vehicleId) {
+    if (!vehicleId) return null;
+    try {
+        const driverSnap = await db.ref('vehicles/' + vehicleId).once('value');
+        const driverData = driverSnap.val();
+        if (!driverData) return null;
+
+        // Zuerst: Chat-ID vom User-Account
+        if (driverData.userId) {
+            const userSnap = await db.ref('users/' + driverData.userId + '/telegramChatId').once('value');
+            if (userSnap.val()) return userSnap.val();
+        }
+        // Fallback: Chat-ID direkt am Fahrzeug
+        return driverData.telegramChatId || null;
+    } catch (e) {
+        console.error('❌ getDriverChatId Fehler:', e.message);
+        return null;
+    }
+}
+
+// Hilfsfunktion: Kunden-Chat-ID ermitteln (Telegram)
+async function getCustomerChatId(ride) {
+    // 1. Direkt aus der Ride (Telegram-Buchungen)
+    if (ride.telegramChatId) return ride.telegramChatId;
+
+    // 2. Über Telefonnummer in /customers suchen
+    const phone = ride.customerPhone || ride.phone;
+    if (!phone) return null;
+    try {
+        const customersSnap = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
+        const customers = customersSnap.val();
+        if (customers) {
+            for (const id in customers) {
+                if (customers[id].telegramChatId) return customers[id].telegramChatId;
+            }
+        }
+    } catch (e) { /* ignore */ }
+    return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TRIGGER 1: Neue Fahrt erstellt → Admin-Benachrichtigung
+// ═══════════════════════════════════════════════════════════════
+exports.onRideCreated = onValueCreated(
+    {
+        ref: '/rides/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const rideId = event.params.rideId;
+        const ride = event.data.val();
+        if (!ride) return;
+
+        console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'}`);
+
+        // Prüfe ob Benachrichtigung schon gesendet wurde (z.B. vom Webhook-Handler selbst)
+        if (ride.cloudNotificationSent) {
+            console.log('⚠️ Benachrichtigung bereits gesendet (cloudNotificationSent flag)');
+            return;
+        }
+
+        const timestamp = formatBerlinTime();
+
+        // Zeitformatierung
+        const now = Date.now();
+        const pickupTs = ride.pickupTimestamp || now;
+        const isToday = new Date(pickupTs).toDateString() === new Date(now).toDateString();
+        const isSofort = ride.status === 'new' || (!ride.pickupTimestamp || (pickupTs - now) < 15 * 60 * 1000);
+
+        let pickupTimeFormatted, statusEmoji, statusText;
+        if (isSofort) {
+            pickupTimeFormatted = 'SOFORT';
+            statusEmoji = '🚕';
+            statusText = 'SOFORT-FAHRT!';
+        } else if (isToday) {
+            pickupTimeFormatted = 'Heute ' + new Date(pickupTs).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+            statusEmoji = '📅';
+            statusText = 'VORBESTELLUNG';
+        } else {
+            const dateStr = new Date(pickupTs).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: '2-digit' });
+            const timeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+            pickupTimeFormatted = `${dateStr} ${timeStr}`;
+            statusEmoji = '📅';
+            statusText = 'VORBESTELLUNG';
+        }
+
+        const message = `${statusEmoji} <b>${statusText}</b>\n` +
+            `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+            `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+            `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
+            `👤 <b>Name:</b> ${ride.customerName || '?'}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+            `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
+            `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
+            `⏰ <b>Gesendet:</b> ${timestamp}\n` +
+            `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
+
+        await sendToAllAdmins(message);
+
+        // Flag setzen damit Browser nicht nochmal sendet
+        try {
+            await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
+        } catch (e) { /* non-critical */ }
+
+        await addTelegramLog('📱', 'cloud', `Neue Fahrt: ${ride.customerName || '?'} (${statusText})`, { rideId });
+        console.log(`✅ Admin-Benachrichtigung gesendet für: ${rideId}`);
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// TRIGGER 2: Fahrt aktualisiert → Status-Updates, Fahrer-Benachrichtigung
+// ═══════════════════════════════════════════════════════════════
+exports.onRideUpdated = onValueUpdated(
+    {
+        ref: '/rides/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const rideId = event.params.rideId;
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!before || !after) return;
+
+        const oldStatus = before.status;
+        const newStatus = after.status;
+        const oldVehicle = before.assignedVehicle || before.vehicleId;
+        const newVehicle = after.assignedVehicle || after.vehicleId;
+
+        // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
+        if (oldStatus !== newStatus) {
+            console.log(`📱 onRideUpdated: ${rideId} Status ${oldStatus} → ${newStatus}`);
+
+            let message = '';
+            if (newStatus === 'accepted') {
+                message = `✅ <b>FAHRER ZUGEWIESEN!</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                    `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}${after.vehiclePlate ? ` (${after.vehiclePlate})` : ''}\n` +
+                    `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                    `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                    `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
+                    `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
+
+                // Auch Kunden per Telegram benachrichtigen (Bestätigung)
+                const customerChatId = await getCustomerChatId(after);
+                if (customerChatId) {
+                    const driverInfo = after.driverName ? `\n👤 <b>Fahrer:</b> ${after.driverName}` : '';
+                    const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
+                    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                    const customerMsg = `🚕 <b>IHR TAXI IST UNTERWEGS!</b> 🚕\n\n` +
+                        `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                        `🎯 <b>Nach:</b> ${after.destination || '?'}\n` +
+                        `🕐 <b>Abholung:</b> ${after.pickupTime || 'Sofort'}\n` +
+                        (after.price ? `💰 <b>Preis:</b> ca. ${after.price}€` : '') +
+                        driverInfo + vehicleInfo +
+                        `\n\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
+                        `📞 Bei Fragen: 038378/22022`;
+                    await sendTelegramMessage(customerChatId, customerMsg);
+                    console.log('📱 Kunden-Telegram gesendet:', customerChatId);
+                }
+
+            } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                    `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                    `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                    `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
+                    `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n⚠️ Status: Storniert`;
+
+                // Fahrer benachrichtigen falls zugewiesen
+                const vehicleId = after.assignedVehicle || after.vehicleId;
+                if (vehicleId) {
+                    const driverChatId = await getDriverChatId(vehicleId);
+                    if (driverChatId) {
+                        const cancelMsg = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
+                            `🆔 <b>ID:</b> <code>${rideId}</code>\n` +
+                            `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                            `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                            `📍 <b>Nach:</b> ${after.destination || '?'}\n\n` +
+                            `⚠️ Diese Fahrt wurde storniert.`;
+                        await sendTelegramMessage(driverChatId, cancelMsg);
+                        console.log('📱 Stornierung an Fahrer gesendet:', vehicleId);
+                    }
+                }
+
+            } else if (newStatus === 'picked_up') {
+                message = `🚗 <b>KUNDE ABGEHOLT!</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                    `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}\n` +
+                    `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                    `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                    `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
+                    `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n🎯 Fahrt zum Ziel läuft...`;
+
+            } else if (newStatus === 'completed') {
+                message = `✅ <b>FAHRT ABGESCHLOSSEN!</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                    `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}\n` +
+                    `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                    `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                    `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
+                    `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n✅ Status: Abgeschlossen`;
+            }
+
+            if (message) {
+                await sendToAllAdmins(message);
+                await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
+            }
+        }
+
+        // ─── FAHRER-ZUWEISUNG (neues Fahrzeug) → Fahrer benachrichtigen ───
+        if (newVehicle && newVehicle !== oldVehicle && newStatus !== 'storniert' && newStatus !== 'cancelled') {
+            console.log(`📱 Fahrer-Zuweisung: ${rideId} → ${newVehicle}`);
+
+            // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)
+            if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan') {
+                const driverChatId = await getDriverChatId(newVehicle);
+                if (driverChatId) {
+                    let customerInfo = `👤 <b>Kunde:</b> ${after.customerName || '?'}`;
+                    if (after.guestName) customerInfo += `\n🧳 <b>Fahrgast:</b> ${after.guestName}`;
+                    if (after.guestPhone) customerInfo += `\n📱 <b>Fahrgast-Tel:</b> ${after.guestPhone}`;
+
+                    const pickupLabel = after.pickupTime || 'Sofort';
+                    const isVorbestellung = after.status === 'vorbestellt' || (after.pickupTimestamp && (after.pickupTimestamp - Date.now()) > 60 * 60 * 1000);
+
+                    const driverMsg = `🚨 <b>${isVorbestellung ? '📅 NEUE VORBESTELLUNG!' : 'NEUER AUFTRAG FÜR DICH!'}</b> 🚨\n` +
+                        `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                        `📍 <b>Abholung:</b> ${after.pickup || '?'}\n` +
+                        `🎯 <b>Ziel:</b> ${after.destination || '?'}\n` +
+                        customerInfo + `\n` +
+                        `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                        `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
+                        `💰 <b>Preis:</b> ${after.price || 0}€\n\n` +
+                        (isVorbestellung
+                            ? `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`
+                            : `⏱️ <b>Du hast 60 SEKUNDEN Zeit!</b>\n👉 <b>JETZT App öffnen und ANNEHMEN!</b>\n<a href="https://patrick061977.github.io/taxi-App/">🚕 App öffnen</a>`);
+
+                    await sendTelegramMessage(driverChatId, driverMsg);
+                    console.log('📱 Fahrer-Benachrichtigung gesendet:', newVehicle);
+                    await addTelegramLog('📱', 'cloud', `Fahrer benachrichtigt: ${after.vehicle || newVehicle}`, { rideId });
+                }
+            }
+
+            // Kunden-Buchungsbestätigung bei neuer Zuweisung (nicht bei Stornierung)
+            if (!after.customerTelegramSent) {
+                const customerChatId = await getCustomerChatId(after);
+                if (customerChatId) {
+                    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                    const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
+                    const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
+                        `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                        `🎯 <b>Nach:</b> ${after.destination || '?'}\n` +
+                        `🕐 <b>Abholung:</b> ${after.pickupTime || 'Sofort'}\n` +
+                        (after.price ? `💰 <b>Preis:</b> ca. ${after.price}€` : '') +
+                        vehicleInfo +
+                        `\n\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
+                        `✅ Sie erhalten Updates sobald der Fahrer losfährt!\n\n` +
+                        `📞 Bei Fragen: 038378/22022`;
+                    await sendTelegramMessage(customerChatId, customerMsg);
+
+                    // Flag setzen
+                    try {
+                        await db.ref('rides/' + rideId + '/customerTelegramSent').set(true);
+                    } catch (e) { /* non-critical */ }
+                }
+            }
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// TRIGGER 3: Fahrt gelöscht → Admin-Benachrichtigung
+// ═══════════════════════════════════════════════════════════════
+exports.onRideDeleted = onValueDeleted(
+    {
+        ref: '/rides/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const rideId = event.params.rideId;
+        const ride = event.data.val();
+        if (!ride) return;
+
+        console.log(`📱 onRideDeleted: ${rideId} — ${ride.customerName || 'Unbekannt'}`);
+
+        const timestamp = formatBerlinTime();
+
+        let statusText = 'Nicht zugewiesen';
+        if (ride.status === 'accepted') statusText = '✅ Angenommen';
+        if (ride.status === 'picked_up') statusText = '🚗 Unterwegs';
+        if (ride.status === 'vorbestellt') statusText = '📅 Vorbestellt';
+
+        const message = `🗑️ <b>FAHRT GELÖSCHT</b>\n` +
+            `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+            `⚠️ <b>Status war:</b> ${statusText}\n` +
+            (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
+            `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+            `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+            `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
+            (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
+            `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
+            `⏰ <b>Gelöscht:</b> ${timestamp}\n` +
+            `\n🚨 <b>Diese Fahrt wurde gelöscht!</b>`;
+
+        await sendToAllAdmins(message);
+
+        // Fahrer benachrichtigen falls zugewiesen
+        const vehicleId = ride.assignedVehicle || ride.vehicleId;
+        if (vehicleId) {
+            const driverChatId = await getDriverChatId(vehicleId);
+            if (driverChatId) {
+                await sendTelegramMessage(driverChatId,
+                    `🗑️ <b>FAHRT GELÖSCHT!</b>\n\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n` +
+                    `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+                    `📍 <b>Von:</b> ${ride.pickup || '?'}\n\n` +
+                    `⚠️ Diese Fahrt wurde vom Admin gelöscht.`
+                );
+            }
+        }
+
+        await addTelegramLog('🗑️', 'cloud', `Fahrt gelöscht: ${ride.customerName || '?'}`, { rideId });
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.20.0: OFFENE FAHRTEN PRÜFUNG (alle 1 Minute)
+// Warnt Admins wenn Vorbestellungen < 10 Min vor Abholzeit ohne Fahrer sind
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledOpenRideCheck = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const ridesSnap = await db.ref('rides').once('value');
+            if (!ridesSnap.val()) return;
+
+            const now = Date.now();
+            const warnings = [];
+
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+
+                // Nur Fahrten ohne Fahrer prüfen
+                if (ride.status !== 'new' && ride.status !== 'vorbestellt') return;
+                if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
+
+                // Prüfe ob Abholzeit in <= 10 Minuten
+                const pickupTime = ride.pickupTimestamp || 0;
+                const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
+
+                if (minutesUntilPickup <= 10 && minutesUntilPickup > -5) {
+                    // Prüfe ob schon gewarnt (Flag in Firebase)
+                    if (!ride.openRideWarned) {
+                        warnings.push({ rideId, ride, minutesUntilPickup });
+                    }
+                }
+            });
+
+            if (warnings.length === 0) return;
+
+            const timestamp = formatBerlinTime();
+
+            for (const { rideId, ride, minutesUntilPickup } of warnings) {
+                const pickupTimeStr = ride.pickupTime || 'Unbekannt';
+                const message = `🚨🚨🚨 <b>ACHTUNG: OFFENE FAHRT!</b> 🚨🚨🚨\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
+                    `⏰ <b>Abholzeit:</b> ${pickupTimeStr}\n` +
+                    `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n` +
+                    `⏳ <b>Noch ${Math.max(0, Math.round(minutesUntilPickup))} Minuten!</b>\n\n` +
+                    `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+                    `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+                    `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+                    `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
+                    `💰 <b>Preis:</b> ${ride.price || 0}€\n\n` +
+                    `🔴 <b>Bitte SOFORT einen Fahrer zuweisen!</b>\n` +
+                    `⏰ <b>Warnung:</b> ${timestamp}`;
+
+                await sendToAllAdmins(message);
+
+                // Flag setzen damit nicht nochmal gewarnt wird
+                try {
+                    await db.ref('rides/' + rideId + '/openRideWarned').set(true);
+                } catch (e) { /* non-critical */ }
+
+                await addTelegramLog('🚨', 'cloud', `OFFENE FAHRT Warnung: ${ride.customerName || '?'} (${pickupTimeStr})`, { rideId });
+                console.log(`🚨 Offene-Fahrt-Warnung gesendet: ${rideId}`);
+            }
+        } catch (e) {
+            console.error('❌ scheduledOpenRideCheck Fehler:', e.message);
+        }
+    }
+);

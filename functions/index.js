@@ -4408,8 +4408,18 @@ async function handleMessage(message) {
 
         if (step === 'address') {
             // 🆕 v6.11.5: Erweiterte Suche — POIs, Kunden, Buchungen + Nominatim
+            // 🔧 v6.16.1: try/catch + Logging für Adress-Schritt (Race-Condition-Debug)
             const rawAddress = text.trim();
-            const suggestions = await searchNominatimForTelegram(rawAddress);
+            await addTelegramLog('🏠', chatId, `Neukunde Adress-Eingabe: "${rawAddress}" (Phone: ${pending._adminNewCustPhone || '?'})`);
+            let suggestions = [];
+            try {
+                suggestions = await searchNominatimForTelegram(rawAddress);
+            } catch (addrErr) {
+                console.error('Neukunde Adress-Suche Fehler:', addrErr);
+                await addTelegramLog('⚠️', chatId, `Neukunde Adress-Suche Fehler: ${addrErr.message}`);
+                // Bei Fehler: Adresse trotzdem verwenden lassen
+                suggestions = [];
+            }
 
             if (suggestions.length > 0) {
                 // Vorschläge als Buttons zeigen (max 5)
@@ -8398,6 +8408,31 @@ async function handleLocation(message) {
             });
             return;
         }
+    }
+
+    // 🔧 v6.16.1: Neukunden-Anlage aktiv → GPS als Kundenadresse behandeln (Race-Condition-Schutz)
+    // Erneuter Check nötig, weil pending sich zwischen erstem Check und hier geändert haben kann
+    const pendingRecheck = await getPending(chatId);
+    if (pendingRecheck && pendingRecheck._adminNewCust && (pendingRecheck._adminNewCustStep === 'address' || pendingRecheck._adminNewCustStep === 'address_select')) {
+        await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse übernommen (Recheck): ${addressName}`);
+        const confirmId = Date.now().toString(36);
+        await setPending(chatId, {
+            ...pendingRecheck,
+            _adminNewCustStep: 'customerKind',
+            _adminNewCustAddr: addressName,
+            _adminNewCustAddrLat: lat,
+            _adminNewCustAddrLon: lon
+        });
+        await sendTelegramMessage(chatId,
+            `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pendingRecheck._adminNewCustName}</b>\n📍 ${addressName}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
+                [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
+                [{ text: '🏨 Hotel/Pension', callback_data: 'admin_newcust_kind_hotel' }],
+                [{ text: '🏢 Auftraggeber/Firma', callback_data: 'admin_newcust_kind_auftraggeber' }]
+            ] }
+        });
+        return;
     }
 
     // 🔧 v6.15.8: Kein laufender Buchungsvorgang → Fragen ob Abhol- oder Zielort

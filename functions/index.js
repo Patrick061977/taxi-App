@@ -10107,3 +10107,277 @@ exports.stripeWebhook = onRequest(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 📧 EMAIL-VERSAND — v6.21.0
+// Versendet Rechnungen per SMTP (Nodemailer) statt EmailJS
+// ═══════════════════════════════════════════════════════════════
+
+exports.sendInvoiceEmail = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        // CORS
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const {
+                invoiceNumber,
+                toEmail,
+                toName,
+                subject,
+                htmlBody,
+                paymentLink  // Optional: Stripe Checkout URL
+            } = req.body;
+
+            if (!toEmail || !invoiceNumber) {
+                res.status(400).json({ error: 'toEmail und invoiceNumber sind erforderlich' });
+                return;
+            }
+
+            // SMTP-Einstellungen aus Firebase laden
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const smtp = smtpSnap.val();
+
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(400).json({ error: 'SMTP nicht konfiguriert! Bitte unter Einstellungen → Rechnungseinstellungen → SMTP einrichten.' });
+                return;
+            }
+
+            // Nodemailer Transporter erstellen
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: smtp.host,
+                port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: {
+                    user: smtp.user,
+                    pass: smtp.pass
+                }
+            });
+
+            // Rechnungsdaten aus Firebase laden (wenn kein htmlBody mitgegeben)
+            let emailHTML = htmlBody;
+            let emailSubject = subject;
+
+            if (!emailHTML) {
+                // Rechnung aus Firebase laden und HTML generieren
+                const invoiceSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+                const invoice = invoiceSnap.val();
+
+                if (!invoice) {
+                    res.status(404).json({ error: `Rechnung ${invoiceNumber} nicht gefunden` });
+                    return;
+                }
+
+                // Firmen-Einstellungen laden
+                const settingsSnap = await db.ref('settings/invoice').once('value');
+                const invSettings = settingsSnap.val() || {};
+                const companyName = invSettings.companyName || 'Taxi Wydra';
+                const companyPhone = invSettings.phone || '+49 151 27585179';
+                const companyEmail = invSettings.email || 'taxiwydra@googlemail.com';
+                const ownerName = invSettings.ownerName || 'Patrick Wydra';
+
+                const customerName = toName || invoice.customerName || 'Kunde';
+                const pdfUrl = invoice.pdfUrl || '';
+                const totalGross = parseFloat(invoice.totalGross) || 0;
+                const totalNet = parseFloat(invoice.totalNet) || 0;
+
+                // Positionen-HTML
+                const positions = invoice.positions || [];
+                const positionsHTML = positions.map(pos => `
+                    <tr>
+                        <td style="padding:8px;border:1px solid #e5e7eb;">${pos.description || 'Position'}</td>
+                        <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${parseFloat(pos.amount).toFixed(2)} &euro;</td>
+                    </tr>
+                `).join('');
+
+                // MwSt-Aufschlüsselung
+                const vatBreakdown = invoice.vatBreakdown || {};
+                const netBreakdown = invoice.netBreakdown || {};
+                const vatRates = Object.keys(vatBreakdown).sort((a, b) => parseFloat(b) - parseFloat(a));
+
+                let vatHTML = '';
+                if (vatRates.length === 1) {
+                    const rate = vatRates[0];
+                    vatHTML = `<tr><td style="padding:8px;border:1px solid #e5e7eb;">zzgl. MwSt (${parseFloat(rate).toFixed(0)}%):</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${parseFloat(vatBreakdown[rate]).toFixed(2)} &euro;</td></tr>`;
+                } else {
+                    vatHTML = vatRates.map(rate => `
+                        <tr><td style="padding:8px;border:1px solid #e5e7eb;">davon Netto (${parseFloat(rate).toFixed(0)}%):</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${parseFloat(netBreakdown[rate]).toFixed(2)} &euro;</td></tr>
+                        <tr><td style="padding:8px;border:1px solid #e5e7eb;">davon MwSt (${parseFloat(rate).toFixed(0)}%):</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${parseFloat(vatBreakdown[rate]).toFixed(2)} &euro;</td></tr>
+                    `).join('');
+                }
+
+                // Bezahl-Link-Bereich (wenn Stripe aktiv)
+                const stripeUrl = paymentLink || invoice.stripeCheckoutUrl || '';
+                const paymentSection = stripeUrl ? `
+                    <div style="background:#f0f0ff;border:2px solid #635bff;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">
+                        <p style="margin:0 0 10px 0;font-weight:700;color:#0a2540;">&#x1F4B3; Jetzt online bezahlen</p>
+                        <a href="${stripeUrl}" style="display:inline-block;background:#635bff;color:white;padding:12px 30px;text-decoration:none;border-radius:6px;font-weight:bold;">Zur sicheren Zahlung</a>
+                        <p style="font-size:12px;color:#6b7280;margin:10px 0 0 0;">Kreditkarte, Giropay oder Sofort&uuml;berweisung</p>
+                    </div>
+                ` : '';
+
+                // PDF-Download-Bereich
+                const pdfSection = pdfUrl ? `
+                    <div style="background:#dbeafe;border-left:4px solid #3b82f6;padding:15px;margin:20px 0;">
+                        <h3 style="margin-top:0;">&#x1F4C4; Ihre Rechnung als PDF</h3>
+                        <p><a href="${pdfUrl}" style="display:inline-block;background:#3b82f6;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">&#x1F4E5; Rechnung herunterladen</a></p>
+                    </div>
+                ` : '';
+
+                emailHTML = `
+                    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+                        <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+                            <h2 style="margin:0;">Rechnung ${invoiceNumber}</h2>
+                            <p style="margin:5px 0 0 0;opacity:0.9;">${companyName}</p>
+                        </div>
+                        <div style="padding:20px;background:#ffffff;border:1px solid #e5e7eb;">
+                            <p>Guten Tag ${customerName},</p>
+                            <p>vielen Dank f&uuml;r Ihre Fahrt mit ${companyName}!</p>
+
+                            <h3>&#x1F4CB; Rechnungsdetails:</h3>
+                            <table style="border-collapse:collapse;width:100%;margin:15px 0;">
+                                <tr style="background:#f3f4f6;"><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Rechnungsnummer:</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">${invoiceNumber}</td></tr>
+                                <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Datum:</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">${invoice.rideDate || ''} ${invoice.rideTime || ''}</td></tr>
+                                <tr style="background:#f3f4f6;"><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Von:</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">${invoice.pickup || ''}</td></tr>
+                                <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Nach:</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">${invoice.destination || ''}</td></tr>
+                            </table>
+
+                            <h3>&#x1F4CA; Positionen:</h3>
+                            <table style="border-collapse:collapse;width:100%;margin:15px 0;">
+                                <tr style="background:#3b82f6;color:white;"><th style="padding:8px;text-align:left;">Beschreibung</th><th style="padding:8px;text-align:right;">Betrag</th></tr>
+                                ${positionsHTML}
+                            </table>
+
+                            <table style="border-collapse:collapse;width:100%;margin:15px 0;">
+                                <tr style="background:#f3f4f6;"><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Netto:</strong></td><td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">${totalNet.toFixed(2)} &euro;</td></tr>
+                                ${vatHTML}
+                                <tr style="background:#10b981;color:white;"><td style="padding:8px;border:1px solid #059669;"><strong>Gesamt (brutto):</strong></td><td style="padding:8px;border:1px solid #059669;text-align:right;"><strong>${totalGross.toFixed(2)} &euro;</strong></td></tr>
+                            </table>
+
+                            ${paymentSection}
+                            ${pdfSection}
+
+                            <p>Bei Fragen stehen wir Ihnen gerne zur Verf&uuml;gung.</p>
+                            <p>Mit freundlichen Gr&uuml;&szlig;en<br>${ownerName}<br><strong>${companyName}</strong></p>
+                        </div>
+                        <div style="background:#f9fafb;padding:15px;border-radius:0 0 8px 8px;text-align:center;font-size:12px;color:#6b7280;border:1px solid #e5e7eb;border-top:none;">
+                            &#x1F4DE; ${companyPhone} &nbsp;|&nbsp; &#x2709; ${companyEmail}
+                        </div>
+                    </div>
+                `;
+
+                emailSubject = subject || `Ihre Rechnung ${invoiceNumber} - ${companyName}`;
+            }
+
+            // Absender-Name aus Settings
+            const fromName = smtp.fromName || 'Taxi Wydra';
+            const fromEmail = smtp.fromEmail || smtp.user;
+
+            // Email senden
+            const mailOptions = {
+                from: `"${fromName}" <${fromEmail}>`,
+                to: toEmail,
+                subject: emailSubject || `Rechnung ${invoiceNumber}`,
+                html: emailHTML
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            console.log(`📧 Email gesendet: ${invoiceNumber} → ${toEmail} (${info.messageId})`);
+
+            // Status in Firebase aktualisieren
+            const updateData = {
+                emailSent: true,
+                emailSentAt: Date.now(),
+                emailSentTo: toEmail,
+                emailSentVia: 'smtp',
+                emailMessageId: info.messageId,
+                status: 'versendet'
+            };
+
+            await db.ref(`invoices/${invoiceNumber}`).update(updateData);
+
+            // Auch Ride aktualisieren wenn vorhanden
+            const invoiceSnap2 = await db.ref(`invoices/${invoiceNumber}/rideId`).once('value');
+            const rideId = invoiceSnap2.val();
+            if (rideId) {
+                await db.ref(`rides/${rideId}`).update({
+                    invoiceSent: true,
+                    invoiceSentAt: Date.now(),
+                    invoiceSentVia: 'email',
+                    invoiceSentTo: toEmail
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                messageId: info.messageId,
+                sentTo: toEmail
+            });
+
+        } catch (error) {
+            console.error('❌ Email-Versand Fehler:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 📧 SMTP TEST — v6.21.0
+// Testet SMTP-Verbindung mit Test-Email
+// ═══════════════════════════════════════════════════════════════
+
+exports.testSmtpConnection = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        try {
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const smtp = smtpSnap.val();
+
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(400).json({ error: 'SMTP nicht konfiguriert' });
+                return;
+            }
+
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: smtp.host,
+                port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+
+            // Verbindung testen
+            await transporter.verify();
+
+            // Test-Email an sich selbst senden
+            const testTo = req.body?.testEmail || smtp.user;
+            await transporter.sendMail({
+                from: `"${smtp.fromName || 'Taxi Wydra'}" <${smtp.fromEmail || smtp.user}>`,
+                to: testTo,
+                subject: 'SMTP Test - Taxi App',
+                html: '<div style="font-family:Arial;padding:20px;"><h2>&#x2705; SMTP funktioniert!</h2><p>Diese Test-Email wurde erfolgreich von deiner Taxi-App versendet.</p><p style="color:#6b7280;font-size:12px;">Gesendet am: ' + formatBerlinTime() + '</p></div>'
+            });
+
+            console.log(`📧 SMTP Test erfolgreich → ${testTo}`);
+            res.status(200).json({ success: true, sentTo: testTo });
+
+        } catch (error) {
+            console.error('❌ SMTP Test Fehler:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);

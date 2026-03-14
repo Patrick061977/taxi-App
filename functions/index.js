@@ -14,6 +14,18 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.database();
 
+// 🔧 v6.21.0: Stripe SDK (lazy-init mit Secret Key aus Firebase)
+let stripeInstance = null;
+async function getStripe() {
+    if (stripeInstance) return stripeInstance;
+    const snap = await db.ref('settings/stripe').once('value');
+    const cfg = snap.val();
+    if (!cfg || !cfg.secretKey) throw new Error('Stripe Secret Key nicht konfiguriert');
+    const Stripe = require('stripe');
+    stripeInstance = new Stripe(cfg.secretKey);
+    return stripeInstance;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // KONSTANTEN
 // ═══════════════════════════════════════════════════════════════
@@ -9908,6 +9920,190 @@ exports.scheduledOpenRideCheck = onSchedule(
             }
         } catch (e) {
             console.error('❌ scheduledOpenRideCheck Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 💳 STRIPE CHECKOUT — v6.21.0
+// Erstellt eine Stripe Checkout Session für eine Rechnung
+// ═══════════════════════════════════════════════════════════════
+
+exports.createStripeCheckout = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        // CORS
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const { invoiceNumber, amount, customerName, customerEmail, description } = req.body;
+
+            if (!invoiceNumber || !amount) {
+                res.status(400).json({ error: 'invoiceNumber und amount sind erforderlich' });
+                return;
+            }
+
+            const stripe = await getStripe();
+
+            // Betrag in Cent (Stripe erwartet kleinste Währungseinheit)
+            const amountInCents = Math.round(parseFloat(amount) * 100);
+
+            if (amountInCents < 50) {
+                res.status(400).json({ error: 'Mindestbetrag ist 0,50 €' });
+                return;
+            }
+
+            // Checkout Session erstellen
+            const sessionParams = {
+                payment_method_types: ['card', 'giropay', 'sofort'],
+                mode: 'payment',
+                line_items: [{
+                    price_data: {
+                        currency: 'eur',
+                        product_data: {
+                            name: `Rechnung ${invoiceNumber}`,
+                            description: description || `Funk Taxi Heringsdorf — Rechnung ${invoiceNumber}`
+                        },
+                        unit_amount: amountInCents
+                    },
+                    quantity: 1
+                }],
+                metadata: {
+                    invoiceNumber: invoiceNumber,
+                    source: 'taxi-heringsdorf'
+                },
+                success_url: `https://taxi-heringsdorf.web.app/payment-success?invoice=${invoiceNumber}`,
+                cancel_url: `https://taxi-heringsdorf.web.app/payment-cancel?invoice=${invoiceNumber}`,
+                locale: 'de'
+            };
+
+            // Optional: Kunden-E-Mail vorausfüllen
+            if (customerEmail) {
+                sessionParams.customer_email = customerEmail;
+            }
+
+            const session = await stripe.checkout.sessions.create(sessionParams);
+
+            // Speichere Checkout-Info in Firebase
+            await db.ref(`invoices/${invoiceNumber}`).update({
+                stripeSessionId: session.id,
+                stripeCheckoutUrl: session.url,
+                stripePaymentStatus: 'pending',
+                stripeCreatedAt: Date.now()
+            });
+
+            console.log(`💳 Stripe Checkout erstellt: ${invoiceNumber} → ${session.id}`);
+
+            res.status(200).json({
+                success: true,
+                checkoutUrl: session.url,
+                sessionId: session.id
+            });
+
+        } catch (error) {
+            console.error('❌ Stripe Checkout Fehler:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 💳 STRIPE WEBHOOK — v6.21.0
+// Empfängt Zahlungsbestätigungen von Stripe
+// ═══════════════════════════════════════════════════════════════
+
+exports.stripeWebhook = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        if (req.method !== 'POST') {
+            res.status(405).send('Method not allowed');
+            return;
+        }
+
+        try {
+            const stripe = await getStripe();
+
+            // Webhook-Signatur verifizieren (optional, empfohlen für Produktion)
+            let event;
+            const webhookSecret = await db.ref('settings/stripe/webhookSecret').once('value').then(s => s.val());
+
+            if (webhookSecret) {
+                const sig = req.headers['stripe-signature'];
+                try {
+                    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+                } catch (err) {
+                    console.error('⚠️ Stripe Webhook Signatur ungültig:', err.message);
+                    res.status(400).send(`Webhook Error: ${err.message}`);
+                    return;
+                }
+            } else {
+                // Ohne Secret: Event direkt verwenden (nur für Tests!)
+                event = req.body;
+                console.warn('⚠️ Stripe Webhook ohne Signatur-Verifizierung!');
+            }
+
+            // Verarbeite Event
+            if (event.type === 'checkout.session.completed') {
+                const session = event.data.object;
+                const invoiceNumber = session.metadata?.invoiceNumber;
+
+                if (invoiceNumber) {
+                    // Rechnung als bezahlt markieren
+                    await db.ref(`invoices/${invoiceNumber}`).update({
+                        stripePaymentStatus: 'paid',
+                        stripePaidAt: Date.now(),
+                        stripePaymentIntentId: session.payment_intent,
+                        stripeAmountPaid: session.amount_total,
+                        status: 'bezahlt',
+                        paidAt: Date.now(),
+                        paymentMethod: 'stripe'
+                    });
+
+                    console.log(`✅ Stripe Zahlung erhalten: ${invoiceNumber} → ${(session.amount_total / 100).toFixed(2)} €`);
+
+                    // Optional: Admin benachrichtigen via Telegram
+                    try {
+                        const invoiceSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+                        const invoice = invoiceSnap.val();
+                        const amountEur = (session.amount_total / 100).toFixed(2);
+
+                        const adminMsg = `💳✅ <b>Zahlung eingegangen!</b>\n\n` +
+                            `📄 <b>Rechnung:</b> ${invoiceNumber}\n` +
+                            `👤 <b>Kunde:</b> ${invoice?.customerName || session.customer_details?.name || '?'}\n` +
+                            `💰 <b>Betrag:</b> ${amountEur} €\n` +
+                            `💳 <b>Zahlungsart:</b> Stripe Checkout\n` +
+                            `⏰ <b>Zeit:</b> ${formatBerlinTime()}`;
+
+                        await sendToAllAdmins(adminMsg, 'payment');
+                    } catch (notifyErr) {
+                        console.warn('⚠️ Admin-Benachrichtigung fehlgeschlagen:', notifyErr.message);
+                    }
+                }
+            } else if (event.type === 'checkout.session.expired') {
+                const session = event.data.object;
+                const invoiceNumber = session.metadata?.invoiceNumber;
+                if (invoiceNumber) {
+                    await db.ref(`invoices/${invoiceNumber}`).update({
+                        stripePaymentStatus: 'expired',
+                        stripeExpiredAt: Date.now()
+                    });
+                    console.log(`⏰ Stripe Session abgelaufen: ${invoiceNumber}`);
+                }
+            }
+
+            res.status(200).json({ received: true });
+
+        } catch (error) {
+            console.error('❌ Stripe Webhook Fehler:', error.message);
+            res.status(500).json({ error: error.message });
         }
     }
 );

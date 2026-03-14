@@ -6558,7 +6558,7 @@ async function handleCallback(callback) {
 
         await addTelegramLog('📅', chatId, `Vorbestellen gewählt → Tage anzeigen`);
         await sendTelegramMessage(chatId,
-            header + '📅 <b>Für welchen Tag vorbestellen?</b>', {
+            header + '📅 <b>Für welchen Tag vorbestellen?</b>\n\n👇 Wählen Sie einen Tag oder tippen Sie ein Datum ein:\n<i>z.B. „21.6. 14:30" oder „15. Juni 10 Uhr"</i>', {
             reply_markup: { inline_keyboard: [
                 ...dayRows,
                 [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]

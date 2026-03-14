@@ -43,6 +43,7 @@ firebase deploy --only functions
 - **Konversations-Flow** — Pending-States, Follow-Ups, CRM-Suche
 - **KI-Analyse** — Buchungs-Parsing via Anthropic API
 - **Benachrichtigungen** — Buchungsbestätigungen an Kunden + Admins
+- **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen (siehe unten)
 
 ### Regel:
 - Änderungen an `index.html` → Build-Timestamp aktualisieren
@@ -168,6 +169,46 @@ Das Telegram-System hat zwei Modi:
 - `deleteWebhook`-Aufrufe NICHT im Webhook-Modus ausführen
 - Webhook-Flag in Firebase ist die Single Source of Truth
 
+### 🆕 v6.20.0: Server-seitige Telegram-Benachrichtigungen (Database Triggers)
+
+Alle Telegram-Benachrichtigungen für Fahrten laufen jetzt über **Firebase Database Triggers** in `functions/index.js` — **unabhängig vom Browser!**
+
+#### Cloud Function Triggers:
+
+| Export-Name | Trigger-Typ | Auslöser | Was wird gesendet |
+|-------------|-------------|----------|-------------------|
+| `onRideCreated` | `onValueCreated('/rides/{rideId}')` | Neue Fahrt in Firebase | Admin-Benachrichtigung (Sofort/Vorbestellung) |
+| `onRideUpdated` | `onValueUpdated('/rides/{rideId}')` | Fahrt geändert | Status-Updates (accepted/storniert/picked_up/completed), Fahrer-Zuweisung, Kunden-Bestätigung |
+| `onRideDeleted` | `onValueDeleted('/rides/{rideId}')` | Fahrt gelöscht | Admin + Fahrer werden informiert |
+| `scheduledOpenRideCheck` | `onSchedule('every 1 minutes')` | Timer (jede Minute) | Warnung wenn Vorbestellung < 10 Min ohne Fahrer |
+
+#### Duplikat-Schutz (Flags in Rides):
+- `cloudNotificationSent: true` — Admin-Benachrichtigung bei Erstellung bereits gesendet
+- `customerTelegramSent: true` — Kunden-Bestätigung bereits gesendet
+- `openRideWarned: true` — Offene-Fahrt-Warnung bereits gesendet
+
+#### Browser-Fallback:
+Die 7 Browser-Funktionen in `index.html` prüfen `telegramWebhookMode`:
+- `sendTelegramForNewRide()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramStatusUpdate()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramToDriver()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramToDriverCancel()` — ☁️ skip wenn Webhook aktiv
+- `sendCustomerTelegram()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramForDeletedRide()` — ☁️ skip wenn Webhook aktiv
+- `sendTelegramOpenRideWarning()` — ☁️ skip wenn Webhook aktiv
+
+**Wenn Webhook deaktiviert wird**, übernehmen die Browser-Funktionen wieder automatisch.
+
+#### Hilfsfunktionen (in functions/index.js):
+- `sendToAllAdmins(message)` — Sendet an alle Admin-Chats
+- `getDriverChatId(vehicleId)` — Ermittelt Fahrer-Telegram-Chat-ID (User → Fahrzeug Fallback)
+- `getCustomerChatId(ride)` — Ermittelt Kunden-Chat-ID (Ride → CRM Fallback)
+- `formatBerlinTime(timestamp)` — Berlin-Zeitzone Formatierung
+
+#### WICHTIG:
+- `autoAssignRide()` sendet Fahrer-Telegram **selbst** — `onRideUpdated` prüft `assignedBy !== 'cloud-auto-assign'` um Duplikate zu verhindern
+- Gleiches gilt für `cloud-auto-replan` (Konflikt-Umplanung)
+
 ---
 
 ## Echtzeit-Daten (Firebase Listener)
@@ -219,5 +260,16 @@ Diese Listener sind essenziell und dürfen NICHT entfernt werden.
 - **Sprache im Code**: Deutsch (Kommentare, Variablennamen, Log-Meldungen)
 - **Versions-Tags im Code**: `// 🌐 v6.3.1:` etc. markieren wann was geändert wurde
 - **Alles in einer Datei**: `index.html` enthält HTML, CSS und JavaScript
-- **Cloud Functions**: Nur `functions/index.js` für den Telegram-Webhook
+- **Cloud Functions**: `functions/index.js` für Telegram-Webhook + Database Triggers + Scheduled Tasks
 - **Keine NPM/Build-Pipeline**: Direkt deployen, kein Bundler
+
+---
+
+## Änderungsprotokoll (Changelog)
+
+### v6.20.0 — 14.03.2026 — Server-seitige Telegram-Benachrichtigungen
+- **NEU:** Firebase Database Triggers für alle Telegram-Benachrichtigungen (funktioniert ohne Browser!)
+- **NEU:** `onRideCreated`, `onRideUpdated`, `onRideDeleted` Cloud Function Triggers
+- **NEU:** `scheduledOpenRideCheck` — prüft jede Minute ob Vorbestellungen ohne Fahrer sind
+- **GEÄNDERT:** 7 Browser-Funktionen skippen im Webhook-Modus (Cloud Function übernimmt)
+- **GEÄNDERT:** Duplikat-Schutz über Firebase-Flags (`cloudNotificationSent`, `customerTelegramSent`, `openRideWarned`)

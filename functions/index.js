@@ -6018,7 +6018,7 @@ async function handleCallback(callback) {
                 }
                 if (!_anyInShift) {
                     await sendTelegramMessage(chatId,
-                        `😔 <b>Zur Zeit ist leider kein Fahrer erreichbar.</b>\n\n` +
+                        `😔 <b>Zur Zeit ist leider kein Fahrer online erreichbar.</b>\n\n` +
                         `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>\n` +
                         `📅 Oder buchen Sie für einen anderen Zeitpunkt:`,
                         { reply_markup: { inline_keyboard: [

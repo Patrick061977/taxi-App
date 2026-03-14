@@ -6004,27 +6004,32 @@ async function handleCallback(callback) {
                 return;
             }
 
-            // 🆕 v6.11.6: Sofortfahrt — Fahrer-Verfügbarkeit prüfen
+            // 🔧 v6.20.2: Sofortfahrt — Schichtplan-Check statt GPS-Check
+            // Geht durch wenn mindestens 1 Fahrzeug im Schichtdienst ist
             if (booking._isJetzt && !pending._noDriverOverride) {
-                const driverCheck = await checkDriversOnline();
-                if (!driverCheck.online) {
-                    let noDriverMsg = '😔 <b>Aktuell ist leider kein Fahrer online.</b>\n\n';
-                    noDriverMsg += '✅ Sie können sich auf die <b>Warteliste</b> setzen lassen!\n';
-                    noDriverMsg += 'Der Fahrer meldet sich <b>automatisch</b> sobald er verfügbar ist.\n\n';
-                    noDriverMsg += '<b>Was möchten Sie tun?</b>';
-
-                    const noDriverKeyboard = { inline_keyboard: [
-                        [{ text: '✅ Auf Warteliste setzen', callback_data: `book_force_nodriver_${pending.bookingId}` }],
-                        [{ text: '📅 Lieber für später buchen', callback_data: `change_time_${pending.bookingId}` }],
-                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-                    ]};
-
-                    await sendTelegramMessage(chatId, noDriverMsg, { reply_markup: noDriverKeyboard });
-                    await addTelegramLog('😔', chatId, `Sofortfahrt: Kein Fahrer online (${driverCheck.total} Fahrzeuge gesamt)`);
-                    return;
-                } else {
-                    await addTelegramLog('🟢', chatId, `Sofortfahrt: ${driverCheck.count}/${driverCheck.total} Fahrer online`);
+                const _shiftsSnap = await db.ref('vehicleShifts').once('value');
+                const _shiftsData = _shiftsSnap.val() || {};
+                const _now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const _dateStr = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
+                const _timeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+                let _anyInShift = false;
+                for (const [vId] of Object.entries(OFFICIAL_VEHICLES)) {
+                    if (isVehicleInShift(vId, _shiftsData, _dateStr, _timeStr)) { _anyInShift = true; break; }
                 }
+                if (!_anyInShift) {
+                    await sendTelegramMessage(chatId,
+                        `😔 <b>Aktuell ist leider kein Fahrer im Dienst.</b>\n\n` +
+                        `📞 Rufen Sie uns an: <b>038378 / 22022</b>\n` +
+                        `📅 Oder buchen Sie für einen anderen Zeitpunkt:`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '📅 Für später buchen', callback_data: `change_time_${pending.bookingId}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ] } }
+                    );
+                    await addTelegramLog('😔', chatId, `Sofortfahrt blockiert: Kein Fahrzeug im Schichtdienst (${_dateStr} ${_timeStr})`);
+                    return;
+                }
+                await addTelegramLog('🟢', chatId, `Sofortfahrt: Fahrzeug im Schichtdienst → wird eingetragen`);
             }
 
             // Preis: gespeicherten verwenden, nur als Fallback neu berechnen
@@ -6128,21 +6133,46 @@ async function handleCallback(callback) {
                     );
                     await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance.toFixed(1)} km, ~${etaMin} Min)`);
                 } else if (_isJetztFahrt) {
-                    // Sofortfahrt aber alle besetzt → Wartezeit schätzen + Warteschlange
-                    const waitEst = await estimateWaitTime(rideData.pickupCoords);
-                    await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', waitEstimate: waitEst.waitMin, updatedAt: Date.now() });
+                    // 🔧 v6.20.2: Sofortfahrt ohne Auto-Zuweisung → Admin-Vermittlung
+                    await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', updatedAt: Date.now() });
+
+                    // Kunde beruhigen
                     await sendTelegramMessage(chatId,
-                        `⏳ <b>Alle Fahrer sind gerade unterwegs.</b>\n\n` +
-                        `⏱️ Geschätzte Wartezeit: <b>ca. ${waitEst.waitMin}–${waitEst.waitMax} Minuten</b>\n\n` +
-                        `✅ Sie stehen auf der <b>Warteliste</b>!\n` +
-                        `Der Fahrer meldet sich <b>automatisch</b> sobald er verfügbar ist.\n\n` +
-                        `💡 <i>Sie werden sofort benachrichtigt — Sie müssen nichts weiter tun.</i>`,
+                        `🚕 <b>Wir suchen einen Fahrer für Sie!</b>\n\n` +
+                        `📢 Sie werden in wenigen Minuten benachrichtigt.\n\n` +
+                        `💡 <i>Sie müssen nichts weiter tun — der Fahrer meldet sich automatisch bei Ihnen.</i>`,
                         { reply_markup: { inline_keyboard: [
                             [{ text: '📅 Lieber für später buchen', callback_data: `chdate_${rideData.id}` }],
                             [{ text: '🗑️ Stornieren', callback_data: `cancel_ride_${rideData.id}` }]
                         ] } }
                     );
-                    await addTelegramLog('⏳', chatId, `Warteschlange: ~${waitEst.waitMin}-${waitEst.waitMax} Min (${waitEst.busyCount} aktive Fahrten)`);
+
+                    // 🚨 Admin-Sofort-Push mit Zuweisungs-Buttons
+                    try {
+                        const _adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                        const _adminChats = _adminSnap.val() || [];
+                        if (_adminChats.length > 0) {
+                            // Verfügbare Fahrzeuge für Quick-Assign-Buttons sammeln
+                            const _assignButtons = [];
+                            for (const [vId, vInfo] of Object.entries(OFFICIAL_VEHICLES)) {
+                                _assignButtons.push([{ text: `🚕 ${vInfo.name} zuweisen`, callback_data: `qassign_${rideData.id}_${vId}` }]);
+                                if (_assignButtons.length >= 4) break;
+                            }
+                            const _urgentMsg = `🚨 <b>SOFORTFAHRT – Fahrer gesucht!</b>\n\n` +
+                                `📍 <b>Von:</b> ${rideData.pickup}\n` +
+                                `🎯 <b>Nach:</b> ${rideData.destination}\n` +
+                                `👤 <b>Name:</b> ${rideData.customerName}\n` +
+                                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                                `👥 <b>Personen:</b> ${passengers}\n` +
+                                (telegramRoutePrice ? `💰 ca. ${telegramRoutePrice.price} €\n` : '') +
+                                `\n⚡ <b>Bitte Fahrer zuweisen:</b>`;
+                            for (const adminChatId of _adminChats) {
+                                sendTelegramMessage(adminChatId, _urgentMsg, { reply_markup: { inline_keyboard: _assignButtons } }).catch(() => {});
+                            }
+                        }
+                    } catch (_e) { console.error('Admin-Sofort-Push Fehler:', _e.message); }
+
+                    await addTelegramLog('🚨', chatId, `Sofortfahrt: Kein Fahrer auto-zugewiesen → Admin-Vermittlung`);
                 } else {
                     await addTelegramLog('⚠️', chatId, 'Kein Fahrzeug für Auto-Zuweisung verfügbar');
                 }
@@ -7290,6 +7320,16 @@ async function handleCallback(callback) {
         await handleAdminDeleteRide(chatId, data.replace('adm_del_', ''));
         return;
     }
+    // 🔧 v6.20.2: Quick-Assign aus Sofortfahrt-Push (Admin drückt direkt "Taxi X zuweisen")
+    if (data.startsWith('qassign_')) {
+        const rest = data.replace('qassign_', '');
+        const lastUs = rest.lastIndexOf('_');
+        const rideId = rest.substring(0, lastUs);
+        const vehicleId = rest.substring(lastUs + 1);
+        // Weiterleiten an adm_setvehicle_ Handler (macht Zuweisung + Kundenbenachrichtigung)
+        data = `adm_setvehicle_${rideId}_${vehicleId}`;
+    }
+
     if (data.startsWith('adm_assign_')) {
         const rideId = data.replace('adm_assign_', '');
         const snap = await db.ref(`rides/${rideId}`).once('value');

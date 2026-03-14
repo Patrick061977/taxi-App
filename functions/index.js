@@ -2152,6 +2152,15 @@ EMAIL: Wenn eine E-Mail-Adresse im Text vorkommt → in "email" speichern. NICHT
 Pflicht: datetime, pickup, destination${phoneRequired ? ', phone' : ''}
 Optional (NICHT in missing): passengers (default 1), notes, email${!phoneRequired ? ' | phone ist gespeichert – ABER wenn eine Telefonnummer im Text steht, trotzdem in "phone" extrahieren!' : ''}
 
+⚠️ ERLAUBTE WERTE für "missing": NUR ["datetime", "pickup", "destination"${phoneRequired ? ', "phone"' : ''}]
+NIEMALS andere Feldnamen verwenden! Kein "destination_street", "return_datetime", "return_destination", "pickup_street" etc.!
+
+━━━ RÜCKFAHRT / HIN- UND RÜCKFAHRT ━━━
+• IMMER NUR EINE FAHRT pro Buchung! Die HINFAHRT hat Priorität.
+• Wenn der Kunde Hin- UND Rückfahrt erwähnt → NUR die Hinfahrt in die Felder eintragen
+• Rückfahrt-Infos (Rückfahrt-Uhrzeit, Rückfahrt-Ziel) → in "notes" speichern, z.B.: "Rückfahrt gewünscht: ca. 21 Uhr zurück zum Ahlbecker Hof"
+• KEINE Rückfahrt-Felder in "missing"! Das System erstellt Rückfahrten separat nach der Hinfahrt.
+
 ━━━ SCHRITT 4: RÜCKFRAGE FORMULIEREN ━━━
 Wenn Felder fehlen → "question" = EINE einzige, kurze, natürliche Frage
 • Reihenfolge: erst datetime, dann pickup, dann destination, dann phone
@@ -2183,6 +2192,16 @@ Nur gültiges JSON, kein Markdown:
 
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
         const booking = extractJsonFromAiResponse(textContent);
+
+        // 🛡️ v6.16.2: Ungültige missing-Felder entfernen (KI erfindet manchmal eigene Feldnamen)
+        const _validMissing = ['datetime', 'pickup', 'destination', 'phone'];
+        if (booking.missing && Array.isArray(booking.missing)) {
+            const _invalidFields = booking.missing.filter(f => !_validMissing.includes(f));
+            if (_invalidFields.length > 0) {
+                await addTelegramLog('🛡️', chatId, `Ungültige missing-Felder entfernt: ${_invalidFields.join(', ')}`);
+                booking.missing = booking.missing.filter(f => _validMissing.includes(f));
+            }
+        }
 
         // Datum-Halluzinations-Schutz: Wenn der User kein Datum/Uhrzeit geschrieben hat, datetime löschen
         const _timeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
@@ -2737,6 +2756,8 @@ REGELN:
 7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
 8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
 9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
+10. ERLAUBTE WERTE für "missing": NUR ["datetime", "pickup", "destination", "phone"]. NIEMALS andere Feldnamen wie "destination_street", "return_datetime", "return_destination" etc.!
+11. RÜCKFAHRT: IMMER NUR EINE FAHRT pro Buchung (die aktuelle). Rückfahrt-Infos in "notes" speichern, NICHT in missing oder als separate Felder.
 ${aiRulesBlock}
 Nur gültiges JSON, kein Markdown:
 {
@@ -2760,6 +2781,16 @@ Nur gültiges JSON, kein Markdown:
         // Schutzmaßnahmen
         if (partial.phone) booking.phone = partial.phone;
         if (partial.name && partial._crmCustomerId) booking.name = partial.name;
+
+        // 🛡️ v6.16.2: Ungültige missing-Felder entfernen (KI erfindet manchmal eigene Feldnamen)
+        const _validMissingFU = ['datetime', 'pickup', 'destination', 'phone'];
+        if (booking.missing && Array.isArray(booking.missing)) {
+            const _invalidFieldsFU = booking.missing.filter(f => !_validMissingFU.includes(f));
+            if (_invalidFieldsFU.length > 0) {
+                await addTelegramLog('🛡️', chatId, `Follow-Up: Ungültige missing-Felder entfernt: ${_invalidFieldsFU.join(', ')}`);
+                booking.missing = booking.missing.filter(f => _validMissingFU.includes(f));
+            }
+        }
 
         // Datum-Halluzinations-Schutz für Follow-Up: Wenn vorher kein datetime und User kein Datum nennt → nicht erfinden
         const _fuTimeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;

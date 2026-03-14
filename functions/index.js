@@ -9963,7 +9963,7 @@ exports.createStripeCheckout = onRequest(
 
             // Checkout Session erstellen
             const sessionParams = {
-                payment_method_types: ['card', 'giropay', 'sofort'],
+                automatic_payment_methods: { enabled: true },
                 mode: 'payment',
                 line_items: [{
                     price_data: {

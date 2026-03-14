@@ -2934,7 +2934,8 @@ async function showDateTimePicker(chatId, booking, originalText) {
     await sendTelegramMessage(chatId,
         header + '📅 <b>Wann soll das Taxi kommen?</b>', {
         reply_markup: { inline_keyboard: [
-            [{ text: '🚕 Heute', callback_data: 'dtchoice_heute' }],
+            [{ text: '🚖 Jetzt / Sofort', callback_data: 'datetime_now' }],
+            [{ text: '🚕 Heute (Uhrzeit wählen)', callback_data: 'dtchoice_heute' }],
             [{ text: '📅 Vorbestellen (anderer Tag)', callback_data: 'dtchoice_vorbestellen' }],
             [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
         ]}
@@ -6517,7 +6518,6 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId,
             header + `📅 <b>${dayLabel}</b>\n\n🕐 <b>Wann soll das Taxi kommen?</b>\n<i>Wählen Sie eine Uhrzeit oder schreiben Sie z.B. "14:30"</i>`, {
             reply_markup: { inline_keyboard: [
-                [{ text: '🚖 Jetzt / Sofort', callback_data: 'datetime_now' }],
                 ...timeRows,
                 [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ]}

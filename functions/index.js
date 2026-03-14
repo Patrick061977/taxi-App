@@ -3755,12 +3755,14 @@ async function handleMessage(message) {
         } else {
             greeting += '👋 Herzlich willkommen! Ich bin Ihr <b>interaktiver Taxibot</b> für die Insel Usedom.\n\n';
         }
-        greeting += '<b>Das kann ich für Sie tun:</b>\n';
-        greeting += '🚕 <b>Fahrt buchen</b> – Schreiben oder sprechen Sie einfach wann und wohin\n';
-        greeting += '🎙️ <b>Sprachnachricht</b> – Sagen Sie z.B. "Morgen 10 Uhr vom Bahnhof nach Ahlbeck"\n';
-        greeting += '📊 <b>Fahrten ansehen</b> – Ihre gebuchten Fahrten einsehen\n';
-        greeting += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
-        greeting += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n\n';
+        greeting += '<b>So buchen Sie am schnellsten:</b>\n';
+        greeting += '📎 Tippen Sie unten auf die <b>Büroklammer 📎</b> → <b>Standort</b> senden = <b>Abholort</b>!\n';
+        greeting += '📍 Danach nochmal Standort senden = <b>Zielort</b>!\n\n';
+        greeting += '<b>Oder schreiben/sprechen Sie:</b>\n';
+        greeting += '✍️ <i>„Morgen 10 Uhr vom Bahnhof nach Ahlbeck"</i>\n';
+        greeting += '🎙️ <i>Sprachnachricht mit Ihrem Fahrtwunsch</i>\n\n';
+        greeting += '<b>Weitere Funktionen:</b>\n';
+        greeting += '📊 Fahrten ansehen · ✏️ Ändern · 🗑️ Stornieren\n\n';
         greeting += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
         greeting += '\n\n📞 <b>Fragen?</b> Rufen Sie uns an: <b>038378 / 22022</b>';
         if (!knownCustomer) {
@@ -3808,7 +3810,14 @@ async function handleMessage(message) {
     }
 
     if (textCmd === '/buchen') {
-        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n✍️ Schreiben oder 🎙️ sprechen Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        let msg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
+        msg += '📎 <b>Am schnellsten:</b> Tippen Sie auf die <b>Büroklammer 📎</b> unten → <b>Standort</b> senden!\n';
+        msg += '📍 1. Standort = <b>Abholort</b>, 2. Standort = <b>Zielort</b>\n\n';
+        msg += '<b>Oder schreiben/sprechen Sie:</b>\n';
+        msg += '• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n';
+        msg += '• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n';
+        msg += '• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n';
+        msg += '🤖 <i>Ich analysiere Ihre Nachricht automatisch.</i>';
         await sendTelegramMessage(chatId, msg);
         return;
     }
@@ -5335,7 +5344,14 @@ async function handleCallback(callback) {
 
     // Menü-Buttons
     if (data === 'menu_buchen') {
-        await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
+        let _buchenMsg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
+        _buchenMsg += '📎 <b>Am schnellsten:</b> Tippen Sie auf die <b>Büroklammer 📎</b> unten → <b>Standort</b> senden!\n';
+        _buchenMsg += '📍 1. Standort = <b>Abholort</b>, 2. Standort = <b>Zielort</b>\n\n';
+        _buchenMsg += '<b>Oder schreiben/sprechen Sie:</b>\n';
+        _buchenMsg += '• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n';
+        _buchenMsg += '• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n\n';
+        _buchenMsg += '🤖 <i>Ich analysiere Ihre Nachricht automatisch.</i>';
+        await sendTelegramMessage(chatId, _buchenMsg);
         return;
     }
     // 🆕 "Meine Buchungen" Button nach Buchungsbestätigung

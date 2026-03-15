@@ -3152,6 +3152,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         await addTelegramLog('❌', chatId, `setPending FEHLGESCHLAGEN! verify: exists=${!!verifyPending}, hasBooking=${!!(verifyPending && verifyPending.booking)}`);
     }
 
+    // 🔧 v6.25.4: Zurück-Button geht zur Uhrzeit-Auswahl statt zum Menü
     const msgResult = await sendTelegramMessage(chatId, '👥 <b>Wie viele Personen fahren mit?</b>', {
         reply_markup: { inline_keyboard: [
             [
@@ -3166,7 +3167,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
                 { text: '7+', callback_data: `pax_7_${bookingId}` }
             ],
             [
-                { text: '◀️ Zurück', callback_data: 'back_to_menu' },
+                { text: '◀️ Zurück', callback_data: 'pax_back' },
                 { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
             ]
         ]}
@@ -6529,6 +6530,7 @@ async function handleCallback(callback) {
             }
             const bookingId = Date.now().toString(36);
             await setPending(chatId, { booking, bookingId, routePrice, originalText: pending.originalText || '', _awaitingPassengers: true });
+            // 🔧 v6.25.4: Zurück-Button geht zur Uhrzeit-Auswahl statt zum Menü
             await sendTelegramMessage(chatId, '👥 <b>Wie viele Personen fahren mit?</b>', {
                 reply_markup: { inline_keyboard: [
                     [
@@ -6542,7 +6544,10 @@ async function handleCallback(callback) {
                         { text: '6', callback_data: `pax_6_${bookingId}` },
                         { text: '7+', callback_data: `pax_7_${bookingId}` }
                     ],
-                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    [
+                        { text: '◀️ Zurück', callback_data: 'pax_back' },
+                        { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
+                    ]
                 ]}
             });
         }
@@ -6689,6 +6694,22 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.25.4: Zurück-Button bei Personenzahl → zurück zur Uhrzeit-Auswahl
+    if (data === 'pax_back') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.booking || pending.partial;
+        if (!booking) return;
+        // Datum/Uhrzeit zurücksetzen → Datetime-Picker erneut anzeigen
+        delete booking.datetime;
+        if (!booking.missing) booking.missing = [];
+        if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+        await addTelegramLog('◀️', chatId, 'Zurück von Personenzahl → Uhrzeit-Auswahl');
+        await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _dtPicker: true });
+        await showDateTimePicker(chatId, booking, pending.originalText || '');
+        return;
+    }
+
     // 🆕 v6.11.3: Abbrechen-Button (überall in der Konversation)
     if (data === 'cancel_booking') {
         await deletePending(chatId);
@@ -6719,8 +6740,12 @@ async function handleCallback(callback) {
         pending._selectedDateLabel = dayLabel;
         await setPending(chatId, pending);
 
-        // Zeitslots: nur zukünftige Zeiten
-        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+        // 🔧 v6.25.4: Zeitslots in 30-Min-Schritten (vorher nur volle Stunden)
+        const allSlots = [];
+        for (let h = 6; h <= 22; h++) {
+            allSlots.push(`${String(h).padStart(2,'0')}:00`);
+            if (h < 22) allSlots.push(`${String(h).padStart(2,'0')}:30`);
+        }
         const availableSlots = allSlots.filter(s => {
             const [h, m] = s.split(':').map(Number);
             return h > nowH || (h === nowH && m > nowM);
@@ -6834,8 +6859,12 @@ async function handleCallback(callback) {
         const nowM = berlinNow.getMinutes();
         const isToday = selectedDate === todayISO;
 
-        // Zeitslots generieren (nur zukünftige wenn heute)
-        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+        // 🔧 v6.25.4: Zeitslots in 30-Min-Schritten (vorher nur volle Stunden)
+        const allSlots = [];
+        for (let h = 6; h <= 22; h++) {
+            allSlots.push(`${String(h).padStart(2,'0')}:00`);
+            if (h < 22) allSlots.push(`${String(h).padStart(2,'0')}:30`);
+        }
         const availableSlots = allSlots.filter(s => {
             if (!isToday) return true;
             const [h, m] = s.split(':').map(Number);

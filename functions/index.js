@@ -10613,3 +10613,93 @@ exports.testSmtpConnection = onRequest(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 📧 CRM E-MAIL VERSAND — v6.27.1
+// Sendet E-Mails aus dem CRM via SMTP mit optionalem Anhang
+// ═══════════════════════════════════════════════════════════════
+
+exports.sendCrmEmail = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        // CORS
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const {
+                to,
+                toName,
+                subject,
+                htmlBody,
+                attachment  // Optional: { filename, content (base64), contentType }
+            } = req.body;
+
+            if (!to || !subject) {
+                res.status(400).json({ error: 'to und subject sind erforderlich' });
+                return;
+            }
+
+            // SMTP-Einstellungen aus Firebase laden
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const smtp = smtpSnap.val();
+
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(400).json({ error: 'SMTP nicht konfiguriert! Bitte unter CRM → Einstellungen → SMTP einrichten.' });
+                return;
+            }
+
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: smtp.host,
+                port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+
+            // E-Mail-Optionen
+            const mailOptions = {
+                from: `"${smtp.fromName || 'Taxi Wydra'}" <${smtp.fromEmail || smtp.user}>`,
+                to: toName ? `"${toName}" <${to}>` : to,
+                subject: subject,
+                html: htmlBody || `<p>${subject}</p>`
+            };
+
+            // Anhang hinzufügen wenn vorhanden
+            if (attachment && attachment.content && attachment.filename) {
+                mailOptions.attachments = [{
+                    filename: attachment.filename,
+                    content: Buffer.from(attachment.content, 'base64'),
+                    contentType: attachment.contentType || 'application/octet-stream'
+                }];
+            }
+
+            const info = await transporter.sendMail(mailOptions);
+            console.log(`📧 CRM E-Mail gesendet → ${to} (${subject})`, info.messageId);
+
+            // In emailLog speichern
+            await db.ref('emailLog').push({
+                type: 'crm-manual',
+                to: to,
+                subject: subject,
+                sentAt: Date.now(),
+                messageId: info.messageId,
+                hasAttachment: !!(attachment && attachment.filename),
+                attachmentName: attachment?.filename || null
+            });
+
+            res.status(200).json({ success: true, messageId: info.messageId });
+
+        } catch (error) {
+            console.error('❌ CRM E-Mail Fehler:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);

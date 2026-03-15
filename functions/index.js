@@ -10016,6 +10016,51 @@ exports.createStripeCheckout = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 💳 STRIPE BEZAHL-REDIRECT — v6.22.0
+// Kurze URL für QR-Codes: /pay?inv=INV-2026-00123
+// Leitet weiter zur Stripe Checkout URL
+// ═══════════════════════════════════════════════════════════════
+
+exports.payRedirect = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        const invoiceNumber = req.query.inv || req.params[0];
+
+        if (!invoiceNumber) {
+            res.status(400).send('Fehlende Rechnungsnummer');
+            return;
+        }
+
+        try {
+            const snap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+            const invoice = snap.val();
+
+            if (!invoice || !invoice.stripeCheckoutUrl) {
+                res.status(404).send('Bezahl-Link nicht gefunden oder abgelaufen');
+                return;
+            }
+
+            // Wenn bereits bezahlt → Bestätigungsseite
+            if (invoice.stripePaymentStatus === 'paid') {
+                res.status(200).send(`<html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>✅ Bereits bezahlt</h2>
+                    <p>Rechnung ${invoiceNumber} wurde bereits beglichen.</p>
+                    <p>Betrag: ${invoice.totalGross ? invoice.totalGross.toFixed(2) : '?'} €</p>
+                </body></html>`);
+                return;
+            }
+
+            console.log(`💳 Pay-Redirect: ${invoiceNumber} → Stripe Checkout`);
+            res.redirect(302, invoice.stripeCheckoutUrl);
+
+        } catch (error) {
+            console.error('❌ Pay-Redirect Fehler:', error.message);
+            res.status(500).send('Fehler beim Laden des Bezahl-Links');
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 💳 STRIPE WEBHOOK — v6.21.0
 // Empfängt Zahlungsbestätigungen von Stripe
 // ═══════════════════════════════════════════════════════════════

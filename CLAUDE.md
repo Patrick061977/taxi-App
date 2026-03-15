@@ -1,5 +1,29 @@
 # Taxi-App Entwicklungshinweise
 
+## Aktueller Stand (2026-03-15)
+
+**Version:** v6.25.2 | **Branch:** `claude/deploy-firebase-functions-4qD5d`
+
+### Zuletzt implementierte Features (Session 15.03.2026):
+
+| Version | Feature |
+|---------|---------|
+| **v6.25.2** | Fix: CRM Unified Modal - Tab-Cache Reset (Tabs waren leer nach erneutem Öffnen) |
+| **v6.25.1** | Telefonnummer-Validierung mit Live-Feedback im CRM |
+| **v6.25.0** | Unified CRM Modal - Bearbeiten + Details in einem Fenster, KI-Booking Fix |
+| **v6.24.0** | PDF-Anhang bei Rechnungs-Emails + Rechnungs-Layout-Editor |
+| **v6.23.0** | CRM-Portal mit zentralen Tabs (Rechnungen, E-Mail-Verlauf, Notizen) |
+| **v6.22.0** | payRedirect Cloud Function für scannbare Stripe QR-Codes |
+| **v6.21.0** | Stripe Checkout Integration + SMTP Email-Versand via Cloud Function |
+| **v6.20.2** | Telegram Bot: Sofortfahrt mit Schichtplan-Check, Warteschlange, Bot-UX |
+
+### Bekannte offene Punkte:
+- CRM-Tabs: Wenn ein Kunde "1 Fahrten" im Header zeigt aber der Fahrten-Tab leer ist → Phone-Matching prüfen (Debug-Logs in Konsole unter `📊 CRM Tab`)
+- Vollständiges Changelog: siehe `CHANGELOG.md`
+- Firebase-Struktur erweitert um: `/invoices`, `/emailLog`
+
+---
+
 ## Versions-System (WICHTIG!)
 
 Nach JEDEM Commit der `index.html` ändert, MUSS der Build-Timestamp aktualisiert werden.

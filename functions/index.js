@@ -6809,26 +6809,24 @@ async function handleCallback(callback) {
         return;
     }
 
-    // 🔧 v6.15.10: "Jetzt/Sofort" Button für Datum/Zeit
+    // 🔧 v6.15.11: "Jetzt/Sofort" Button für Datum/Zeit → continueBookingFlow
     if (data === 'datetime_now') {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {
             pending.partial.datetime = 'jetzt';
-            await setPending(chatId, { ...pending, partial: pending.partial });
-            // Nachricht simulieren als wäre "jetzt" getippt worden
-            const fakeMsg = { chat: { id: chatId }, text: 'jetzt', from: message?.from || {} };
-            // Einfach pending aktualisieren und Flow fortsetzen
+            // 'datetime' aus missing entfernen
+            if (pending.partial.missing) {
+                pending.partial.missing = pending.partial.missing.filter(m => m !== 'datetime');
+            }
+            delete pending.lastQuestion;
+            delete pending._dtPicker;
+            await setPending(chatId, pending);
             await addTelegramLog('🕐', chatId, 'Sofort-Button gedrückt → "jetzt"');
-        }
-        // Pending neu laden und als Text-Nachricht verarbeiten lassen
-        // Wir setzen lastQuestion zurück und lassen den normalen Flow weiterlaufen
-        const p = await getPending(chatId);
-        if (p && p.partial) {
-            p.partial.datetime = 'jetzt';
-            delete p.lastQuestion;
-            await setPending(chatId, p);
-            // Weiterleitung an handleSmartConversation
-            await handleSmartConversation(chatId, 'jetzt', message?.from?.first_name || '', p);
+            // Buchungsfluss fortsetzen (nächstes fehlendes Feld abfragen)
+            await continueBookingFlow(chatId, pending.partial, pending.originalText || '');
+        } else {
+            await addTelegramLog('⚠️', chatId, 'datetime_now: Kein Pending/Partial gefunden');
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr gefunden. Bitte nochmal starten.');
         }
         return;
     }

@@ -10189,7 +10189,9 @@ exports.sendInvoiceEmail = onRequest(
                 toName,
                 subject,
                 htmlBody,
-                paymentLink  // Optional: Stripe Checkout URL
+                paymentLink,  // Optional: Stripe Checkout URL
+                pdfUrl,       // Optional: PDF-URL für Anhang
+                attachPdf     // Optional: true = PDF als Anhang senden
             } = req.body;
 
             if (!toEmail || !invoiceNumber) {
@@ -10337,12 +10339,55 @@ exports.sendInvoiceEmail = onRequest(
             const fromName = smtp.fromName || 'Taxi Wydra';
             const fromEmail = smtp.fromEmail || smtp.user;
 
+            // 🆕 v6.22.0: PDF als Anhang herunterladen (wenn gewünscht)
+            let attachments = [];
+            const shouldAttachPdf = attachPdf !== false; // Standard: immer anhängen wenn pdfUrl vorhanden
+            const effectivePdfUrl = pdfUrl || (emailHTML ? null : (invoice ? invoice.pdfUrl : null));
+
+            if (shouldAttachPdf && effectivePdfUrl) {
+                try {
+                    console.log('📎 Lade PDF für Anhang:', effectivePdfUrl);
+                    const https = require('https');
+                    const http = require('http');
+                    const pdfBuffer = await new Promise((resolve, reject) => {
+                        const client = effectivePdfUrl.startsWith('https') ? https : http;
+                        client.get(effectivePdfUrl, (response) => {
+                            // Redirects folgen
+                            if (response.statusCode === 301 || response.statusCode === 302) {
+                                client.get(response.headers.location, (res2) => {
+                                    const chunks = [];
+                                    res2.on('data', chunk => chunks.push(chunk));
+                                    res2.on('end', () => resolve(Buffer.concat(chunks)));
+                                    res2.on('error', reject);
+                                }).on('error', reject);
+                                return;
+                            }
+                            const chunks = [];
+                            response.on('data', chunk => chunks.push(chunk));
+                            response.on('end', () => resolve(Buffer.concat(chunks)));
+                            response.on('error', reject);
+                        }).on('error', reject);
+                    });
+
+                    attachments.push({
+                        filename: `rechnung-${invoiceNumber}.pdf`,
+                        content: pdfBuffer,
+                        contentType: 'application/pdf'
+                    });
+                    console.log(`📎 PDF-Anhang bereit: ${pdfBuffer.length} Bytes`);
+                } catch (pdfError) {
+                    console.warn('⚠️ PDF konnte nicht als Anhang geladen werden:', pdfError.message);
+                    // Kein Abbruch — E-Mail wird trotzdem gesendet (mit Download-Link)
+                }
+            }
+
             // Email senden
             const mailOptions = {
                 from: `"${fromName}" <${fromEmail}>`,
                 to: toEmail,
                 subject: emailSubject || `Rechnung ${invoiceNumber}`,
-                html: emailHTML
+                html: emailHTML,
+                attachments: attachments
             };
 
             const info = await transporter.sendMail(mailOptions);

@@ -2655,6 +2655,44 @@ async function continueBookingFlow(chatId, booking, originalText) {
             }
         }
 
+        // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,
+        // direkt CRM-Koordinaten verwenden statt neu zu geocoden
+        if (booking.customerId && (booking.pickup && !booking.pickupLat || booking.destination && !booking.destinationLat)) {
+            try {
+                const _crmSnap = await db.ref('customers/' + booking.customerId).once('value');
+                const _crm = _crmSnap.val();
+                if (_crm && _crm.address) {
+                    const _crmAddr = _crm.address.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                    const _crmLat = _crm.lat || _crm.pickupLat;
+                    const _crmLon = _crm.lon || _crm.pickupLon;
+                    if (_crmLat && _crmLon) {
+                        // Pickup prüfen
+                        if (booking.pickup && !booking.pickupLat) {
+                            const _pAddr = booking.pickup.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                            // Ähnlichkeits-Check: CRM-Adresse enthält Pickup oder umgekehrt (min. 10 Zeichen Übereinstimmung)
+                            if (_crmAddr.length > 10 && (_crmAddr.includes(_pAddr.substring(0, 15)) || _pAddr.includes(_crmAddr.substring(0, 15)))) {
+                                booking.pickup = _crm.address; // Vollständige CRM-Adresse verwenden
+                                booking.pickupLat = _crmLat;
+                                booking.pickupLon = _crmLon;
+                                console.log('📍 CRM-Adresse erkannt für Pickup:', _crm.address, _crmLat, _crmLon);
+                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Match: ${_crm.address}`);
+                            }
+                        }
+                        // Destination prüfen
+                        if (booking.destination && !booking.destinationLat) {
+                            const _dAddr = booking.destination.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                            if (_crmAddr.length > 10 && (_crmAddr.includes(_dAddr.substring(0, 15)) || _dAddr.includes(_crmAddr.substring(0, 15)))) {
+                                booking.destination = _crm.address;
+                                booking.destinationLat = _crmLat;
+                                booking.destinationLon = _crmLon;
+                                console.log('📍 CRM-Adresse erkannt für Destination:', _crm.address, _crmLat, _crmLon);
+                            }
+                        }
+                    }
+                }
+            } catch(e) { console.warn('CRM-Adress-Check Fehler:', e.message); }
+        }
+
         // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
         // Nur wenn Adresse da ist ABER noch keine Koordinaten
         const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon;
@@ -6894,6 +6932,27 @@ async function handleCallback(callback) {
             }
             if (_homeAddr) {
                 _homeBooking.pickup = _homeAddr;
+                // 🔧 v6.25.3: Koordinaten aus CRM laden → kein erneutes Geocoding nötig!
+                if (_homeCust?.lat && _homeCust?.lon) {
+                    _homeBooking.pickupLat = _homeCust.lat;
+                    _homeBooking.pickupLon = _homeCust.lon;
+                    console.log('📍 Von-zu-Hause: Koordinaten aus CRM:', _homeCust.lat, _homeCust.lon);
+                } else if (_homeCust?.customerId) {
+                    // Fallback: Koordinaten direkt aus CRM laden
+                    try {
+                        const _custSnap = await db.ref('customers/' + _homeCust.customerId).once('value');
+                        const _custData = _custSnap.val();
+                        if (_custData) {
+                            const _lat = _custData.lat || _custData.pickupLat;
+                            const _lon = _custData.lon || _custData.pickupLon;
+                            if (_lat && _lon) {
+                                _homeBooking.pickupLat = _lat;
+                                _homeBooking.pickupLon = _lon;
+                                console.log('📍 Von-zu-Hause: Koordinaten aus CRM geladen:', _lat, _lon);
+                            }
+                        }
+                    } catch(e) { console.warn('CRM-Koordinaten Fehler:', e.message); }
+                }
                 if (_homeBooking.missing) _homeBooking.missing = _homeBooking.missing.filter(m => m !== 'pickup');
                 await sendTelegramMessage(chatId, '✅ Abholort gesetzt: <b>' + _homeAddr + '</b>');
                 await continueBookingFlow(chatId, _homeBooking, _homePending.originalText || '');
@@ -6912,6 +6971,24 @@ async function handleCallback(callback) {
             const _destCust = await getTelegramCustomer(chatId);
             if (_destCust && _destCust.address) {
                 _destBooking.destination = _destCust.address;
+                // 🔧 v6.25.3: Koordinaten aus CRM laden → kein erneutes Geocoding nötig!
+                if (_destCust.lat && _destCust.lon) {
+                    _destBooking.destinationLat = _destCust.lat;
+                    _destBooking.destinationLon = _destCust.lon;
+                } else if (_destCust.customerId) {
+                    try {
+                        const _dSnap = await db.ref('customers/' + _destCust.customerId).once('value');
+                        const _dData = _dSnap.val();
+                        if (_dData) {
+                            const _lat = _dData.lat || _dData.pickupLat;
+                            const _lon = _dData.lon || _dData.pickupLon;
+                            if (_lat && _lon) {
+                                _destBooking.destinationLat = _lat;
+                                _destBooking.destinationLon = _lon;
+                            }
+                        }
+                    } catch(e) {}
+                }
                 if (_destBooking.missing) _destBooking.missing = _destBooking.missing.filter(m => m !== 'destination');
                 await sendTelegramMessage(chatId, '✅ Zielort gesetzt: <b>' + _destCust.address + '</b>');
                 await continueBookingFlow(chatId, _destBooking, _destPending.originalText || '');
@@ -8536,7 +8613,8 @@ async function handleContact(message) {
 
         const commandHint = '\n\n<b>Ihre Möglichkeiten:</b>\n🚕 Fahrt buchen – einfach schreiben wann & wohin\n📊 /status – Ihre Fahrten ansehen\n✏️ Fahrten bearbeiten oder stornieren\n👤 /profil – Ihre Daten verwalten\nℹ️ /hilfe – Alle Befehle';
         if (customerId && customerData) {
-            await saveTelegramCustomer(chatId, { customerId, name: customerData.name || firstName, phone: customerData.phone || phone, mobile: customerData.mobile || null, address: customerData.address || null, linkedAt: Date.now() });
+            // 🔧 v6.25.3: lat/lon aus CRM mitspeichern für Adress-Skip
+            await saveTelegramCustomer(chatId, { customerId, name: customerData.name || firstName, phone: customerData.phone || phone, mobile: customerData.mobile || null, address: customerData.address || null, lat: customerData.lat || customerData.pickupLat || null, lon: customerData.lon || customerData.pickupLon || null, linkedAt: Date.now() });
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
             await sendTelegramMessage(chatId, `✅ <b>Willkommen zurück, ${customerData.name}!</b>\n\nIhre Nummer <b>${phone}</b> ist gespeichert.${commandHint}`, removeKeyboard);
         } else {

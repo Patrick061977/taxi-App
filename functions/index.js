@@ -3126,11 +3126,12 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         const bookingId = Date.now().toString(36);
         await setPending(chatId, { booking, bookingId, routePrice, originalText, _awaitingBookingGuest: true });
         const label = booking._isHotelBooking ? '🏨 Hotel' : (booking._isSupplierBooking ? '🚚 Lieferant' : '🏢 Auftraggeber');
+        // 🔧 v6.25.4: Zurück geht zur Uhrzeit-Auswahl statt zum Menü
         await sendTelegramMessage(chatId,
             `${label} <b>Gastname fehlt</b>\n\n👤 Für welchen Gast/Patienten ist die Fahrt?\n<i>Bitte den Namen eingeben:</i>`, {
             reply_markup: { inline_keyboard: [
                 [{ text: '⏭️ Ohne Gastname weiter', callback_data: `skip_guest_${bookingId}` }],
-                [{ text: '◀️ Zurück', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                [{ text: '◀️ Zurück', callback_data: 'guest_back' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ] }
         });
         return;
@@ -6694,6 +6695,22 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.25.4: Zurück-Button bei Gastname → zurück zur Uhrzeit-Auswahl
+    if (data === 'guest_back') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.booking || pending.partial;
+        if (!booking) return;
+        delete booking.datetime;
+        if (!booking.missing) booking.missing = [];
+        if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
+        delete pending._awaitingBookingGuest;
+        await addTelegramLog('◀️', chatId, 'Zurück von Gastname → Uhrzeit-Auswahl');
+        await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _dtPicker: true });
+        await showDateTimePicker(chatId, booking, pending.originalText || '');
+        return;
+    }
+
     // 🆕 v6.25.4: Zurück-Button bei Personenzahl → zurück zur Uhrzeit-Auswahl
     if (data === 'pax_back') {
         const pending = await getPending(chatId);
@@ -6740,12 +6757,8 @@ async function handleCallback(callback) {
         pending._selectedDateLabel = dayLabel;
         await setPending(chatId, pending);
 
-        // 🔧 v6.25.4: Zeitslots in 30-Min-Schritten (vorher nur volle Stunden)
-        const allSlots = [];
-        for (let h = 6; h <= 22; h++) {
-            allSlots.push(`${String(h).padStart(2,'0')}:00`);
-            if (h < 22) allSlots.push(`${String(h).padStart(2,'0')}:30`);
-        }
+        // Zeitslots: nur volle Stunden, Zwischenzeiten per Freitext-Eingabe
+        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
         const availableSlots = allSlots.filter(s => {
             const [h, m] = s.split(':').map(Number);
             return h > nowH || (h === nowH && m > nowM);
@@ -6859,12 +6872,8 @@ async function handleCallback(callback) {
         const nowM = berlinNow.getMinutes();
         const isToday = selectedDate === todayISO;
 
-        // 🔧 v6.25.4: Zeitslots in 30-Min-Schritten (vorher nur volle Stunden)
-        const allSlots = [];
-        for (let h = 6; h <= 22; h++) {
-            allSlots.push(`${String(h).padStart(2,'0')}:00`);
-            if (h < 22) allSlots.push(`${String(h).padStart(2,'0')}:30`);
-        }
+        // Zeitslots: nur volle Stunden, Zwischenzeiten per Freitext-Eingabe
+        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
         const availableSlots = allSlots.filter(s => {
             if (!isToday) return true;
             const [h, m] = s.split(':').map(Number);
@@ -6890,9 +6899,38 @@ async function handleCallback(callback) {
         return;
     }
 
-    // 🆕 v6.20.1: Inline-Datum-Picker — Uhrzeit gewählt → Buchung fortsetzen
+    // 🔧 v6.25.4: Stunde gewählt → Minuten-Auswahl anzeigen (statt direkt zu buchen)
     if (data.startsWith('dttime_')) {
-        const parts = data.replace('dttime_', '').split('_'); // z.B. "2026-03-15_1430"
+        const parts = data.replace('dttime_', '').split('_'); // z.B. "2026-03-15_1400"
+        const selectedDate = parts[0];
+        const timeStr = parts[1]; // "1400"
+        const hh = timeStr.slice(0, 2);
+
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        const dayLabel = pending._selectedDateLabel || selectedDate;
+        await addTelegramLog('🕐', chatId, `Stunde gewählt: ${hh}:xx → Minuten-Auswahl`);
+
+        // Minuten-Buttons: :00, :15, :30, :45
+        await sendTelegramMessage(chatId,
+            `🕐 <b>${hh}:__ Uhr</b> — Minuten wählen:`, {
+            reply_markup: { inline_keyboard: [
+                [
+                    { text: `${hh}:00`, callback_data: `dtmin_${selectedDate}_${hh}00` },
+                    { text: `${hh}:15`, callback_data: `dtmin_${selectedDate}_${hh}15` },
+                    { text: `${hh}:30`, callback_data: `dtmin_${selectedDate}_${hh}30` },
+                    { text: `${hh}:45`, callback_data: `dtmin_${selectedDate}_${hh}45` }
+                ],
+                [{ text: '◀️ Zurück', callback_data: `dtback_minutes_${selectedDate}` }]
+            ]}
+        });
+        return;
+    }
+
+    // 🔧 v6.25.4: Minuten gewählt → Buchung fortsetzen
+    if (data.startsWith('dtmin_')) {
+        const parts = data.replace('dtmin_', '').split('_'); // z.B. "2026-03-15_1430"
         const selectedDate = parts[0];
         const timeStr = parts[1]; // "1430"
         const hh = timeStr.slice(0, 2);
@@ -6916,6 +6954,44 @@ async function handleCallback(callback) {
 
         // Buchung fortsetzen
         await continueBookingFlow(chatId, pending.partial, pending.originalText || '');
+        return;
+    }
+
+    // 🔧 v6.25.4: Zurück von Minuten-Auswahl → Stunden-Buttons erneut anzeigen
+    if (data.startsWith('dtback_minutes_')) {
+        const selectedDate = data.replace('dtback_minutes_', '');
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) return;
+
+        // Stunden-Buttons erneut anzeigen (wie dtchoice_heute / dtday_)
+        const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        const todayISO = berlinNow.toISOString().slice(0, 10);
+        const nowH = berlinNow.getHours();
+        const nowM = berlinNow.getMinutes();
+        const isToday = selectedDate === todayISO;
+
+        const allSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+        const availableSlots = allSlots.filter(s => {
+            if (!isToday) return true;
+            const [h, m] = s.split(':').map(Number);
+            return h > nowH || (h === nowH && m > nowM);
+        });
+        const timeRows = [];
+        for (let i = 0; i < availableSlots.length; i += 4) {
+            timeRows.push(availableSlots.slice(i, i + 4).map(t => ({
+                text: `🕐 ${t}`, callback_data: `dttime_${selectedDate}_${t.replace(':', '')}`
+            })));
+        }
+
+        const dayLabel = pending._selectedDateLabel || selectedDate;
+        await addTelegramLog('◀️', chatId, `Zurück von Minuten → Stunden-Auswahl`);
+        await sendTelegramMessage(chatId,
+            `📅 <b>${dayLabel}</b>\n\n🕐 <b>Uhrzeit wählen:</b>\nButton antippen oder Uhrzeit eintippen, z.B. <b>14:30</b>`, {
+            reply_markup: { inline_keyboard: [
+                ...timeRows,
+                [{ text: '◀️ Zurück', callback_data: isToday ? 'dtback_choice' : 'dtback_day' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}
+        });
         return;
     }
 

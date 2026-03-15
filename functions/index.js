@@ -1789,11 +1789,20 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
             if (suggestions.length > 0) {
+                // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
+                const addrBottomRow = [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }];
+                const addrLastRow = [];
+                if (!needPickup && needDest) {
+                    // Zielort-Vorschläge: Zurück = Abholort nochmal ändern
+                    addrLastRow.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
+                }
+                addrLastRow.push({ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' });
+                addrLastRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                 const keyboard = {
                     inline_keyboard: [
                         ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
-                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                        [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        addrBottomRow,
+                        addrLastRow
                     ]
                 };
 
@@ -2737,11 +2746,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                 } else {
                     // Mehrere Treffer oder kein exakter → "Meinten Sie...?" Buttons zeigen
+                    // 🔧 v6.25.4: Zurück-Button bei Zielort-Vorschlägen
+                    const _addrLastRow2 = [];
+                    if (!needsPickupResolve && needsDestResolve) {
+                        _addrLastRow2.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
+                    }
+                    _addrLastRow2.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                     const keyboard = {
                         inline_keyboard: [
                             ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                            _addrLastRow2
                         ]
                     };
 
@@ -2844,11 +2859,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 msg += '\n\n📍 Oder: <b>Büroklammer 📎</b> antippen → <b>Standort senden</b>';
             }
 
-            // Menü + Abbrechen als letzte Zeile
-            _inlineButtons.push([
-                { text: '🏠 Menü', callback_data: 'back_to_menu' },
-                { text: '❌ Abbrechen', callback_data: 'cancel_booking' }
-            ]);
+            // 🔧 v6.25.4: Zurück-Button je nach Schritt
+            const _backRow = [];
+            if (_firstMissing === 'destination' && booking.pickup) {
+                // Zielort fehlt → Zurück = Abholort nochmal ändern
+                _backRow.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
+            } else if (_firstMissing === 'pickup' && booking.destination) {
+                // Abholort fehlt aber Ziel schon da → Zurück = Ziel nochmal ändern
+                _backRow.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_dest' });
+            }
+            _backRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
+            _inlineButtons.push(_backRow);
 
             await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
             await sendTelegramMessage(chatId, msg, {
@@ -3091,13 +3112,14 @@ async function showDateTimePicker(chatId, booking, originalText) {
     if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
 
     await setPending(chatId, { partial: booking, originalText, _dtPicker: true });
+    // 🔧 v6.25.4: Zurück-Button → Adressen nochmal ändern
     await sendTelegramMessage(chatId,
         header + '📅 <b>Wann soll das Taxi kommen?</b>', {
         reply_markup: { inline_keyboard: [
             [{ text: '🚖 Jetzt / Sofort', callback_data: 'datetime_now' }],
             [{ text: '🚕 Heute (Uhrzeit wählen)', callback_data: 'dtchoice_heute' }],
             [{ text: '📅 Vorbestellen (anderer Tag)', callback_data: 'dtchoice_vorbestellen' }],
-            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            [{ text: '◀️ Zurück', callback_data: 'dtpicker_back' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
         ]}
     });
 }
@@ -6692,6 +6714,72 @@ async function handleCallback(callback) {
             keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
+        return;
+    }
+
+    // 🆕 v6.25.4: Zurück vom DateTime-Picker → Adressen nochmal ändern
+    if (data === 'dtpicker_back') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.partial || pending.booking;
+        if (!booking) return;
+        // Zielort löschen → wird erneut abgefragt
+        if (booking.destination) {
+            booking.destination = null;
+            booking.destinationLat = null;
+            booking.destinationLon = null;
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('destination')) booking.missing.push('destination');
+        } else if (booking.pickup) {
+            // Kein Zielort vorhanden → Abholort löschen
+            booking.pickup = null;
+            booking.pickupLat = null;
+            booking.pickupLon = null;
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
+        }
+        delete pending._dtPicker;
+        await addTelegramLog('◀️', chatId, 'Zurück von DateTime-Picker → Adresse ändern');
+        await continueBookingFlow(chatId, booking, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.25.4: Zurück zu Abholort-Eingabe (von Zielort-Schritt)
+    if (data === 'addr_back_to_pickup') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.partial || pending.booking;
+        if (!booking) return;
+        booking.pickup = null;
+        booking.pickupLat = null;
+        booking.pickupLon = null;
+        if (!booking.missing) booking.missing = [];
+        if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
+        // Zielort auch löschen damit er danach erneut abgefragt wird
+        booking.destination = null;
+        booking.destinationLat = null;
+        booking.destinationLon = null;
+        if (!booking.missing.includes('destination')) booking.missing.push('destination');
+        delete pending.nominatimResults;
+        await addTelegramLog('◀️', chatId, 'Zurück → Abholort nochmal eingeben');
+        await continueBookingFlow(chatId, booking, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.25.4: Zurück zu Zielort-Eingabe (von Abholort-Schritt)
+    if (data === 'addr_back_to_dest') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.partial || pending.booking;
+        if (!booking) return;
+        booking.destination = null;
+        booking.destinationLat = null;
+        booking.destinationLon = null;
+        if (!booking.missing) booking.missing = [];
+        if (!booking.missing.includes('destination')) booking.missing.push('destination');
+        delete pending.nominatimResults;
+        await addTelegramLog('◀️', chatId, 'Zurück → Zielort nochmal eingeben');
+        await continueBookingFlow(chatId, booking, pending.originalText || '');
         return;
     }
 

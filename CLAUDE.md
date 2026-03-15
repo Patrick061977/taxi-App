@@ -2,12 +2,13 @@
 
 ## Aktueller Stand (2026-03-15)
 
-**Version:** v6.25.2 | **Branch:** `claude/deploy-firebase-functions-4qD5d`
+**Version:** v6.25.3 | **Branch:** `claude/deploy-firebase-functions-4qD5d`
 
 ### Zuletzt implementierte Features (Session 15.03.2026):
 
 | Version | Feature |
 |---------|---------|
+| **v6.25.3** | Fix: Konflikt-Checker filtert deleted/rejected Fahrten + zeigt kollidierende Fahrt in Telegram + CRM-Adressen mit Koordinaten nutzen statt neu geocoden |
 | **v6.25.2** | Fix: CRM Unified Modal - Tab-Cache Reset (Tabs waren leer nach erneutem Öffnen) |
 | **v6.25.1** | Telefonnummer-Validierung mit Live-Feedback im CRM |
 | **v6.25.0** | Unified CRM Modal - Bearbeiten + Details in einem Fenster, KI-Booking Fix |
@@ -17,10 +18,18 @@
 | **v6.21.0** | Stripe Checkout Integration + SMTP Email-Versand via Cloud Function |
 | **v6.20.2** | Telegram Bot: Sofortfahrt mit Schichtplan-Check, Warteschlange, Bot-UX |
 
+### Erledigte Aufgaben:
+- CRM-Portal: Unified Modal mit Tabs (Daten, Routen, Fahrten, Rechnungen, E-Mails, Notizen) ✅
+- CRM-Tabs waren leer → Tab-Cache-Reset Fix ✅
+- Konflikt-Checker: deleted/rejected Fahrten werden jetzt gefiltert ✅
+- Konflikt-Telegram zeigt jetzt welche Fahrt den Konflikt verursacht ✅
+- CRM-Adressen werden beim Telegram-Booking direkt mit Koordinaten verwendet ✅
+- Booking-History-Match: Ortsteil-Mismatch (Bansin/Heringsdorf) wird toleriert ✅
+
 ### Bekannte offene Punkte:
-- CRM-Tabs: Wenn ein Kunde "1 Fahrten" im Header zeigt aber der Fahrten-Tab leer ist → Phone-Matching prüfen (Debug-Logs in Konsole unter `📊 CRM Tab`)
 - Vollständiges Changelog: siehe `CHANGELOG.md`
 - Firebase-Struktur erweitert um: `/invoices`, `/emailLog`
+- Nach Deploy (`firebase deploy --only functions`) testen: Telegram-Buchung mit bekanntem Kunden → Adresse sollte ohne Rückfrage erkannt werden
 
 ---
 

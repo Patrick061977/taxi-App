@@ -6,6 +6,19 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.25.3] - 2026-03-15
+
+### 🐛 Fix: Falscher Konflikt-Alarm + Adress-Erkennung
+
+- **Konflikt-Checker**: `deleted` und `rejected` Fahrten werden jetzt rausgefiltert (verursachte falschen Alarm: gelöschte Berlin-Fahrt → 220km Rückfahrt-Konflikt)
+- **Konflikt-Telegram**: Zeigt jetzt welche bestehende Fahrt den Konflikt verursacht (Kunde, Uhrzeit, Route)
+- **CRM-Adressen nutzen**: Wenn Kunde bekannt ist, werden CRM-Koordinaten direkt verwendet statt neu zu geocoden
+- **"Von zu Hause" / "Nach Hause" Buttons**: Setzen jetzt Koordinaten aus CRM → kein Geocoding mehr nötig
+- **Booking-History-Match**: Flexibler bei Ortsteil-Mismatch (Bansin/Heringsdorf = gleiche Gemeinde)
+- **Telegram-Customer-Cache**: Speichert jetzt lat/lon aus CRM mit
+
+---
+
 ## [6.25.2] - 2026-03-15
 
 ### 🐛 Fix: CRM Unified Modal - Tabs waren leer

@@ -6245,8 +6245,8 @@ async function handleCallback(callback) {
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
 
-            // 🔧 v6.20.2: Auto-Zuweisung mit Wartezeit-Schätzung
-            if (rideData.pickupCoords) {
+            // 🔧 v6.25.4: Auto-Zuweisung NUR für Sofortfahrten — Vorbestellungen NICHT sofort zuweisen
+            if (rideData.pickupCoords && !isVorbestellung) {
                 const assignResult = await autoAssignRide(rideData.id, rideData);
                 if (assignResult) {
                     const etaMin = assignResult.drivingTimeMin || Math.max(3, Math.round((assignResult.distance / 40) * 60));

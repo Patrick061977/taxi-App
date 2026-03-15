@@ -43,6 +43,36 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🆕 v6.25.1: Telefonnummer-Validierung — prüft Länge und Format
+function validatePhoneNumber(phone) {
+    if (!phone) return { valid: false, warning: 'Keine Nummer' };
+    const clean = String(phone).replace(/[\s\-\/\(\)]/g, '');
+    const digits = clean.replace(/[^\d]/g, '');
+
+    if (clean.startsWith('+49') || clean.startsWith('0049')) {
+        const national = clean.startsWith('+49') ? digits.substring(2) : digits.substring(4);
+        const isMobil = /^1[567]\d/.test(national);
+        if (isMobil) {
+            if (national.length < 10) return { valid: false, warning: `Mobilnummer zu kurz (${national.length} Ziffern nach +49, erwartet 10-11)` };
+            if (national.length > 11) return { valid: false, warning: `Mobilnummer zu lang (${national.length} Ziffern nach +49, erwartet 10-11)` };
+        } else {
+            if (national.length < 6) return { valid: false, warning: `Festnetznummer zu kurz (${national.length} Ziffern)` };
+            if (national.length > 11) return { valid: false, warning: `Festnetznummer zu lang (${national.length} Ziffern)` };
+        }
+        return { valid: true };
+    }
+    if (clean.startsWith('0') && !clean.startsWith('00')) {
+        // Lokales deutsches Format
+        if (digits.length < 7) return { valid: false, warning: `Nummer zu kurz (${digits.length} Ziffern)` };
+        if (digits.length > 12) return { valid: false, warning: `Nummer zu lang (${digits.length} Ziffern)` };
+        return { valid: true };
+    }
+    // International
+    if (digits.length < 7) return { valid: false, warning: `Nummer zu kurz (${digits.length} Ziffern)` };
+    if (digits.length > 15) return { valid: false, warning: `Nummer zu lang (${digits.length} Ziffern)` };
+    return { valid: true };
+}
+
 // 🔧 v6.15.9: Robuste JSON-Extraktion aus KI-Antworten
 // Die KI schreibt manchmal Text vor/nach dem JSON — dieses Hilfsmittel extrahiert nur den JSON-Teil
 function extractJsonFromAiResponse(text) {
@@ -2514,8 +2544,14 @@ Nur gültiges JSON, kein Markdown:
                             } else if (_extractedPhone.startsWith('0049')) {
                                 _extractedPhone = '+49' + _extractedPhone.slice(4);
                             }
+                            // 🆕 v6.25.1: Validierung der extrahierten Nummer
+                            const _phoneValid = validatePhoneNumber(_extractedPhone);
                             booking.phone = _extractedPhone;
-                            await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                            if (_phoneValid.valid) {
+                                await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                            } else {
+                                await addTelegramLog('⚠️', chatId, `Telefonnummer extrahiert aber möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
+                            }
                         }
                     }
                     if (!booking.phone) {
@@ -8254,7 +8290,12 @@ async function handleCallback(callback) {
                 } else if (_extractedPhone.startsWith('0049')) {
                     _extractedPhone = '+49' + _extractedPhone.slice(4);
                 }
+                // 🆕 v6.25.1: Validierung der extrahierten Nummer
+                const _phoneValid = validatePhoneNumber(_extractedPhone);
                 booking.phone = _extractedPhone;
+                if (!_phoneValid.valid) {
+                    await addTelegramLog('⚠️', chatId, `Telefonnummer möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
+                }
             }
         }
         if (!booking.phone) {
@@ -8778,10 +8819,17 @@ async function handleAudioFile(message) {
         // 🔧 v6.11.6: Regex stoppt vor dem Datumsteil _YYYY_ (z.B. _2026_)
         let callerPhone = null;
         let callerCustomer = null;
-        const phoneMatch = fileName.match(/\+(\d[\d_]{8,}?)(?=_20\d{2}_)/);
+        // 🔧 v6.25.1: Greedy statt lazy matching — lazy {8,}? schnitt Nummern ab
+        const phoneMatch = fileName.match(/\+(\d[\d_]{8,})(?=_20\d{2}_)/);
         if (phoneMatch) {
             callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
-            await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
+            // 🆕 v6.25.1: Validierung der Anrufer-Nummer
+            const callerValid = validatePhoneNumber(callerPhone);
+            if (callerValid.valid) {
+                await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
+            } else {
+                await addTelegramLog('⚠️', chatId, `Anrufer-Telefon möglicherweise ungültig: ${callerPhone} — ${callerValid.warning}`);
+            }
 
             // CRM-Suche nach dieser Telefonnummer (inkl. zusätzliche Nummern bei Hotels)
             try {

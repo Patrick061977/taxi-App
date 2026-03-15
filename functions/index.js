@@ -43,6 +43,36 @@ function isMobileNumber(phone) {
     return false;
 }
 
+// 🆕 v6.25.1: Telefonnummer-Validierung — prüft Länge und Format
+function validatePhoneNumber(phone) {
+    if (!phone) return { valid: false, warning: 'Keine Nummer' };
+    const clean = String(phone).replace(/[\s\-\/\(\)]/g, '');
+    const digits = clean.replace(/[^\d]/g, '');
+
+    if (clean.startsWith('+49') || clean.startsWith('0049')) {
+        const national = clean.startsWith('+49') ? digits.substring(2) : digits.substring(4);
+        const isMobil = /^1[567]\d/.test(national);
+        if (isMobil) {
+            if (national.length < 10) return { valid: false, warning: `Mobilnummer zu kurz (${national.length} Ziffern nach +49, erwartet 10-11)` };
+            if (national.length > 11) return { valid: false, warning: `Mobilnummer zu lang (${national.length} Ziffern nach +49, erwartet 10-11)` };
+        } else {
+            if (national.length < 6) return { valid: false, warning: `Festnetznummer zu kurz (${national.length} Ziffern)` };
+            if (national.length > 11) return { valid: false, warning: `Festnetznummer zu lang (${national.length} Ziffern)` };
+        }
+        return { valid: true };
+    }
+    if (clean.startsWith('0') && !clean.startsWith('00')) {
+        // Lokales deutsches Format
+        if (digits.length < 7) return { valid: false, warning: `Nummer zu kurz (${digits.length} Ziffern)` };
+        if (digits.length > 12) return { valid: false, warning: `Nummer zu lang (${digits.length} Ziffern)` };
+        return { valid: true };
+    }
+    // International
+    if (digits.length < 7) return { valid: false, warning: `Nummer zu kurz (${digits.length} Ziffern)` };
+    if (digits.length > 15) return { valid: false, warning: `Nummer zu lang (${digits.length} Ziffern)` };
+    return { valid: true };
+}
+
 // 🔧 v6.15.9: Robuste JSON-Extraktion aus KI-Antworten
 // Die KI schreibt manchmal Text vor/nach dem JSON — dieses Hilfsmittel extrahiert nur den JSON-Teil
 function extractJsonFromAiResponse(text) {
@@ -1381,8 +1411,14 @@ async function searchNominatimForTelegram(query) {
         const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
         for (const freq of frequent) {
             const freqName = freq.name.toLowerCase();
+            // 🔧 v6.25.3: Flexiblerer Match — mind. 2/3 der Suchworte müssen treffen
+            // UND Straßenname muss matchen (erstes Wort mit >3 Buchstaben)
+            const mainWord = searchWords.find(w => w.length > 3) || searchWords[0] || '';
+            const wordMatchCount = searchWords.filter(w => freqName.includes(w)).length;
+            const wordMatchRatio = searchWords.length > 0 ? wordMatchCount / searchWords.length : 0;
             if (freqName.includes(searchKey) ||
-                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w)))) {
+                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w))) ||
+                (mainWord && freqName.includes(mainWord) && wordMatchRatio >= 0.6)) {
                 addIfNew({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking', priority: 3 });
             }
         }
@@ -2514,8 +2550,14 @@ Nur gültiges JSON, kein Markdown:
                             } else if (_extractedPhone.startsWith('0049')) {
                                 _extractedPhone = '+49' + _extractedPhone.slice(4);
                             }
+                            // 🆕 v6.25.1: Validierung der extrahierten Nummer
+                            const _phoneValid = validatePhoneNumber(_extractedPhone);
                             booking.phone = _extractedPhone;
-                            await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                            if (_phoneValid.valid) {
+                                await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                            } else {
+                                await addTelegramLog('⚠️', chatId, `Telefonnummer extrahiert aber möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
+                            }
                         }
                     }
                     if (!booking.phone) {
@@ -2617,6 +2659,44 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 });
                 return;
             }
+        }
+
+        // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,
+        // direkt CRM-Koordinaten verwenden statt neu zu geocoden
+        if (booking.customerId && (booking.pickup && !booking.pickupLat || booking.destination && !booking.destinationLat)) {
+            try {
+                const _crmSnap = await db.ref('customers/' + booking.customerId).once('value');
+                const _crm = _crmSnap.val();
+                if (_crm && _crm.address) {
+                    const _crmAddr = _crm.address.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                    const _crmLat = _crm.lat || _crm.pickupLat;
+                    const _crmLon = _crm.lon || _crm.pickupLon;
+                    if (_crmLat && _crmLon) {
+                        // Pickup prüfen
+                        if (booking.pickup && !booking.pickupLat) {
+                            const _pAddr = booking.pickup.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                            // Ähnlichkeits-Check: CRM-Adresse enthält Pickup oder umgekehrt (min. 10 Zeichen Übereinstimmung)
+                            if (_crmAddr.length > 10 && (_crmAddr.includes(_pAddr.substring(0, 15)) || _pAddr.includes(_crmAddr.substring(0, 15)))) {
+                                booking.pickup = _crm.address; // Vollständige CRM-Adresse verwenden
+                                booking.pickupLat = _crmLat;
+                                booking.pickupLon = _crmLon;
+                                console.log('📍 CRM-Adresse erkannt für Pickup:', _crm.address, _crmLat, _crmLon);
+                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Match: ${_crm.address}`);
+                            }
+                        }
+                        // Destination prüfen
+                        if (booking.destination && !booking.destinationLat) {
+                            const _dAddr = booking.destination.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                            if (_crmAddr.length > 10 && (_crmAddr.includes(_dAddr.substring(0, 15)) || _dAddr.includes(_crmAddr.substring(0, 15)))) {
+                                booking.destination = _crm.address;
+                                booking.destinationLat = _crmLat;
+                                booking.destinationLon = _crmLon;
+                                console.log('📍 CRM-Adresse erkannt für Destination:', _crm.address, _crmLat, _crmLon);
+                            }
+                        }
+                    }
+                }
+            } catch(e) { console.warn('CRM-Adress-Check Fehler:', e.message); }
         }
 
         // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
@@ -6858,6 +6938,27 @@ async function handleCallback(callback) {
             }
             if (_homeAddr) {
                 _homeBooking.pickup = _homeAddr;
+                // 🔧 v6.25.3: Koordinaten aus CRM laden → kein erneutes Geocoding nötig!
+                if (_homeCust?.lat && _homeCust?.lon) {
+                    _homeBooking.pickupLat = _homeCust.lat;
+                    _homeBooking.pickupLon = _homeCust.lon;
+                    console.log('📍 Von-zu-Hause: Koordinaten aus CRM:', _homeCust.lat, _homeCust.lon);
+                } else if (_homeCust?.customerId) {
+                    // Fallback: Koordinaten direkt aus CRM laden
+                    try {
+                        const _custSnap = await db.ref('customers/' + _homeCust.customerId).once('value');
+                        const _custData = _custSnap.val();
+                        if (_custData) {
+                            const _lat = _custData.lat || _custData.pickupLat;
+                            const _lon = _custData.lon || _custData.pickupLon;
+                            if (_lat && _lon) {
+                                _homeBooking.pickupLat = _lat;
+                                _homeBooking.pickupLon = _lon;
+                                console.log('📍 Von-zu-Hause: Koordinaten aus CRM geladen:', _lat, _lon);
+                            }
+                        }
+                    } catch(e) { console.warn('CRM-Koordinaten Fehler:', e.message); }
+                }
                 if (_homeBooking.missing) _homeBooking.missing = _homeBooking.missing.filter(m => m !== 'pickup');
                 await sendTelegramMessage(chatId, '✅ Abholort gesetzt: <b>' + _homeAddr + '</b>');
                 await continueBookingFlow(chatId, _homeBooking, _homePending.originalText || '');
@@ -6876,6 +6977,24 @@ async function handleCallback(callback) {
             const _destCust = await getTelegramCustomer(chatId);
             if (_destCust && _destCust.address) {
                 _destBooking.destination = _destCust.address;
+                // 🔧 v6.25.3: Koordinaten aus CRM laden → kein erneutes Geocoding nötig!
+                if (_destCust.lat && _destCust.lon) {
+                    _destBooking.destinationLat = _destCust.lat;
+                    _destBooking.destinationLon = _destCust.lon;
+                } else if (_destCust.customerId) {
+                    try {
+                        const _dSnap = await db.ref('customers/' + _destCust.customerId).once('value');
+                        const _dData = _dSnap.val();
+                        if (_dData) {
+                            const _lat = _dData.lat || _dData.pickupLat;
+                            const _lon = _dData.lon || _dData.pickupLon;
+                            if (_lat && _lon) {
+                                _destBooking.destinationLat = _lat;
+                                _destBooking.destinationLon = _lon;
+                            }
+                        }
+                    } catch(e) {}
+                }
                 if (_destBooking.missing) _destBooking.missing = _destBooking.missing.filter(m => m !== 'destination');
                 await sendTelegramMessage(chatId, '✅ Zielort gesetzt: <b>' + _destCust.address + '</b>');
                 await continueBookingFlow(chatId, _destBooking, _destPending.originalText || '');
@@ -8254,7 +8373,12 @@ async function handleCallback(callback) {
                 } else if (_extractedPhone.startsWith('0049')) {
                     _extractedPhone = '+49' + _extractedPhone.slice(4);
                 }
+                // 🆕 v6.25.1: Validierung der extrahierten Nummer
+                const _phoneValid = validatePhoneNumber(_extractedPhone);
                 booking.phone = _extractedPhone;
+                if (!_phoneValid.valid) {
+                    await addTelegramLog('⚠️', chatId, `Telefonnummer möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
+                }
             }
         }
         if (!booking.phone) {
@@ -8495,7 +8619,8 @@ async function handleContact(message) {
 
         const commandHint = '\n\n<b>Ihre Möglichkeiten:</b>\n🚕 Fahrt buchen – einfach schreiben wann & wohin\n📊 /status – Ihre Fahrten ansehen\n✏️ Fahrten bearbeiten oder stornieren\n👤 /profil – Ihre Daten verwalten\nℹ️ /hilfe – Alle Befehle';
         if (customerId && customerData) {
-            await saveTelegramCustomer(chatId, { customerId, name: customerData.name || firstName, phone: customerData.phone || phone, mobile: customerData.mobile || null, address: customerData.address || null, linkedAt: Date.now() });
+            // 🔧 v6.25.3: lat/lon aus CRM mitspeichern für Adress-Skip
+            await saveTelegramCustomer(chatId, { customerId, name: customerData.name || firstName, phone: customerData.phone || phone, mobile: customerData.mobile || null, address: customerData.address || null, lat: customerData.lat || customerData.pickupLat || null, lon: customerData.lon || customerData.pickupLon || null, linkedAt: Date.now() });
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
             await sendTelegramMessage(chatId, `✅ <b>Willkommen zurück, ${customerData.name}!</b>\n\nIhre Nummer <b>${phone}</b> ist gespeichert.${commandHint}`, removeKeyboard);
         } else {
@@ -8778,10 +8903,17 @@ async function handleAudioFile(message) {
         // 🔧 v6.11.6: Regex stoppt vor dem Datumsteil _YYYY_ (z.B. _2026_)
         let callerPhone = null;
         let callerCustomer = null;
-        const phoneMatch = fileName.match(/\+(\d[\d_]{8,}?)(?=_20\d{2}_)/);
+        // 🔧 v6.25.1: Greedy statt lazy matching — lazy {8,}? schnitt Nummern ab
+        const phoneMatch = fileName.match(/\+(\d[\d_]{8,})(?=_20\d{2}_)/);
         if (phoneMatch) {
             callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
-            await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
+            // 🆕 v6.25.1: Validierung der Anrufer-Nummer
+            const callerValid = validatePhoneNumber(callerPhone);
+            if (callerValid.valid) {
+                await addTelegramLog('📞', chatId, `Anrufer-Telefon aus Dateiname: ${callerPhone}`);
+            } else {
+                await addTelegramLog('⚠️', chatId, `Anrufer-Telefon möglicherweise ungültig: ${callerPhone} — ${callerValid.warning}`);
+            }
 
             // CRM-Suche nach dieser Telefonnummer (inkl. zusätzliche Nummern bei Hotels)
             try {

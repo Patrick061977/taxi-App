@@ -6,6 +6,103 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ---
 
+## [6.25.3] - 2026-03-15
+
+### 🐛 Fix: Falscher Konflikt-Alarm + Adress-Erkennung
+
+- **Konflikt-Checker**: `deleted` und `rejected` Fahrten werden jetzt rausgefiltert (verursachte falschen Alarm: gelöschte Berlin-Fahrt → 220km Rückfahrt-Konflikt)
+- **Konflikt-Telegram**: Zeigt jetzt welche bestehende Fahrt den Konflikt verursacht (Kunde, Uhrzeit, Route)
+- **CRM-Adressen nutzen**: Wenn Kunde bekannt ist, werden CRM-Koordinaten direkt verwendet statt neu zu geocoden
+- **"Von zu Hause" / "Nach Hause" Buttons**: Setzen jetzt Koordinaten aus CRM → kein Geocoding mehr nötig
+- **Booking-History-Match**: Flexibler bei Ortsteil-Mismatch (Bansin/Heringsdorf = gleiche Gemeinde)
+- **Telegram-Customer-Cache**: Speichert jetzt lat/lon aus CRM mit
+
+---
+
+## [6.25.2] - 2026-03-15
+
+### 🐛 Fix: CRM Unified Modal - Tabs waren leer
+
+- **Bug:** Tabs (Routen, Fahrten, Rechnungen, E-Mails, Notizen) zeigten leeren Inhalt
+- **Ursache:** `_crmUnifiedTabsLoaded` Cache wurde nie zurückgesetzt beim erneuten Modal-Öffnen
+- **Fix:** Cache wird bei jedem `editCustomer()` Aufruf geleert
+- Loading-Spinner wird sofort angezeigt beim Tab-Wechsel
+- Debug-Logging für Ride-Matching hinzugefügt
+
+---
+
+## [6.25.1] - 2026-03-15
+
+### ✨ Telefonnummer-Validierung mit Live-Feedback
+
+- Echtzeit-Validierung bei Mobilfunk- und Festnetznummern im CRM
+- Visuelles Feedback (grün/rot Border) bei Eingabe
+
+---
+
+## [6.25.0] - 2026-03-15
+
+### 🐛 KI-Booking Fix: missing-Felder
+
+- Unified CRM Modal - Bearbeiten + Details in einem Fenster
+- Doppelte +49 bei Mobilnummern endgültig behoben
+- WhatsApp +49 Verdoppelung + Rechnungsadresse aus CRM laden
+
+---
+
+## [6.24.0] - 2026-03-15
+
+### ✨ PDF-Anhang bei Rechnungs-Emails + Rechnungs-Layout-Editor
+
+- Rechnungen können als PDF per E-Mail versendet werden
+- Rechnungs-Layout-Editor zum Anpassen des Designs
+
+---
+
+## [6.23.0] - 2026-03-15
+
+### ✨ CRM-Portal mit zentralen Tabs
+
+- Rechnungen-Tab, E-Mail-Verlauf, Notizen im CRM-Kundenprofil
+- Adress-Schutz ignoriert jetzt PLZ und Ortsnamen (v6.15.2)
+- datetime_now Button Fix
+
+---
+
+## [6.22.0] - 2026-03-15
+
+### ✨ Stripe QR-Codes + payRedirect Cloud Function
+
+- Scannbare Stripe QR-Codes für Zahlungen
+- Stripe automatic_payment_methods statt hardcoded giropay/sofort
+- Stripe Checkout findet jetzt die Rechnungsnummer
+
+---
+
+## [6.21.0] - 2026-03-14
+
+### ✨ Stripe Checkout + SMTP Email-Versand
+
+- **Stripe Checkout Integration** für Online-Zahlungen
+- **SMTP Email-Versand** via Cloud Function
+- Stripe-Fehler werden jetzt geloggt statt verschluckt
+
+---
+
+## [6.20.2] - 2026-03-14
+
+### ✨ Telegram Bot: Sofortfahrt + Warteschlange
+
+- Sofortfahrt mit Schichtplan-Check + Admin-Vermittlung
+- Warteschlange + Wartezeit-Schätzung bei Sofortfahrten
+- Alle Bot-Nachrichten mit fetten Aktionen + Eingabefeld-Hinweisen
+- Datum-Picker überarbeitet: "Heute" vs "Vorbestellen"
+- Standort-Tipp prominent in Begrüßung + Buchen
+- "Kein Fahrer erreichbar" → nur "Bitte anrufen" Meldung
+- Änderungs-Übersicht bei Buchungen anzeigen (v6.20.1)
+
+---
+
 ## [5.100.1] - 2026-02-25
 
 ### 🐛 Root-Cause-Fix: Luftlinie-Fallback nutzte Meter statt km

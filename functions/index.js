@@ -2336,14 +2336,26 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
-        // 🛡️ v6.15.1: Adress-Duplikat-Schutz — wenn Destination Teile der Pickup-Adresse enthält (oder umgekehrt), Destination löschen
+        // 🛡️ v6.15.2: Adress-Duplikat-Schutz — nur echte Straßen-Duplikate erkennen (PLZ + Ortsname ignorieren)
         if (booking.pickup && booking.destination) {
-            const _pickupParts = booking.pickup.toLowerCase().replace(/[,.\-\/]/g, ' ').split(/\s+/).filter(p => p.length > 3);
+            const _pickupLower = booking.pickup.toLowerCase();
             const _destLower = booking.destination.toLowerCase();
-            // Prüfe ob Hausnummer+Straße aus Pickup in Destination auftaucht
-            const _streetMatch = _pickupParts.filter(p => /\d/.test(p) || p.length > 5).filter(p => _destLower.includes(p));
-            if (_streetMatch.length >= 2 && booking.pickup.toLowerCase() !== _destLower) {
-                await addTelegramLog('🛡️', chatId, `Adress-Schutz: Ziel "${booking.destination}" enthält Teile der Abholadresse "${booking.pickup}" → Ziel gelöscht, wird nachgefragt`);
+            // PLZ extrahieren (5-stellige Zahlen)
+            const _pickupPLZ = (_pickupLower.match(/\b\d{5}\b/g) || []);
+            // Ortsname = letztes Wort nach PLZ (z.B. "Heringsdorf", "Bansin", "Ahlbeck")
+            const _pickupOrt = (_pickupLower.match(/\b\d{5}\s+(\w+)/g) || []).map(m => m.replace(/\d{5}\s+/, ''));
+            // Wörter die ignoriert werden: PLZ + Ortsname + generische Begriffe
+            const _ignoreWords = [..._pickupPLZ, ..._pickupOrt, 'straße', 'strasse', 'weg', 'ring', 'platz', 'allee', 'gasse'];
+
+            const _pickupParts = _pickupLower.replace(/[,.\-\/]/g, ' ').split(/\s+/).filter(p => p.length > 3);
+            // Nur Straßen-relevante Teile vergleichen: Wörter mit Ziffern (Hausnummern) oder lange Wörter, ABER keine PLZ/Ortsnamen
+            const _streetMatch = _pickupParts
+                .filter(p => /\d/.test(p) || p.length > 5)
+                .filter(p => !_ignoreWords.some(iw => p === iw || p === iw))
+                .filter(p => !/^\d{5}$/.test(p)) // PLZ ausschließen
+                .filter(p => _destLower.includes(p));
+            if (_streetMatch.length >= 2 && _pickupLower !== _destLower) {
+                await addTelegramLog('🛡️', chatId, `Adress-Schutz: Ziel "${booking.destination}" enthält Teile der Abholadresse "${booking.pickup}" → Ziel gelöscht, wird nachgefragt`, { matchedParts: _streetMatch });
                 booking.destination = null;
                 if (!booking.missing) booking.missing = [];
                 if (!booking.missing.includes('destination')) booking.missing.push('destination');

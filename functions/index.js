@@ -1411,8 +1411,14 @@ async function searchNominatimForTelegram(query) {
         const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
         for (const freq of frequent) {
             const freqName = freq.name.toLowerCase();
+            // 🔧 v6.25.3: Flexiblerer Match — mind. 2/3 der Suchworte müssen treffen
+            // UND Straßenname muss matchen (erstes Wort mit >3 Buchstaben)
+            const mainWord = searchWords.find(w => w.length > 3) || searchWords[0] || '';
+            const wordMatchCount = searchWords.filter(w => freqName.includes(w)).length;
+            const wordMatchRatio = searchWords.length > 0 ? wordMatchCount / searchWords.length : 0;
             if (freqName.includes(searchKey) ||
-                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w)))) {
+                (searchWords.length > 0 && searchWords.every(w => freqName.includes(w))) ||
+                (mainWord && freqName.includes(mainWord) && wordMatchRatio >= 0.6)) {
                 addIfNew({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking', priority: 3 });
             }
         }

@@ -10244,14 +10244,18 @@ exports.autoResolveConflicts = onSchedule(
                 const dateStr = berlinDate(ride.pickupTimestamp);
                 const timeStr = berlinTime(ride.pickupTimestamp);
 
-                // Leerfahrt-Distanz für aktuelles Fahrzeug berechnen
-                const currentDist = estimateVehicleLeerfahrt(
+                // 🔧 v6.25.4: Smart Routing via OSRM — echte Fahrzeiten statt Luftlinie
+                const currentResult = await estimateVehicleLeerfahrt(
                     currentVehicle, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                 );
+                const currentMin = currentResult.durationMin;
+                const currentKm = currentResult.distKm;
 
                 // Beste Alternative suchen
                 let bestAlt = null;
-                let bestDist = currentDist;
+                let bestMin = currentMin;
+                let bestKm = currentKm;
+                let bestMethod = currentResult.method;
 
                 const candidates = Object.entries(OFFICIAL_VEHICLES)
                     .filter(([vid]) => vid !== currentVehicle)
@@ -10277,22 +10281,23 @@ exports.autoResolveConflicts = onSchedule(
                     });
                     if (hasConflict) continue;
 
-                    // Leerfahrt für Alternative berechnen
-                    const altDist = estimateVehicleLeerfahrt(
+                    // Leerfahrt für Alternative berechnen (OSRM Smart Routing)
+                    const altResult = await estimateVehicleLeerfahrt(
                         vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                     );
 
-                    if (altDist < bestDist) {
-                        bestDist = altDist;
+                    if (altResult.durationMin < bestMin) {
+                        bestMin = altResult.durationMin;
+                        bestKm = altResult.distKm;
+                        bestMethod = altResult.method;
                         bestAlt = vehicleId;
                     }
                 }
 
                 if (!bestAlt) continue;
 
-                // Vorteil in Minuten umrechnen (ca. 1 km = 2 Min Fahrzeit auf Usedom)
-                const vorteilKm = currentDist - bestDist;
-                const vorteilMin = Math.round(vorteilKm * 2);
+                // Vorteil direkt in Minuten (OSRM liefert echte Fahrzeiten)
+                const vorteilMin = Math.round(currentMin - bestMin);
 
                 if (vorteilMin < minLeerfahrtVorteilMin) continue;
 
@@ -10300,7 +10305,7 @@ exports.autoResolveConflicts = onSchedule(
                 const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
                 const rideTime = berlinTime(ride.pickupTimestamp);
 
-                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentDist.toFixed(1)} km) → ${altInfo.name} (${bestDist.toFixed(1)} km) | Vorteil: ${vorteilMin} Min`);
+                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
 
                 // Umplanen in Firebase
                 await db.ref(`rides/${ride.firebaseId}`).update({
@@ -10314,7 +10319,7 @@ exports.autoResolveConflicts = onSchedule(
                     assignedBy: 'cloud-auto-optimize',
                     assignedAt: Date.now(),
                     updatedAt: Date.now(),
-                    replanReason: `Leerfahrt-Optimierung: ${currInfo.name} (${currentDist.toFixed(1)} km) → ${altInfo.name} (${bestDist.toFixed(1)} km), ${vorteilMin} Min kürzer`
+                    replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`
                 });
 
                 // Lokales Array aktualisieren
@@ -10329,21 +10334,25 @@ exports.autoResolveConflicts = onSchedule(
                         rideId: ride.firebaseId,
                         vonVehicle: currInfo.name || currentVehicle,
                         zuVehicle: altInfo.name || bestAlt,
-                        vonDistanzKm: Math.round(currentDist * 10) / 10,
-                        zuDistanzKm: Math.round(bestDist * 10) / 10,
+                        vonDistanzKm: currentKm,
+                        zuDistanzKm: bestKm,
+                        vonDauerMin: currentMin,
+                        zuDauerMin: bestMin,
+                        vonMethod: currentResult.method,
+                        zuMethod: bestMethod,
                         vorteilMin,
                         kunde: ride.customerName || '',
                         abholung: (ride.pickup || '').substring(0, 50),
                         ziel: (ride.destination || '').substring(0, 50),
                         uhrzeit: rideTime,
                         datum: dateStr,
-                        grund: `Leerfahrt ${vorteilMin} Min kürzer`
+                        grund: `Smart-Routing: ${vorteilMin} Min kürzer`
                     });
                 } catch(e) { /* non-critical */ }
 
                 // Telegram an Admins
                 try {
-                    const msg = `🚀 *Optimierung*\n📋 ${ride.customerName || '?'} • ${rideTime}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Leerfahrt: ${currentDist.toFixed(1)} km → ${bestDist.toFixed(1)} km (${vorteilMin} Min kürzer)`;
+                    const msg = `🚀 *Optimierung*\n📋 ${ride.customerName || '?'} • ${rideTime}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }
@@ -10357,18 +10366,50 @@ exports.autoResolveConflicts = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// 🔧 v6.25.4: Leerfahrt-Schätzung — Logik übernommen von autoAssignVehicleToRide (index.html)
-// Berechnet die Distanz vom wahrscheinlichen Standort des Fahrzeugs zum Abholort (km Luftlinie)
-// Reihenfolge wie Browser-Funktion:
-//   1. Keine Vorfahrt am selben Tag → Homebase (Schichtplan mit Split-Schicht + Tagesausnahmen)
-//   2. Vorfahrt mit kurzer Lücke (< standortRueckkehrPufferMinuten) → letztes Fahrt-Ziel
-//   3. Vorfahrt mit langer Lücke (>= Puffer) → Fahrer zurück am Standort → Homebase
-//   4. GPS-Position als Fallback
+// 🔧 v6.25.4: Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
+// Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes
+function getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr) {
+    const vShift = shiftsData[vehicleId];
+    if (!vShift) return null;
+
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    const dayEntry = vShift[dateStr];
+    const defTimes = vShift.defaultTimes || {};
+
+    // 1. Tagesausnahme mit timeRanges (Split-Schicht)
+    if (dayEntry && dayEntry.timeRanges && dayEntry.timeRanges.length > 1) {
+        for (const range of dayEntry.timeRanges) {
+            if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
+                return range.homeCoords;
+            }
+        }
+    }
+    // 2. Tagesausnahme direkt
+    if (dayEntry && dayEntry.homeCoords?.lat) return dayEntry.homeCoords;
+    // 3. defaultTimes mit timeRanges (Split-Schicht)
+    if (defTimes[dow] && defTimes[dow].timeRanges && defTimes[dow].timeRanges.length > 1) {
+        for (const range of defTimes[dow].timeRanges) {
+            if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
+                return range.homeCoords;
+            }
+        }
+    }
+    // 4. defaultTimes direkt
+    if (defTimes[dow] && defTimes[dow].homeCoords?.lat) return defTimes[dow].homeCoords;
+
+    return null;
+}
+
+// 🔧 v6.25.4: Smart Routing Leerfahrt-Schätzung via OSRM
+// Logik übernommen von autoAssignVehicleToRide + Smart Routing (index.html)
+// Berechnet die ECHTE Fahrzeit (Minuten) vom wahrscheinlichen Standort zum Abholort
+// Smart Routing: Vergleicht Direkt-Route vs. über-Homebase und nimmt die kürzere
 // ═══════════════════════════════════════════════════════════════
-function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr, pricingSettings) {
+async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr, pricingSettings) {
     const pickupLat = targetRide.pickupCoords?.lat || targetRide.pickupLat;
     const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
-    if (!pickupLat || !pickupLon) return 999;
+    if (!pickupLat || !pickupLon) return { durationMin: 999, distKm: 999, method: 'no-coords' };
 
     const returnBufferMin = (pricingSettings && pricingSettings.standortRueckkehrPufferMinuten != null)
         ? pricingSettings.standortRueckkehrPufferMinuten : 30;
@@ -10380,49 +10421,10 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
     const berlinHour = (pickupDate.getUTCHours() + (isSummer ? 2 : 1)) % 24;
     const timeStr = String(berlinHour).padStart(2, '0') + ':' + String(pickupDate.getUTCMinutes()).padStart(2, '0');
 
-    // Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
-    // Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes, Fallback
-    let homeLat = null, homeLon = null;
-    const vShift = shiftsData[vehicleId];
-    if (vShift) {
-        const d = new Date(dateStr + 'T00:00:00');
-        const dow = d.getDay();
-        const dayEntry = vShift[dateStr];
-        const defTimes = vShift.defaultTimes || {};
-        let homeCoords = null;
-
-        // 1. Tagesausnahme mit timeRanges (Split-Schicht)
-        if (dayEntry && dayEntry.timeRanges && dayEntry.timeRanges.length > 1) {
-            for (const range of dayEntry.timeRanges) {
-                if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords) {
-                    homeCoords = range.homeCoords;
-                    break;
-                }
-            }
-        }
-        // 2. Tagesausnahme direkt
-        if (!homeCoords && dayEntry && dayEntry.homeCoords) {
-            homeCoords = dayEntry.homeCoords;
-        }
-        // 3. defaultTimes mit timeRanges (Split-Schicht)
-        if (!homeCoords && defTimes[dow] && defTimes[dow].timeRanges && defTimes[dow].timeRanges.length > 1) {
-            for (const range of defTimes[dow].timeRanges) {
-                if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords) {
-                    homeCoords = range.homeCoords;
-                    break;
-                }
-            }
-        }
-        // 4. defaultTimes direkt
-        if (!homeCoords && defTimes[dow] && defTimes[dow].homeCoords) {
-            homeCoords = defTimes[dow].homeCoords;
-        }
-
-        if (homeCoords && homeCoords.lat && homeCoords.lon) {
-            homeLat = homeCoords.lat;
-            homeLon = homeCoords.lon;
-        }
-    }
+    // Homebase aus Schichtplan
+    const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
+    const homeLat = homeCoords?.lat || null;
+    const homeLon = homeCoords?.lon || null;
 
     // Vorherige Fahrt auf diesem Fahrzeug AM SELBEN TAG suchen
     const vehicleRides = allRides.filter(r => {
@@ -10430,60 +10432,84 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
         if (r.firebaseId === targetRide.firebaseId) return false;
         if (!r.pickupTimestamp || r.pickupTimestamp >= targetRide.pickupTimestamp) return false;
         if (['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status)) return false;
-        // Nur Fahrten desselben Tages (wie autoAssignVehicleToRide)
-        const rDate = new Date(r.pickupTimestamp);
-        const rMonth = rDate.getUTCMonth() + 1;
-        const rIsSummer = rMonth >= 4 && rMonth <= 10;
-        const rHour = rDate.getUTCHours() + (rIsSummer ? 2 : 1);
-        const rDay = rHour >= 24 ? rDate.getUTCDate() + 1 : rDate.getUTCDate();
-        const rDateStr = rDate.getUTCFullYear() + '-' + String(rDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(rDay).padStart(2,'0');
+        // Nur Fahrten desselben Tages
+        const rDateStr = berlinDate(r.pickupTimestamp);
         return rDateStr === dateStr;
     }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
 
-    if (vehicleRides.length > 0) {
-        const prevRide = vehicleRides[0];
-        const prevDurMs = (prevRide.duration || prevRide.estimatedDuration || 20) * 60000;
-        const prevEndTs = prevRide.pickupTimestamp + prevDurMs;
-        const gapMinutes = (targetRide.pickupTimestamp - prevEndTs) / 60000;
-
-        // Fahrer zurück am Standort? (wie autoAssignVehicleToRide Zeile 30421-30422)
-        const driverBackAtStandort = gapMinutes >= returnBufferMin;
-
-        if (!driverBackAtStandort) {
-            // Kurze Pause → Fahrer noch unterwegs/vor Ort → letztes Fahrt-Ziel verwenden
-            const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
-            const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
-            if (destLat && destLon) {
-                return gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
-            }
-            // Fallback: Pickup der vorherigen Fahrt
-            const prevPickupLat = prevRide.pickupCoords?.lat || prevRide.pickupLat;
-            const prevPickupLon = prevRide.pickupCoords?.lon || prevRide.pickupLon;
-            if (prevPickupLat && prevPickupLon) {
-                return gpsDistanceKm(prevPickupLat, prevPickupLon, pickupLat, pickupLon);
-            }
+    // Keine Vorfahrt am selben Tag → Homebase oder GPS
+    if (vehicleRides.length === 0) {
+        if (homeLat && homeLon) {
+            const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
+            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'homebase' };
+            return { durationMin: gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon) * 2, distKm: gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon), method: 'homebase-luftlinie' };
         }
-        // Lange Pause → Fahrer ist zurück in Homebase → weiter unten Homebase nutzen
+        // GPS-Fallback
+        const driver = vehiclesData[vehicleId];
+        if (driver?.lat && driver?.lon) {
+            const route = await calculateRoute({ lat: driver.lat, lon: driver.lon }, { lat: pickupLat, lon: pickupLon });
+            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'gps' };
+        }
+        return { durationMin: 50, distKm: 25, method: 'fallback' };
     }
 
-    // Keine Vorfahrt ODER Fahrer zurück am Standort → Homebase verwenden
+    // Vorfahrt vorhanden → Smart Routing
+    const prevRide = vehicleRides[0];
+    const prevDurMs = (prevRide.duration || prevRide.estimatedDuration || 20) * 60000;
+    const prevEndTs = prevRide.pickupTimestamp + prevDurMs;
+    const gapMinutes = (targetRide.pickupTimestamp - prevEndTs) / 60000;
+
+    const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
+    const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
+
+    // Kurze Pause → Fahrer noch unterwegs → Direktroute vom letzten Ziel
+    if (gapMinutes < returnBufferMin) {
+        if (destLat && destLon) {
+            const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-kurze-pause' };
+            return { durationMin: gpsDistanceKm(destLat, destLon, pickupLat, pickupLon) * 2, distKm: gpsDistanceKm(destLat, destLon, pickupLat, pickupLon), method: 'direkt-luftlinie' };
+        }
+        if (homeLat && homeLon) {
+            const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
+            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'homebase-fallback' };
+        }
+        return { durationMin: 20, distKm: 10, method: 'schaetzwert' };
+    }
+
+    // Lange Pause → Smart Routing: Direkt vs. über Homebase, kürzere gewinnt
+    // Route A: Direkt vom letzten Ziel → nächster Abholort
+    let direktMin = Infinity, direktKm = 999;
+    if (destLat && destLon) {
+        const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        if (direktRoute) {
+            direktMin = direktRoute.duration;
+            direktKm = parseFloat(direktRoute.distance);
+        }
+    }
+
+    // Route B: Homebase → nächster Abholort
+    let homebaseMin = Infinity, homebaseKm = 999;
     if (homeLat && homeLon) {
-        return gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+        const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
+        if (homeRoute) {
+            homebaseMin = homeRoute.duration;
+            homebaseKm = parseFloat(homeRoute.distance);
+        }
     }
 
-    // GPS-Position als Fallback (falls aktuell genug)
-    const driver = vehiclesData[vehicleId];
-    if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= 15 * 60000)) {
-        return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
+    // Kürzere Route gewinnt (wie Smart Routing im Browser)
+    if (homebaseMin <= direktMin && homebaseMin < Infinity) {
+        return { durationMin: homebaseMin, distKm: homebaseKm, method: 'smart-homebase' };
+    } else if (direktMin < Infinity) {
+        return { durationMin: direktMin, distKm: direktKm, method: 'smart-direkt' };
     }
 
-    // Letzter bekannter GPS-Standort
-    if (driver && driver.lat && driver.lon) {
-        return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
+    // Fallback auf Luftlinie
+    if (homeLat && homeLon) {
+        const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'homebase-luftlinie' };
     }
-
-    // Kein Standort bekannt → hohe Distanz als Fallback
-    return 50;
+    return { durationMin: 50, distKm: 25, method: 'fallback' };
 }
 
 // Hilfsfunktion: Alternatives Fahrzeug ohne Zeitkonflikt finden

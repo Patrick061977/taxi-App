@@ -10324,14 +10324,30 @@ exports.autoResolveConflicts = onSchedule(
             const vehiclesData = vehiclesSnap.val() || {};
             let totalOptimized = 0;
 
-            // Alle offenen, nicht akzeptierten Fahrten mit Koordinaten
+            // Alle offenen, nicht akzeptierten Fahrten
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
-                r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                (r.pickupCoords || (r.pickupLat && r.pickupLon))
+                r.pickupTimestamp > now + vorlaufMin * 60000
             );
+
+            // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden
+            for (const ride of optimizableRides) {
+                if (!ride.pickupCoords && !ride.pickupLat) {
+                    if (ride.pickup) {
+                        try {
+                            const geo = await geocode(ride.pickup);
+                            if (geo && geo.lat && geo.lon) {
+                                ride.pickupCoords = { lat: geo.lat, lon: geo.lon };
+                                // Koordinaten auch in Firebase speichern für nächstes Mal
+                                await db.ref(`rides/${ride.firebaseId}/pickupCoords`).set({ lat: geo.lat, lon: geo.lon });
+                                console.log(`📍 Geocoding-Fallback: ${ride.customerName || '?'} → ${ride.pickup} → ${geo.lat},${geo.lon}`);
+                            }
+                        } catch(e) { /* non-critical */ }
+                    }
+                }
+            }
 
             console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
 
@@ -10496,41 +10512,8 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
-            // 🔧 v6.25.4: Debug-Log nach Firebase schreiben (kein Telegram-Spam)
-            try {
-                const excludedRides = allRides.filter(r =>
-                    !optimizableRides.some(o => o.firebaseId === r.firebaseId)
-                );
-                const skippedDetails = excludedRides.slice(0, 20).map(r => {
-                    const reasons = [];
-                    if (['accepted','picked_up','on_way'].includes(r.status)) reasons.push(`Status: ${r.status}`);
-                    if (!(r.pickupCoords || (r.pickupLat && r.pickupLon))) reasons.push('Keine Koordinaten');
-                    if (r.assignmentLocked) reasons.push('Gesperrt');
-                    return {
-                        kunde: r.customerName || '?',
-                        datum: berlinDate(r.pickupTimestamp),
-                        zeit: berlinTime(r.pickupTimestamp),
-                        fahrzeug: (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle,
-                        status: r.status,
-                        grund: reasons.join(', ') || 'bereits optimal'
-                    };
-                });
-
-                await db.ref('optimierungsLog/lastRun').set({
-                    timestamp: Date.now(),
-                    zeitpunkt: formatBerlinTime(Date.now()),
-                    fahrtenGeladen: allRides.length,
-                    fahrtenOptimierbar: optimizableRides.length,
-                    schichtKorrekturen: totalShiftFixes || 0,
-                    konfliktUmplanungen: totalReplanned,
-                    leerfahrtOptimierungen: totalOptimized,
-                    uebersprungen: skippedDetails
-                });
-            } catch(e) { /* non-critical */ }
-
         } catch (e) {
             console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message);
-            try { await db.ref('optimierungsLog/lastError').set({ timestamp: Date.now(), error: e.message }); } catch(e2) {}
         }
     }
 );

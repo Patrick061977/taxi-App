@@ -324,8 +324,9 @@ async function autoAssignRide(rideId, rideData) {
         const minutesUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) / 60000 : 0;
         const isSofort = minutesUntilPickup <= 60;
 
-        // Abholzeit für Schicht-Check (Vorbestellung = Abholzeit, Sofort = jetzt)
-        const pickupDate = rideData.pickupTimestamp && !isSofort
+        // 🔧 v6.25.4: Schicht-Check IMMER gegen Abholzeit prüfen, nicht aktuelle Uhrzeit!
+        // Vorher: Sofortfahrten nutzten berlin (aktuelle Uhrzeit) → Fahrzeug bekam Fahrt außerhalb seiner Schicht
+        const pickupDate = rideData.pickupTimestamp
             ? new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }))
             : berlin;
         const dateStr = pickupDate.getFullYear() + '-' + String(pickupDate.getMonth()+1).padStart(2,'0') + '-' + String(pickupDate.getDate()).padStart(2,'0');
@@ -1800,9 +1801,15 @@ function parseFreeformDatetime(text) {
 }
 
 function parseGermanDatetime(datetimeStr) {
-    if (!datetimeStr) return Date.now();
+    if (!datetimeStr) {
+        console.warn('⚠️ parseGermanDatetime: datetimeStr ist leer/null → Fallback auf Date.now()! Das kann zu falscher Sofortfahrt-Erkennung führen.');
+        return Date.now();
+    }
     const d = new Date(datetimeStr);
-    if (isNaN(d.getTime())) return Date.now();
+    if (isNaN(d.getTime())) {
+        console.warn(`⚠️ parseGermanDatetime: "${datetimeStr}" konnte NICHT geparst werden → Fallback auf Date.now()! Sofortfahrt-Fehlklassifizierung möglich.`);
+        return Date.now();
+    }
     // If already has explicit timezone suffix (Z or +/-offset), use as-is
     if (typeof datetimeStr === 'string' && (datetimeStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(datetimeStr))) {
         return d.getTime();
@@ -1811,7 +1818,9 @@ function parseGermanDatetime(datetimeStr) {
     const berlinStr = d.toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
     const berlinAsUTC = new Date(berlinStr);
     const offsetMs = berlinAsUTC.getTime() - d.getTime();
-    return d.getTime() - offsetMs;
+    const result = d.getTime() - offsetMs;
+    console.log(`📅 parseGermanDatetime: "${datetimeStr}" → ${new Date(result).toISOString()} (Berlin: ${new Date(result).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })})`);
+    return result;
 }
 
 const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
@@ -6258,6 +6267,17 @@ async function handleCallback(callback) {
             const dt = new Date(pickupTimestamp);
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / 60000;
             const isVorbestellung = minutesUntilPickup > 60;
+            // 🔍 v6.25.4: Diagnose-Logging für Sofort/Vorbestellung-Erkennung
+            console.log(`🔍 Buchung Sofort/Vorbestellung-Check:`, JSON.stringify({
+                'booking.datetime': booking.datetime,
+                'pickupTimestamp': pickupTimestamp,
+                'pickupTime (Berlin)': dt.toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }),
+                'Date.now()': Date.now(),
+                'minutesUntilPickup': Math.round(minutesUntilPickup),
+                'isVorbestellung': isVorbestellung,
+                'isJetzt': booking._isJetzt || false
+            }));
+            await addTelegramLog('🔍', chatId, `Sofort-Check: datetime="${booking.datetime}" → ${Math.round(minutesUntilPickup)} Min bis Abholung → ${isVorbestellung ? 'VORBESTELLUNG' : 'SOFORTFAHRT'}`);
             const passengers = booking.passengers || 1;
             const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -10299,7 +10319,9 @@ exports.onRideCreated = onValueCreated(
         const now = Date.now();
         const pickupTs = ride.pickupTimestamp || now;
         const isToday = new Date(pickupTs).toDateString() === new Date(now).toDateString();
-        const isSofort = ride.status === 'new' || (!ride.pickupTimestamp || (pickupTs - now) < 15 * 60 * 1000);
+        // 🔧 v6.25.4: Sofortfahrt = Abholzeit < 60 Min in der Zukunft (einheitlich mit autoAssignRide)
+        // isJetzt = explizit "jetzt/sofort" gesagt, ODER keine Abholzeit, ODER < 60 Min
+        const isSofort = ride.isJetzt === true || !ride.pickupTimestamp || (pickupTs - now) < 60 * 60 * 1000;
 
         let pickupTimeFormatted, statusEmoji, statusText;
         if (isSofort) {

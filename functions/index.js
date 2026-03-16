@@ -10351,6 +10351,38 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
 
+            // 🔧 v6.25.4: Einmaliges Debug-Log per Telegram (über Firebase-Flag steuerbar)
+            // Aktivieren: settings/debugOptimierung = true in Firebase setzen
+            // Deaktiviert sich nach einem Durchlauf automatisch
+            try {
+                const debugSnap = await db.ref('settings/debugOptimierung').once('value');
+                if (debugSnap.val() === true) {
+                    const debugLines = [`🔍 *Debug: Auto-Optimierung*\n📊 ${allRides.length} Fahrten geladen, ${optimizableRides.length} optimierbar\n`];
+
+                    // Alle geladenen Fahrten auflisten
+                    for (const r of allRides) {
+                        const d = berlinDate(r.pickupTimestamp).split('-');
+                        const datum = `${d[2]}.${d[1]}.`;
+                        const zeit = berlinTime(r.pickupTimestamp);
+                        const vName = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle || '?';
+                        const hasCoords = !!(r.pickupCoords?.lat || r.pickupLat);
+                        const inOptList = optimizableRides.some(o => o.firebaseId === r.firebaseId);
+                        const reasons = [];
+                        if (!inOptList) {
+                            if (['accepted','picked_up','on_way'].includes(r.status)) reasons.push(`Status: ${r.status}`);
+                            if (r.assignmentLocked) reasons.push('Gesperrt');
+                        }
+                        if (!hasCoords) reasons.push('⚠️ Keine Coords');
+                        const statusIcon = inOptList ? (hasCoords ? '✅' : '⚠️') : '⏭️';
+                        debugLines.push(`${statusIcon} ${datum} ${zeit} ${r.customerName || '?'} → ${vName} [${r.status}]${reasons.length ? ' — ' + reasons.join(', ') : ''}`);
+                    }
+
+                    await sendToAllAdmins(debugLines.join('\n'), 'optimization');
+                    // Automatisch deaktivieren
+                    await db.ref('settings/debugOptimierung').set(false);
+                }
+            } catch(e) { /* non-critical */ }
+
             for (const ride of optimizableRides) {
                 const currentVehicle = ride.assignedVehicle;
                 const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;

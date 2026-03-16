@@ -10246,7 +10246,7 @@ exports.autoResolveConflicts = onSchedule(
 
                 // Leerfahrt-Distanz für aktuelles Fahrzeug berechnen
                 const currentDist = estimateVehicleLeerfahrt(
-                    currentVehicle, ride, allRides, vehiclesData, shiftsData, dateStr
+                    currentVehicle, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                 );
 
                 // Beste Alternative suchen
@@ -10279,7 +10279,7 @@ exports.autoResolveConflicts = onSchedule(
 
                     // Leerfahrt für Alternative berechnen
                     const altDist = estimateVehicleLeerfahrt(
-                        vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr
+                        vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                     );
 
                     if (altDist < bestDist) {
@@ -10357,20 +10357,31 @@ exports.autoResolveConflicts = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// 🚀 v6.26.0: Leerfahrt-Schätzung für ein Fahrzeug zu einer Fahrt
-// Berechnet die Distanz vom wahrscheinlichen Standort des Fahrzeugs
-// zum Abholort der Fahrt (km Luftlinie)
+// 🔧 v6.25.4: Leerfahrt-Schätzung — Logik übernommen von autoAssignVehicleToRide (index.html)
+// Berechnet die Distanz vom wahrscheinlichen Standort des Fahrzeugs zum Abholort (km Luftlinie)
+// Reihenfolge wie Browser-Funktion:
+//   1. Keine Vorfahrt am selben Tag → Homebase (Schichtplan mit Split-Schicht + Tagesausnahmen)
+//   2. Vorfahrt mit kurzer Lücke (< standortRueckkehrPufferMinuten) → letztes Fahrt-Ziel
+//   3. Vorfahrt mit langer Lücke (>= Puffer) → Fahrer zurück am Standort → Homebase
+//   4. GPS-Position als Fallback
 // ═══════════════════════════════════════════════════════════════
-function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr) {
+function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr, pricingSettings) {
     const pickupLat = targetRide.pickupCoords?.lat || targetRide.pickupLat;
     const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
     if (!pickupLat || !pickupLon) return 999;
 
-    // 🔧 v6.25.4: Homebase-Logik wie autoAssignRide — vorherige Fahrt nur nutzen
-    // wenn der Fahrer noch unterwegs ist oder gerade erst angekommen ist.
-    // Wenn genug Zeit seit der vorherigen Fahrt vergangen ist → Fahrer ist in Homebase.
+    const returnBufferMin = (pricingSettings && pricingSettings.standortRueckkehrPufferMinuten != null)
+        ? pricingSettings.standortRueckkehrPufferMinuten : 30;
 
-    // Homebase aus Schichtplan ermitteln (wird ggf. als Fallback gebraucht)
+    // Abholzeit als HH:MM für Schichtplan-Lookup
+    const pickupDate = new Date(targetRide.pickupTimestamp);
+    const month = pickupDate.getUTCMonth() + 1;
+    const isSummer = month >= 4 && month <= 10;
+    const berlinHour = (pickupDate.getUTCHours() + (isSummer ? 2 : 1)) % 24;
+    const timeStr = String(berlinHour).padStart(2, '0') + ':' + String(pickupDate.getUTCMinutes()).padStart(2, '0');
+
+    // Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
+    // Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes, Fallback
     let homeLat = null, homeLon = null;
     const vShift = shiftsData[vehicleId];
     if (vShift) {
@@ -10378,20 +10389,56 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
         const dow = d.getDay();
         const dayEntry = vShift[dateStr];
         const defTimes = vShift.defaultTimes || {};
-        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
+        let homeCoords = null;
+
+        // 1. Tagesausnahme mit timeRanges (Split-Schicht)
+        if (dayEntry && dayEntry.timeRanges && dayEntry.timeRanges.length > 1) {
+            for (const range of dayEntry.timeRanges) {
+                if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords) {
+                    homeCoords = range.homeCoords;
+                    break;
+                }
+            }
+        }
+        // 2. Tagesausnahme direkt
+        if (!homeCoords && dayEntry && dayEntry.homeCoords) {
+            homeCoords = dayEntry.homeCoords;
+        }
+        // 3. defaultTimes mit timeRanges (Split-Schicht)
+        if (!homeCoords && defTimes[dow] && defTimes[dow].timeRanges && defTimes[dow].timeRanges.length > 1) {
+            for (const range of defTimes[dow].timeRanges) {
+                if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords) {
+                    homeCoords = range.homeCoords;
+                    break;
+                }
+            }
+        }
+        // 4. defaultTimes direkt
+        if (!homeCoords && defTimes[dow] && defTimes[dow].homeCoords) {
+            homeCoords = defTimes[dow].homeCoords;
+        }
+
         if (homeCoords && homeCoords.lat && homeCoords.lon) {
             homeLat = homeCoords.lat;
             homeLon = homeCoords.lon;
         }
     }
 
-    // 1. Vorherige Fahrt suchen — aber nur nutzen wenn zeitlich nah genug
-    const vehicleRides = allRides.filter(r =>
-        r.assignedVehicle === vehicleId &&
-        r.firebaseId !== targetRide.firebaseId &&
-        r.pickupTimestamp && r.pickupTimestamp < targetRide.pickupTimestamp &&
-        !['deleted','cancelled','storniert'].includes(r.status)
-    ).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
+    // Vorherige Fahrt auf diesem Fahrzeug AM SELBEN TAG suchen
+    const vehicleRides = allRides.filter(r => {
+        if (r.assignedVehicle !== vehicleId) return false;
+        if (r.firebaseId === targetRide.firebaseId) return false;
+        if (!r.pickupTimestamp || r.pickupTimestamp >= targetRide.pickupTimestamp) return false;
+        if (['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status)) return false;
+        // Nur Fahrten desselben Tages (wie autoAssignVehicleToRide)
+        const rDate = new Date(r.pickupTimestamp);
+        const rMonth = rDate.getUTCMonth() + 1;
+        const rIsSummer = rMonth >= 4 && rMonth <= 10;
+        const rHour = rDate.getUTCHours() + (rIsSummer ? 2 : 1);
+        const rDay = rHour >= 24 ? rDate.getUTCDate() + 1 : rDate.getUTCDate();
+        const rDateStr = rDate.getUTCFullYear() + '-' + String(rDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(rDay).padStart(2,'0');
+        return rDateStr === dateStr;
+    }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
 
     if (vehicleRides.length > 0) {
         const prevRide = vehicleRides[0];
@@ -10399,34 +10446,38 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
         const prevEndTs = prevRide.pickupTimestamp + prevDurMs;
         const gapMinutes = (targetRide.pickupTimestamp - prevEndTs) / 60000;
 
-        // Nur vorherige Fahrt nutzen wenn < 45 Min seit Fahrt-Ende → Fahrer noch vor Ort
-        if (gapMinutes < 45) {
+        // Fahrer zurück am Standort? (wie autoAssignVehicleToRide Zeile 30421-30422)
+        const driverBackAtStandort = gapMinutes >= returnBufferMin;
+
+        if (!driverBackAtStandort) {
+            // Kurze Pause → Fahrer noch unterwegs/vor Ort → letztes Fahrt-Ziel verwenden
             const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
             const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
             if (destLat && destLon) {
                 return gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
             }
+            // Fallback: Pickup der vorherigen Fahrt
             const prevPickupLat = prevRide.pickupCoords?.lat || prevRide.pickupLat;
             const prevPickupLon = prevRide.pickupCoords?.lon || prevRide.pickupLon;
             if (prevPickupLat && prevPickupLon) {
                 return gpsDistanceKm(prevPickupLat, prevPickupLon, pickupLat, pickupLon);
             }
         }
-        // >= 45 Min Lücke → Fahrer ist zurück in Homebase, weiter unten berechnen
+        // Lange Pause → Fahrer ist zurück in Homebase → weiter unten Homebase nutzen
     }
 
-    // 2. GPS-Position (falls aktuell genug, z.B. für Sofortfahrten)
+    // Keine Vorfahrt ODER Fahrer zurück am Standort → Homebase verwenden
+    if (homeLat && homeLon) {
+        return gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+    }
+
+    // GPS-Position als Fallback (falls aktuell genug)
     const driver = vehiclesData[vehicleId];
     if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= 15 * 60000)) {
         return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
     }
 
-    // 3. Heimatstandort aus Schichtplan (Homebase)
-    if (homeLat && homeLon) {
-        return gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-    }
-
-    // 4. Letzter bekannter GPS-Standort
+    // Letzter bekannter GPS-Standort
     if (driver && driver.lat && driver.lon) {
         return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
     }

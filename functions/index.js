@@ -10366,7 +10366,26 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
     const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
     if (!pickupLat || !pickupLon) return 999;
 
-    // 1. Vorherige Fahrt auf diesem Fahrzeug suchen (Zielort = Startpunkt für Leerfahrt)
+    // 🔧 v6.25.4: Homebase-Logik wie autoAssignRide — vorherige Fahrt nur nutzen
+    // wenn der Fahrer noch unterwegs ist oder gerade erst angekommen ist.
+    // Wenn genug Zeit seit der vorherigen Fahrt vergangen ist → Fahrer ist in Homebase.
+
+    // Homebase aus Schichtplan ermitteln (wird ggf. als Fallback gebraucht)
+    let homeLat = null, homeLon = null;
+    const vShift = shiftsData[vehicleId];
+    if (vShift) {
+        const d = new Date(dateStr + 'T00:00:00');
+        const dow = d.getDay();
+        const dayEntry = vShift[dateStr];
+        const defTimes = vShift.defaultTimes || {};
+        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
+        if (homeCoords && homeCoords.lat && homeCoords.lon) {
+            homeLat = homeCoords.lat;
+            homeLon = homeCoords.lon;
+        }
+    }
+
+    // 1. Vorherige Fahrt suchen — aber nur nutzen wenn zeitlich nah genug
     const vehicleRides = allRides.filter(r =>
         r.assignedVehicle === vehicleId &&
         r.firebaseId !== targetRide.firebaseId &&
@@ -10376,17 +10395,24 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
 
     if (vehicleRides.length > 0) {
         const prevRide = vehicleRides[0];
-        const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
-        const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
-        if (destLat && destLon) {
-            return gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
+        const prevDurMs = (prevRide.duration || prevRide.estimatedDuration || 20) * 60000;
+        const prevEndTs = prevRide.pickupTimestamp + prevDurMs;
+        const gapMinutes = (targetRide.pickupTimestamp - prevEndTs) / 60000;
+
+        // Nur vorherige Fahrt nutzen wenn < 45 Min seit Fahrt-Ende → Fahrer noch vor Ort
+        if (gapMinutes < 45) {
+            const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
+            const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
+            if (destLat && destLon) {
+                return gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
+            }
+            const prevPickupLat = prevRide.pickupCoords?.lat || prevRide.pickupLat;
+            const prevPickupLon = prevRide.pickupCoords?.lon || prevRide.pickupLon;
+            if (prevPickupLat && prevPickupLon) {
+                return gpsDistanceKm(prevPickupLat, prevPickupLon, pickupLat, pickupLon);
+            }
         }
-        // Fallback: Pickup der vorherigen Fahrt als Näherung
-        const prevPickupLat = prevRide.pickupCoords?.lat || prevRide.pickupLat;
-        const prevPickupLon = prevRide.pickupCoords?.lon || prevRide.pickupLon;
-        if (prevPickupLat && prevPickupLon) {
-            return gpsDistanceKm(prevPickupLat, prevPickupLon, pickupLat, pickupLon);
-        }
+        // >= 45 Min Lücke → Fahrer ist zurück in Homebase, weiter unten berechnen
     }
 
     // 2. GPS-Position (falls aktuell genug, z.B. für Sofortfahrten)
@@ -10395,17 +10421,9 @@ function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData,
         return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
     }
 
-    // 3. Heimatstandort aus Schichtplan
-    const vShift = shiftsData[vehicleId];
-    if (vShift) {
-        const d = new Date(dateStr + 'T00:00:00');
-        const dow = d.getDay();
-        const dayEntry = vShift[dateStr];
-        const defTimes = vShift.defaultTimes || {};
-        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
-        if (homeCoords && homeCoords.lat && homeCoords.lon) {
-            return gpsDistanceKm(homeCoords.lat, homeCoords.lon, pickupLat, pickupLon);
-        }
+    // 3. Heimatstandort aus Schichtplan (Homebase)
+    if (homeLat && homeLon) {
+        return gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
     }
 
     // 4. Letzter bekannter GPS-Standort

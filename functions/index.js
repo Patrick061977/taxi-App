@@ -1322,6 +1322,9 @@ async function cleanupAddress(currentName, lat, lon) {
 // Gleiche Logik wie Browser-Autocomplete in index.html
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
+    // 🔧 v6.25.4: Hausnummern-Bereiche normalisieren ("7 bis 8" → "7", "7-8" → "7")
+    // Nominatim kann keine Hausnummern-Bereiche, nimmt nur die erste Nummer
+    query = query.replace(/(\d+)\s*(?:bis|[-–])\s*\d+/gi, '$1');
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
     const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
@@ -4862,7 +4865,17 @@ async function handleMessage(message) {
             return;
         }
 
-        if (step === 'address') {
+        // 🔧 v6.25.4: Wenn Admin im address_select/address_confirm Schritt Text tippt
+        // statt Button → als neue Adress-Eingabe behandeln (zurück zu 'address')
+        if (step === 'address_select' || step === 'address_confirm') {
+            await addTelegramLog('🔄', chatId, `Neukunde: Text "${text.trim()}" im ${step}-Schritt → neue Adress-Suche`);
+            // Schritt zurücksetzen und als neue Adresse verarbeiten
+            pending._adminNewCustStep = 'address';
+            await setPending(chatId, { ...pending, _adminNewCustStep: 'address' });
+            // Fällt direkt in den address-Handler unten
+        }
+
+        if (step === 'address' || pending._adminNewCustStep === 'address') {
             // 🆕 v6.11.5: Erweiterte Suche — POIs, Kunden, Buchungen + Nominatim
             // 🔧 v6.16.1: try/catch + Logging für Adress-Schritt (Race-Condition-Debug)
             const rawAddress = text.trim();

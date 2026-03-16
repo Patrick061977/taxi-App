@@ -10203,6 +10203,12 @@ exports.autoResolveConflicts = onSchedule(
                             grund: `Zeitkonflikt ${overlapMin} Min`
                         });
                     } catch(e) { /* non-critical */ }
+
+                    // 🔧 v6.30.1: Telegram-Benachrichtigung für Konflikt-Umplanung
+                    try {
+                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📋 ${next.customerName || '?'} • ${nextTime}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
+                        await sendToAllAdmins(msg, 'optimization');
+                    } catch(e) { /* non-critical */ }
                 }
             }
 
@@ -10488,7 +10494,8 @@ const NOTIFY_CATEGORIES = {
     ride_deleted: { emoji: '🗑️', label: 'Fahrt gelöscht', desc: 'Fahrt wurde gelöscht' },
     unassigned: { emoji: '🚨', label: 'Offene Fahrt', desc: 'Fahrt ohne Fahrer kurz vor Abholung' },
     change_request: { emoji: '🔔', label: 'Änderungsanfrage', desc: 'Kunde möchte Fahrt ändern' },
-    spam_block: { emoji: '🚫', label: 'Spam-Blockierung', desc: 'Nutzer wegen Spam geblockt' }
+    spam_block: { emoji: '🚫', label: 'Spam-Blockierung', desc: 'Nutzer wegen Spam geblockt' },
+    optimization: { emoji: '🚀', label: 'Optimierung/Umplanung', desc: 'Fahrt automatisch umgeplant (Schicht, Leerfahrt, Konflikt)' }
 };
 
 async function getAdminNotifyPrefs(chatId) {

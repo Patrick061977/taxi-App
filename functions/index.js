@@ -324,8 +324,9 @@ async function autoAssignRide(rideId, rideData) {
         const minutesUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) / 60000 : 0;
         const isSofort = minutesUntilPickup <= 60;
 
-        // Abholzeit für Schicht-Check (Vorbestellung = Abholzeit, Sofort = jetzt)
-        const pickupDate = rideData.pickupTimestamp && !isSofort
+        // 🔧 v6.25.4: Schicht-Check IMMER gegen Abholzeit prüfen, nicht aktuelle Uhrzeit!
+        // Vorher: Sofortfahrten nutzten berlin (aktuelle Uhrzeit) → Fahrzeug bekam Fahrt außerhalb seiner Schicht
+        const pickupDate = rideData.pickupTimestamp
             ? new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }))
             : berlin;
         const dateStr = pickupDate.getFullYear() + '-' + String(pickupDate.getMonth()+1).padStart(2,'0') + '-' + String(pickupDate.getDate()).padStart(2,'0');

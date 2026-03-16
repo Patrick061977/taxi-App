@@ -234,6 +234,19 @@ const OFFICIAL_VEHICLES = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// 🔧 v6.25.4: Globale Hilfsfunktionen für Berlin-Zeitzone
+// ═══════════════════════════════════════════════════════════════
+function berlinDateGlobal(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }); // YYYY-MM-DD
+}
+
+function berlinTimeGlobal(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.15.1: AUTO-ZUWEISUNG FÜR TELEGRAM-SOFORTFAHRTEN
 // Läuft server-seitig → funktioniert 24/7 ohne Browser!
 // ═══════════════════════════════════════════════════════════════
@@ -306,17 +319,28 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
 }
 
 async function autoAssignRide(rideId, rideData) {
-    console.log('🎯 v6.15.1: Cloud-AutoAssign für Fahrt:', rideId);
+    console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
-        const [vehiclesSnap, shiftsSnap, ridesSnap] = await Promise.all([
+        const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap] = await Promise.all([
             db.ref('vehicles').once('value'),
             db.ref('vehicleShifts').once('value'),
-            db.ref('rides').once('value')
+            db.ref('rides').once('value'),
+            db.ref('settings/vehiclePriorities').once('value'),
+            db.ref('settings/pricing').once('value')
         ]);
         const vehicles = vehiclesSnap.val() || {};
         const shiftsData = shiftsSnap.val() || {};
+        const vehiclePriorities = prioritiesSnap.val() || {};
+        const pricingSettings = pricingSnap.val() || {};
         const allRides = [];
         ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+
+        // 🔧 v6.25.4: Firebase-Prioritäten nutzen (wie Browser), Fallback auf OFFICIAL_VEHICLES
+        const getVehiclePrio = (vid) => {
+            if (vehiclePriorities[vid] !== undefined) return vehiclePriorities[vid];
+            return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
+        };
+        const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
 
         // 🔧 v6.15.10: Zwei Modi — Sofortfahrt (GPS first) vs. Vorbestellung (Schichtplan/Priorität)
         const now = new Date();
@@ -402,17 +426,17 @@ async function autoAssignRide(rideId, rideData) {
 
                 if (rideData.pickupCoords && vLat && vLon) {
                     const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
-                    candidates.push({ vehicleId, name: info.name, distance: dist, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource });
-                    console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource})`);
+                    candidates.push({ vehicleId, name: info.name, distance: dist, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource });
+                    console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource}) [Prio ${getVehiclePrio(vehicleId)}]`);
                 } else {
                     // Kein Standort → trotzdem aufnehmen, nach Priorität
-                    candidates.push({ vehicleId, name: info.name, distance: 999, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
-                    console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${info.priority}`);
+                    candidates.push({ vehicleId, name: info.name, distance: 999, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
+                    console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${getVehiclePrio(vehicleId)}`);
                 }
             } else {
                 // ═══ VORBESTELLUNG: Schichtplan + Priorität ═══
-                candidates.push({ vehicleId, name: info.name, distance: 0, priority: info.priority, telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
-                console.log(`   ✅ ${info.name}: Im Dienst, Prio ${info.priority}`);
+                candidates.push({ vehicleId, name: info.name, distance: 0, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
+                console.log(`   ✅ ${info.name}: Im Dienst, Prio ${getVehiclePrio(vehicleId)}`);
             }
         }
 
@@ -421,13 +445,70 @@ async function autoAssignRide(rideId, rideData) {
             return null;
         }
 
+        let best;
+        let drivingTimeMin = 0;
+        const vehicleScores = {};
+
         if (isSofort) {
             candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
+            best = candidates[0];
+            drivingTimeMin = Math.max(3, Math.round((best.distance / 40) * 60));
         } else {
-            candidates.sort((a, b) => a.priority - b.priority);
+            // 🔧 v6.25.4: Vorbestellung mit Smart Routing + Prioritäts-Penalty (wie Browser)
+            // Score = Leerfahrt (Min) + (Prio - 1) * priorityAdvantageMin → niedrigster Score gewinnt
+            let bestScore = Infinity;
+            best = candidates[0]; // Fallback auf Priorität
+
+            for (const cand of candidates) {
+                let leerfahrtMin = 0;
+                let leerfahrtVon = '';
+                let routeMethod = 'prio-only';
+                const prio = getVehiclePrio(cand.vehicleId);
+                const prioPenalty = (prio - 1) * priorityAdvantageMin;
+
+                // Smart Routing berechnen wenn Pickup-Koordinaten vorhanden
+                if (rideData.pickupCoords?.lat && rideData.pickupCoords?.lon) {
+                    try {
+                        const result = await estimateVehicleLeerfahrt(
+                            cand.vehicleId, rideData, allRides, vehicles, shiftsData, dateStr, pricingSettings
+                        );
+                        leerfahrtMin = result.durationMin;
+                        routeMethod = result.method;
+                        leerfahrtVon = result.method;
+                    } catch(e) {
+                        console.warn(`   ⚠️ ${cand.name}: Leerfahrt-Berechnung fehlgeschlagen`);
+                    }
+                }
+
+                const totalScore = Math.round(leerfahrtMin + prioPenalty);
+
+                vehicleScores[cand.vehicleId] = {
+                    status: 'available',
+                    leerfahrtMin: Math.round(leerfahrtMin),
+                    leerfahrtVon,
+                    routeMethod,
+                    priorityPenalty: prioPenalty,
+                    totalScore
+                };
+
+                console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio-Malus ${prioPenalty} Min = Score ${totalScore} [P${prio}]`);
+
+                if (totalScore < bestScore) {
+                    bestScore = totalScore;
+                    best = cand;
+                    drivingTimeMin = Math.round(leerfahrtMin);
+                }
+            }
+
+            // Gewähltes Fahrzeug im Score markieren
+            if (vehicleScores[best.vehicleId]) {
+                vehicleScores[best.vehicleId].status = 'chosen';
+            }
+
+            console.log(`   🏆 Bestes Fahrzeug: ${best.name} (Score: ${bestScore})`);
         }
-        const best = candidates[0];
-        const drivingTimeMin = isSofort ? Math.max(3, Math.round((best.distance / 40) * 60)) : 0;
+
+        const bestInfo = OFFICIAL_VEHICLES[best.vehicleId] || {};
 
         // Status: Sofortfahrt → assigned, Vorbestellung → vorbestellt (mit zugewiesenem Fahrzeug)
         const rideUpdate = {
@@ -437,11 +518,17 @@ async function autoAssignRide(rideId, rideData) {
             vehicle: best.name,
             vehicleLabel: best.name,
             assignedVehicleName: best.name,
+            assignedVehiclePlate: bestInfo.plate || '',
             assignedVehicle: best.vehicleId,
+            vehiclePlate: bestInfo.plate || '',
             assignedAt: Date.now(),
             assignedBy: 'cloud-auto-assign',
             updatedAt: Date.now()
         };
+        if (Object.keys(vehicleScores).length > 0) {
+            rideUpdate.vehicleScores = vehicleScores;
+            rideUpdate.drivingTimeToPickup = drivingTimeMin;
+        }
         if (isSofort) {
             rideUpdate.assignmentDistance = best.distance;
             rideUpdate.drivingTimeToPickup = drivingTimeMin;
@@ -450,7 +537,7 @@ async function autoAssignRide(rideId, rideData) {
         }
         await db.ref('rides/' + rideId).update(rideUpdate);
 
-        console.log(`✅ ${rideId} → ${best.name} (${isSofort ? best.distance.toFixed(1) + ' km, ~' + drivingTimeMin + ' Min' : 'Prio ' + best.priority}) [${isSofort ? 'Sofort' : 'Vorbestellung'}]`);
+        console.log(`✅ ${rideId} → ${best.name} (${isSofort ? best.distance.toFixed(1) + ' km, ~' + drivingTimeMin + ' Min' : 'Score ' + (vehicleScores[best.vehicleId]?.totalScore || '?') + ', Prio ' + best.priority}) [${isSofort ? 'Sofort' : 'Vorbestellung'}]`);
 
         // Fahrer per Telegram benachrichtigen
         if (best.telegramChatId) {
@@ -10329,6 +10416,25 @@ exports.autoResolveConflicts = onSchedule(
 
                 console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
 
+                // vehicleScores für Browser-Anzeige erstellen
+                const optimizeScores = {};
+                optimizeScores[currentVehicle] = {
+                    status: 'available',
+                    leerfahrtMin: Math.round(currentMin),
+                    leerfahrtVon: currentResult.method,
+                    routeMethod: currentResult.method,
+                    priorityPenalty: (getVehiclePriority(currentVehicle) - 1) * priorityAdvantageMin,
+                    totalScore: Math.round(currentScore)
+                };
+                optimizeScores[bestAlt] = {
+                    status: 'chosen',
+                    leerfahrtMin: Math.round(bestMin),
+                    leerfahrtVon: bestMethod,
+                    routeMethod: bestMethod,
+                    priorityPenalty: (getVehiclePriority(bestAlt) - 1) * priorityAdvantageMin,
+                    totalScore: Math.round(bestScore)
+                };
+
                 // Umplanen in Firebase
                 await db.ref(`rides/${ride.firebaseId}`).update({
                     assignedVehicle: bestAlt,
@@ -10341,6 +10447,8 @@ exports.autoResolveConflicts = onSchedule(
                     assignedBy: 'cloud-auto-optimize',
                     assignedAt: Date.now(),
                     updatedAt: Date.now(),
+                    drivingTimeToPickup: Math.round(bestMin),
+                    vehicleScores: optimizeScores,
                     replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`
                 });
 
@@ -10455,7 +10563,7 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         if (!r.pickupTimestamp || r.pickupTimestamp >= targetRide.pickupTimestamp) return false;
         if (['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status)) return false;
         // Nur Fahrten desselben Tages
-        const rDateStr = berlinDate(r.pickupTimestamp);
+        const rDateStr = berlinDateGlobal(r.pickupTimestamp);
         return rDateStr === dateStr;
     }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
 

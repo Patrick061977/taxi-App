@@ -3634,6 +3634,9 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         let filtered;
         let title;
 
+        // 🆕 v6.25.4: Datum-Filter (YYYY-MM-DD) für beliebiges Datum
+        const isDateFilter = /^\d{4}-\d{2}-\d{2}$/.test(filter);
+
         if (filter === 'open') {
             // Nur offene + vorbestellte (ab jetzt, nächste 7 Tage)
             const weekEnd = Date.now() + 7 * 86400000;
@@ -3652,6 +3655,22 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
                 return rideDate >= tomorrowStart && rideDate <= tomorrowEnd;
             });
             title = `📋 <b>Fahrten morgen</b> (${new Date(tomorrowEnd).toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' })})`;
+        } else if (isDateFilter) {
+            // 🆕 v6.25.4: Beliebiges Datum
+            const [y, m, d] = filter.split('-').map(Number);
+            const dateStart = new Date(berlinNow);
+            dateStart.setFullYear(y, m - 1, d);
+            dateStart.setHours(0, 0, 0, 0);
+            const dateEnd = new Date(dateStart);
+            dateEnd.setHours(23, 59, 59, 999);
+            filtered = allRides.filter(([, r]) => {
+                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                const ts = r.pickupTimestamp || 0;
+                const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
+                return rideDate >= dateStart && rideDate <= dateEnd;
+            });
+            const dateFmt = dateStart.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            title = `📋 <b>Fahrten am ${dateFmt}</b>`;
         } else {
             // Heute (default)
             filtered = allRides.filter(([, r]) => {
@@ -3705,6 +3724,32 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         if (filter !== 'tomorrow') navRow.push({ text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' });
         if (filter !== 'open') navRow.push({ text: '📋 Offene', callback_data: 'adm_rides_open' });
         if (navRow.length > 0) buttons.push(navRow);
+        // 🆕 v6.25.4: Datum wählen + Vor/Zurück Navigation
+        const dateNavRow = [];
+        if (isDateFilter || filter === 'today' || filter === 'tomorrow') {
+            // Vorheriger/Nächster Tag
+            let refDate;
+            if (isDateFilter) {
+                const [y, m, d] = filter.split('-').map(Number);
+                refDate = new Date(berlinNow); refDate.setFullYear(y, m - 1, d);
+            } else if (filter === 'tomorrow') {
+                refDate = new Date(todayEnd.getTime() + 1);
+            } else {
+                refDate = new Date(berlinNow);
+            }
+            const prevDate = new Date(refDate); prevDate.setDate(prevDate.getDate() - 1);
+            const nextDate = new Date(refDate); nextDate.setDate(nextDate.getDate() + 1);
+            const prevStr = prevDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const nextStr = nextDate.toLocaleDateString('en-CA');
+            const prevLabel = prevDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            const nextLabel = nextDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            dateNavRow.push({ text: `◀ ${prevLabel}`, callback_data: `adm_rides_date_${prevStr}` });
+            dateNavRow.push({ text: '🗓️ Datum', callback_data: 'adm_rides_datepicker' });
+            dateNavRow.push({ text: `${nextLabel} ▶`, callback_data: `adm_rides_date_${nextStr}` });
+        } else {
+            dateNavRow.push({ text: '🗓️ Datum wählen', callback_data: 'adm_rides_datepicker' });
+        }
+        buttons.push(dateNavRow);
         buttons.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
@@ -3769,8 +3814,12 @@ async function handleAdminRideDetail(chatId, rideId) {
         keyboard.push([
             { text: '📋 Kopieren', callback_data: `adm_copy_${rideId}` }
         ]);
+        // 🆕 v6.25.4: Zurück zur Liste geht zum Datum der Fahrt (nicht immer "heute")
+        const rideDateStr = dt.toLocaleDateString('en-CA', TZ_BERLIN); // YYYY-MM-DD
+        const berlinToday = new Date(new Date().toLocaleString('en-US', TZ_BERLIN)).toLocaleDateString('en-CA');
+        const backCallback = rideDateStr === berlinToday ? 'adm_rides_today' : `adm_rides_date_${rideDateStr}`;
         keyboard.push([
-            { text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' },
+            { text: '◀ Zurück zur Liste', callback_data: backCallback },
             { text: '🏠 Menü', callback_data: 'back_to_menu' }
         ]);
 
@@ -4049,10 +4098,11 @@ async function handleMessage(message) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
+        // 🆕 v6.25.4: Admin bekommt Fahrten-Buttons + CRM + KI-Training
         if (await isTelegramAdmin(chatId)) {
-            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         if (!knownCustomer) {
@@ -4173,8 +4223,9 @@ async function handleMessage(message) {
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         if (await isTelegramAdmin(chatId)) {
-            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -5128,6 +5179,31 @@ async function handleMessage(message) {
                     }
                 }
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            return;
+        }
+    }
+
+    // 🆕 v6.25.4: Admin Datum-Eingabe für Fahrtenübersicht (z.B. "20.03" oder "2026-03-20")
+    if (pending && pending._adminDatePicker && !isPendingExpired(pending)) {
+        await deletePending(chatId);
+        // Parse deutsches Datum: DD.MM oder DD.MM.YYYY
+        const deMatch = text.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/);
+        // Parse ISO Datum: YYYY-MM-DD
+        const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        if (deMatch) {
+            const day = parseInt(deMatch[1]), month = parseInt(deMatch[2]);
+            let year = deMatch[3] ? parseInt(deMatch[3]) : new Date().getFullYear();
+            if (year < 100) year += 2000;
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            await handleAdminRidesOverview(chatId, dateStr);
+            return;
+        } else if (isoMatch) {
+            await handleAdminRidesOverview(chatId, text.trim());
+            return;
+        } else {
+            await sendTelegramMessage(chatId, '⚠️ Datum nicht erkannt. Bitte im Format <b>TT.MM</b> oder <b>TT.MM.JJJJ</b> eingeben.\n\nBeispiel: <i>20.03</i> oder <i>20.03.2026</i>');
+            await setPending(chatId, { _adminDatePicker: true }); // Nochmal versuchen
             return;
         }
     }
@@ -6787,6 +6863,28 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.25.4: main_menu Alias für back_to_menu (wird aus Hilfe/Profil referenziert)
+    if (data === 'main_menu') {
+        await deletePending(chatId);
+        const knownForMain = await getTelegramCustomer(chatId);
+        let greetMain = '🚕 <b>Funk Taxi Heringsdorf</b>\n\n';
+        if (knownForMain) greetMain += `👋 Hallo <b>${knownForMain.name}</b>!\n\n`;
+        greetMain += '💡 <i>Wählen Sie eine Option oder schreiben Sie einfach los!</i>';
+        const kbMain = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }, { text: '✏️ Fahrt ändern', callback_data: 'menu_aendern' }],
+            [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
+            [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
+        ]};
+        if (await isTelegramAdmin(chatId)) {
+            kbMain.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            kbMain.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            kbMain.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+        }
+        await sendTelegramMessage(chatId, greetMain, { reply_markup: kbMain });
+        return;
+    }
+
     // 🆕 v6.12.0: Zurück zum Hauptmenü
     if (data === 'back_to_menu') {
         await deletePending(chatId);
@@ -6800,10 +6898,11 @@ async function handleCallback(callback) {
             [{ text: '📋 Vergangene Fahrten', callback_data: 'menu_history' }, { text: '🗑️ Stornieren', callback_data: 'menu_loeschen' }],
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
-        // 🆕 v6.15.7: Admin bekommt CRM-Button + KI-Training
+        // 🆕 v6.25.4: Admin bekommt Fahrten-Buttons + CRM + KI-Training
         if (await isTelegramAdmin(chatId)) {
-            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -7725,6 +7824,61 @@ async function handleCallback(callback) {
     if (data === 'adm_rides_today') { await handleAdminRidesOverview(chatId, 'today'); return; }
     if (data === 'adm_rides_tomorrow') { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
     if (data === 'adm_rides_open') { await handleAdminRidesOverview(chatId, 'open'); return; }
+
+    // 🆕 v6.25.4: Datum-Navigation (Vor/Zurück)
+    if (data.startsWith('adm_rides_date_')) {
+        const dateStr = data.replace('adm_rides_date_', '');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            await handleAdminRidesOverview(chatId, dateStr);
+        }
+        return;
+    }
+
+    // 🆕 v6.25.4: Datum-Picker — zeigt Wochenübersicht zur Auswahl
+    if (data === 'adm_rides_datepicker') {
+        if (!await isTelegramAdmin(chatId)) return;
+        const now = new Date();
+        const berlinNow = new Date(now.toLocaleString('en-US', TZ_BERLIN));
+        const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+        let msg = '🗓️ <b>Datum wählen</b>\n\nWählen Sie einen Tag oder schreiben Sie ein Datum (z.B. <i>20.03</i> oder <i>2026-03-20</i>):';
+        const buttons = [];
+
+        // Aktuelle Woche + nächste Woche (14 Tage)
+        for (let week = 0; week < 2; week++) {
+            const row = [];
+            for (let d = 0; d < 7; d++) {
+                const dayOffset = week * 7 + d;
+                const date = new Date(berlinNow);
+                date.setDate(date.getDate() + dayOffset);
+                const dateStr = date.toLocaleDateString('en-CA'); // YYYY-MM-DD
+                const dayLabel = `${weekdays[date.getDay()]} ${date.getDate()}.${date.getMonth() + 1}`;
+                row.push({ text: dayOffset === 0 ? `📍${dayLabel}` : dayLabel, callback_data: `adm_rides_date_${dateStr}` });
+            }
+            buttons.push(row);
+        }
+
+        // Vergangene Woche
+        const pastRow = [];
+        for (let d = 7; d >= 1; d--) {
+            const date = new Date(berlinNow);
+            date.setDate(date.getDate() - d);
+            const dateStr = date.toLocaleDateString('en-CA');
+            const dayLabel = `${weekdays[date.getDay()]} ${date.getDate()}.${date.getMonth() + 1}`;
+            pastRow.push({ text: dayLabel, callback_data: `adm_rides_date_${dateStr}` });
+        }
+        buttons.push([{ text: '── Vergangene Woche ──', callback_data: 'noop' }]);
+        buttons.push(pastRow);
+
+        buttons.push([{ text: '📅 Heute', callback_data: 'adm_rides_today' }, { text: '🏠 Menü', callback_data: 'back_to_menu' }]);
+
+        await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
+        await setPending(chatId, { _adminDatePicker: true });
+        return;
+    }
+
+    // 🆕 v6.25.4: noop — ignoriert leere Callbacks (z.B. Trennzeile)
+    if (data === 'noop') return;
 
     // 🆕 v6.29.3: Admin — Fahrt kopieren → Auswahl: Eintragen (gleiche Richtung) oder Tauschen (Hin↔Rück)
     if (data.startsWith('adm_copy_')) {

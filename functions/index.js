@@ -10303,7 +10303,10 @@ exports.autoResolveConflicts = onSchedule(
 
                     // 🔧 v6.30.1: Telegram-Benachrichtigung für Konflikt-Umplanung
                     try {
-                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📋 ${next.customerName || '?'} • ${nextTime}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
+                        const nextDateStr = berlinDate(next.pickupTimestamp);
+                        const nextDateParts = nextDateStr.split('-');
+                        const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
+                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
                         await sendToAllAdmins(msg, 'optimization');
                     } catch(e) { /* non-critical */ }
                 }
@@ -10413,8 +10416,12 @@ exports.autoResolveConflicts = onSchedule(
                 const altInfo = OFFICIAL_VEHICLES[bestAlt] || {};
                 const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
                 const rideTime = berlinTime(ride.pickupTimestamp);
+                const rideDate = berlinDate(ride.pickupTimestamp);
+                // Datum als dd.mm. formatieren
+                const rideDateParts = rideDate.split('-');
+                const rideDateFormatted = rideDateParts.length === 3 ? `${rideDateParts[2]}.${rideDateParts[1]}.` : rideDate;
 
-                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
+                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideDateFormatted} ${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
 
                 // vehicleScores für Browser-Anzeige erstellen
                 const optimizeScores = {};
@@ -10482,7 +10489,7 @@ exports.autoResolveConflicts = onSchedule(
 
                 // Telegram an Admins
                 try {
-                    const msg = `🚀 *Optimierung*\n📋 ${ride.customerName || '?'} • ${rideTime}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
+                    const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }

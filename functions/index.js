@@ -3765,6 +3765,10 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
         }
+        // 🆕 v6.29.3: Fahrt kopieren — startet normalen Buchungsflow mit vorausgefüllten Daten
+        keyboard.push([
+            { text: '📋 Kopieren', callback_data: `adm_copy_${rideId}` }
+        ]);
         keyboard.push([
             { text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' },
             { text: '🏠 Menü', callback_data: 'back_to_menu' }
@@ -4073,8 +4077,9 @@ async function handleMessage(message) {
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         if (await isTelegramAdmin(chatId)) {
-            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -7720,6 +7725,76 @@ async function handleCallback(callback) {
     if (data === 'adm_rides_today') { await handleAdminRidesOverview(chatId, 'today'); return; }
     if (data === 'adm_rides_tomorrow') { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
     if (data === 'adm_rides_open') { await handleAdminRidesOverview(chatId, 'open'); return; }
+
+    // 🆕 v6.29.3: Admin — Fahrt kopieren → normaler Buchungsflow mit vorausgefüllten Daten
+    if (data.startsWith('adm_copy_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const _copyRideId = data.replace('adm_copy_', '');
+        try {
+            const _copySnap = await db.ref('rides/' + _copyRideId).once('value');
+            const _copyRide = _copySnap.val();
+            if (!_copyRide) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const _dt = new Date(_copyRide.pickupTimestamp || 0);
+            const _timeStr = _dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const _dateStr = _dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit' });
+
+            // Buchungs-Objekt aus Fahrt erstellen — alle Felder vorausgefüllt
+            const _copyData = {
+                intent: 'buchung',
+                pickup: _copyRide.pickup || null,
+                destination: _copyRide.destination || null,
+                pickupLat: _copyRide.pickupCoords ? _copyRide.pickupCoords.lat : null,
+                pickupLon: _copyRide.pickupCoords ? (_copyRide.pickupCoords.lon || _copyRide.pickupCoords.lng) : null,
+                destinationLat: _copyRide.destCoords ? _copyRide.destCoords.lat : null,
+                destinationLon: _copyRide.destCoords ? (_copyRide.destCoords.lon || _copyRide.destCoords.lng) : null,
+                passengers: _copyRide.passengers || 1,
+                datetime: null, // Muss neu gewählt werden
+                name: _copyRide.customerName || '',
+                phone: _copyRide.customerPhone || _copyRide.customerMobile || '',
+                notes: _copyRide.notes || '',
+                missing: ['datetime'], // Datum/Uhrzeit muss bestätigt/geändert werden
+                summary: 'Kopie von Fahrt ' + _copyRideId
+            };
+
+            // Admin-Flags setzen
+            _copyData._adminBooked = true;
+            _copyData._adminChatId = chatId;
+            _copyData._forCustomer = _copyRide.bookedForCustomer || _copyRide.customerName || '';
+            if (_copyRide.customerId) {
+                _copyData._crmCustomerId = _copyRide.customerId;
+                // CRM-Daten nachladen
+                try {
+                    const _cSnap = await db.ref('customers/' + _copyRide.customerId).once('value');
+                    const _cData = _cSnap.val();
+                    if (_cData) {
+                        if (!_copyData.phone) _copyData.phone = _cData.phone || '';
+                        if (_cData.address) _copyData._customerAddress = _cData.address;
+                    }
+                } catch (_e) { /* ignore */ }
+            }
+
+            // Zusammenfassung anzeigen und Buchungsflow starten
+            let _copyMsg = '📋 <b>Fahrt kopieren</b>\n\n';
+            _copyMsg += `📍 Von: <b>${_copyData.pickup || '?'}</b>\n`;
+            _copyMsg += `🎯 Nach: <b>${_copyData.destination || '?'}</b>\n`;
+            _copyMsg += `👤 ${_copyData.name || 'Unbekannt'}`;
+            if (_copyData.phone) _copyMsg += ` · 📱 ${_copyData.phone}`;
+            _copyMsg += '\n';
+            _copyMsg += `👥 ${_copyData.passengers} Person(en)\n`;
+            if (_copyRide.notes) _copyMsg += `📝 ${_copyRide.notes}\n`;
+            _copyMsg += `\n📅 Original: ${_dateStr} um ${_timeStr} Uhr\n`;
+            _copyMsg += '\n💬 <b>Für wann soll die Fahrt eingetragen werden?</b>\n<i>Bitte Datum und Uhrzeit angeben (z.B. "morgen 14:30" oder "heute 10 Uhr")</i>';
+
+            await setPending(chatId, { partial: _copyData, originalText: 'Admin kopiert Fahrt' });
+            await sendTelegramMessage(chatId, _copyMsg);
+            await addTelegramLog('📋', chatId, `Admin kopiert Fahrt: ${_copyData.pickup} → ${_copyData.destination} (${_copyData.name})`);
+        } catch (e) {
+            console.error('Admin Fahrt kopieren Fehler:', e);
+            await sendTelegramMessage(chatId, '⚠️ Fehler beim Kopieren: ' + e.message);
+        }
+        return;
+    }
 
     if (data.startsWith('adm_ride_')) {
         const rideId = data.replace('adm_ride_', '');

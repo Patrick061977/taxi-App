@@ -10496,58 +10496,41 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
-            // 🔧 v6.25.4: Debug-Summary per Telegram — zeigt was geprüft/übersprungen wurde
+            // 🔧 v6.25.4: Debug-Log nach Firebase schreiben (kein Telegram-Spam)
             try {
-                const debugLines = [];
-                debugLines.push(`📊 *Auto-Optimierung Zusammenfassung*`);
-                debugLines.push(`🔍 ${allRides.length} Fahrten geladen, ${optimizableRides.length} optimierbar`);
-                if (totalShiftFixes > 0) debugLines.push(`📅 ${totalShiftFixes} Schicht-Korrekturen`);
-                if (totalReplanned > 0) debugLines.push(`⚠️ ${totalReplanned} Konflikt-Umplanungen`);
-                if (totalOptimized > 0) debugLines.push(`🚀 ${totalOptimized} Leerfahrt-Optimierungen`);
-
-                // Übersprungene Fahrten auflisten
-                const skippedRides = [];
-                for (const ride of optimizableRides) {
-                    const vid = ride.assignedVehicle;
-                    if (!vid) continue;
-                    const rDate = berlinDate(ride.pickupTimestamp);
-                    const rDateParts = rDate.split('-');
-                    const rDateFmt = rDateParts.length === 3 ? `${rDateParts[2]}.${rDateParts[1]}.` : rDate;
-                    const rTime = berlinTime(ride.pickupTimestamp);
-                    const vName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
-                    skippedRides.push(`• ${rDateFmt} ${rTime} ${ride.customerName || '?'} → ${vName}`);
-                }
-
-                // Fahrten die NICHT in optimizableRides sind (warum?)
                 const excludedRides = allRides.filter(r =>
                     !optimizableRides.some(o => o.firebaseId === r.firebaseId)
                 );
-                if (excludedRides.length > 0) {
-                    debugLines.push(`\n⏭️ *${excludedRides.length} Fahrt(en) übersprungen:*`);
-                    for (const r of excludedRides.slice(0, 10)) {
-                        const rDate = berlinDate(r.pickupTimestamp);
-                        const rDateParts = rDate.split('-');
-                        const rDateFmt = rDateParts.length === 3 ? `${rDateParts[2]}.${rDateParts[1]}.` : rDate;
-                        const rTime = berlinTime(r.pickupTimestamp);
-                        const reasons = [];
-                        if (['accepted','picked_up','on_way'].includes(r.status)) reasons.push(`Status: ${r.status}`);
-                        if (!(r.pickupCoords || (r.pickupLat && r.pickupLon))) reasons.push('Keine Koordinaten');
-                        if (r.assignmentLocked) reasons.push('Gesperrt');
-                        debugLines.push(`• ${rDateFmt} ${rTime} ${r.customerName || '?'} — ${reasons.join(', ') || 'OK (bereits optimal?)'}`);
-                    }
-                }
+                const skippedDetails = excludedRides.slice(0, 20).map(r => {
+                    const reasons = [];
+                    if (['accepted','picked_up','on_way'].includes(r.status)) reasons.push(`Status: ${r.status}`);
+                    if (!(r.pickupCoords || (r.pickupLat && r.pickupLon))) reasons.push('Keine Koordinaten');
+                    if (r.assignmentLocked) reasons.push('Gesperrt');
+                    return {
+                        kunde: r.customerName || '?',
+                        datum: berlinDate(r.pickupTimestamp),
+                        zeit: berlinTime(r.pickupTimestamp),
+                        fahrzeug: (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle,
+                        status: r.status,
+                        grund: reasons.join(', ') || 'bereits optimal'
+                    };
+                });
 
-                if (totalOptimized === 0 && totalReplanned === 0 && totalShiftFixes === 0) {
-                    debugLines.push(`\n✅ Alles optimal — keine Änderungen nötig`);
-                }
-
-                await sendToAllAdmins(debugLines.join('\n'), 'optimization');
+                await db.ref('optimierungsLog/lastRun').set({
+                    timestamp: Date.now(),
+                    zeitpunkt: formatBerlinTime(Date.now()),
+                    fahrtenGeladen: allRides.length,
+                    fahrtenOptimierbar: optimizableRides.length,
+                    schichtKorrekturen: totalShiftFixes || 0,
+                    konfliktUmplanungen: totalReplanned,
+                    leerfahrtOptimierungen: totalOptimized,
+                    uebersprungen: skippedDetails
+                });
             } catch(e) { /* non-critical */ }
 
         } catch (e) {
             console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message);
-            // Fehler auch per Telegram melden
-            try { await sendToAllAdmins(`❌ *Auto-Optimierung Fehler:*\n${e.message}`, 'optimization'); } catch(e2) {}
+            try { await db.ref('optimierungsLog/lastError').set({ timestamp: Date.now(), error: e.message }); } catch(e2) {}
         }
     }
 );

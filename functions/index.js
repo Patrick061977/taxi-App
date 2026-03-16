@@ -3765,6 +3765,10 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
         }
+        // 🆕 v6.29.3: Fahrt kopieren — startet normalen Buchungsflow mit vorausgefüllten Daten
+        keyboard.push([
+            { text: '📋 Kopieren', callback_data: `adm_copy_${rideId}` }
+        ]);
         keyboard.push([
             { text: '◀ Zurück zur Liste', callback_data: 'adm_rides_today' },
             { text: '🏠 Menü', callback_data: 'back_to_menu' }
@@ -4073,8 +4077,9 @@ async function handleMessage(message) {
             [{ text: '👤 Profil', callback_data: 'menu_profil' }, { text: 'ℹ️ Hilfe', callback_data: 'menu_hilfe' }]
         ]};
         if (await isTelegramAdmin(chatId)) {
-            keyboard.inline_keyboard.splice(3, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
-            keyboard.inline_keyboard.splice(4, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
+            keyboard.inline_keyboard.splice(3, 0, [{ text: '📅 Fahrten heute', callback_data: 'adm_rides_today' }, { text: '📅 Morgen', callback_data: 'adm_rides_tomorrow' }]);
+            keyboard.inline_keyboard.splice(4, 0, [{ text: '📋 Kundendaten bearbeiten', callback_data: 'menu_crm_edit' }]);
+            keyboard.inline_keyboard.splice(5, 0, [{ text: '🧠 KI-Training', callback_data: 'menu_ai_rules' }, { text: '🔔 Benachrichtigungen', callback_data: 'menu_notify_prefs' }]);
         }
         await sendTelegramMessage(chatId, greeting, { reply_markup: keyboard });
         return;
@@ -7720,6 +7725,109 @@ async function handleCallback(callback) {
     if (data === 'adm_rides_today') { await handleAdminRidesOverview(chatId, 'today'); return; }
     if (data === 'adm_rides_tomorrow') { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
     if (data === 'adm_rides_open') { await handleAdminRidesOverview(chatId, 'open'); return; }
+
+    // 🆕 v6.29.3: Admin — Fahrt kopieren → Auswahl: Eintragen (gleiche Richtung) oder Tauschen (Hin↔Rück)
+    if (data.startsWith('adm_copy_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const _copyRideId = data.replace('adm_copy_', '');
+        try {
+            const _copySnap = await db.ref('rides/' + _copyRideId).once('value');
+            const _copyRide = _copySnap.val();
+            if (!_copyRide) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const _dt = new Date(_copyRide.pickupTimestamp || 0);
+            const _timeStr = _dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const _dateStr = _dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit' });
+
+            let _copyMsg = '📋 <b>Fahrt kopieren</b>\n\n';
+            _copyMsg += `📍 Von: <b>${_copyRide.pickup || '?'}</b>\n`;
+            _copyMsg += `🎯 Nach: <b>${_copyRide.destination || '?'}</b>\n`;
+            _copyMsg += `👤 ${_copyRide.customerName || 'Unbekannt'}`;
+            if (_copyRide.customerPhone) _copyMsg += ` · 📱 ${_copyRide.customerPhone}`;
+            _copyMsg += '\n';
+            _copyMsg += `👥 ${_copyRide.passengers || 1} Person(en)\n`;
+            _copyMsg += `📅 Original: ${_dateStr} um ${_timeStr} Uhr\n`;
+            _copyMsg += '\n<b>Wie möchtest du kopieren?</b>';
+
+            await sendTelegramMessage(chatId, _copyMsg, { reply_markup: { inline_keyboard: [
+                [{ text: '📋 Eintragen (gleiche Richtung)', callback_data: `adm_copygo_${_copyRideId}` }],
+                [{ text: '🔄 Tauschen (Hin ↔ Rück)', callback_data: `adm_copyswap_${_copyRideId}` }],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${_copyRideId}` }]
+            ]}});
+            await addTelegramLog('📋', chatId, `Admin kopiert Fahrt: ${_copyRide.pickup} → ${_copyRide.destination}`);
+        } catch (e) {
+            console.error('Admin Fahrt kopieren Fehler:', e);
+            await sendTelegramMessage(chatId, '⚠️ Fehler beim Kopieren: ' + e.message);
+        }
+        return;
+    }
+
+    // 🆕 v6.29.3: Admin — Fahrt kopieren: Eintragen (gleiche Richtung) oder Tauschen (swap)
+    if (data.startsWith('adm_copygo_') || data.startsWith('adm_copyswap_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const _isSwap = data.startsWith('adm_copyswap_');
+        const _copyRideId2 = data.replace(_isSwap ? 'adm_copyswap_' : 'adm_copygo_', '');
+        try {
+            const _copySnap2 = await db.ref('rides/' + _copyRideId2).once('value');
+            const _copyRide2 = _copySnap2.val();
+            if (!_copyRide2) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            // Buchungs-Objekt erstellen — bei Tauschen: Abholort ↔ Zielort
+            const _pickup = _isSwap ? (_copyRide2.destination || null) : (_copyRide2.pickup || null);
+            const _dest = _isSwap ? (_copyRide2.pickup || null) : (_copyRide2.destination || null);
+            const _pLat = _isSwap ? (_copyRide2.destCoords ? _copyRide2.destCoords.lat : null) : (_copyRide2.pickupCoords ? _copyRide2.pickupCoords.lat : null);
+            const _pLon = _isSwap ? (_copyRide2.destCoords ? (_copyRide2.destCoords.lon || _copyRide2.destCoords.lng) : null) : (_copyRide2.pickupCoords ? (_copyRide2.pickupCoords.lon || _copyRide2.pickupCoords.lng) : null);
+            const _dLat = _isSwap ? (_copyRide2.pickupCoords ? _copyRide2.pickupCoords.lat : null) : (_copyRide2.destCoords ? _copyRide2.destCoords.lat : null);
+            const _dLon = _isSwap ? (_copyRide2.pickupCoords ? (_copyRide2.pickupCoords.lon || _copyRide2.pickupCoords.lng) : null) : (_copyRide2.destCoords ? (_copyRide2.destCoords.lon || _copyRide2.destCoords.lng) : null);
+
+            const _copyData2 = {
+                intent: 'buchung',
+                pickup: _pickup,
+                destination: _dest,
+                pickupLat: _pLat,
+                pickupLon: _pLon,
+                destinationLat: _dLat,
+                destinationLon: _dLon,
+                passengers: _copyRide2.passengers || 1,
+                datetime: null,
+                name: _copyRide2.customerName || '',
+                phone: _copyRide2.customerPhone || _copyRide2.customerMobile || '',
+                notes: _copyRide2.notes || '',
+                missing: ['datetime'],
+                summary: (_isSwap ? 'Rückfahrt von ' : 'Kopie von ') + _copyRideId2
+            };
+
+            // Admin-Flags setzen
+            _copyData2._adminBooked = true;
+            _copyData2._adminChatId = chatId;
+            _copyData2._forCustomer = _copyRide2.bookedForCustomer || _copyRide2.customerName || '';
+            if (_copyRide2.customerId) {
+                _copyData2._crmCustomerId = _copyRide2.customerId;
+                try {
+                    const _cSnap2 = await db.ref('customers/' + _copyRide2.customerId).once('value');
+                    const _cData2 = _cSnap2.val();
+                    if (_cData2) {
+                        if (!_copyData2.phone) _copyData2.phone = _cData2.phone || '';
+                        if (_cData2.address) _copyData2._customerAddress = _cData2.address;
+                    }
+                } catch (_e) { /* ignore */ }
+            }
+
+            let _copyMsg2 = _isSwap ? '🔄 <b>Rückfahrt erstellen</b>\n\n' : '📋 <b>Fahrt kopieren</b>\n\n';
+            _copyMsg2 += `📍 Von: <b>${_pickup || '?'}</b>\n`;
+            _copyMsg2 += `🎯 Nach: <b>${_dest || '?'}</b>\n`;
+            _copyMsg2 += `👤 ${_copyData2.name || 'Unbekannt'} · 👥 ${_copyData2.passengers} Person(en)\n`;
+            _copyMsg2 += '\n💬 <b>Für wann soll die Fahrt eingetragen werden?</b>\n<i>Bitte Datum und Uhrzeit angeben (z.B. "morgen 14:30" oder "heute 10 Uhr")</i>';
+
+            await setPending(chatId, { partial: _copyData2, originalText: _isSwap ? 'Admin Rückfahrt' : 'Admin kopiert Fahrt' });
+            await sendTelegramMessage(chatId, _copyMsg2);
+            await addTelegramLog('📋', chatId, `Admin ${_isSwap ? 'Rückfahrt' : 'Kopie'}: ${_pickup} → ${_dest} (${_copyData2.name})`);
+        } catch (e) {
+            console.error('Admin Fahrt kopieren/tauschen Fehler:', e);
+            await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        }
+        return;
+    }
 
     if (data.startsWith('adm_ride_')) {
         const rideId = data.replace('adm_ride_', '');

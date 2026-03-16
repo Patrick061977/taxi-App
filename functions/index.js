@@ -10300,7 +10300,9 @@ exports.onRideCreated = onValueCreated(
         const now = Date.now();
         const pickupTs = ride.pickupTimestamp || now;
         const isToday = new Date(pickupTs).toDateString() === new Date(now).toDateString();
-        const isSofort = ride.status === 'new' || (!ride.pickupTimestamp || (pickupTs - now) < 15 * 60 * 1000);
+        // 🔧 v6.29.3: Sofortfahrt NUR wenn explizit isJetzt ODER keine Abholzeit ODER < 15 Min in Zukunft
+        // Vorher: ride.status === 'new' reichte → alle Fahrten innerhalb 60 Min wurden als "SOFORT" angezeigt
+        const isSofort = ride.isJetzt === true || (!ride.pickupTimestamp || (pickupTs - now) < 15 * 60 * 1000);
 
         let pickupTimeFormatted, statusEmoji, statusText;
         if (isSofort) {

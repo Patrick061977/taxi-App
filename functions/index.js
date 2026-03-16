@@ -624,6 +624,28 @@ function isNearUsedom(lat, lon) {
            lon >= USEDOM_BOUNDS.minLon && lon <= USEDOM_BOUNDS.maxLon;
 }
 
+// 🔧 v6.25.4: PLZ-Zentren für Koordinaten-Plausibilitätsprüfung
+// Wenn User PLZ angibt, müssen Ergebnisse in der Nähe des PLZ-Zentrums liegen
+const PLZ_CENTERS = {
+    '17424': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
+    '17419': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
+    '17429': { lat: 53.9633, lon: 14.1433, name: 'Bansin' },
+    '17449': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
+    '17454': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz' },
+    '17459': { lat: 54.0681, lon: 13.9764, name: 'Koserow' },
+    '17438': { lat: 54.0525, lon: 13.7619, name: 'Wolgast' },
+    '17440': { lat: 54.0525, lon: 13.7619, name: 'Wolgast' }
+};
+// Haversine-Distanz in km (vereinfacht für kurze Distanzen)
+function distanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+const PLZ_MAX_RADIUS_KM = 7; // Max Entfernung vom PLZ-Zentrum
+
 let botToken = null;
 
 // ═══════════════════════════════════════════════════════════════
@@ -1142,12 +1164,13 @@ async function geocode(address) {
         if (cached && typeof cached.lat === 'number' && typeof cached.lon === 'number' && cached.lat !== 0 && cached.lon !== 0) {
             // Cache-Treffer nur verwenden wenn Koordinaten plausibel
             if (isNearUsedom(cached.lat, cached.lon)) {
-                // 🔧 v6.15.7: PLZ-Validierung — Cache mit falscher PLZ (z.B. Zinnowitz statt Heringsdorf) verwerfen!
+                // 🔧 v6.15.7+v6.25.4: PLZ-Validierung — Cache mit falscher PLZ oder zu weit vom PLZ-Zentrum verwerfen!
                 const plzInAddr = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
-                if (plzInAddr && cached.display_name) {
-                    const cachedPLZ = cached.display_name.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
-                    if (cachedPLZ && cachedPLZ[1] !== plzInAddr[1]) {
-                        console.log(`[Geocode] Cache-PLZ-Mismatch: Adresse hat PLZ ${plzInAddr[1]}, Cache hat ${cachedPLZ[1]} → wird neu geocodiert`);
+                if (plzInAddr) {
+                    const _plzC = PLZ_CENTERS[plzInAddr[1]];
+                    // 🔧 v6.25.4: Koordinaten-Distanz-Check statt nur display_name-PLZ
+                    if (_plzC && distanceKm(cached.lat, cached.lon, _plzC.lat, _plzC.lon) > PLZ_MAX_RADIUS_KM) {
+                        console.log(`[Geocode] Cache-PLZ-Distanz-Mismatch: Adresse hat PLZ ${plzInAddr[1]}, Cache-Koordinaten ${cached.lat.toFixed(4)},${cached.lon.toFixed(4)} sind ${distanceKm(cached.lat, cached.lon, _plzC.lat, _plzC.lon).toFixed(1)}km entfernt → wird neu geocodiert`);
                         try { await db.ref(cacheKey).remove(); } catch (e) {}
                     } else {
                         return cached;
@@ -1185,22 +1208,32 @@ async function geocode(address) {
             }
 
             if (usedomHits.length > 0) {
-                // 🔧 v6.15.7: Wenn PLZ in Adresse → bevorzuge Treffer mit passender PLZ!
-                // Löst Problem: "Dünenweg 10, 17424 Heringsdorf" wurde in Zinnowitz (17454) statt Heringsdorf (17424) geocodiert
-                if (addressPLZ && usedomHits.length > 1) {
-                    const plzMatch = usedomHits.find(h => h.address && h.address.postcode === addressPLZ);
-                    if (plzMatch) {
-                        console.log(`[Geocode] "${address}" → PLZ-Match (${addressPLZ}): ${plzMatch.lat}, ${plzMatch.lon} (${plzMatch.display_name})`);
-                        return plzMatch;
+                // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Distanz-Check
+                const _plzC = addressPLZ ? PLZ_CENTERS[addressPLZ] : null;
+
+                // 🔧 v6.25.4: Wenn PLZ angegeben → Ergebnisse nach Distanz zum PLZ-Zentrum filtern
+                if (_plzC && usedomHits.length > 1) {
+                    // Sortiere nach Distanz zum PLZ-Zentrum
+                    usedomHits.sort((a, b) => {
+                        const aDist = distanceKm(a.lat, a.lon, _plzC.lat, _plzC.lon);
+                        const bDist = distanceKm(b.lat, b.lon, _plzC.lat, _plzC.lon);
+                        return aDist - bDist;
+                    });
+                    // Nur Ergebnisse innerhalb PLZ_MAX_RADIUS_KM vom PLZ-Zentrum akzeptieren
+                    const nearHits = usedomHits.filter(h => distanceKm(h.lat, h.lon, _plzC.lat, _plzC.lon) <= PLZ_MAX_RADIUS_KM);
+                    if (nearHits.length > 0) {
+                        console.log(`[Geocode] "${address}" → PLZ-Distanz-Match (${addressPLZ}, ${nearHits.length} Treffer): ${nearHits[0].lat}, ${nearHits[0].lon} (${nearHits[0].display_name})`);
+                        return nearHits[0];
                     }
-                    // Auch in display_name nach PLZ suchen
-                    const displayMatch = usedomHits.find(h => h.display_name && h.display_name.includes(addressPLZ));
-                    if (displayMatch) {
-                        console.log(`[Geocode] "${address}" → PLZ in display_name (${addressPLZ}): ${displayMatch.lat}, ${displayMatch.lon}`);
-                        return displayMatch;
+                    console.log(`[Geocode] "${address}" → Kein Treffer innerhalb ${PLZ_MAX_RADIUS_KM}km von PLZ ${addressPLZ}, nutze nächsten: ${usedomHits[0].display_name}`);
+                } else if (_plzC && usedomHits.length === 1) {
+                    // Einzeltreffer: Warnung wenn zu weit weg
+                    const dist = distanceKm(usedomHits[0].lat, usedomHits[0].lon, _plzC.lat, _plzC.lon);
+                    if (dist > PLZ_MAX_RADIUS_KM) {
+                        console.warn(`[Geocode] ⚠️ "${address}" → Einziger Treffer ${dist.toFixed(1)}km von PLZ ${addressPLZ} entfernt! ${usedomHits[0].display_name}`);
                     }
                 }
-                // Kein PLZ-Filter oder nur 1 Treffer → ersten Usedom-Treffer nehmen
+                // Kein PLZ-Filter oder Fallback → ersten Usedom-Treffer nehmen
                 console.log(`[Geocode] "${address}" → Usedom-Treffer: ${usedomHits[0].lat}, ${usedomHits[0].lon} (${usedomHits[0].display_name})`);
                 return usedomHits[0];
             }
@@ -1341,6 +1374,11 @@ async function searchNominatimForTelegram(query) {
         }
     }
 
+    // 🔧 v6.25.4: PLZ aus Query extrahieren für lokale Quellen-Filterung
+    const _queryPLZ = query.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+    const _queryPostcode = _queryPLZ ? _queryPLZ[1] : null;
+    const _plzCenter = _queryPostcode ? PLZ_CENTERS[_queryPostcode] : null;
+
     // 1c) CRM-Kunden mit Adressen
     // 🔧 v6.15.7: Usedom-PLZ-Erkennung für Koordinaten-Validierung
     const USEDOM_PLZ = ['17424', '17429', '17419', '17438', '17440', '17449', '17454', '17459'];
@@ -1366,6 +1404,14 @@ async function searchNominatimForTelegram(query) {
                         // 🔧 v6.15.7: Usedom-Adresse muss Usedom-Koordinaten haben
                         if (_looksLikeUsedom(c.address) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) {
                             return; // Falsche Koordinaten → überspringen
+                        }
+                        // 🔧 v6.25.4: PLZ-Distanz-Check — CRM-Koordinaten müssen zum angefragten PLZ-Gebiet passen
+                        if (_plzCenter) {
+                            const dist = distanceKm(parseFloat(lat), parseFloat(lon), _plzCenter.lat, _plzCenter.lon);
+                            if (dist > PLZ_MAX_RADIUS_KM) {
+                                console.log(`[PLZ-Filter] CRM "${c.name}" übersprungen: ${dist.toFixed(1)}km von PLZ ${_queryPostcode} entfernt`);
+                                return;
+                            }
                         }
                         addIfNew({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer', priority: 2 });
                     }
@@ -1419,6 +1465,11 @@ async function searchNominatimForTelegram(query) {
             if (freqName.includes(searchKey) ||
                 (searchWords.length > 0 && searchWords.every(w => freqName.includes(w))) ||
                 (mainWord && freqName.includes(mainWord) && wordMatchRatio >= 0.6)) {
+                // 🔧 v6.25.4: PLZ-Distanz-Check für Buchungs-Historie
+                if (_plzCenter) {
+                    const dist = distanceKm(parseFloat(freq.lat), parseFloat(freq.lon), _plzCenter.lat, _plzCenter.lon);
+                    if (dist > PLZ_MAX_RADIUS_KM) continue;
+                }
                 addIfNew({ name: freq.name, lat: freq.lat, lon: freq.lon, source: 'booking', priority: 3 });
             }
         }
@@ -1454,9 +1505,29 @@ async function searchNominatimForTelegram(query) {
         // 🔧 v6.15.7: PLZ aus Query extrahieren für besseres Sortieren
         const queryPLZ = query.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
         const queryPostcode = queryPLZ ? queryPLZ[1] : null;
+        // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Plausibilitätsprüfung
+        const plzCenter = queryPostcode ? PLZ_CENTERS[queryPostcode] : null;
 
         // Usedom-Ergebnisse zuerst, PLZ-Match bevorzugt, dann allgemeine
-        const allItems = [...usedomData, ...generalData, ...wideData];
+        let allItems = [...usedomData, ...generalData, ...wideData];
+
+        // 🔧 v6.25.4: Ergebnisse filtern deren Koordinaten zu weit vom angegebenen PLZ-Zentrum entfernt sind
+        if (plzCenter) {
+            const before = allItems.length;
+            allItems = allItems.filter(item => {
+                const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+                const dist = distanceKm(lat, lon, plzCenter.lat, plzCenter.lon);
+                if (dist > PLZ_MAX_RADIUS_KM) {
+                    console.log(`[PLZ-Filter] "${item.display_name}" rausgefiltert: ${dist.toFixed(1)}km von PLZ ${queryPostcode} ${plzCenter.name} entfernt`);
+                    return false;
+                }
+                return true;
+            });
+            if (before > allItems.length) {
+                console.log(`[PLZ-Filter] ${before - allItems.length} Ergebnisse wegen PLZ-Distanz gefiltert (PLZ ${queryPostcode}, max ${PLZ_MAX_RADIUS_KM}km)`);
+            }
+        }
+
         allItems.sort((a, b) => {
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
             const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
@@ -2578,15 +2649,31 @@ Nur gültiges JSON, kein Markdown:
         }
 
         // 🆕 Vorausgefüllte Koordinaten aus Favoriten übernehmen (überspringt Adress-Bestätigung)
+        // 🔧 v6.25.4: PLZ-Distanz-Check — bei Mismatch Koordinaten verwerfen und neu geocodieren lassen
         const prefilledCoords = options.prefilledCoords || null;
         if (prefilledCoords) {
+            const _checkPlzDist = (addr, lat, lon) => {
+                if (!addr || !lat || !lon) return true;
+                const plzM = addr.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+                if (!plzM || !PLZ_CENTERS[plzM[1]]) return true;
+                const c = PLZ_CENTERS[plzM[1]];
+                return distanceKm(parseFloat(lat), parseFloat(lon), c.lat, c.lon) <= PLZ_MAX_RADIUS_KM;
+            };
             if (prefilledCoords.pickupLat && prefilledCoords.pickupLon) {
-                booking.pickupLat = prefilledCoords.pickupLat;
-                booking.pickupLon = prefilledCoords.pickupLon;
+                if (_checkPlzDist(booking.pickup, prefilledCoords.pickupLat, prefilledCoords.pickupLon)) {
+                    booking.pickupLat = prefilledCoords.pickupLat;
+                    booking.pickupLon = prefilledCoords.pickupLon;
+                } else {
+                    console.log(`[PLZ-Filter] Prefilled Pickup-Koordinaten verworfen (PLZ-Mismatch für "${booking.pickup}")`);
+                }
             }
             if (prefilledCoords.destinationLat && prefilledCoords.destinationLon) {
-                booking.destinationLat = prefilledCoords.destinationLat;
-                booking.destinationLon = prefilledCoords.destinationLon;
+                if (_checkPlzDist(booking.destination, prefilledCoords.destinationLat, prefilledCoords.destinationLon)) {
+                    booking.destinationLat = prefilledCoords.destinationLat;
+                    booking.destinationLon = prefilledCoords.destinationLon;
+                } else {
+                    console.log(`[PLZ-Filter] Prefilled Destination-Koordinaten verworfen (PLZ-Mismatch für "${booking.destination}")`);
+                }
             }
             await addTelegramLog('📍', chatId, `Koordinaten aus Favoriten: Pickup(${booking.pickupLat?.toFixed?.(4) || '–'}, ${booking.pickupLon?.toFixed?.(4) || '–'}) → Dest(${booking.destinationLat?.toFixed?.(4) || '–'}, ${booking.destinationLon?.toFixed?.(4) || '–'})`);
         }
@@ -7407,7 +7494,21 @@ async function handleCallback(callback) {
         // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
         // Falls Koordinaten fehlen (alte Fahrten), per Geocoding nachladen
         const prefilledCoords = {};
-        if (fav.destinationLat && fav.destinationLon) {
+        // 🔧 v6.25.4: PLZ-Distanz-Check für Favoriten-Koordinaten — bei Mismatch neu geocodieren
+        const _validateFavCoords = (addr, lat, lon) => {
+            if (!addr || !lat || !lon) return false;
+            const plzM = addr.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+            if (!plzM) return true; // Ohne PLZ kein Check möglich
+            const center = PLZ_CENTERS[plzM[1]];
+            if (!center) return true;
+            const dist = distanceKm(parseFloat(lat), parseFloat(lon), center.lat, center.lon);
+            if (dist > PLZ_MAX_RADIUS_KM) {
+                console.log(`[PLZ-Filter] Favoriten-Koordinaten ${lat},${lon} sind ${dist.toFixed(1)}km von PLZ ${plzM[1]} entfernt → neu geocodieren`);
+                return false;
+            }
+            return true;
+        };
+        if (fav.destinationLat && fav.destinationLon && _validateFavCoords(fav.destination, fav.destinationLat, fav.destinationLon)) {
             prefilledCoords.destinationLat = fav.destinationLat;
             prefilledCoords.destinationLon = fav.destinationLon;
         } else if (fav.destination) {
@@ -7417,7 +7518,7 @@ async function handleCallback(callback) {
                 prefilledCoords.destinationLon = destGeo.lon;
             }
         }
-        if (pickup && fav.pickupLat && fav.pickupLon) {
+        if (pickup && fav.pickupLat && fav.pickupLon && _validateFavCoords(pickup, fav.pickupLat, fav.pickupLon)) {
             prefilledCoords.pickupLat = fav.pickupLat;
             prefilledCoords.pickupLon = fav.pickupLon;
         } else if (pickup) {

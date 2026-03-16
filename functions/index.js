@@ -9997,18 +9997,28 @@ exports.autoResolveConflicts = onSchedule(
 
         try {
             // Daten laden
-            const [ridesSnap, shiftsSnap, settingsSnap] = await Promise.all([
+            const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
                 db.ref('rides').once('value'),
                 db.ref('vehicleShifts').once('value'),
-                db.ref('settings/pricing').once('value')
+                db.ref('settings/pricing').once('value'),
+                db.ref('settings/vehiclePriorities').once('value')
             ]);
 
             const shiftsData = shiftsSnap.val() || {};
             const pricingSettings = settingsSnap.val() || {};
+            const vehiclePriorities = prioritiesSnap.val() || {};
             const vorlaufMin = pricingSettings.autoOptimierungVorlaufMinuten || 60;
             const boardingTime = pricingSettings.boardingTime || 3;
             const alightingTime = pricingSettings.alightingTime || 2;
             const bufferMs = (boardingTime + alightingTime) * 60000;
+            const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
+            const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
+
+            // 🔧 v6.25.4: Fahrzeug-Priorität aus Firebase (wie getVehiclePriority in index.html)
+            const getVehiclePriority = (vehicleId) => {
+                if (vehiclePriorities[vehicleId] !== undefined) return vehiclePriorities[vehicleId];
+                return (OFFICIAL_VEHICLES[vehicleId] || {}).priority || 99;
+            };
 
             // Alle aktiven zukünftigen Fahrten sammeln
             const now = Date.now();
@@ -10057,7 +10067,7 @@ exports.autoResolveConflicts = onSchedule(
                 console.warn(`📅 SCHICHT-PROBLEM: ${ride.customerName || '?'} (${rideTimeStr}) auf ${currInfo.name} — kein Dienst am ${rideDateStr}!`);
 
                 const altVehicle = findAlternativeVehicle(
-                    ride, ride.assignedVehicle, allRides, shiftsData, rideDateStr, pricingSettings
+                    ride, ride.assignedVehicle, allRides, shiftsData, rideDateStr, pricingSettings, vehiclePriorities
                 );
 
                 if (!altVehicle) {
@@ -10156,7 +10166,7 @@ exports.autoResolveConflicts = onSchedule(
 
                     // Alternatives Fahrzeug suchen
                     const altVehicle = findAlternativeVehicle(
-                        next, vehicleId, allRides, shiftsData, dateStr, pricingSettings
+                        next, vehicleId, allRides, shiftsData, dateStr, pricingSettings, vehiclePriorities
                     );
 
                     if (!altVehicle) {
@@ -10251,15 +10261,21 @@ exports.autoResolveConflicts = onSchedule(
                 const currentMin = currentResult.durationMin;
                 const currentKm = currentResult.distKm;
 
+                // 🔧 v6.25.4: Prioritäts-Penalty wie autoAssignVehicleToRide (index.html Zeile 30593-30594)
+                // Höherrangige Fahrzeuge bekommen einen Bonus → Score = Leerfahrt + Prioritäts-Penalty
+                const currentPrio = getVehiclePriority(currentVehicle);
+                const currentScore = currentMin + (currentPrio - 1) * priorityAdvantageMin;
+
                 // Beste Alternative suchen
                 let bestAlt = null;
+                let bestScore = currentScore;
                 let bestMin = currentMin;
                 let bestKm = currentKm;
                 let bestMethod = currentResult.method;
 
                 const candidates = Object.entries(OFFICIAL_VEHICLES)
                     .filter(([vid]) => vid !== currentVehicle)
-                    .sort((a, b) => (a[1].priority || 99) - (b[1].priority || 99));
+                    .sort((a, b) => getVehiclePriority(a[0]) - getVehiclePriority(b[0]));
 
                 for (const [vehicleId, vInfo] of candidates) {
                     // Kapazität
@@ -10267,7 +10283,7 @@ exports.autoResolveConflicts = onSchedule(
                     // Schichtplan
                     if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
-                    // Zeitkonflikt prüfen
+                    // 🔧 v6.25.4: Zeitkonflikt prüfen mit mindestAbstandMs (wie Browser)
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
                     const hasConflict = allRides.some(r => {
                         if (r.firebaseId === ride.firebaseId) return false;
@@ -10277,7 +10293,8 @@ exports.autoResolveConflicts = onSchedule(
                         const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
                         const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
                         const newEnd = ride.pickupTimestamp + rideDurMs + bufferMs;
-                        return (ride.pickupTimestamp < rEnd) && (r.pickupTimestamp < newEnd);
+                        // Mindest-Abstand berücksichtigen (wie autoAssignVehicleToRide Zeile 30276)
+                        return (ride.pickupTimestamp < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
                     });
                     if (hasConflict) continue;
 
@@ -10286,7 +10303,12 @@ exports.autoResolveConflicts = onSchedule(
                         vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                     );
 
-                    if (altResult.durationMin < bestMin) {
+                    // Score = Leerfahrt (Min) + Prioritäts-Penalty
+                    const altPrio = getVehiclePriority(vehicleId);
+                    const altScore = altResult.durationMin + (altPrio - 1) * priorityAdvantageMin;
+
+                    if (altScore < bestScore) {
+                        bestScore = altScore;
                         bestMin = altResult.durationMin;
                         bestKm = altResult.distKm;
                         bestMethod = altResult.method;
@@ -10296,8 +10318,8 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (!bestAlt) continue;
 
-                // Vorteil direkt in Minuten (OSRM liefert echte Fahrzeiten)
-                const vorteilMin = Math.round(currentMin - bestMin);
+                // Vorteil = Differenz der Scores (Leerfahrt + Priorität)
+                const vorteilMin = Math.round(currentScore - bestScore);
 
                 if (vorteilMin < minLeerfahrtVorteilMin) continue;
 
@@ -10513,18 +10535,17 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
 }
 
 // Hilfsfunktion: Alternatives Fahrzeug ohne Zeitkonflikt finden
-function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, dateStr, pricingSettings) {
+// 🔧 v6.25.4: Firebase-Prioritäten + mindestAbstandMin
+function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, dateStr, pricingSettings, vehiclePriorities) {
     const pickupTs = ride.pickupTimestamp;
     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
     const boardingTime = pricingSettings.boardingTime || 3;
     const alightingTime = pricingSettings.alightingTime || 2;
     const bufferMs = (boardingTime + alightingTime) * 60000;
+    const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
 
     const berlinTime = (ts) => {
         const d = new Date(ts);
-        const hours = String(d.getUTCHours()).padStart(2, '0');
-        const mins = String(d.getUTCMinutes()).padStart(2, '0');
-        // Einfache Berlin-Zeit: UTC+1 (Winter) oder UTC+2 (Sommer)
         const month = d.getUTCMonth() + 1;
         const isSummer = month >= 4 && month <= 10;
         const h = (d.getUTCHours() + (isSummer ? 2 : 1)) % 24;
@@ -10532,10 +10553,16 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
     };
     const timeStr = berlinTime(pickupTs);
 
-    // Alle Fahrzeuge durchgehen, sortiert nach Priorität
+    // Priorität aus Firebase, Fallback auf OFFICIAL_VEHICLES
+    const getPrio = (vid) => {
+        if (vehiclePriorities && vehiclePriorities[vid] !== undefined) return vehiclePriorities[vid];
+        return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
+    };
+
+    // Alle Fahrzeuge durchgehen, sortiert nach Firebase-Priorität
     const candidates = Object.entries(OFFICIAL_VEHICLES)
         .filter(([vid]) => vid !== excludeVehicleId)
-        .sort((a, b) => (a[1].priority || 99) - (b[1].priority || 99));
+        .sort((a, b) => getPrio(a[0]) - getPrio(b[0]));
 
     for (const [vehicleId, vInfo] of candidates) {
         // Kapazität prüfen
@@ -10544,7 +10571,7 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
         // Im Schichtplan?
         if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
-        // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug?
+        // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug? (inkl. mindestAbstand)
         const hasConflict = allRides.some(r => {
             if (r.firebaseId === ride.firebaseId) return false;
             if (r.assignedVehicle !== vehicleId) return false;
@@ -10554,7 +10581,7 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
             const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
             const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
             const newEnd = pickupTs + rideDurMs + bufferMs;
-            return (pickupTs < rEnd) && (r.pickupTimestamp < newEnd);
+            return (pickupTs < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
         });
 
         if (!hasConflict) {

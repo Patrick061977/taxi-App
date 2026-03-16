@@ -10039,6 +10039,78 @@ exports.autoResolveConflicts = onSchedule(
                 return d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
             };
 
+            // ═══════════════════════════════════════════════════════════
+            // 🚀 v6.26.0: PHASE 0 — SCHICHT-VALIDIERUNG
+            // Fahrten auf Fahrzeugen ohne Dienst → sofort umplanen
+            // ═══════════════════════════════════════════════════════════
+            let totalShiftFixes = 0;
+
+            for (const ride of allRides) {
+                if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) continue;
+                const rideDateStr = berlinDate(ride.pickupTimestamp);
+                const rideTimeStr = berlinTime(ride.pickupTimestamp);
+
+                if (isVehicleInShift(ride.assignedVehicle, shiftsData, rideDateStr, rideTimeStr)) continue;
+
+                // Fahrzeug hat keinen Dienst → Alternative suchen
+                const currInfo = OFFICIAL_VEHICLES[ride.assignedVehicle] || {};
+                console.warn(`📅 SCHICHT-PROBLEM: ${ride.customerName || '?'} (${rideTimeStr}) auf ${currInfo.name} — kein Dienst am ${rideDateStr}!`);
+
+                const altVehicle = findAlternativeVehicle(
+                    ride, ride.assignedVehicle, allRides, shiftsData, rideDateStr, pricingSettings
+                );
+
+                if (!altVehicle) {
+                    console.warn(`   ❌ Kein alternatives Fahrzeug im Dienst für ${ride.firebaseId}`);
+                    continue;
+                }
+
+                const altInfo = OFFICIAL_VEHICLES[altVehicle] || {};
+                console.log(`   ✅ Schicht-Korrektur: ${ride.firebaseId} → ${altInfo.name}`);
+
+                await db.ref(`rides/${ride.firebaseId}`).update({
+                    assignedVehicle: altVehicle,
+                    vehicleId: altVehicle,
+                    vehicle: altInfo.name || altVehicle,
+                    vehicleLabel: altInfo.name || altVehicle,
+                    vehiclePlate: altInfo.plate || '',
+                    assignedVehicleName: altInfo.name || altVehicle,
+                    assignedVehiclePlate: altInfo.plate || '',
+                    assignedBy: 'cloud-auto-replan',
+                    assignedAt: Date.now(),
+                    updatedAt: Date.now(),
+                    replanReason: `Schicht-Korrektur: ${currInfo.name} hat keinen Dienst am ${rideDateStr} um ${rideTimeStr}`
+                });
+
+                ride.assignedVehicle = altVehicle;
+                totalShiftFixes++;
+
+                try {
+                    await db.ref('optimierungsLog').push({
+                        timestamp: Date.now(),
+                        type: 'cloud-replan-schicht',
+                        rideId: ride.firebaseId,
+                        vonVehicle: currInfo.name || ride.assignedVehicle,
+                        zuVehicle: altInfo.name || altVehicle,
+                        kunde: ride.customerName || '',
+                        uhrzeit: rideTimeStr,
+                        datum: rideDateStr,
+                        grund: `Kein Dienst: ${currInfo.name}`
+                    });
+                } catch(e) { /* non-critical */ }
+
+                try {
+                    const msg = `📅 *Schicht-Korrektur*\n📋 ${ride.customerName || '?'} • ${rideTimeStr}\n🔄 ${currInfo.name} (kein Dienst) → ${altInfo.name}`;
+                    await sendToAllAdmins(msg, 'optimization');
+                } catch(e) { /* non-critical */ }
+            }
+
+            console.log(`✅ Phase 0 (Schicht): ${totalShiftFixes} Korrektur(en)`);
+
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 1 — ZEITKONFLIKT-AUFLÖSUNG (bestehend)
+            // ═══════════════════════════════════════════════════════════
+
             // Nach Fahrzeug + Datum gruppieren
             const byVehicleDate = {};
             for (const r of allRides) {
@@ -10134,13 +10206,210 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            console.log(`✅ Auto-Konflikt-Prüfung abgeschlossen: ${totalReplanned} Umplanung(en)`);
+            console.log(`✅ Phase 1 (Konflikte) abgeschlossen: ${totalReplanned} Umplanung(en)`);
+
+            // ═══════════════════════════════════════════════════════════
+            // 🚀 v6.26.0: PHASE 2 — LEERFAHRT-OPTIMIERUNG
+            // Zentrale Umplanung: Fahrzeug mit kürzerer Anfahrt bevorzugen
+            // ═══════════════════════════════════════════════════════════
+
+            const minLeerfahrtVorteilMin = pricingSettings.optimierungMinVorteilMinuten || 10;
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehiclesData = vehiclesSnap.val() || {};
+            let totalOptimized = 0;
+
+            // Alle offenen, nicht akzeptierten Fahrten mit Koordinaten
+            const optimizableRides = allRides.filter(r =>
+                r.assignedVehicle &&
+                !r.assignmentLocked &&
+                !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
+                r.pickupTimestamp > now + vorlaufMin * 60000 &&
+                (r.pickupCoords || (r.pickupLat && r.pickupLon))
+            );
+
+            console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
+
+            for (const ride of optimizableRides) {
+                const currentVehicle = ride.assignedVehicle;
+                const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;
+                const pickupLon = ride.pickupCoords?.lon || ride.pickupLon;
+                if (!pickupLat || !pickupLon) continue;
+
+                const dateStr = berlinDate(ride.pickupTimestamp);
+                const timeStr = berlinTime(ride.pickupTimestamp);
+
+                // Leerfahrt-Distanz für aktuelles Fahrzeug berechnen
+                const currentDist = estimateVehicleLeerfahrt(
+                    currentVehicle, ride, allRides, vehiclesData, shiftsData, dateStr
+                );
+
+                // Beste Alternative suchen
+                let bestAlt = null;
+                let bestDist = currentDist;
+
+                const candidates = Object.entries(OFFICIAL_VEHICLES)
+                    .filter(([vid]) => vid !== currentVehicle)
+                    .sort((a, b) => (a[1].priority || 99) - (b[1].priority || 99));
+
+                for (const [vehicleId, vInfo] of candidates) {
+                    // Kapazität
+                    if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
+                    // Schichtplan
+                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+
+                    // Zeitkonflikt prüfen
+                    const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
+                    const hasConflict = allRides.some(r => {
+                        if (r.firebaseId === ride.firebaseId) return false;
+                        if (r.assignedVehicle !== vehicleId) return false;
+                        if (!r.pickupTimestamp) return false;
+                        if (['deleted','cancelled','storniert','completed'].includes(r.status)) return false;
+                        const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
+                        const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
+                        const newEnd = ride.pickupTimestamp + rideDurMs + bufferMs;
+                        return (ride.pickupTimestamp < rEnd) && (r.pickupTimestamp < newEnd);
+                    });
+                    if (hasConflict) continue;
+
+                    // Leerfahrt für Alternative berechnen
+                    const altDist = estimateVehicleLeerfahrt(
+                        vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr
+                    );
+
+                    if (altDist < bestDist) {
+                        bestDist = altDist;
+                        bestAlt = vehicleId;
+                    }
+                }
+
+                if (!bestAlt) continue;
+
+                // Vorteil in Minuten umrechnen (ca. 1 km = 2 Min Fahrzeit auf Usedom)
+                const vorteilKm = currentDist - bestDist;
+                const vorteilMin = Math.round(vorteilKm * 2);
+
+                if (vorteilMin < minLeerfahrtVorteilMin) continue;
+
+                const altInfo = OFFICIAL_VEHICLES[bestAlt] || {};
+                const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
+                const rideTime = berlinTime(ride.pickupTimestamp);
+
+                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentDist.toFixed(1)} km) → ${altInfo.name} (${bestDist.toFixed(1)} km) | Vorteil: ${vorteilMin} Min`);
+
+                // Umplanen in Firebase
+                await db.ref(`rides/${ride.firebaseId}`).update({
+                    assignedVehicle: bestAlt,
+                    vehicleId: bestAlt,
+                    vehicle: altInfo.name || bestAlt,
+                    vehicleLabel: altInfo.name || bestAlt,
+                    vehiclePlate: altInfo.plate || '',
+                    assignedVehicleName: altInfo.name || bestAlt,
+                    assignedVehiclePlate: altInfo.plate || '',
+                    assignedBy: 'cloud-auto-optimize',
+                    assignedAt: Date.now(),
+                    updatedAt: Date.now(),
+                    replanReason: `Leerfahrt-Optimierung: ${currInfo.name} (${currentDist.toFixed(1)} km) → ${altInfo.name} (${bestDist.toFixed(1)} km), ${vorteilMin} Min kürzer`
+                });
+
+                // Lokales Array aktualisieren
+                ride.assignedVehicle = bestAlt;
+                totalOptimized++;
+
+                // Log
+                try {
+                    await db.ref('optimierungsLog').push({
+                        timestamp: Date.now(),
+                        type: 'cloud-optimize-leerfahrt',
+                        rideId: ride.firebaseId,
+                        vonVehicle: currInfo.name || currentVehicle,
+                        zuVehicle: altInfo.name || bestAlt,
+                        vonDistanzKm: Math.round(currentDist * 10) / 10,
+                        zuDistanzKm: Math.round(bestDist * 10) / 10,
+                        vorteilMin,
+                        kunde: ride.customerName || '',
+                        abholung: (ride.pickup || '').substring(0, 50),
+                        ziel: (ride.destination || '').substring(0, 50),
+                        uhrzeit: rideTime,
+                        datum: dateStr,
+                        grund: `Leerfahrt ${vorteilMin} Min kürzer`
+                    });
+                } catch(e) { /* non-critical */ }
+
+                // Telegram an Admins
+                try {
+                    const msg = `🚀 *Optimierung*\n📋 ${ride.customerName || '?'} • ${rideTime}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Leerfahrt: ${currentDist.toFixed(1)} km → ${bestDist.toFixed(1)} km (${vorteilMin} Min kürzer)`;
+                    await sendToAllAdmins(msg, 'optimization');
+                } catch(e) { /* non-critical */ }
+            }
+
+            console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
         } catch (e) {
-            console.error('❌ Auto-Konflikt-Prüfung Fehler:', e.message);
+            console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message);
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🚀 v6.26.0: Leerfahrt-Schätzung für ein Fahrzeug zu einer Fahrt
+// Berechnet die Distanz vom wahrscheinlichen Standort des Fahrzeugs
+// zum Abholort der Fahrt (km Luftlinie)
+// ═══════════════════════════════════════════════════════════════
+function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr) {
+    const pickupLat = targetRide.pickupCoords?.lat || targetRide.pickupLat;
+    const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
+    if (!pickupLat || !pickupLon) return 999;
+
+    // 1. Vorherige Fahrt auf diesem Fahrzeug suchen (Zielort = Startpunkt für Leerfahrt)
+    const vehicleRides = allRides.filter(r =>
+        r.assignedVehicle === vehicleId &&
+        r.firebaseId !== targetRide.firebaseId &&
+        r.pickupTimestamp && r.pickupTimestamp < targetRide.pickupTimestamp &&
+        !['deleted','cancelled','storniert'].includes(r.status)
+    ).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
+
+    if (vehicleRides.length > 0) {
+        const prevRide = vehicleRides[0];
+        const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
+        const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
+        if (destLat && destLon) {
+            return gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
+        }
+        // Fallback: Pickup der vorherigen Fahrt als Näherung
+        const prevPickupLat = prevRide.pickupCoords?.lat || prevRide.pickupLat;
+        const prevPickupLon = prevRide.pickupCoords?.lon || prevRide.pickupLon;
+        if (prevPickupLat && prevPickupLon) {
+            return gpsDistanceKm(prevPickupLat, prevPickupLon, pickupLat, pickupLon);
+        }
+    }
+
+    // 2. GPS-Position (falls aktuell genug, z.B. für Sofortfahrten)
+    const driver = vehiclesData[vehicleId];
+    if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= 15 * 60000)) {
+        return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
+    }
+
+    // 3. Heimatstandort aus Schichtplan
+    const vShift = shiftsData[vehicleId];
+    if (vShift) {
+        const d = new Date(dateStr + 'T00:00:00');
+        const dow = d.getDay();
+        const dayEntry = vShift[dateStr];
+        const defTimes = vShift.defaultTimes || {};
+        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
+        if (homeCoords && homeCoords.lat && homeCoords.lon) {
+            return gpsDistanceKm(homeCoords.lat, homeCoords.lon, pickupLat, pickupLon);
+        }
+    }
+
+    // 4. Letzter bekannter GPS-Standort
+    if (driver && driver.lat && driver.lon) {
+        return gpsDistanceKm(driver.lat, driver.lon, pickupLat, pickupLon);
+    }
+
+    // Kein Standort bekannt → hohe Distanz als Fallback
+    return 50;
+}
 
 // Hilfsfunktion: Alternatives Fahrzeug ohne Zeitkonflikt finden
 function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, dateStr, pricingSettings) {
@@ -10475,7 +10744,7 @@ exports.onRideUpdated = onValueUpdated(
             console.log(`📱 Fahrer-Zuweisung: ${rideId} → ${newVehicle}`);
 
             // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)
-            if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan') {
+            if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan' && after.assignedBy !== 'cloud-auto-optimize') {
                 const driverChatId = await getDriverChatId(newVehicle);
                 if (driverChatId) {
                     let customerInfo = `👤 <b>Kunde:</b> ${after.customerName || '?'}`;

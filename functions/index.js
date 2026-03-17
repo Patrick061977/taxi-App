@@ -4448,6 +4448,14 @@ async function handleMessage(message) {
         await sendTelegramMessage(chatId, '⏰ <b>Ihre vorherige Anfrage ist abgelaufen</b> (nach 30 Minuten).\n\nSchreiben Sie einfach eine neue Anfrage!');
     }
 
+    // 🆕 v6.25.4: AUDIO-DATEI UNTERBRICHT PENDING — wenn ein neues Audio reinkommt
+    // während ein altes Pending aktiv ist, altes Pending löschen damit das neue Audio
+    // als eigenständige Buchung behandelt wird (nicht als Kundensuche/Input)
+    if (pending && !isPendingExpired(pending) && message._isAudioFile && message._callerPhone) {
+        await addTelegramLog('🔄', chatId, `Neues Audio unterbricht laufendes Pending → Reset für neue Buchung (${message._callerPhone})`);
+        await deletePending(chatId);
+    }
+
     // 🆕 v6.11.6: NUMMER ZU BESTEHENDEM KUNDEN HINZUFÜGEN — Admin sucht Kunden
     if (pending && pending._awaitingAddPhoneToCustomer && !isPendingExpired(pending)) {
         const searchName = text.trim();

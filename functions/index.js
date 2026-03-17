@@ -10141,13 +10141,21 @@ exports.autoResolveConflicts = onSchedule(
             // Fahrten auf Fahrzeugen ohne Dienst → sofort umplanen
             // ═══════════════════════════════════════════════════════════
             let totalShiftFixes = 0;
+            const debugPhase0Lines = []; // Debug-Sammlung für Telegram
 
             for (const ride of allRides) {
-                if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) continue;
+                if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) {
+                    debugPhase0Lines.push(`⏭️ ${ride.customerName || '?'} — übersprungen (Status: ${ride.status})`);
+                    continue;
+                }
                 const rideDateStr = berlinDate(ride.pickupTimestamp);
                 const rideTimeStr = berlinTime(ride.pickupTimestamp);
 
-                if (isVehicleInShift(ride.assignedVehicle, shiftsData, rideDateStr, rideTimeStr)) continue;
+                const inShift = isVehicleInShift(ride.assignedVehicle, shiftsData, rideDateStr, rideTimeStr);
+                const vName = (OFFICIAL_VEHICLES[ride.assignedVehicle] || {}).name || ride.assignedVehicle || '?';
+                debugPhase0Lines.push(`${inShift ? '✅' : '❌'} ${rideDateStr} ${rideTimeStr} ${ride.customerName || '?'} → ${vName} [${ride.status}] Schicht=${inShift}`);
+
+                if (inShift) continue;
 
                 // Fahrzeug hat keinen Dienst → Alternative suchen
                 const currInfo = OFFICIAL_VEHICLES[ride.assignedVehicle] || {};
@@ -10159,11 +10167,20 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (!altVehicle) {
                     console.warn(`   ❌ Kein alternatives Fahrzeug im Dienst für ${ride.firebaseId}`);
+                    debugPhase0Lines.push(`   → ❌ Keine Alternative gefunden!`);
+                    // Debug: Warum kein Alternativfahrzeug?
+                    for (const [vid, vI] of Object.entries(OFFICIAL_VEHICLES)) {
+                        if (vid === ride.assignedVehicle) continue;
+                        const altInShift = isVehicleInShift(vid, shiftsData, rideDateStr, rideTimeStr);
+                        const cap = (vI.capacity || 4) >= (ride.passengers || 1);
+                        debugPhase0Lines.push(`     ${vid}: Schicht=${altInShift}, Kapazität=${cap}`);
+                    }
                     continue;
                 }
 
                 const altInfo = OFFICIAL_VEHICLES[altVehicle] || {};
                 console.log(`   ✅ Schicht-Korrektur: ${ride.firebaseId} → ${altInfo.name}`);
+                debugPhase0Lines.push(`   → ✅ Umplanung: ${altInfo.name}`);
 
                 await db.ref(`rides/${ride.firebaseId}`).update({
                     assignedVehicle: altVehicle,
@@ -10203,6 +10220,17 @@ exports.autoResolveConflicts = onSchedule(
             }
 
             console.log(`✅ Phase 0 (Schicht): ${totalShiftFixes} Korrektur(en)`);
+
+            // 🔧 Debug: Phase 0 Ergebnisse per Telegram senden (über Firebase-Flag)
+            try {
+                const debugSnap2 = await db.ref('settings/debugOptimierung').once('value');
+                if (debugSnap2.val() === true) {
+                    const header = `🔍 *Debug: Phase 0 Schicht-Validierung*\n📊 ${allRides.length} Fahrten, ${totalShiftFixes} Korrekturen\n\nSchichtdaten vorhanden für: ${Object.keys(shiftsData).join(', ') || 'KEINE!'}\n`;
+                    const debugMsg = header + '\n' + debugPhase0Lines.join('\n');
+                    await sendToAllAdmins(debugMsg, 'optimization');
+                    await db.ref('settings/debugOptimierung').set(false);
+                }
+            } catch(e) { /* non-critical */ }
 
             // ═══════════════════════════════════════════════════════════
             // PHASE 1 — ZEITKONFLIKT-AUFLÖSUNG (bestehend)
@@ -10303,7 +10331,10 @@ exports.autoResolveConflicts = onSchedule(
 
                     // 🔧 v6.30.1: Telegram-Benachrichtigung für Konflikt-Umplanung
                     try {
-                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📋 ${next.customerName || '?'} • ${nextTime}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
+                        const nextDateStr = berlinDate(next.pickupTimestamp);
+                        const nextDateParts = nextDateStr.split('-');
+                        const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
+                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
                         await sendToAllAdmins(msg, 'optimization');
                     } catch(e) { /* non-critical */ }
                 }
@@ -10321,14 +10352,30 @@ exports.autoResolveConflicts = onSchedule(
             const vehiclesData = vehiclesSnap.val() || {};
             let totalOptimized = 0;
 
-            // Alle offenen, nicht akzeptierten Fahrten mit Koordinaten
+            // Alle offenen, nicht akzeptierten Fahrten
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
-                r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                (r.pickupCoords || (r.pickupLat && r.pickupLon))
+                r.pickupTimestamp > now + vorlaufMin * 60000
             );
+
+            // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden
+            for (const ride of optimizableRides) {
+                if (!ride.pickupCoords && !ride.pickupLat) {
+                    if (ride.pickup) {
+                        try {
+                            const geo = await geocode(ride.pickup);
+                            if (geo && geo.lat && geo.lon) {
+                                ride.pickupCoords = { lat: geo.lat, lon: geo.lon };
+                                // Koordinaten auch in Firebase speichern für nächstes Mal
+                                await db.ref(`rides/${ride.firebaseId}/pickupCoords`).set({ lat: geo.lat, lon: geo.lon });
+                                console.log(`📍 Geocoding-Fallback: ${ride.customerName || '?'} → ${ride.pickup} → ${geo.lat},${geo.lon}`);
+                            }
+                        } catch(e) { /* non-critical */ }
+                    }
+                }
+            }
 
             console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
 
@@ -10413,8 +10460,12 @@ exports.autoResolveConflicts = onSchedule(
                 const altInfo = OFFICIAL_VEHICLES[bestAlt] || {};
                 const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
                 const rideTime = berlinTime(ride.pickupTimestamp);
+                const rideDate = berlinDate(ride.pickupTimestamp);
+                // Datum als dd.mm. formatieren
+                const rideDateParts = rideDate.split('-');
+                const rideDateFormatted = rideDateParts.length === 3 ? `${rideDateParts[2]}.${rideDateParts[1]}.` : rideDate;
 
-                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
+                console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideDateFormatted} ${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
 
                 // vehicleScores für Browser-Anzeige erstellen
                 const optimizeScores = {};
@@ -10482,7 +10533,7 @@ exports.autoResolveConflicts = onSchedule(
 
                 // Telegram an Admins
                 try {
-                    const msg = `🚀 *Optimierung*\n📋 ${ride.customerName || '?'} • ${rideTime}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
+                    const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }

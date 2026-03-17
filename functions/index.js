@@ -6484,6 +6484,7 @@ async function handleCallback(callback) {
                 ...(booking._isJetzt && { isJetzt: true }),
                 source: booking._adminBooked ? 'telegram-admin' : 'telegram-bot',
                 createdAt: Date.now(),
+                updatedAt: Date.now(), // 🔧 v6.25.4: Für Google Calendar Sync!
                 createdBy: booking._adminBooked ? `admin-telegram-${booking._adminChatId}` : 'telegram-cloud-function',
                 ...(booking._adminBooked && { adminBookedBy: String(booking._adminChatId), bookedForCustomer: booking._forCustomer || booking.name }),
                 // 🔧 v6.11.0: Koordinaten als flache Felder UND Objekte (für Kalender/AutoAssign)

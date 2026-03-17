@@ -10141,13 +10141,21 @@ exports.autoResolveConflicts = onSchedule(
             // Fahrten auf Fahrzeugen ohne Dienst → sofort umplanen
             // ═══════════════════════════════════════════════════════════
             let totalShiftFixes = 0;
+            const debugPhase0Lines = []; // Debug-Sammlung für Telegram
 
             for (const ride of allRides) {
-                if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) continue;
+                if (['accepted', 'picked_up', 'on_way'].includes(ride.status)) {
+                    debugPhase0Lines.push(`⏭️ ${ride.customerName || '?'} — übersprungen (Status: ${ride.status})`);
+                    continue;
+                }
                 const rideDateStr = berlinDate(ride.pickupTimestamp);
                 const rideTimeStr = berlinTime(ride.pickupTimestamp);
 
-                if (isVehicleInShift(ride.assignedVehicle, shiftsData, rideDateStr, rideTimeStr)) continue;
+                const inShift = isVehicleInShift(ride.assignedVehicle, shiftsData, rideDateStr, rideTimeStr);
+                const vName = (OFFICIAL_VEHICLES[ride.assignedVehicle] || {}).name || ride.assignedVehicle || '?';
+                debugPhase0Lines.push(`${inShift ? '✅' : '❌'} ${rideDateStr} ${rideTimeStr} ${ride.customerName || '?'} → ${vName} [${ride.status}] Schicht=${inShift}`);
+
+                if (inShift) continue;
 
                 // Fahrzeug hat keinen Dienst → Alternative suchen
                 const currInfo = OFFICIAL_VEHICLES[ride.assignedVehicle] || {};
@@ -10159,11 +10167,20 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (!altVehicle) {
                     console.warn(`   ❌ Kein alternatives Fahrzeug im Dienst für ${ride.firebaseId}`);
+                    debugPhase0Lines.push(`   → ❌ Keine Alternative gefunden!`);
+                    // Debug: Warum kein Alternativfahrzeug?
+                    for (const [vid, vI] of Object.entries(OFFICIAL_VEHICLES)) {
+                        if (vid === ride.assignedVehicle) continue;
+                        const altInShift = isVehicleInShift(vid, shiftsData, rideDateStr, rideTimeStr);
+                        const cap = (vI.capacity || 4) >= (ride.passengers || 1);
+                        debugPhase0Lines.push(`     ${vid}: Schicht=${altInShift}, Kapazität=${cap}`);
+                    }
                     continue;
                 }
 
                 const altInfo = OFFICIAL_VEHICLES[altVehicle] || {};
                 console.log(`   ✅ Schicht-Korrektur: ${ride.firebaseId} → ${altInfo.name}`);
+                debugPhase0Lines.push(`   → ✅ Umplanung: ${altInfo.name}`);
 
                 await db.ref(`rides/${ride.firebaseId}`).update({
                     assignedVehicle: altVehicle,
@@ -10203,6 +10220,17 @@ exports.autoResolveConflicts = onSchedule(
             }
 
             console.log(`✅ Phase 0 (Schicht): ${totalShiftFixes} Korrektur(en)`);
+
+            // 🔧 Debug: Phase 0 Ergebnisse per Telegram senden (über Firebase-Flag)
+            try {
+                const debugSnap2 = await db.ref('settings/debugOptimierung').once('value');
+                if (debugSnap2.val() === true) {
+                    const header = `🔍 *Debug: Phase 0 Schicht-Validierung*\n📊 ${allRides.length} Fahrten, ${totalShiftFixes} Korrekturen\n\nSchichtdaten vorhanden für: ${Object.keys(shiftsData).join(', ') || 'KEINE!'}\n`;
+                    const debugMsg = header + '\n' + debugPhase0Lines.join('\n');
+                    await sendToAllAdmins(debugMsg, 'optimization');
+                    await db.ref('settings/debugOptimierung').set(false);
+                }
+            } catch(e) { /* non-critical */ }
 
             // ═══════════════════════════════════════════════════════════
             // PHASE 1 — ZEITKONFLIKT-AUFLÖSUNG (bestehend)
@@ -10350,38 +10378,6 @@ exports.autoResolveConflicts = onSchedule(
             }
 
             console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
-
-            // 🔧 v6.25.4: Einmaliges Debug-Log per Telegram (über Firebase-Flag steuerbar)
-            // Aktivieren: settings/debugOptimierung = true in Firebase setzen
-            // Deaktiviert sich nach einem Durchlauf automatisch
-            try {
-                const debugSnap = await db.ref('settings/debugOptimierung').once('value');
-                if (debugSnap.val() === true) {
-                    const debugLines = [`🔍 *Debug: Auto-Optimierung*\n📊 ${allRides.length} Fahrten geladen, ${optimizableRides.length} optimierbar\n`];
-
-                    // Alle geladenen Fahrten auflisten
-                    for (const r of allRides) {
-                        const d = berlinDate(r.pickupTimestamp).split('-');
-                        const datum = `${d[2]}.${d[1]}.`;
-                        const zeit = berlinTime(r.pickupTimestamp);
-                        const vName = (OFFICIAL_VEHICLES[r.assignedVehicle] || {}).name || r.assignedVehicle || '?';
-                        const hasCoords = !!(r.pickupCoords?.lat || r.pickupLat);
-                        const inOptList = optimizableRides.some(o => o.firebaseId === r.firebaseId);
-                        const reasons = [];
-                        if (!inOptList) {
-                            if (['accepted','picked_up','on_way'].includes(r.status)) reasons.push(`Status: ${r.status}`);
-                            if (r.assignmentLocked) reasons.push('Gesperrt');
-                        }
-                        if (!hasCoords) reasons.push('⚠️ Keine Coords');
-                        const statusIcon = inOptList ? (hasCoords ? '✅' : '⚠️') : '⏭️';
-                        debugLines.push(`${statusIcon} ${datum} ${zeit} ${r.customerName || '?'} → ${vName} [${r.status}]${reasons.length ? ' — ' + reasons.join(', ') : ''}`);
-                    }
-
-                    await sendToAllAdmins(debugLines.join('\n'), 'optimization');
-                    // Automatisch deaktivieren
-                    await db.ref('settings/debugOptimierung').set(false);
-                }
-            } catch(e) { /* non-critical */ }
 
             for (const ride of optimizableRides) {
                 const currentVehicle = ride.assignedVehicle;

@@ -5541,8 +5541,8 @@ async function handleMessage(message) {
         return;
     }
 
-    // Admin: Fahrten-Abfrage per natürlicher Sprache
-    if (isAdminUser && isAdminRidesQuery(text)) {
+    // Admin: Fahrten-Abfrage per natürlicher Sprache (NICHT bei Audio-Transkripten — die sind immer Buchungen!)
+    if (isAdminUser && !message._isAudioFile && isAdminRidesQuery(text)) {
         const filter = /morgen/i.test(text) ? 'tomorrow' : /offen|nächst/i.test(text) ? 'open' : 'today';
         await handleAdminRidesOverview(chatId, filter);
         return;

@@ -303,13 +303,16 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
         }
     } else {
         const defaultEntry = (shifts.defaultTimes || {})[dow];
-        if (defaultEntry) {
+        // 🔧 v6.31.0: Nur wenn ECHTE Zeiten konfiguriert sind — sonst = kein Dienst!
+        // Verhindert dass Fahrzeuge mit leerem defaultTimes-Eintrag als 24h-Schicht gelten
+        if (defaultEntry && (defaultEntry.startTime || (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 0))) {
             times = { startTime: defaultEntry.startTime || '00:00', endTime: defaultEntry.endTime || '23:59' };
             if (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1) times.timeRanges = defaultEntry.timeRanges;
         }
     }
 
-    if (!times) return Object.keys(shiftsData).length === 0;
+    // 🔧 v6.31.0: Keine Schichtzeiten = NICHT verfügbar (außer System hat gar keine Schichtpläne)
+    if (!times) return false;
     if (!timeStr) return true;
 
     if (times.timeRanges && times.timeRanges.length > 1) {

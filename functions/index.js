@@ -483,7 +483,24 @@ async function autoAssignRide(rideId, rideData) {
                     }
                 }
 
-                const totalScore = Math.round(leerfahrtMin + prioPenalty);
+                // 🆕 v6.32.0: LASTVERTEILUNG — Fahrzeuge mit vielen Fahrten werden benachteiligt
+                const lastverteilungMalusProFahrt = pricingSettings.lastverteilungMalusMinuten || 3;
+                const vehicleRideCount = allRides.filter(r =>
+                    (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
+                    r.firebaseId !== rideId
+                ).length;
+                const avgRides = candidates.length > 0
+                    ? allRides.filter(r => r.assignedVehicle || r.vehicleId).length / candidates.length
+                    : 0;
+                const loadPenalty = vehicleRideCount > avgRides
+                    ? Math.round((vehicleRideCount - avgRides) * lastverteilungMalusProFahrt)
+                    : 0;
+
+                // 🆕 v6.32.0: Anschlussfahrt-Bonus verstärken
+                const anschlussBonus = (routeMethod === 'anschlussfahrt' || routeMethod === 'anschlussfahrt-gps')
+                    ? -(pricingSettings.anschlussfahrtBonusMinuten || 5) : 0;
+
+                const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus);
 
                 vehicleScores[cand.vehicleId] = {
                     status: 'available',
@@ -491,10 +508,13 @@ async function autoAssignRide(rideId, rideData) {
                     leerfahrtVon,
                     routeMethod,
                     priorityPenalty: prioPenalty,
+                    loadPenalty,
+                    vehicleRideCount,
+                    anschlussBonus,
                     totalScore
                 };
 
-                console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio-Malus ${prioPenalty} Min = Score ${totalScore} [P${prio}]`);
+                console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio ${prioPenalty} + Last ${loadPenalty} (${vehicleRideCount} Fahrten) + Kette ${anschlussBonus} = Score ${totalScore} [P${prio}]`);
 
                 if (totalScore < bestScore) {
                     bestScore = totalScore;
@@ -10404,9 +10424,14 @@ exports.autoResolveConflicts = onSchedule(
                 const currentKm = currentResult.distKm;
 
                 // 🔧 v6.25.4: Prioritäts-Penalty wie autoAssignVehicleToRide (index.html Zeile 30593-30594)
-                // Höherrangige Fahrzeuge bekommen einen Bonus → Score = Leerfahrt + Prioritäts-Penalty
                 const currentPrio = getVehiclePriority(currentVehicle);
-                const currentScore = currentMin + (currentPrio - 1) * priorityAdvantageMin;
+                // 🆕 v6.32.0: Lastverteilung in Phase 2
+                const lastverteilungMalus = pricingSettings.lastverteilungMalusMinuten || 3;
+                const currentRideCount = allRides.filter(r => r.assignedVehicle === currentVehicle && r.firebaseId !== ride.firebaseId).length;
+                const totalActiveVehicles = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, shiftsData, dateStr, timeStr)).length || 1;
+                const avgRidesPerVehicle = optimizableRides.length / totalActiveVehicles;
+                const currentLoadPenalty = currentRideCount > avgRidesPerVehicle ? Math.round((currentRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
+                const currentScore = currentMin + (currentPrio - 1) * priorityAdvantageMin + currentLoadPenalty;
 
                 // Beste Alternative suchen
                 let bestAlt = null;
@@ -10445,9 +10470,11 @@ exports.autoResolveConflicts = onSchedule(
                         vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
                     );
 
-                    // Score = Leerfahrt (Min) + Prioritäts-Penalty
+                    // 🆕 v6.32.0: Score = Leerfahrt + Prioritäts-Penalty + Lastverteilung
                     const altPrio = getVehiclePriority(vehicleId);
-                    const altScore = altResult.durationMin + (altPrio - 1) * priorityAdvantageMin;
+                    const altRideCount = allRides.filter(r => r.assignedVehicle === vehicleId && r.firebaseId !== ride.firebaseId).length;
+                    const altLoadPenalty = altRideCount > avgRidesPerVehicle ? Math.round((altRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
+                    const altScore = altResult.durationMin + (altPrio - 1) * priorityAdvantageMin + altLoadPenalty;
 
                     if (altScore < bestScore) {
                         bestScore = altScore;

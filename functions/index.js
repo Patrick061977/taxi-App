@@ -10194,6 +10194,8 @@ exports.autoResolveConflicts = onSchedule(
                     assignedBy: 'cloud-auto-replan',
                     assignedAt: Date.now(),
                     updatedAt: Date.now(),
+                    lastOptimizedAt: Date.now(),
+                    lastOptimizedTo: altVehicle,
                     replanReason: `Schicht-Korrektur: ${currInfo.name} hat keinen Dienst am ${rideDateStr} um ${rideTimeStr}`
                 });
 
@@ -10305,6 +10307,8 @@ exports.autoResolveConflicts = onSchedule(
                         assignedBy: 'cloud-auto-replan',
                         assignedAt: Date.now(),
                         updatedAt: Date.now(),
+                        lastOptimizedAt: Date.now(),
+                        lastOptimizedTo: altVehicle,
                         replanReason: `Zeitkonflikt: ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime}) auf ${vName}`
                     });
 
@@ -10458,6 +10462,13 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (vorteilMin < minLeerfahrtVorteilMin) continue;
 
+                // 🔧 v6.25.4: Nicht umplanen wenn gleiches Ergebnis wie letztes Mal
+                // Verhindert Oszillation (A→B→A→B) und doppelte Nachrichten
+                if (ride.lastOptimizedTo === bestAlt && ride.lastOptimizedAt && (now - ride.lastOptimizedAt) < 60 * 60000) {
+                    console.log(`   ⏭️ Skip: ${ride.customerName || '?'} wurde bereits zu ${bestAlt} optimiert (${Math.round((now - ride.lastOptimizedAt) / 60000)} Min her)`);
+                    continue;
+                }
+
                 const altInfo = OFFICIAL_VEHICLES[bestAlt] || {};
                 const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
                 const rideTime = berlinTime(ride.pickupTimestamp);
@@ -10499,6 +10510,8 @@ exports.autoResolveConflicts = onSchedule(
                     assignedBy: 'cloud-auto-optimize',
                     assignedAt: Date.now(),
                     updatedAt: Date.now(),
+                    lastOptimizedAt: Date.now(), // 🔧 v6.25.4: Cooldown gegen Duplikat-Nachrichten
+                    lastOptimizedTo: bestAlt, // 🔧 v6.25.4: Merken wohin optimiert → verhindert Oszillation
                     drivingTimeToPickup: Math.round(bestMin),
                     vehicleScores: optimizeScores,
                     replanReason: `Smart-Routing: ${currInfo.name} (${currentKm} km, ${currentMin} Min) → ${altInfo.name} (${bestKm} km, ${bestMin} Min), ${vorteilMin} Min kürzer`

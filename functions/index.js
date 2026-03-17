@@ -10521,7 +10521,11 @@ exports.autoResolveConflicts = onSchedule(
                 ride.assignedVehicle = bestAlt;
                 totalOptimized++;
 
-                // Log
+                // 🔧 v6.25.4: Detailliertes Log in Firebase (statt Telegram-Spam)
+                const currPrioVal = getVehiclePriority(currentVehicle);
+                const bestPrioVal = getVehiclePriority(bestAlt);
+                const currPenalty = (currPrioVal - 1) * priorityAdvantageMin;
+                const bestPenalty = (bestPrioVal - 1) * priorityAdvantageMin;
                 try {
                     await db.ref('optimierungsLog').push({
                         timestamp: Date.now(),
@@ -10535,7 +10539,14 @@ exports.autoResolveConflicts = onSchedule(
                         zuDauerMin: bestMin,
                         vonMethod: currentResult.method,
                         zuMethod: bestMethod,
+                        vonPrioritaet: currPrioVal,
+                        zuPrioritaet: bestPrioVal,
+                        vonMalus: currPenalty,
+                        zuMalus: bestPenalty,
+                        vonScore: Math.round(currentScore),
+                        zuScore: Math.round(bestScore),
                         vorteilMin,
+                        echteFahrzeitDiff: Math.round(currentMin - bestMin),
                         kunde: ride.customerName || '',
                         abholung: (ride.pickup || '').substring(0, 50),
                         ziel: (ride.destination || '').substring(0, 50),
@@ -10545,26 +10556,9 @@ exports.autoResolveConflicts = onSchedule(
                     });
                 } catch(e) { /* non-critical */ }
 
-                // Telegram an Admins — 🔧 v6.25.4: Detaillierte Nachricht mit Score-Aufschlüsselung
+                // Telegram an Admins — kurze Zusammenfassung (Details im Optimierungs-Log)
                 try {
-                    const currPrioVal = getVehiclePriority(currentVehicle);
-                    const bestPrioVal = getVehiclePriority(bestAlt);
-                    const currPenalty = (currPrioVal - 1) * priorityAdvantageMin;
-                    const bestPenalty = (bestPrioVal - 1) * priorityAdvantageMin;
-                    const msg = `🚀 *Optimierung*\n` +
-                        `📅 ${rideDateFormatted} • ${rideTime}\n` +
-                        `📋 ${ride.customerName || '?'}\n` +
-                        `📍 ${(ride.pickup || '?').substring(0, 40)} → ${(ride.destination || '?').substring(0, 40)}\n\n` +
-                        `❌ *Vorher:* ${currInfo.name}\n` +
-                        `   Anfahrt: ${currentKm} km / ${currentMin} Min (${currentResult.method})\n` +
-                        `   Priorität: ${currPrioVal}${currPenalty ? ' (+' + currPenalty + ' Min Malus)' : ''}\n` +
-                        `   Score: ${Math.round(currentScore)}\n\n` +
-                        `✅ *Nachher:* ${altInfo.name}\n` +
-                        `   Anfahrt: ${bestKm} km / ${bestMin} Min (${bestMethod})\n` +
-                        `   Priorität: ${bestPrioVal}${bestPenalty ? ' (+' + bestPenalty + ' Min Malus)' : ''}\n` +
-                        `   Score: ${Math.round(bestScore)}\n\n` +
-                        `💡 *Vorteil: ${vorteilMin} Min besserer Score*` +
-                        (Math.round(currentMin - bestMin) !== vorteilMin ? `\n   (echte Fahrzeit-Differenz: ${Math.round(currentMin - bestMin)} Min)` : '');
+                    const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name} (${vorteilMin} Min besser)\n💡 Details im Optimierungs-Log`;
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }

@@ -10545,9 +10545,26 @@ exports.autoResolveConflicts = onSchedule(
                     });
                 } catch(e) { /* non-critical */ }
 
-                // Telegram an Admins
+                // Telegram an Admins — 🔧 v6.25.4: Detaillierte Nachricht mit Score-Aufschlüsselung
                 try {
-                    const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name}\n📍 Anfahrt: ${currentKm} km/${currentMin} Min → ${bestKm} km/${bestMin} Min (${vorteilMin} Min kürzer)`;
+                    const currPrioVal = getVehiclePriority(currentVehicle);
+                    const bestPrioVal = getVehiclePriority(bestAlt);
+                    const currPenalty = (currPrioVal - 1) * priorityAdvantageMin;
+                    const bestPenalty = (bestPrioVal - 1) * priorityAdvantageMin;
+                    const msg = `🚀 *Optimierung*\n` +
+                        `📅 ${rideDateFormatted} • ${rideTime}\n` +
+                        `📋 ${ride.customerName || '?'}\n` +
+                        `📍 ${(ride.pickup || '?').substring(0, 40)} → ${(ride.destination || '?').substring(0, 40)}\n\n` +
+                        `❌ *Vorher:* ${currInfo.name}\n` +
+                        `   Anfahrt: ${currentKm} km / ${currentMin} Min (${currentResult.method})\n` +
+                        `   Priorität: ${currPrioVal}${currPenalty ? ' (+' + currPenalty + ' Min Malus)' : ''}\n` +
+                        `   Score: ${Math.round(currentScore)}\n\n` +
+                        `✅ *Nachher:* ${altInfo.name}\n` +
+                        `   Anfahrt: ${bestKm} km / ${bestMin} Min (${bestMethod})\n` +
+                        `   Priorität: ${bestPrioVal}${bestPenalty ? ' (+' + bestPenalty + ' Min Malus)' : ''}\n` +
+                        `   Score: ${Math.round(bestScore)}\n\n` +
+                        `💡 *Vorteil: ${vorteilMin} Min besserer Score*` +
+                        (Math.round(currentMin - bestMin) !== vorteilMin ? `\n   (echte Fahrzeit-Differenz: ${Math.round(currentMin - bestMin)} Min)` : '');
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }

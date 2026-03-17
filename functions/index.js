@@ -10521,7 +10521,11 @@ exports.autoResolveConflicts = onSchedule(
                 ride.assignedVehicle = bestAlt;
                 totalOptimized++;
 
-                // Log
+                // 🔧 v6.25.4: Detailliertes Log in Firebase (statt Telegram-Spam)
+                const currPrioVal = getVehiclePriority(currentVehicle);
+                const bestPrioVal = getVehiclePriority(bestAlt);
+                const currPenalty = (currPrioVal - 1) * priorityAdvantageMin;
+                const bestPenalty = (bestPrioVal - 1) * priorityAdvantageMin;
                 try {
                     await db.ref('optimierungsLog').push({
                         timestamp: Date.now(),
@@ -10535,7 +10539,14 @@ exports.autoResolveConflicts = onSchedule(
                         zuDauerMin: bestMin,
                         vonMethod: currentResult.method,
                         zuMethod: bestMethod,
+                        vonPrioritaet: currPrioVal,
+                        zuPrioritaet: bestPrioVal,
+                        vonMalus: currPenalty,
+                        zuMalus: bestPenalty,
+                        vonScore: Math.round(currentScore),
+                        zuScore: Math.round(bestScore),
                         vorteilMin,
+                        echteFahrzeitDiff: Math.round(currentMin - bestMin),
                         kunde: ride.customerName || '',
                         abholung: (ride.pickup || '').substring(0, 50),
                         ziel: (ride.destination || '').substring(0, 50),
@@ -10545,26 +10556,9 @@ exports.autoResolveConflicts = onSchedule(
                     });
                 } catch(e) { /* non-critical */ }
 
-                // Telegram an Admins — 🔧 v6.25.4: Detaillierte Nachricht mit Score-Aufschlüsselung
+                // Telegram an Admins — kurze Zusammenfassung (Details im Optimierungs-Log)
                 try {
-                    const currPrioVal = getVehiclePriority(currentVehicle);
-                    const bestPrioVal = getVehiclePriority(bestAlt);
-                    const currPenalty = (currPrioVal - 1) * priorityAdvantageMin;
-                    const bestPenalty = (bestPrioVal - 1) * priorityAdvantageMin;
-                    const msg = `🚀 *Optimierung*\n` +
-                        `📅 ${rideDateFormatted} • ${rideTime}\n` +
-                        `📋 ${ride.customerName || '?'}\n` +
-                        `📍 ${(ride.pickup || '?').substring(0, 40)} → ${(ride.destination || '?').substring(0, 40)}\n\n` +
-                        `❌ *Vorher:* ${currInfo.name}\n` +
-                        `   Anfahrt: ${currentKm} km / ${currentMin} Min (${currentResult.method})\n` +
-                        `   Priorität: ${currPrioVal}${currPenalty ? ' (+' + currPenalty + ' Min Malus)' : ''}\n` +
-                        `   Score: ${Math.round(currentScore)}\n\n` +
-                        `✅ *Nachher:* ${altInfo.name}\n` +
-                        `   Anfahrt: ${bestKm} km / ${bestMin} Min (${bestMethod})\n` +
-                        `   Priorität: ${bestPrioVal}${bestPenalty ? ' (+' + bestPenalty + ' Min Malus)' : ''}\n` +
-                        `   Score: ${Math.round(bestScore)}\n\n` +
-                        `💡 *Vorteil: ${vorteilMin} Min besserer Score*` +
-                        (Math.round(currentMin - bestMin) !== vorteilMin ? `\n   (echte Fahrzeit-Differenz: ${Math.round(currentMin - bestMin)} Min)` : '');
+                    const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name} (${vorteilMin} Min besser)\n💡 Details im Optimierungs-Log`;
                     await sendToAllAdmins(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }
@@ -10674,54 +10668,47 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
     const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
 
-    // Kurze Pause → Fahrer noch unterwegs → Direktroute vom letzten Ziel
-    if (gapMinutes < returnBufferMin) {
+    // 🆕 v6.26.0: Anschlussfahrt-Erkennung
+    // Prüfe ob nächste Fahrt eine Anschlussfahrt ist (Abholort nah am letzten Ziel + kurze Pause)
+    const afZeitfensterMin = (pricingSettings && pricingSettings.anschlussfahrtZeitfensterMin != null)
+        ? pricingSettings.anschlussfahrtZeitfensterMin : 20;
+    const afRadiusKm = (pricingSettings && pricingSettings.anschlussfahrtRadiusKm != null)
+        ? pricingSettings.anschlussfahrtRadiusKm : 5;
+
+    // Entfernung letztes Ziel → nächster Abholort (Luftlinie)
+    let destToPickupKm = 999;
+    if (destLat && destLon) {
+        destToPickupKm = gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
+    }
+
+    const isAnschlussfahrt = gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
+
+    if (isAnschlussfahrt) {
+        // ✅ ANSCHLUSSFAHRT: Fahrer bleibt vor Ort → Direktroute vom letzten Ziel
+        console.log(`🔗 Anschlussfahrt erkannt: ${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km Entfernung (≤ ${afZeitfensterMin} Min / ${afRadiusKm} km)`);
         if (destLat && destLon) {
             const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-kurze-pause' };
-            return { durationMin: gpsDistanceKm(destLat, destLon, pickupLat, pickupLon) * 2, distKm: gpsDistanceKm(destLat, destLon, pickupLat, pickupLon), method: 'direkt-luftlinie' };
-        }
-        if (homeLat && homeLon) {
-            const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'homebase-fallback' };
-        }
-        return { durationMin: 20, distKm: 10, method: 'schaetzwert' };
-    }
-
-    // Lange Pause → Smart Routing: Direkt vs. über Homebase, kürzere gewinnt
-    // Route A: Direkt vom letzten Ziel → nächster Abholort
-    let direktMin = Infinity, direktKm = 999;
-    if (destLat && destLon) {
-        const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-        if (direktRoute) {
-            direktMin = direktRoute.duration;
-            direktKm = parseFloat(direktRoute.distance);
+            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'anschlussfahrt', isAnschlussfahrt: true };
+            return { durationMin: Math.round(destToPickupKm * 2), distKm: destToPickupKm, method: 'anschlussfahrt-luftlinie', isAnschlussfahrt: true };
         }
     }
 
-    // Route B: Homebase → nächster Abholort
-    let homebaseMin = Infinity, homebaseKm = 999;
+    // ❌ KEINE Anschlussfahrt → Fahrer fährt zurück zum Standort
+    // Route vom Heimatstandort zum nächsten Abholort
     if (homeLat && homeLon) {
+        console.log(`🏠 Keine Anschlussfahrt (${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km) → Fahrer zurück am Standort`);
         const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-        if (homeRoute) {
-            homebaseMin = homeRoute.duration;
-            homebaseKm = parseFloat(homeRoute.distance);
-        }
-    }
-
-    // Kürzere Route gewinnt (wie Smart Routing im Browser)
-    if (homebaseMin <= direktMin && homebaseMin < Infinity) {
-        return { durationMin: homebaseMin, distKm: homebaseKm, method: 'smart-homebase' };
-    } else if (direktMin < Infinity) {
-        return { durationMin: direktMin, distKm: direktKm, method: 'smart-direkt' };
-    }
-
-    // Fallback auf Luftlinie
-    if (homeLat && homeLon) {
+        if (homeRoute) return { durationMin: homeRoute.duration, distKm: parseFloat(homeRoute.distance), method: 'homebase-rueckkehr', isAnschlussfahrt: false };
         const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'homebase-luftlinie' };
+        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
     }
-    return { durationMin: 50, distKm: 25, method: 'fallback' };
+
+    // Fallback: Kein Heimatstandort bekannt → Direktroute als letzter Ausweg
+    if (destLat && destLon) {
+        const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-fallback', isAnschlussfahrt: false };
+    }
+    return { durationMin: 50, distKm: 25, method: 'fallback', isAnschlussfahrt: false };
 }
 
 // Hilfsfunktion: Alternatives Fahrzeug ohne Zeitkonflikt finden

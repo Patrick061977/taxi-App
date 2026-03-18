@@ -372,18 +372,22 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
-            // Besetzt-Check: Fahrzeug gerade aktiv unterwegs?
+            // 🔧 v6.26.0: Besetzt-Check für ALLE Fahrten (nicht nur Sofort!)
+            // + Status 'assigned' hinzugefügt (Fahrer hat akzeptiert aber ist noch nicht da)
             const busy = allRides.some(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up')
+                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
             );
-            if (busy && isSofort) { console.log(`   ❌ ${info.name}: Aktuell besetzt`); continue; }
+            if (busy) { console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`); continue; }
 
             // Zeitkonflikt mit bestehenden Fahrten prüfen
             if (rideData.pickupTimestamp) {
                 const newPickup = rideData.pickupTimestamp;
                 const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
-                const bufferMs = 4 * 60000;
+                // 🔧 v6.26.0: Buffer aus Firebase-Settings statt hardcoded
+                const boardingTime = pricingSettings.boardingTime || 2;
+                const alightingTime = pricingSettings.alightingTime || 2;
+                const bufferMs = (boardingTime + alightingTime) * 60000;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
                     if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
@@ -10462,6 +10466,14 @@ exports.autoResolveConflicts = onSchedule(
                     // Schichtplan
                     if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
+                    // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
+                    const vehicleBusy = allRides.some(r =>
+                        (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
+                        (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+                        r.firebaseId !== ride.firebaseId
+                    );
+                    if (vehicleBusy) continue;
+
                     // 🔧 v6.25.4: Zeitkonflikt prüfen mit mindestAbstandMs (wie Browser)
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
                     const hasConflict = allRides.some(r => {
@@ -10818,6 +10830,14 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
 
         // Im Schichtplan?
         if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+
+        // 🔧 v6.26.0: Besetzt-Check — nicht auf aktive Fahrzeuge umplanen!
+        const vehicleBusy = allRides.some(r =>
+            (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
+            (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+            r.firebaseId !== ride.firebaseId
+        );
+        if (vehicleBusy) continue;
 
         // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug? (inkl. mindestAbstand)
         const hasConflict = allRides.some(r => {

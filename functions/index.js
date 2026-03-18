@@ -6551,6 +6551,8 @@ async function handleCallback(callback) {
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
+                // 🔧 v6.26.0: customerId direkt aus Booking übernehmen (z.B. bei Kopieren/Rückfahrt)
+                ...(booking._crmCustomerId && { customerId: booking._crmCustomerId }),
                 // 🔧 v6.14.4: Mobilnummer separat für Google Calendar Sync!
                 // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex — erkennt jetzt auch AT/CH
                 ...(isMobileNumber(booking.phone) && { customerMobile: booking.phone }),
@@ -8151,12 +8153,18 @@ async function handleCallback(callback) {
                 destinationLat: _dLat,
                 destinationLon: _dLon,
                 passengers: _copyRide2.passengers || 1,
+                _passengersExplicit: true, // 🔧 v6.26.0: Nicht nochmal fragen
                 datetime: null,
                 name: _copyRide2.customerName || '',
                 phone: _copyRide2.customerPhone || _copyRide2.customerMobile || '',
                 notes: _copyRide2.notes || '',
                 missing: ['datetime'],
-                summary: (_isSwap ? 'Rückfahrt von ' : 'Kopie von ') + _copyRideId2
+                summary: (_isSwap ? 'Rückfahrt von ' : 'Kopie von ') + _copyRideId2,
+                // 🔧 v6.26.0: Fehlende Felder beim Kopieren übernehmen
+                ..._copyRide2.guestName && { guestName: _copyRide2.guestName },
+                ..._copyRide2.guestPhone && { guestPhone: _copyRide2.guestPhone },
+                ..._copyRide2.paymentMethod && { paymentMethod: _copyRide2.paymentMethod },
+                ..._copyRide2.waypoints && _copyRide2.waypoints.length > 0 && { waypoints: _copyRide2.waypoints }
             };
 
             // Admin-Flags setzen

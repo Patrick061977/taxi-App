@@ -2867,35 +2867,35 @@ async function continueBookingFlow(chatId, booking, originalText) {
         // 🔧 v6.26.0: IMMER fragen wenn nicht resolved — egal ob Felder fehlen oder nicht.
         // Die KI-Zuweisung wurde in analyzeTelegramBooking bereits zurückgesetzt.
         if (booking._auftraggeberAddress && !booking._auftraggeberResolved) {
-                const _shortAddr = booking._auftraggeberAddress.length > 35
-                    ? booking._auftraggeberAddress.substring(0, 33) + '…'
-                    : booking._auftraggeberAddress;
-                const bookingId = Date.now().toString(36);
-                await setPending(chatId, {
-                    partial: booking, originalText, bookingId,
-                    _awaitingAuftraggeberRole: true
-                });
-                const noted = [];
-                if (booking.datetime) {
-                    const d = new Date(parseGermanDatetime(booking.datetime));
-                    noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
-                }
-                if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
-                if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
-                let msg = '';
-                if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                msg += `🏢 <b>${booking._auftraggeberName || 'Auftraggeber'}</b>\n📍 ${booking._auftraggeberAddress}\n\n`;
-                msg += `Ist <b>${_shortAddr}</b> der Abholort oder das Ziel?`;
-                await addTelegramLog('🏢', chatId, `Auftraggeber-Adresse: Frage Abholort/Zielort für "${booking._auftraggeberAddress}"`);
-                await sendTelegramMessage(chatId, msg, {
-                    reply_markup: { inline_keyboard: [
-                        [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
-                        [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
-                        [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
-                    ] }
-                });
-                return;
+            const _shortAddr = booking._auftraggeberAddress.length > 35
+                ? booking._auftraggeberAddress.substring(0, 33) + '…'
+                : booking._auftraggeberAddress;
+            const bookingId = Date.now().toString(36);
+            await setPending(chatId, {
+                partial: booking, originalText, bookingId,
+                _awaitingAuftraggeberRole: true
+            });
+            const noted = [];
+            if (booking.datetime) {
+                const d = new Date(parseGermanDatetime(booking.datetime));
+                noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
             }
+            if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
+            if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
+            if (booking.guestName) noted.push(`👤 Gast: ${booking.guestName}`);
+            let msg = '';
+            if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+            msg += `🏢 <b>${booking._auftraggeberName || 'Auftraggeber'}</b>\n📍 ${booking._auftraggeberAddress}\n\n`;
+            msg += `Ist <b>${_shortAddr}</b> der Abholort oder das Ziel?`;
+            await addTelegramLog('🏢', chatId, `Auftraggeber-Adresse: Frage Abholort/Zielort für "${booking._auftraggeberAddress}"`);
+            await sendTelegramMessage(chatId, msg, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
+                    [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
+                    [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
+                ] }
+            });
+            return;
         }
 
         // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,

@@ -3168,6 +3168,8 @@ REGELN:
 9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
 10. ERLAUBTE WERTE für "missing": NUR ["datetime", "pickup", "destination", "phone"]. NIEMALS andere Feldnamen wie "destination_street", "return_datetime", "return_destination" etc.!
 11. RÜCKFAHRT: IMMER NUR EINE FAHRT pro Buchung (die aktuelle). Rückfahrt-Infos in "notes" speichern, NICHT in missing oder als separate Felder.
+12. ADRESS-KORREKTUR: Wenn die Antwort wie eine Adresse aussieht (Straße + Hausnummer) und ähnlich klingt wie der bisherige pickup oder destination (z.B. "Dünenweg 13" vs. "Dühlweg 13"), ist es eine KORREKTUR → pickup/destination aktualisieren! Adressen NIEMALS als "name" setzen.
+13. NAME vs ADRESSE: Ein Name ist ein Personenname (z.B. "Müller", "Dr. Krohn"). Etwas mit Straße/Weg/Platz/Allee + Hausnummer ist IMMER eine Adresse, NIEMALS ein Name.
 ${aiRulesBlock}
 Nur gültiges JSON, kein Markdown:
 {
@@ -3191,6 +3193,19 @@ Nur gültiges JSON, kein Markdown:
         // Schutzmaßnahmen
         if (partial.phone) booking.phone = partial.phone;
         if (partial.name && partial._crmCustomerId) booking.name = partial.name;
+
+        // 🛡️ v6.26.0: Name darf keine Adresse sein (Straße+Hausnummer)
+        const _streetPatternFU = /\b(straße|strasse|str\.|weg|platz|allee|gasse|ring|damm|chaussee|ufer|park|grund|kamp|steig|pfad|zeile|graben|hof)\b.*\d+|\d+.*\b(straße|strasse|str\.|weg|platz|allee|gasse|ring|damm|chaussee|ufer|park|grund|kamp|steig|pfad|zeile|graben|hof)\b/i;
+        if (booking.name && _streetPatternFU.test(booking.name) && (!partial.name || !partial._crmCustomerId)) {
+            await addTelegramLog('🛡️', chatId, `Follow-Up Name-Schutz: "${booking.name}" sieht aus wie eine Adresse → als Pickup-Korrektur behandelt`);
+            // Wenn es wie eine Adresse aussieht → als Pickup-Korrektur verwenden
+            if (booking.pickup && !booking.destination) {
+                booking.destination = booking.name;
+            } else {
+                booking.pickup = booking.name;
+            }
+            booking.name = partial.name || '';
+        }
 
         // 🛡️ v6.16.2: Ungültige missing-Felder entfernen (KI erfindet manchmal eigene Feldnamen)
         const _validMissingFU = ['datetime', 'pickup', 'destination', 'phone'];

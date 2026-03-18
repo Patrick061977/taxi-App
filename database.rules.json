@@ -32,7 +32,10 @@
 
     "settings": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "calendarExport": {
+        ".read": true
+      }
     },
 
     "logs": {

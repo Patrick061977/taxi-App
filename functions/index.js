@@ -372,18 +372,22 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
-            // Besetzt-Check: Fahrzeug gerade aktiv unterwegs?
+            // 🔧 v6.26.0: Besetzt-Check für ALLE Fahrten (nicht nur Sofort!)
+            // + Status 'assigned' hinzugefügt (Fahrer hat akzeptiert aber ist noch nicht da)
             const busy = allRides.some(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up')
+                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
             );
-            if (busy && isSofort) { console.log(`   ❌ ${info.name}: Aktuell besetzt`); continue; }
+            if (busy) { console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`); continue; }
 
             // Zeitkonflikt mit bestehenden Fahrten prüfen
             if (rideData.pickupTimestamp) {
                 const newPickup = rideData.pickupTimestamp;
                 const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
-                const bufferMs = 4 * 60000;
+                // 🔧 v6.26.0: Buffer aus Firebase-Settings statt hardcoded
+                const boardingTime = pricingSettings.boardingTime || 2;
+                const alightingTime = pricingSettings.alightingTime || 2;
+                const bufferMs = (boardingTime + alightingTime) * 60000;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
                     if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
@@ -10462,6 +10466,14 @@ exports.autoResolveConflicts = onSchedule(
                     // Schichtplan
                     if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
+                    // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
+                    const vehicleBusy = allRides.some(r =>
+                        (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
+                        (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+                        r.firebaseId !== ride.firebaseId
+                    );
+                    if (vehicleBusy) continue;
+
                     // 🔧 v6.25.4: Zeitkonflikt prüfen mit mindestAbstandMs (wie Browser)
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
                     const hasConflict = allRides.some(r => {
@@ -10735,21 +10747,50 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         }
     }
 
-    // ❌ KEINE Anschlussfahrt → Fahrer fährt zurück zum Standort
-    // Route vom Heimatstandort zum nächsten Abholort
+    // 🔧 v6.26.0: IMMER beide Routen vergleichen — direkt vs. über Standort
+    // Fahrer wartet NIE am Zielort, fährt sofort los → kürzere Route gewinnt
+    let homebaseDurationMin = Infinity;
+    let direktDurationMin = Infinity;
+    let homebaseResult = null;
+    let direktResult = null;
+
+    // 1. Route ÜBER STANDORT berechnen
     if (homeLat && homeLon) {
-        console.log(`🏠 Keine Anschlussfahrt (${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km) → Fahrer zurück am Standort`);
         const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-        if (homeRoute) return { durationMin: homeRoute.duration, distKm: parseFloat(homeRoute.distance), method: 'homebase-rueckkehr', isAnschlussfahrt: false };
-        const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
+        if (homeRoute) {
+            homebaseDurationMin = homeRoute.duration;
+            homebaseResult = { durationMin: homeRoute.duration, distKm: parseFloat(homeRoute.distance), method: 'homebase-rueckkehr', isAnschlussfahrt: false };
+        } else {
+            const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+            homebaseDurationMin = Math.round(dist * 2);
+            homebaseResult = { durationMin: homebaseDurationMin, distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
+        }
     }
 
-    // Fallback: Kein Heimatstandort bekannt → Direktroute als letzter Ausweg
+    // 2. DIREKTE Route vom letzten Ziel zum nächsten Abholort
     if (destLat && destLon) {
-        const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-        if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-fallback', isAnschlussfahrt: false };
+        const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        if (direktRoute) {
+            direktDurationMin = direktRoute.duration;
+            direktResult = { durationMin: direktRoute.duration, distKm: parseFloat(direktRoute.distance), method: 'direktfahrt', isAnschlussfahrt: false };
+        } else {
+            direktDurationMin = Math.round(destToPickupKm * 2);
+            direktResult = { durationMin: direktDurationMin, distKm: destToPickupKm, method: 'direktfahrt-luftlinie', isAnschlussfahrt: false };
+        }
     }
+
+    // 3. VERGLEICH: Kürzere Route gewinnt
+    if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
+        const zeitersparnis = Math.round(homebaseDurationMin - direktDurationMin);
+        if (direktDurationMin <= homebaseDurationMin && direktResult) {
+            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min)`);
+            return direktResult;
+        } else if (homebaseResult) {
+            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min (besser als direkt ${Math.round(direktDurationMin)} Min)`);
+            return homebaseResult;
+        }
+    }
+
     return { durationMin: 50, distKm: 25, method: 'fallback', isAnschlussfahrt: false };
 }
 
@@ -10789,6 +10830,14 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
 
         // Im Schichtplan?
         if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+
+        // 🔧 v6.26.0: Besetzt-Check — nicht auf aktive Fahrzeuge umplanen!
+        const vehicleBusy = allRides.some(r =>
+            (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
+            (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+            r.firebaseId !== ride.firebaseId
+        );
+        if (vehicleBusy) continue;
 
         // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug? (inkl. mindestAbstand)
         const hasConflict = allRides.some(r => {

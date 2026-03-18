@@ -2640,29 +2640,48 @@ Nur gültiges JSON, kein Markdown:
 
                 // 🆕 v6.15.0: Auftraggeber (Hotel/Firma/Klinik) → CRM-Adresse NICHT automatisch als Pickup
                 // Stattdessen: In continueBookingFlow fragen "Abholort oder Zielort?"
+                // 🔧 v6.26.0: IMMER fragen! KI-Ergebnis für Auftraggeber-Adresse zurücksetzen,
+                // damit die Frage nicht übersprungen wird. Vorher hat "zu Hause" die Adresse
+                // automatisch als Pickup gesetzt → Frage wurde nie gestellt.
                 if (_isAuftraggeberKunde && pickupDefault) {
                     booking._auftraggeberAddress = pickupDefault;
                     booking._auftraggeberName = preselected.name;
+                    booking._isAuftraggeberBooking = true;
                     if (preselected.addressLat && preselected.addressLon) {
                         booking._auftraggeberLat = parseFloat(preselected.addressLat);
                         booking._auftraggeberLon = parseFloat(preselected.addressLon);
                     }
-                    // Nur "zu Hause"/"nach Hause" direkt auflösen
-                    if (booking.pickup && /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test(booking.pickup.trim())) {
-                        booking.pickup = pickupDefault;
-                        booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
-                        if (preselected.addressLat && preselected.addressLon) {
-                            booking.pickupLat = parseFloat(preselected.addressLat);
-                            booking.pickupLon = parseFloat(preselected.addressLon);
-                        }
+                    // 🔧 v6.26.0: Wenn KI die Auftraggeber-Adresse als Pickup/Ziel erkannt hat
+                    // (z.B. "von zu Hause", "Setheweg 11" = CRM-Adresse), diese Zuweisung
+                    // RÜCKGÄNGIG machen → continueBookingFlow fragt dann immer "Abholort oder Zielort?"
+                    const _pickupMatchesAuftraggeber = booking.pickup && (
+                        booking.pickup === pickupDefault ||
+                        /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test(booking.pickup.trim()) ||
+                        pickupDefault.toLowerCase().includes(booking.pickup.toLowerCase().replace(/,.*/, '').trim()) ||
+                        booking.pickup.toLowerCase().replace(/,.*/, '').trim().length > 3 &&
+                        pickupDefault.toLowerCase().includes(booking.pickup.toLowerCase().replace(/,.*/, '').trim())
+                    );
+                    const _destMatchesAuftraggeber = booking.destination && (
+                        booking.destination === pickupDefault ||
+                        /^(zu hause|zuhause|nach hause)$/i.test(booking.destination.trim()) ||
+                        pickupDefault.toLowerCase().includes(booking.destination.toLowerCase().replace(/,.*/, '').trim()) ||
+                        booking.destination.toLowerCase().replace(/,.*/, '').trim().length > 3 &&
+                        pickupDefault.toLowerCase().includes(booking.destination.toLowerCase().replace(/,.*/, '').trim())
+                    );
+                    if (_pickupMatchesAuftraggeber) {
+                        // KI hat Auftraggeber-Adresse als Pickup erkannt → zurücksetzen
+                        booking._kiOriginalPickup = booking.pickup; // merken für Log
+                        booking.pickup = null;
+                        booking.pickupLat = null;
+                        booking.pickupLon = null;
+                        if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
                     }
-                    if (booking.destination && /^(zu hause|zuhause|nach hause)$/i.test(booking.destination.trim())) {
-                        booking.destination = pickupDefault;
-                        booking.missing = (booking.missing || []).filter(f => f !== 'destination');
-                        if (preselected.addressLat && preselected.addressLon) {
-                            booking.destinationLat = parseFloat(preselected.addressLat);
-                            booking.destinationLon = parseFloat(preselected.addressLon);
-                        }
+                    if (_destMatchesAuftraggeber) {
+                        booking._kiOriginalDest = booking.destination;
+                        booking.destination = null;
+                        booking.destinationLat = null;
+                        booking.destinationLon = null;
+                        if (!booking.missing.includes('destination')) booking.missing.push('destination');
                     }
                 } else if (pickupDefault) {
                     if (!booking.pickup || /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test((booking.pickup || '').trim())) {
@@ -2845,43 +2864,38 @@ async function continueBookingFlow(chatId, booking, originalText) {
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
         // 🆕 v6.15.0: Auftraggeber-Adresse → "Abholort oder Zielort?" fragen
-        // Wenn Auftraggeber-Adresse bekannt, aber sowohl pickup als auch destination fehlen
+        // 🔧 v6.26.0: IMMER fragen wenn nicht resolved — egal ob Felder fehlen oder nicht.
+        // Die KI-Zuweisung wurde in analyzeTelegramBooking bereits zurückgesetzt.
         if (booking._auftraggeberAddress && !booking._auftraggeberResolved) {
-            const _needsPickup = !booking.pickup || booking.missing.includes('pickup');
-            const _needsDest = !booking.destination || booking.missing.includes('destination');
-            // Prüfe ob die Auftraggeber-Adresse schon als Pickup oder Destination zugeordnet ist
-            const _addrAlreadyUsed = (booking.pickup && booking.pickup === booking._auftraggeberAddress) ||
-                                      (booking.destination && booking.destination === booking._auftraggeberAddress);
-            if ((_needsPickup || _needsDest) && !_addrAlreadyUsed) {
-                const _shortAddr = booking._auftraggeberAddress.length > 35
-                    ? booking._auftraggeberAddress.substring(0, 33) + '…'
-                    : booking._auftraggeberAddress;
-                const bookingId = Date.now().toString(36);
-                await setPending(chatId, {
-                    partial: booking, originalText, bookingId,
-                    _awaitingAuftraggeberRole: true
-                });
-                const noted = [];
-                if (booking.datetime) {
-                    const d = new Date(parseGermanDatetime(booking.datetime));
-                    noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
-                }
-                if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
-                if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
-                let msg = '';
-                if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                msg += `🏢 <b>${booking._auftraggeberName || 'Auftraggeber'}</b>\n📍 ${booking._auftraggeberAddress}\n\n`;
-                msg += `Ist <b>${_shortAddr}</b> der Abholort oder das Ziel?`;
-                await addTelegramLog('🏢', chatId, `Auftraggeber-Adresse: Frage Abholort/Zielort für "${booking._auftraggeberAddress}"`);
-                await sendTelegramMessage(chatId, msg, {
-                    reply_markup: { inline_keyboard: [
-                        [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
-                        [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
-                        [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
-                    ] }
-                });
-                return;
+            const _shortAddr = booking._auftraggeberAddress.length > 35
+                ? booking._auftraggeberAddress.substring(0, 33) + '…'
+                : booking._auftraggeberAddress;
+            const bookingId = Date.now().toString(36);
+            await setPending(chatId, {
+                partial: booking, originalText, bookingId,
+                _awaitingAuftraggeberRole: true
+            });
+            const noted = [];
+            if (booking.datetime) {
+                const d = new Date(parseGermanDatetime(booking.datetime));
+                noted.push(`📅 ${d.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })} um ${d.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
             }
+            if (booking.pickup) noted.push(`📍 Von: ${booking.pickup}`);
+            if (booking.destination) noted.push(`🎯 Nach: ${booking.destination}`);
+            if (booking.guestName) noted.push(`👤 Gast: ${booking.guestName}`);
+            let msg = '';
+            if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
+            msg += `🏢 <b>${booking._auftraggeberName || 'Auftraggeber'}</b>\n📍 ${booking._auftraggeberAddress}\n\n`;
+            msg += `Ist <b>${_shortAddr}</b> der Abholort oder das Ziel?`;
+            await addTelegramLog('🏢', chatId, `Auftraggeber-Adresse: Frage Abholort/Zielort für "${booking._auftraggeberAddress}"`);
+            await sendTelegramMessage(chatId, msg, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
+                    [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
+                    [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
+                ] }
+            });
+            return;
         }
 
         // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,
@@ -4471,8 +4485,20 @@ async function handleMessage(message) {
     // 🆕 v6.25.4: AUDIO-DATEI UNTERBRICHT PENDING — wenn ein neues Audio reinkommt
     // während ein altes Pending aktiv ist, altes Pending löschen damit das neue Audio
     // als eigenständige Buchung behandelt wird (nicht als Kundensuche/Input)
+    // 🔧 v6.26.0: Wenn Pending eine fast fertige Buchung hat (Bestätigung offen),
+    // dem User eine Warnung geben und trotzdem zurücksetzen
     if (pending && !isPendingExpired(pending) && message._isAudioFile && message._callerPhone) {
-        await addTelegramLog('🔄', chatId, `Neues Audio unterbricht laufendes Pending → Reset für neue Buchung (${message._callerPhone})`);
+        const _pendingBooking = pending.partial || pending.booking;
+        const _hadBookingData = _pendingBooking && (_pendingBooking.pickup || _pendingBooking.destination);
+        if (_hadBookingData) {
+            const _pickup = (_pendingBooking.pickup || '').substring(0, 30);
+            const _dest = (_pendingBooking.destination || '').substring(0, 30);
+            const _guest = _pendingBooking.guestName || '';
+            await addTelegramLog('🔄', chatId, `Neues Audio unterbricht laufende Buchung (${_pickup} → ${_dest}${_guest ? ', Gast: '+_guest : ''}) → Reset für neue Buchung (${message._callerPhone})`);
+            await sendTelegramMessage(chatId, `⚠️ <b>Vorherige Buchung abgebrochen</b>\n${_pickup ? '📍 ' + _pickup : ''}${_dest ? ' → ' + _dest : ''}${_guest ? '\n👤 ' + _guest : ''}\n\n<i>Neues Audio wird jetzt verarbeitet...</i>`);
+        } else {
+            await addTelegramLog('🔄', chatId, `Neues Audio unterbricht laufendes Pending → Reset für neue Buchung (${message._callerPhone})`);
+        }
         await deletePending(chatId);
     }
 

@@ -6551,6 +6551,8 @@ async function handleCallback(callback) {
                 passengers,
                 customerName: booking.name || 'Telegram',
                 customerPhone: booking.phone || '',
+                // 🔧 v6.26.0: customerId direkt aus Booking übernehmen (z.B. bei Kopieren/Rückfahrt)
+                ...(booking._crmCustomerId && { customerId: booking._crmCustomerId }),
                 // 🔧 v6.14.4: Mobilnummer separat für Google Calendar Sync!
                 // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex — erkennt jetzt auch AT/CH
                 ...(isMobileNumber(booking.phone) && { customerMobile: booking.phone }),
@@ -8111,9 +8113,11 @@ async function handleCallback(callback) {
             _copyMsg += `📅 Original: ${_dateStr} um ${_timeStr} Uhr\n`;
             _copyMsg += '\n<b>Wie möchtest du kopieren?</b>';
 
+            // 🔧 v6.26.0: + Abholort/Zielort ändern Optionen
             await sendTelegramMessage(chatId, _copyMsg, { reply_markup: { inline_keyboard: [
-                [{ text: '📋 Eintragen (gleiche Richtung)', callback_data: `adm_copygo_${_copyRideId}` }],
+                [{ text: '📋 Gleiche Richtung', callback_data: `adm_copygo_${_copyRideId}` }],
                 [{ text: '🔄 Tauschen (Hin ↔ Rück)', callback_data: `adm_copyswap_${_copyRideId}` }],
+                [{ text: '📍 Abholort ändern', callback_data: `adm_copychg_pickup_${_copyRideId}` }, { text: '🎯 Zielort ändern', callback_data: `adm_copychg_dest_${_copyRideId}` }],
                 [{ text: '◀ Zurück', callback_data: `adm_ride_${_copyRideId}` }]
             ]}});
             await addTelegramLog('📋', chatId, `Admin kopiert Fahrt: ${_copyRide.pickup} → ${_copyRide.destination}`);
@@ -8151,12 +8155,18 @@ async function handleCallback(callback) {
                 destinationLat: _dLat,
                 destinationLon: _dLon,
                 passengers: _copyRide2.passengers || 1,
+                _passengersExplicit: true, // 🔧 v6.26.0: Nicht nochmal fragen
                 datetime: null,
                 name: _copyRide2.customerName || '',
                 phone: _copyRide2.customerPhone || _copyRide2.customerMobile || '',
                 notes: _copyRide2.notes || '',
                 missing: ['datetime'],
-                summary: (_isSwap ? 'Rückfahrt von ' : 'Kopie von ') + _copyRideId2
+                summary: (_isSwap ? 'Rückfahrt von ' : 'Kopie von ') + _copyRideId2,
+                // 🔧 v6.26.0: Fehlende Felder beim Kopieren übernehmen
+                ..._copyRide2.guestName && { guestName: _copyRide2.guestName },
+                ..._copyRide2.guestPhone && { guestPhone: _copyRide2.guestPhone },
+                ..._copyRide2.paymentMethod && { paymentMethod: _copyRide2.paymentMethod },
+                ..._copyRide2.waypoints && _copyRide2.waypoints.length > 0 && { waypoints: _copyRide2.waypoints }
             };
 
             // Admin-Flags setzen
@@ -8175,17 +8185,63 @@ async function handleCallback(callback) {
                 } catch (_e) { /* ignore */ }
             }
 
-            let _copyMsg2 = _isSwap ? '🔄 <b>Rückfahrt erstellen</b>\n\n' : '📋 <b>Fahrt kopieren</b>\n\n';
-            _copyMsg2 += `📍 Von: <b>${_pickup || '?'}</b>\n`;
-            _copyMsg2 += `🎯 Nach: <b>${_dest || '?'}</b>\n`;
-            _copyMsg2 += `👤 ${_copyData2.name || 'Unbekannt'} · 👥 ${_copyData2.passengers} Person(en)\n`;
-            _copyMsg2 += '\n💬 <b>Für wann soll die Fahrt eingetragen werden?</b>\n<i>Bitte Datum und Uhrzeit angeben (z.B. "morgen 14:30" oder "heute 10 Uhr")</i>';
-
-            await setPending(chatId, { partial: _copyData2, originalText: _isSwap ? 'Admin Rückfahrt' : 'Admin kopiert Fahrt' });
-            await sendTelegramMessage(chatId, _copyMsg2);
+            // 🔧 v6.26.0: Datum-Picker statt Freitext — gleicher Flow wie normale Buchung
             await addTelegramLog('📋', chatId, `Admin ${_isSwap ? 'Rückfahrt' : 'Kopie'}: ${_pickup} → ${_dest} (${_copyData2.name})`);
+            await showDateTimePicker(chatId, _copyData2, _isSwap ? 'Admin Rückfahrt' : 'Admin kopiert Fahrt');
         } catch (e) {
             console.error('Admin Fahrt kopieren/tauschen Fehler:', e);
+            await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        }
+        return;
+    }
+
+    // 🆕 v6.26.0: Admin — Fahrt kopieren mit Abholort oder Zielort ändern
+    if (data.startsWith('adm_copychg_pickup_') || data.startsWith('adm_copychg_dest_')) {
+        if (!await isTelegramAdmin(chatId)) return;
+        const _isPickupChange = data.startsWith('adm_copychg_pickup_');
+        const _chgRideId = data.replace(_isPickupChange ? 'adm_copychg_pickup_' : 'adm_copychg_dest_', '');
+        try {
+            const _chgSnap = await db.ref('rides/' + _chgRideId).once('value');
+            const _chgRide = _chgSnap.val();
+            if (!_chgRide) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const _chgData = {
+                intent: 'buchung',
+                // Beibehaltene Adresse übernehmen, geänderte = null
+                pickup: _isPickupChange ? null : (_chgRide.pickup || null),
+                destination: _isPickupChange ? (_chgRide.destination || null) : null,
+                ...(!_isPickupChange && _chgRide.pickupCoords && { pickupLat: _chgRide.pickupCoords.lat, pickupLon: _chgRide.pickupCoords.lon || _chgRide.pickupCoords.lng }),
+                ...(_isPickupChange && _chgRide.destCoords && { destinationLat: _chgRide.destCoords.lat, destinationLon: _chgRide.destCoords.lon || _chgRide.destCoords.lng }),
+                passengers: _chgRide.passengers || 1,
+                _passengersExplicit: true,
+                datetime: null,
+                name: _chgRide.customerName || '',
+                phone: _chgRide.customerPhone || _chgRide.customerMobile || '',
+                notes: _chgRide.notes || '',
+                missing: [_isPickupChange ? 'pickup' : 'destination', 'datetime'],
+                ..._chgRide.guestName && { guestName: _chgRide.guestName },
+                ..._chgRide.guestPhone && { guestPhone: _chgRide.guestPhone },
+                ..._chgRide.paymentMethod && { paymentMethod: _chgRide.paymentMethod },
+                ..._chgRide.waypoints && _chgRide.waypoints.length > 0 && { waypoints: _chgRide.waypoints }
+            };
+            _chgData._adminBooked = true;
+            _chgData._adminChatId = chatId;
+            _chgData._forCustomer = _chgRide.bookedForCustomer || _chgRide.customerName || '';
+            if (_chgRide.customerId) {
+                _chgData._crmCustomerId = _chgRide.customerId;
+                try {
+                    const _cSnapC = await db.ref('customers/' + _chgRide.customerId).once('value');
+                    const _cDataC = _cSnapC.val();
+                    if (_cDataC && _cDataC.address) _chgData._customerAddress = _cDataC.address;
+                } catch (_e) { /* ignore */ }
+            }
+
+            const _kept = _isPickupChange ? `🎯 Ziel: ${_chgRide.destination}` : `📍 Von: ${_chgRide.pickup}`;
+            const _changing = _isPickupChange ? 'Abholort' : 'Zielort';
+            await addTelegramLog('✏️', chatId, `Admin kopiert Fahrt, ${_changing} ändern: ${_chgRide.pickup} → ${_chgRide.destination}`);
+            await continueBookingFlow(chatId, _chgData, 'Admin kopiert Fahrt');
+        } catch (e) {
+            console.error('Admin Fahrt kopieren/ändern Fehler:', e);
             await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
         }
         return;

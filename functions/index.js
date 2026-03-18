@@ -5375,7 +5375,8 @@ async function handleMessage(message) {
                             await db.ref(`rides/${rideId}`).update({
                                 pickupTimestamp: newTimestamp,
                                 pickupTime: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
-                                editedAt: Date.now(), editedBy: 'telegram-admin'
+                                editedAt: Date.now(), editedBy: 'telegram-admin',
+                                updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
                             });
                             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
                             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>`);
@@ -5783,7 +5784,7 @@ async function handleMessage(message) {
 // Adressänderung anwenden (Admin + Kunden-Edit)
 async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) {
     try {
-        const update = { editedAt: Date.now(), editedBy: 'telegram-admin' };
+        const update = { editedAt: Date.now(), editedBy: 'telegram-admin', updatedAt: Date.now() };
         update[field] = addressText;
         let geoInfo = '';
         if (geo) {
@@ -6704,7 +6705,7 @@ async function handleCallback(callback) {
                             if (cNameMatch || cPhoneMatch) {
                                 _alreadyExists = true;
                                 // Fahrt mit gefundenem Kunden verknüpfen + Telefonnummer übernehmen
-                                const _rideUpdate = { customerId: c.customerId };
+                                const _rideUpdate = { customerId: c.customerId, updatedAt: Date.now() };
                                 // 🔧 v6.14.3: Telefonnummer aus CRM in Fahrt speichern (für Google Calendar Sync)
                                 if (c.mobilePhone) _rideUpdate.customerMobile = c.mobilePhone;
                                 if (!rideData.customerPhone && (c.mobilePhone || c.phone)) {
@@ -6738,7 +6739,7 @@ async function handleCallback(callback) {
                         });
 
                         // Fahrt mit CRM verknüpfen + Telefonnummer übernehmen
-                        const _newCrmUpdate = { customerId: newCrmRef.key };
+                        const _newCrmUpdate = { customerId: newCrmRef.key, updatedAt: Date.now() };
                         if (_crmPhone && !rideData.customerPhone) _newCrmUpdate.customerPhone = _crmPhone;
                         // 🔧 v6.14.4: Mobilnummer für Google Calendar Sync
                         // 🔧 v6.14.6: isMobileNumber() statt Inline-Regex
@@ -8211,7 +8212,8 @@ async function handleCallback(callback) {
                     vehicle: null, vehicleLabel: null, vehiclePlate: null,
                     assignedVehicleName: null, assignedVehiclePlate: null,
                     assignedBy: null, assignedAt: null,
-                    editedAt: Date.now(), editedBy: 'telegram-admin'
+                    editedAt: Date.now(), editedBy: 'telegram-admin',
+                    updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
                 });
                 await addTelegramLog('✏️', chatId, 'Admin: Fahrzeug-Zuweisung entfernt');
                 await sendTelegramMessage(chatId, '✅ Fahrzeug-Zuweisung entfernt');
@@ -8223,7 +8225,8 @@ async function handleCallback(callback) {
                     vehicle: v.name, vehicleLabel: v.name, vehiclePlate: v.plate,
                     assignedVehicleName: v.name, assignedVehiclePlate: v.plate,
                     assignedBy: 'telegram-admin', assignedAt: Date.now(),
-                    editedAt: Date.now(), editedBy: 'telegram-admin'
+                    editedAt: Date.now(), editedBy: 'telegram-admin',
+                    updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
                 });
                 await addTelegramLog('✏️', chatId, `Admin: Fahrzeug zugewiesen → ${v.name} (${v.plate})`);
                 await sendTelegramMessage(chatId, `✅ Fahrzeug zugewiesen: <b>${v.name}</b> (${v.plate})`);
@@ -8281,7 +8284,8 @@ async function handleCallback(callback) {
             const newTime = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
             await db.ref(`rides/${rideId}`).update({
                 pickupTimestamp: newTs, pickupTime: newTime,
-                editedAt: Date.now(), editedBy: 'telegram-admin'
+                editedAt: Date.now(), editedBy: 'telegram-admin',
+                updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
             });
             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${newTime} (${offset > 0 ? '+' : ''}${offset}min)`);
             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${newTime} Uhr</b>`);
@@ -8344,7 +8348,7 @@ async function handleCallback(callback) {
         const rideId = parts.slice(0, -1).join('_');
         const pax = parseInt(parts[parts.length - 1]);
         try {
-            await db.ref(`rides/${rideId}`).update({ passengers: pax, editedAt: Date.now(), editedBy: 'telegram-admin' });
+            await db.ref(`rides/${rideId}`).update({ passengers: pax, editedAt: Date.now(), editedBy: 'telegram-admin', updatedAt: Date.now() });
             await addTelegramLog('✏️', chatId, `Admin: Personenzahl geändert auf ${pax}`);
             await sendTelegramMessage(chatId, `✅ Personenzahl geändert auf <b>${pax}</b>`);
             await handleAdminRideDetail(chatId, rideId);
@@ -8359,7 +8363,7 @@ async function handleCallback(callback) {
         const newStatus = parts[parts.length - 1];
         const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', abgeschlossen: '✅ Abgeschlossen' };
         try {
-            await db.ref(`rides/${rideId}`).update({ status: newStatus, editedAt: Date.now(), editedBy: 'telegram-admin' });
+            await db.ref(`rides/${rideId}`).update({ status: newStatus, editedAt: Date.now(), editedBy: 'telegram-admin', updatedAt: Date.now() });
             await addTelegramLog('✏️', chatId, `Admin: Status geändert auf "${newStatus}"`);
             await sendTelegramMessage(chatId, `✅ Status geändert auf <b>${statusLabels[newStatus] || newStatus}</b>`);
 
@@ -8417,7 +8421,7 @@ async function handleCallback(callback) {
         try {
             const snap = await db.ref(`rides/${rideId}`).once('value');
             const r = snap.val();
-            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-admin', deletedAt: Date.now() });
+            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-admin', deletedAt: Date.now(), updatedAt: Date.now() });
             await addTelegramLog('🗑️', chatId, `Admin: Fahrt gelöscht: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
             await sendTelegramMessage(chatId, `🗑️ <b>Fahrt storniert!</b>\n\n${r ? `📍 ${r.pickup} → ${r.destination}\n👤 ${r.customerName || '?'}` : ''}`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
@@ -8654,7 +8658,7 @@ async function handleCallback(callback) {
     if (data.startsWith('cust_delok_')) {
         const rideId = data.replace('cust_delok_', '');
         try {
-            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-customer', deletedAt: Date.now() });
+            await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-customer', deletedAt: Date.now(), updatedAt: Date.now() });
             const snap = await db.ref(`rides/${rideId}`).once('value');
             const r = snap.val();
             await addTelegramLog('🗑️', chatId, `Kunde hat storniert: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
@@ -9138,7 +9142,7 @@ async function handleCallback(callback) {
         try {
             const newRef = db.ref('customers').push();
             await newRef.set({ name: crmPending.customerName, phone: crmPending.customerPhone || '', address: crmPending.pickupAddress || '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
-            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key });
+            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key, updatedAt: Date.now() });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt!\n📱 ${crmPending.customerPhone || '(kein Tel.)'}\n🏠 ${crmPending.pickupAddress || '(keine Adresse)'}`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message); }
@@ -9152,7 +9156,7 @@ async function handleCallback(callback) {
         try {
             const newRef = db.ref('customers').push();
             await newRef.set({ name: crmPending.customerName, phone: crmPending.customerPhone || '', address: '', createdAt: Date.now(), createdBy: 'telegram-admin', totalRides: 1, isVIP: false, notes: '' });
-            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key });
+            if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key, updatedAt: Date.now() });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt (ohne Adresse)!`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message); }

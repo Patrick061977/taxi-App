@@ -2396,12 +2396,13 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const _bookingKeywords = /\b(taxi|cab|fahrt|abholen|mitnehmen|fahrzeug|fahren|bringen)\b/i;
     const _isObviousBooking = _bookingKeywords.test(text);
 
-    const _today = new Date();
-    const _todayStr = _today.toISOString().slice(0, 10);
-    const _tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    // 🔧 v6.26.0: Berliner Zeitzone verwenden statt UTC!
+    const _todayStr = berlinDateGlobal(Date.now());
+    const _tomorrowStr = berlinDateGlobal(Date.now() + 86400000);
     const _dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-    const _todayName = _dayNames[_today.getDay()];
-    const _timeStr = `${String(_today.getHours()).padStart(2, '0')}:${String(_today.getMinutes()).padStart(2, '0')}`;
+    const _berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    const _todayName = _dayNames[_berlinNow.getDay()];
+    const _timeStr = berlinTimeGlobal(Date.now());
 
     // 🧠 v6.15.8: KI-Trainings-Regeln laden
     const aiRulesBlock = await loadAiRules();
@@ -3158,7 +3159,7 @@ NEUE ANTWORT: "${newText}"
 REGELN:
 1. FELD-ZUORDNUNG: Die Antwort füllt das erste fehlende Feld ("${_missingNow[0] || 'keines'}"), außer der Fahrgast benennt explizit ein anderes
 2. BESTEHENDE FELDER: Nie überschreiben, außer Fahrgast korrigiert explizit
-3. DATUM: ISO YYYY-MM-DDTHH:MM | heute=${new Date().toISOString().slice(0, 10)} | morgen=${new Date(Date.now() + 86400000).toISOString().slice(0, 10)} | nur Uhrzeit → Datum=${_returnOrigDate ? _returnOrigDate + ' (Rückfahrt-Datum der Hinfahrt!)' : 'heute'} | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00!
+3. DATUM: ISO YYYY-MM-DDTHH:MM (LOKALE BERLINER ZEIT, NICHT UTC!) | heute=${berlinDateGlobal(Date.now())} | morgen=${berlinDateGlobal(Date.now() + 86400000)} | aktuelle Uhrzeit Berlin: ${berlinTimeGlobal(Date.now())} | nur Uhrzeit → Datum=${_returnOrigDate ? _returnOrigDate + ' (Rückfahrt-Datum der Hinfahrt!)' : 'heute'} | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00! | "13 Uhr" = 13:00, "14 Uhr" = 14:00 (KEINE Zeitzonen-Konvertierung nötig, Uhrzeiten sind bereits Berliner Ortszeit!)
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
 5. UNKLARE ORTE → kurz nachfragen
 6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
@@ -7577,6 +7578,15 @@ async function handleCallback(callback) {
             return;
         }
         const { addressName: gpsAddr, lat: gpsLat, lon: gpsLon } = _gpsPending._gpsChoice;
+
+        // 🔧 v6.26.0: Admin-Edit-Modus → GPS direkt auf Fahrt anwenden
+        if (_gpsPending._adminEditRide) {
+            const _editField = data === 'gps_set_pickup' ? 'pickup' : 'destination';
+            await deletePending(chatId);
+            await applyAdminAddressChange(chatId, _gpsPending._adminEditRide, _editField, gpsAddr, { lat: gpsLat, lon: gpsLon });
+            return;
+        }
+
         const booking = _gpsPending.partial || _gpsPending.booking || { missing: ['pickup', 'destination', 'datetime'], intent: 'buchung' };
         const isPickup = data === 'gps_set_pickup';
 
@@ -9717,6 +9727,18 @@ async function handleLocation(message) {
 
     // 🆕 v6.11.5: Prüfe ob Neukunden-Adress-Schritt aktiv → Standort als Kundenadresse übernehmen
     const pending = await getPending(chatId);
+
+    // 🔧 v6.26.0: Admin bearbeitet Fahrt-Adresse → GPS direkt als neue Adresse übernehmen
+    if (pending && pending._adminEditRide && pending._adminEditField) {
+        const rideId = pending._adminEditRide;
+        const field = pending._adminEditField;
+        const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+        await deletePending(chatId);
+        await addTelegramLog('📍', chatId, `GPS als ${label} für Fahrt ${rideId}: ${addressName}`);
+        await applyAdminAddressChange(chatId, rideId, field, addressName, { lat, lon });
+        return;
+    }
+
     if (pending && pending._adminNewCust && (pending._adminNewCustStep === 'address' || pending._adminNewCustStep === 'address_select')) {
         await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse übernommen: ${addressName}`);
         // Wie Adresseingabe behandeln → Vorschläge zeigen mit dieser Adresse

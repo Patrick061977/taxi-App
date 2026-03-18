@@ -10958,6 +10958,274 @@ async function getCustomerChatId(ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.26.0: SCHEDULED AUTO-ASSIGN — Alle 10 Min unzugewiesene Fahrten zuweisen
+// Zentrale Cloud-Zuweisung — funktioniert 24/7 ohne Browser!
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledAutoAssign = onSchedule(
+    {
+        schedule: 'every 10 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        console.log('🎯 v6.26.0: scheduledAutoAssign gestartet...');
+
+        try {
+            // Alle nötigen Daten parallel laden
+            const [ridesSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
+                db.ref('rides').once('value'),
+                db.ref('vehicles').once('value'),
+                db.ref('vehicleShifts').once('value'),
+                db.ref('settings/pricing').once('value'),
+                db.ref('settings/vehiclePriorities').once('value')
+            ]);
+
+            const vehiclesData = vehiclesSnap.val() || {};
+            const shiftsData = shiftsSnap.val() || {};
+            const pricingSettings = settingsSnap.val() || {};
+            const vehiclePriorities = prioritiesSnap.val() || {};
+            const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
+            const lastverteilungMalus = pricingSettings.lastverteilungMalusMinuten || 3;
+            const anschlussBonus = pricingSettings.anschlussfahrtBonusMinuten || 5;
+
+            const getVehiclePrio = (vid) => {
+                if (vehiclePriorities[vid] !== undefined) return vehiclePriorities[vid];
+                return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
+            };
+
+            // Alle Fahrten laden
+            const now = Date.now();
+            const allRides = [];
+            ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+
+            // Unzugewiesene Fahrten finden:
+            // - Keine assignedVehicle/vehicleId
+            // - Status: pending, vorbestellt, new, oder leer
+            // - pickupTimestamp in der Zukunft (mindestens 5 Min)
+            // - Nicht gelöscht/storniert/abgeschlossen
+            const unassigned = allRides.filter(r => {
+                if (r.assignedVehicle || r.vehicleId) return false;
+                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
+                if (r.assignmentLocked) return false;
+                if (!r.pickupTimestamp) return false;
+                if (r.pickupTimestamp < now + 5 * 60000) return false; // Zu spät für Auto-Zuweisung
+                return true;
+            });
+
+            if (unassigned.length === 0) {
+                console.log('✅ scheduledAutoAssign: Keine unzugewiesenen Fahrten');
+                return;
+            }
+
+            console.log(`🎯 ${unassigned.length} unzugewiesene Fahrt(en) gefunden`);
+
+            // Nach Abholzeit sortieren (früheste zuerst)
+            unassigned.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+
+            let assignedCount = 0;
+            let failedCount = 0;
+
+            for (const ride of unassigned) {
+                const rideId = ride.firebaseId;
+                const pickupDate = new Date(ride.pickupTimestamp);
+                const berlinPickup = new Date(pickupDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const dateStr = berlinPickup.getFullYear() + '-' + String(berlinPickup.getMonth()+1).padStart(2,'0') + '-' + String(berlinPickup.getDate()).padStart(2,'0');
+                const timeStr = String(berlinPickup.getHours()).padStart(2,'0') + ':' + String(berlinPickup.getMinutes()).padStart(2,'0');
+                const passengers = ride.passengers || 1;
+                const minutesUntilPickup = (ride.pickupTimestamp - now) / 60000;
+                const isSofort = minutesUntilPickup <= 60;
+
+                console.log(`\n📋 Fahrt ${rideId}: ${ride.customerName || '?'} | ${dateStr} ${timeStr} | ${passengers} Pax | ${isSofort ? 'SOFORT' : 'Vorbestellung'}`);
+
+                // Kandidaten filtern
+                const candidates = [];
+                const MAX_GPS_AGE = 10 * 60 * 1000;
+                const boardingTime = pricingSettings.boardingTime || 2;
+                const alightingTime = pricingSettings.alightingTime || 2;
+                const bufferMs = (boardingTime + alightingTime) * 60000;
+                const mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
+
+                for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
+                    if (info.capacity < passengers) continue;
+                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
+                        console.log(`   ❌ ${info.name}: Kein Dienst`);
+                        continue;
+                    }
+
+                    // Besetzt-Check
+                    const busy = allRides.some(r =>
+                        (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
+                        (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
+                    );
+                    if (busy && isSofort) {
+                        console.log(`   ❌ ${info.name}: Aktuell besetzt`);
+                        continue;
+                    }
+
+                    // Zeitkonflikt prüfen
+                    if (ride.pickupTimestamp) {
+                        const newPickup = ride.pickupTimestamp;
+                        const newDur = (ride.duration || ride.estimatedDuration || 20) * 60000;
+                        const hasConflict = allRides.some(r => {
+                            if (r.firebaseId === rideId) return false;
+                            if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
+                            if (!r.pickupTimestamp) return false;
+                            if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                            const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
+                            const rEnd = r.pickupTimestamp + rDur + bufferMs;
+                            const newEnd = newPickup + newDur + bufferMs;
+                            return (newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
+                        });
+                        if (hasConflict) {
+                            console.log(`   ⚠️ ${info.name}: Zeitkonflikt`);
+                            continue;
+                        }
+                    }
+
+                    candidates.push({ vehicleId, name: info.name, priority: getVehiclePrio(vehicleId), telegramChatId: vehiclesData[vehicleId]?.telegramChatId });
+                    console.log(`   ✅ ${info.name}: Verfügbar [Prio ${getVehiclePrio(vehicleId)}]`);
+                }
+
+                if (candidates.length === 0) {
+                    console.log(`   ❌ Kein Fahrzeug verfügbar für ${ride.customerName || rideId}`);
+                    failedCount++;
+                    continue;
+                }
+
+                // Scoring: Leerfahrt + Priorität + Lastverteilung + Anschlussfahrt
+                let bestScore = Infinity;
+                let bestCandidate = null;
+                let bestDrivingTime = 0;
+                const vehicleScores = {};
+
+                for (const cand of candidates) {
+                    let leerfahrtMin = 0;
+                    let routeMethod = 'prio-only';
+                    const prio = getVehiclePrio(cand.vehicleId);
+                    const prioPenalty = (prio - 1) * priorityAdvantageMin;
+
+                    // Smart Routing berechnen
+                    if (ride.pickupCoords?.lat && ride.pickupCoords?.lon) {
+                        try {
+                            const result = await estimateVehicleLeerfahrt(
+                                cand.vehicleId, ride, allRides, vehiclesData, shiftsData, dateStr, pricingSettings
+                            );
+                            leerfahrtMin = result.durationMin;
+                            routeMethod = result.method;
+                        } catch(e) {
+                            console.warn(`   ⚠️ ${cand.name}: Leerfahrt-Fehler:`, e.message);
+                        }
+                    }
+
+                    // Lastverteilung
+                    const vehicleRideCount = allRides.filter(r =>
+                        (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
+                        r.firebaseId !== rideId &&
+                        !['deleted','cancelled','storniert','completed'].includes(r.status)
+                    ).length;
+                    const avgRides = candidates.length > 0
+                        ? allRides.filter(r => (r.assignedVehicle || r.vehicleId) && !['deleted','cancelled','storniert','completed'].includes(r.status)).length / Math.max(candidates.length, 1)
+                        : 0;
+                    const loadPenalty = vehicleRideCount > avgRides
+                        ? Math.round((vehicleRideCount - avgRides) * lastverteilungMalus)
+                        : 0;
+
+                    // Anschlussfahrt-Bonus
+                    const ketteBonus = (routeMethod === 'anschlussfahrt' || routeMethod === 'anschlussfahrt-gps')
+                        ? -anschlussBonus : 0;
+
+                    const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + ketteBonus);
+
+                    vehicleScores[cand.vehicleId] = {
+                        status: 'available',
+                        leerfahrtMin: Math.round(leerfahrtMin),
+                        routeMethod,
+                        priorityPenalty: prioPenalty,
+                        loadPenalty,
+                        vehicleRideCount,
+                        anschlussBonus: ketteBonus,
+                        totalScore
+                    };
+
+                    console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} (${routeMethod}) + Prio ${prioPenalty} + Last ${loadPenalty} + Kette ${ketteBonus} = ${totalScore}`);
+
+                    if (totalScore < bestScore) {
+                        bestScore = totalScore;
+                        bestCandidate = cand;
+                        bestDrivingTime = Math.round(leerfahrtMin);
+                    }
+                }
+
+                if (!bestCandidate) {
+                    failedCount++;
+                    continue;
+                }
+
+                // Fahrzeug zuweisen
+                vehicleScores[bestCandidate.vehicleId].status = 'chosen';
+                const bestInfo = OFFICIAL_VEHICLES[bestCandidate.vehicleId] || {};
+
+                const rideUpdate = {
+                    status: isSofort ? 'assigned' : 'vorbestellt',
+                    assignedTo: bestCandidate.vehicleId,
+                    vehicleId: bestCandidate.vehicleId,
+                    vehicle: bestCandidate.name,
+                    vehicleLabel: bestCandidate.name,
+                    assignedVehicleName: bestCandidate.name,
+                    assignedVehiclePlate: bestInfo.plate || '',
+                    assignedVehicle: bestCandidate.vehicleId,
+                    vehiclePlate: bestInfo.plate || '',
+                    assignedAt: Date.now(),
+                    assignedBy: 'cloud-scheduled-auto-assign',
+                    updatedAt: Date.now(),
+                    vehicleScores: vehicleScores,
+                    drivingTimeToPickup: bestDrivingTime
+                };
+
+                await db.ref('rides/' + rideId).update(rideUpdate);
+
+                // allRides aktualisieren für nächste Iteration (damit Zeitkonflikte korrekt sind)
+                const rideIdx = allRides.findIndex(r => r.firebaseId === rideId);
+                if (rideIdx >= 0) {
+                    allRides[rideIdx] = { ...allRides[rideIdx], ...rideUpdate };
+                }
+
+                assignedCount++;
+                console.log(`   🏆 ${ride.customerName || rideId} → ${bestCandidate.name} (Score: ${bestScore})`);
+
+                // Fahrer per Telegram benachrichtigen
+                if (bestCandidate.telegramChatId) {
+                    const pickupLabel = ride.pickupTime || timeStr + ' Uhr';
+                    await sendTelegramMessage(bestCandidate.telegramChatId,
+                        `🚕 <b>${isSofort ? 'NEUE FAHRT!' : '📅 VORBESTELLUNG zugewiesen!'}</b>\n\n` +
+                        `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+                        `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
+                        `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+                        (ride.customerPhone ? `📱 <b>Tel:</b> ${ride.customerPhone}\n` : '') +
+                        `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
+                        (bestDrivingTime > 0 ? `🚗 <b>Anfahrt:</b> ~${bestDrivingTime} Min\n` : '') +
+                        `\n💡 <i>Automatisch zugewiesen (Cloud)</i>`
+                    );
+                }
+
+                // Admin benachrichtigen
+                await sendToAllAdmins(
+                    `🤖 <b>Auto-Zuweisung</b>\n` +
+                    `${ride.customerName || '?'} (${timeStr}) → ${bestCandidate.name}\n` +
+                    `Score: ${bestScore} | Leerfahrt: ${bestDrivingTime} Min`
+                );
+            }
+
+            console.log(`\n✅ scheduledAutoAssign abgeschlossen: ${assignedCount} zugewiesen, ${failedCount} ohne Fahrzeug`);
+
+        } catch (err) {
+            console.error('❌ scheduledAutoAssign Fehler:', err);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // TRIGGER 1: Neue Fahrt erstellt → Admin-Benachrichtigung
 // ═══════════════════════════════════════════════════════════════
 exports.onRideCreated = onValueCreated(
@@ -11141,7 +11409,7 @@ exports.onRideUpdated = onValueUpdated(
             console.log(`📱 Fahrer-Zuweisung: ${rideId} → ${newVehicle}`);
 
             // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)
-            if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan' && after.assignedBy !== 'cloud-auto-optimize') {
+            if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan' && after.assignedBy !== 'cloud-auto-optimize' && after.assignedBy !== 'cloud-scheduled-auto-assign') {
                 const driverChatId = await getDriverChatId(newVehicle);
                 if (driverChatId) {
                     let customerInfo = `👤 <b>Kunde:</b> ${after.customerName || '?'}`;

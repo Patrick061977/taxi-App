@@ -321,6 +321,59 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     return timeStr >= times.startTime && timeStr <= times.endTime;
 }
 
+// 🆕 v6.26.0: Schichtende ermitteln für den Zeitblock der die gegebene Uhrzeit enthält
+function getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr) {
+    const shifts = shiftsData[vehicleId];
+    if (!shifts) return null;
+
+    // Schichtzeiten ermitteln (gleiche Logik wie isVehicleInShift)
+    let times = null;
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    const dayEntry = shifts[dateStr];
+    if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
+        if (dayEntry.additiveException) {
+            const defaultEntry = (shifts.defaultTimes || {})[dow] || null;
+            if (defaultEntry) {
+                const defRanges = (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1)
+                    ? defaultEntry.timeRanges
+                    : [{ startTime: defaultEntry.startTime, endTime: defaultEntry.endTime }];
+                const exRanges = (dayEntry.timeRanges && dayEntry.timeRanges.length >= 1)
+                    ? dayEntry.timeRanges
+                    : [{ startTime: dayEntry.startTime, endTime: dayEntry.endTime }];
+                times = { timeRanges: [...defRanges, ...exRanges] };
+            } else {
+                times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
+                if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
+            }
+        } else {
+            times = { startTime: dayEntry.startTime || '00:00', endTime: dayEntry.endTime || '23:59' };
+            if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) times.timeRanges = dayEntry.timeRanges;
+        }
+    } else {
+        const defaultEntry = (shifts.defaultTimes || {})[dow];
+        if (defaultEntry && (defaultEntry.startTime || (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 0))) {
+            times = { startTime: defaultEntry.startTime || '00:00', endTime: defaultEntry.endTime || '23:59' };
+            if (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1) times.timeRanges = defaultEntry.timeRanges;
+        }
+    }
+
+    if (!times) return null;
+
+    // Split-Shift: Finde den Block der die Uhrzeit enthält
+    if (times.timeRanges && times.timeRanges.length > 1) {
+        for (const r of times.timeRanges) {
+            if (timeStr >= r.startTime && timeStr <= r.endTime) {
+                return r.endTime;
+            }
+        }
+        // Fallback: letztes endTime
+        const sorted = [...times.timeRanges].sort((a, b) => a.endTime.localeCompare(b.endTime));
+        return sorted[sorted.length - 1].endTime;
+    }
+    return times.endTime;
+}
+
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
@@ -369,6 +422,17 @@ async function autoAssignRide(rideId, rideData) {
             if (info.capacity < passengers) continue;
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
                 console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr}`);
+                continue;
+            }
+
+            // 🆕 v6.26.0: Schichtende-Prüfung — Fahrtende darf Schicht nicht überschreiten
+            const _rideDurMin = rideData.duration || rideData.estimatedDuration || 20;
+            const _rideEndMs = rideData.pickupTimestamp + _rideDurMin * 60000;
+            const _rideEndBerlin = new Date(new Date(_rideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const _rideEndTimeStr = String(_rideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_rideEndBerlin.getMinutes()).padStart(2,'0');
+            const _shiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
+            if (_shiftEnd && _rideEndTimeStr > _shiftEnd) {
+                console.log(`   ❌ ${info.name}: Fahrtende ${_rideEndTimeStr} > Schichtende ${_shiftEnd} → übersprungen`);
                 continue;
             }
 
@@ -10641,6 +10705,14 @@ exports.autoResolveConflicts = onSchedule(
                     // Schichtplan
                     if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
+                    // 🆕 v6.26.0: Schichtende-Prüfung
+                    const _cRideDurMin = ride.duration || ride.estimatedDuration || 20;
+                    const _cRideEndMs = ride.pickupTimestamp + _cRideDurMin * 60000;
+                    const _cRideEndBerlin = new Date(new Date(_cRideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const _cRideEndTimeStr = String(_cRideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_cRideEndBerlin.getMinutes()).padStart(2,'0');
+                    const _cShiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
+                    if (_cShiftEnd && _cRideEndTimeStr > _cShiftEnd) continue;
+
                     // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
                     const vehicleBusy = allRides.some(r =>
                         (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
@@ -11023,6 +11095,14 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
         // Im Schichtplan?
         if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
 
+        // 🆕 v6.26.0: Schichtende-Prüfung
+        const _fRideDurMin = ride.duration || ride.estimatedDuration || 20;
+        const _fRideEndMs = ride.pickupTimestamp + _fRideDurMin * 60000;
+        const _fRideEndBerlin = new Date(new Date(_fRideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        const _fRideEndTimeStr = String(_fRideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_fRideEndBerlin.getMinutes()).padStart(2,'0');
+        const _fShiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
+        if (_fShiftEnd && _fRideEndTimeStr > _fShiftEnd) continue;
+
         // 🔧 v6.26.0: Besetzt-Check — nicht auf aktive Fahrzeuge umplanen!
         const vehicleBusy = allRides.some(r =>
             (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
@@ -11280,6 +11360,17 @@ exports.scheduledAutoAssign = onSchedule(
                     if (info.capacity < passengers) continue;
                     if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
                         console.log(`   ❌ ${info.name}: Kein Dienst`);
+                        continue;
+                    }
+
+                    // 🆕 v6.26.0: Schichtende-Prüfung
+                    const _sRideDurMin = ride.duration || ride.estimatedDuration || 20;
+                    const _sRideEndMs = ride.pickupTimestamp + _sRideDurMin * 60000;
+                    const _sRideEndBerlin = new Date(new Date(_sRideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const _sRideEndTimeStr = String(_sRideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_sRideEndBerlin.getMinutes()).padStart(2,'0');
+                    const _sShiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
+                    if (_sShiftEnd && _sRideEndTimeStr > _sShiftEnd) {
+                        console.log(`   ❌ ${info.name}: Fahrtende ${_sRideEndTimeStr} > Schichtende ${_sShiftEnd}`);
                         continue;
                     }
 

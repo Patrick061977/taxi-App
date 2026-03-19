@@ -866,6 +866,169 @@ async function sendTelegramMessage(chatId, text, extraParams = {}) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.28.0: WhatsApp Business API — Server-seitiger Versand
+// ═══════════════════════════════════════════════════════════════
+let _whatsappConfig = null;
+async function loadWhatsAppConfig() {
+    if (_whatsappConfig !== null) return _whatsappConfig;
+    try {
+        const snap = await db.ref('settings/whatsapp').once('value');
+        const cfg = snap.val() || {};
+        _whatsappConfig = {
+            enabled: cfg.enabled === true,
+            apiToken: cfg.apiToken || null,
+            phoneNumberId: cfg.phoneNumberId || null
+        };
+        return _whatsappConfig;
+    } catch (e) {
+        console.error('❌ WhatsApp-Config laden fehlgeschlagen:', e.message);
+        return { enabled: false, apiToken: null, phoneNumberId: null };
+    }
+}
+
+async function sendWhatsAppMessage(toPhone, text) {
+    const config = await loadWhatsAppConfig();
+    if (!config.enabled || !config.apiToken || !config.phoneNumberId) {
+        return null; // WhatsApp nicht konfiguriert/aktiviert
+    }
+
+    // Telefonnummer formatieren (international ohne +)
+    let formattedPhone = String(toPhone).replace(/[\s\-\/\(\)\+]/g, '');
+    if (formattedPhone.startsWith('0')) {
+        formattedPhone = '49' + formattedPhone.substring(1);
+    }
+
+    // Nur Mobilnummern (49-15xx, 49-16xx, 49-17xx)
+    if (!formattedPhone.match(/^49(1[5-7]\d{8,9})$/)) {
+        console.log(`⚠️ WhatsApp: Keine Mobilnummer: ${formattedPhone}`);
+        return null;
+    }
+
+    try {
+        const resp = await fetch(`https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + config.apiToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: formattedPhone,
+                type: 'text',
+                text: { body: text }
+            })
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.messages && data.messages.length > 0) {
+            console.log(`✅ WhatsApp gesendet an ${formattedPhone}: ${data.messages[0].id}`);
+            return data.messages[0].id;
+        } else {
+            console.error('❌ WhatsApp Fehler:', JSON.stringify(data.error || data));
+            return null;
+        }
+    } catch (e) {
+        console.error('❌ WhatsApp Exception:', e.message);
+        return null;
+    }
+}
+
+// Hilfsfunktion: Kunden-Mobilnummer für WhatsApp ermitteln
+async function getCustomerWhatsAppNumber(ride) {
+    // Priorität: mobilePhone > customerMobile > customerPhone > phone
+    const candidates = [
+        ride.mobilePhone,
+        ride.customerMobile,
+        ride.customerPhone,
+        ride.phone
+    ];
+
+    for (const num of candidates) {
+        if (!num) continue;
+        const clean = String(num).replace(/[\s\-\/\(\)\+]/g, '');
+        const normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
+        // Nur Mobilnummern
+        if (normalized.match(/^49(1[5-7]\d{8,9})$/)) return num;
+    }
+
+    // Fallback: CRM-Daten laden wenn customerId vorhanden
+    if (ride.customerId) {
+        try {
+            const custSnap = await db.ref('customers/' + ride.customerId).once('value');
+            const cust = custSnap.val();
+            if (cust) {
+                const crmCandidates = [cust.mobilePhone, cust.phone];
+                for (const num of crmCandidates) {
+                    if (!num) continue;
+                    const clean = String(num).replace(/[\s\-\/\(\)\+]/g, '');
+                    const normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
+                    if (normalized.match(/^49(1[5-7]\d{8,9})$/)) return num;
+                }
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    return null;
+}
+
+// WhatsApp-Kunden-Benachrichtigung senden (Text ohne HTML-Tags)
+async function sendCustomerWhatsAppNotification(ride, rideId, type) {
+    const phone = await getCustomerWhatsAppNumber(ride);
+    if (!phone) return false;
+
+    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+    let message = '';
+
+    if (type === 'booking_confirmed') {
+        const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
+        const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
+        message = `🚕 Ihr Taxi ist unterwegs!\n\n` +
+            `📍 Von: ${ride.pickup || '?'}\n` +
+            `🎯 Nach: ${ride.destination || '?'}\n` +
+            `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
+            (ride.price ? `💰 Preis: ca. ${ride.price}€` : '') +
+            driverInfo + vehicleInfo +
+            `\n\n📲 Fahrt live verfolgen:\n${trackingLink}\n\n` +
+            `📞 Bei Fragen: 038378/22022`;
+
+    } else if (type === 'booking_new') {
+        message = `✅ Ihre Buchung wurde aufgenommen!\n\n` +
+            `📍 Von: ${ride.pickup || '?'}\n` +
+            `🎯 Nach: ${ride.destination || '?'}\n` +
+            `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
+            (ride.price ? `💰 Preis: ca. ${ride.price}€` : '') +
+            `\n\n✅ Sie erhalten Updates sobald ein Fahrer zugewiesen wird.\n\n` +
+            `📞 Bei Fragen: 038378/22022`;
+
+    } else if (type === 'cancelled') {
+        message = `❌ Ihre Fahrt wurde storniert.\n\n` +
+            `📍 Von: ${ride.pickup || '?'}\n` +
+            `🎯 Nach: ${ride.destination || '?'}\n\n` +
+            `📞 Bei Fragen: 038378/22022`;
+
+    } else if (type === 'driver_assigned') {
+        const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
+        const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
+        message = `🚕 Fahrer zugeteilt!\n\n` +
+            `📍 Von: ${ride.pickup || '?'}\n` +
+            `🎯 Nach: ${ride.destination || '?'}\n` +
+            `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
+            driverInfo + vehicleInfo +
+            `\n\n📲 Fahrt live verfolgen:\n${trackingLink}\n\n` +
+            `📞 Bei Fragen: 038378/22022`;
+    }
+
+    if (!message) return false;
+
+    const result = await sendWhatsAppMessage(phone, message);
+    if (result) {
+        console.log(`📱 WhatsApp-Kunden-Nachricht (${type}) gesendet an: ${phone}`);
+        await addTelegramLog('📱', 'whatsapp', `WhatsApp ${type}: ${ride.customerName || '?'}`, { rideId, phone });
+    }
+    return !!result;
+}
+
 async function answerCallbackQuery(callbackId) {
     const token = await loadBotToken();
     if (!token) return;
@@ -11779,6 +11942,9 @@ exports.onRideCreated = onValueCreated(
         await sendToAllAdmins(message, 'new_ride');
         await sendToSystemChannel(message, 'new_ride');
 
+        // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
+        await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
+
         // Flag setzen damit Browser nicht nochmal sendet
         try {
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
@@ -11843,6 +12009,9 @@ exports.onRideUpdated = onValueUpdated(
                     console.log('📱 Kunden-Telegram gesendet:', customerChatId);
                 }
 
+                // 🆕 v6.28.0: WhatsApp-Benachrichtigung bei Fahrer-Zuweisung
+                await sendCustomerWhatsAppNotification(after, rideId, 'booking_confirmed');
+
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
                 // 🆕 v6.25.4: Zeige WER und WO storniert hat
                 const deletedBy = after.deletedBy || '?';
@@ -11881,6 +12050,9 @@ exports.onRideUpdated = onValueUpdated(
                         console.log('📱 Stornierung an Fahrer gesendet:', vehicleId);
                     }
                 }
+
+                // 🆕 v6.28.0: WhatsApp-Stornierung an Kunden
+                await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
 
             } else if (newStatus === 'picked_up') {
                 message = `🚗 <b>KUNDE ABGEHOLT!</b>\n` +
@@ -11964,6 +12136,14 @@ exports.onRideUpdated = onValueUpdated(
                     try {
                         await db.ref('rides/' + rideId + '/customerTelegramSent').set(true);
                     } catch (e) { /* non-critical */ }
+                }
+
+                // 🆕 v6.28.0: WhatsApp-Benachrichtigung bei Fahrer-Zuweisung
+                if (!after.customerWhatsAppSent) {
+                    const waResult = await sendCustomerWhatsAppNotification(after, rideId, 'driver_assigned');
+                    if (waResult) {
+                        try { await db.ref('rides/' + rideId + '/customerWhatsAppSent').set(true); } catch (e) { /* */ }
+                    }
                 }
             }
         }

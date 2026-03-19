@@ -5581,7 +5581,8 @@ async function handleMessage(message) {
     // 🆕 v6.33.0: Freitext-Datum bei aktivem Datum-Picker (z.B. "01.04", "01.04.2026", "01.04 14:30")
     // Wird ausgelöst wenn User nach "Vorbestellen" ein Datum direkt eintippt statt Buttons zu nutzen
     if (pending && pending._dtPicker && pending.partial && !pending._selectedDate) {
-        const trimmed = text.trim();
+        // Leerzeichen zwischen Datum-Teilen entfernen (z.B. "01. 04.2026" → "01.04.2026")
+        const trimmed = text.trim().replace(/(\d)\.\s+/g, '$1.');
         // Deutsche Datumsformate: DD.MM, DD.MM.YYYY, DD.MM.YY, DD.MM. HH:MM, DD.MM.YYYY HH:MM
         const dateRegex = /^(\d{1,2})\.(\d{1,2})\.?(?:(\d{2,4}))?(?:\s+(\d{1,2})[:\s.](\d{2}))?$/;
         const dateMatch = trimmed.match(dateRegex);
@@ -7439,14 +7440,22 @@ async function handleCallback(callback) {
         return;
     }
 
-    // 🔧 v6.20.2: "Vorbestellen" gewählt → Tage ab morgen anzeigen
-    if (data === 'dtchoice_vorbestellen') {
+    // 🔧 v6.33.0: "Vorbestellen" gewählt → Tage mit Blättern anzeigen (Seite 0 = Tag 1-7)
+    if (data === 'dtchoice_vorbestellen' || data.startsWith('dtpage_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending.partial) return;
 
+        // Seite bestimmen (0 = erste Woche, 1 = zweite Woche, etc.)
+        let page = 0;
+        if (data.startsWith('dtpage_')) page = parseInt(data.replace('dtpage_', '')) || 0;
+        if (page < 0) page = 0;
+        if (page > 7) page = 7; // Max ~2 Monate
+
         const dayNamesShort = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+        const startDay = page * 7 + 1; // Tag 1 = morgen
         const days = [];
-        for (let i = 1; i <= 7; i++) { // Ab morgen (i=1)
+        for (let i = startDay; i < startDay + 7; i++) {
             const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
             d.setDate(d.getDate() + i);
             const iso = d.toISOString().slice(0, 10);
@@ -7459,10 +7468,22 @@ async function handleCallback(callback) {
         }
 
         const dayRows = [];
-        dayRows.push([days[0]]); // Morgen allein
-        for (let i = 1; i < days.length; i += 3) {
-            dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
+        if (page === 0) {
+            dayRows.push([days[0]]); // "Morgen" allein
+            for (let i = 1; i < days.length; i += 3) {
+                dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
+            }
+        } else {
+            // Ab Seite 2: alle in 3er-Reihen
+            for (let i = 0; i < days.length; i += 3) {
+                dayRows.push(days.slice(i, Math.min(i + 3, days.length)));
+            }
         }
+
+        // Navigation: Zurück / Weiter Buttons
+        const navRow = [];
+        if (page > 0) navRow.push({ text: '⬅️ Vorherige Woche', callback_data: `dtpage_${page - 1}` });
+        navRow.push({ text: 'Nächste Woche ➡️', callback_data: `dtpage_${page + 1}` });
 
         const noted = [];
         if (pending.partial.pickup) noted.push(`📍 Von: ${pending.partial.pickup}`);
@@ -7470,14 +7491,43 @@ async function handleCallback(callback) {
         let header = '';
         if (noted.length > 0) header = `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
 
-        await addTelegramLog('📅', chatId, `Vorbestellen gewählt → Tage anzeigen`);
-        await sendTelegramMessage(chatId,
-            header + '📅 <b>Für welchen Tag vorbestellen?</b>\n\nButton antippen oder <b>Datum + Uhrzeit</b> unten ins Eingabefeld tippen:\nz.B. <b>21.06.2026 14:30</b> oder <b>15. Juni 2026 10 Uhr</b>', {
+        // Zeitraum-Info
+        const firstD = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        firstD.setDate(firstD.getDate() + startDay);
+        const lastD = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        lastD.setDate(lastD.getDate() + startDay + 6);
+        const rangeInfo = `${String(firstD.getDate()).padStart(2,'0')}.${String(firstD.getMonth()+1).padStart(2,'0')}. – ${String(lastD.getDate()).padStart(2,'0')}.${String(lastD.getMonth()+1).padStart(2,'0')}.${lastD.getFullYear()}`;
+
+        const logMsg = page === 0 ? 'Vorbestellen gewählt → Tage anzeigen' : `Tage-Seite ${page + 1} anzeigen (${rangeInfo})`;
+        await addTelegramLog('📅', chatId, logMsg);
+
+        const msgOpts = {
             reply_markup: { inline_keyboard: [
                 ...dayRows,
+                navRow,
                 [{ text: '◀️ Zurück', callback_data: 'dtback_choice' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ]}
-        });
+        };
+
+        const msgText = header + `📅 <b>Für welchen Tag vorbestellen?</b>\n📆 ${rangeInfo}\n\nButton antippen oder <b>Datum + Uhrzeit</b> unten ins Eingabefeld tippen:\nz.B. <b>21.06.2026 14:30</b> oder <b>15. Juni 10 Uhr</b>`;
+
+        // Bei Seitenwechsel: bestehende Nachricht editieren statt neue senden
+        if (data.startsWith('dtpage_') && callback && callback.message) {
+            try {
+                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+                    chat_id: chatId,
+                    message_id: callback.message.message_id,
+                    text: msgText,
+                    parse_mode: 'HTML',
+                    reply_markup: msgOpts.reply_markup
+                });
+            } catch (editErr) {
+                // Fallback: neue Nachricht senden
+                await sendTelegramMessage(chatId, msgText, msgOpts);
+            }
+        } else {
+            await sendTelegramMessage(chatId, msgText, msgOpts);
+        }
         return;
     }
 

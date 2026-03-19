@@ -5578,6 +5578,88 @@ async function handleMessage(message) {
         }
     }
 
+    // 🆕 v6.33.0: Freitext-Datum bei aktivem Datum-Picker (z.B. "01.04", "01.04.2026", "01.04 14:30")
+    // Wird ausgelöst wenn User nach "Vorbestellen" ein Datum direkt eintippt statt Buttons zu nutzen
+    if (pending && pending._dtPicker && pending.partial && !pending._selectedDate) {
+        const trimmed = text.trim();
+        // Deutsche Datumsformate: DD.MM, DD.MM.YYYY, DD.MM.YY, DD.MM. HH:MM, DD.MM.YYYY HH:MM
+        const dateRegex = /^(\d{1,2})\.(\d{1,2})\.?(?:(\d{2,4}))?(?:\s+(\d{1,2})[:\s.](\d{2}))?$/;
+        const dateMatch = trimmed.match(dateRegex);
+        if (dateMatch) {
+            const day = parseInt(dateMatch[1]);
+            const month = parseInt(dateMatch[2]);
+            let year = dateMatch[3] ? parseInt(dateMatch[3]) : null;
+            const hour = dateMatch[4] ? parseInt(dateMatch[4]) : null;
+            const minute = dateMatch[5] ? parseInt(dateMatch[5]) : null;
+
+            // Jahr normalisieren
+            if (year !== null && year < 100) year += 2000;
+            if (year === null) {
+                // Aktuelles Jahr, aber wenn Datum in der Vergangenheit → nächstes Jahr
+                const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                year = berlinNow.getFullYear();
+                const testDate = new Date(year, month - 1, day);
+                if (testDate < berlinNow && (berlinNow - testDate) > 86400000) {
+                    year++;
+                }
+            }
+
+            // Validierung
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2026 && year <= 2030) {
+                const dd = String(day).padStart(2, '0');
+                const mm = String(month).padStart(2, '0');
+                const selectedDate = `${year}-${mm}-${dd}`;
+
+                if (hour !== null && minute !== null && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                    // Datum + Uhrzeit komplett → direkt buchen
+                    const hh = String(hour).padStart(2, '0');
+                    const mi = String(minute).padStart(2, '0');
+                    const datetime = `${selectedDate}T${hh}:${mi}`;
+                    pending.partial.datetime = datetime;
+                    if (pending.partial.missing) pending.partial.missing = pending.partial.missing.filter(f => f !== 'datetime');
+                    delete pending._dtPicker;
+                    delete pending._selectedDate;
+                    delete pending._selectedDateLabel;
+                    delete pending.lastQuestion;
+                    await setPending(chatId, pending);
+                    await addTelegramLog('🕐', chatId, `Freitext-Datum+Uhrzeit: ${dd}.${mm}.${year} ${hh}:${mi}`);
+                    await sendTelegramMessage(chatId, `✅ <b>${dd}.${mm}.${year} um ${hh}:${mi} Uhr</b>`);
+                    await continueBookingFlow(chatId, pending.partial, pending.originalText || '');
+                    return;
+                } else {
+                    // Nur Datum → Datum speichern, nach Uhrzeit fragen
+                    const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                    const selDate = new Date(year, month - 1, day);
+                    const dayLabel = `${dayNames[selDate.getDay()]}, ${dd}.${mm}.${year}`;
+                    pending._selectedDate = selectedDate;
+                    pending._selectedDateLabel = dayLabel;
+                    await setPending(chatId, pending);
+                    await addTelegramLog('📅', chatId, `Freitext-Datum erkannt: ${dayLabel}`);
+
+                    // Uhrzeit-Buttons anzeigen
+                    const berlinNow2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const todayISO = berlinNow2.toISOString().slice(0, 10);
+                    const isToday = selectedDate === todayISO;
+                    const nowH = berlinNow2.getHours();
+                    const nowM = berlinNow2.getMinutes();
+                    const allSlots = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+                    const availableSlots = allSlots.filter(s => {
+                        if (!isToday) return true;
+                        const [h, m] = s.split(':').map(Number);
+                        return h > nowH || (h === nowH && m > nowM);
+                    });
+                    const timeButtons = availableSlots.map(s => [{ text: `🕐 ${s}`, callback_data: `dttime_${selectedDate}_${s.replace(':', '')}` }]);
+                    timeButtons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+                    await sendTelegramMessage(chatId,
+                        `📅 <b>${dayLabel}</b>\n\n🕐 Wann soll die Abholung sein?\n\n💡 <i>Button antippen oder Uhrzeit tippen (z.B. 14:30)</i>`,
+                        { reply_markup: { inline_keyboard: timeButtons } }
+                    );
+                    return;
+                }
+            }
+        }
+    }
+
     // Follow-Up: Unvollständige Buchung ergänzen
     if (pending && pending.partial && !isPendingExpired(pending)) {
         // 🆕 v6.11.4: Prüfe ob der Kunde eine FRAGE stellt statt Buchungsdaten zu liefern

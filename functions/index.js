@@ -11165,25 +11165,31 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     }
 
     // 3. VERGLEICH: Kürzere Route gewinnt
-    // 🆕 v6.32.1: Standort-Malus — Rückfahrt zum Standort bestraft, Direktfahrt bevorzugt
-    // 🆕 v6.25.4: Direktfahrt-Priorität pro Fahrzeug aus Schichtplan, Fallback global
+    // 🆕 v6.33.0: Standort-Malus NUR anwenden wenn BEIDE Routen verfügbar!
+    // Wenn Fahrer schon am Standort steht → kein Umweg, kein Malus.
+    // Malus nur als Tie-Breaker: Direktfahrt vs. Umweg über Standort.
     const vShiftData = shiftsData && shiftsData[vehicleId];
-    const standortMalus = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
+    const standortMalusRaw = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
         ? vShiftData.direktfahrtPrioritaet
         : (pricingSettings && pricingSettings.standortMalusMinuten != null)
             ? pricingSettings.standortMalusMinuten : 30;
     if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
+        // Malus nur anwenden wenn beide Routen berechenbar sind (echter Vergleich)
+        const hasBothRoutes = direktDurationMin < Infinity && homebaseDurationMin < Infinity;
+        const standortMalus = hasBothRoutes ? standortMalusRaw : 0;
         const homebaseEffektiv = homebaseDurationMin + standortMalus;
         const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);
-        if (direktDurationMin <= homebaseEffektiv && direktResult) {
+        if (hasBothRoutes && direktDurationMin <= homebaseEffektiv && direktResult) {
             console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus)`);
             return direktResult;
         } else if (homebaseResult) {
-            // Standort-Malus zum Ergebnis addieren damit der Score korrekt ist
             homebaseResult.durationMin = Math.round(homebaseEffektiv);
             homebaseResult.standortMalus = standortMalus;
-            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus (besser als direkt ${Math.round(direktDurationMin)} Min)`);
+            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ' (kein Malus, Fahrer am Standort)'}`);
             return homebaseResult;
+        } else if (direktResult) {
+            console.log(`🔗 ${vehicleId}: Nur Direktfahrt verfügbar: ${Math.round(direktDurationMin)} Min`);
+            return direktResult;
         }
     }
 

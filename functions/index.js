@@ -10866,15 +10866,20 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         }
     }
 
-    // 🔧 v6.26.0: IMMER beide Routen vergleichen — direkt vs. über Standort
-    // Fahrer wartet NIE am Zielort, fährt sofort los → kürzere Route gewinnt
+    // 🔧 v6.32.1: Route-Vergleich NUR wenn Fahrer am Standort!
+    // Bug-Fix: Bei negativem Gap oder kurzem Gap ist der Fahrer noch unterwegs
+    // → Homebase-Route darf NICHT verwendet werden (Fahrer ist nicht dort!)
+    const returnBufferMin = (pricingSettings && pricingSettings.standortRueckkehrPufferMinuten != null)
+        ? pricingSettings.standortRueckkehrPufferMinuten : 30;
+    const driverBackAtStandort = gapMinutes >= returnBufferMin;
+
     let homebaseDurationMin = Infinity;
     let direktDurationMin = Infinity;
     let homebaseResult = null;
     let direktResult = null;
 
-    // 1. Route ÜBER STANDORT berechnen
-    if (homeLat && homeLon) {
+    // 1. Route ÜBER STANDORT NUR berechnen wenn Fahrer zurück am Standort
+    if (driverBackAtStandort && homeLat && homeLon) {
         const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
         if (homeRoute) {
             homebaseDurationMin = homeRoute.duration;
@@ -10884,6 +10889,8 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
             homebaseDurationMin = Math.round(dist * 2);
             homebaseResult = { durationMin: homebaseDurationMin, distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
         }
+    } else if (!driverBackAtStandort) {
+        console.log(`⚠️ ${vehicleId}: Fahrer noch unterwegs (Gap: ${Math.round(gapMinutes)} Min < ${returnBufferMin} Min Puffer) → nur Direktroute`);
     }
 
     // 2. DIREKTE Route vom letzten Ziel zum nächsten Abholort

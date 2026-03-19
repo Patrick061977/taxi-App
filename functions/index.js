@@ -4466,6 +4466,28 @@ async function handleMessage(message) {
         if (await isTelegramAdmin(chatId)) { await handleAdminRidesOverview(chatId, 'tomorrow'); return; }
     }
 
+    // 🔧 v6.26.0: /setchannel — System-Kanal registrieren (nur Admin)
+    // Nutzung: /setchannel (setzt aktuellen Chat) oder /setchannel -1001234567890 (setzt Kanal-ID)
+    if (textCmd === '/setchannel' || textCmd.startsWith('/setchannel ')) {
+        if (await isTelegramAdmin(chatId)) {
+            const parts = text.trim().split(/\s+/);
+            const channelId = parts.length > 1 ? parts[1] : chatId;
+            await db.ref('settings/telegram/systemChannelId').set(String(channelId));
+            _systemChannelId = String(channelId); // Cache aktualisieren
+            await sendTelegramMessage(chatId, `✅ <b>System-Kanal registriert!</b>\n\n📢 Chat-ID: <code>${channelId}</code>\n\nAlle System-Events (Buchungen, Zuweisungen, Stornierungen, Konflikte) werden jetzt dort gepostet.`);
+            // Test-Nachricht an den Kanal senden
+            if (String(channelId) !== String(chatId)) {
+                try {
+                    await sendTelegramMessage(channelId, `🔧 <b>System-Kanal aktiviert!</b>\n\n✅ Dieser Kanal empfängt jetzt alle System-Events:\n📋 Neue Buchungen\n🔄 Status-Änderungen\n🗑️ Stornierungen/Löschungen\n🤖 Auto-Zuweisungen\n⚙️ Optimierungen & Konflikte\n🚨 Offene-Fahrt-Warnungen\n💳 Zahlungen`);
+                } catch (e) {
+                    await sendTelegramMessage(chatId, `⚠️ Konnte keine Test-Nachricht an <code>${channelId}</code> senden. Ist der Bot Admin im Kanal?`);
+                }
+            }
+            await addTelegramLog('🔧', chatId, 'System-Kanal registriert', { channelId: String(channelId) });
+        }
+        return;
+    }
+
     if (textCmd.startsWith('/')) {
         const isAdminForHelp = await isTelegramAdmin(chatId);
         const adminCmds = isAdminForHelp ? '\n\n<b>Admin:</b>\n/fahrten – 📋 Heutige Fahrten\n/offen – 📋 Offene Fahrten\n/morgen – 📋 Morgen' : '';
@@ -6665,6 +6687,8 @@ async function handleCallback(callback) {
                                 sendTelegramMessage(adminChatId, _urgentMsg, { reply_markup: { inline_keyboard: _assignButtons } }).catch(() => {});
                             }
                         }
+                        // System-Kanal (ohne Buttons)
+                        sendToSystemChannel(_urgentMsg, 'new_ride').catch(() => {});
                     } catch (_e) { console.error('Admin-Sofort-Push Fehler:', _e.message); }
 
                     await addTelegramLog('🚨', chatId, `Sofortfahrt: Kein Fahrer auto-zugewiesen → Admin-Vermittlung`);
@@ -6722,6 +6746,8 @@ async function handleCallback(callback) {
                     if (booking._adminBooked) {
                         await addTelegramLog(statusEmoji, 'system', `${statusText}: ${rideData.customerName} → ${timeLabel}`, { rideId: rideData.id, adminBooked: true });
                     }
+                    // System-Kanal
+                    sendToSystemChannel(adminMsg, 'new_ride').catch(() => {});
                 }
             } catch (e) {
                 console.error('Admin-Benachrichtigung Fehler:', e.message);
@@ -8783,10 +8809,9 @@ async function handleCallback(callback) {
             try {
                 const dt = new Date(r.pickupTimestamp || 0);
                 const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                await sendToAllAdmins(
-                    `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`,
-                    'cancellation'
-                );
+                const cancelMsg = `⚠️ <b>Stornierung!</b>\n\n👤 ${r.customerName || '?'}\n📅 ${timeStr} Uhr\n📍 ${r.pickup || '?'} → ${r.destination || '?'}\n\n<i>Kunde hat per Telegram storniert.</i>`;
+                await sendToAllAdmins(cancelMsg, 'cancellation');
+                await sendToSystemChannel(cancelMsg, 'status_change');
             } catch (e) { /* Admin-Benachrichtigung ist nicht kritisch */ }
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler beim Stornieren.'); }
         return;
@@ -10002,6 +10027,36 @@ exports.telegramWebhook = onRequest(
         try {
             const update = req.body;
 
+            // 🔧 v6.26.0: Kanal-Post erkennen (für System-Kanal)
+            if (update.channel_post) {
+                // Ignorieren — Bot empfängt eigene Posts im Kanal, kein Action nötig
+                res.status(200).send('OK');
+                return;
+            }
+
+            // 🔧 v6.26.0: Bot wurde zu Kanal/Gruppe hinzugefügt → Channel-ID loggen
+            if (update.my_chat_member) {
+                const mcm = update.my_chat_member;
+                const newStatus = mcm.new_chat_member?.status;
+                const chatType = mcm.chat?.type;
+                const channelChatId = mcm.chat?.id;
+                const channelTitle = mcm.chat?.title || '?';
+                if ((chatType === 'channel' || chatType === 'supergroup') && (newStatus === 'administrator' || newStatus === 'member')) {
+                    console.log(`📢 Bot zu ${chatType} hinzugefügt: "${channelTitle}" (ID: ${channelChatId})`);
+                    // Admins informieren mit der Kanal-ID zum einfachen Kopieren
+                    try {
+                        await sendToAllAdmins(
+                            `📢 <b>Bot zu ${chatType === 'channel' ? 'Kanal' : 'Gruppe'} hinzugefügt!</b>\n\n` +
+                            `📌 <b>Name:</b> ${channelTitle}\n` +
+                            `🆔 <b>Chat-ID:</b> <code>${channelChatId}</code>\n\n` +
+                            `💡 Als System-Kanal setzen:\n<code>/setchannel ${channelChatId}</code>`
+                        );
+                    } catch (e) { /* non-critical */ }
+                }
+                res.status(200).send('OK');
+                return;
+            }
+
             // 🛡️ Spam-Schutz: chatId ermitteln
             const spamChatId = update.callback_query?.message?.chat?.id || update.message?.chat?.id;
             if (spamChatId) {
@@ -10041,10 +10096,9 @@ exports.telegramWebhook = onRequest(
                     } catch(e) {}
                     // Admins benachrichtigen
                     try {
-                        await sendToAllAdmins(
-                            `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`,
-                            'spam_block'
-                        );
+                        const blockMsg = `🚫 <b>Nutzer geblockt (Spam)</b>\n\n👤 ${userName}\n🆔 Chat-ID: <code>${spamChatId}</code>\n\n<i>3× Spam-Limit überschritten. Entblocken:\n/entblocken ${spamChatId}</i>`;
+                        await sendToAllAdmins(blockMsg, 'spam_block');
+                        await sendToSystemChannel(blockMsg, 'system');
                     } catch(e) {}
                     res.status(200).send('OK');
                     return;
@@ -10377,6 +10431,7 @@ exports.autoResolveConflicts = onSchedule(
                 try {
                     const msg = `📅 *Schicht-Korrektur*\n📋 ${ride.customerName || '?'} • ${rideTimeStr}\n🔄 ${currInfo.name} (kein Dienst) → ${altInfo.name}`;
                     await sendToAllAdmins(msg, 'optimization');
+                    await sendToSystemChannel(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }
 
@@ -10499,6 +10554,7 @@ exports.autoResolveConflicts = onSchedule(
                         const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
                         const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
                         await sendToAllAdmins(msg, 'optimization');
+                        await sendToSystemChannel(msg, 'optimization');
                     } catch(e) { /* non-critical */ }
                 }
             }
@@ -10733,6 +10789,7 @@ exports.autoResolveConflicts = onSchedule(
                 try {
                     const msg = `🚀 *Optimierung*\n📅 ${rideDateFormatted} • ${rideTime}\n📋 ${ride.customerName || '?'}\n🔄 ${currInfo.name} → ${altInfo.name} (${vorteilMin} Min besser)\n💡 Details im Optimierungs-Log`;
                     await sendToAllAdmins(msg, 'optimization');
+                    await sendToSystemChannel(msg, 'optimization');
                 } catch(e) { /* non-critical */ }
             }
 
@@ -11053,6 +11110,44 @@ async function sendToAllAdmins(message, category) {
     }
 }
 
+// 🔧 v6.26.0: System-Kanal — alle wichtigen Events in einem Telegram-Kanal loggen
+let _systemChannelId = null;
+async function getSystemChannelId() {
+    if (_systemChannelId !== null) return _systemChannelId || null;
+    try {
+        const snap = await db.ref('settings/telegram/systemChannelId').once('value');
+        _systemChannelId = snap.val() || '';
+        return _systemChannelId || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function sendToSystemChannel(message, category) {
+    try {
+        const channelId = await getSystemChannelId();
+        if (!channelId) return;
+
+        // Kategorie-Tag voranstellen für Filterbarkeit
+        const tags = {
+            'new_ride': '📋',
+            'status_change': '🔄',
+            'ride_deleted': '🗑️',
+            'optimization': '⚙️',
+            'unassigned': '🚨',
+            'auto_assign': '🤖',
+            'payment': '💳',
+            'system': '🔧'
+        };
+        const tag = tags[category] || '📌';
+        const taggedMessage = `${tag} <b>[${(category || 'system').toUpperCase()}]</b>\n${message}`;
+
+        await sendTelegramMessage(channelId, taggedMessage);
+    } catch (e) {
+        console.error('❌ sendToSystemChannel Fehler:', e.message);
+    }
+}
+
 // Hilfsfunktion: Telegram Chat-ID eines Fahrers ermitteln
 async function getDriverChatId(vehicleId) {
     if (!vehicleId) return null;
@@ -11347,11 +11442,11 @@ exports.scheduledAutoAssign = onSchedule(
                 }
 
                 // Admin benachrichtigen
-                await sendToAllAdmins(
-                    `🤖 <b>Auto-Zuweisung</b>\n` +
+                const autoAssignMsg = `🤖 <b>Auto-Zuweisung</b>\n` +
                     `${ride.customerName || '?'} (${timeStr}) → ${bestCandidate.name}\n` +
-                    `Score: ${bestScore} | Leerfahrt: ${bestDrivingTime} Min`
-                );
+                    `Score: ${bestScore} | Leerfahrt: ${bestDrivingTime} Min`;
+                await sendToAllAdmins(autoAssignMsg);
+                await sendToSystemChannel(autoAssignMsg, 'auto_assign');
             }
 
             console.log(`\n✅ scheduledAutoAssign abgeschlossen: ${assignedCount} zugewiesen, ${failedCount} ohne Fahrzeug`);
@@ -11423,6 +11518,7 @@ exports.onRideCreated = onValueCreated(
             `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
 
         await sendToAllAdmins(message, 'new_ride');
+        await sendToSystemChannel(message, 'new_ride');
 
         // Flag setzen damit Browser nicht nochmal sendet
         try {
@@ -11489,6 +11585,18 @@ exports.onRideUpdated = onValueUpdated(
                 }
 
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                // 🆕 v6.25.4: Zeige WER und WO storniert hat
+                const deletedBy = after.deletedBy || '?';
+                let storniertVon = '?';
+                if (deletedBy === 'telegram-admin') storniertVon = '📱 Telegram';
+                else if (deletedBy === 'admin-browser') storniertVon = '🖥️ Browser';
+                else if (deletedBy === 'admin-calendar') storniertVon = '📅 Kalender-Ansicht';
+                else if (deletedBy === 'admin-reset') storniertVon = '🔄 Fahrzeug-Reset';
+                else if (deletedBy === 'admin-invoice') storniertVon = '🧾 Rechnungs-Ansicht';
+                else if (deletedBy.includes('@')) storniertVon = `👤 ${deletedBy}`;
+                else if (deletedBy === 'customer-telegram' || deletedBy === 'telegram-customer') storniertVon = '📱 Kunde (Telegram)';
+                else storniertVon = deletedBy;
+
                 message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
@@ -11496,6 +11604,7 @@ exports.onRideUpdated = onValueUpdated(
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n🔧 <b>Storniert über:</b> ${storniertVon}` +
                     `\n⚠️ Status: Storniert`;
 
                 // Fahrer benachrichtigen falls zugewiesen
@@ -11537,6 +11646,7 @@ exports.onRideUpdated = onValueUpdated(
 
             if (message) {
                 await sendToAllAdmins(message, 'status_change');
+                await sendToSystemChannel(message, 'status_change');
                 await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
             }
         }
@@ -11638,6 +11748,7 @@ exports.onRideDeleted = onValueDeleted(
             `\n🚨 <b>Diese Fahrt wurde gelöscht!</b>`;
 
         await sendToAllAdmins(message, 'ride_deleted');
+        await sendToSystemChannel(message, 'ride_deleted');
 
         // Fahrer benachrichtigen falls zugewiesen
         const vehicleId = ride.assignedVehicle || ride.vehicleId;
@@ -11717,6 +11828,7 @@ exports.scheduledOpenRideCheck = onSchedule(
                     `⏰ <b>Warnung:</b> ${timestamp}`;
 
                 await sendToAllAdmins(message, 'unassigned');
+                await sendToSystemChannel(message, 'unassigned');
 
                 // Flag setzen damit nicht nochmal gewarnt wird
                 try {
@@ -11936,6 +12048,7 @@ exports.stripeWebhook = onRequest(
                             `⏰ <b>Zeit:</b> ${formatBerlinTime()}`;
 
                         await sendToAllAdmins(adminMsg, 'payment');
+                        await sendToSystemChannel(adminMsg, 'payment');
                     } catch (notifyErr) {
                         console.warn('⚠️ Admin-Benachrichtigung fehlgeschlagen:', notifyErr.message);
                     }

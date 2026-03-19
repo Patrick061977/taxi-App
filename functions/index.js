@@ -12625,6 +12625,122 @@ exports.testSmtpConnection = onRequest(
 // Sendet E-Mails aus dem CRM via SMTP mit optionalem Anhang
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.25.4: WhatsApp Business API — Rechnung als PDF-Anhang senden
+// ═══════════════════════════════════════════════════════════════
+
+exports.sendInvoiceWhatsApp = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        if (req.method !== 'POST') {
+            res.status(405).json({ error: 'Method not allowed' });
+            return;
+        }
+
+        try {
+            const { invoiceNumber, phone, customerName, amount, pdfUrl } = req.body;
+
+            if (!invoiceNumber || !phone || !pdfUrl) {
+                res.status(400).json({ error: 'invoiceNumber, phone und pdfUrl sind erforderlich' });
+                return;
+            }
+
+            // WhatsApp Business API Credentials aus Firebase laden
+            const tokenSnap = await db.ref('settings/whatsapp/apiToken').once('value');
+            const phoneIdSnap = await db.ref('settings/whatsapp/phoneNumberId').once('value');
+            const apiToken = tokenSnap.val();
+            const apiPhoneId = phoneIdSnap.val();
+
+            if (!apiToken || !apiPhoneId) {
+                res.status(400).json({ error: 'WhatsApp Business API nicht konfiguriert! Bitte apiToken und phoneNumberId unter settings/whatsapp eintragen.' });
+                return;
+            }
+
+            // Telefonnummer formatieren (international ohne +)
+            let formattedPhone = phone.replace(/[\s\-\/\(\)]/g, '');
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = '49' + formattedPhone.substring(1);
+            } else if (formattedPhone.startsWith('+')) {
+                formattedPhone = formattedPhone.substring(1);
+            }
+
+            const waApiUrl = `https://graph.facebook.com/v21.0/${apiPhoneId}/messages`;
+
+            // Schritt 1: PDF als Dokument senden
+            console.log(`📤 Sende PDF an ${formattedPhone}...`);
+            const docResponse = await fetch(waApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: formattedPhone,
+                    type: 'document',
+                    document: {
+                        link: pdfUrl,
+                        filename: `Rechnung-${invoiceNumber}.pdf`,
+                        caption: `📄 Rechnung Nr. ${invoiceNumber} über ${parseFloat(amount || 0).toFixed(2)} €\n\nVielen Dank!\nTaxi Patrick Wydra\n📞 038378/22022`
+                    }
+                })
+            });
+
+            const docResult = await docResponse.json();
+
+            if (!docResponse.ok) {
+                console.error('❌ WhatsApp API Fehler:', JSON.stringify(docResult));
+                res.status(docResponse.status).json({
+                    error: 'WhatsApp API Fehler',
+                    details: docResult
+                });
+                return;
+            }
+
+            console.log('✅ PDF per WhatsApp gesendet:', docResult.messages?.[0]?.id);
+
+            // In Firebase loggen
+            await db.ref(`invoices/${invoiceNumber}`).update({
+                whatsappSentAt: Date.now(),
+                whatsappSentTo: formattedPhone,
+                whatsappMessageId: docResult.messages?.[0]?.id || null,
+                invoiceSentVia: 'whatsapp_api'
+            });
+
+            // Protokoll
+            await db.ref('emailLog').push({
+                type: 'whatsapp_invoice',
+                invoiceNumber,
+                to: formattedPhone,
+                customerName: customerName || '',
+                amount: amount || 0,
+                messageId: docResult.messages?.[0]?.id || null,
+                status: 'sent',
+                sentAt: Date.now()
+            });
+
+            res.status(200).json({
+                success: true,
+                messageId: docResult.messages?.[0]?.id,
+                to: formattedPhone
+            });
+
+        } catch (error) {
+            console.error('❌ WhatsApp Rechnung Fehler:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// CRM E-Mails
+// ═══════════════════════════════════════════════════════════════
+
 exports.sendCrmEmail = onRequest(
     { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
     async (req, res) => {

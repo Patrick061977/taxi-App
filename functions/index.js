@@ -10907,8 +10907,12 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
 
     // 3. VERGLEICH: Kürzere Route gewinnt
     // 🆕 v6.32.1: Standort-Malus — Rückfahrt zum Standort bestraft, Direktfahrt bevorzugt
-    const standortMalus = (pricingSettings && pricingSettings.standortMalusMinuten != null)
-        ? pricingSettings.standortMalusMinuten : 30;
+    // 🆕 v6.25.4: Direktfahrt-Priorität pro Fahrzeug aus Schichtplan, Fallback global
+    const vShiftData = shiftsData && shiftsData[vehicleId];
+    const standortMalus = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
+        ? vShiftData.direktfahrtPrioritaet
+        : (pricingSettings && pricingSettings.standortMalusMinuten != null)
+            ? pricingSettings.standortMalusMinuten : 30;
     if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
         const homebaseEffektiv = homebaseDurationMin + standortMalus;
         const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);

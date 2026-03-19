@@ -1341,10 +1341,21 @@ async function geocode(address) {
         const cacheSnap = await db.ref(cacheKey).once('value');
         const cached = cacheSnap.val();
         if (cached && typeof cached.lat === 'number' && typeof cached.lon === 'number' && cached.lat !== 0 && cached.lon !== 0) {
-            // Cache-Treffer nur verwenden wenn Koordinaten plausibel
+            // 🔧 v6.28.0: Nicht-Usedom PLZ → Cache-Eintrag IMMER akzeptieren (wenn lat/lon plausibel)
+            const _anyPLZ = address.match(/\b(\d{5})\b/);
+            const _usedomPLZ = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+            const _isNonUsedom = _anyPLZ && !_usedomPLZ;
+
+            if (_isNonUsedom) {
+                // Nicht-Usedom Adresse: Cache akzeptieren wenn Koordinaten existieren
+                console.log(`[Geocode] Nicht-Usedom PLZ ${_anyPLZ[1]} → Cache akzeptiert: ${cached.lat}, ${cached.lon}`);
+                return cached;
+            }
+
+            // Cache-Treffer nur verwenden wenn Koordinaten plausibel (Usedom-Nähe)
             if (isNearUsedom(cached.lat, cached.lon)) {
                 // 🔧 v6.15.7+v6.25.4: PLZ-Validierung — Cache mit falscher PLZ oder zu weit vom PLZ-Zentrum verwerfen!
-                const plzInAddr = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+                const plzInAddr = _usedomPLZ;
                 if (plzInAddr) {
                     const _plzC = PLZ_CENTERS[plzInAddr[1]];
                     // 🔧 v6.25.4: Koordinaten-Distanz-Check statt nur display_name-PLZ
@@ -1371,11 +1382,25 @@ async function geocode(address) {
         const addressPLZ = plzMatch ? plzMatch[1] : null;
         if (addressPLZ) console.log(`[Geocode] PLZ in Adresse erkannt: ${addressPLZ}`);
 
+        // 🔧 v6.28.0: Nicht-Usedom PLZ erkennen (z.B. 17489 Greifswald, 10115 Berlin)
+        // → Direkt deutschlandweit suchen, NICHT über Usedom-Suche!
+        const anyPLZMatch = address.match(/\b(\d{5})\b/);
+        const isNonUsedomPLZ = anyPLZMatch && !plzMatch; // PLZ gefunden, aber KEINE Usedom-PLZ
+        if (isNonUsedomPLZ) console.log(`[Geocode] Nicht-Usedom PLZ erkannt: ${anyPLZMatch[1]} → Direkte Deutschland-Suche`);
+
         // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region + PLZ-Match
         const fetchAndValidate = async (url) => {
             const resp = await fetch(url, { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } });
             const data = await resp.json();
             if (!data || !data.length) return null;
+
+            // 🔧 v6.28.0: Nicht-Usedom PLZ → erstes Ergebnis direkt nehmen (kein Regions-Filter)
+            if (isNonUsedomPLZ) {
+                const first = data[0];
+                const lat = parseFloat(first.lat), lon = parseFloat(first.lon);
+                console.log(`[Geocode] Nicht-Usedom PLZ → erstes Ergebnis: ${lat}, ${lon} (${first.display_name})`);
+                return { lat, lon, display_name: first.display_name, address: first.address };
+            }
 
             // Alle Usedom-Treffer sammeln
             const usedomHits = [];
@@ -1424,11 +1449,18 @@ async function geocode(address) {
             return { lat, lon, display_name: first.display_name };
         };
 
-        // Nominatim-Suche mit Viewbox-Präferenz für Usedom
-        let result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`);
-        if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Świnoujście, Polska')}&limit=5&addressdetails=1`);
-        if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`);
-        if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
+        // 🔧 v6.28.0: Bei Nicht-Usedom PLZ → direkt deutschlandweit suchen (verhindert falsche Treffer in Usedom-Region)
+        let result = null;
+        if (isNonUsedomPLZ) {
+            result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
+            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`);
+        } else {
+            // Nominatim-Suche mit Viewbox-Präferenz für Usedom
+            result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`);
+            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Świnoujście, Polska')}&limit=5&addressdetails=1`);
+            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`);
+            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
+        }
 
         if (result) {
             // Nur in Usedom-Nähe cachen (Fern-Ziele nicht cachen, da diese eher variieren)

@@ -11489,6 +11489,18 @@ exports.onRideUpdated = onValueUpdated(
                 }
 
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                // 🆕 v6.25.4: Zeige WER und WO storniert hat
+                const deletedBy = after.deletedBy || '?';
+                let storniertVon = '?';
+                if (deletedBy === 'telegram-admin') storniertVon = '📱 Telegram';
+                else if (deletedBy === 'admin-browser') storniertVon = '🖥️ Browser';
+                else if (deletedBy === 'admin-calendar') storniertVon = '📅 Kalender-Ansicht';
+                else if (deletedBy === 'admin-reset') storniertVon = '🔄 Fahrzeug-Reset';
+                else if (deletedBy === 'admin-invoice') storniertVon = '🧾 Rechnungs-Ansicht';
+                else if (deletedBy.includes('@')) storniertVon = `👤 ${deletedBy}`;
+                else if (deletedBy === 'customer-telegram' || deletedBy === 'telegram-customer') storniertVon = '📱 Kunde (Telegram)';
+                else storniertVon = deletedBy;
+
                 message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
@@ -11496,6 +11508,7 @@ exports.onRideUpdated = onValueUpdated(
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
+                    `\n🔧 <b>Storniert über:</b> ${storniertVon}` +
                     `\n⚠️ Status: Storniert`;
 
                 // Fahrer benachrichtigen falls zugewiesen

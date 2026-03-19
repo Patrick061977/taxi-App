@@ -10926,8 +10926,6 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     // 🔧 v6.32.1: Route-Vergleich NUR wenn Fahrer am Standort!
     // Bug-Fix: Bei negativem Gap oder kurzem Gap ist der Fahrer noch unterwegs
     // → Homebase-Route darf NICHT verwendet werden (Fahrer ist nicht dort!)
-    const returnBufferMin = (pricingSettings && pricingSettings.standortRueckkehrPufferMinuten != null)
-        ? pricingSettings.standortRueckkehrPufferMinuten : 30;
     const driverBackAtStandort = gapMinutes >= returnBufferMin;
 
     let homebaseDurationMin = Infinity;

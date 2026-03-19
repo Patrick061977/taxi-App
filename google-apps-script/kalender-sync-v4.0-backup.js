@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.6 - CRM-Lookup IMMER wenn customerMobile fehlt (nicht nur bei Festnetz)
+// Version: 4.7 - Aufgeräumt: CRM-Lookup entfernt (Firebase Rules blockieren /customers ohne Auth)
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.6...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.7...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -280,29 +280,6 @@ function createOrUpdateCalendarEvent(calendar, ride) {
       console.log('📱 phone → customerPhone übernommen für:', ride.firebaseId);
     }
 
-    // 🔧 v4.6: CRM-Lookup IMMER wenn customerMobile fehlt und customerId vorhanden
-    // Festnetz (customerPhone) war schon immer da — aber customerMobile ist neu (v6.14.4)
-    // Ältere Fahrten haben es nicht → IMMER aus CRM nachladen!
-    if (!ride.customerMobile && ride.customerId) {
-      try {
-        const custUrl = CONFIG.FIREBASE_URL + '/customers/' + ride.customerId + '.json';
-        const custResp = UrlFetchApp.fetch(custUrl, { muteHttpExceptions: true });
-        const custData = JSON.parse(custResp.getContentText());
-        if (custData) {
-          if (custData.mobilePhone) {
-            ride.customerMobile = custData.mobilePhone;
-            console.log('📱 CRM mobilePhone → customerMobile:', ride.customerMobile, 'für:', ride.firebaseId);
-          } else if (custData.phone && isMobileNumber(custData.phone)) {
-            ride.customerMobile = custData.phone;
-            console.log('📱 CRM phone (ist Mobil) → customerMobile:', ride.customerMobile, 'für:', ride.firebaseId);
-          }
-          if (custData.phone && !ride.customerPhone) ride.customerPhone = custData.phone;
-        }
-      } catch (e) {
-        console.log('⚠️ CRM-Lookup fehlgeschlagen für:', ride.firebaseId, e.message || e);
-      }
-    }
-
     const vehicleName = ride.vehicleLabel || ride.vehicle || ride.assignedVehicle || ride.assignedDriver || '';
     const vehiclePlate = ride.vehiclePlate ? ` (${ride.vehiclePlate})` : '';
     const vehicleDisplay = vehicleName ? vehicleName + vehiclePlate : '';
@@ -469,7 +446,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.4 (Telefonnummer-Fix)');
+  lines.push('📝 Erstellt von: CalendarSync v4.7');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -620,7 +597,7 @@ function setupAutomaticSync() {
 // 🧪 TEST-FUNKTION
 // ═══════════════════════════════════════════════════════════════
 function testSync() {
-  console.log('🧪 TEST-MODUS v4.4 - TELEFONNUMMER-FIX');
+  console.log('🧪 TEST-MODUS v4.7');
   console.log('═══════════════════════════════════════════');
   console.log('🔧 FIX 1: Blacklist statt Whitelist (alle Status außer storniert)');
   console.log('🔧 FIX 2: Sicherheitscheck bei leerem Firebase-Ergebnis');

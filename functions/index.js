@@ -10906,13 +10906,20 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     }
 
     // 3. VERGLEICH: Kürzere Route gewinnt
+    // 🆕 v6.32.1: Standort-Malus — Rückfahrt zum Standort bestraft, Direktfahrt bevorzugt
+    const standortMalus = (pricingSettings && pricingSettings.standortMalusMinuten != null)
+        ? pricingSettings.standortMalusMinuten : 30;
     if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
-        const zeitersparnis = Math.round(homebaseDurationMin - direktDurationMin);
-        if (direktDurationMin <= homebaseDurationMin && direktResult) {
-            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min)`);
+        const homebaseEffektiv = homebaseDurationMin + standortMalus;
+        const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);
+        if (direktDurationMin <= homebaseEffektiv && direktResult) {
+            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus)`);
             return direktResult;
         } else if (homebaseResult) {
-            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min (besser als direkt ${Math.round(direktDurationMin)} Min)`);
+            // Standort-Malus zum Ergebnis addieren damit der Score korrekt ist
+            homebaseResult.durationMin = Math.round(homebaseEffektiv);
+            homebaseResult.standortMalus = standortMalus;
+            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus (besser als direkt ${Math.round(direktDurationMin)} Min)`);
             return homebaseResult;
         }
     }

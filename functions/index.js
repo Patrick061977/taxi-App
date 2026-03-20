@@ -1702,6 +1702,11 @@ async function searchNominatimForTelegram(query) {
     // 🔧 v6.25.5: Deutsche Straßen-Abkürzungen expandieren für bessere Nominatim-Ergebnisse
     // "Str" / "Str." → "Straße", "Pl" / "Pl." → "Platz" etc.
     query = query.replace(/\bStr\.?\b/g, 'Straße').replace(/\bPl\.?\b/g, 'Platz').replace(/\bHbf\.?\b/gi, 'Hauptbahnhof').replace(/\bBhf\.?\b/gi, 'Bahnhof');
+    // 🔧 v6.25.5: Reine PLZ-Eingabe zu Ortsname expandieren (z.B. "17424" → "Heringsdorf")
+    const purePlZMatch = query.trim().match(/^(\d{5})$/);
+    if (purePlZMatch && PLZ_CENTERS[purePlZMatch[1]]) {
+        query = PLZ_CENTERS[purePlZMatch[1]].name;
+    }
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
     const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
@@ -6471,6 +6476,7 @@ async function handleCallback(callback) {
         hilfeMsg += '💡 <b>Tipps für Adressen:</b>\n';
         hilfeMsg += '• Straße ausschreiben: <i>„Maxim-Gorki-Straße 23"</i>\n';
         hilfeMsg += '• Ort angeben: <i>„Heringsdorf"</i>, <i>„Ahlbeck"</i>, <i>„Bansin"</i>\n';
+        hilfeMsg += '• PLZ funktioniert: <i>„17424 Dünenweg 8"</i> oder nur <i>„17424"</i>\n';
         hilfeMsg += '• Bekannte Orte: <i>„Bahnhof Heringsdorf"</i>, <i>„Lidl Bansin"</i>\n';
         hilfeMsg += '• 📍 Standort senden statt tippen (📎 → Standort)\n\n';
         hilfeMsg += '<b>Befehle:</b>\n';
@@ -9965,7 +9971,14 @@ async function handleCallback(callback) {
             if (!booking.missing.includes(field)) booking.missing.push(field);
             delete pending.nominatimResults;
             const fieldLabel = field === 'pickup' ? 'Abholort' : 'Zielort';
-            await sendTelegramMessage(chatId, `✏️ Bitte geben Sie den <b>${fieldLabel}</b> erneut ein:`);
+            await sendTelegramMessage(chatId,
+                `✏️ Bitte geben Sie den <b>${fieldLabel}</b> erneut ein:\n\n` +
+                `💡 <b>So geht's:</b>\n` +
+                `• Straße + Hausnummer + Ort: <i>„Dünenstraße 5, Ahlbeck"</i>\n` +
+                `• Bekannter Ort: <i>„Bahnhof Heringsdorf"</i>\n` +
+                `• PLZ + Straße: <i>„17424 Maxim-Gorki-Straße 23"</i>\n` +
+                `• Nur PLZ: <i>„17424"</i> (zeigt Orte in Heringsdorf)\n` +
+                `• 📍 Oder senden Sie Ihren <b>Standort</b> (📎 → Standort)`);
             await setPending(chatId, { partial: booking, originalText: pending.originalText || '' });
         }
         return;

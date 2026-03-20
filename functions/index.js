@@ -1699,6 +1699,9 @@ async function searchNominatimForTelegram(query) {
     // 🔧 v6.25.4: Hausnummern-Bereiche normalisieren ("7 bis 8" → "7", "7-8" → "7")
     // Nominatim kann keine Hausnummern-Bereiche, nimmt nur die erste Nummer
     query = query.replace(/(\d+)\s*(?:bis|[-–])\s*\d+/gi, '$1');
+    // 🔧 v6.25.5: Deutsche Straßen-Abkürzungen expandieren für bessere Nominatim-Ergebnisse
+    // "Str" / "Str." → "Straße", "Pl" / "Pl." → "Platz" etc.
+    query = query.replace(/\bStr\.?\b/g, 'Straße').replace(/\bPl\.?\b/g, 'Platz').replace(/\bHbf\.?\b/gi, 'Hauptbahnhof').replace(/\bBhf\.?\b/gi, 'Bahnhof');
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
     const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
@@ -5439,10 +5442,10 @@ async function handleMessage(message) {
             if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
-                { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
-            ]] } });
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] } });
         } else if (matches.length > 1) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText, userName: savedUserName, crmMultiSelect: { matches, confirmId }, customerName });
@@ -5453,6 +5456,7 @@ async function handleMessage(message) {
                 return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
             });
             buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
             await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
         } else {
             // Nicht gefunden → Kundennamen-Suche anbieten
@@ -5485,10 +5489,10 @@ async function handleMessage(message) {
             if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
-                { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
-            ]] } });
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] } });
         } else if (matches.length > 1) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmMultiSelect: { matches, confirmId }, customerName });
@@ -5499,6 +5503,7 @@ async function handleMessage(message) {
                 return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
             });
             buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
             await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
         } else {
             const _newCustId = Date.now().toString(36);
@@ -5695,10 +5700,10 @@ async function handleMessage(message) {
             if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
             if (found.address) confirmMsg += `🏠 ${found.address}\n`;
             confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
-                { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
-            ]] } });
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] } });
         } else if (matches.length > 1) {
             const confirmId = Date.now().toString(36);
             await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmMultiSelect: { matches, confirmId }, customerName });
@@ -5709,6 +5714,7 @@ async function handleMessage(message) {
                 return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
             });
             buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
             await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
         } else {
             // 🆕 v6.14.0: Nicht gefunden → Neuen Kunden anlegen anbieten
@@ -6222,10 +6228,10 @@ async function handleMessage(message) {
                     if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                     if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                     confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-                    await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                        { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
-                        { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
-                    ]] } });
+                    await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] } });
                     return;
                 }
             }
@@ -6263,10 +6269,10 @@ async function handleMessage(message) {
             if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                 if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                 confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-                await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                    { text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` },
-                    { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }
-                ]] } });
+                await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                    [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] } });
                 return;
             } else if (matches.length > 1) {
                 const confirmId = Date.now().toString(36);
@@ -6278,6 +6284,7 @@ async function handleMessage(message) {
                     return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
                 });
                 buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+                buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
                 await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
                 return;
             } else {
@@ -6447,26 +6454,33 @@ async function handleCallback(callback) {
     if (data === 'menu_hilfe') {
         let hilfeMsg = '🚕 <b>Funk Taxi Heringsdorf – Taxibot</b>\n\n';
         hilfeMsg += '<b>Das kann ich für Sie tun:</b>\n';
-        hilfeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie einfach wann und wohin\n';
+        hilfeMsg += '🚕 <b>Fahrt buchen</b> – Schreiben Sie wann und wohin\n';
         hilfeMsg += '📊 <b>Fahrten ansehen</b> – Gebuchte Fahrten einsehen\n';
         hilfeMsg += '✏️ <b>Fahrten bearbeiten</b> – Zeit, Adresse oder Details ändern\n';
         hilfeMsg += '🗑️ <b>Fahrten stornieren</b> – Buchungen absagen\n';
         hilfeMsg += '👤 <b>Profil verwalten</b> – Name, Telefon, Adresse\n';
-        hilfeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort, um sofort ab Ihrem Standort zu buchen\n\n';
-        hilfeMsg += '<b>Befehle (Slash):</b>\n';
+        hilfeMsg += '📍 <b>Standort senden</b> – Tippen Sie auf 📎 → Standort\n\n';
+        hilfeMsg += '<b>📝 So buchen Sie richtig:</b>\n';
+        hilfeMsg += '1️⃣ Schreiben Sie alles in <b>einer Nachricht</b>:\n';
+        hilfeMsg += '   <i>„Morgen 10 Uhr von Dünenstraße 5, Ahlbeck zum Bahnhof Heringsdorf"</i>\n\n';
+        hilfeMsg += '2️⃣ <b>Oder Schritt für Schritt</b> — der Bot fragt nach:\n';
+        hilfeMsg += '   • 📍 Abholort (Straße + Hausnr. + Ort)\n';
+        hilfeMsg += '   • 🎯 Zielort (Straße + Hausnr. + Ort)\n';
+        hilfeMsg += '   • 🕐 Datum und Uhrzeit\n';
+        hilfeMsg += '   • 👥 Personenzahl\n\n';
+        hilfeMsg += '💡 <b>Tipps für Adressen:</b>\n';
+        hilfeMsg += '• Straße ausschreiben: <i>„Maxim-Gorki-Straße 23"</i>\n';
+        hilfeMsg += '• Ort angeben: <i>„Heringsdorf"</i>, <i>„Ahlbeck"</i>, <i>„Bansin"</i>\n';
+        hilfeMsg += '• Bekannte Orte: <i>„Bahnhof Heringsdorf"</i>, <i>„Lidl Bansin"</i>\n';
+        hilfeMsg += '• 📍 Standort senden statt tippen (📎 → Standort)\n\n';
+        hilfeMsg += '<b>Befehle:</b>\n';
         hilfeMsg += '/buchen – 🚕 Neue Fahrt buchen\n';
         hilfeMsg += '/status – 📊 Ihre Fahrten\n';
         hilfeMsg += '/ändern – ✏️ Fahrt bearbeiten\n';
         hilfeMsg += '/löschen – 🗑️ Fahrt stornieren\n';
         hilfeMsg += '/profil – 👤 Profil bearbeiten\n';
         hilfeMsg += '/abbrechen – ❌ Buchung abbrechen\n';
-        hilfeMsg += '/abmelden – 🔓 Abmelden\n';
         hilfeMsg += '/hilfe – ℹ️ Diese Übersicht\n\n';
-        hilfeMsg += '<b>Oder einfach als Text schreiben:</b>\n';
-        hilfeMsg += '• „<i>Fahrt buchen</i>" oder „<i>Taxi bestellen</i>"\n';
-        hilfeMsg += '• „<i>Fahrt löschen</i>" oder „<i>Stornieren</i>"\n';
-        hilfeMsg += '• „<i>Fahrt ändern</i>" oder „<i>Umbuchen</i>"\n';
-        hilfeMsg += '• „<i>Meine Fahrten</i>" oder „<i>Status</i>"\n\n';
         hilfeMsg += '📞 <b>Fragen oder Probleme?</b>\nRufen Sie uns an: <b>038378 / 22022</b>';
         await sendTelegramMessage(chatId, hilfeMsg, { reply_markup: { inline_keyboard: [
             [{ text: '🏠 Menü', callback_data: 'main_menu' }]

@@ -6249,8 +6249,17 @@ async function handleMessage(message) {
         const vomMatch = !fuerMatch && text.match(/\b(?:vom|von(?:\s+dem)?)\s+(?:(?:hotel|pension|haus|gasthof|gasthaus)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
         let extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : (vomMatch ? vomMatch[1].trim() : null);
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus'];
-        const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+        // 🔧 v6.25.5: Wochentage + Zeitangaben als generische Wörter (nicht als Kundenname!)
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus',
+            'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag',
+            'mittag', 'abend', 'nachmittag', 'vormittag', 'nacht', 'früh', 'spät', 'übermorgen'];
+        // Prüfe auch zusammengesetzte Zeitangaben wie "Samstag früh", "Montag mittag"
+        const extractedLower = extractedCustomerName ? extractedCustomerName.toLowerCase() : '';
+        const extractedWords = extractedLower.split(/\s+/);
+        const isGenericWord = extractedCustomerName && (
+            genericWords.includes(extractedLower) ||
+            extractedWords.every(w => genericWords.includes(w))
+        );
         // 🆕 v6.14.2: Bei "vom"-Pattern nur akzeptieren wenn CRM-Treffer existiert (sonst ist es ein Ortsname)
         const isVomPattern = !fuerMatch && !!vomMatch;
 

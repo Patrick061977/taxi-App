@@ -12275,6 +12275,29 @@ exports.onRideCreated = onValueCreated(
         } catch (e) { /* non-critical */ }
 
         await addTelegramLog('📱', 'cloud', `Neue Fahrt: ${ride.customerName || '?'} (${statusText})`, { rideId });
+
+        // 🆕 v6.34.0: Order-Log Eintrag erstellen
+        try {
+            await db.ref('orderLog').push({
+                rideId,
+                event: 'created',
+                timestamp: Date.now(),
+                date: new Date().toISOString(),
+                customerName: ride.customerName || '',
+                customerPhone: ride.customerPhone || '',
+                pickup: ride.pickup || '',
+                destination: ride.destination || '',
+                status: ride.status || 'new',
+                assignedVehicle: ride.assignedVehicle || ride.assignedTo || '',
+                bookingSource: ride.bookingSource || 'unknown',
+                passengers: ride.passengers || 1,
+                price: ride.price || 0,
+                distance: ride.distance || 0,
+                pickupTimestamp: ride.pickupTimestamp || 0,
+                isPrebooked: !isSofort
+            });
+        } catch(e) { console.warn('📊 Order-Log Fehler:', e); }
+
         console.log(`✅ Admin-Benachrichtigung gesendet für: ${rideId}`);
     }
 );
@@ -12298,6 +12321,49 @@ exports.onRideUpdated = onValueUpdated(
         const newStatus = after.status;
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
+
+        // 🆕 v6.34.0: Order-Log bei Status-Änderung
+        if (oldStatus !== newStatus) {
+            try {
+                await db.ref('orderLog').push({
+                    rideId,
+                    event: 'status_change',
+                    timestamp: Date.now(),
+                    date: new Date().toISOString(),
+                    customerName: after.customerName || '',
+                    customerPhone: after.customerPhone || '',
+                    pickup: after.pickup || '',
+                    destination: after.destination || '',
+                    status: newStatus,
+                    previousStatus: oldStatus,
+                    assignedVehicle: after.assignedVehicle || after.assignedTo || '',
+                    bookingSource: after.bookingSource || 'unknown',
+                    passengers: after.passengers || 1,
+                    price: after.price || 0,
+                    distance: after.distance || 0,
+                    pickupTimestamp: after.pickupTimestamp || 0
+                });
+            } catch(e) { console.warn('📊 Order-Log Fehler:', e); }
+        }
+
+        // 🆕 v6.34.0: Order-Log bei Fahrzeug-Zuweisung
+        if (oldVehicle !== newVehicle && newVehicle) {
+            try {
+                await db.ref('orderLog').push({
+                    rideId,
+                    event: 'vehicle_assigned',
+                    timestamp: Date.now(),
+                    date: new Date().toISOString(),
+                    customerName: after.customerName || '',
+                    pickup: after.pickup || '',
+                    destination: after.destination || '',
+                    status: after.status || '',
+                    assignedVehicle: newVehicle,
+                    previousVehicle: oldVehicle || '',
+                    bookingSource: after.bookingSource || 'unknown'
+                });
+            } catch(e) { console.warn('📊 Order-Log Fehler:', e); }
+        }
 
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
         if (oldStatus !== newStatus) {
@@ -12527,6 +12593,25 @@ exports.onRideDeleted = onValueDeleted(
                 );
             }
         }
+
+        // 🆕 v6.34.0: Order-Log bei Löschung
+        try {
+            await db.ref('orderLog').push({
+                rideId,
+                event: 'deleted',
+                timestamp: Date.now(),
+                date: new Date().toISOString(),
+                customerName: ride.customerName || '',
+                customerPhone: ride.customerPhone || '',
+                pickup: ride.pickup || '',
+                destination: ride.destination || '',
+                status: 'deleted',
+                previousStatus: ride.status || '',
+                assignedVehicle: ride.assignedVehicle || ride.assignedTo || '',
+                bookingSource: ride.bookingSource || 'unknown',
+                price: ride.price || 0
+            });
+        } catch(e) { console.warn('📊 Order-Log Fehler:', e); }
 
         await addTelegramLog('🗑️', 'cloud', `Fahrt gelöscht: ${ride.customerName || '?'}`, { rideId });
     }

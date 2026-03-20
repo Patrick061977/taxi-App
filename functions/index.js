@@ -3754,6 +3754,11 @@ function buildBookingConfirmKeyboard(bookingId, chatId, booking) {
     keyboard.inline_keyboard.push([
         { text: _paxLabel, callback_data: `change_pax_${bookingId}` }
     ]);
+    // 🆕 v6.28.0: Name + Telefon ändern (für Admin-Buchungen)
+    keyboard.inline_keyboard.push([
+        { text: `✏️ ${booking?.name || 'Name'}`, callback_data: `chg_name_${bookingId}` },
+        { text: `📱 ${booking?.phone ? 'Tel ändern' : 'Tel hinzufügen'}`, callback_data: `chg_phone_${bookingId}` }
+    ]);
     // 🔧 v6.11.0: Tauschen + Zwischenstopp
     keyboard.inline_keyboard.push([
         { text: '🔄 Tauschen', callback_data: `swap_${bookingId}` },
@@ -4561,6 +4566,39 @@ async function handleMessage(message) {
         msg += '• <b>„Freitag 14:30 Seebrücke Bansin, 3 Personen"</b>\n\n';
         msg += '🎙️ Oder als <b>Sprachnachricht</b> einsprechen';
         await sendTelegramMessage(chatId, msg);
+        return;
+    }
+
+    // 🆕 v6.28.0: WhatsApp Test-Nachricht senden (nur Admin)
+    if (textCmd === '/watest' || textCmd === '/whatsapp') {
+        if (!await isTelegramAdmin(chatId)) {
+            await sendTelegramMessage(chatId, '⚠️ Nur für Admins.');
+            return;
+        }
+        await addTelegramLog('📱', chatId, '/watest — WhatsApp-Test gestartet');
+        const config = await loadWhatsAppConfig();
+        if (!config.enabled || !config.apiToken || !config.phoneNumberId) {
+            await sendTelegramMessage(chatId,
+                '❌ <b>WhatsApp nicht konfiguriert!</b>\n\n' +
+                'Bitte in Admin → API Keys → WhatsApp:\n' +
+                '• Phone Number ID eintragen\n' +
+                '• API Token eintragen\n' +
+                '• Checkbox aktivieren\n\n' +
+                `Status: ${config.enabled ? '✅ Aktiviert' : '❌ Deaktiviert'}\n` +
+                `Token: ${config.apiToken ? '✅ Vorhanden' : '❌ Fehlt'}\n` +
+                `Phone ID: ${config.phoneNumberId ? '✅ Vorhanden' : '❌ Fehlt'}`
+            );
+            return;
+        }
+        // Sende Test-Nachricht an Admin-Nummer aus der ersten Nachricht
+        await setPending(chatId, { _awaitingWhatsAppTest: true, _createdAt: Date.now() });
+        await sendTelegramMessage(chatId,
+            '📱 <b>WhatsApp Test</b>\n\n' +
+            `✅ API Token: Vorhanden\n✅ Phone ID: ${config.phoneNumberId}\n\n` +
+            '👉 Bitte gib die <b>Mobilnummer</b> ein, an die eine Test-Nachricht gesendet werden soll:\n\n' +
+            '<i>Format: 01771234567 oder +491771234567</i>',
+            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+        );
         return;
     }
 
@@ -5481,6 +5519,82 @@ async function handleMessage(message) {
                 ] }
             });
         }
+        return;
+    }
+
+    // 🆕 v6.28.0: WhatsApp Test — Nummer eingegeben
+    if (pending && pending._awaitingWhatsAppTest && !isPendingExpired(pending)) {
+        await deletePending(chatId);
+        let testPhone = text.trim().replace(/[^0-9+]/g, '');
+        if (testPhone.length < 8) {
+            await sendTelegramMessage(chatId, '⚠️ Ungültige Nummer. Versuche es erneut mit /watest');
+            return;
+        }
+        await sendTelegramMessage(chatId, `📱 Sende WhatsApp-Test an: <b>${testPhone}</b> ...`);
+        const testMsg = `🚕 Funk Taxi Heringsdorf – Test-Nachricht\n\n` +
+            `✅ WhatsApp Business API funktioniert!\n` +
+            `📅 ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}\n\n` +
+            `Diese Nachricht wurde automatisch über die WhatsApp Business API gesendet.`;
+        const result = await sendWhatsAppMessage(testPhone, testMsg);
+        if (result) {
+            await sendTelegramMessage(chatId, `✅ <b>WhatsApp erfolgreich gesendet!</b>\n\n📱 An: ${testPhone}\n🆔 Message-ID: <code>${result}</code>`);
+            await addTelegramLog('✅', chatId, `WhatsApp-Test erfolgreich an ${testPhone}`, { messageId: result });
+        } else {
+            await sendTelegramMessage(chatId,
+                `❌ <b>WhatsApp konnte nicht gesendet werden!</b>\n\n` +
+                `📱 An: ${testPhone}\n\n` +
+                `Mögliche Ursachen:\n` +
+                `• Nummer nicht im WhatsApp-Format (49...)\n` +
+                `• Keine Mobilnummer (nur 49-15xx/16xx/17xx)\n` +
+                `• API Token abgelaufen\n` +
+                `• Empfänger hat keine WhatsApp-Opt-In gegeben\n\n` +
+                `💡 Tipp: Prüfe die Cloud Function Logs für Details.`
+            );
+            await addTelegramLog('❌', chatId, `WhatsApp-Test FEHLGESCHLAGEN an ${testPhone}`);
+        }
+        return;
+    }
+
+    // 🆕 v6.28.0: Name ändern in Bestätigungs-Übersicht
+    if (pending && pending._awaitingNameChange && !isPendingExpired(pending)) {
+        const newName = text.trim();
+        if (newName.length < 2) {
+            await sendTelegramMessage(chatId, '⚠️ Name zu kurz. Bitte erneut eingeben:');
+            return;
+        }
+        const booking = pending.booking || pending.partial;
+        if (booking) {
+            booking.name = newName;
+            booking._forCustomer = newName;
+            if (pending.booking) pending.booking = booking;
+            if (pending.partial) pending.partial = booking;
+        }
+        delete pending._awaitingNameChange;
+        await setPending(chatId, pending);
+        await addTelegramLog('✏️', chatId, `Name geändert auf: ${newName}`);
+        // Bestätigung neu anzeigen
+        await showTelegramConfirmation(chatId, booking, pending.routePrice || null);
+        return;
+    }
+
+    // 🆕 v6.28.0: Telefon ändern in Bestätigungs-Übersicht
+    if (pending && pending._awaitingPhoneChange && !isPendingExpired(pending)) {
+        let newPhone = text.trim().replace(/[^0-9+\s\-]/g, '');
+        if (newPhone.length < 6) {
+            await sendTelegramMessage(chatId, '⚠️ Telefonnummer zu kurz. Bitte erneut eingeben:');
+            return;
+        }
+        const booking = pending.booking || pending.partial;
+        if (booking) {
+            booking.phone = newPhone;
+            if (pending.booking) pending.booking = booking;
+            if (pending.partial) pending.partial = booking;
+        }
+        delete pending._awaitingPhoneChange;
+        await setPending(chatId, pending);
+        await addTelegramLog('📱', chatId, `Telefon geändert auf: ${newPhone}`);
+        // Bestätigung neu anzeigen
+        await showTelegramConfirmation(chatId, booking, pending.routePrice || null);
         return;
     }
 
@@ -7358,6 +7472,32 @@ async function handleCallback(callback) {
         else if (data.startsWith('change_pickup_')) { booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null; booking.missing = ['pickup']; }
         else { booking.destination = null; booking.destinationLat = null; booking.destinationLon = null; booking.missing = ['destination']; }
         await continueBookingFlow(chatId, booking, '');
+        return;
+    }
+
+    // 🆕 v6.28.0: Name ändern (vor der Buchung)
+    if (data.startsWith('chg_name_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await setPending(chatId, { ...pending, _awaitingNameChange: true });
+        await sendTelegramMessage(chatId,
+            `✏️ <b>Name ändern</b>\n\nAktuell: <b>${booking.name || '—'}</b>\n\n👉 Bitte neuen Namen eingeben:`,
+            { reply_markup: { inline_keyboard: [[{ text: '↩️ Zurück', callback_data: `back_to_confirm_${pending.bookingId || ''}` }]] } }
+        );
+        return;
+    }
+
+    // 🆕 v6.28.0: Telefon ändern (vor der Buchung)
+    if (data.startsWith('chg_phone_')) {
+        const pending = await getPending(chatId);
+        const booking = pending && (pending.booking || pending.partial);
+        if (!booking) { await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr vorhanden.'); return; }
+        await setPending(chatId, { ...pending, _awaitingPhoneChange: true });
+        await sendTelegramMessage(chatId,
+            `📱 <b>Telefonnummer ändern</b>\n\nAktuell: <b>${booking.phone || 'Keine'}</b>\n\n👉 Bitte neue Telefonnummer eingeben:`,
+            { reply_markup: { inline_keyboard: [[{ text: '↩️ Zurück', callback_data: `back_to_confirm_${pending.bookingId || ''}` }]] } }
+        );
         return;
     }
 

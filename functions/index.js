@@ -5530,27 +5530,81 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, '⚠️ Ungültige Nummer. Versuche es erneut mit /watest');
             return;
         }
-        await sendTelegramMessage(chatId, `📱 Sende WhatsApp-Test an: <b>${testPhone}</b> ...`);
-        const testMsg = `🚕 Funk Taxi Heringsdorf – Test-Nachricht\n\n` +
-            `✅ WhatsApp Business API funktioniert!\n` +
-            `📅 ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}\n\n` +
-            `Diese Nachricht wurde automatisch über die WhatsApp Business API gesendet.`;
-        const result = await sendWhatsAppMessage(testPhone, testMsg);
-        if (result) {
-            await sendTelegramMessage(chatId, `✅ <b>WhatsApp erfolgreich gesendet!</b>\n\n📱 An: ${testPhone}\n🆔 Message-ID: <code>${result}</code>`);
-            await addTelegramLog('✅', chatId, `WhatsApp-Test erfolgreich an ${testPhone}`, { messageId: result });
-        } else {
+
+        // Nummer ins internationale Format bringen
+        let formattedPhone = testPhone.replace(/[\s\-\/\(\)\+]/g, '');
+        if (formattedPhone.startsWith('00')) formattedPhone = formattedPhone.substring(2);
+        if (formattedPhone.startsWith('0')) formattedPhone = '49' + formattedPhone.substring(1);
+
+        await sendTelegramMessage(chatId, `📱 Sende WhatsApp-Test an: <b>${formattedPhone}</b> ...`);
+
+        const config = await loadWhatsAppConfig();
+
+        // Mobilnummer prüfen
+        if (!formattedPhone.match(/^49(1[5-7]\d{8,9})$/)) {
             await sendTelegramMessage(chatId,
-                `❌ <b>WhatsApp konnte nicht gesendet werden!</b>\n\n` +
-                `📱 An: ${testPhone}\n\n` +
-                `Mögliche Ursachen:\n` +
-                `• Nummer nicht im WhatsApp-Format (49...)\n` +
-                `• Keine Mobilnummer (nur 49-15xx/16xx/17xx)\n` +
-                `• API Token abgelaufen\n` +
-                `• Empfänger hat keine WhatsApp-Opt-In gegeben\n\n` +
-                `💡 Tipp: Prüfe die Cloud Function Logs für Details.`
+                `❌ <b>Keine gültige deutsche Mobilnummer!</b>\n\n` +
+                `📱 Eingabe: ${testPhone}\n📱 Formatiert: ${formattedPhone}\n\n` +
+                `WhatsApp erwartet: 491511234567 (49 + Mobilvorwahl ohne 0)`
             );
-            await addTelegramLog('❌', chatId, `WhatsApp-Test FEHLGESCHLAGEN an ${testPhone}`);
+            return;
+        }
+
+        // WhatsApp API direkt aufrufen mit detaillierter Fehlerausgabe
+        try {
+            // Versuch 1: hello_world Template (funktioniert immer beim Erstkontakt)
+            const templateResp = await fetch(`https://graph.facebook.com/v22.0/${config.phoneNumberId}/messages`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + config.apiToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: formattedPhone,
+                    type: 'template',
+                    template: { name: 'hello_world', language: { code: 'en_US' } }
+                })
+            });
+            const templateData = await templateResp.json();
+
+            if (templateResp.ok && templateData.messages && templateData.messages.length > 0) {
+                const msgId = templateData.messages[0].id;
+                await sendTelegramMessage(chatId,
+                    `✅ <b>WhatsApp erfolgreich gesendet!</b>\n\n` +
+                    `📱 An: ${formattedPhone}\n` +
+                    `📝 Template: hello_world\n` +
+                    `🆔 ID: <code>${msgId}</code>\n\n` +
+                    `💡 Der Empfänger erhält die Standard-Begrüßung.\n` +
+                    `Für eigene Texte brauchst du ein Custom-Template.`
+                );
+                await addTelegramLog('✅', chatId, `WhatsApp-Test erfolgreich an ${formattedPhone}`, { messageId: msgId });
+            } else {
+                // API-Fehler anzeigen
+                const errInfo = templateData.error || templateData;
+                const errMsg = errInfo.message || JSON.stringify(errInfo).substring(0, 300);
+                const errCode = errInfo.code || '';
+                const errSubcode = errInfo.error_subcode || '';
+
+                let diagnose = '';
+                if (errCode == 190) diagnose = '\n\n🔑 <b>Token abgelaufen!</b> Neuen Token in Admin → API Keys generieren.';
+                else if (errCode == 131030) diagnose = '\n\n📱 <b>Empfänger hat kein WhatsApp</b> oder Nummer ist falsch.';
+                else if (errCode == 131026) diagnose = '\n\n⚠️ <b>Nummer nicht im richtigen Format.</b>';
+                else if (errCode == 132001) diagnose = '\n\n📝 <b>Template "hello_world" nicht vorhanden.</b> Erstelle es im WhatsApp Business Manager.';
+                else if (errSubcode == 2494010) diagnose = '\n\n🚫 <b>Dieser WhatsApp Business Account ist nicht verifiziert.</b>';
+
+                await sendTelegramMessage(chatId,
+                    `❌ <b>WhatsApp Fehler!</b>\n\n` +
+                    `📱 An: ${formattedPhone}\n` +
+                    `🔢 Code: ${errCode}${errSubcode ? ` (${errSubcode})` : ''}\n` +
+                    `💬 ${errMsg}` +
+                    diagnose
+                );
+                await addTelegramLog('❌', chatId, `WhatsApp-Test FEHLER: ${errCode} ${errMsg}`, { phone: formattedPhone });
+            }
+        } catch (e) {
+            await sendTelegramMessage(chatId,
+                `❌ <b>WhatsApp API nicht erreichbar!</b>\n\n` +
+                `Fehler: ${e.message}\n\n💡 Prüfe Internet-Verbindung und API-URL.`
+            );
+            await addTelegramLog('❌', chatId, `WhatsApp-Test Exception: ${e.message}`);
         }
         return;
     }

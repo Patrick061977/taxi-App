@@ -2250,6 +2250,34 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
         const prefix = needPickup ? 'np' : 'nd';
 
         try {
+            // 🔧 v6.25.5: Prüfe ob Ort/PLZ fehlt — wenn ja, NACHFRAGEN statt raten
+            const _addrHasPlz = /\b\d{5}\b/.test(addressToResolve);
+            const _addrOrtNames = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'trassenheide', 'karlshagen', 'koserow', 'loddin', 'ückeritz', 'zempin', 'peenemünde', 'wolgast', 'usedom', 'swinemünde', 'świnoujście', 'greifswald', 'anklam', 'rostock', 'berlin', 'stralsund', 'hamburg', 'szczecin'];
+            const _addrHasOrt = _addrOrtNames.some(o => addressToResolve.toLowerCase().includes(o));
+            const _addrLooksLikeStreet = /straße|weg\b|ring\b|allee|chaussee|platz|gasse|damm|steig|pfad|ufer|str\b|str\./i.test(addressToResolve);
+            if (!_addrHasPlz && !_addrHasOrt && _addrLooksLikeStreet) {
+                // Straße ohne Ort → Nachfragen!
+                const pendingState = { partial: { ...booking, missing: [] }, originalText };
+                pendingState._awaitingOrtForAddress = { field: fieldToResolve, address: addressToResolve };
+                await setPending(chatId, pendingState);
+                await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" ohne Ort/PLZ → frage nach`);
+                await sendTelegramMessage(chatId,
+                    `❓ <b>Welcher Ort?</b>\n\n` +
+                    `Sie haben eingegeben: <b>${addressToResolve}</b>\n\n` +
+                    `Bitte ergänzen Sie den <b>Ort</b> oder die <b>PLZ</b>:\n` +
+                    `<i>z.B. „Heringsdorf", „Ahlbeck", „17424"</i>\n\n` +
+                    `💡 Oder senden Sie Ihren <b>Standort</b> (📎 → Standort)`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '📍 Heringsdorf', callback_data: `addr_ort_heringsdorf_${fieldToResolve}` },
+                         { text: '📍 Ahlbeck', callback_data: `addr_ort_ahlbeck_${fieldToResolve}` },
+                         { text: '📍 Bansin', callback_data: `addr_ort_bansin_${fieldToResolve}` }],
+                        [{ text: '✏️ Anderen Ort eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] } }
+                );
+                return null;
+            }
+
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
             if (suggestions.length > 0) {
@@ -5918,6 +5946,23 @@ async function handleMessage(message) {
         }
     }
 
+    // 🔧 v6.25.5: Ort/PLZ als Freitext eingegeben (nach "Welcher Ort?" Nachfrage)
+    if (pending && pending._awaitingOrtForAddress && !isPendingExpired(pending)) {
+        const { field, address } = pending._awaitingOrtForAddress;
+        const ortText = text.trim();
+        // PLZ-Eingabe → Ort auflösen
+        const _plzMatch = ortText.match(/^(\d{5})$/);
+        const resolvedOrt = (_plzMatch && PLZ_CENTERS[_plzMatch[1]]) ? PLZ_CENTERS[_plzMatch[1]].name : ortText;
+        const fullAddr = `${address}, ${resolvedOrt}`;
+        const booking = pending.partial;
+        if (field === 'pickup') booking.pickup = fullAddr;
+        else booking.destination = fullAddr;
+        delete pending._awaitingOrtForAddress;
+        await addTelegramLog('📍', chatId, `Ort ergänzt: "${address}" + "${ortText}" → "${fullAddr}"`);
+        await continueBookingFlow(chatId, booking, pending.originalText || '');
+        return;
+    }
+
     // "Anderes Ziel" → Admin hat Freitext für neue Buchung eingegeben
     if (pending && pending._awaitingNewBookingText) {
         const { preselectedCustomer, userName: savedUserName } = pending;
@@ -6249,8 +6294,17 @@ async function handleMessage(message) {
         const vomMatch = !fuerMatch && text.match(/\b(?:vom|von(?:\s+dem)?)\s+(?:(?:hotel|pension|haus|gasthof|gasthaus)\s+)?([A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+(?:\s+[A-ZÄÖÜa-zäöüß][A-ZÄÖÜa-zäöüß\-]+)?)\b/i);
         let extractedCustomerName = fuerMatch ? fuerMatch[1].trim() : (vomMatch ? vomMatch[1].trim() : null);
         // Filtere generische Wörter die kein Kundenname sind
-        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus'];
-        const isGenericWord = extractedCustomerName && genericWords.includes(extractedCustomerName.toLowerCase());
+        // 🔧 v6.25.5: Wochentage + Zeitangaben als generische Wörter (nicht als Kundenname!)
+        const genericWords = ['mich', 'uns', 'sich', 'morgen', 'heute', 'jetzt', 'gleich', 'sofort', 'personen', 'person', 'leute', 'gäste', 'gast', 'uhr', 'taxi', 'fahrt', 'buchung', 'hause', 'zuhause', 'hier', 'dort', 'haus',
+            'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag',
+            'mittag', 'abend', 'nachmittag', 'vormittag', 'nacht', 'früh', 'spät', 'übermorgen'];
+        // Prüfe auch zusammengesetzte Zeitangaben wie "Samstag früh", "Montag mittag"
+        const extractedLower = extractedCustomerName ? extractedCustomerName.toLowerCase() : '';
+        const extractedWords = extractedLower.split(/\s+/);
+        const isGenericWord = extractedCustomerName && (
+            genericWords.includes(extractedLower) ||
+            extractedWords.every(w => genericWords.includes(w))
+        );
         // 🆕 v6.14.2: Bei "vom"-Pattern nur akzeptieren wenn CRM-Treffer existiert (sonst ist es ein Ortsname)
         const isVomPattern = !fuerMatch && !!vomMatch;
 
@@ -7697,24 +7751,51 @@ async function handleCallback(callback) {
         if (!pending) return;
         const booking = pending.partial || pending.booking;
         if (!booking) return;
-        // Zielort löschen → wird erneut abgefragt
-        if (booking.destination) {
-            booking.destination = null;
-            booking.destinationLat = null;
-            booking.destinationLon = null;
-            if (!booking.missing) booking.missing = [];
-            if (!booking.missing.includes('destination')) booking.missing.push('destination');
-        } else if (booking.pickup) {
-            // Kein Zielort vorhanden → Abholort löschen
-            booking.pickup = null;
-            booking.pickupLat = null;
-            booking.pickupLon = null;
+        delete pending._dtPicker;
+        // 🔧 v6.25.5: Auswahlmenü statt blind Adressen löschen
+        const _hasPickup = !!(booking.pickup && booking.pickupLat);
+        const _hasDest = !!(booking.destination && booking.destinationLat);
+        const _btns = [];
+        if (_hasPickup) _btns.push([{ text: `📍 Abholort ändern: ${(booking.pickup || '').substring(0, 35)}${(booking.pickup || '').length > 35 ? '…' : ''}`, callback_data: 'dtback_change_pickup' }]);
+        if (_hasDest) _btns.push([{ text: `🎯 Zielort ändern: ${(booking.destination || '').substring(0, 35)}${(booking.destination || '').length > 35 ? '…' : ''}`, callback_data: 'dtback_change_dest' }]);
+        _btns.push([{ text: '🕐 Datum/Uhrzeit wählen', callback_data: 'dtback_continue_dt' }]);
+        _btns.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+        await setPending(chatId, pending);
+        await sendTelegramMessage(chatId,
+            `◀️ <b>Was möchten Sie ändern?</b>\n\n` +
+            (_hasPickup ? `📍 Von: <b>${booking.pickup}</b>\n` : '') +
+            (_hasDest ? `🎯 Nach: <b>${booking.destination}</b>\n` : ''),
+            { reply_markup: { inline_keyboard: _btns } }
+        );
+        await addTelegramLog('◀️', chatId, 'Zurück von DateTime-Picker → Änderungsmenü');
+        return;
+    }
+    // 🔧 v6.25.5: Einzelne Adressen aus dem Zurück-Menü ändern
+    if (data === 'dtback_change_pickup' || data === 'dtback_change_dest') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.partial || pending.booking;
+        if (!booking) return;
+        const isPickup = data === 'dtback_change_pickup';
+        if (isPickup) {
+            booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null;
             if (!booking.missing) booking.missing = [];
             if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
+        } else {
+            booking.destination = null; booking.destinationLat = null; booking.destinationLon = null;
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes('destination')) booking.missing.push('destination');
         }
-        delete pending._dtPicker;
-        await addTelegramLog('◀️', chatId, 'Zurück von DateTime-Picker → Adresse ändern');
+        await addTelegramLog('◀️', chatId, `Zurück: ${isPickup ? 'Abholort' : 'Zielort'} wird geändert`);
         await continueBookingFlow(chatId, booking, pending.originalText || '');
+        return;
+    }
+    if (data === 'dtback_continue_dt') {
+        const pending = await getPending(chatId);
+        if (!pending) return;
+        const booking = pending.partial || pending.booking;
+        if (!booking) return;
+        await showDateTimePicker(chatId, booking, pending.originalText || '');
         return;
     }
 
@@ -8233,9 +8314,12 @@ async function handleCallback(callback) {
             const label = isPickup ? 'Abholort' : 'Zielort';
             await sendTelegramMessage(chatId,
                 `📍 <b>${label} eingeben</b>\n\n` +
-                `Sie haben 2 Möglichkeiten:\n\n` +
-                `1️⃣ <b>Standort senden:</b> Tippen Sie auf 📎 und dann auf „Standort"\n\n` +
-                `2️⃣ <b>Adresse eintippen:</b> Schreiben Sie einfach die Adresse als Nachricht`,
+                `1️⃣ <b>Standort senden:</b> Tippen Sie auf 📎 → Standort\n\n` +
+                `2️⃣ <b>Adresse eintippen:</b>\n` +
+                `<i>„Maxim-Gorki-Straße 23, Heringsdorf"</i>\n` +
+                `<i>„Bahnhof Ahlbeck"</i>\n` +
+                `<i>„17424 Dünenweg 8"</i>\n\n` +
+                `💡 Bitte <b>Ort</b> oder <b>PLZ</b> mit angeben!`,
                 { reply_markup: { inline_keyboard: [
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ] } }
@@ -9952,6 +10036,25 @@ async function handleCallback(callback) {
             const booking = pending.partial;
             booking._auftraggeberResolved = true;
             await addTelegramLog('⏭️', chatId, `Auftraggeber-Adresse übersprungen`);
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+        }
+        return;
+    }
+
+    // 🔧 v6.25.5: Ort-Schnellauswahl für Straße ohne Ort
+    if (data.startsWith('addr_ort_')) {
+        const parts = data.replace('addr_ort_', '').split('_');
+        const ortName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1); // "heringsdorf" → "Heringsdorf"
+        const field = parts[1]; // "pickup" oder "destination"
+        const pending = await getPending(chatId);
+        if (pending && pending._awaitingOrtForAddress) {
+            const originalAddr = pending._awaitingOrtForAddress.address;
+            const fullAddr = `${originalAddr}, ${ortName}`;
+            const booking = pending.partial;
+            if (field === 'pickup') booking.pickup = fullAddr;
+            else booking.destination = fullAddr;
+            delete pending._awaitingOrtForAddress;
+            await addTelegramLog('📍', chatId, `Ort ergänzt: "${originalAddr}" → "${fullAddr}"`);
             await continueBookingFlow(chatId, booking, pending.originalText || '');
         }
         return;

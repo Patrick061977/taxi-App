@@ -11612,11 +11612,13 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     const homeLon = homeCoords?.lon || null;
 
     // Vorherige Fahrt auf diesem Fahrzeug AM SELBEN TAG suchen
+    // 🔧 v6.33.6: 'completed' und 'abgeschlossen' ausschließen!
+    // Erledigte Fahrten verfälschen die Leerfahrt-Berechnung
     const vehicleRides = allRides.filter(r => {
         if (r.assignedVehicle !== vehicleId) return false;
         if (r.firebaseId === targetRide.firebaseId) return false;
         if (!r.pickupTimestamp || r.pickupTimestamp >= targetRide.pickupTimestamp) return false;
-        if (['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status)) return false;
+        if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','abgeschlossen'].includes(r.status)) return false;
         // Nur Fahrten desselben Tages
         const rDateStr = berlinDateGlobal(r.pickupTimestamp);
         return rDateStr === dateStr;

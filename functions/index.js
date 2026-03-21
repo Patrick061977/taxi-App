@@ -226,8 +226,8 @@ async function loadTarifFromFirebase() {
 const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
 
 const OFFICIAL_VEHICLES = {
-    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 1 },
-    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 2 },
+    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 1 },
+    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 2 },
     'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4, priority: 3 },
     'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8, priority: 4 },
     'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8, priority: 5 }

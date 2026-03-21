@@ -11038,16 +11038,42 @@ exports.autoResolveConflicts = onSchedule(
             // Alle aktiven zukünftigen Fahrten sammeln
             const now = Date.now();
             const allRides = [];
+            const unassignedRides = [];
             ridesSnap.forEach(c => {
                 const r = { ...c.val(), firebaseId: c.key };
                 if (r.pickupTimestamp &&
                     r.pickupTimestamp > now + vorlaufMin * 60000 &&
                     !['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status) &&
-                    !r.assignmentLocked &&
-                    r.assignedVehicle) {
-                    allRides.push(r);
+                    !r.assignmentLocked) {
+                    if (r.assignedVehicle) {
+                        allRides.push(r);
+                    } else {
+                        unassignedRides.push(r);
+                    }
                 }
             });
+
+            // 🔧 v6.25.4: PHASE -1 — Unzugewiesene Vorbestellungen zuweisen
+            // Cloud übernimmt jetzt die Zuweisung (Browser macht das nicht mehr)
+            if (unassignedRides.length > 0) {
+                console.log(`🚕 Phase -1: ${unassignedRides.length} unzugewiesene Vorbestellung(en) zuweisen...`);
+                for (const ride of unassignedRides) {
+                    try {
+                        const result = await autoAssignRide(ride.firebaseId, ride);
+                        if (result && result.vehicleId) {
+                            const vName = (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
+                            console.log(`   ✅ ${ride.customerName || '?'} → ${vName} zugewiesen`);
+                            // In allRides aufnehmen für weitere Phasen
+                            ride.assignedVehicle = result.vehicleId;
+                            allRides.push(ride);
+                        } else {
+                            console.log(`   ⚠️ ${ride.customerName || '?'} — kein Fahrzeug verfügbar`);
+                        }
+                    } catch(e) {
+                        console.error(`   ❌ Zuweisung fehlgeschlagen für ${ride.firebaseId}:`, e.message);
+                    }
+                }
+            }
 
             if (allRides.length === 0) {
                 console.log('✅ Keine relevanten Fahrten gefunden');
@@ -11684,27 +11710,29 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     }
 
     // 3. VERGLEICH: Kürzere Route gewinnt
-    // 🆕 v6.33.0: Standort-Malus NUR anwenden wenn BEIDE Routen verfügbar!
-    // Wenn Fahrer schon am Standort steht → kein Umweg, kein Malus.
-    // Malus nur als Tie-Breaker: Direktfahrt vs. Umweg über Standort.
+    // 🔧 v6.25.4: Standort-Malus NUR bei kurzem Gap!
+    // Bei großem Gap (> 60 Min) ist der Fahrer definitiv am Standort → Homebase gewinnt immer
+    // Malus nur sinnvoll bei 30-60 Min Gap (Fahrer könnte noch unterwegs sein)
     const vShiftData = shiftsData && shiftsData[vehicleId];
     const standortMalusRaw = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
         ? vShiftData.direktfahrtPrioritaet
         : (pricingSettings && pricingSettings.standortMalusMinuten != null)
             ? pricingSettings.standortMalusMinuten : 30;
     if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
-        // Malus nur anwenden wenn beide Routen berechenbar sind (echter Vergleich)
         const hasBothRoutes = direktDurationMin < Infinity && homebaseDurationMin < Infinity;
-        const standortMalus = hasBothRoutes ? standortMalusRaw : 0;
+        // 🔧 v6.25.4: Bei Gap > 60 Min ist der Fahrer sicher am Standort → KEIN Malus!
+        // Standort-Malus nur bei kurzem Gap (30-60 Min) wo unklar ist ob Fahrer schon zurück
+        const fahrerSicherAmStandort = gapMinutes >= 60;
+        const standortMalus = (hasBothRoutes && !fahrerSicherAmStandort) ? standortMalusRaw : 0;
         const homebaseEffektiv = homebaseDurationMin + standortMalus;
         const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);
         if (hasBothRoutes && direktDurationMin <= homebaseEffektiv && direktResult) {
-            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus)`);
+            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ' (kein Malus, ${Math.round(gapMinutes)} Min Gap)'})`);
             return direktResult;
         } else if (homebaseResult) {
             homebaseResult.durationMin = Math.round(homebaseEffektiv);
             homebaseResult.standortMalus = standortMalus;
-            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ' (kein Malus, Fahrer am Standort)'}`);
+            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ` (kein Malus, ${Math.round(gapMinutes)} Min Gap → Fahrer am Standort)`}`);
             return homebaseResult;
         } else if (direktResult) {
             console.log(`🔗 ${vehicleId}: Nur Direktfahrt verfügbar: ${Math.round(direktDurationMin)} Min`);
@@ -12274,6 +12302,22 @@ exports.onRideCreated = onValueCreated(
         try {
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
         } catch (e) { /* non-critical */ }
+
+        // 🔧 v6.25.4: Auto-Zuweisung für Vorbestellungen direkt in Cloud
+        // Browser macht das nicht mehr wenn Webhook aktiv
+        if (!isSofort && !ride.assignedVehicle && ride.pickupTimestamp && ride.pickupTimestamp > now + 30 * 60000) {
+            try {
+                console.log(`🚕 Cloud: Auto-Zuweisung für Vorbestellung ${rideId}...`);
+                const assignResult = await autoAssignRide(rideId, ride);
+                if (assignResult && assignResult.vehicleId) {
+                    console.log(`✅ Cloud: Vorbestellung ${rideId} → ${assignResult.vehicleName || assignResult.vehicleId} zugewiesen`);
+                } else {
+                    console.log(`⚠️ Cloud: Kein Fahrzeug für Vorbestellung ${rideId} gefunden — wird von autoResolveConflicts behandelt`);
+                }
+            } catch(e) {
+                console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
+            }
+        }
 
         await addTelegramLog('📱', 'cloud', `Neue Fahrt: ${ride.customerName || '?'} (${statusText})`, { rideId });
         console.log(`✅ Admin-Benachrichtigung gesendet für: ${rideId}`);

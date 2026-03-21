@@ -12231,9 +12231,10 @@ exports.onRideCreated = onValueCreated(
         const now = Date.now();
         const pickupTs = ride.pickupTimestamp || now;
         const isToday = new Date(pickupTs).toDateString() === new Date(now).toDateString();
-        // 🔧 v6.25.4: Sofortfahrt = Abholzeit < 60 Min in der Zukunft (einheitlich mit autoAssignRide)
-        // isJetzt = explizit "jetzt/sofort" gesagt, ODER keine Abholzeit, ODER < 60 Min
-        const isSofort = ride.isJetzt === true || !ride.pickupTimestamp || (pickupTs - now) < 60 * 60 * 1000;
+        // 🔧 v6.33.4: Sofortfahrt = Abholzeit < 25 Min in der Zukunft (15 Min + 10 Min Anfahrt)
+        // isJetzt = explizit "jetzt/sofort" gesagt, ODER keine Abholzeit, ODER < 25 Min
+        const anfahrtMin = ride.drivingTimeToPickup || 10;
+        const isSofort = ride.isJetzt === true || !ride.pickupTimestamp || (pickupTs - now) < (15 + anfahrtMin) * 60 * 1000;
 
         let pickupTimeFormatted, statusEmoji, statusText;
         if (isSofort) {
@@ -12419,7 +12420,8 @@ exports.onRideUpdated = onValueUpdated(
                     if (after.guestPhone) customerInfo += `\n📱 <b>Fahrgast-Tel:</b> ${after.guestPhone}`;
 
                     const pickupLabel = after.pickupTime || 'Sofort';
-                    const isVorbestellung = after.status === 'vorbestellt' || (after.pickupTimestamp && (after.pickupTimestamp - Date.now()) > 60 * 60 * 1000);
+                    const _anfahrt = after.drivingTimeToPickup || 10;
+                    const isVorbestellung = after.status === 'vorbestellt' || (after.pickupTimestamp && (after.pickupTimestamp - Date.now()) > (15 + _anfahrt) * 60 * 1000);
 
                     const driverMsg = `🚨 <b>${isVorbestellung ? '📅 NEUE VORBESTELLUNG!' : 'NEUER AUFTRAG FÜR DICH!'}</b> 🚨\n` +
                         `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +

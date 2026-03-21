@@ -11195,8 +11195,8 @@ exports.autoResolveConflicts = onSchedule(
                     const nextStartMs = next.pickupTimestamp;
 
                     // 🆕 v6.33.6: Rückfahrt zur Basis + Anfahrt zum nächsten Abholort einrechnen!
-                    // Fahrer fährt nach jeder Fahrt zurück zur Basis und wartet dort.
-                    // Route: Zielort A → Basis → Abholort B
+                    // Regel: Fahrer fährt nach JEDER Fahrt zurück zur Basis — AUSSER bei Anschlussfahrt.
+                    // Anschlussfahrt = kurze Pause + Abholort nah am Zielort → direkt weiter
                     let leerfahrtMs = 0;
                     let leerfahrtMin = 0;
                     let leerfahrtDetail = '';
@@ -11207,10 +11207,31 @@ exports.autoResolveConflicts = onSchedule(
                     const rideTimeStr = berlinTime(curr.pickupTimestamp);
                     const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, rideTimeStr);
 
+                    // Anschlussfahrt-Erkennung: Pause kurz + Abholort nah am Zielort
+                    const afZeitfensterMin = pricingSettings.anschlussfahrtZeitfensterMin ?? 20;
+                    const afRadiusKm = pricingSettings.anschlussfahrtRadiusKm ?? 5;
+                    const gapMinutes = (nextStartMs - currEndMs) / 60000;
+                    let destToPickupKm = 999;
+                    if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
+                        destToPickupKm = gpsDistanceKm(currDestLat, currDestLon, nextPickupLat, nextPickupLon);
+                    }
+                    const isAnschlussfahrt = gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
+
                     if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
                         try {
-                            if (homeCoords?.lat && homeCoords?.lon) {
-                                // Route: Zielort → Basis → nächster Abholort
+                            if (isAnschlussfahrt) {
+                                // ANSCHLUSSFAHRT: Fahrer bleibt vor Ort → Direktroute Ziel → Abholort
+                                const direktRoute = await calculateRoute(
+                                    { lat: currDestLat, lon: currDestLon },
+                                    { lat: nextPickupLat, lon: nextPickupLon }
+                                );
+                                if (direktRoute) {
+                                    leerfahrtMin = direktRoute.duration;
+                                    leerfahrtMs = leerfahrtMin * 60000;
+                                    leerfahrtDetail = `${leerfahrtMin} Min direkt (Anschlussfahrt, ${destToPickupKm.toFixed(1)} km)`;
+                                }
+                            } else if (homeCoords?.lat && homeCoords?.lon) {
+                                // STANDARD: Fahrer fährt zurück zur Basis → dann zum nächsten Abholort
                                 const [rueckRoute, anfahrtRoute] = await Promise.all([
                                     calculateRoute(
                                         { lat: currDestLat, lon: currDestLon },
@@ -11227,7 +11248,7 @@ exports.autoResolveConflicts = onSchedule(
                                 leerfahrtMs = leerfahrtMin * 60000;
                                 leerfahrtDetail = `${rueckMin} Min Rückfahrt + ${anfahrtMin} Min Anfahrt`;
                             } else {
-                                // Fallback: Direktroute Zielort → nächster Abholort (keine Basis hinterlegt)
+                                // Fallback: Direktroute (keine Basis hinterlegt)
                                 const leerRoute = await calculateRoute(
                                     { lat: currDestLat, lon: currDestLon },
                                     { lat: nextPickupLat, lon: nextPickupLon }
@@ -11243,7 +11264,7 @@ exports.autoResolveConflicts = onSchedule(
                         }
                     }
 
-                    // Prüfung: Fahrtende + Rückfahrt + Anfahrt + Mindestabstand > nächste Abholzeit?
+                    // Prüfung: Fahrtende + Leerfahrt + Mindestabstand > nächste Abholzeit?
                     const earliestArrivalMs = currEndMs + leerfahrtMs + mindestAbstandMs;
 
                     // Gibt es Überlappung? (jetzt MIT Leerfahrt!)

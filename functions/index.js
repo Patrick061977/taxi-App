@@ -452,6 +452,8 @@ async function autoAssignRide(rideId, rideData) {
                 const boardingTime = pricingSettings.boardingTime || 2;
                 const alightingTime = pricingSettings.alightingTime || 2;
                 const bufferMs = (boardingTime + alightingTime) * 60000;
+                // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
+                const _rueckfahrtMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
                     if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
@@ -459,8 +461,9 @@ async function autoAssignRide(rideId, rideData) {
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
-                    const rEnd = rStart + rDur + bufferMs;
-                    const newEnd = newPickup + newDur + bufferMs;
+                    // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
+                    const rEnd = rStart + rDur + bufferMs + _rueckfahrtMs;
+                    const newEnd = newPickup + newDur + bufferMs + _rueckfahrtMs;
                     return (newPickup < rEnd) && (rStart < newEnd);
                 });
                 if (hasTimeConflict) {
@@ -11220,15 +11223,89 @@ exports.autoResolveConflicts = onSchedule(
                     const currEndMs = curr.pickupTimestamp + currDurMs + bufferMs;
                     const nextStartMs = next.pickupTimestamp;
 
-                    // Gibt es Überlappung?
-                    if (currEndMs <= nextStartMs) continue; // Kein Konflikt
+                    // 🆕 v6.33.6: Rückfahrt zur Basis + Anfahrt zum nächsten Abholort einrechnen!
+                    // Regel: Fahrer fährt nach JEDER Fahrt zurück zur Basis — AUSSER bei Anschlussfahrt.
+                    // Anschlussfahrt = kurze Pause + Abholort nah am Zielort → direkt weiter
+                    let leerfahrtMs = 0;
+                    let leerfahrtMin = 0;
+                    let leerfahrtDetail = '';
+                    const currDestLat = curr.destCoords?.lat || curr.destinationLat;
+                    const currDestLon = curr.destCoords?.lon || curr.destinationLon;
+                    const nextPickupLat = next.pickupCoords?.lat || next.pickupLat;
+                    const nextPickupLon = next.pickupCoords?.lon || next.pickupLon;
+                    const rideTimeStr = berlinTime(curr.pickupTimestamp);
+                    const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, rideTimeStr);
 
-                    const overlapMin = Math.round((currEndMs - nextStartMs) / 60000);
+                    // Anschlussfahrt-Erkennung: Pause kurz + Abholort nah am Zielort
+                    const afZeitfensterMin = pricingSettings.anschlussfahrtZeitfensterMin ?? 20;
+                    const afRadiusKm = pricingSettings.anschlussfahrtRadiusKm ?? 5;
+                    const gapMinutes = (nextStartMs - currEndMs) / 60000;
+                    let destToPickupKm = 999;
+                    if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
+                        destToPickupKm = gpsDistanceKm(currDestLat, currDestLon, nextPickupLat, nextPickupLon);
+                    }
+                    const isAnschlussfahrt = gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
+
+                    if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
+                        try {
+                            if (isAnschlussfahrt) {
+                                // ANSCHLUSSFAHRT: Fahrer bleibt vor Ort → Direktroute Ziel → Abholort
+                                const direktRoute = await calculateRoute(
+                                    { lat: currDestLat, lon: currDestLon },
+                                    { lat: nextPickupLat, lon: nextPickupLon }
+                                );
+                                if (direktRoute) {
+                                    leerfahrtMin = direktRoute.duration;
+                                    leerfahrtMs = leerfahrtMin * 60000;
+                                    leerfahrtDetail = `${leerfahrtMin} Min direkt (Anschlussfahrt, ${destToPickupKm.toFixed(1)} km)`;
+                                }
+                            } else if (homeCoords?.lat && homeCoords?.lon) {
+                                // STANDARD: Fahrer fährt zurück zur Basis → dann zum nächsten Abholort
+                                const [rueckRoute, anfahrtRoute] = await Promise.all([
+                                    calculateRoute(
+                                        { lat: currDestLat, lon: currDestLon },
+                                        { lat: homeCoords.lat, lon: homeCoords.lon }
+                                    ),
+                                    calculateRoute(
+                                        { lat: homeCoords.lat, lon: homeCoords.lon },
+                                        { lat: nextPickupLat, lon: nextPickupLon }
+                                    )
+                                ]);
+                                const rueckMin = rueckRoute?.duration || 0;
+                                const anfahrtMin = anfahrtRoute?.duration || 0;
+                                leerfahrtMin = rueckMin + anfahrtMin;
+                                leerfahrtMs = leerfahrtMin * 60000;
+                                leerfahrtDetail = `${rueckMin} Min Rückfahrt + ${anfahrtMin} Min Anfahrt`;
+                            } else {
+                                // Fallback: Direktroute (keine Basis hinterlegt)
+                                const leerRoute = await calculateRoute(
+                                    { lat: currDestLat, lon: currDestLon },
+                                    { lat: nextPickupLat, lon: nextPickupLon }
+                                );
+                                if (leerRoute) {
+                                    leerfahrtMin = leerRoute.duration;
+                                    leerfahrtMs = leerfahrtMin * 60000;
+                                    leerfahrtDetail = `${leerfahrtMin} Min direkt (keine Basis hinterlegt)`;
+                                }
+                            }
+                        } catch(e) {
+                            console.warn(`⚠️ Leerfahrt-Berechnung fehlgeschlagen:`, e.message);
+                        }
+                    }
+
+                    // Prüfung: Fahrtende + Leerfahrt + Mindestabstand > nächste Abholzeit?
+                    const earliestArrivalMs = currEndMs + leerfahrtMs + mindestAbstandMs;
+
+                    // Gibt es Überlappung? (jetzt MIT Leerfahrt!)
+                    if (earliestArrivalMs <= nextStartMs) continue; // Kein Konflikt
+
+                    const overlapMin = Math.round((earliestArrivalMs - nextStartMs) / 60000);
                     const currTime = berlinTime(curr.pickupTimestamp);
                     const nextTime = berlinTime(next.pickupTimestamp);
                     const vName = OFFICIAL_VEHICLES[vehicleId]?.name || vehicleId;
+                    const leerfahrtInfo = leerfahrtMin > 0 ? ` (inkl. ${leerfahrtDetail || leerfahrtMin + ' Min Leerfahrt'})` : '';
 
-                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) überlappen um ${overlapMin} Min`);
+                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) — ${overlapMin} Min zu spät${leerfahrtInfo}`);
 
                     // Nicht umplanen wenn Fahrer bereits akzeptiert
                     if (['accepted', 'picked_up', 'on_way'].includes(next.status)) {
@@ -11263,7 +11340,7 @@ exports.autoResolveConflicts = onSchedule(
                         updatedAt: Date.now(),
                         lastOptimizedAt: Date.now(),
                         lastOptimizedTo: altVehicle,
-                        replanReason: `Zeitkonflikt: ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime}) auf ${vName}`
+                        replanReason: `Zeitkonflikt: ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime}) auf ${vName}`
                     });
 
                     // Lokales Array aktualisieren (für nächste Paare)
@@ -11284,7 +11361,7 @@ exports.autoResolveConflicts = onSchedule(
                             ziel: (next.destination || '').substring(0, 50),
                             uhrzeit: nextTime,
                             datum: dateStr,
-                            grund: `Zeitkonflikt ${overlapMin} Min`
+                            grund: `Zeitkonflikt ${overlapMin} Min${leerfahrtInfo}`
                         });
                     } catch(e) { /* non-critical */ }
 
@@ -11293,7 +11370,7 @@ exports.autoResolveConflicts = onSchedule(
                         const nextDateStr = berlinDate(next.pickupTimestamp);
                         const nextDateParts = nextDateStr.split('-');
                         const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
-                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
+                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime})`;
                         await sendToAllAdmins(msg, 'optimization');
                         await sendToSystemChannel(msg, 'optimization');
                     } catch(e) { /* non-critical */ }
@@ -11649,99 +11726,54 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
     const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
 
-    // 🆕 v6.26.0: Anschlussfahrt-Erkennung
-    // Prüfe ob nächste Fahrt eine Anschlussfahrt ist (Abholort nah am letzten Ziel + kurze Pause)
-    const afZeitfensterMin = (pricingSettings && pricingSettings.anschlussfahrtZeitfensterMin != null)
-        ? pricingSettings.anschlussfahrtZeitfensterMin : 20;
-    const afRadiusKm = (pricingSettings && pricingSettings.anschlussfahrtRadiusKm != null)
-        ? pricingSettings.anschlussfahrtRadiusKm : 5;
-
     // Entfernung letztes Ziel → nächster Abholort (Luftlinie)
     let destToPickupKm = 999;
     if (destLat && destLon) {
         destToPickupKm = gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
     }
 
-    const isAnschlussfahrt = gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
+    // 🆕 v6.33.8: KLARE REGEL — Fahrer fährt IMMER zurück zur Basis!
+    // Einzige Ausnahme: Anschlussfahrt (< 15 Min Pause + < 5 km entfernt)
+    //
+    // Standard: Leerfahrt = ab Schichtstandort (Fahrer ist dort)
+    // Anschlussfahrt: Leerfahrt = ab Zielort (Fahrer bleibt vor Ort)
+    const afZeitfensterMin = (pricingSettings && pricingSettings.anschlussfahrtZeitfensterMin != null)
+        ? pricingSettings.anschlussfahrtZeitfensterMin : 15;
+    const afRadiusKm = (pricingSettings && pricingSettings.anschlussfahrtRadiusKm != null)
+        ? pricingSettings.anschlussfahrtRadiusKm : 5;
+    const isAnschlussfahrt = gapMinutes >= 0 && gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
 
-    if (isAnschlussfahrt) {
-        // ✅ ANSCHLUSSFAHRT: Fahrer bleibt vor Ort → Direktroute vom letzten Ziel
-        console.log(`🔗 Anschlussfahrt erkannt: ${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km Entfernung (≤ ${afZeitfensterMin} Min / ${afRadiusKm} km)`);
-        if (destLat && destLon) {
-            const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'anschlussfahrt', isAnschlussfahrt: true };
-            return { durationMin: Math.round(destToPickupKm * 2), distKm: destToPickupKm, method: 'anschlussfahrt-luftlinie', isAnschlussfahrt: true };
+    if (isAnschlussfahrt && destLat && destLon) {
+        // ✅ ANSCHLUSSFAHRT: Nächste Fahrt kommt bald + ist in der Nähe → Fahrer bleibt vor Ort
+        console.log(`🔗 ${vehicleId}: Anschlussfahrt! ${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km → Fahrer bleibt vor Ort`);
+        const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        if (route) {
+            return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'anschlussfahrt', isAnschlussfahrt: true };
         }
+        return { durationMin: Math.round(destToPickupKm * 2), distKm: destToPickupKm, method: 'anschlussfahrt-luftlinie', isAnschlussfahrt: true };
     }
 
-    // 🔧 v6.32.1: Route-Vergleich NUR wenn Fahrer am Standort!
-    // Bug-Fix: Bei negativem Gap oder kurzem Gap ist der Fahrer noch unterwegs
-    // → Homebase-Route darf NICHT verwendet werden (Fahrer ist nicht dort!)
-    const driverBackAtStandort = gapMinutes >= returnBufferMin;
-
-    let homebaseDurationMin = Infinity;
-    let direktDurationMin = Infinity;
-    let homebaseResult = null;
-    let direktResult = null;
-
-    // 1. Route ÜBER STANDORT NUR berechnen wenn Fahrer zurück am Standort
-    if (driverBackAtStandort && homeLat && homeLon) {
-        const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-        if (homeRoute) {
-            homebaseDurationMin = homeRoute.duration;
-            homebaseResult = { durationMin: homeRoute.duration, distKm: parseFloat(homeRoute.distance), method: 'homebase-rueckkehr', isAnschlussfahrt: false };
-        } else {
-            const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-            homebaseDurationMin = Math.round(dist * 2);
-            homebaseResult = { durationMin: homebaseDurationMin, distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
+    // ✅ STANDARD: Fahrer ist an der Basis → Leerfahrt ab Schichtstandort
+    if (homeLat && homeLon) {
+        console.log(`🏠 ${vehicleId}: Leerfahrt ab Basis (${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km → keine Anschlussfahrt)`);
+        const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
+        if (route) {
+            return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'basis', isAnschlussfahrt: false };
         }
-    } else if (!driverBackAtStandort) {
-        console.log(`⚠️ ${vehicleId}: Fahrer noch unterwegs (Gap: ${Math.round(gapMinutes)} Min < ${returnBufferMin} Min Puffer) → nur Direktroute`);
+        const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'basis-luftlinie', isAnschlussfahrt: false };
     }
 
-    // 2. DIREKTE Route vom letzten Ziel zum nächsten Abholort
+    // Fallback: Keine Basis hinterlegt → Direktroute oder GPS
     if (destLat && destLon) {
-        const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-        if (direktRoute) {
-            direktDurationMin = direktRoute.duration;
-            direktResult = { durationMin: direktRoute.duration, distKm: parseFloat(direktRoute.distance), method: 'direktfahrt', isAnschlussfahrt: false };
-        } else {
-            direktDurationMin = Math.round(destToPickupKm * 2);
-            direktResult = { durationMin: direktDurationMin, distKm: destToPickupKm, method: 'direktfahrt-luftlinie', isAnschlussfahrt: false };
-        }
+        const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-fallback', isAnschlussfahrt: false };
     }
-
-    // 3. VERGLEICH: Kürzere Route gewinnt
-    // 🔧 v6.25.4: Standort-Malus NUR bei kurzem Gap!
-    // Bei großem Gap (> 60 Min) ist der Fahrer definitiv am Standort → Homebase gewinnt immer
-    // Malus nur sinnvoll bei 30-60 Min Gap (Fahrer könnte noch unterwegs sein)
-    const vShiftData = shiftsData && shiftsData[vehicleId];
-    const standortMalusRaw = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
-        ? vShiftData.direktfahrtPrioritaet
-        : (pricingSettings && pricingSettings.standortMalusMinuten != null)
-            ? pricingSettings.standortMalusMinuten : 30;
-    if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
-        const hasBothRoutes = direktDurationMin < Infinity && homebaseDurationMin < Infinity;
-        // 🔧 v6.25.4: Bei Gap > 60 Min ist der Fahrer sicher am Standort → KEIN Malus!
-        // Standort-Malus nur bei kurzem Gap (30-60 Min) wo unklar ist ob Fahrer schon zurück
-        const fahrerSicherAmStandort = gapMinutes >= 60;
-        const standortMalus = (hasBothRoutes && !fahrerSicherAmStandort) ? standortMalusRaw : 0;
-        const homebaseEffektiv = homebaseDurationMin + standortMalus;
-        const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);
-        if (hasBothRoutes && direktDurationMin <= homebaseEffektiv && direktResult) {
-            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ' (kein Malus, ${Math.round(gapMinutes)} Min Gap)'})`);
-            return direktResult;
-        } else if (homebaseResult) {
-            homebaseResult.durationMin = Math.round(homebaseEffektiv);
-            homebaseResult.standortMalus = standortMalus;
-            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ` (kein Malus, ${Math.round(gapMinutes)} Min Gap → Fahrer am Standort)`}`);
-            return homebaseResult;
-        } else if (direktResult) {
-            console.log(`🔗 ${vehicleId}: Nur Direktfahrt verfügbar: ${Math.round(direktDurationMin)} Min`);
-            return direktResult;
-        }
+    const driver = vehiclesData[vehicleId];
+    if (driver?.lat && driver?.lon) {
+        const route = await calculateRoute({ lat: driver.lat, lon: driver.lon }, { lat: pickupLat, lon: pickupLon });
+        if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'gps-fallback', isAnschlussfahrt: false };
     }
-
     return { durationMin: 50, distKm: 25, method: 'fallback', isAnschlussfahrt: false };
 }
 
@@ -11798,7 +11830,9 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
         );
         if (vehicleBusy) continue;
 
-        // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug? (inkl. mindestAbstand)
+        // Zeitkonflikt mit bestehenden Fahrten auf diesem Fahrzeug? (inkl. Rückfahrt + mindestAbstand)
+        // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen! Standardpuffer aus Settings (default 30 Min)
+        const rueckfahrtPufferMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
         const hasConflict = allRides.some(r => {
             if (r.firebaseId === ride.firebaseId) return false;
             if (r.assignedVehicle !== vehicleId) return false;
@@ -11806,8 +11840,9 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
             if (['deleted','cancelled','storniert','completed'].includes(r.status)) return false;
 
             const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
-            const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
-            const newEnd = pickupTs + rideDurMs + bufferMs;
+            // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
+            const rEnd = r.pickupTimestamp + rDurMs + bufferMs + rueckfahrtPufferMs;
+            const newEnd = pickupTs + rideDurMs + bufferMs + rueckfahrtPufferMs;
             return (pickupTs < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
         });
 
@@ -12072,17 +12107,20 @@ exports.scheduledAutoAssign = onSchedule(
                     }
 
                     // Zeitkonflikt prüfen
+                    // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
                     if (ride.pickupTimestamp) {
                         const newPickup = ride.pickupTimestamp;
                         const newDur = (ride.duration || ride.estimatedDuration || 20) * 60000;
+                        const _rueckfahrtMs2 = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
                         const hasConflict = allRides.some(r => {
                             if (r.firebaseId === rideId) return false;
                             if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
                             if (!r.pickupTimestamp) return false;
                             if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                             const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
-                            const rEnd = r.pickupTimestamp + rDur + bufferMs;
-                            const newEnd = newPickup + newDur + bufferMs;
+                            // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
+                            const rEnd = r.pickupTimestamp + rDur + bufferMs + _rueckfahrtMs2;
+                            const newEnd = newPickup + newDur + bufferMs + _rueckfahrtMs2;
                             return (newPickup < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
                         });
                         if (hasConflict) {

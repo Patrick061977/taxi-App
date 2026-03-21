@@ -11194,32 +11194,56 @@ exports.autoResolveConflicts = onSchedule(
                     const currEndMs = curr.pickupTimestamp + currDurMs + bufferMs;
                     const nextStartMs = next.pickupTimestamp;
 
-                    // 🆕 v6.33.6: Leerfahrt (Rückfahrt) vom Zielort zur nächsten Abholung einrechnen!
-                    // Ohne das wurde nur Fahrtdauer + Ein/Aussteigen geprüft — die Fahrzeit
-                    // vom Zielort A zum Abholort B fehlte → Fahrer kam zu spät
+                    // 🆕 v6.33.6: Rückfahrt zur Basis + Anfahrt zum nächsten Abholort einrechnen!
+                    // Fahrer fährt nach jeder Fahrt zurück zur Basis und wartet dort.
+                    // Route: Zielort A → Basis → Abholort B
                     let leerfahrtMs = 0;
                     let leerfahrtMin = 0;
+                    let leerfahrtDetail = '';
                     const currDestLat = curr.destCoords?.lat || curr.destinationLat;
                     const currDestLon = curr.destCoords?.lon || curr.destinationLon;
                     const nextPickupLat = next.pickupCoords?.lat || next.pickupLat;
                     const nextPickupLon = next.pickupCoords?.lon || next.pickupLon;
+                    const rideTimeStr = berlinTime(curr.pickupTimestamp);
+                    const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, rideTimeStr);
 
                     if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
                         try {
-                            const leerRoute = await calculateRoute(
-                                { lat: currDestLat, lon: currDestLon },
-                                { lat: nextPickupLat, lon: nextPickupLon }
-                            );
-                            if (leerRoute) {
-                                leerfahrtMin = leerRoute.duration;
+                            if (homeCoords?.lat && homeCoords?.lon) {
+                                // Route: Zielort → Basis → nächster Abholort
+                                const [rueckRoute, anfahrtRoute] = await Promise.all([
+                                    calculateRoute(
+                                        { lat: currDestLat, lon: currDestLon },
+                                        { lat: homeCoords.lat, lon: homeCoords.lon }
+                                    ),
+                                    calculateRoute(
+                                        { lat: homeCoords.lat, lon: homeCoords.lon },
+                                        { lat: nextPickupLat, lon: nextPickupLon }
+                                    )
+                                ]);
+                                const rueckMin = rueckRoute?.duration || 0;
+                                const anfahrtMin = anfahrtRoute?.duration || 0;
+                                leerfahrtMin = rueckMin + anfahrtMin;
                                 leerfahrtMs = leerfahrtMin * 60000;
+                                leerfahrtDetail = `${rueckMin} Min Rückfahrt + ${anfahrtMin} Min Anfahrt`;
+                            } else {
+                                // Fallback: Direktroute Zielort → nächster Abholort (keine Basis hinterlegt)
+                                const leerRoute = await calculateRoute(
+                                    { lat: currDestLat, lon: currDestLon },
+                                    { lat: nextPickupLat, lon: nextPickupLon }
+                                );
+                                if (leerRoute) {
+                                    leerfahrtMin = leerRoute.duration;
+                                    leerfahrtMs = leerfahrtMin * 60000;
+                                    leerfahrtDetail = `${leerfahrtMin} Min direkt (keine Basis hinterlegt)`;
+                                }
                             }
                         } catch(e) {
                             console.warn(`⚠️ Leerfahrt-Berechnung fehlgeschlagen:`, e.message);
                         }
                     }
 
-                    // Prüfung: Fahrtende + Leerfahrt + Mindestabstand > nächste Abholzeit?
+                    // Prüfung: Fahrtende + Rückfahrt + Anfahrt + Mindestabstand > nächste Abholzeit?
                     const earliestArrivalMs = currEndMs + leerfahrtMs + mindestAbstandMs;
 
                     // Gibt es Überlappung? (jetzt MIT Leerfahrt!)
@@ -11229,7 +11253,7 @@ exports.autoResolveConflicts = onSchedule(
                     const currTime = berlinTime(curr.pickupTimestamp);
                     const nextTime = berlinTime(next.pickupTimestamp);
                     const vName = OFFICIAL_VEHICLES[vehicleId]?.name || vehicleId;
-                    const leerfahrtInfo = leerfahrtMin > 0 ? ` (inkl. ${leerfahrtMin} Min Leerfahrt)` : '';
+                    const leerfahrtInfo = leerfahrtMin > 0 ? ` (inkl. ${leerfahrtDetail || leerfahrtMin + ' Min Leerfahrt'})` : '';
 
                     console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) — ${overlapMin} Min zu spät${leerfahrtInfo}`);
 

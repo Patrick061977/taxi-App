@@ -11194,15 +11194,44 @@ exports.autoResolveConflicts = onSchedule(
                     const currEndMs = curr.pickupTimestamp + currDurMs + bufferMs;
                     const nextStartMs = next.pickupTimestamp;
 
-                    // Gibt es Überlappung?
-                    if (currEndMs <= nextStartMs) continue; // Kein Konflikt
+                    // 🆕 v6.33.6: Leerfahrt (Rückfahrt) vom Zielort zur nächsten Abholung einrechnen!
+                    // Ohne das wurde nur Fahrtdauer + Ein/Aussteigen geprüft — die Fahrzeit
+                    // vom Zielort A zum Abholort B fehlte → Fahrer kam zu spät
+                    let leerfahrtMs = 0;
+                    let leerfahrtMin = 0;
+                    const currDestLat = curr.destCoords?.lat || curr.destinationLat;
+                    const currDestLon = curr.destCoords?.lon || curr.destinationLon;
+                    const nextPickupLat = next.pickupCoords?.lat || next.pickupLat;
+                    const nextPickupLon = next.pickupCoords?.lon || next.pickupLon;
 
-                    const overlapMin = Math.round((currEndMs - nextStartMs) / 60000);
+                    if (currDestLat && currDestLon && nextPickupLat && nextPickupLon) {
+                        try {
+                            const leerRoute = await calculateRoute(
+                                { lat: currDestLat, lon: currDestLon },
+                                { lat: nextPickupLat, lon: nextPickupLon }
+                            );
+                            if (leerRoute) {
+                                leerfahrtMin = leerRoute.duration;
+                                leerfahrtMs = leerfahrtMin * 60000;
+                            }
+                        } catch(e) {
+                            console.warn(`⚠️ Leerfahrt-Berechnung fehlgeschlagen:`, e.message);
+                        }
+                    }
+
+                    // Prüfung: Fahrtende + Leerfahrt + Mindestabstand > nächste Abholzeit?
+                    const earliestArrivalMs = currEndMs + leerfahrtMs + mindestAbstandMs;
+
+                    // Gibt es Überlappung? (jetzt MIT Leerfahrt!)
+                    if (earliestArrivalMs <= nextStartMs) continue; // Kein Konflikt
+
+                    const overlapMin = Math.round((earliestArrivalMs - nextStartMs) / 60000);
                     const currTime = berlinTime(curr.pickupTimestamp);
                     const nextTime = berlinTime(next.pickupTimestamp);
                     const vName = OFFICIAL_VEHICLES[vehicleId]?.name || vehicleId;
+                    const leerfahrtInfo = leerfahrtMin > 0 ? ` (inkl. ${leerfahrtMin} Min Leerfahrt)` : '';
 
-                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) überlappen um ${overlapMin} Min`);
+                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) — ${overlapMin} Min zu spät${leerfahrtInfo}`);
 
                     // Nicht umplanen wenn Fahrer bereits akzeptiert
                     if (['accepted', 'picked_up', 'on_way'].includes(next.status)) {
@@ -11237,7 +11266,7 @@ exports.autoResolveConflicts = onSchedule(
                         updatedAt: Date.now(),
                         lastOptimizedAt: Date.now(),
                         lastOptimizedTo: altVehicle,
-                        replanReason: `Zeitkonflikt: ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime}) auf ${vName}`
+                        replanReason: `Zeitkonflikt: ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime}) auf ${vName}`
                     });
 
                     // Lokales Array aktualisieren (für nächste Paare)
@@ -11258,7 +11287,7 @@ exports.autoResolveConflicts = onSchedule(
                             ziel: (next.destination || '').substring(0, 50),
                             uhrzeit: nextTime,
                             datum: dateStr,
-                            grund: `Zeitkonflikt ${overlapMin} Min`
+                            grund: `Zeitkonflikt ${overlapMin} Min${leerfahrtInfo}`
                         });
                     } catch(e) { /* non-critical */ }
 
@@ -11267,7 +11296,7 @@ exports.autoResolveConflicts = onSchedule(
                         const nextDateStr = berlinDate(next.pickupTimestamp);
                         const nextDateParts = nextDateStr.split('-');
                         const nextDateFmt = nextDateParts.length === 3 ? `${nextDateParts[2]}.${nextDateParts[1]}.` : nextDateStr;
-                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min Überlappung mit ${curr.customerName || '?'} (${currTime})`;
+                        const msg = `⚠️ *Zeitkonflikt-Umplanung*\n📅 ${nextDateFmt} • ${nextTime}\n📋 ${next.customerName || '?'}\n🔄 ${vName} → ${altInfo.name || altVehicle}\n📌 ${overlapMin} Min zu spät${leerfahrtInfo} nach ${curr.customerName || '?'} (${currTime})`;
                         await sendToAllAdmins(msg, 'optimization');
                         await sendToSystemChannel(msg, 'optimization');
                     } catch(e) { /* non-critical */ }

@@ -226,8 +226,8 @@ async function loadTarifFromFirebase() {
 const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
 
 const OFFICIAL_VEHICLES = {
-    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 1 },
-    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 2 },
+    'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 1 },
+    'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4, priority: 2 },
     'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4, priority: 3 },
     'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8, priority: 4 },
     'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8, priority: 5 }
@@ -11041,16 +11041,42 @@ exports.autoResolveConflicts = onSchedule(
             // Alle aktiven zukünftigen Fahrten sammeln
             const now = Date.now();
             const allRides = [];
+            const unassignedRides = [];
             ridesSnap.forEach(c => {
                 const r = { ...c.val(), firebaseId: c.key };
                 if (r.pickupTimestamp &&
                     r.pickupTimestamp > now + vorlaufMin * 60000 &&
                     !['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status) &&
-                    !r.assignmentLocked &&
-                    r.assignedVehicle) {
-                    allRides.push(r);
+                    !r.assignmentLocked) {
+                    if (r.assignedVehicle) {
+                        allRides.push(r);
+                    } else {
+                        unassignedRides.push(r);
+                    }
                 }
             });
+
+            // 🔧 v6.25.4: PHASE -1 — Unzugewiesene Vorbestellungen zuweisen
+            // Cloud übernimmt jetzt die Zuweisung (Browser macht das nicht mehr)
+            if (unassignedRides.length > 0) {
+                console.log(`🚕 Phase -1: ${unassignedRides.length} unzugewiesene Vorbestellung(en) zuweisen...`);
+                for (const ride of unassignedRides) {
+                    try {
+                        const result = await autoAssignRide(ride.firebaseId, ride);
+                        if (result && result.vehicleId) {
+                            const vName = (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
+                            console.log(`   ✅ ${ride.customerName || '?'} → ${vName} zugewiesen`);
+                            // In allRides aufnehmen für weitere Phasen
+                            ride.assignedVehicle = result.vehicleId;
+                            allRides.push(ride);
+                        } else {
+                            console.log(`   ⚠️ ${ride.customerName || '?'} — kein Fahrzeug verfügbar`);
+                        }
+                    } catch(e) {
+                        console.error(`   ❌ Zuweisung fehlgeschlagen für ${ride.firebaseId}:`, e.message);
+                    }
+                }
+            }
 
             if (allRides.length === 0) {
                 console.log('✅ Keine relevanten Fahrten gefunden');
@@ -12316,6 +12342,22 @@ exports.onRideCreated = onValueCreated(
         try {
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
         } catch (e) { /* non-critical */ }
+
+        // 🔧 v6.25.4: Auto-Zuweisung für Vorbestellungen direkt in Cloud
+        // Browser macht das nicht mehr wenn Webhook aktiv
+        if (!isSofort && !ride.assignedVehicle && ride.pickupTimestamp && ride.pickupTimestamp > now + 30 * 60000) {
+            try {
+                console.log(`🚕 Cloud: Auto-Zuweisung für Vorbestellung ${rideId}...`);
+                const assignResult = await autoAssignRide(rideId, ride);
+                if (assignResult && assignResult.vehicleId) {
+                    console.log(`✅ Cloud: Vorbestellung ${rideId} → ${assignResult.vehicleName || assignResult.vehicleId} zugewiesen`);
+                } else {
+                    console.log(`⚠️ Cloud: Kein Fahrzeug für Vorbestellung ${rideId} gefunden — wird von autoResolveConflicts behandelt`);
+                }
+            } catch(e) {
+                console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
+            }
+        }
 
         await addTelegramLog('📱', 'cloud', `Neue Fahrt: ${ride.customerName || '?'} (${statusText})`, { rideId });
         console.log(`✅ Admin-Benachrichtigung gesendet für: ${rideId}`);

@@ -11697,93 +11697,86 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     const destLat = prevRide.destCoords?.lat || prevRide.destinationLat;
     const destLon = prevRide.destCoords?.lon || prevRide.destinationLon;
 
-    // 🆕 v6.26.0: Anschlussfahrt-Erkennung
-    // Prüfe ob nächste Fahrt eine Anschlussfahrt ist (Abholort nah am letzten Ziel + kurze Pause)
-    const afZeitfensterMin = (pricingSettings && pricingSettings.anschlussfahrtZeitfensterMin != null)
-        ? pricingSettings.anschlussfahrtZeitfensterMin : 20;
-    const afRadiusKm = (pricingSettings && pricingSettings.anschlussfahrtRadiusKm != null)
-        ? pricingSettings.anschlussfahrtRadiusKm : 5;
-
     // Entfernung letztes Ziel → nächster Abholort (Luftlinie)
     let destToPickupKm = 999;
     if (destLat && destLon) {
         destToPickupKm = gpsDistanceKm(destLat, destLon, pickupLat, pickupLon);
     }
 
-    const isAnschlussfahrt = gapMinutes < afZeitfensterMin && destToPickupKm <= afRadiusKm;
-
-    if (isAnschlussfahrt) {
-        // ✅ ANSCHLUSSFAHRT: Fahrer bleibt vor Ort → Direktroute vom letzten Ziel
-        console.log(`🔗 Anschlussfahrt erkannt: ${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km Entfernung (≤ ${afZeitfensterMin} Min / ${afRadiusKm} km)`);
-        if (destLat && destLon) {
-            const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'anschlussfahrt', isAnschlussfahrt: true };
-            return { durationMin: Math.round(destToPickupKm * 2), distKm: destToPickupKm, method: 'anschlussfahrt-luftlinie', isAnschlussfahrt: true };
-        }
-    }
-
-    // 🔧 v6.32.1: Route-Vergleich NUR wenn Fahrer am Standort!
-    // Bug-Fix: Bei negativem Gap oder kurzem Gap ist der Fahrer noch unterwegs
-    // → Homebase-Route darf NICHT verwendet werden (Fahrer ist nicht dort!)
-    const driverBackAtStandort = gapMinutes >= returnBufferMin;
+    // 🆕 v6.33.7: DISPATCHER-LOGIK — immer BEIDE Routen berechnen, kürzere gewinnt!
+    // Ein guter Dispatcher denkt voraus: Wenn bald eine Fahrt in der Nähe kommt,
+    // lässt er den Fahrer VOR ORT warten statt ihn zurück zur Basis zu schicken.
+    //
+    // Route A: Ziel → Basis → Abholort (Standard-Rückfahrt)
+    // Route B: Ziel → Abholort direkt (Fahrer wartet vor Ort / fährt direkt)
+    //
+    // Der KÜRZERE Weg gewinnt — das System entscheidet automatisch ob
+    // Rückfahrt oder Vor-Ort-Warten sinnvoller ist.
 
     let homebaseDurationMin = Infinity;
     let direktDurationMin = Infinity;
     let homebaseResult = null;
     let direktResult = null;
 
-    // 1. Route ÜBER STANDORT NUR berechnen wenn Fahrer zurück am Standort
-    if (driverBackAtStandort && homeLat && homeLon) {
-        const homeRoute = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-        if (homeRoute) {
-            homebaseDurationMin = homeRoute.duration;
-            homebaseResult = { durationMin: homeRoute.duration, distKm: parseFloat(homeRoute.distance), method: 'homebase-rueckkehr', isAnschlussfahrt: false };
-        } else {
-            const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-            homebaseDurationMin = Math.round(dist * 2);
-            homebaseResult = { durationMin: homebaseDurationMin, distKm: dist, method: 'homebase-luftlinie', isAnschlussfahrt: false };
+    // 1. Route ÜBER BASIS: Rückfahrt(Ziel→Basis) + Anfahrt(Basis→Abholort)
+    if (homeLat && homeLon) {
+        try {
+            const [rueckRoute, anfahrtRoute] = await Promise.all([
+                calculateRoute({ lat: destLat || homeLat, lon: destLon || homeLon }, { lat: homeLat, lon: homeLon }),
+                calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon })
+            ]);
+            const rueckMin = (destLat && destLon) ? (rueckRoute?.duration || 0) : 0;
+            const anfahrtMin = anfahrtRoute?.duration || 0;
+            // Gesamtzeit: Rückfahrt + Anfahrt (Fahrer fährt erst heim, dann zum Kunden)
+            homebaseDurationMin = rueckMin + anfahrtMin;
+            homebaseResult = {
+                durationMin: homebaseDurationMin,
+                distKm: parseFloat(rueckRoute?.distance || 0) + parseFloat(anfahrtRoute?.distance || 0),
+                method: 'basis-rueckfahrt',
+                isAnschlussfahrt: false,
+                detail: `${rueckMin} Min Rückfahrt + ${anfahrtMin} Min Anfahrt`
+            };
+        } catch(e) {
+            console.warn(`⚠️ ${vehicleId}: Basis-Route Fehler:`, e.message);
         }
-    } else if (!driverBackAtStandort) {
-        console.log(`⚠️ ${vehicleId}: Fahrer noch unterwegs (Gap: ${Math.round(gapMinutes)} Min < ${returnBufferMin} Min Puffer) → nur Direktroute`);
     }
 
-    // 2. DIREKTE Route vom letzten Ziel zum nächsten Abholort
+    // 2. DIREKTE Route vom letzten Ziel zum nächsten Abholort (Fahrer wartet vor Ort)
     if (destLat && destLon) {
-        const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-        if (direktRoute) {
-            direktDurationMin = direktRoute.duration;
-            direktResult = { durationMin: direktRoute.duration, distKm: parseFloat(direktRoute.distance), method: 'direktfahrt', isAnschlussfahrt: false };
-        } else {
-            direktDurationMin = Math.round(destToPickupKm * 2);
-            direktResult = { durationMin: direktDurationMin, distKm: destToPickupKm, method: 'direktfahrt-luftlinie', isAnschlussfahrt: false };
+        try {
+            const direktRoute = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+            if (direktRoute) {
+                direktDurationMin = direktRoute.duration;
+                direktResult = { durationMin: direktRoute.duration, distKm: parseFloat(direktRoute.distance), method: 'vor-ort-warten', isAnschlussfahrt: true, detail: `${direktRoute.duration} Min direkt (${destToPickupKm.toFixed(1)} km)` };
+            } else {
+                direktDurationMin = Math.round(destToPickupKm * 2);
+                direktResult = { durationMin: direktDurationMin, distKm: destToPickupKm, method: 'vor-ort-warten-luftlinie', isAnschlussfahrt: true, detail: `${direktDurationMin} Min direkt (Luftlinie)` };
+            }
+        } catch(e) {
+            console.warn(`⚠️ ${vehicleId}: Direkt-Route Fehler:`, e.message);
         }
     }
 
     // 3. VERGLEICH: Kürzere Route gewinnt
     // 🆕 v6.33.0: Standort-Malus NUR anwenden wenn BEIDE Routen verfügbar!
-    // Wenn Fahrer schon am Standort steht → kein Umweg, kein Malus.
-    // Malus nur als Tie-Breaker: Direktfahrt vs. Umweg über Standort.
-    const vShiftData = shiftsData && shiftsData[vehicleId];
-    const standortMalusRaw = (vShiftData && vShiftData.direktfahrtPrioritaet != null)
-        ? vShiftData.direktfahrtPrioritaet
-        : (pricingSettings && pricingSettings.standortMalusMinuten != null)
-            ? pricingSettings.standortMalusMinuten : 30;
+    // 🆕 v6.33.7: DISPATCHER-VERGLEICH — kürzere Route gewinnt!
+    // Kein Rückkehr-Puffer-Check mehr nötig: Das System vergleicht einfach beide Wege.
+    // Wenn Vor-Ort-Warten kürzer ist → Fahrer bleibt dort (wie ein guter Dispatcher es machen würde).
+    // Wenn Basis-Rückfahrt kürzer ist → Fahrer kommt zurück (z.B. weil Abholort nah an Basis).
     if (direktDurationMin < Infinity || homebaseDurationMin < Infinity) {
-        // Malus nur anwenden wenn beide Routen berechenbar sind (echter Vergleich)
         const hasBothRoutes = direktDurationMin < Infinity && homebaseDurationMin < Infinity;
-        const standortMalus = hasBothRoutes ? standortMalusRaw : 0;
-        const homebaseEffektiv = homebaseDurationMin + standortMalus;
-        const zeitersparnis = Math.round(homebaseEffektiv - direktDurationMin);
-        if (hasBothRoutes && direktDurationMin <= homebaseEffektiv && direktResult) {
-            console.log(`🔗 ${vehicleId}: Direktfahrt ${Math.round(direktDurationMin)} Min (spart ${Math.abs(zeitersparnis)} Min vs. Standort ${Math.round(homebaseDurationMin)} Min + ${standortMalus} Min Malus)`);
+        const zeitersparnisMin = Math.round(homebaseDurationMin - direktDurationMin);
+
+        if (hasBothRoutes && direktDurationMin <= homebaseDurationMin && direktResult) {
+            // DIREKT kürzer → Fahrer bleibt vor Ort / fährt direkt zum nächsten Kunden
+            console.log(`🧠 ${vehicleId}: DISPATCHER → Vor Ort bleiben! Direkt ${Math.round(direktDurationMin)} Min vs. Basis ${Math.round(homebaseDurationMin)} Min (spart ${zeitersparnisMin} Min)`);
             return direktResult;
         } else if (homebaseResult) {
-            homebaseResult.durationMin = Math.round(homebaseEffektiv);
-            homebaseResult.standortMalus = standortMalus;
-            console.log(`🏠 ${vehicleId}: Über Standort ${Math.round(homebaseDurationMin)} Min${standortMalus > 0 ? ` + ${standortMalus} Min Malus` : ' (kein Malus, Fahrer am Standort)'}`);
+            // ÜBER BASIS kürzer → Fahrer fährt zurück (Abholort liegt näher an Basis als am Zielort)
+            console.log(`🧠 ${vehicleId}: DISPATCHER → Zurück zur Basis! Basis ${Math.round(homebaseDurationMin)} Min vs. Direkt ${Math.round(direktDurationMin)} Min (${homebaseResult.detail || ''})`);
             return homebaseResult;
         } else if (direktResult) {
-            console.log(`🔗 ${vehicleId}: Nur Direktfahrt verfügbar: ${Math.round(direktDurationMin)} Min`);
+            console.log(`🧠 ${vehicleId}: Nur Direktfahrt verfügbar: ${Math.round(direktDurationMin)} Min`);
             return direktResult;
         }
     }

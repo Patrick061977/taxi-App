@@ -286,7 +286,14 @@ function createOrUpdateCalendarEvent(calendar, ride) {
 
     let titleParts = [];
 
-    titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}`);
+    // 🆕 v4.8: Zwischenstopps im Titel anzeigen
+    if (ride.waypoints && ride.waypoints.length > 0) {
+      var wpNames = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
+      var wpShort = wpNames.map(function(w) { return w.length > 20 ? w.substring(0, 18) + '…' : w; });
+      titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → 🔶${wpShort.join(' → 🔶')} → ${ride.destination || 'Unbekannt'}`);
+    } else {
+      titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}`);
+    }
 
     if (EXPORT_SETTINGS.showPassengers) {
       titleParts.push(`${ride.passengers || 1} Pers.`);
@@ -405,6 +412,13 @@ function createEventDescription(ride) {
 
   if (EXPORT_SETTINGS.showPickup) {
     lines.push('📍 Von: ' + (ride.pickup || '-'));
+  }
+  // 🆕 v4.8: Zwischenstopps anzeigen
+  if (ride.waypoints && ride.waypoints.length > 0) {
+    var waypoints = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
+    for (var w = 0; w < waypoints.length; w++) {
+      lines.push('🔶 Zwischenstopp: ' + waypoints[w]);
+    }
   }
   if (EXPORT_SETTINGS.showDestination) {
     lines.push('🎯 Nach: ' + (ride.destination || '-'));

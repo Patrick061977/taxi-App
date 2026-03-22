@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.7 - Aufgeräumt: CRM-Lookup entfernt (Firebase Rules blockieren /customers ohne Auth)
+// Version: 4.8 - Fix: Stornierte Events auch 24h rückwirkend aus Google Kalender löschen
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -510,10 +510,14 @@ function removeOldEvents(calendar, currentRides) {
     return 0;
   }
 
-  // NUR zukünftige Events prüfen (Vergangenheit = nicht anfassen!)
+  // 🆕 v4.8: Auch kürzlich vergangene Events prüfen!
+  // Problem: Wenn eine Fahrt um 08:15 nach 08:15 storniert wird,
+  // fand der Sync sie nicht mehr weil das Event "in der Vergangenheit" lag.
+  // Lösung: 24h zurückschauen, damit auch heute-morgen-stornierte Fahrten gelöscht werden.
   const now = new Date();
+  const past24h = new Date(now.getTime() - 24 * 3600000); // 24h zurück
   const future = new Date(now.getTime() + 90 * 24 * 3600000); // 90 Tage voraus
-  const events = calendar.getEvents(now, future);
+  const events = calendar.getEvents(past24h, future);
 
   let removed = 0;
 

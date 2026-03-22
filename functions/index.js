@@ -602,6 +602,84 @@ async function autoAssignRide(rideId, rideData) {
             console.log(`   🏆 Bestes Fahrzeug: ${best.name} (Score: ${bestScore})`);
         }
 
+        // 🆕 v6.25.5: Verfügbarkeits-Check — kann das Fahrzeug rechtzeitig ankommen?
+        // Der einfache Zeitkonflikt-Check oben nutzt pauschale Rückfahrt-Puffer.
+        // Hier prüfen wir mit der ECHTEN Leerfahrt ob das Fahrzeug tatsächlich frei ist.
+        if (!isSofort && rideData.pickupTimestamp) {
+            const boardingTime = pricingSettings.boardingTime || 2;
+            const alightingTime = pricingSettings.alightingTime || 2;
+            const _bufferMs = (boardingTime + alightingTime) * 60000;
+            const _mindestAbstandMs = (pricingSettings.mindestAbstandMin || 0) * 60000;
+            const _maxVerschiebungMin = pricingSettings.maxAutoVerschiebungMin || 15;
+
+            // Vorherige Fahrt dieses Fahrzeugs finden (die zeitlich am nächsten VOR der neuen Fahrt liegt)
+            const _prevRides = allRides.filter(r => {
+                if (r.firebaseId === rideId) return false;
+                if (r.vehicleId !== best.vehicleId && r.assignedTo !== best.vehicleId && r.assignedVehicle !== best.vehicleId) return false;
+                if (!r.pickupTimestamp || r.pickupTimestamp >= rideData.pickupTimestamp) return false;
+                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                return true;
+            }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
+
+            if (_prevRides.length > 0) {
+                const _prevRide = _prevRides[0];
+                const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 20) * 60000;
+                const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs;
+
+                // Leerfahrt vom Ziel der Vorfahrt zum neuen Abholort berechnen
+                let _leerfahrtToNewMs = drivingTimeMin * 60000; // Nutze bereits berechnete Leerfahrt
+                if (drivingTimeMin === 0) {
+                    // Fallback: Leerfahrt aus der Scoring-Phase nutzen oder schätzen
+                    const _vs = vehicleScores[best.vehicleId];
+                    _leerfahrtToNewMs = (_vs?.leerfahrtMin || 10) * 60000;
+                }
+
+                const _earliestArrivalMs = _prevEndMs + _leerfahrtToNewMs + _mindestAbstandMs;
+                const _delayMs = _earliestArrivalMs - rideData.pickupTimestamp;
+                const _delayMin = Math.round(_delayMs / 60000);
+
+                if (_delayMs > 0) {
+                    const _prevEndTime = new Date(_prevEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
+                    const _prevEndFormatted = new Date(_prevEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+
+                    if (_delayMin > _maxVerschiebungMin) {
+                        // Zu großer Konflikt → Fahrzeug NICHT zuweisen
+                        console.log(`   ❌ v6.25.5: ${best.name} kann nicht rechtzeitig ankommen! Vorfahrt endet ${_prevEndFormatted} + ${Math.round(_leerfahrtToNewMs/60000)} Min Leerfahrt = ${_delayMin} Min zu spät (Max: ${_maxVerschiebungMin} Min)`);
+                        if (vehicleScores[best.vehicleId]) {
+                            vehicleScores[best.vehicleId].status = 'busy';
+                            vehicleScores[best.vehicleId].busyUntil = _prevEndFormatted;
+                            vehicleScores[best.vehicleId].overlapMin = _delayMin;
+                        }
+                        // Ride-Scores trotzdem speichern damit die Fahrzeugauswahl sichtbar ist
+                        if (Object.keys(vehicleScores).length > 0) {
+                            await db.ref('rides/' + rideId + '/vehicleScores').set(vehicleScores);
+                        }
+                        console.log(`⚠️ Kein Fahrzeug kann rechtzeitig ankommen für Vorbestellung ${rideId}`);
+                        return null;
+                    } else {
+                        // Kleiner Konflikt → Abholzeit automatisch verschieben
+                        const _newPickupTs = _earliestArrivalMs + 2 * 60000; // +2 Min Puffer
+                        const _newPickupTime = new Date(new Date(_newPickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                        const _newPickupFormatted = _newPickupTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+                        const _oldPickupFormatted = new Date(new Date(rideData.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+
+                        console.log(`   🔄 v6.25.5: Abholzeit verschoben ${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min) — ${best.name} erst ab ${_prevEndFormatted} frei`);
+
+                        // pickupTimestamp im rideData aktualisieren
+                        rideData.pickupTimestamp = _newPickupTs;
+                        rideData.pickupTimeShifted = true;
+                        rideData.originalPickupTimestamp = rideData.pickupTimestamp;
+                        rideData.pickupShiftReason = `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`;
+                        rideData.pickupShiftMinutes = _delayMin;
+
+                        // Neuen pickupTime-String generieren
+                        const _newTimeStr = String(_newPickupTime.getHours()).padStart(2,'0') + ':' + String(_newPickupTime.getMinutes()).padStart(2,'0');
+                        rideData.pickupTime = _newTimeStr;
+                    }
+                }
+            }
+        }
+
         const bestInfo = OFFICIAL_VEHICLES[best.vehicleId] || {};
 
         // Status: Sofortfahrt → assigned, Vorbestellung → vorbestellt (mit zugewiesenem Fahrzeug)
@@ -619,6 +697,15 @@ async function autoAssignRide(rideId, rideData) {
             assignedBy: 'cloud-auto-assign',
             updatedAt: Date.now()
         };
+        // 🆕 v6.25.5: Verschobene Abholzeit in Firebase speichern
+        if (rideData.pickupTimeShifted) {
+            rideUpdate.pickupTimestamp = rideData.pickupTimestamp;
+            rideUpdate.pickupTime = rideData.pickupTime;
+            rideUpdate.pickupTimeShifted = true;
+            rideUpdate.originalPickupTimestamp = rideData.originalPickupTimestamp;
+            rideUpdate.pickupShiftReason = rideData.pickupShiftReason;
+            rideUpdate.pickupShiftMinutes = rideData.pickupShiftMinutes;
+        }
         if (Object.keys(vehicleScores).length > 0) {
             rideUpdate.vehicleScores = vehicleScores;
             rideUpdate.drivingTimeToPickup = drivingTimeMin;
@@ -12246,6 +12333,60 @@ exports.scheduledAutoAssign = onSchedule(
                     continue;
                 }
 
+                // 🆕 v6.25.5: Verfügbarkeits-Check — kann das Fahrzeug rechtzeitig ankommen?
+                const _maxShiftMin = pricingSettings.maxAutoVerschiebungMin || 15;
+                let _shiftedPickupTs = null;
+                let _shiftInfo = null;
+
+                if (ride.pickupTimestamp) {
+                    const _sPrevRides = allRides.filter(r => {
+                        if (r.firebaseId === rideId) return false;
+                        if (r.vehicleId !== bestCandidate.vehicleId && r.assignedTo !== bestCandidate.vehicleId && r.assignedVehicle !== bestCandidate.vehicleId) return false;
+                        if (!r.pickupTimestamp || r.pickupTimestamp >= ride.pickupTimestamp) return false;
+                        if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
+                        return true;
+                    }).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
+
+                    if (_sPrevRides.length > 0) {
+                        const _sPrev = _sPrevRides[0];
+                        const _sPrevDurMs = (_sPrev.duration || _sPrev.estimatedDuration || 20) * 60000;
+                        const _sPrevEndMs = _sPrev.pickupTimestamp + _sPrevDurMs + bufferMs;
+                        const _sLeerfahrtMs = (bestDrivingTime || 10) * 60000;
+                        const _sEarliestMs = _sPrevEndMs + _sLeerfahrtMs + mindestAbstandMs;
+                        const _sDelayMs = _sEarliestMs - ride.pickupTimestamp;
+                        const _sDelayMin = Math.round(_sDelayMs / 60000);
+
+                        if (_sDelayMs > 0) {
+                            const _sPrevEndFormatted = new Date(new Date(_sPrevEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+
+                            if (_sDelayMin > _maxShiftMin) {
+                                // Zu großer Konflikt → Fahrzeug NICHT zuweisen
+                                console.log(`   ❌ v6.25.5: ${bestCandidate.name} kann nicht rechtzeitig (${_sDelayMin} Min zu spät, Max ${_maxShiftMin})`);
+                                vehicleScores[bestCandidate.vehicleId].status = 'busy';
+                                vehicleScores[bestCandidate.vehicleId].busyUntil = _sPrevEndFormatted;
+                                vehicleScores[bestCandidate.vehicleId].overlapMin = _sDelayMin;
+                                await db.ref('rides/' + rideId + '/vehicleScores').set(vehicleScores);
+                                failedCount++;
+                                continue;
+                            } else {
+                                // Kleiner Konflikt → Abholzeit verschieben
+                                _shiftedPickupTs = _sEarliestMs + 2 * 60000;
+                                const _sNewTime = new Date(new Date(_shiftedPickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                                const _sNewFormatted = _sNewTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+                                _shiftInfo = {
+                                    pickupTimestamp: _shiftedPickupTs,
+                                    pickupTime: String(_sNewTime.getHours()).padStart(2,'0') + ':' + String(_sNewTime.getMinutes()).padStart(2,'0'),
+                                    pickupTimeShifted: true,
+                                    originalPickupTimestamp: ride.pickupTimestamp,
+                                    pickupShiftReason: `Fahrzeug ${bestCandidate.name} erst ab ${_sPrevEndFormatted} frei (Vorfahrt)`,
+                                    pickupShiftMinutes: _sDelayMin
+                                };
+                                console.log(`   🔄 v6.25.5: Abholzeit verschoben → ${_sNewFormatted} (+${_sDelayMin} Min)`);
+                            }
+                        }
+                    }
+                }
+
                 // Fahrzeug zuweisen
                 vehicleScores[bestCandidate.vehicleId].status = 'chosen';
                 const bestInfo = OFFICIAL_VEHICLES[bestCandidate.vehicleId] || {};
@@ -12266,6 +12407,10 @@ exports.scheduledAutoAssign = onSchedule(
                     vehicleScores: vehicleScores,
                     drivingTimeToPickup: bestDrivingTime
                 };
+                // 🆕 v6.25.5: Verschobene Abholzeit eintragen
+                if (_shiftInfo) {
+                    Object.assign(rideUpdate, _shiftInfo);
+                }
 
                 await db.ref('rides/' + rideId).update(rideUpdate);
 

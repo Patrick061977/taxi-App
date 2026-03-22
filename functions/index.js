@@ -1963,9 +1963,20 @@ async function searchNominatimForTelegram(query) {
     return [...localResults, ...nominatimResults].slice(0, 5);
 }
 
-async function calculateRoute(from, to) {
+// 🔧 v6.33.6: Waypoints-Support für Multi-Stop-Routen
+async function calculateRoute(from, to, waypointCoords = []) {
     try {
-        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`);
+        // Baue Koordinaten-String: Start ; Waypoint1 ; Waypoint2 ; ... ; Ziel
+        let coordinates = `${from.lon},${from.lat}`;
+        if (waypointCoords && waypointCoords.length > 0) {
+            waypointCoords.forEach(wp => {
+                coordinates += `;${wp.lon},${wp.lat}`;
+            });
+            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps`);
+        }
+        coordinates += `;${to.lon},${to.lat}`;
+
+        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`);
         const data = await resp.json();
         if (data.routes && data.routes[0]) {
             const route = data.routes[0];
@@ -2212,10 +2223,31 @@ const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
 async function calculateTelegramRoutePrice(booking) {
     if (!booking.pickupLat || !booking.destinationLat) return null;
     try {
-        console.log(`[RoutePrice] Berechne Route: (${booking.pickupLat}, ${booking.pickupLon}) → (${booking.destinationLat}, ${booking.destinationLon})`);
+        // 🔧 v6.33.6: Zwischenstopps geocoden und in Route einbeziehen!
+        const waypointCoords = [];
+        if (booking.waypoints && booking.waypoints.length > 0) {
+            console.log(`[RoutePrice] ${booking.waypoints.length} Zwischenstopps geocoden...`);
+            for (const wp of booking.waypoints) {
+                const wpAddr = typeof wp === 'string' ? wp : (wp.address || wp);
+                try {
+                    const coords = await geocode(wpAddr);
+                    if (coords && coords.lat && coords.lon) {
+                        waypointCoords.push({ lat: coords.lat, lon: coords.lon });
+                        console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → ${coords.lat}, ${coords.lon}`);
+                    } else {
+                        console.warn(`[RoutePrice] ⚠️ Zwischenstopp "${wpAddr}" konnte nicht geocodiert werden`);
+                    }
+                } catch (e) {
+                    console.warn(`[RoutePrice] Geocode-Fehler für Zwischenstopp "${wpAddr}":`, e.message);
+                }
+            }
+        }
+
+        console.log(`[RoutePrice] Berechne Route: (${booking.pickupLat}, ${booking.pickupLon}) → (${booking.destinationLat}, ${booking.destinationLon})${waypointCoords.length > 0 ? ` mit ${waypointCoords.length} Zwischenstopps` : ''}`);
         const route = await calculateRoute(
             { lat: booking.pickupLat, lon: booking.pickupLon },
-            { lat: booking.destinationLat, lon: booking.destinationLon }
+            { lat: booking.destinationLat, lon: booking.destinationLon },
+            waypointCoords
         );
         if (!route || !route.distance) return null;
         console.log(`[RoutePrice] OSRM Ergebnis: ${route.distance} km, ${route.duration} min`);
@@ -5048,9 +5080,15 @@ async function handleMessage(message) {
         updatedBooking.notes = updatedBooking.notes ? `${updatedBooking.notes} | ${wpNote}` : wpNote;
         const updatedPending = { ...pending, booking: updatedBooking };
         delete updatedPending._awaitingWaypoint;
+        // 🔧 v6.33.6: Route+Preis NEU berechnen mit Zwischenstopp!
+        const newRoutePrice = await calculateTelegramRoutePrice(updatedBooking);
+        if (newRoutePrice) {
+            updatedPending.routePrice = newRoutePrice;
+            console.log(`[Waypoint] Route neu berechnet MIT Zwischenstopp: ${newRoutePrice.distance} km, ${newRoutePrice.price}€`);
+        }
         await setPending(chatId, updatedPending);
         await addTelegramLog('📍', chatId, `Zwischenstopp: ${waypointText}`);
-        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, pending.routePrice || null);
+        const confirmMsg = buildTelegramConfirmMsg(updatedBooking, newRoutePrice || pending.routePrice || null);
         const keyboard = buildBookingConfirmKeyboard(pending.bookingId, chatId, updatedBooking);
         await sendTelegramMessage(chatId, `✅ Zwischenstopp "<b>${waypointText}</b>" hinzugefügt!\n\n` + confirmMsg, { reply_markup: keyboard });
         return;

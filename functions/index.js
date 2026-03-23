@@ -7318,6 +7318,27 @@ async function handleCallback(callback) {
                 ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
 
+            // 🔧 v6.25.5: Auto customerId per Telefon wenn nicht aus Booking
+            if (!rideData.customerId && rideData.customerPhone) {
+                try {
+                    const _ph = rideData.customerPhone.replace(/\D/g, '');
+                    if (_ph.length >= 8) {
+                        const _crmSnap = await db.ref('customers').once('value');
+                        _crmSnap.forEach(child => {
+                            if (rideData.customerId) return;
+                            const c = child.val();
+                            const cp = (c.mobilePhone || c.phone || c.mobile || '').replace(/\D/g, '');
+                            if (cp && cp.slice(-9) === _ph.slice(-9)) {
+                                rideData.customerId = child.key;
+                                if (c.email && !rideData.customerEmail) rideData.customerEmail = c.email;
+                                if (c.mobilePhone && !rideData.customerMobile) rideData.customerMobile = c.mobilePhone;
+                                console.log(`🔗 CRM Auto-Match: ${c.name} → ${child.key}`);
+                            }
+                        });
+                    }
+                } catch(e) { console.warn('⚠️ CRM Auto-Match fehlgeschlagen:', e.message); }
+            }
+
             const newRef = db.ref('rides').push();
             rideData.id = newRef.key;
             await newRef.set(rideData);

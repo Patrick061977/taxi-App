@@ -537,12 +537,26 @@ async function autoAssignRide(rideId, rideData) {
                 const boardingTime = pricingSettings.boardingTime || 2;
                 const alightingTime = pricingSettings.alightingTime || 2;
                 const bufferMs = (boardingTime + alightingTime) * 60000;
-                const _rueckfahrtMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                const _rueckfahrtMaxMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                const _rueckfahrtMinMs = 5 * 60000; // Minimum 5 Min Rückfahrt
+
+                // 🔧 v6.33.8: DYNAMISCHER Rückfahrt-Puffer statt pauschal 30 Min!
+                // Berechne echte Entfernung: Zielort → Homebase → geschätzte Rückfahrzeit
+                const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
+                function calcReturnMs(ride) {
+                    const destLat = ride.destCoords?.lat || ride.destinationLat;
+                    const destLon = ride.destCoords?.lon || ride.destinationLon;
+                    if (!destLat || !destLon || !homeCoords?.lat || !homeCoords?.lon) return _rueckfahrtMaxMs;
+                    const distKm = gpsDistanceKm(destLat, destLon, homeCoords.lat, homeCoords.lon);
+                    // Faktor 1.3 für Straßen vs. Luftlinie, 50 km/h Durchschnitt, +2 Min Puffer
+                    const estMinutes = Math.round((distKm * 1.3 / 50) * 60) + 2;
+                    // Zwischen 5 und maxPuffer (default 30) Min clampen
+                    return Math.max(_rueckfahrtMinMs, Math.min(estMinutes * 60000, _rueckfahrtMaxMs));
+                }
+
                 // 🔧 v6.33.7: Sofortfahrt — KEIN Rückfahrt-Puffer für die neue Fahrt!
                 // Das Fahrzeug fährt direkt vom Ziel der Sofortfahrt zum nächsten Abholort.
-                // Vorher: 3-Min-Fahrt + 30 Min Rückfahrt = 37 Min blockiert → nächste Fahrt "Konflikt"
-                // Jetzt: 3-Min-Fahrt + Ein/Aussteigen = 7 Min blockiert → nächste Fahrt passt!
-                const _newRideReturnMs = isSofort ? 0 : _rueckfahrtMs;
+                const _newRideReturnMs = isSofort ? 0 : calcReturnMs(rideData);
                 let _conflictRide = null;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
@@ -551,7 +565,8 @@ async function autoAssignRide(rideId, rideData) {
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
-                    const rEnd = rStart + rDur + bufferMs + _rueckfahrtMs;
+                    const rReturnMs = calcReturnMs(r); // Dynamisch pro bestehender Fahrt
+                    const rEnd = rStart + rDur + bufferMs + rReturnMs;
                     const newEnd = newPickup + newDur + bufferMs + _newRideReturnMs;
                     if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; return true; }
                     return false;
@@ -12819,6 +12834,72 @@ exports.onRideUpdated = onValueUpdated(
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
                     `\n✅ Status: Abgeschlossen`;
+
+                // 🆕 v6.33.7: Anschlussfahrt-Hinweis — Fahrer direkt zum nächsten Abholort schicken
+                const completedVehicleId = after.assignedVehicle || after.vehicleId;
+                if (completedVehicleId) {
+                    try {
+                        const pSnap = await db.ref('settings/pricing').once('value');
+                        const _pricing = pSnap.val() || {};
+                        const anschlussZeitMin = _pricing.anschlussfahrtWeiterfahrtMin ?? 10;
+
+                        // Alle heutigen Fahrten für dieses Fahrzeug laden
+                        const ridesSnap = await db.ref('rides').once('value');
+                        const allRidesObj = ridesSnap.val() || {};
+                        const now = Date.now();
+
+                        // Nächste anstehende Fahrt finden
+                        let nextRide = null;
+                        let nextRideId = null;
+                        for (const [rid, r] of Object.entries(allRidesObj)) {
+                            if (rid === rideId) continue;
+                            const vId = r.assignedVehicle || r.vehicleId || r.assignedTo;
+                            if (vId !== completedVehicleId) continue;
+                            if (['deleted','cancelled','storniert','completed','abgeschlossen'].includes(r.status)) continue;
+                            if (!r.pickupTimestamp) continue;
+                            // Nur Fahrten die in den nächsten X Minuten starten
+                            const minutesUntil = (r.pickupTimestamp - now) / 60000;
+                            if (minutesUntil > 0 && minutesUntil <= anschlussZeitMin) {
+                                if (!nextRide || r.pickupTimestamp < nextRide.pickupTimestamp) {
+                                    nextRide = r;
+                                    nextRideId = rid;
+                                }
+                            }
+                        }
+
+                        if (nextRide) {
+                            const driverChatId = await getDriverChatId(completedVehicleId);
+                            if (driverChatId) {
+                                const nextTimeStr = new Date(nextRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                const minutesLeft = Math.round((nextRide.pickupTimestamp - now) / 60000);
+
+                                // Anfahrtszeit berechnen (Zielort → nächster Abholort)
+                                let anfahrtInfo = '';
+                                const destLat = after.destCoords?.lat || after.destinationLat;
+                                const destLon = after.destCoords?.lon || after.destinationLon;
+                                const nextPickupLat = nextRide.pickupCoords?.lat || nextRide.pickupLat;
+                                const nextPickupLon = nextRide.pickupCoords?.lon || nextRide.pickupLon;
+                                if (destLat && destLon && nextPickupLat && nextPickupLon) {
+                                    const distKm = gpsDistanceKm(destLat, destLon, nextPickupLat, nextPickupLon);
+                                    const etaMin = Math.max(1, Math.round((distKm / 50) * 60) + 2);
+                                    anfahrtInfo = `\n🚗 <b>Anfahrt:</b> ~${etaMin} Min (${distKm.toFixed(1)} km)`;
+                                }
+
+                                const nextMsg = `🔜 <b>ANSCHLUSSFAHRT!</b>\n\n` +
+                                    `⏰ <b>In ${minutesLeft} Min</b> (${nextTimeStr} Uhr)\n` +
+                                    `👤 <b>Kunde:</b> ${nextRide.customerName || '?'}\n` +
+                                    `📍 <b>Abholort:</b> ${nextRide.pickup || '?'}\n` +
+                                    `🎯 <b>Ziel:</b> ${nextRide.destination || '?'}` +
+                                    anfahrtInfo +
+                                    `\n\n➡️ <i>Bitte direkt zum Abholort fahren!</i>`;
+                                await sendTelegramMessage(driverChatId, nextMsg);
+                                console.log(`🔜 Anschlussfahrt-Hinweis an ${completedVehicleId}: ${nextRide.customerName} in ${minutesLeft} Min`);
+                            }
+                        }
+                    } catch (afErr) {
+                        console.error('⚠️ Anschlussfahrt-Check Fehler:', afErr.message);
+                    }
+                }
             }
 
             if (message) {

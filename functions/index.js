@@ -7318,23 +7318,34 @@ async function handleCallback(callback) {
                 ...(booking.waypoints && booking.waypoints.length > 0 && { waypoints: booking.waypoints })
             };
 
-            // 🔧 v6.25.5: Auto customerId per Telefon wenn nicht aus Booking
+            // 🔧 v6.25.6: Auto customerId per Telefon — NUR wenn GENAU 1 Treffer
             if (!rideData.customerId && rideData.customerPhone) {
                 try {
                     const _ph = rideData.customerPhone.replace(/\D/g, '');
-                    if (_ph.length >= 8) {
+                    // Placeholder-Nummern ignorieren
+                    const _isPlaceholder = ['1701234827', '1701234828', '491701234827'].includes(_ph);
+                    if (_ph.length >= 8 && !_isPlaceholder) {
                         const _crmSnap = await db.ref('customers').once('value');
+                        const _phoneMatches = [];
                         _crmSnap.forEach(child => {
-                            if (rideData.customerId) return;
                             const c = child.val();
+                            c._id = child.key;
                             const cp = (c.mobilePhone || c.phone || c.mobile || '').replace(/\D/g, '');
-                            if (cp && cp.slice(-9) === _ph.slice(-9)) {
-                                rideData.customerId = child.key;
-                                if (c.email && !rideData.customerEmail) rideData.customerEmail = c.email;
-                                if (c.mobilePhone && !rideData.customerMobile) rideData.customerMobile = c.mobilePhone;
-                                console.log(`🔗 CRM Auto-Match: ${c.name} → ${child.key}`);
+                            const cp2 = (c.mobilePhone && c.phone) ? c.phone.replace(/\D/g, '') : '';
+                            if ((cp && cp.slice(-9) === _ph.slice(-9)) || (cp2 && cp2.slice(-9) === _ph.slice(-9))) {
+                                _phoneMatches.push(c);
                             }
                         });
+                        // NUR verknüpfen wenn GENAU 1 Kunde passt (sonst mehrdeutig)
+                        if (_phoneMatches.length === 1) {
+                            const c = _phoneMatches[0];
+                            rideData.customerId = c._id;
+                            if (c.email && !rideData.customerEmail) rideData.customerEmail = c.email;
+                            if (c.mobilePhone && !rideData.customerMobile) rideData.customerMobile = c.mobilePhone;
+                            console.log(`🔗 CRM Auto-Match: ${c.name} → ${c._id}`);
+                        } else if (_phoneMatches.length > 1) {
+                            console.warn(`⚠️ CRM Auto-Match: ${_phoneMatches.length} Treffer für ${rideData.customerPhone} — kein Auto-Link (mehrdeutig): ${_phoneMatches.map(c => c.name).join(', ')}`);
+                        }
                     }
                 } catch(e) { console.warn('⚠️ CRM Auto-Match fehlgeschlagen:', e.message); }
             }
@@ -7497,34 +7508,55 @@ async function handleCallback(callback) {
                     const _crmPhone = booking.phone || '';
                     const _crmPickup = booking.pickup || '';
 
-                    // 🔧 v6.14.2: Duplikat-Check — nicht anlegen wenn Kunde mit gleichem Namen/Telefon schon existiert
+                    // 🔧 v6.25.6: Duplikat-Check — Name UND Telefon müssen passen (nicht OR!)
+                    // Alter Code: cNameMatch || cPhoneMatch → konnte falschen Kunden verknüpfen
+                    // Neu: Exakter Name-Match ODER (Name+Telefon) ODER einziger Telefon-Match
                     let _alreadyExists = false;
                     try {
                         const _allCust = await loadAllCustomers();
                         const _nameLower = _crmName.toLowerCase().trim();
                         const _phoneDigits = _crmPhone.replace(/\D/g, '');
+                        // 🔧 v6.25.6: Placeholder-Nummern ignorieren
+                        const _placeholderNums = ['1701234827', '1701234828', '1731234827', '491701234827', '491701234828'];
+                        const _isPlaceholder = _placeholderNums.includes(_phoneDigits);
+                        const _safePhoneDigits = _isPlaceholder ? '' : _phoneDigits;
+                        let _nameMatch = null;
+                        let _phoneMatches = [];
                         for (const c of _allCust) {
                             const cNameMatch = (c.name || '').toLowerCase().trim() === _nameLower;
-                            // 🔧 v6.14.6: Auch mobilePhone prüfen — nicht nur phone!
                             const cPhoneDigits = (c.mobilePhone || c.phone || '').replace(/\D/g, '');
                             const cPhone2Digits = (c.mobilePhone && c.phone) ? (c.phone || '').replace(/\D/g, '') : '';
-                            const cPhoneMatch = _phoneDigits.length > 5 && (
-                                (cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_phoneDigits.slice(-9))) ||
-                                (cPhone2Digits.length > 5 && cPhone2Digits.endsWith(_phoneDigits.slice(-9)))
+                            const cPhoneMatch = _safePhoneDigits.length > 5 && (
+                                (cPhoneDigits.length > 5 && cPhoneDigits.endsWith(_safePhoneDigits.slice(-9))) ||
+                                (cPhone2Digits.length > 5 && cPhone2Digits.endsWith(_safePhoneDigits.slice(-9)))
                             );
-                            if (cNameMatch || cPhoneMatch) {
-                                _alreadyExists = true;
-                                // Fahrt mit gefundenem Kunden verknüpfen + Telefonnummer übernehmen
-                                const _rideUpdate = { customerId: c.customerId, updatedAt: Date.now() };
-                                // 🔧 v6.14.3: Telefonnummer aus CRM in Fahrt speichern (für Google Calendar Sync)
-                                if (c.mobilePhone) _rideUpdate.customerMobile = c.mobilePhone;
-                                if (!rideData.customerPhone && (c.mobilePhone || c.phone)) {
-                                    _rideUpdate.customerPhone = c.mobilePhone || c.phone;
-                                }
-                                await db.ref('rides/' + rideData.id).update(_rideUpdate);
-                                await addTelegramLog('🔗', chatId, `CRM-Kunde bereits vorhanden: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
+                            // Prio 1: Exakter Name-Match → sofort verwenden
+                            if (cNameMatch) {
+                                _nameMatch = c;
                                 break;
                             }
+                            // Prio 2: Telefon-Match sammeln (erst nach Loop entscheiden)
+                            if (cPhoneMatch) {
+                                _phoneMatches.push(c);
+                            }
+                        }
+                        // Entscheidung: Name hat Vorrang, danach Phone NUR wenn GENAU 1 Treffer
+                        const _matchedCustomer = _nameMatch || (_phoneMatches.length === 1 ? _phoneMatches[0] : null);
+                        if (_matchedCustomer) {
+                            _alreadyExists = true;
+                            const c = _matchedCustomer;
+                            const _rideUpdate = { customerId: c.customerId, updatedAt: Date.now() };
+                            if (c.mobilePhone) _rideUpdate.customerMobile = c.mobilePhone;
+                            if (!rideData.customerPhone && (c.mobilePhone || c.phone)) {
+                                _rideUpdate.customerPhone = c.mobilePhone || c.phone;
+                            }
+                            await db.ref('rides/' + rideData.id).update(_rideUpdate);
+                            await addTelegramLog('🔗', chatId, `CRM-Kunde bereits vorhanden: ${c.name} (${c.customerId}) → Fahrt verknüpft`);
+                            if (_phoneMatches.length > 1 && !_nameMatch) {
+                                await addTelegramLog('⚠️', chatId, `Telefon-Match mehrdeutig (${_phoneMatches.length} Treffer) — nur bei genau 1 Treffer verknüpft`);
+                            }
+                        } else if (_phoneMatches.length > 1) {
+                            await addTelegramLog('⚠️', chatId, `CRM: ${_phoneMatches.length} Kunden mit gleicher Nummer gefunden — kein Auto-Link (mehrdeutig): ${_phoneMatches.map(c => c.name).join(', ')}`);
                         }
                     } catch (_dupErr) { console.warn('CRM Duplikat-Check Fehler:', _dupErr.message); }
 

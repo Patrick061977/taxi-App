@@ -400,6 +400,47 @@ function getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr) {
     return times.endTime;
 }
 
+// 🆕 v6.25.6: Detaillierte Schicht-Info für Prüfprotokoll in der App
+function getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr) {
+    const shifts = shiftsData[vehicleId];
+    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    if (!shifts) {
+        const hasAny = Object.keys(shiftsData).length > 0;
+        return { hasShiftEntry: false, reason: hasAny ? 'Kein Schichtplan-Eintrag vorhanden' : 'Kein Schichtsystem aktiv', dayActive: false, shiftTimes: null };
+    }
+    let dayActive = false;
+    let daySource = '';
+    if (shifts[dateStr] !== undefined) {
+        dayActive = shifts[dateStr].active !== false;
+        daySource = dayActive ? `${dateStr} explizit aktiv` : `${dateStr} explizit INAKTIV`;
+    } else {
+        const defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+        dayActive = defaults[dow] === true;
+        daySource = dayActive ? `${dayNames[dow]} im Wochenplan aktiv` : `${dayNames[dow]} nicht im Wochenplan`;
+    }
+    if (!dayActive) return { hasShiftEntry: true, reason: daySource, dayActive: false, shiftTimes: null };
+    // Zeiten ermitteln
+    const dayEntry = shifts[dateStr];
+    const defaultEntry = (shifts.defaultTimes || {})[dow];
+    let shiftTimes = null;
+    if (dayEntry && (dayEntry.startTime || dayEntry.endTime)) {
+        shiftTimes = dayEntry.startTime + '-' + dayEntry.endTime;
+        if (dayEntry.timeRanges && dayEntry.timeRanges.length > 1) {
+            shiftTimes = dayEntry.timeRanges.map(r => r.startTime + '-' + r.endTime).join(', ');
+        }
+    } else if (defaultEntry && (defaultEntry.startTime || (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 0))) {
+        shiftTimes = defaultEntry.startTime + '-' + defaultEntry.endTime;
+        if (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 1) {
+            shiftTimes = defaultEntry.timeRanges.map(r => r.startTime + '-' + r.endTime).join(', ');
+        }
+    }
+    if (!shiftTimes) return { hasShiftEntry: true, reason: 'Tag aktiv aber keine Schichtzeiten konfiguriert', dayActive: true, shiftTimes: null };
+    const inShift = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
+    return { hasShiftEntry: true, reason: inShift ? `Im Dienst (${shiftTimes})` : `Außerhalb Schicht (${shiftTimes})`, dayActive: true, daySource, shiftTimes, inShift };
+}
+
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
@@ -447,14 +488,22 @@ async function autoAssignRide(rideId, rideData) {
         console.log(`   📅 Datum: ${dateStr} | ⏰ Uhrzeit: ${timeStr} | 👥 Personen: ${passengers}`);
         console.log(`   🔧 Schichtpläne in DB: ${Object.keys(shiftsData).join(', ') || 'KEINE'}`);
 
+        // 🆕 v6.25.6: vehicleScores für ALLE Fahrzeuge (auch abgelehnte) — für Prüfprotokoll in App
+        const vehicleScores = {};
+
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
             console.log(`\n   ═══ Prüfe ${info.name} (${vehicleId}) ═══`);
             if (info.capacity < passengers) {
                 console.log(`   ❌ ${info.name}: Kapazität ${info.capacity} < ${passengers} Personen`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: `Kapazität ${info.capacity} < ${passengers} Personen`, check: 'capacity' };
                 continue;
             }
+
+            // Schicht-Details für Prüfprotokoll sammeln
+            const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
                 console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr}`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
                 continue;
             }
 
@@ -466,27 +515,30 @@ async function autoAssignRide(rideId, rideData) {
             const _shiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
             if (_shiftEnd && _rideEndTimeStr > _shiftEnd) {
                 console.log(`   ❌ ${info.name}: Fahrtende ${_rideEndTimeStr} > Schichtende ${_shiftEnd} → übersprungen`);
+                vehicleScores[vehicleId] = { status: 'shift-end', reason: `Fahrtende ${_rideEndTimeStr} > Schichtende ${_shiftEnd}`, check: 'shift-end', shiftEnd: _shiftEnd, rideEndTime: _rideEndTimeStr, overMinutes: Math.round((_rideEndMs - new Date(dateStr + 'T' + _shiftEnd + ':00').getTime()) / 60000) };
                 continue;
             }
 
             // 🔧 v6.26.0: Besetzt-Check für ALLE Fahrten (nicht nur Sofort!)
-            // + Status 'assigned' hinzugefügt (Fahrer hat akzeptiert aber ist noch nicht da)
-            const busy = allRides.some(r =>
+            const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
                 (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
             );
-            if (busy) { console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`); continue; }
+            if (busyRide) {
+                console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`);
+                vehicleScores[vehicleId] = { status: 'busy', reason: `Aktuell besetzt: ${busyRide.customerName || '?'} (${busyRide.status})`, check: 'busy', blockingRideCustomer: busyRide.customerName, blockingRideStatus: busyRide.status };
+                continue;
+            }
 
             // Zeitkonflikt mit bestehenden Fahrten prüfen
             if (rideData.pickupTimestamp) {
                 const newPickup = rideData.pickupTimestamp;
                 const newDur = (rideData.duration || rideData.estimatedDuration || 20) * 60000;
-                // 🔧 v6.26.0: Buffer aus Firebase-Settings statt hardcoded
                 const boardingTime = pricingSettings.boardingTime || 2;
                 const alightingTime = pricingSettings.alightingTime || 2;
                 const bufferMs = (boardingTime + alightingTime) * 60000;
-                // 🆕 v6.33.8: Rückfahrt zur Basis einrechnen!
                 const _rueckfahrtMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                let _conflictRide = null;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
                     if (r.vehicleId !== vehicleId && r.assignedTo !== vehicleId && r.assignedVehicle !== vehicleId) return false;
@@ -494,16 +546,21 @@ async function autoAssignRide(rideId, rideData) {
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
-                    // Fahrt belegt = Fahrtdauer + Ein/Aussteigen + Rückfahrt zur Basis
                     const rEnd = rStart + rDur + bufferMs + _rueckfahrtMs;
                     const newEnd = newPickup + newDur + bufferMs + _rueckfahrtMs;
-                    return (newPickup < rEnd) && (rStart < newEnd);
+                    if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; return true; }
+                    return false;
                 });
                 if (hasTimeConflict) {
-                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt → übersprungen`);
+                    const _cTime = _conflictRide ? new Date(_conflictRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?';
+                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit ${_conflictRide?.customerName || '?'} um ${_cTime} → übersprungen`);
+                    vehicleScores[vehicleId] = { status: 'overlap-hard', reason: `Zeitkonflikt: ${_conflictRide?.customerName || '?'} um ${_cTime}`, check: 'timeconflict', blockingRideCustomer: _conflictRide?.customerName, blockingRideTime: _cTime };
                     continue;
                 }
             }
+
+            // Schicht-Info für gewählte Fahrzeuge mitspeichern
+            vehicleScores[vehicleId] = { status: 'available', shiftDetails: _shiftInfo, shiftEnd: _shiftEnd || null };
 
             const driver = vehicles[vehicleId];
 
@@ -559,7 +616,6 @@ async function autoAssignRide(rideId, rideData) {
 
         let best;
         let drivingTimeMin = 0;
-        const vehicleScores = {};
 
         if (isSofort) {
             candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
@@ -611,7 +667,7 @@ async function autoAssignRide(rideId, rideData) {
 
                 const totalScore = Math.round(leerfahrtMin + prioPenalty + loadPenalty + anschlussBonus);
 
-                vehicleScores[cand.vehicleId] = {
+                Object.assign(vehicleScores[cand.vehicleId] || {}, {
                     status: 'available',
                     leerfahrtMin: Math.round(leerfahrtMin),
                     leerfahrtVon,
@@ -621,7 +677,7 @@ async function autoAssignRide(rideId, rideData) {
                     vehicleRideCount,
                     anschlussBonus,
                     totalScore
-                };
+                });
 
                 console.log(`   📊 ${cand.name}: Leerfahrt ${Math.round(leerfahrtMin)} Min (${routeMethod}) + Prio ${prioPenalty} + Last ${loadPenalty} (${vehicleRideCount} Fahrten) + Kette ${anschlussBonus} = Score ${totalScore} [P${prio}]`);
 

@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.9 - Fix: Fahrzeug-/Preis-Änderungen werden jetzt auch ohne updatedAt erkannt (Titel+Beschreibung-Vergleich)
+// Version: 4.8 - Fix: Stornierte Events auch 24h rückwirkend aus Google Kalender löschen
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.9...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.7...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -156,13 +156,13 @@ function syncFirebaseToCalendar() {
 
     console.log('🔄 Geänderte Termine seit letztem Sync:', changedRides.length);
 
-    // Stufe 2: Prüfe ALLE aktiven Fahrten auf fehlende ODER veraltete Kalender-Einträge
-    // 🔧 v4.9: Auch Fahrzeug-Änderungen erkennen (Titel-Vergleich)
+    // Stufe 2: Prüfe ALLE aktiven Fahrten auf fehlende Kalender-Einträge
+    // (fängt Fahrten auf die vor dem ersten Sync erstellt wurden)
     const unchangedRides = activeFutureRides.filter(ride => !changedRides.includes(ride));
     const missingRides = [];
 
     if (unchangedRides.length > 0) {
-      console.log('🔍 Prüfe', unchangedRides.length, 'unveränderte Fahrten auf fehlende/veraltete Kalender-Einträge...');
+      console.log('🔍 Prüfe', unchangedRides.length, 'unveränderte Fahrten auf fehlende Kalender-Einträge...');
       for (const ride of unchangedRides) {
         let startTime;
         if (ride.pickupTimestamp) {
@@ -176,35 +176,9 @@ function syncFirebaseToCalendar() {
         if (!existing) {
           missingRides.push(ride);
           console.log('📌 Fehlender Eintrag gefunden:', ride.firebaseId);
-        } else {
-          // 🔧 v4.9: Prüfe ob Fahrzeug im Kalender-Titel noch stimmt
-          const currentTitle = existing.getTitle() || '';
-          const currentVehicle = ride.vehicleLabel || ride.vehicle || ride.assignedVehicle || '';
-          const currentPlate = ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : '';
-          const expectedVehicle = currentVehicle ? currentVehicle + currentPlate : '';
-          // Prüfe ob das Fahrzeug im Titel enthalten ist (oder ob kein Fahrzeug mehr zugewiesen)
-          if (expectedVehicle && !currentTitle.includes(currentVehicle)) {
-            missingRides.push(ride);
-            console.log('🔄 Fahrzeug-Änderung erkannt:', ride.firebaseId, '- Kalender:', currentTitle.split('|').pop()?.trim(), '→ Firebase:', expectedVehicle);
-          }
-          // Auch Preis-Änderungen erkennen
-          const currentDesc = existing.getDescription() || '';
-          const ridePrice = ride.price || ride.finalPrice || ride.actualPrice;
-          if (ridePrice && currentDesc.includes('Preis:')) {
-            const descPriceMatch = currentDesc.match(/Preis:\s*([\d.,]+)/);
-            if (descPriceMatch) {
-              const calPrice = parseFloat(descPriceMatch[1].replace(',', '.'));
-              if (Math.abs(calPrice - parseFloat(ridePrice)) > 0.01) {
-                if (!missingRides.includes(ride)) {
-                  missingRides.push(ride);
-                  console.log('💰 Preis-Änderung erkannt:', ride.firebaseId, '- Kalender:', calPrice + '€', '→ Firebase:', ridePrice + '€');
-                }
-              }
-            }
-          }
         }
       }
-      console.log('📌 Fehlende/veraltete Kalender-Einträge:', missingRides.length);
+      console.log('📌 Fehlende Kalender-Einträge:', missingRides.length);
     }
 
     // Kombiniere: geänderte + fehlende
@@ -487,7 +461,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.9');
+  lines.push('📝 Erstellt von: CalendarSync v4.7');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

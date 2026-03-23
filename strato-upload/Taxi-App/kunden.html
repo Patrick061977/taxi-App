@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meine Fahrten - Funk Taxi Usedom</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f3f4f6;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 16px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(102, 126, 234, 0.4);
+        }
+        .header h1 { font-size: 20px; margin-bottom: 4px; }
+        .header .subtitle { font-size: 13px; opacity: 0.9; }
+
+        .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+        /* LOGIN SCREEN */
+        #login-screen { display: flex; flex-direction: column; align-items: center; padding-top: 40px; }
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 24px;
+            width: 100%;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .login-card .icon { font-size: 48px; margin-bottom: 16px; }
+        .login-card h2 { font-size: 20px; margin-bottom: 8px; color: #1f2937; }
+        .login-card p { font-size: 14px; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+
+        .phone-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .phone-prefix {
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            width: 70px;
+            text-align: center;
+        }
+        .phone-input {
+            flex: 1;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .phone-input:focus { border-color: #667eea; }
+
+        .code-input {
+            width: 100%;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 24px;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 700;
+            outline: none;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+        .code-input:focus { border-color: #667eea; }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            margin-top: 8px;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-small {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 8px;
+        }
+
+        .info-text { font-size: 12px; color: #9ca3af; margin-top: 12px; }
+        .error-text { font-size: 13px; color: #ef4444; margin-top: 8px; display: none; }
+
+        /* RIDES LIST */
+        #rides-screen { display: none; }
+
+        .welcome-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .welcome-bar .name { font-weight: 700; font-size: 15px; }
+        .welcome-bar .phone { font-size: 13px; color: #6b7280; }
+        .logout-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: white;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .ride-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: all 0.2s;
+        }
+        .ride-card:active { transform: scale(0.98); }
+
+        .ride-status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-assigned { background: #dbeafe; color: #1e40af; }
+        .status-accepted { background: #d1fae5; color: #065f46; }
+        .status-on_way { background: #c7d2fe; color: #3730a3; }
+        .status-picked_up { background: #a7f3d0; color: #047857; }
+        .status-vorbestellt { background: #e0e7ff; color: #4338ca; }
+        .status-completed { background: #d1d5db; color: #374151; }
+        .status-cancelled { background: #fecaca; color: #991b1b; }
+
+        .ride-route {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .route-dots {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 3px;
+            gap: 2px;
+        }
+        .dot-green { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
+        .dot-red { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+        .dot-line { width: 2px; height: 16px; background: #d1d5db; }
+        .route-texts { flex: 1; }
+        .route-from, .route-to { font-size: 14px; line-height: 1.4; }
+        .route-from { font-weight: 600; margin-bottom: 8px; }
+        .route-to { color: #4b5563; }
+
+        .ride-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 13px;
+            color: #6b7280;
+            padding-top: 10px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .ride-meta span { display: flex; align-items: center; gap: 4px; }
+
+        .ride-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .ride-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: #9ca3af;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        /* EDIT MODAL */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 420px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal h3 { font-size: 18px; margin-bottom: 16px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: #667eea; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 500;
+            transition: transform 0.3s ease;
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .note-badge {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
+        .secure-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #10b981;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Funk Taxi Usedom</h1>
+        <div class="subtitle">Meine Fahrten</div>
+    </div>
+
+    <div class="container">
+        <!-- LOGIN SCREEN -->
+        <div id="login-screen">
+            <div class="login-card">
+                <div class="icon">🔐</div>
+                <h2>Anmeldung</h2>
+                <p>Geben Sie Ihre Handynummer ein, um Ihre Fahrten zu sehen und zu verwalten.</p>
+
+                <!-- Step 1: Phone Number -->
+                <div id="step-phone">
+                    <div class="phone-input-group">
+                        <input type="text" class="phone-prefix" value="+49" readonly>
+                        <input type="tel" class="phone-input" id="phone-input" placeholder="171 1234567" inputmode="tel" autocomplete="tel">
+                    </div>
+                    <button class="btn btn-primary" id="btn-send-code" onclick="sendVerificationCode()">
+                        SMS-Code senden
+                    </button>
+                    <div class="error-text" id="phone-error"></div>
+                    <div class="info-text">Sie erhalten einen 6-stelligen Code per SMS.</div>
+                </div>
+
+                <!-- Step 2: Code Verification -->
+                <div id="step-code" style="display:none;">
+                    <p id="code-sent-info" style="font-size:13px;color:#374151;margin-bottom:16px;"></p>
+                    <input type="text" class="code-input" id="code-input" placeholder="------" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                    <button class="btn btn-primary" id="btn-verify-code" onclick="verifyCode()">
+                        Anmelden
+                    </button>
+                    <button class="btn btn-secondary" onclick="backToPhone()">
+                        Andere Nummer
+                    </button>
+                    <div class="error-text" id="code-error"></div>
+                    <div class="info-text">Code 5 Minuten gueltig. <span id="resend-timer"></span></div>
+                </div>
+
+                <div class="secure-badge">
+                    <span>🔒</span> Sichere SMS-Verifizierung
+                </div>
+            </div>
+        </div>
+
+        <!-- RIDES SCREEN -->
+        <div id="rides-screen">
+            <div class="welcome-bar">
+                <div>
+                    <div class="name" id="customer-name">Kunde</div>
+                    <div class="phone" id="customer-phone-display"></div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Abmelden</button>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" id="tab-upcoming" onclick="switchTab('upcoming')">Kommende</div>
+                <div class="tab" id="tab-past" onclick="switchTab('past')">Vergangene</div>
+            </div>
+
+            <div id="rides-list"></div>
+
+            <!-- Neue Fahrt buchen -->
+            <div style="margin-top:16px;text-align:center;">
+                <a href="index.html" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
+                    Neue Fahrt buchen
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 id="modal-title">Fahrt bearbeiten</h3>
+                <button onclick="closeModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
+            </div>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ========================================
+        // KUNDEN-PORTAL - Funk Taxi Usedom
+        // v1.0.0 - 13.03.2026
+        // ========================================
+
+        const SMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxfpDB-2HgzQfc-LhFIGZ8Szz26kNTl5zVsWxrYOwhLZ978I15pXreEWIWI8w_By7Aa/exec';
+        const SMS_SENDER = 'FunkTaxi';
+        const TAXI_PHONE = '038378/22022';
+
+        // Firebase Init
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "886448281276",
+            appId: "1:886448281276:web:1b54875801c5d89f8efcf9"
+        });
+        const db = firebase.database();
+
+        // State
+        let verifiedPhone = '';
+        let verificationCode = '';
+        let codeExpiry = 0;
+        let customerRides = [];
+        let customerData = null;
+        let currentTab = 'upcoming';
+        let ridesListener = null;
+
+        // ========================================
+        // SMS VERIFICATION
+        // ========================================
+
+        async function sendVerificationCode() {
+            const phoneRaw = document.getElementById('phone-input').value.trim();
+            const errorEl = document.getElementById('phone-error');
+            errorEl.style.display = 'none';
+
+            // Formatiere Nummer
+            let phone = phoneRaw.replace(/[\s\-\/\(\)]/g, '');
+            if (phone.startsWith('0')) {
+                phone = '49' + phone.substring(1);
+            } else if (phone.startsWith('+49')) {
+                phone = phone.substring(1);
+            } else if (phone.startsWith('49')) {
+                // OK
+            } else if (phone.startsWith('+')) {
+                phone = phone.substring(1);
+            } else {
+                phone = '49' + phone;
+            }
+
+            // Validiere
+            if (!phone.match(/^49(15|16|17|1)/)) {
+                errorEl.textContent = 'Bitte eine gueltige deutsche Handynummer eingeben.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            // Button deaktivieren
+            const btn = document.getElementById('btn-send-code');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span>';
+
+            // Code generieren (6-stellig)
+            verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+            codeExpiry = Date.now() + 5 * 60 * 1000; // 5 Minuten
+            verifiedPhone = phone;
+
+            // Code in Firebase speichern (fuer Audit)
+            try {
+                await db.ref('kundenportal/codes/' + phone).set({
+                    code: verificationCode,
+                    createdAt: Date.now(),
+                    expiresAt: codeExpiry
+                });
+            } catch (e) {
+                console.log('Code-Speicher Fehler (nicht kritisch):', e);
+            }
+
+            // SMS senden
+            const smsText = `Ihr Taxi-Code: ${verificationCode}\n\nGueltig fuer 5 Min.\nFunk Taxi Usedom`;
+
+            try {
+                const response = await fetch(SMS_PROXY_URL, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    body: JSON.stringify({
+                        to: phone,
+                        text: smsText,
+                        from: SMS_SENDER
+                    })
+                });
+
+                if (response.ok) {
+                    // Zeige Code-Eingabe
+                    document.getElementById('step-phone').style.display = 'none';
+                    document.getElementById('step-code').style.display = 'block';
+                    document.getElementById('code-sent-info').textContent =
+                        'Code wurde an +' + phone.substring(0,4) + '****' + phone.substring(phone.length-3) + ' gesendet.';
+                    document.getElementById('code-input').focus();
+                    startResendTimer();
+                } else {
+                    throw new Error('SMS konnte nicht gesendet werden');
+                }
+            } catch (error) {
+                errorEl.textContent = 'SMS konnte nicht gesendet werden. Bitte versuchen Sie es erneut.';
+                errorEl.style.display = 'block';
+                console.error('SMS Fehler:', error);
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'SMS-Code senden';
+        }
+
+        function startResendTimer() {
+            let seconds = 60;
+            const timerEl = document.getElementById('resend-timer');
+            const interval = setInterval(() => {
+                seconds--;
+                if (seconds > 0) {
+                    timerEl.textContent = `Neuer Code in ${seconds}s`;
+                } else {
+                    timerEl.innerHTML = '<a href="#" onclick="sendVerificationCode();return false;" style="color:#667eea;">Neuen Code senden</a>';
+                    clearInterval(interval);
+                }
+            }, 1000);
+        }
+
+        async function verifyCode() {
+            const code = document.getElementById('code-input').value.trim();
+            const errorEl = document.getElementById('code-error');
+            errorEl.style.display = 'none';
+
+            if (code.length !== 6) {
+                errorEl.textContent = 'Bitte den 6-stelligen Code eingeben.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            if (Date.now() > codeExpiry) {
+                errorEl.textContent = 'Code abgelaufen. Bitte neuen Code anfordern.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            if (code !== verificationCode) {
+                errorEl.textContent = 'Falscher Code. Bitte erneut versuchen.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            // Verifiziert! Code in Firebase loeschen
+            try {
+                await db.ref('kundenportal/codes/' + verifiedPhone).remove();
+            } catch (e) { /* ignore */ }
+
+            // Session speichern
+            sessionStorage.setItem('kundenPortalPhone', verifiedPhone);
+            sessionStorage.setItem('kundenPortalExpiry', String(Date.now() + 24 * 60 * 60 * 1000)); // 24h
+
+            showToast('Erfolgreich angemeldet!');
+            await loadCustomerData();
+        }
+
+        function backToPhone() {
+            document.getElementById('step-phone').style.display = 'block';
+            document.getElementById('step-code').style.display = 'none';
+            document.getElementById('code-input').value = '';
+            document.getElementById('code-error').style.display = 'none';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('kundenPortalPhone');
+            sessionStorage.removeItem('kundenPortalExpiry');
+            if (ridesListener) {
+                db.ref('rides').off('value', ridesListener);
+                ridesListener = null;
+            }
+            verifiedPhone = '';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('rides-screen').style.display = 'none';
+            document.getElementById('phone-input').value = '';
+            document.getElementById('code-input').value = '';
+            backToPhone();
+        }
+
+        // ========================================
+        // CUSTOMER DATA & RIDES
+        // ========================================
+
+        async function loadCustomerData() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('rides-screen').style.display = 'block';
+
+            // Suche Kunde in CRM
+            const phoneVariants = getPhoneVariants(verifiedPhone);
+
+            try {
+                const customersSnap = await db.ref('customers').once('value');
+                const customers = customersSnap.val() || {};
+
+                for (const [id, cust] of Object.entries(customers)) {
+                    const custPhones = [
+                        normalizePhone(cust.phone || ''),
+                        normalizePhone(cust.mobilePhone || ''),
+                        normalizePhone(cust.mobile || '')
+                    ].filter(p => p);
+
+                    if (phoneVariants.some(v => custPhones.includes(v))) {
+                        customerData = { ...cust, id };
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.error('CRM Fehler:', e);
+            }
+
+            // Anzeige
+            const displayPhone = '+' + verifiedPhone;
+            document.getElementById('customer-phone-display').textContent = displayPhone;
+            document.getElementById('customer-name').textContent =
+                customerData?.name || customerData?.firstName
+                    ? (customerData.name || (customerData.firstName + ' ' + (customerData.lastName || '')).trim())
+                    : 'Willkommen';
+
+            // Lade Fahrten (Echtzeit!)
+            loadRides();
+        }
+
+        function loadRides() {
+            if (ridesListener) {
+                db.ref('rides').off('value', ridesListener);
+            }
+
+            const phoneVariants = getPhoneVariants(verifiedPhone);
+
+            ridesListener = db.ref('rides').on('value', snapshot => {
+                const allRides = snapshot.val() || {};
+                customerRides = [];
+
+                for (const [id, ride] of Object.entries(allRides)) {
+                    // Pruefe ob Fahrt zu diesem Kunden gehoert
+                    const ridePhones = [
+                        normalizePhone(ride.customerPhone || ''),
+                        normalizePhone(ride.customerMobile || ''),
+                        normalizePhone(ride.phone || ''),
+                        normalizePhone(ride.guestPhone || '')
+                    ].filter(p => p);
+
+                    const matchByPhone = phoneVariants.some(v => ridePhones.includes(v));
+                    const matchByCRM = customerData?.id && ride.customerId === customerData.id;
+
+                    if (matchByPhone || matchByCRM) {
+                        customerRides.push({ ...ride, firebaseId: id });
+                    }
+                }
+
+                // Sortiere nach Datum (neueste zuerst)
+                customerRides.sort((a, b) => {
+                    const tA = a.pickupTimestamp || a.createdAt || 0;
+                    const tB = b.pickupTimestamp || b.createdAt || 0;
+                    return tB - tA;
+                });
+
+                renderRides();
+            });
+        }
+
+        function renderRides() {
+            const now = Date.now();
+            const listEl = document.getElementById('rides-list');
+
+            const upcoming = customerRides.filter(r => {
+                const t = r.pickupTimestamp || r.createdAt || 0;
+                const isFuture = t > now - 3600000; // Noch nicht 1h her
+                const isActive = !['completed', 'cancelled'].includes(r.status);
+                return isFuture && isActive;
+            });
+
+            const past = customerRides.filter(r => !upcoming.includes(r));
+
+            const rides = currentTab === 'upcoming' ? upcoming : past;
+
+            if (rides.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">${currentTab === 'upcoming' ? '🗓️' : '📋'}</div>
+                        <p>${currentTab === 'upcoming' ? 'Keine kommenden Fahrten.' : 'Keine vergangenen Fahrten.'}</p>
+                    </div>`;
+                return;
+            }
+
+            listEl.innerHTML = rides.map(ride => renderRideCard(ride, currentTab === 'upcoming')).join('');
+        }
+
+        function renderRideCard(ride, isUpcoming) {
+            const pickupTime = new Date(ride.pickupTimestamp || ride.pickupTime || ride.createdAt || Date.now());
+            const dateStr = pickupTime.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = pickupTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            const statusLabel = getStatusLabel(ride.status);
+            const statusClass = 'status-' + (ride.status || 'pending');
+
+            const priceStr = ride.price ? ride.price + ' EUR' : '';
+            const passStr = ride.passengers ? ride.passengers + ' Pers.' : '';
+
+            const noteHtml = ride.customerNote
+                ? `<div class="note-badge">📝 ${escapeHtml(ride.customerNote)}</div>`
+                : '';
+
+            const actionsHtml = isUpcoming ? `
+                <div class="ride-actions">
+                    <button onclick="openEditModal('${ride.firebaseId}')" style="background:#eff6ff;color:#1e40af;">
+                        ✏️ Bearbeiten
+                    </button>
+                    <button onclick="openNotesModal('${ride.firebaseId}')" style="background:#fef3c7;color:#92400e;">
+                        📝 Notiz
+                    </button>
+                    <button onclick="cancelRide('${ride.firebaseId}')" style="background:#fef2f2;color:#991b1b;">
+                        ✕ Stornieren
+                    </button>
+                </div>` : `
+                <div class="ride-actions">
+                    <button onclick="rebookRide('${ride.firebaseId}')" style="background:#d1fae5;color:#065f46;">
+                        🔄 Nochmal buchen
+                    </button>
+                </div>`;
+
+            return `
+                <div class="ride-card">
+                    <span class="ride-status ${statusClass}">${statusLabel}</span>
+                    <div class="ride-route">
+                        <div class="route-dots">
+                            <div class="dot-green"></div>
+                            <div class="dot-line"></div>
+                            <div class="dot-red"></div>
+                        </div>
+                        <div class="route-texts">
+                            <div class="route-from">${escapeHtml(ride.pickup || '?')}</div>
+                            <div class="route-to">${escapeHtml(ride.destination || '?')}</div>
+                        </div>
+                    </div>
+                    <div class="ride-meta">
+                        <span>📅 ${dateStr}</span>
+                        <span>🕐 ${timeStr}</span>
+                        ${priceStr ? `<span>💰 ${priceStr}</span>` : ''}
+                        ${passStr ? `<span>👥 ${passStr}</span>` : ''}
+                    </div>
+                    ${noteHtml}
+                    ${actionsHtml}
+                </div>`;
+        }
+
+        // ========================================
+        // RIDE ACTIONS
+        // ========================================
+
+        function openEditModal(rideId) {
+            const ride = customerRides.find(r => r.firebaseId === rideId);
+            if (!ride) return;
+
+            const pickupTime = new Date(ride.pickupTimestamp || ride.pickupTime || Date.now());
+            const dateVal = pickupTime.toISOString().slice(0, 10);
+            const timeVal = pickupTime.toTimeString().slice(0, 5);
+
+            document.getElementById('modal-title').textContent = 'Fahrt bearbeiten';
+            document.getElementById('modal-content').innerHTML = `
+                <div class="form-group">
+                    <label>📍 Abholort</label>
+                    <input type="text" id="edit-pickup" value="${escapeHtml(ride.pickup || '')}">
+                </div>
+                <div class="form-group">
+                    <label>🎯 Zielort</label>
+                    <input type="text" id="edit-dest" value="${escapeHtml(ride.destination || '')}">
+                </div>
+                <div class="form-group">
+                    <label>📅 Datum</label>
+                    <input type="date" id="edit-date" value="${dateVal}">
+                </div>
+                <div class="form-group">
+                    <label>🕐 Uhrzeit</label>
+                    <input type="time" id="edit-time" value="${timeVal}">
+                </div>
+                <div class="form-group">
+                    <label>👥 Personen</label>
+                    <select id="edit-passengers">
+                        ${[1,2,3,4,5,6,7,8].map(n =>
+                            `<option value="${n}" ${parseInt(ride.passengers) === n ? 'selected' : ''}>${n} ${n === 1 ? 'Person' : 'Personen'}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>📝 Bemerkung / Notiz</label>
+                    <textarea id="edit-notes" placeholder="z.B. Kindersitz benoetigt, Rollstuhl, viel Gepaeck...">${escapeHtml(ride.customerNote || ride.notes || '')}</textarea>
+                </div>
+                <button class="btn btn-primary" onclick="saveRideEdit('${rideId}')">
+                    Aenderungen speichern
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+            `;
+            document.getElementById('edit-modal').classList.add('active');
+        }
+
+        async function saveRideEdit(rideId) {
+            const pickup = document.getElementById('edit-pickup').value.trim();
+            const dest = document.getElementById('edit-dest').value.trim();
+            const date = document.getElementById('edit-date').value;
+            const time = document.getElementById('edit-time').value;
+            const passengers = document.getElementById('edit-passengers').value;
+            const notes = document.getElementById('edit-notes').value.trim();
+
+            if (!pickup || !dest) {
+                showToast('Bitte Abholort und Zielort eingeben.');
+                return;
+            }
+
+            const newTimestamp = new Date(`${date}T${time}`).getTime();
+
+            try {
+                await db.ref('rides/' + rideId).update({
+                    pickup: pickup,
+                    destination: dest,
+                    pickupTimestamp: newTimestamp,
+                    pickupTime: `${date}T${time}`,
+                    passengers: parseInt(passengers),
+                    customerNote: notes,
+                    notes: notes,
+                    updatedAt: Date.now(),
+                    lastEditedBy: 'customer-portal'
+                });
+
+                showToast('Fahrt wurde aktualisiert!');
+                closeModal();
+            } catch (error) {
+                console.error('Speichern Fehler:', error);
+                showToast('Fehler beim Speichern.');
+            }
+        }
+
+        function openNotesModal(rideId) {
+            const ride = customerRides.find(r => r.firebaseId === rideId);
+            if (!ride) return;
+
+            document.getElementById('modal-title').textContent = 'Notiz hinzufuegen';
+            document.getElementById('modal-content').innerHTML = `
+                <div class="form-group">
+                    <label>📝 Ihre Bemerkung</label>
+                    <textarea id="note-text" placeholder="z.B. Kindersitz benoetigt, bitte an der Seite halten, viel Gepaeck, Rollstuhl..."
+                        style="min-height:120px;">${escapeHtml(ride.customerNote || '')}</textarea>
+                </div>
+                <p style="font-size:12px;color:#6b7280;margin-bottom:16px;">
+                    Ihre Notiz wird dem Fahrer und der Zentrale angezeigt.
+                </p>
+                <button class="btn btn-primary" onclick="saveNote('${rideId}')">
+                    Notiz speichern
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+            `;
+            document.getElementById('edit-modal').classList.add('active');
+        }
+
+        async function saveNote(rideId) {
+            const note = document.getElementById('note-text').value.trim();
+
+            try {
+                await db.ref('rides/' + rideId).update({
+                    customerNote: note,
+                    updatedAt: Date.now()
+                });
+
+                showToast(note ? 'Notiz gespeichert!' : 'Notiz entfernt.');
+                closeModal();
+            } catch (error) {
+                console.error('Notiz Fehler:', error);
+                showToast('Fehler beim Speichern.');
+            }
+        }
+
+        async function cancelRide(rideId) {
+            const ride = customerRides.find(r => r.firebaseId === rideId);
+            if (!ride) return;
+
+            // Hotel-Schutz
+            if (ride.hotelCalendarId) {
+                alert('Diese Fahrt wurde vom Hotel gebucht und kann nicht ueber das Portal storniert werden.\n\nBitte kontaktieren Sie das Hotel direkt.');
+                return;
+            }
+
+            // Stornogebuehr pruefen
+            const pickupTime = ride.pickupTimestamp || ride.createdAt || Date.now();
+            const minutesUntilPickup = (pickupTime - Date.now()) / 60000;
+            const hasFee = minutesUntilPickup <= 60;
+            const fee = hasFee ? (parseFloat(ride.price) * 0.15) : 0;
+
+            let msg = 'Fahrt wirklich stornieren?\n\n';
+            msg += `📍 ${ride.pickup}\n🎯 ${ride.destination}\n\n`;
+
+            if (hasFee && fee > 0) {
+                msg += `⚠️ KOSTENPFLICHTIG!\nStornogebuehr: ${fee.toFixed(2)} EUR (15%)\n\n`;
+                msg += `Kostenlos stornieren: ${TAXI_PHONE}`;
+            } else {
+                msg += 'Stornierung ist kostenlos.';
+            }
+
+            if (!confirm(msg)) return;
+
+            try {
+                await db.ref('rides/' + rideId).update({
+                    status: 'cancelled',
+                    cancelledAt: Date.now(),
+                    cancelledBy: 'customer-portal',
+                    cancellationFee: fee,
+                    cancellationReason: 'Vom Kunden ueber Portal storniert',
+                    updatedAt: Date.now()
+                });
+
+                showToast('Fahrt wurde storniert.');
+            } catch (error) {
+                console.error('Storno Fehler:', error);
+                showToast('Fehler beim Stornieren.');
+            }
+        }
+
+        function rebookRide(rideId) {
+            const ride = customerRides.find(r => r.firebaseId === rideId);
+            if (!ride) return;
+
+            // Zur Hauptseite mit Parametern
+            const params = new URLSearchParams({
+                from: ride.pickup || '',
+                to: ride.destination || '',
+                passengers: ride.passengers || '1'
+            });
+            window.location.href = 'index.html?' + params.toString();
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        function normalizePhone(phone) {
+            if (!phone) return '';
+            let clean = phone.replace(/[\s\-\/\(\)\+]/g, '');
+            if (clean.startsWith('00')) clean = clean.substring(2);
+            if (clean.startsWith('0')) clean = '49' + clean.substring(1);
+            return clean;
+        }
+
+        function getPhoneVariants(phone) {
+            const clean = normalizePhone(phone);
+            if (!clean) return [];
+            return [
+                clean,
+                '+' + clean,
+                '0' + clean.substring(2),
+                '00' + clean
+            ];
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'pending': '⏳ Wartet auf Bestaetigung',
+                'assigned': '🚕 Fahrzeug zugewiesen',
+                'accepted': '✅ Fahrer bestaetigt',
+                'on_way': '🚗 Fahrer ist unterwegs',
+                'picked_up': '🛣️ Unterwegs zum Ziel',
+                'vorbestellt': '📅 Vorbestellt',
+                'completed': '✅ Abgeschlossen',
+                'cancelled': '🚫 Storniert'
+            };
+            return labels[status] || status || 'Unbekannt';
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-upcoming').classList.toggle('active', tab === 'upcoming');
+            document.getElementById('tab-past').classList.toggle('active', tab === 'past');
+            renderRides();
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ========================================
+        // AUTO-LOGIN CHECK
+        // ========================================
+
+        (function checkSession() {
+            const savedPhone = sessionStorage.getItem('kundenPortalPhone');
+            const expiry = parseInt(sessionStorage.getItem('kundenPortalExpiry') || '0');
+
+            if (savedPhone && expiry > Date.now()) {
+                verifiedPhone = savedPhone;
+                loadCustomerData();
+            }
+
+            // Phone-Input Enter Key
+            document.getElementById('phone-input').addEventListener('keydown', e => {
+                if (e.key === 'Enter') sendVerificationCode();
+            });
+            document.getElementById('code-input').addEventListener('keydown', e => {
+                if (e.key === 'Enter') verifyCode();
+            });
+            // Auto-Format Code Input
+            document.getElementById('code-input').addEventListener('input', e => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').substring(0, 6);
+                if (e.target.value.length === 6) {
+                    verifyCode();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

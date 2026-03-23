@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🚕 Live-Tracking - Funk Taxi Heringsdorf</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-ok { background: #10b981; }
+        .status-warning { background: #f59e0b; }
+        .status-error { background: #ef4444; }
+        
+        #vehicle-info {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        #vehicle-info .info-line {
+            margin: 5px 0;
+        }
+        
+        #vehicle-info .label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        #location-info {
+            font-size: 13px;
+            color: #666;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        
+        .error-box {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 600px) {
+            #info {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 15px;
+            }
+            
+            .header h2 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div class="header">
+            <h2>🚕 Ihr Taxi</h2>
+            <div id="status-indicator" class="status-indicator"></div>
+        </div>
+        
+        <div id="vehicle-info">
+            Lädt Fahrzeug-Informationen...
+        </div>
+        
+        <div id="location-info">
+            📍 Warte auf GPS-Position...
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        
+        // Tracking-Code aus URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const trackingCode = urlParams.get('code');
+        
+        if (!trackingCode) {
+            showError('❌ Kein Tracking-Code in URL angegeben');
+            throw new Error('No tracking code');
+        }
+        
+        console.log('🔗 Tracking-Code:', trackingCode);
+        
+        // Karte initialisieren
+        const map = L.map('map').setView([54.0, 14.0], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        let vehicleMarker = null;
+        let pickupMarker = null;
+        let destinationMarker = null;
+        let locationUpdateInterval = null;
+        
+        // Tracking-Daten laden
+        db.ref('tracking').child(trackingCode).once('value', async (snapshot) => {
+            const tracking = snapshot.val();
+            
+            if (!tracking) {
+                showError('❌ Tracking-Link ungültig oder abgelaufen');
+                return;
+            }
+            
+            const rideId = tracking.rideId;
+            const vehicleId = tracking.vehicleId;
+            
+            console.log('📍 Tracking aktiv:', { rideId, vehicleId });
+            
+            // Fahrt-Daten laden
+            const rideSnap = await db.ref('rides').child(rideId).once('value');
+            const ride = rideSnap.val();
+            
+            // 🆕 v5.90.53: STATUS-CHECK - Ist Fahrt beendet?
+            if (ride && (ride.status === 'completed' || ride.status === 'abgeschlossen')) {
+                showError('✅ Diese Fahrt wurde bereits abgeschlossen.<br><br>Das Live-Tracking ist nicht mehr aktiv.');
+                return;
+            }
+            
+            if (ride) {
+                // Fahrt-Infos anzeigen
+                const customerName = ride.customerName || 'Ihre Fahrt';
+                const pickup = ride.pickup || 'Start';
+                const destination = ride.destination || 'Ziel';
+                
+                document.getElementById('vehicle-info').innerHTML = `
+                    <div class="info-line"><span class="label">Fahrgast:</span> ${customerName}</div>
+                    <div class="info-line">📍 ${pickup}</div>
+                    <div class="info-line">🎯 ${destination}</div>
+                `;
+                
+                // Pickup Marker
+                if (ride.pickupCoordinates && ride.pickupCoordinates.lat) {
+                    pickupMarker = L.marker([ride.pickupCoordinates.lat, ride.pickupCoordinates.lng], {
+                        icon: L.divIcon({
+                            html: '<div style="font-size:30px;">📍</div>',
+                            iconSize: [30, 30],
+                            className: ''
+                        })
+                    }).addTo(map).bindPopup('Abholung: ' + pickup);
+                }
+                
+                // Destination Marker
+                if (ride.destinationCoordinates && ride.destinationCoordinates.lat) {
+                    destinationMarker = L.marker([ride.destinationCoordinates.lat, ride.destinationCoordinates.lng], {
+                        icon: L.divIcon({
+                            html: '<div style="font-size:30px;">🎯</div>',
+                            iconSize: [30, 30],
+                            className: ''
+                        })
+                    }).addTo(map).bindPopup('Ziel: ' + destination);
+                }
+            }
+            
+            // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!
+            db.ref('drivers').on('value', (driversSnapshot) => {
+                const driversData = driversSnapshot.val() || {};
+                
+                console.log('📊 Live-Update: Alle Fahrer:', Object.keys(driversData));
+                
+                // Finde den richtigen Fahrer
+                const driver = driversData[vehicleId];
+                
+                if (!driver) {
+                    console.error('❌ Kein Fahrer gefunden für:', vehicleId);
+                    console.log('📋 Verfügbare IDs:', Object.keys(driversData));
+                    showWarning('⚠️ Fahrzeug nicht gefunden');
+                    return;
+                }
+                
+                if (!driver.lat || !driver.lon) {
+                    showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
+                    return;
+                }
+                
+                console.log('✅ Fahrer gefunden!', { lat: driver.lat, lon: driver.lon });
+                
+                // Status-Indikator
+                const now = Date.now();
+                const age = driver.timestamp ? (now - driver.timestamp) : 999999;
+                
+                const statusIndicator = document.getElementById('status-indicator');
+                
+                if (age < 60000) {
+                    statusIndicator.className = 'status-indicator status-ok';
+                    statusIndicator.title = '🟢 Live';
+                } else if (age < 300000) {
+                    statusIndicator.className = 'status-indicator status-warning';
+                    statusIndicator.title = '🟡 Vor ' + Math.round(age/60000) + ' Min';
+                } else {
+                    statusIndicator.className = 'status-indicator status-error';
+                    statusIndicator.title = '🔴 Offline';
+                }
+                
+                // Custom Icon (EXAKT wie Fahrer-View!)
+                const color = '#22c55e';
+                const icon = L.divIcon({
+                    className: 'fleet-marker',
+                    html: `
+                        <div style="
+                            background: ${color};
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 50%;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 18px;
+                        ">🚕</div>
+                    `,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+                
+                // Marker erstellen/aktualisieren
+                if (vehicleMarker) {
+                    vehicleMarker.setLatLng([driver.lat, driver.lon]);
+                } else {
+                    vehicleMarker = L.marker([driver.lat, driver.lon], { icon }).addTo(map);
+                    
+                    // Zur Position zoomen
+                    const bounds = L.latLngBounds([[driver.lat, driver.lon]]);
+                    
+                    if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
+                    if (destinationMarker) bounds.extend(destinationMarker.getLatLng());
+                    
+                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                }
+                
+                // Location Info
+                const timestamp = new Date(driver.timestamp || Date.now());
+                
+                document.getElementById('location-info').innerHTML = `
+                    📍 Aktualisiert: ${timestamp.toLocaleTimeString('de-DE')}
+                    <br>
+                    <small style="opacity:0.7;">
+                        ${driver.lat.toFixed(4)}, ${driver.lon.toFixed(4)}
+                    </small>
+                `;
+            });
+            
+            // Prüfe regelmäßig ob Tracking noch aktiv
+            setInterval(async () => {
+                const trackingCheck = await db.ref('tracking').child(trackingCode).once('value');
+                const trackingData = trackingCheck.val();
+                
+                if (!trackingData) {
+                    showError('❌ Tracking wurde beendet');
+                    db.ref('drivers').off();
+                }
+            }, 30000); // Alle 30 Sekunden
+        });
+        
+        function showError(msg) {
+            document.getElementById('vehicle-info').innerHTML = `
+                <div class="error-box">${msg}</div>
+            `;
+        }
+        
+        function showWarning(msg) {
+            document.getElementById('location-info').innerHTML = `
+                <div class="warning-box">${msg}</div>
+            `;
+        }
+    </script>
+</body>
+</html>

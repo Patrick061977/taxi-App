@@ -289,7 +289,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     // 🆕 v4.8: Zwischenstopps im Titel anzeigen
     if (ride.waypoints && ride.waypoints.length > 0) {
       var wpNames = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
-      var wpShort = wpNames.map(function(w) { return w.length > 20 ? w.substring(0, 18) + '…' : w; });
+      var wpShort = wpNames.map(function(w) { var n = (typeof w === 'object') ? (w.address || w.name || '') : String(w); return n.length > 20 ? n.substring(0, 18) + '…' : n; });
       titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → 🔶${wpShort.join(' → 🔶')} → ${ride.destination || 'Unbekannt'}`);
     } else {
       titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}`);
@@ -417,7 +417,8 @@ function createEventDescription(ride) {
   if (ride.waypoints && ride.waypoints.length > 0) {
     var waypoints = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
     for (var w = 0; w < waypoints.length; w++) {
-      lines.push('🔶 Zwischenstopp: ' + waypoints[w]);
+      var wpName = (typeof waypoints[w] === 'object') ? (waypoints[w].address || waypoints[w].name || '') : String(waypoints[w]);
+      lines.push('🔶 Zwischenstopp: ' + wpName);
     }
   }
   if (EXPORT_SETTINGS.showDestination) {

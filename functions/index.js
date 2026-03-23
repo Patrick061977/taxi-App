@@ -283,7 +283,10 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
         if (dayEntry.additiveException) {
             // 🔧 v6.15.10: KEIN Fallback auf 06:00-22:00!
             // Wochenplan (defaultTimes) ist Gesetz – ohne eingetragene Zeiten = kein Standard-Block
-            const _effDefault = defaultEntry;
+            // 🔧 v6.25.5: Default-Zeiten NUR wenn Tag im Wochenplan aktiv ist!
+            const _defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+            const _isDayActiveByDefault = _defaults[dow] === true;
+            const _effDefault = (_isDayActiveByDefault && defaultEntry) ? defaultEntry : null;
             if (_effDefault) {
                 const defRanges = (_effDefault.timeRanges && _effDefault.timeRanges.length > 1)
                     ? _effDefault.timeRanges

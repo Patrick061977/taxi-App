@@ -12819,6 +12819,72 @@ exports.onRideUpdated = onValueUpdated(
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
                     `\n✅ Status: Abgeschlossen`;
+
+                // 🆕 v6.33.7: Anschlussfahrt-Hinweis — Fahrer direkt zum nächsten Abholort schicken
+                const completedVehicleId = after.assignedVehicle || after.vehicleId;
+                if (completedVehicleId) {
+                    try {
+                        const pSnap = await db.ref('settings/pricing').once('value');
+                        const _pricing = pSnap.val() || {};
+                        const anschlussZeitMin = _pricing.anschlussfahrtWeiterfahrtMin ?? 10;
+
+                        // Alle heutigen Fahrten für dieses Fahrzeug laden
+                        const ridesSnap = await db.ref('rides').once('value');
+                        const allRidesObj = ridesSnap.val() || {};
+                        const now = Date.now();
+
+                        // Nächste anstehende Fahrt finden
+                        let nextRide = null;
+                        let nextRideId = null;
+                        for (const [rid, r] of Object.entries(allRidesObj)) {
+                            if (rid === rideId) continue;
+                            const vId = r.assignedVehicle || r.vehicleId || r.assignedTo;
+                            if (vId !== completedVehicleId) continue;
+                            if (['deleted','cancelled','storniert','completed','abgeschlossen'].includes(r.status)) continue;
+                            if (!r.pickupTimestamp) continue;
+                            // Nur Fahrten die in den nächsten X Minuten starten
+                            const minutesUntil = (r.pickupTimestamp - now) / 60000;
+                            if (minutesUntil > 0 && minutesUntil <= anschlussZeitMin) {
+                                if (!nextRide || r.pickupTimestamp < nextRide.pickupTimestamp) {
+                                    nextRide = r;
+                                    nextRideId = rid;
+                                }
+                            }
+                        }
+
+                        if (nextRide) {
+                            const driverChatId = await getDriverChatId(completedVehicleId);
+                            if (driverChatId) {
+                                const nextTimeStr = new Date(nextRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                const minutesLeft = Math.round((nextRide.pickupTimestamp - now) / 60000);
+
+                                // Anfahrtszeit berechnen (Zielort → nächster Abholort)
+                                let anfahrtInfo = '';
+                                const destLat = after.destCoords?.lat || after.destinationLat;
+                                const destLon = after.destCoords?.lon || after.destinationLon;
+                                const nextPickupLat = nextRide.pickupCoords?.lat || nextRide.pickupLat;
+                                const nextPickupLon = nextRide.pickupCoords?.lon || nextRide.pickupLon;
+                                if (destLat && destLon && nextPickupLat && nextPickupLon) {
+                                    const distKm = gpsDistanceKm(destLat, destLon, nextPickupLat, nextPickupLon);
+                                    const etaMin = Math.max(1, Math.round((distKm / 50) * 60) + 2);
+                                    anfahrtInfo = `\n🚗 <b>Anfahrt:</b> ~${etaMin} Min (${distKm.toFixed(1)} km)`;
+                                }
+
+                                const nextMsg = `🔜 <b>ANSCHLUSSFAHRT!</b>\n\n` +
+                                    `⏰ <b>In ${minutesLeft} Min</b> (${nextTimeStr} Uhr)\n` +
+                                    `👤 <b>Kunde:</b> ${nextRide.customerName || '?'}\n` +
+                                    `📍 <b>Abholort:</b> ${nextRide.pickup || '?'}\n` +
+                                    `🎯 <b>Ziel:</b> ${nextRide.destination || '?'}` +
+                                    anfahrtInfo +
+                                    `\n\n➡️ <i>Bitte direkt zum Abholort fahren!</i>`;
+                                await sendTelegramMessage(driverChatId, nextMsg);
+                                console.log(`🔜 Anschlussfahrt-Hinweis an ${completedVehicleId}: ${nextRide.customerName} in ${minutesLeft} Min`);
+                            }
+                        }
+                    } catch (afErr) {
+                        console.error('⚠️ Anschlussfahrt-Check Fehler:', afErr.message);
+                    }
+                }
             }
 
             if (message) {

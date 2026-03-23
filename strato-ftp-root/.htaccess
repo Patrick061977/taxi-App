@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# HTTPS erzwingen
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
 # umwelt-taxi-insel-usedom.de -> /Taxi-App
 RewriteCond %{HTTP_HOST} ^(www\.)?umwelt-taxi-insel-usedom\.de$ [NC]
 RewriteCond %{REQUEST_URI} !^/Taxi-App/

@@ -537,12 +537,26 @@ async function autoAssignRide(rideId, rideData) {
                 const boardingTime = pricingSettings.boardingTime || 2;
                 const alightingTime = pricingSettings.alightingTime || 2;
                 const bufferMs = (boardingTime + alightingTime) * 60000;
-                const _rueckfahrtMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                const _rueckfahrtMaxMs = (pricingSettings.standortRueckkehrPufferMinuten || 30) * 60000;
+                const _rueckfahrtMinMs = 5 * 60000; // Minimum 5 Min Rückfahrt
+
+                // 🔧 v6.33.8: DYNAMISCHER Rückfahrt-Puffer statt pauschal 30 Min!
+                // Berechne echte Entfernung: Zielort → Homebase → geschätzte Rückfahrzeit
+                const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
+                function calcReturnMs(ride) {
+                    const destLat = ride.destCoords?.lat || ride.destinationLat;
+                    const destLon = ride.destCoords?.lon || ride.destinationLon;
+                    if (!destLat || !destLon || !homeCoords?.lat || !homeCoords?.lon) return _rueckfahrtMaxMs;
+                    const distKm = gpsDistanceKm(destLat, destLon, homeCoords.lat, homeCoords.lon);
+                    // Faktor 1.3 für Straßen vs. Luftlinie, 50 km/h Durchschnitt, +2 Min Puffer
+                    const estMinutes = Math.round((distKm * 1.3 / 50) * 60) + 2;
+                    // Zwischen 5 und maxPuffer (default 30) Min clampen
+                    return Math.max(_rueckfahrtMinMs, Math.min(estMinutes * 60000, _rueckfahrtMaxMs));
+                }
+
                 // 🔧 v6.33.7: Sofortfahrt — KEIN Rückfahrt-Puffer für die neue Fahrt!
                 // Das Fahrzeug fährt direkt vom Ziel der Sofortfahrt zum nächsten Abholort.
-                // Vorher: 3-Min-Fahrt + 30 Min Rückfahrt = 37 Min blockiert → nächste Fahrt "Konflikt"
-                // Jetzt: 3-Min-Fahrt + Ein/Aussteigen = 7 Min blockiert → nächste Fahrt passt!
-                const _newRideReturnMs = isSofort ? 0 : _rueckfahrtMs;
+                const _newRideReturnMs = isSofort ? 0 : calcReturnMs(rideData);
                 let _conflictRide = null;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
@@ -551,7 +565,8 @@ async function autoAssignRide(rideId, rideData) {
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
-                    const rEnd = rStart + rDur + bufferMs + _rueckfahrtMs;
+                    const rReturnMs = calcReturnMs(r); // Dynamisch pro bestehender Fahrt
+                    const rEnd = rStart + rDur + bufferMs + rReturnMs;
                     const newEnd = newPickup + newDur + bufferMs + _newRideReturnMs;
                     if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; return true; }
                     return false;

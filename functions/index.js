@@ -263,16 +263,29 @@ function gpsDistanceKm(lat1, lon1, lat2, lon2) {
 
 function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     const shifts = shiftsData[vehicleId];
-    if (!shifts) return Object.keys(shiftsData).length === 0;
+    if (!shifts) {
+        const hasAnyShifts = Object.keys(shiftsData).length > 0;
+        console.log(`   🔍 Schicht-Check ${vehicleId}: KEIN Eintrag in vehicleShifts → ${hasAnyShifts ? 'KEIN DIENST (andere haben Schichten)' : 'ERLAUBT (kein Schichtsystem)'}`);
+        return !hasAnyShifts;
+    }
 
     // Tag aktiv?
     const d = new Date(dateStr + 'T00:00:00');
     const dow = d.getDay();
+    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
     if (shifts[dateStr] !== undefined) {
-        if (shifts[dateStr].active === false) return false;
+        if (shifts[dateStr].active === false) {
+            console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) explizit INAKTIV`);
+            return false;
+        }
+        console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) hat Eintrag (active=${shifts[dateStr].active})`);
     } else {
         const defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
-        if (defaults[dow] !== true) return false;
+        if (defaults[dow] !== true) {
+            console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} (dow=${dow}) nicht im Wochenplan (defaults[${dow}]=${defaults[dow]})`);
+            return false;
+        }
+        console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} im Wochenplan aktiv (defaults[${dow}]=true)`);
     }
 
     // Schichtzeiten ermitteln
@@ -315,13 +328,23 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     }
 
     // 🔧 v6.31.0: Keine Schichtzeiten = NICHT verfügbar (außer System hat gar keine Schichtpläne)
-    if (!times) return false;
-    if (!timeStr) return true;
+    if (!times) {
+        console.log(`   🔍 Schicht-Check ${vehicleId}: Keine Schichtzeiten konfiguriert → KEIN DIENST`);
+        return false;
+    }
+    if (!timeStr) {
+        console.log(`   🔍 Schicht-Check ${vehicleId}: Keine Uhrzeit angegeben, Tag aktiv → IM DIENST`);
+        return true;
+    }
 
     if (times.timeRanges && times.timeRanges.length > 1) {
-        return times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+        const inRange = times.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+        console.log(`   🔍 Schicht-Check ${vehicleId}: ${timeStr} in Zeitblöcken ${JSON.stringify(times.timeRanges.map(r=>r.startTime+'-'+r.endTime))} → ${inRange ? 'IM DIENST' : 'KEIN DIENST'}`);
+        return inRange;
     }
-    return timeStr >= times.startTime && timeStr <= times.endTime;
+    const inRange = timeStr >= times.startTime && timeStr <= times.endTime;
+    console.log(`   🔍 Schicht-Check ${vehicleId}: ${timeStr} in ${times.startTime}-${times.endTime} → ${inRange ? 'IM DIENST' : 'KEIN DIENST'}`);
+    return inRange;
 }
 
 // 🆕 v6.26.0: Schichtende ermitteln für den Zeitblock der die gegebene Uhrzeit enthält
@@ -420,9 +443,16 @@ async function autoAssignRide(rideId, rideData) {
         const candidates = [];
 
         console.log(`🎯 Modus: ${isSofort ? 'SOFORTFAHRT (GPS schlägt alles)' : 'VORBESTELLUNG (Schichtplan + Priorität)'} | Abholzeit: ${dateStr} ${timeStr}`);
+        console.log(`📋 PRÜFPROTOKOLL Auto-Zuweisung für Ride ${rideId}:`);
+        console.log(`   📅 Datum: ${dateStr} | ⏰ Uhrzeit: ${timeStr} | 👥 Personen: ${passengers}`);
+        console.log(`   🔧 Schichtpläne in DB: ${Object.keys(shiftsData).join(', ') || 'KEINE'}`);
 
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
-            if (info.capacity < passengers) continue;
+            console.log(`\n   ═══ Prüfe ${info.name} (${vehicleId}) ═══`);
+            if (info.capacity < passengers) {
+                console.log(`   ❌ ${info.name}: Kapazität ${info.capacity} < ${passengers} Personen`);
+                continue;
+            }
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
                 console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr}`);
                 continue;
@@ -515,6 +545,11 @@ async function autoAssignRide(rideId, rideData) {
                 candidates.push({ vehicleId, name: info.name, distance: 0, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
                 console.log(`   ✅ ${info.name}: Im Dienst, Prio ${getVehiclePrio(vehicleId)}`);
             }
+        }
+
+        console.log(`\n📋 PRÜFPROTOKOLL ERGEBNIS: ${candidates.length} Kandidaten von ${Object.keys(OFFICIAL_VEHICLES).length} Fahrzeugen`);
+        if (candidates.length > 0) {
+            console.log(`   Kandidaten: ${candidates.map(c => `${c.name} (Prio ${c.priority}, ${c.posSource})`).join(' | ')}`);
         }
 
         if (candidates.length === 0) {

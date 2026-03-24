@@ -1103,8 +1103,8 @@ async function sendWhatsAppMessage(toPhone, text) {
         formattedPhone = '49' + formattedPhone.substring(1);
     }
 
-    // Nur Mobilnummern (49-15xx, 49-16xx, 49-17xx)
-    if (!formattedPhone.match(/^49(1[5-7]\d{8,9})$/)) {
+    // Nur Mobilnummern (49-15xx, 49-16xx, 49-17xx) — auch leicht zu lange akzeptieren (KI-Tippfehler)
+    if (!formattedPhone.match(/^49(1[5-7]\d{8,11})$/)) {
         console.log(`⚠️ WhatsApp: Keine Mobilnummer: ${formattedPhone}`);
         return null;
     }
@@ -1144,8 +1144,8 @@ function formatWhatsAppLink(phone) {
     if (!phone) return '';
     const clean = String(phone).replace(/[\s\-\/\(\)\+]/g, '');
     const normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
-    // Nur für Mobilnummern einen WA-Link erzeugen
-    if (normalized.match(/^49(1[5-7]\d{8,9})$/)) {
+    // Nur für Mobilnummern einen WA-Link erzeugen (auch leicht zu lange akzeptieren)
+    if (normalized.match(/^49(1[5-7]\d{8,11})$/)) {
         return ` <a href="https://wa.me/${normalized}">💬WA</a>`;
     }
     return '';
@@ -3002,7 +3002,9 @@ ZWISCHENSTOPPS:
 • Wenn keine Zwischenstopps → waypoints=[]${options.isAudioTranscript ? `
 ⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
 
-TELEFON: 0157... → +49157... | bereits bekannte Nummer nicht erneut fragen
+TELEFON: Nummer EXAKT Ziffer für Ziffer übernehmen! KEINE Ziffern hinzufügen, verdoppeln oder weglassen!
+• 0176 38 559 559 → +4917638559559 (Leerzeichen entfernen, 0 durch +49 ersetzen, sonst NICHTS ändern!)
+• Bereits bekannte Nummer nicht erneut fragen
 
 EMAIL: Wenn eine E-Mail-Adresse im Text vorkommt → in "email" speichern. NICHT aktiv danach fragen.
 
@@ -3050,6 +3052,29 @@ Nur gültiges JSON, kein Markdown:
 
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
         const booking = extractJsonFromAiResponse(textContent);
+
+        // 🛡️ v6.25.4: Telefonnummer-Schutz — KI-Ergebnis gegen Originaltext prüfen
+        if (booking.phone && !prefilledPhone) {
+            const _phoneValid = validatePhoneNumber(booking.phone);
+            if (!_phoneValid.valid) {
+                // Versuche Nummer direkt aus dem Text per Regex zu extrahieren (genauer als KI)
+                const _directMatch = text.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
+                if (_directMatch) {
+                    let _directPhone = _directMatch[0].replace(/[\s\-\/]/g, '');
+                    if (_directPhone.startsWith('0') && !_directPhone.startsWith('00')) _directPhone = '+49' + _directPhone.slice(1);
+                    else if (_directPhone.startsWith('0049')) _directPhone = '+49' + _directPhone.slice(4);
+                    const _directValid = validatePhoneNumber(_directPhone);
+                    if (_directValid.valid) {
+                        await addTelegramLog('🛡️', chatId, `Telefon-Schutz: KI-Nummer "${booking.phone}" ungültig (${_phoneValid.warning}) → Regex-Extrakt "${_directPhone}" verwendet`);
+                        booking.phone = _directPhone;
+                    } else {
+                        await addTelegramLog('⚠️', chatId, `Telefon-Warnung: KI-Nummer "${booking.phone}" — ${_phoneValid.warning}`);
+                    }
+                } else {
+                    await addTelegramLog('⚠️', chatId, `Telefon-Warnung: KI-Nummer "${booking.phone}" — ${_phoneValid.warning}`);
+                }
+            }
+        }
 
         // 🛡️ v6.16.2: Ungültige missing-Felder entfernen (KI erfindet manchmal eigene Feldnamen)
         const _validMissing = ['datetime', 'pickup', 'destination', 'phone'];
@@ -4524,8 +4549,9 @@ async function handleAdminRideDetail(chatId, rideId) {
         if (custPhone) {
             try {
                 const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
-                const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
-                const isMobile = /^49(1[5-7]\d{8,9})$/.test(intlPhone);
+                let intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
+                // 🔧 v6.25.4: Auch leicht zu lange Mobilnummern als mobil erkennen (KI-Tippfehler)
+                const isMobile = /^49(1[5-7]\d{8,11})$/.test(intlPhone);
                 if (isMobile) {
                     keyboard.push([
                         { text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` },

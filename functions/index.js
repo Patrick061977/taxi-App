@@ -842,7 +842,7 @@ async function autoAssignRide(rideId, rideData) {
                 `📍 <b>Von:</b> ${rideData.pickup}\n` +
                 `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                 `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
-                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone)}\n` : '') +
                 `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                 (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min (${best.distance.toFixed(1)} km)\n\n` : '\n') +
                 (isSofort ? `⏱️ <i>60 Sek zum Annehmen</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
@@ -1139,6 +1139,18 @@ async function sendWhatsAppMessage(toPhone, text) {
 }
 
 // Hilfsfunktion: Kunden-Mobilnummer für WhatsApp ermitteln
+// 🆕 v6.34.2: WhatsApp wa.me Link für Telegram-Nachrichten
+function formatWhatsAppLink(phone) {
+    if (!phone) return '';
+    const clean = String(phone).replace(/[\s\-\/\(\)\+]/g, '');
+    const normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
+    // Nur für Mobilnummern einen WA-Link erzeugen
+    if (normalized.match(/^49(1[5-7]\d{8,9})$/)) {
+        return ` <a href="https://wa.me/${normalized}">💬WA</a>`;
+    }
+    return '';
+}
+
 async function getCustomerWhatsAppNumber(ride) {
     // Priorität: mobilePhone > customerMobile > customerPhone > phone
     const candidates = [
@@ -7600,7 +7612,7 @@ async function handleCallback(callback) {
                                 `📍 <b>Von:</b> ${rideData.pickup}\n` +
                                 `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                                 `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
                                 `👥 <b>Personen:</b> ${passengers}\n` +
                                 (telegramRoutePrice ? `💰 ca. ${telegramRoutePrice.price} €\n` : '') +
                                 `\n⚡ <b>Bitte Fahrer zuweisen:</b>`;
@@ -7649,7 +7661,7 @@ async function handleCallback(callback) {
                         `📍 <b>Von:</b> ${rideData.pickup}\n` +
                         `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                         `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                        (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}\n` : '') +
+                        (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
                         `🕐 <b>Abholung:</b> ${timeLabel}\n` +
                         `👥 <b>Personen:</b> ${passengers}\n` +
                         (telegramRoutePrice ? `💰 <b>Preis:</b> ca. ${telegramRoutePrice.price} €\n` : '') +
@@ -12732,7 +12744,7 @@ exports.scheduledAutoAssign = onSchedule(
                         `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                         `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-                        (ride.customerPhone ? `📱 <b>Tel:</b> ${ride.customerPhone}\n` : '') +
+                        (ride.customerPhone ? `📱 <b>Tel:</b> ${ride.customerPhone}${formatWhatsAppLink(ride.customerPhone)}\n` : '') +
                         `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                         (bestDrivingTime > 0 ? `🚗 <b>Anfahrt:</b> ~${bestDrivingTime} Min\n` : '') +
                         `\n💡 <i>Automatisch zugewiesen (Cloud)</i>`
@@ -12805,12 +12817,14 @@ exports.onRideCreated = onValueCreated(
             statusText = 'VORBESTELLUNG';
         }
 
+        // 🆕 v6.34.2: WhatsApp-Link neben Telefonnummer
+        const waLink = formatWhatsAppLink(ride.customerPhone || ride.customerMobile || ride.mobilePhone);
         const message = `${statusEmoji} <b>${statusText}</b>\n` +
             `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
             `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
             `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
             `👤 <b>Name:</b> ${ride.customerName || '?'}\n` +
-            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${waLink}\n` +
             `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
             `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
             `⏰ <b>Gesendet:</b> ${timestamp}\n` +
@@ -12878,7 +12892,7 @@ exports.onRideUpdated = onValueUpdated(
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}${after.vehiclePlate ? ` (${after.vehiclePlate})` : ''}\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile || after.mobilePhone)}\n` +
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
@@ -12921,7 +12935,7 @@ exports.onRideUpdated = onValueUpdated(
                 message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
@@ -13062,7 +13076,7 @@ exports.onRideUpdated = onValueUpdated(
                         `📍 <b>Abholung:</b> ${after.pickup || '?'}\n` +
                         `🎯 <b>Ziel:</b> ${after.destination || '?'}\n` +
                         customerInfo + `\n` +
-                        `📱 <b>Tel:</b> ${after.customerPhone || '?'}\n` +
+                        `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
                         `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                         `💰 <b>Preis:</b> ${after.price || 0}€\n\n` +
                         (isVorbestellung
@@ -13138,7 +13152,7 @@ exports.onRideDeleted = onValueDeleted(
             `⚠️ <b>Status war:</b> ${statusText}\n` +
             (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
             `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
             `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
             `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
             (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
@@ -13219,7 +13233,7 @@ exports.scheduledOpenRideCheck = onSchedule(
                     `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n` +
                     `⏳ <b>Noch ${Math.max(0, Math.round(minutesUntilPickup))} Minuten!</b>\n\n` +
                     `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${ride.customerPhone || '?'}\n` +
+                    `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
                     `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${ride.price || 0}€\n\n` +

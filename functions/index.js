@@ -4525,7 +4525,7 @@ async function handleAdminRideDetail(chatId, rideId) {
             try {
                 const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
                 const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
-                const isMobile = /^49(1[5-7]\d{8,9})$/.test(intlPhone);
+                const isMobile = /^49(1[5-7]\d{7,10})$/.test(intlPhone);
                 if (isMobile) {
                     keyboard.push([
                         { text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` },

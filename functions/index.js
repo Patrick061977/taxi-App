@@ -1351,7 +1351,7 @@ async function requestAdminApprovalForRideChange(customerChatId, rideId, changeT
     await db.ref(`settings/telegram/pendingChanges/${changeId}`).set({
         rideId,
         customerChatId: String(customerChatId),
-        changeType, // 'time', 'pickup', 'destination'
+        changeType, // 'time', 'date', 'pickup', 'destination'
         changeData, // Die Update-Daten für Firebase
         rideInfo,   // Anzeige-Infos (aktuelle Fahrtdaten)
         createdAt: Date.now(),
@@ -1362,6 +1362,8 @@ async function requestAdminApprovalForRideChange(customerChatId, rideId, changeT
     let changeDesc = '';
     if (changeType === 'time') {
         changeDesc = `⏰ <b>Neue Uhrzeit:</b> ${changeData.pickupTime} Uhr`;
+    } else if (changeType === 'date') {
+        changeDesc = `📅 <b>Neues Datum:</b> ${changeData.pickupDate}\n⏰ <b>Uhrzeit bleibt:</b> ${changeData.pickupTime} Uhr`;
     } else if (changeType === 'pickup') {
         changeDesc = `📍 <b>Neuer Abholort:</b> ${changeData.pickup}`;
     } else if (changeType === 'destination') {
@@ -6058,6 +6060,67 @@ async function handleMessage(message) {
             return;
         }
 
+        // 🆕 v6.34.1: Freitext-Datumseingabe (z.B. "25.03." oder "28.03.2026" oder "morgen")
+        if (field === 'date') {
+            try {
+                const snap = await db.ref(`rides/${rideId}`).once('value');
+                const r = snap.val();
+                if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+                const oldDt = new Date(r.pickupTimestamp || Date.now());
+                let newDate = null;
+
+                // "morgen" / "übermorgen"
+                const lowerText = text.toLowerCase().trim();
+                if (lowerText === 'morgen') {
+                    newDate = new Date(oldDt.getTime() + 86400000);
+                } else if (lowerText === 'übermorgen') {
+                    newDate = new Date(oldDt.getTime() + 2 * 86400000);
+                } else {
+                    // Datum parsen: DD.MM. oder DD.MM.YYYY
+                    const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.?(\d{2,4})?/);
+                    if (dateMatch) {
+                        const day = parseInt(dateMatch[1]);
+                        const month = parseInt(dateMatch[2]) - 1;
+                        let year = dateMatch[3] ? parseInt(dateMatch[3]) : new Date().getFullYear();
+                        if (year < 100) year += 2000;
+
+                        if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+                            // Uhrzeit von der alten Fahrt beibehalten
+                            const berlinOld = new Date(oldDt.toLocaleString('en-US', TZ_BERLIN));
+                            const hours = berlinOld.getHours();
+                            const mins = berlinOld.getMinutes();
+
+                            const berlinNew = new Date(year, month, day, hours, mins, 0, 0);
+                            const berlinAsUTC = new Date(berlinNew.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                            const offsetMs = berlinAsUTC.getTime() - berlinNew.getTime();
+                            newDate = new Date(berlinNew.getTime() - offsetMs);
+                        }
+                    }
+                }
+
+                if (newDate) {
+                    const newTs = newDate.getTime();
+                    const newDateStr = newDate.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const timeStr = oldDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+
+                    const rideInfo = {
+                        customerName: r.guestName || r.customerName || 'Kunde',
+                        dateStr: oldDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                        timeStr: oldDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                        pickup: r.pickup || '?',
+                        destination: r.destination || '?'
+                    };
+                    await requestAdminApprovalForRideChange(chatId, rideId, 'date', {
+                        pickupTimestamp: newTs, pickupDate: newDateStr, pickupTime: timeStr
+                    }, rideInfo);
+                } else {
+                    await sendTelegramMessage(chatId, '⚠️ Ungültiges Datum. Bitte z.B. "25.03." oder "morgen" eingeben.');
+                }
+            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            return;
+        }
+
         if (field === 'pickup' || field === 'destination') {
             try {
                 const label = field === 'pickup' ? 'Abholort' : 'Zielort';
@@ -9568,7 +9631,7 @@ async function handleCallback(callback) {
             msg += `<b>Was möchten Sie ändern?</b>`;
 
             await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
-                [{ text: '⏰ Uhrzeit ändern', callback_data: `cust_time_${rideId}` }],
+                [{ text: '⏰ Uhrzeit ändern', callback_data: `cust_time_${rideId}` }, { text: '📅 Datum ändern', callback_data: `cust_date_${rideId}` }],
                 [{ text: '📍 Abholort ändern', callback_data: `cust_addr_${rideId}_pickup` }, { text: '🎯 Ziel ändern', callback_data: `cust_addr_${rideId}_destination` }],
                 [{ text: '🗑️ Stornieren', callback_data: `cust_del_${rideId}` }, { text: '✖ Zurück', callback_data: 'cust_edit_cancel' }]
             ]}});
@@ -9664,6 +9727,75 @@ async function handleCallback(callback) {
         await sendTelegramMessage(chatId, `📍 <b>Neuen ${label} eingeben:</b>\n\nSchreiben Sie die neue Adresse:`, {
             reply_markup: { inline_keyboard: [[{ text: '✖ Abbrechen', callback_data: `cust_edit_${rideId}` }]] }
         });
+        return;
+    }
+
+    // 🆕 v6.34.1: Kunden: Datum ändern
+    if (data.startsWith('cust_date_')) {
+        const rideId = data.replace('cust_date_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const dt = new Date(r.pickupTimestamp || 0);
+            const currentDate = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            // Schnellwahl: morgen, übermorgen, +3 Tage, +7 Tage
+            const dateButtons = [];
+            for (const dayOffset of [1, 2, 3, 7]) {
+                const alt = new Date(dt.getTime() + dayOffset * 86400000);
+                const altDate = alt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit' });
+                const label = dayOffset === 1 ? `Morgen (${altDate})` :
+                              dayOffset === 2 ? `Übermorgen (${altDate})` :
+                              `${altDate} (+${dayOffset}T)`;
+                dateButtons.push({ text: label, callback_data: `cust_setdate_${rideId}_${dayOffset}` });
+            }
+
+            await sendTelegramMessage(chatId,
+                `📅 <b>Neues Datum wählen</b>\n\nAktuell: <b>${currentDate}</b>\n\nWählen Sie ein Datum oder schreiben Sie z.B. "25.03." oder "28.03.2026":`,
+                { reply_markup: { inline_keyboard: [
+                    [dateButtons[0], dateButtons[1]],
+                    [dateButtons[2], dateButtons[3]],
+                    [{ text: '◀ Zurück', callback_data: `cust_edit_${rideId}` }]
+                ]}}
+            );
+            await setPending(chatId, { _custEditRide: rideId, _custEditField: 'date' });
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.34.1: Kunden: Datum per Button setzen
+    if (data.startsWith('cust_setdate_')) {
+        const parts = data.replace('cust_setdate_', '').split('_');
+        const rideId = parts.slice(0, -1).join('_');
+        const dayOffset = parseInt(parts[parts.length - 1]);
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            // Neues Datum berechnen: Tag verschieben, Uhrzeit beibehalten
+            const oldDt = new Date(r.pickupTimestamp || Date.now());
+            const newTs = oldDt.getTime() + dayOffset * 86400000;
+            const newDt = new Date(newTs);
+            const newDateStr = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = oldDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+
+            const rideInfo = {
+                customerName: r.guestName || r.customerName || 'Kunde',
+                dateStr: oldDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' }),
+                timeStr: oldDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' }),
+                pickup: r.pickup || '?',
+                destination: r.destination || '?'
+            };
+            await requestAdminApprovalForRideChange(chatId, rideId, 'date', {
+                pickupTimestamp: newTs,
+                pickupDate: newDateStr,
+                pickupTime: timeStr
+            }, rideInfo);
+            await deletePending(chatId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
 

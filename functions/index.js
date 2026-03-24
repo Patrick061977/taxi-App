@@ -4505,16 +4505,35 @@ async function handleAdminRideDetail(chatId, rideId) {
         if (isActive) {
             keyboard.push([
                 { text: '⏰ Zeit ändern', callback_data: `adm_edit_time_${rideId}` },
-                { text: '📍 Ort ändern', callback_data: `adm_edit_addr_${rideId}` }
+                { text: '📅 Datum ändern', callback_data: `adm_edit_date_${rideId}` }
             ]);
             keyboard.push([
-                { text: '👥 Personen', callback_data: `adm_edit_pax_${rideId}` },
-                { text: '📋 Status', callback_data: `adm_edit_status_${rideId}` }
+                { text: '📍 Ort ändern', callback_data: `adm_edit_addr_${rideId}` },
+                { text: '👥 Personen', callback_data: `adm_edit_pax_${rideId}` }
             ]);
             keyboard.push([
-                { text: '🚗 Fahrzeug', callback_data: `adm_assign_${rideId}` },
+                { text: '📋 Status', callback_data: `adm_edit_status_${rideId}` },
+                { text: '🚗 Fahrzeug', callback_data: `adm_assign_${rideId}` }
+            ]);
+            keyboard.push([
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
+        }
+        // 🆕 v6.34.3: Kunde kontaktieren (WhatsApp/Anruf)
+        const custPhone = r.customerPhone || r.customerMobile || r.mobilePhone || r.guestPhone;
+        if (custPhone) {
+            const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
+            const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
+            const isMobile = intlPhone.match(/^49(1[5-7]\d{8,9})$/);
+            const contactRow = [];
+            if (isMobile) {
+                contactRow.push({ text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` });
+            }
+            contactRow.push({ text: '📞 Anrufen', url: `tel:+${intlPhone}` });
+            if (isMobile) {
+                contactRow.push({ text: '✉️ SMS', url: `sms:+${intlPhone}` });
+            }
+            keyboard.push(contactRow);
         }
         // 🆕 v6.29.3: Fahrt kopieren — startet normalen Buchungsflow mit vorausgefüllten Daten
         keyboard.push([
@@ -4563,6 +4582,44 @@ async function handleAdminEditTime(chatId, rideId) {
             ]}}
         );
         await setPending(chatId, { _adminEditRide: rideId, _adminEditField: 'time' });
+    } catch (e) {
+        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+    }
+}
+
+// 🆕 v6.34.3: Datum ändern für Fahrten
+async function handleAdminEditDate(chatId, rideId) {
+    if (!await isTelegramAdmin(chatId)) return;
+    try {
+        const snap = await db.ref(`rides/${rideId}`).once('value');
+        const r = snap.val();
+        if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+        const dt = new Date(r.pickupTimestamp || 0);
+        const currentDate = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        // Schnellwahl: Heute, Morgen, Übermorgen + nächste 4 Tage
+        const dateButtons = [];
+        const now = new Date(new Date().toLocaleString('en-US', TZ_BERLIN));
+        const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+        for (let i = 0; i <= 6; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() + i);
+            const dayLabel = i === 0 ? 'Heute' : i === 1 ? 'Morgen' : `${dayNames[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
+            const dateVal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            dateButtons.push({ text: dayLabel, callback_data: `adm_setdate_${rideId}_${dateVal}` });
+        }
+
+        await sendTelegramMessage(chatId,
+            `📅 <b>Datum ändern</b>\n\nAktuell: <b>${currentDate}</b>\n\nWähle neues Datum oder schreibe es direkt (z.B. "25.03" oder "25.03.2026"):`,
+            { reply_markup: { inline_keyboard: [
+                [dateButtons[0], dateButtons[1], dateButtons[2]],
+                [dateButtons[3], dateButtons[4], dateButtons[5], dateButtons[6]],
+                [{ text: '◀ Zurück', callback_data: `adm_ride_${rideId}` }]
+            ]}}
+        );
+        await setPending(chatId, { _adminEditRide: rideId, _adminEditField: 'date' });
     } catch (e) {
         await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
     }
@@ -6227,7 +6284,7 @@ async function handleMessage(message) {
                                 pickupTimestamp: newTimestamp,
                                 pickupTime: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
                                 editedAt: Date.now(), editedBy: 'telegram-admin',
-                                updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
+                                updatedAt: Date.now()
                             });
                             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
                             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>`);
@@ -6238,6 +6295,51 @@ async function handleMessage(message) {
                 }
             }
             await sendTelegramMessage(chatId, '⚠️ Ungültige Uhrzeit. Bitte im Format HH:MM eingeben (z.B. 14:30).');
+            return;
+        }
+
+        // 🆕 v6.34.3: Datum aus Freitext parsen (z.B. "25.03" oder "25.03.2026")
+        if (field === 'date') {
+            const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+            if (dateMatch) {
+                const day = parseInt(dateMatch[1]);
+                const month = parseInt(dateMatch[2]);
+                let year = dateMatch[3] ? parseInt(dateMatch[3]) : new Date().getFullYear();
+                if (year < 100) year += 2000;
+
+                if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                    try {
+                        const snap = await db.ref(`rides/${rideId}`).once('value');
+                        const r = snap.val();
+                        if (r) {
+                            const oldDt = new Date(r.pickupTimestamp || Date.now());
+                            const berlinDt = new Date(oldDt.toLocaleString('en-US', TZ_BERLIN));
+                            const hours = berlinDt.getHours();
+                            const mins = berlinDt.getMinutes();
+
+                            const newBerlin = new Date(year, month - 1, day, hours, mins, 0, 0);
+                            const berlinAsUTC = new Date(newBerlin.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                            const offsetMs = berlinAsUTC.getTime() - newBerlin.getTime();
+                            const newTimestamp = newBerlin.getTime() - offsetMs;
+
+                            const newDateFormatted = newBerlin.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+                            const timeFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+                            await db.ref(`rides/${rideId}`).update({
+                                pickupTimestamp: newTimestamp,
+                                pickupTime: timeFormatted,
+                                editedAt: Date.now(), editedBy: 'telegram-admin',
+                                updatedAt: Date.now()
+                            });
+                            await addTelegramLog('📅', chatId, `Admin: Datum geändert auf ${newDateFormatted}`);
+                            await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
+                            await handleAdminRideDetail(chatId, rideId);
+                        }
+                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    return;
+                }
+            }
+            await sendTelegramMessage(chatId, '⚠️ Ungültiges Datum. Bitte im Format TT.MM oder TT.MM.JJJJ eingeben (z.B. 25.03 oder 25.03.2026).');
             return;
         }
 
@@ -9342,6 +9444,11 @@ async function handleCallback(callback) {
         await handleAdminEditTime(chatId, data.replace('adm_edit_time_', ''));
         return;
     }
+    // 🆕 v6.34.3: Datum ändern
+    if (data.startsWith('adm_edit_date_')) {
+        await handleAdminEditDate(chatId, data.replace('adm_edit_date_', ''));
+        return;
+    }
     if (data.startsWith('adm_edit_addr_')) {
         const rideId = data.replace('adm_edit_addr_', '');
         const snap = await db.ref(`rides/${rideId}`).once('value');
@@ -9485,6 +9592,48 @@ async function handleCallback(callback) {
             });
             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${newTime} (${offset > 0 ? '+' : ''}${offset}min)`);
             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${newTime} Uhr</b>`);
+            await handleAdminRideDetail(chatId, rideId);
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        return;
+    }
+
+    // 🆕 v6.34.3: Admin: Datum per Schnellwahl-Button setzen
+    if (data.startsWith('adm_setdate_')) {
+        const parts = data.replace('adm_setdate_', '').split('_');
+        // Datum ist im Format YYYY-MM-DD am Ende, rideId kann _ enthalten
+        const dateStr = parts[parts.length - 1];
+        const rideId = parts.slice(0, -1).join('_');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+
+            const oldDt = new Date(r.pickupTimestamp || Date.now());
+            const berlinTime = oldDt.toLocaleString('en-US', TZ_BERLIN);
+            const berlinDt = new Date(berlinTime);
+            const hours = berlinDt.getHours();
+            const mins = berlinDt.getMinutes();
+
+            // Neues Datum + alte Uhrzeit
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const newBerlin = new Date(year, month - 1, day, hours, mins, 0, 0);
+            // Berlin-Zeit → UTC
+            const berlinAsUTC = new Date(newBerlin.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const offsetMs = berlinAsUTC.getTime() - newBerlin.getTime();
+            const newTimestamp = newBerlin.getTime() - offsetMs;
+
+            const newDt = new Date(newTimestamp);
+            const newDateFormatted = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+            await db.ref(`rides/${rideId}`).update({
+                pickupTimestamp: newTimestamp,
+                pickupTime: timeFormatted,
+                editedAt: Date.now(), editedBy: 'telegram-admin',
+                updatedAt: Date.now()
+            });
+            await addTelegramLog('📅', chatId, `Admin: Datum geändert auf ${newDateFormatted}`);
+            await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;

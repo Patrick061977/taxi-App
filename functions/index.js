@@ -4519,21 +4519,26 @@ async function handleAdminRideDetail(chatId, rideId) {
                 { text: '🗑️ Löschen', callback_data: `adm_del_${rideId}` }
             ]);
         }
-        // 🆕 v6.34.3: Kunde kontaktieren (WhatsApp/Anruf)
+        // 🆕 v6.34.3: Kunde kontaktieren (WhatsApp)
         const custPhone = r.customerPhone || r.customerMobile || r.mobilePhone || r.guestPhone;
         if (custPhone) {
-            const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
-            const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
-            const isMobile = intlPhone.match(/^49(1[5-7]\d{8,9})$/);
-            const contactRow = [];
-            if (isMobile) {
-                contactRow.push({ text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` });
+            try {
+                const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
+                const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
+                const isMobile = /^49(1[5-7]\d{8,9})$/.test(intlPhone);
+                if (isMobile) {
+                    keyboard.push([
+                        { text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` },
+                        { text: '📞 Kontakt', callback_data: `adm_contact_${rideId}` }
+                    ]);
+                } else {
+                    keyboard.push([
+                        { text: '📞 Kontakt anzeigen', callback_data: `adm_contact_${rideId}` }
+                    ]);
+                }
+            } catch (phoneErr) {
+                console.error('Phone parsing error:', phoneErr);
             }
-            contactRow.push({ text: '📞 Anrufen', url: `tel:+${intlPhone}` });
-            if (isMobile) {
-                contactRow.push({ text: '✉️ SMS', url: `sms:+${intlPhone}` });
-            }
-            keyboard.push(contactRow);
         }
         // 🆕 v6.29.3: Fahrt kopieren — startet normalen Buchungsflow mit vorausgefüllten Daten
         keyboard.push([
@@ -4583,7 +4588,8 @@ async function handleAdminEditTime(chatId, rideId) {
         );
         await setPending(chatId, { _adminEditRide: rideId, _adminEditField: 'time' });
     } catch (e) {
-        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        console.error('handleAdminRideDetail ERROR:', e);
+        try { await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Fahrt-Details: ' + (e.message || e)); } catch (e2) { console.error('Auch Fehlernachricht fehlgeschlagen:', e2); }
     }
 }
 
@@ -9469,6 +9475,26 @@ async function handleCallback(callback) {
     }
     if (data.startsWith('adm_edit_status_')) {
         await handleAdminEditStatus(chatId, data.replace('adm_edit_status_', ''));
+        return;
+    }
+    // 🆕 v6.34.3: Kontaktdaten anzeigen
+    if (data.startsWith('adm_contact_')) {
+        const rideId = data.replace('adm_contact_', '');
+        try {
+            const snap = await db.ref(`rides/${rideId}`).once('value');
+            const r = snap.val();
+            if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            const phone = r.customerPhone || r.customerMobile || r.mobilePhone || r.guestPhone || 'Keine Nummer';
+            const mobile = r.customerMobile || r.mobilePhone || '';
+            let msg = `📞 <b>Kontakt: ${r.customerName || 'Kunde'}</b>\n\n`;
+            msg += `📱 Telefon: <code>${phone}</code>\n`;
+            if (mobile && mobile !== phone) msg += `📱 Mobil: <code>${mobile}</code>\n`;
+            if (r.customerEmail) msg += `📧 E-Mail: ${r.customerEmail}\n`;
+            msg += `\n💡 Nummer antippen zum Kopieren, dann in Telefon/WhatsApp einfügen.`;
+            await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
+                [{ text: '◀ Zurück zur Fahrt', callback_data: `adm_ride_${rideId}` }]
+            ]}});
+        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
         return;
     }
     if (data.startsWith('adm_del_')) {

@@ -1103,6 +1103,12 @@ async function sendWhatsAppMessage(toPhone, text) {
         formattedPhone = '49' + formattedPhone.substring(1);
     }
 
+    // 🔧 v6.25.4: Zu lange Mobilnummern automatisch kürzen (KI hängt manchmal Ziffern an)
+    if (/^49(1[5-7]\d{10,})$/.test(formattedPhone)) {
+        const corrected = formattedPhone.substring(0, 13); // 49 + 11 Ziffern = Standard
+        console.log(`🔧 WhatsApp: Nummer zu lang (${formattedPhone}) → gekürzt auf ${corrected}`);
+        formattedPhone = corrected;
+    }
     // Nur Mobilnummern (49-15xx, 49-16xx, 49-17xx)
     if (!formattedPhone.match(/^49(1[5-7]\d{8,9})$/)) {
         console.log(`⚠️ WhatsApp: Keine Mobilnummer: ${formattedPhone}`);
@@ -1143,7 +1149,9 @@ async function sendWhatsAppMessage(toPhone, text) {
 function formatWhatsAppLink(phone) {
     if (!phone) return '';
     const clean = String(phone).replace(/[\s\-\/\(\)\+]/g, '');
-    const normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
+    let normalized = clean.startsWith('0') ? '49' + clean.substring(1) : clean;
+    // 🔧 v6.25.4: Zu lange Mobilnummern kürzen
+    if (/^49(1[5-7]\d{10,})$/.test(normalized)) normalized = normalized.substring(0, 13);
     // Nur für Mobilnummern einen WA-Link erzeugen
     if (normalized.match(/^49(1[5-7]\d{8,9})$/)) {
         return ` <a href="https://wa.me/${normalized}">💬WA</a>`;
@@ -4524,8 +4532,10 @@ async function handleAdminRideDetail(chatId, rideId) {
         if (custPhone) {
             try {
                 const cleanPhone = String(custPhone).replace(/[\s\-\/\(\)\+]/g, '');
-                const intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
-                const isMobile = /^49(1[5-7]\d{7,10})$/.test(intlPhone);
+                let intlPhone = cleanPhone.startsWith('0') ? '49' + cleanPhone.substring(1) : cleanPhone;
+                // 🔧 v6.25.4: Zu lange Mobilnummern kürzen (KI hängt manchmal Ziffern an)
+                if (/^49(1[5-7]\d{10,})$/.test(intlPhone)) intlPhone = intlPhone.substring(0, 13);
+                const isMobile = /^49(1[5-7]\d{8,9})$/.test(intlPhone);
                 if (isMobile) {
                     keyboard.push([
                         { text: '💬 WhatsApp', url: `https://wa.me/${intlPhone}` },

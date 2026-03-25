@@ -2101,29 +2101,61 @@ async function searchNominatimForTelegram(query) {
     const maxNominatim = localResults.length >= 3 ? 2 : (localResults.length >= 1 ? 3 : 5);
 
     try {
-        // 🔧 v6.25.5: Viewbox eng auf Usedom + näheres Umland (Wolgast, Anklam, Swinemünde)
+        // 🔧 v6.25.5: PLZ aus Query extrahieren — DAS ist der Schlüssel für lokale Suche
+        const queryPLZ = query.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+        const queryPostcode = queryPLZ ? queryPLZ[1] : null;
+        // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Plausibilitätsprüfung
+
+        // 🔧 v6.25.5: Viewbox eng auf Usedom + näheres Umland
         const usedomViewbox = '13.60,54.20,14.45,53.75';
-        // Erweitertes Gebiet: MV + Vorpommern (für Greifswald, Stralsund etc.)
         const wideViewbox = '12.5,54.5,14.5,53.5';
 
-        // 🔧 v6.25.5: Ort-Kontext intelligent ergänzen statt pauschal ", Usedom"
-        // Wenn Eingabe schon einen Ort enthält (Heringsdorf, Bansin, etc.) → nicht ergänzen
+        // 🔧 v6.25.5: PLZ ist der Schlüssel — Nominatim structured search nutzen
+        // Wenn PLZ vorhanden: Straße + PLZ als structured query → treffsicher!
         const knownOrte = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz',
             'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam',
             'swinemünde', 'świnoujście', 'usedom', 'greifswald', 'züssow', 'lubmin'];
         const hasOrt = knownOrte.some(o => searchKey.includes(o));
-        const hasPLZ = /\b1741[0-9]|1742[0-9]|1743[0-9]|1744[0-9]|1745[0-9]\b/.test(query);
-        // Nur ", Heringsdorf" ergänzen wenn KEIN Ort und KEINE PLZ im Query
-        const localQuery = (!hasOrt && !hasPLZ) ? query + ', Heringsdorf' : query;
+        const hasPLZ = !!queryPostcode;
 
-        const [localResp, boundedResp] = await Promise.all([
-            // Suche 1: Mit Ort-Kontext, enge Usedom-Viewbox, unbounded (Preference)
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(localQuery)}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
-            // Suche 2: Original-Query, bounded auf erweitertes Gebiet
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
-        ]);
-        const usedomData = await localResp.json();
-        const generalData = await boundedResp.json();
+        let usedomData = [], generalData = [];
+
+        if (hasPLZ) {
+            // ══ PLZ-MODUS: Structured Search — PLZ als postalcode Parameter ══
+            // Straße ohne PLZ extrahieren (z.B. "Delbrückstraße 4, 17424" → "Delbrückstraße 4")
+            const streetOnly = query.replace(/\b\d{5}\b/g, '').replace(/[,\s]+$/, '').trim();
+            const plzOrt = PLZ_CENTERS[queryPostcode] ? PLZ_CENTERS[queryPostcode].name : '';
+            console.log(`[Nominatim] PLZ-Modus: street="${streetOnly}", postalcode=${queryPostcode}, city=${plzOrt}`);
+
+            // Structured Search: Nominatim bekommt Straße + PLZ + Ort getrennt → viel genauer!
+            const [structuredResp, freeResp] = await Promise.all([
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(streetOnly)}&postalcode=${queryPostcode}${plzOrt ? '&city=' + encodeURIComponent(plzOrt) : ''}&countrycodes=de&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts),
+                // Backup: Freitext mit PLZ als bounded-Suche auf Usedom
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=${usedomViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
+            ]);
+            usedomData = await structuredResp.json();
+            generalData = await freeResp.json();
+            console.log(`[Nominatim] PLZ-Modus Ergebnisse: structured=${usedomData.length}, freitext=${generalData.length}`);
+
+        } else if (hasOrt) {
+            // ══ ORT-MODUS: Ortsname im Query → direkt suchen, Viewbox als Preference ══
+            const [localResp, boundedResp] = await Promise.all([
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
+            ]);
+            usedomData = await localResp.json();
+            generalData = await boundedResp.json();
+
+        } else {
+            // ══ KEIN ORT/PLZ: Heringsdorf als Default-Kontext ergänzen ══
+            const localQuery = query + ', Heringsdorf';
+            const [localResp, boundedResp] = await Promise.all([
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(localQuery)}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
+            ]);
+            usedomData = await localResp.json();
+            generalData = await boundedResp.json();
+        }
 
         // Fallback: Unbounded-Suche für Orte außerhalb Usedom (Berlin, Hamburg etc.)
         let wideData = [];
@@ -2133,11 +2165,6 @@ async function searchNominatimForTelegram(query) {
                 wideData = await wideResp.json();
             } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
         }
-
-        // 🔧 v6.15.7: PLZ aus Query extrahieren für besseres Sortieren
-        const queryPLZ = query.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
-        const queryPostcode = queryPLZ ? queryPLZ[1] : null;
-        // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Plausibilitätsprüfung
         const plzCenter = queryPostcode ? PLZ_CENTERS[queryPostcode] : null;
 
         // Usedom-Ergebnisse zuerst, PLZ-Match bevorzugt, dann allgemeine

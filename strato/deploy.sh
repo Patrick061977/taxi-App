@@ -37,6 +37,7 @@ echo "4) App-Dateien kopieren..."
 APP_FILES=(
     "index.html"
     "kunden.html"
+    "buchen.html"
     "track.html"
     "manifest.json"
     "service-worker.js"

@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🚕 Taxi buchen — Umwelt Taxi Usedom</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f0f4f8;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header-logo { font-size: 20px; font-weight: 700; }
+        .header-login {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .header-login:hover { background: rgba(255,255,255,0.3); }
+        /* Main */
+        .main { max-width: 500px; margin: 0 auto; padding: 20px; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        /* Inputs */
+        .input-group { position: relative; margin-bottom: 12px; }
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 14px 12px 38px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+        }
+        .input-group input:focus, .input-group select:focus {
+            border-color: #059669;
+            outline: none;
+        }
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 34px;
+            font-size: 16px;
+        }
+        .autocomplete-dropdown {
+            display: none;
+            position: absolute;
+            left: 0; right: 0;
+            background: white;
+            border: 2px solid #059669;
+            border-radius: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 100;
+            margin-top: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .autocomplete-item {
+            padding: 12px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .autocomplete-item:hover { background: #ecfdf5; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        /* GPS Button */
+        .gps-btn {
+            position: absolute;
+            right: 8px;
+            top: 28px;
+            padding: 8px;
+            background: #ecfdf5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .gps-btn:hover { background: #d1fae5; }
+        /* Route Info */
+        .route-info {
+            display: none;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .route-stat {
+            text-align: center;
+            padding: 12px;
+            background: #f0fdf4;
+            border-radius: 10px;
+        }
+        .route-stat .value { font-size: 22px; font-weight: 700; color: #059669; }
+        .route-stat .label { font-size: 11px; color: #64748b; margin-top: 2px; }
+        /* Map */
+        .map-container {
+            display: none;
+            height: 200px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 12px 0;
+            border: 2px solid #e2e8f0;
+        }
+        /* Buttons */
+        .btn-book {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+        }
+        .btn-book:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(5,150,105,0.4); }
+        .btn-book:disabled {
+            background: #94a3b8;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        /* SMS Verification Modal */
+        .sms-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+        .sms-modal.active { display: flex; }
+        .sms-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .sms-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 18px;
+            text-align: center;
+            letter-spacing: 8px;
+            margin: 16px 0;
+        }
+        .phone-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin: 12px 0;
+        }
+        /* Success */
+        .success-card {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        .success-card .icon { font-size: 64px; margin-bottom: 16px; }
+        /* Info Footer */
+        .info-footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .info-footer a { color: #059669; text-decoration: none; }
+        /* Personen-Auswahl */
+        .pax-selector {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .pax-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .pax-btn.active { border-color: #059669; background: #ecfdf5; color: #059669; font-weight: 700; }
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 2000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">🚕 Umwelt Taxi Usedom</div>
+        <a href="kunden.html" class="header-login">👤 Kunden-Login</a>
+    </div>
+
+    <!-- Buchungsformular -->
+    <div class="main">
+        <div class="card" id="booking-card">
+            <div class="card-title">🚖 Taxi buchen</div>
+
+            <!-- Abholort -->
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <span class="input-icon">📍</span>
+                <input type="text" id="b-pickup" placeholder="Wo sollen wir Sie abholen?" autocomplete="off">
+                <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
+                <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
+            </div>
+
+            <!-- Zielort -->
+            <div class="input-group">
+                <label>🎯 Zielort</label>
+                <span class="input-icon">🎯</span>
+                <input type="text" id="b-destination" placeholder="Wohin möchten Sie fahren?" autocomplete="off">
+                <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+            </div>
+
+            <!-- Personen -->
+            <div class="input-group">
+                <label>👥 Personen</label>
+                <div class="pax-selector">
+                    <button class="pax-btn" onclick="setPax(1)">1</button>
+                    <button class="pax-btn active" onclick="setPax(2)">2</button>
+                    <button class="pax-btn" onclick="setPax(3)">3</button>
+                    <button class="pax-btn" onclick="setPax(4)">4</button>
+                    <button class="pax-btn" onclick="setPax(5)">5+</button>
+                </div>
+            </div>
+
+            <!-- Route Info -->
+            <div class="route-info" id="route-info">
+                <div class="route-stat">
+                    <div class="value" id="r-price">—</div>
+                    <div class="label">Preis (ca.)</div>
+                </div>
+                <div class="route-stat">
+                    <div class="value" id="r-distance">—</div>
+                    <div class="label">Kilometer</div>
+                </div>
+                <div class="route-stat">
+                    <div class="value" id="r-duration">—</div>
+                    <div class="label">Minuten</div>
+                </div>
+            </div>
+
+            <!-- Karte -->
+            <div class="map-container" id="route-map"></div>
+
+            <!-- Buchen Button -->
+            <button class="btn-book" id="btn-book" onclick="startBooking()" disabled>
+                🚕 Jetzt Taxi buchen
+            </button>
+            <div style="text-align:center;margin-top:8px;font-size:12px;color:#94a3b8;">
+                Kostenlose Stornierung möglich
+            </div>
+        </div>
+
+        <!-- Telefon -->
+        <div class="card" style="display:none;" id="phone-card">
+            <div style="text-align:center;">
+                <div style="font-size:48px;margin-bottom:12px;">📱</div>
+                <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Für die Buchungsbestätigung und Ihren Fahrer</p>
+                <input type="tel" id="b-phone" class="phone-input" placeholder="0176 12345678" autocomplete="tel">
+                <button class="btn-book" onclick="sendSMSCode()" style="margin-top:12px;">📨 SMS-Code senden</button>
+                <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:10px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
+            </div>
+        </div>
+
+        <!-- SMS-Code -->
+        <div class="card" style="display:none;" id="sms-card">
+            <div style="text-align:center;">
+                <div style="font-size:48px;margin-bottom:12px;">🔐</div>
+                <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
+                <p style="font-size:13px;color:#64748b;" id="sms-info">Code wurde an Ihre Nummer gesendet</p>
+                <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • •" maxlength="4" inputmode="numeric">
+                <button class="btn-book" onclick="verifyAndBook()">✅ Bestätigen & Buchen</button>
+                <button onclick="sendSMSCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
+            </div>
+        </div>
+
+        <!-- Erfolg -->
+        <div class="card success-card" id="success-card">
+            <div class="icon">🎉</div>
+            <h2 style="color:#059669;margin-bottom:8px;">Taxi ist gebucht!</h2>
+            <p style="color:#64748b;margin-bottom:20px;">Sie erhalten eine SMS mit dem Tracking-Link sobald ein Fahrer zugewiesen ist.</p>
+            <div id="success-details" style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:left;font-size:14px;margin-bottom:16px;"></div>
+            <div style="font-size:14px;color:#64748b;">
+                📞 Fragen? <a href="tel:03837822022" style="color:#059669;font-weight:600;">038378 22022</a>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="info-footer">
+            📞 <a href="tel:03837822022">038378 22022</a> ·
+            🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
+            Funk Taxi Heringsdorf · Usedom
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Firebase Init
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+
+        // SMS Proxy
+        const SMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxfpDB-2HgzQfc-LhFIGZ8Szz26kNTl5zVsWxrYOwhLZ978I15pXreEWIWI8w_By7Aa/exec';
+
+        // State
+        let pickupCoords = null;
+        let destCoords = null;
+        let passengers = 2;
+        let routeData = null;
+        let smsCode = null;
+        let customerPhone = null;
+        let bookingMap = null;
+
+        // ═══════════════════════════════════════════════
+        // QR-Code Parameter auswerten
+        // ═══════════════════════════════════════════════
+        const urlParams = new URLSearchParams(window.location.search);
+        const qrFrom = urlParams.get('from');
+        const qrLat = urlParams.get('lat');
+        const qrLon = urlParams.get('lon');
+
+        if (qrFrom) {
+            document.getElementById('b-pickup').value = decodeURIComponent(qrFrom);
+            // Geocode den Abholort
+            geocodeAddress(decodeURIComponent(qrFrom)).then(coords => {
+                if (coords) {
+                    pickupCoords = coords;
+                    checkRoute();
+                }
+            });
+        }
+        if (qrLat && qrLon) {
+            pickupCoords = { lat: parseFloat(qrLat), lon: parseFloat(qrLon) };
+            reverseGeocode(pickupCoords.lat, pickupCoords.lon).then(addr => {
+                if (addr) document.getElementById('b-pickup').value = addr;
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Personen-Auswahl
+        // ═══════════════════════════════════════════════
+        function setPax(n) {
+            passengers = n;
+            document.querySelectorAll('.pax-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i + 1 === n);
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // GPS
+        // ═══════════════════════════════════════════════
+        function useGPS(field) {
+            if (!navigator.geolocation) return showToast('GPS nicht verfügbar');
+            showToast('📡 Standort wird ermittelt...');
+            navigator.geolocation.getCurrentPosition(async pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                const addr = await reverseGeocode(lat, lon);
+                if (field === 'pickup') {
+                    pickupCoords = { lat, lon };
+                    document.getElementById('b-pickup').value = addr || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                }
+                checkRoute();
+            }, err => {
+                showToast('GPS-Fehler: ' + err.message);
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Geocoding
+        // ═══════════════════════════════════════════════
+        async function geocodeAddress(query) {
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Heringsdorf')}&limit=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const data = await resp.json();
+                if (data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+            } catch(e) {}
+            return null;
+        }
+
+        async function reverseGeocode(lat, lon) {
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const data = await resp.json();
+                if (data.address) {
+                    const a = data.address;
+                    const road = a.road || a.residential || a.pedestrian || '';
+                    const nr = a.house_number || '';
+                    const town = a.town || a.city || a.village || '';
+                    return road + (nr ? ' ' + nr : '') + (town ? ', ' + town : '');
+                }
+            } catch(e) {}
+            return null;
+        }
+
+        // ═══════════════════════════════════════════════
+        // Autocomplete — POIs + Nominatim
+        // ═══════════════════════════════════════════════
+        let allPOIs = {};
+        db.ref('pois').once('value', snap => { allPOIs = snap.val() || {}; });
+
+        let debounceTimer = null;
+        ['b-pickup', 'b-destination'].forEach(id => {
+            const input = document.getElementById(id);
+            const dropdown = document.getElementById(id + '-dropdown');
+            if (!input || !dropdown) return;
+
+            input.addEventListener('focus', () => searchAndShow(input.value, id));
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => searchAndShow(input.value, id), 250);
+            });
+        });
+
+        // Klick außerhalb schließt Dropdown
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.input-group')) {
+                document.querySelectorAll('.autocomplete-dropdown').forEach(d => d.style.display = 'none');
+            }
+        });
+
+        async function searchAndShow(query, inputId) {
+            const dropdown = document.getElementById(inputId + '-dropdown');
+            const searchKey = (query || '').toLowerCase().trim();
+            const results = [];
+
+            // POIs
+            Object.values(allPOIs).forEach(poi => {
+                if (!poi.name || !poi.lat) return;
+                const n = poi.name.toLowerCase();
+                const a = (poi.address || '').toLowerCase();
+                if (!searchKey || n.includes(searchKey) || a.includes(searchKey)) {
+                    results.push({
+                        name: poi.address ? `${poi.name}, ${poi.address}` : poi.name,
+                        lat: poi.lat, lon: poi.lon, icon: '⭐'
+                    });
+                }
+            });
+
+            // Nominatim wenn wenig POI-Treffer und User tippt
+            if (searchKey.length >= 3 && results.length < 3) {
+                try {
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Heringsdorf')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                    const data = await resp.json();
+                    data.forEach(item => {
+                        const a = item.address || {};
+                        const road = a.road || a.residential || '';
+                        const nr = a.house_number || '';
+                        const town = a.town || a.city || a.village || '';
+                        const pc = a.postcode || '';
+                        let name = road ? (road + (nr ? ' ' + nr : '')) : (item.name || '');
+                        if (town) name += `, ${pc ? pc + ' ' : ''}${town}`;
+                        results.push({ name: name || item.display_name.split(',').slice(0,2).join(','), lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '🌍' });
+                    });
+                } catch(e) {}
+            }
+
+            const shown = results.slice(0, 6);
+            if (shown.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            dropdown.innerHTML = shown.map((r, i) => `
+                <div class="autocomplete-item" onclick="selectAddr('${inputId}', ${i})">
+                    <span>${r.icon}</span>
+                    <span>${r.name}</span>
+                </div>
+            `).join('');
+            dropdown.style.display = 'block';
+            window._addrResults = { [inputId]: shown };
+        }
+
+        function selectAddr(inputId, index) {
+            const r = (window._addrResults || {})[inputId]?.[index];
+            if (!r) return;
+            document.getElementById(inputId).value = r.name;
+            document.getElementById(inputId + '-dropdown').style.display = 'none';
+            if (inputId === 'b-pickup') pickupCoords = { lat: r.lat, lon: r.lon };
+            if (inputId === 'b-destination') destCoords = { lat: r.lat, lon: r.lon };
+            checkRoute();
+        }
+
+        // ═══════════════════════════════════════════════
+        // Route berechnen + Preis
+        // ═══════════════════════════════════════════════
+        async function checkRoute() {
+            if (!pickupCoords || !destCoords) {
+                document.getElementById('btn-book').disabled = true;
+                return;
+            }
+            try {
+                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords.lon},${pickupCoords.lat};${destCoords.lon},${destCoords.lat}?overview=full&geometries=geojson`);
+                const data = await resp.json();
+                if (data.routes && data.routes[0]) {
+                    const route = data.routes[0];
+                    const km = (route.distance / 1000).toFixed(1);
+                    const min = Math.ceil(route.duration / 60);
+
+                    // Preis berechnen (Grundpreis + km-Preis)
+                    let price = 4.50 + parseFloat(km) * 2.20;
+                    if (passengers > 4) price += 5;
+                    price = Math.max(price, 6).toFixed(0);
+
+                    routeData = { km, min, price, geometry: route.geometry };
+
+                    document.getElementById('r-price').textContent = price + '€';
+                    document.getElementById('r-distance').textContent = km;
+                    document.getElementById('r-duration').textContent = min;
+                    document.getElementById('route-info').style.display = 'grid';
+                    document.getElementById('btn-book').disabled = false;
+
+                    // Karte zeigen
+                    showRouteMap(route.geometry);
+                }
+            } catch(e) {
+                console.warn('Route error:', e);
+            }
+        }
+
+        function showRouteMap(geometry) {
+            const mapEl = document.getElementById('route-map');
+            mapEl.style.display = 'block';
+            if (bookingMap) bookingMap.remove();
+            bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
+            L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
+            L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');
+            L.marker([destCoords.lat, destCoords.lon]).addTo(bookingMap).bindPopup('🎯 Zielort');
+            bookingMap.fitBounds([[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]], { padding: [30, 30] });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Buchungs-Flow
+        // ═══════════════════════════════════════════════
+        function startBooking() {
+            if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
+            document.getElementById('booking-card').style.display = 'none';
+            document.getElementById('phone-card').style.display = 'block';
+            document.getElementById('b-phone').focus();
+        }
+
+        async function sendSMSCode() {
+            const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
+            if (phone.length < 10) return showToast('Bitte gültige Telefonnummer eingeben');
+
+            // Formatieren
+            customerPhone = phone.startsWith('0') ? '+49' + phone.slice(1) : (phone.startsWith('+') ? phone : '+49' + phone);
+
+            // 4-stelligen Code generieren
+            smsCode = String(Math.floor(1000 + Math.random() * 9000));
+
+            // SMS senden
+            try {
+                const resp = await fetch(SMS_PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: customerPhone,
+                        text: `Ihr Taxi-Buchungscode: ${smsCode}\n\nUmwelt Taxi Usedom\n038378 22022`,
+                        from: 'UmweltTaxi'
+                    })
+                });
+                showToast('📨 SMS-Code gesendet!');
+            } catch(e) {
+                showToast('SMS-Fehler — bitte rufen Sie uns an: 038378 22022');
+                return;
+            }
+
+            document.getElementById('phone-card').style.display = 'none';
+            document.getElementById('sms-card').style.display = 'block';
+            document.getElementById('sms-info').textContent = `Code an ${customerPhone} gesendet`;
+            document.getElementById('b-sms-code').focus();
+        }
+
+        async function verifyAndBook() {
+            const code = document.getElementById('b-sms-code').value.trim();
+            if (code !== smsCode) {
+                showToast('Falscher Code — bitte erneut versuchen');
+                return;
+            }
+
+            // Buchung in Firebase erstellen
+            const pickup = document.getElementById('b-pickup').value;
+            const destination = document.getElementById('b-destination').value;
+            const now = Date.now();
+
+            const rideData = {
+                pickup,
+                destination,
+                pickupLat: pickupCoords.lat,
+                pickupLon: pickupCoords.lon,
+                pickupCoords: { lat: pickupCoords.lat, lon: pickupCoords.lon },
+                destinationLat: destCoords.lat,
+                destinationLon: destCoords.lon,
+                destCoords: { lat: destCoords.lat, lon: destCoords.lon },
+                customerName: 'Web-Kunde',
+                customerPhone: customerPhone,
+                passengers,
+                status: 'new',
+                isJetzt: true,
+                source: 'web-booking',
+                createdAt: now,
+                updatedAt: now,
+                pickupTimestamp: now,
+                paymentMethod: 'bar',
+                ...(routeData && {
+                    price: parseFloat(routeData.price),
+                    estimatedPrice: parseFloat(routeData.price),
+                    distance: routeData.km,
+                    estimatedDistance: routeData.km,
+                    duration: routeData.min,
+                    estimatedDuration: routeData.min
+                })
+            };
+
+            try {
+                const ref = db.ref('rides').push();
+                rideData.id = ref.key;
+                await ref.set(rideData);
+
+                // Erfolg anzeigen
+                document.getElementById('sms-card').style.display = 'none';
+                document.getElementById('success-card').style.display = 'block';
+                document.getElementById('success-details').innerHTML = `
+                    <div style="margin-bottom:8px;">📍 <strong>Von:</strong> ${pickup}</div>
+                    <div style="margin-bottom:8px;">🎯 <strong>Nach:</strong> ${destination}</div>
+                    <div style="margin-bottom:8px;">👥 <strong>Personen:</strong> ${passengers}</div>
+                    ${routeData ? `<div style="margin-bottom:8px;">💰 <strong>Preis:</strong> ca. ${routeData.price}€ · ${routeData.km} km · ~${routeData.min} Min</div>` : ''}
+                    <div>📱 <strong>Telefon:</strong> ${customerPhone}</div>
+                `;
+
+                showToast('🎉 Buchung erfolgreich!');
+            } catch(e) {
+                showToast('Fehler bei der Buchung — bitte rufen Sie uns an');
+                console.error(e);
+            }
+        }
+
+        // ═══════════════════════════════════════════════
+        // Helpers
+        // ═══════════════════════════════════════════════
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+    </script>
+</body>
+</html>

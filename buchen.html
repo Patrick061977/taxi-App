@@ -320,35 +320,28 @@
             </div>
         </div>
 
-        <!-- Telefon + Versandart wählen -->
+        <!-- Telefon eingeben -->
         <div class="card" style="display:none;" id="phone-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
-                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Für die Buchungsbestätigung und Ihren Fahrer</p>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Sie erhalten einen Bestätigungscode per SMS (kostenlos)</p>
                 <input type="tel" id="b-phone" class="phone-input" placeholder="0176 12345678" autocomplete="tel">
-                <p style="font-size:13px;color:#64748b;margin:16px 0 10px;">Wie möchten Sie den Code erhalten?</p>
-                <div style="display:flex;gap:10px;">
-                    <button onclick="sendCode('whatsapp')" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">
-                        💬 WhatsApp
-                    </button>
-                    <button onclick="sendCode('sms')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">
-                        📱 SMS
-                    </button>
-                </div>
+                <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
+                <button class="btn-book" id="btn-send-code" onclick="sendFirebaseCode()">📨 Code senden</button>
                 <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
             </div>
         </div>
 
-        <!-- SMS-Code -->
+        <!-- SMS-Code eingeben -->
         <div class="card" style="display:none;" id="sms-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">🔐</div>
                 <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
                 <p style="font-size:13px;color:#64748b;" id="sms-info">Code wurde an Ihre Nummer gesendet</p>
-                <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • •" maxlength="4" inputmode="numeric">
+                <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • • • •" maxlength="6" inputmode="numeric">
                 <button class="btn-book" onclick="verifyAndBook()">✅ Bestätigen & Buchen</button>
-                <button onclick="sendSMSCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
+                <button onclick="sendFirebaseCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
             </div>
         </div>
 
@@ -376,6 +369,7 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <!-- Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -688,69 +682,82 @@
         // ═══════════════════════════════════════════════
         // Buchungs-Flow
         // ═══════════════════════════════════════════════
-        // Cloud Function URL (nach Deploy anpassen!)
-        const CF_BASE = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net';
+        // Firebase Phone Auth
+        const auth = firebase.auth();
+        auth.languageCode = 'de';
+        let confirmationResult = null;
+        let recaptchaVerifier = null;
 
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             document.getElementById('booking-card').style.display = 'none';
             document.getElementById('phone-card').style.display = 'block';
             document.getElementById('b-phone').focus();
+
+            // reCAPTCHA initialisieren (unsichtbar)
+            if (!recaptchaVerifier) {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    size: 'invisible',
+                    callback: () => console.log('reCAPTCHA gelöst')
+                });
+                recaptchaVerifier.render();
+            }
         }
 
-        // Kunde wählt WhatsApp oder SMS
-        async function sendCode(method) {
+        // SMS-Code über Firebase Phone Auth senden (kostenlos!)
+        async function sendFirebaseCode() {
             const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
             if (phone.length < 10) return showToast('Bitte gültige Telefonnummer eingeben');
 
             customerPhone = phone.startsWith('0') ? '+49' + phone.slice(1) : (phone.startsWith('+') ? phone : '+49' + phone);
 
-            showToast(method === 'whatsapp' ? '💬 WhatsApp-Code wird gesendet...' : '📱 SMS-Code wird gesendet...');
+            const btn = document.getElementById('btn-send-code');
+            btn.disabled = true;
+            btn.textContent = '⏳ Code wird gesendet...';
 
             try {
-                // Cloud Function aufrufen — generiert Code + sendet
-                const resp = await fetch(`${CF_BASE}/sendVerificationCode`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: customerPhone, method })
-                });
-                const data = await resp.json();
-
-                if (!data.success) {
-                    showToast('Fehler: ' + (data.error || 'Unbekannt'));
-                    return;
-                }
-
-                const methodText = data.method === 'whatsapp' ? 'WhatsApp' : 'SMS';
+                confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
                 document.getElementById('phone-card').style.display = 'none';
                 document.getElementById('sms-card').style.display = 'block';
-                document.getElementById('sms-info').textContent = `Code per ${methodText} an ${customerPhone} gesendet`;
+                document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
                 document.getElementById('b-sms-code').focus();
-
+                showToast('📨 SMS-Code gesendet!');
             } catch(e) {
-                showToast('Fehler — bitte rufen Sie uns an: 038378 22022');
+                console.error('Firebase Phone Auth Fehler:', e);
+                if (e.code === 'auth/too-many-requests') {
+                    showToast('Zu viele Versuche — bitte später erneut');
+                } else if (e.code === 'auth/invalid-phone-number') {
+                    showToast('Ungültige Telefonnummer');
+                } else {
+                    showToast('Fehler — bitte rufen Sie uns an: 038378 22022');
+                }
+                btn.disabled = false;
+                btn.textContent = '📨 Code senden';
+                // reCAPTCHA neu initialisieren
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    size: 'invisible'
+                });
+                recaptchaVerifier.render();
             }
         }
 
         async function verifyAndBook() {
             const code = document.getElementById('b-sms-code').value.trim();
-            if (!code || code.length < 4) return showToast('Bitte 4-stelligen Code eingeben');
+            if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
 
-            // Code serverseitig prüfen
+            if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
+
             try {
-                const resp = await fetch(`${CF_BASE}/verifyCode`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: customerPhone, code })
-                });
-                const data = await resp.json();
-
-                if (!data.valid) {
-                    showToast(data.error || 'Falscher Code');
-                    return;
-                }
+                // Firebase prüft den Code — bei Erfolg ist User eingeloggt
+                const result = await confirmationResult.confirm(code);
+                customerPhone = result.user.phoneNumber;
+                console.log('✅ Verifiziert:', customerPhone);
             } catch(e) {
-                showToast('Prüfung fehlgeschlagen — bitte erneut versuchen');
+                if (e.code === 'auth/invalid-verification-code') {
+                    showToast('Falscher Code — bitte erneut versuchen');
+                } else {
+                    showToast('Fehler bei der Verifizierung');
+                }
                 return;
             }
 

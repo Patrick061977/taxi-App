@@ -1,2 +1,5 @@
 node_modules/
 functions/package-lock.json
+
+# Strato-Upload wird generiert (nicht manuell editieren)
+strato-upload/

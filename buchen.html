@@ -396,6 +396,70 @@
         let customerPhone = null;
         let bookingMap = null;
 
+        // Tarif aus Firebase laden (gleiche Struktur wie index.html)
+        let TARIF = {
+            grundgebuehr: 4.00,
+            km_1_2: 3.30,
+            km_3_4: 2.80,
+            km_ab_5: 2.20,
+            nacht_grundgebuehr: 5.50,
+            nacht_km_1_2: 3.30,
+            nacht_km_3_4: 2.80,
+            nacht_km_ab_5: 2.40
+        };
+        const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
+
+        // Tarif aus Firebase laden
+        db.ref('settings/tarif').once('value', snap => {
+            if (snap.exists()) {
+                const data = snap.val();
+                Object.assign(TARIF, data);
+                console.log('Tarif aus Firebase geladen:', TARIF);
+            }
+        });
+
+        function isFeiertag(date) {
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return FEIERTAGE.includes(`${m}-${d}`);
+        }
+
+        function calculatePrice(distance, timestamp) {
+            const dt = timestamp ? new Date(timestamp) : new Date();
+            const hour = dt.getHours(), day = dt.getDay();
+            const isNight = (hour >= 22 || hour < 6) || (day === 0) || isFeiertag(dt);
+
+            const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
+            const km12 = isNight ? TARIF.nacht_km_1_2 : TARIF.km_1_2;
+            const km34 = isNight ? TARIF.nacht_km_3_4 : TARIF.km_3_4;
+            const km5 = isNight ? TARIF.nacht_km_ab_5 : TARIF.km_ab_5;
+
+            let kmPreis = 0;
+            if (distance <= 2) {
+                kmPreis = distance * km12;
+            } else if (distance <= 4) {
+                kmPreis = (2 * km12) + ((distance - 2) * km34);
+            } else {
+                kmPreis = (2 * km12) + (2 * km34) + ((distance - 4) * km5);
+            }
+
+            let total = grundgebuehr + kmPreis;
+            let hinweise = [];
+
+            // Großraumzuschlag bei 5+ Personen
+            if (passengers >= 5) {
+                total += 10.00;
+                hinweise.push('Großraumzuschlag +10€');
+            }
+
+            if (isFeiertag(dt)) hinweise.push('Feiertagstarif');
+            else if (day === 0) hinweise.push('Sonntagstarif');
+            else if (isNight) hinweise.push('Nachttarif (22-6 Uhr)');
+
+            total = Math.round(total / 0.1) * 0.1;
+            return { total: total.toFixed(2), hinweise };
+        }
+
         // ═══════════════════════════════════════════════
         // QR-Code Parameter auswerten
         // ═══════════════════════════════════════════════
@@ -581,16 +645,18 @@
                     const km = (route.distance / 1000).toFixed(1);
                     const min = Math.ceil(route.duration / 60);
 
-                    // Preis berechnen (Grundpreis + km-Preis)
-                    let price = 4.50 + parseFloat(km) * 2.20;
-                    if (passengers > 4) price += 5;
-                    price = Math.max(price, 6).toFixed(0);
+                    // Echte Tarifberechnung (gestaffelt, wie in der Admin-App)
+                    const pricing = calculatePrice(parseFloat(km), Date.now());
 
-                    routeData = { km, min, price, geometry: route.geometry };
+                    routeData = { km, min, price: pricing.total, geometry: route.geometry };
 
-                    document.getElementById('r-price').textContent = price + '€';
+                    document.getElementById('r-price').textContent = pricing.total + '€';
                     document.getElementById('r-distance').textContent = km;
                     document.getElementById('r-duration').textContent = min;
+                    // Tarif-Hinweis (Nacht, Sonntag, Feiertag)
+                    if (pricing.hinweise.length > 0) {
+                        document.getElementById('r-price').title = pricing.hinweise.join(', ');
+                    }
                     document.getElementById('route-info').style.display = 'grid';
                     document.getElementById('btn-book').disabled = false;
 

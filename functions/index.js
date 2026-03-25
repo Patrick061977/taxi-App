@@ -14427,24 +14427,15 @@ exports.sendVerificationCode = onRequest(
                 console.warn('⚠️ WhatsApp fehlgeschlagen, Fallback auf SMS');
             }
 
-            // SMS senden über seven.io
-            const sevenApiKey = 'qqZJ5u9mutCqW1ojrLtZQIlpQ72iigqS67TQh4RQy9bTe6d6PmhXv5aU14NJkSVU';
-            const smsFormatted = formatted.replace('+', '');
-            const smsResp = await fetch('https://gateway.seven.io/api/sms', {
-                method: 'POST',
-                headers: {
-                    'X-Api-Key': sevenApiKey,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    to: smsFormatted,
-                    text: message,
-                    from: 'UmweltTaxi'
-                })
+            // SMS über Firebase Queue senden (eigenes Handy)
+            await db.ref('smsQueue').push({
+                to: formatted,
+                text: message,
+                status: 'pending',
+                createdAt: Date.now(),
+                source: 'verification-code'
             });
-            const smsData = await smsResp.json();
-            console.log(`✅ Verifizierungscode per SMS an ${formatted}:`, smsData);
+            console.log(`✅ Verifizierungscode per SMS-Queue an ${formatted}`);
             return res.status(200).json({ success: true, method: 'sms' });
 
         } catch (error) {

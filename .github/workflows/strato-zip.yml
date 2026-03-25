@@ -1,0 +1,46 @@
+name: Strato ZIP erstellen
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'index.html'
+      - 'kunden.html'
+      - 'track.html'
+      - 'manifest.json'
+      - 'service-worker.js'
+      - 'favicon.svg'
+      - 'icon-192.png'
+      - 'strato/**'
+
+  workflow_dispatch:
+
+jobs:
+  build-strato-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Strato-Upload zusammenstellen
+        run: bash strato/deploy.sh
+
+      - name: ZIP erstellen
+        run: |
+          cd strato-upload
+          zip -r ../strato-deploy.zip .
+          echo "## Strato Deploy ZIP" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Dateien im ZIP:" >> $GITHUB_STEP_SUMMARY
+          find . -type f | sort | while read f; do
+            SIZE=$(du -h "$f" | cut -f1)
+            echo "- \`${f}\` ($SIZE)" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Download:** Unter *Artifacts* unten auf dieser Seite" >> $GITHUB_STEP_SUMMARY
+
+      - name: ZIP als Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: strato-deploy
+          path: strato-deploy.zip
+          retention-days: 30

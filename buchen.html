@@ -320,15 +320,23 @@
             </div>
         </div>
 
-        <!-- Telefon -->
+        <!-- Telefon + Versandart wählen -->
         <div class="card" style="display:none;" id="phone-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
                 <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Für die Buchungsbestätigung und Ihren Fahrer</p>
                 <input type="tel" id="b-phone" class="phone-input" placeholder="0176 12345678" autocomplete="tel">
-                <button class="btn-book" onclick="sendSMSCode()" style="margin-top:12px;">📨 SMS-Code senden</button>
-                <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:10px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
+                <p style="font-size:13px;color:#64748b;margin:16px 0 10px;">Wie möchten Sie den Code erhalten?</p>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="sendCode('whatsapp')" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">
+                        💬 WhatsApp
+                    </button>
+                    <button onclick="sendCode('sms')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">
+                        📱 SMS
+                    </button>
+                </div>
+                <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
             </div>
         </div>
 
@@ -680,6 +688,9 @@
         // ═══════════════════════════════════════════════
         // Buchungs-Flow
         // ═══════════════════════════════════════════════
+        // Cloud Function URL (nach Deploy anpassen!)
+        const CF_BASE = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net';
+
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             document.getElementById('booking-card').style.display = 'none';
@@ -687,41 +698,59 @@
             document.getElementById('b-phone').focus();
         }
 
-        async function sendSMSCode() {
+        // Kunde wählt WhatsApp oder SMS
+        async function sendCode(method) {
             const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
             if (phone.length < 10) return showToast('Bitte gültige Telefonnummer eingeben');
 
-            // Formatieren
             customerPhone = phone.startsWith('0') ? '+49' + phone.slice(1) : (phone.startsWith('+') ? phone : '+49' + phone);
 
-            // 4-stelligen Code generieren
-            smsCode = String(Math.floor(1000 + Math.random() * 9000));
+            showToast(method === 'whatsapp' ? '💬 WhatsApp-Code wird gesendet...' : '📱 SMS-Code wird gesendet...');
 
-            // SMS via Firebase-Queue senden (wird von deinem Handy verarbeitet)
             try {
-                await db.ref('smsQueue').push({
-                    to: customerPhone,
-                    text: `Ihr Taxi-Buchungscode: ${smsCode}\n\nUmwelt Taxi Usedom\n038378 22022`,
-                    status: 'pending',
-                    createdAt: Date.now(),
-                    source: 'buchen-page'
+                // Cloud Function aufrufen — generiert Code + sendet
+                const resp = await fetch(`${CF_BASE}/sendVerificationCode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: customerPhone, method })
                 });
-                showToast('📨 SMS-Code wird gesendet...');
-            } catch(e) {
-                showToast('SMS-Fehler — bitte rufen Sie uns an: 038378 22022');
-                return;
-            }
+                const data = await resp.json();
 
-            document.getElementById('phone-card').style.display = 'none';
-            document.getElementById('sms-card').style.display = 'block';
-            document.getElementById('sms-info').textContent = `Code an ${customerPhone} gesendet`;
-            document.getElementById('b-sms-code').focus();
+                if (!data.success) {
+                    showToast('Fehler: ' + (data.error || 'Unbekannt'));
+                    return;
+                }
+
+                const methodText = data.method === 'whatsapp' ? 'WhatsApp' : 'SMS';
+                document.getElementById('phone-card').style.display = 'none';
+                document.getElementById('sms-card').style.display = 'block';
+                document.getElementById('sms-info').textContent = `Code per ${methodText} an ${customerPhone} gesendet`;
+                document.getElementById('b-sms-code').focus();
+
+            } catch(e) {
+                showToast('Fehler — bitte rufen Sie uns an: 038378 22022');
+            }
         }
 
         async function verifyAndBook() {
             const code = document.getElementById('b-sms-code').value.trim();
-            if (code !== smsCode) {
-                showToast('Falscher Code — bitte erneut versuchen');
+            if (!code || code.length < 4) return showToast('Bitte 4-stelligen Code eingeben');
+
+            // Code serverseitig prüfen
+            try {
+                const resp = await fetch(`${CF_BASE}/verifyCode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: customerPhone, code })
+                });
+                const data = await resp.json();
+
+                if (!data.valid) {
+                    showToast(data.error || 'Falscher Code');
+                    return;
+                }
+            } catch(e) {
+                showToast('Prüfung fehlgeschlagen — bitte erneut versuchen');
                 return;
             }
 

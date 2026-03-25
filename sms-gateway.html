@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 SMS Gateway — Taxi Usedom</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #059669, #047857);
+            border-radius: 16px;
+            margin-bottom: 16px;
+        }
+        .header h1 { font-size: 20px; margin-bottom: 4px; }
+        .header p { font-size: 12px; opacity: 0.8; }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .status-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-dot.active { background: #10b981; animation: pulse 2s infinite; }
+        .status-dot.inactive { background: #ef4444; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat {
+            background: #1e293b;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat .value { font-size: 28px; font-weight: 700; color: #10b981; }
+        .stat .label { font-size: 11px; color: #64748b; margin-top: 4px; }
+        .log-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 16px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+        .log-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #94a3b8; }
+        .log-entry {
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            border-left: 3px solid;
+        }
+        .log-entry.sent { background: #064e3b30; border-color: #10b981; }
+        .log-entry.error { background: #7f1d1d30; border-color: #ef4444; }
+        .log-entry.pending { background: #78350f30; border-color: #f59e0b; }
+        .log-entry .time { font-size: 11px; color: #64748b; }
+        .log-entry .phone { font-weight: 600; color: #10b981; }
+        .log-entry .text { color: #94a3b8; font-size: 12px; margin-top: 4px; }
+        .btn-start {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        .btn-stop {
+            width: 100%;
+            padding: 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        .info {
+            background: #1e293b;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📱 SMS Gateway</h1>
+        <p>Sendet SMS über deine SIM-Karte</p>
+    </div>
+
+    <div class="status-bar">
+        <div>
+            <span class="status-dot inactive" id="status-dot"></span>
+            <span id="status-text">Gestoppt</span>
+        </div>
+        <div id="last-check" style="font-size:12px;color:#64748b;">—</div>
+    </div>
+
+    <button class="btn-start" id="btn-start" onclick="startGateway()">▶ Gateway starten</button>
+    <button class="btn-stop" id="btn-stop" onclick="stopGateway()" style="display:none;">⏹ Gateway stoppen</button>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="value" id="stat-sent">0</div>
+            <div class="label">Gesendet</div>
+        </div>
+        <div class="stat">
+            <div class="value" id="stat-pending">0</div>
+            <div class="label">Wartend</div>
+        </div>
+        <div class="stat">
+            <div class="value" id="stat-errors">0</div>
+            <div class="label">Fehler</div>
+        </div>
+    </div>
+
+    <div class="info">
+        <strong>So funktioniert's:</strong><br>
+        1. Diese Seite im Chrome auf deinem Android-Handy offen lassen<br>
+        2. Das Gateway hört auf neue SMS in Firebase (/smsQueue)<br>
+        3. Bei neuer SMS öffnet sich automatisch die SMS-App<br>
+        4. Du bestätigst das Senden (oder es geht automatisch)<br>
+        <br>
+        <strong>Tipp:</strong> Akku-Optimierung für Chrome deaktivieren!
+    </div>
+
+    <div class="log-container">
+        <div class="log-title">📋 SMS-Protokoll</div>
+        <div id="log-entries">
+            <div style="text-align:center;padding:20px;color:#475569;">Noch keine SMS verarbeitet</div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+
+        let isRunning = false;
+        let listener = null;
+        let stats = { sent: 0, pending: 0, errors: 0 };
+        let logEntries = [];
+
+        function startGateway() {
+            isRunning = true;
+            document.getElementById('btn-start').style.display = 'none';
+            document.getElementById('btn-stop').style.display = 'block';
+            document.getElementById('status-dot').className = 'status-dot active';
+            document.getElementById('status-text').textContent = 'Aktiv — höre auf SMS...';
+
+            // Firebase Listener für neue SMS
+            listener = db.ref('smsQueue').orderByChild('status').equalTo('pending').on('child_added', async snap => {
+                if (!isRunning) return;
+                const smsId = snap.key;
+                const sms = snap.val();
+                if (!sms || !sms.to || !sms.text) return;
+
+                addLog('pending', sms.to, sms.text, 'Wird gesendet...');
+                stats.pending++;
+                updateStats();
+
+                try {
+                    // SMS via Android sms: URI senden
+                    const smsUri = `sms:${sms.to}?body=${encodeURIComponent(sms.text)}`;
+
+                    // Methode 1: Direkt über sms: Link (öffnet SMS-App)
+                    window.location.href = smsUri;
+
+                    // Warte kurz damit die SMS-App sich öffnet
+                    await new Promise(r => setTimeout(r, 2000));
+
+                    // Als "sending" markieren (User muss manuell bestätigen)
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        status: 'sending',
+                        processedAt: Date.now(),
+                        processedBy: 'sms-gateway'
+                    });
+
+                    // Nach 10 Sekunden als "sent" markieren (Annahme: User hat gesendet)
+                    setTimeout(async () => {
+                        const check = await db.ref(`smsQueue/${smsId}/status`).once('value');
+                        if (check.val() === 'sending') {
+                            await db.ref(`smsQueue/${smsId}`).update({ status: 'sent', sentAt: Date.now() });
+                            stats.sent++;
+                            stats.pending--;
+                            updateStats();
+                            updateLog(smsId, 'sent', 'Gesendet ✅');
+                        }
+                    }, 10000);
+
+                } catch(e) {
+                    console.error('SMS-Fehler:', e);
+                    await db.ref(`smsQueue/${smsId}`).update({
+                        status: 'error',
+                        error: e.message,
+                        processedAt: Date.now()
+                    });
+                    stats.errors++;
+                    stats.pending--;
+                    updateStats();
+                    addLog('error', sms.to, sms.text, 'Fehler: ' + e.message);
+                }
+            });
+
+            // Periodisch Status aktualisieren
+            setInterval(() => {
+                if (!isRunning) return;
+                document.getElementById('last-check').textContent = new Date().toLocaleTimeString('de-DE');
+            }, 5000);
+
+            addLog('sent', '—', '—', 'Gateway gestartet');
+        }
+
+        function stopGateway() {
+            isRunning = false;
+            if (listener) {
+                db.ref('smsQueue').off('child_added', listener);
+                listener = null;
+            }
+            document.getElementById('btn-start').style.display = 'block';
+            document.getElementById('btn-stop').style.display = 'none';
+            document.getElementById('status-dot').className = 'status-dot inactive';
+            document.getElementById('status-text').textContent = 'Gestoppt';
+            addLog('error', '—', '—', 'Gateway gestoppt');
+        }
+
+        function updateStats() {
+            document.getElementById('stat-sent').textContent = stats.sent;
+            document.getElementById('stat-pending').textContent = stats.pending;
+            document.getElementById('stat-errors').textContent = stats.errors;
+        }
+
+        function addLog(type, phone, text, info) {
+            const container = document.getElementById('log-entries');
+            const time = new Date().toLocaleTimeString('de-DE');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            entry.innerHTML = `
+                <div><span class="time">${time}</span> — <span class="phone">${phone}</span> — ${info}</div>
+                ${text !== '—' ? `<div class="text">${text.substring(0, 80)}${text.length > 80 ? '...' : ''}</div>` : ''}
+            `;
+            container.insertBefore(entry, container.firstChild);
+            // Max 50 Einträge
+            while (container.children.length > 50) container.removeChild(container.lastChild);
+        }
+
+        function updateLog(smsId, type, info) {
+            // Aktualisiere den letzten passenden Log-Eintrag
+            addLog(type, '—', '—', info);
+        }
+
+        // Warnton bei neuer SMS
+        function beep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 800;
+                osc.connect(ctx.destination);
+                osc.start();
+                setTimeout(() => osc.stop(), 200);
+            } catch(e) {}
+        }
+
+        // Wake Lock — Bildschirm an halten
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                    console.log('🔆 Wake Lock aktiv');
+                }
+            } catch(e) {
+                console.warn('Wake Lock nicht möglich:', e);
+            }
+        }
+        requestWakeLock();
+    </script>
+</body>
+</html>

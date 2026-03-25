@@ -384,9 +384,6 @@
         });
         const db = firebase.database();
 
-        // SMS Proxy
-        const SMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxfpDB-2HgzQfc-LhFIGZ8Szz26kNTl5zVsWxrYOwhLZ978I15pXreEWIWI8w_By7Aa/exec';
-
         // State
         let pickupCoords = null;
         let destCoords = null;
@@ -700,18 +697,16 @@
             // 4-stelligen Code generieren
             smsCode = String(Math.floor(1000 + Math.random() * 9000));
 
-            // SMS senden
+            // SMS via Firebase-Queue senden (wird von deinem Handy verarbeitet)
             try {
-                const resp = await fetch(SMS_PROXY_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: customerPhone,
-                        text: `Ihr Taxi-Buchungscode: ${smsCode}\n\nUmwelt Taxi Usedom\n038378 22022`,
-                        from: 'UmweltTaxi'
-                    })
+                await db.ref('smsQueue').push({
+                    to: customerPhone,
+                    text: `Ihr Taxi-Buchungscode: ${smsCode}\n\nUmwelt Taxi Usedom\n038378 22022`,
+                    status: 'pending',
+                    createdAt: Date.now(),
+                    source: 'buchen-page'
                 });
-                showToast('📨 SMS-Code gesendet!');
+                showToast('📨 SMS-Code wird gesendet...');
             } catch(e) {
                 showToast('SMS-Fehler — bitte rufen Sie uns an: 038378 22022');
                 return;

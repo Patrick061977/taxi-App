@@ -1918,8 +1918,20 @@ async function searchNominatimForTelegram(query) {
     // Nominatim kann keine Hausnummern-Bereiche, nimmt nur die erste Nummer
     query = query.replace(/(\d+)\s*(?:bis|[-–])\s*\d+/gi, '$1');
     // 🔧 v6.25.5: Deutsche Straßen-Abkürzungen expandieren für bessere Nominatim-Ergebnisse
-    // "Str" / "Str." → "Straße", "Pl" / "Pl." → "Platz" etc.
     query = query.replace(/\bStr\.?\b/g, 'Straße').replace(/\bPl\.?\b/g, 'Platz').replace(/\bHbf\.?\b/gi, 'Hauptbahnhof').replace(/\bBhf\.?\b/gi, 'Bahnhof');
+    // 🔧 v6.25.5: Wenn nur Ortsname + Hausnummer (z.B. "Bansin 21a"),
+    // erkennen und Ort vom Rest trennen — Nominatim sucht sonst nach einer Straße namens "Bansin"
+    const ortsnamen = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Koserow', 'Ückeritz',
+        'Loddin', 'Trassenheide', 'Zempin', 'Karlshagen', 'Peenemünde', 'Wolgast', 'Anklam'];
+    for (const ort of ortsnamen) {
+        const ortRegex = new RegExp(`^${ort}\\s+(\\d+\\s*[a-z]?)$`, 'i');
+        const ortMatch = query.match(ortRegex);
+        if (ortMatch) {
+            // "Bansin 21a" → "21a, Bansin" — Nominatim versteht das besser
+            query = ortMatch[1] + ', ' + ort;
+            break;
+        }
+    }
     // 🔧 v6.25.5: Reine PLZ-Eingabe zu Ortsname expandieren (z.B. "17424" → "Heringsdorf")
     const purePlZMatch = query.trim().match(/^(\d{5})$/);
     if (purePlZMatch && PLZ_CENTERS[purePlZMatch[1]]) {
@@ -2089,14 +2101,31 @@ async function searchNominatimForTelegram(query) {
     const maxNominatim = localResults.length >= 3 ? 2 : (localResults.length >= 1 ? 3 : 5);
 
     try {
-        const [usedomResp, generalResp] = await Promise.all([
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=11.0,54.7,14.5,53.3&bounded=0`, fetchOpts),
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=11.0,54.7,14.5,53.3&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
-        ]);
-        const usedomData = await usedomResp.json();
-        const generalData = await generalResp.json();
+        // 🔧 v6.25.5: Viewbox eng auf Usedom + näheres Umland (Wolgast, Anklam, Swinemünde)
+        const usedomViewbox = '13.60,54.20,14.45,53.75';
+        // Erweitertes Gebiet: MV + Vorpommern (für Greifswald, Stralsund etc.)
+        const wideViewbox = '12.5,54.5,14.5,53.5';
 
-        // Fallback: Unbounded-Suche für Orte außerhalb Usedom (Greifswald, Berlin, Anklam etc.)
+        // 🔧 v6.25.5: Ort-Kontext intelligent ergänzen statt pauschal ", Usedom"
+        // Wenn Eingabe schon einen Ort enthält (Heringsdorf, Bansin, etc.) → nicht ergänzen
+        const knownOrte = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz',
+            'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam',
+            'swinemünde', 'świnoujście', 'usedom', 'greifswald', 'züssow', 'lubmin'];
+        const hasOrt = knownOrte.some(o => searchKey.includes(o));
+        const hasPLZ = /\b1741[0-9]|1742[0-9]|1743[0-9]|1744[0-9]|1745[0-9]\b/.test(query);
+        // Nur ", Heringsdorf" ergänzen wenn KEIN Ort und KEINE PLZ im Query
+        const localQuery = (!hasOrt && !hasPLZ) ? query + ', Heringsdorf' : query;
+
+        const [localResp, boundedResp] = await Promise.all([
+            // Suche 1: Mit Ort-Kontext, enge Usedom-Viewbox, unbounded (Preference)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(localQuery)}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
+            // Suche 2: Original-Query, bounded auf erweitertes Gebiet
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
+        ]);
+        const usedomData = await localResp.json();
+        const generalData = await boundedResp.json();
+
+        // Fallback: Unbounded-Suche für Orte außerhalb Usedom (Berlin, Hamburg etc.)
         let wideData = [];
         if (usedomData.length === 0 && generalData.length === 0) {
             try {
@@ -2131,6 +2160,15 @@ async function searchNominatimForTelegram(query) {
             }
         }
 
+        // 🔧 v6.25.5: Duplikate nach Koordinaten entfernen (beide Requests liefern oft gleiche Ergebnisse)
+        const seenCoords = new Set();
+        allItems = allItems.filter(item => {
+            const key = `${parseFloat(item.lat).toFixed(4)}_${parseFloat(item.lon).toFixed(4)}`;
+            if (seenCoords.has(key)) return false;
+            seenCoords.add(key);
+            return true;
+        });
+
         allItems.sort((a, b) => {
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
             const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
@@ -2139,9 +2177,10 @@ async function searchNominatimForTelegram(query) {
             if (queryPostcode) {
                 const aPLZ = (a.address && a.address.postcode === queryPostcode) ? 0 : 1;
                 const bPLZ = (b.address && b.address.postcode === queryPostcode) ? 0 : 1;
-                return aPLZ - bPLZ;
+                if (aPLZ !== bPLZ) return aPLZ - bPLZ;
             }
-            return 0;
+            // 🔧 v6.25.5: Importance-Score von Nominatim als Tiebreaker
+            return (parseFloat(b.importance) || 0) - (parseFloat(a.importance) || 0);
         });
 
         for (const item of allItems) {

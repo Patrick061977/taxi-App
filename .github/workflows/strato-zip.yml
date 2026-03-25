@@ -2,7 +2,7 @@ name: Strato ZIP erstellen
 
 on:
   push:
-    branches: [main, master]
+    branches: ['**']
     paths:
       - 'index.html'
       - 'kunden.html'

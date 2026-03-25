@@ -1912,6 +1912,60 @@ async function cleanupAddress(currentName, lat, lon) {
 
 // 🔧 v6.15.1: Komplett überarbeitet — POIs + Kunden priorisiert, Nominatim nur als Ergänzung
 // Gleiche Logik wie Browser-Autocomplete in index.html
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.25.5: GEOCACHE — Adressdatenbank in Firebase
+// Jede geocodierte Adresse wird gespeichert und bei zukünftigen Suchen priorisiert.
+// Admin kann Adressen über die App verifizieren/korrigieren.
+// ═══════════════════════════════════════════════════════════════
+
+// Adresse normalisieren für Cache-Key (Kleinbuchstaben, keine Doppel-Leerzeichen, Abkürzungen expandiert)
+function normalizeAddressKey(address) {
+    return address.toLowerCase().trim()
+        .replace(/\bstr\.?\b/g, 'straße')
+        .replace(/\bpl\.?\b/g, 'platz')
+        .replace(/\bhbf\.?\b/g, 'hauptbahnhof')
+        .replace(/\bbhf\.?\b/g, 'bahnhof')
+        .replace(/[,.\-\/]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Geocache-Eintrag speichern (nach erfolgreicher Geocodierung oder Buchung)
+async function saveToGeocache(address, lat, lon, source = 'nominatim') {
+    if (!address || !lat || !lon) return;
+    const key = normalizeAddressKey(address);
+    if (key.length < 3) return;
+    try {
+        const existing = await db.ref('geocache').orderByChild('normalizedKey').equalTo(key).once('value');
+        if (existing.exists()) {
+            // Bereits im Cache → usageCount erhöhen
+            existing.forEach(child => {
+                const data = child.val();
+                db.ref(`geocache/${child.key}`).update({
+                    usageCount: (data.usageCount || 1) + 1,
+                    lastUsed: Date.now(),
+                    // Koordinaten nur updaten wenn vom Admin verifiziert wurde (nicht überschreiben)
+                    ...(!data.verified && { lat, lon })
+                });
+            });
+        } else {
+            // Neu eintragen
+            await db.ref('geocache').push({
+                address: address.trim(),
+                normalizedKey: key,
+                lat: parseFloat(lat),
+                lon: parseFloat(lon),
+                source,
+                verified: false,
+                usageCount: 1,
+                createdAt: Date.now(),
+                lastUsed: Date.now()
+            });
+        }
+    } catch (e) { console.warn('Geocache-Speichern Fehler:', e.message); }
+}
+
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
     // 🔧 v6.25.4: Hausnummern-Bereiche normalisieren ("7 bis 8" → "7", "7-8" → "7")
@@ -1945,7 +1999,7 @@ async function searchNominatimForTelegram(query) {
     const wordBoundaryRegex = new RegExp('(^|\\s|,)' + searchKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     // ═══════════════════════════════════════════════════════════
-    // STUFE 1: LOKALE QUELLEN (gepflegte Daten — höchste Priorität)
+    // STUFE 0: GEOCACHE (bereits bekannte Adressen — höchste Priorität!)
     // ═══════════════════════════════════════════════════════════
     const localResults = [];
     const seen = new Set();
@@ -1957,6 +2011,42 @@ async function searchNominatimForTelegram(query) {
             localResults.push(entry);
         }
     };
+
+    // 0) Geocache — gespeicherte Adressen mit Koordinaten (verifizierte zuerst!)
+    try {
+        const geocacheSnap = await db.ref('geocache').once('value');
+        if (geocacheSnap.exists()) {
+            const cacheHits = [];
+            geocacheSnap.forEach(child => {
+                const entry = child.val();
+                if (!entry.address || !entry.lat || !entry.lon) return;
+                const addr = entry.address.toLowerCase();
+                const normKey = entry.normalizedKey || '';
+                const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey;
+                const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey);
+                const isWordMatch = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
+                if (isExact || isIncludes || isWordMatch) {
+                    cacheHits.push({
+                        name: entry.address,
+                        lat: entry.lat,
+                        lon: entry.lon,
+                        source: entry.verified ? 'geocache-verified' : 'geocache',
+                        priority: entry.verified ? -1 : 0, // Verifizierte ganz oben!
+                        usageCount: entry.usageCount || 1
+                    });
+                }
+            });
+            // Verifizierte zuerst, dann nach Nutzungshäufigkeit
+            cacheHits.sort((a, b) => (a.priority - b.priority) || (b.usageCount - a.usageCount));
+            for (const hit of cacheHits.slice(0, 3)) {
+                addIfNew(hit);
+            }
+        }
+    } catch (e) { console.warn('Geocache-Suche Fehler:', e.message); }
+
+    // ═══════════════════════════════════════════════════════════
+    // STUFE 1: LOKALE QUELLEN (gepflegte Daten)
+    // ═══════════════════════════════════════════════════════════
 
     // 1a) POIs aus Firebase (⭐ deine gepflegten Favoriten)
     try {
@@ -6981,6 +7071,10 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
             } catch (routeErr) { /* Preis-Update optional */ }
         }
         await db.ref(`rides/${rideId}`).update(update);
+        // 🆕 v6.25.5: Adresse in Geocache speichern
+        if (geo && geo.lat && geo.lon) {
+            saveToGeocache(addressText, geo.lat, geo.lon, 'admin-edit').catch(() => {});
+        }
         const label = field === 'pickup' ? 'Abholort' : 'Zielort';
         await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${addressText}"${geoInfo}`);
         await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${addressText}</b>${geoInfo}`);
@@ -7739,6 +7833,14 @@ async function handleCallback(callback) {
             const newRef = db.ref('rides').push();
             rideData.id = newRef.key;
             await newRef.set(rideData);
+
+            // 🆕 v6.25.5: Adressen in Geocache speichern (für zukünftige Suchen)
+            if (rideData.pickup && rideData.pickupLat) {
+                saveToGeocache(rideData.pickup, rideData.pickupLat, rideData.pickupLon, 'booking').catch(() => {});
+            }
+            if (rideData.destination && rideData.destinationLat) {
+                saveToGeocache(rideData.destination, rideData.destinationLat, rideData.destinationLon, 'booking').catch(() => {});
+            }
 
             // Erfolgsmeldung
             const successHeader = booking._adminBooked

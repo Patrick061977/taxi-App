@@ -1,35 +1,41 @@
 # Taxi-App Entwicklungshinweise
 
-## Aktueller Stand (2026-03-15)
+## Aktueller Stand (2026-03-26)
 
-**Version:** v6.25.3 | **Branch:** `claude/deploy-firebase-functions-4qD5d`
+**Version:** v6.25.5 | **Branch:** `main`
 
-### Zuletzt implementierte Features (Session 15.03.2026):
+### Zuletzt implementierte Features (Session 26.03.2026):
 
 | Version | Feature |
 |---------|---------|
-| **v6.25.3** | Fix: Konflikt-Checker filtert deleted/rejected Fahrten + zeigt kollidierende Fahrt in Telegram + CRM-Adressen mit Koordinaten nutzen statt neu geocoden |
-| **v6.25.2** | Fix: CRM Unified Modal - Tab-Cache Reset (Tabs waren leer nach erneutem Öffnen) |
-| **v6.25.1** | Telefonnummer-Validierung mit Live-Feedback im CRM |
-| **v6.25.0** | Unified CRM Modal - Bearbeiten + Details in einem Fenster, KI-Booking Fix |
-| **v6.24.0** | PDF-Anhang bei Rechnungs-Emails + Rechnungs-Layout-Editor |
-| **v6.23.0** | CRM-Portal mit zentralen Tabs (Rechnungen, E-Mail-Verlauf, Notizen) |
-| **v6.22.0** | payRedirect Cloud Function für scannbare Stripe QR-Codes |
-| **v6.21.0** | Stripe Checkout Integration + SMTP Email-Versand via Cloud Function |
-| **v6.20.2** | Telegram Bot: Sofortfahrt mit Schichtplan-Check, Warteschlange, Bot-UX |
+| **v6.25.5** | Fix: Vorbestell-Scheduler im Webhook-Modus deaktiviert (Cloud übernimmt) |
+| **v6.25.5** | Fix: Admin-Buchung zeigt jetzt Kunden-Adresse (Nach Hause / Von zu Hause) |
+| **v6.25.5** | Telegram: GPS-Adresse mit Bestätigung im Geocache speichern |
+| **v6.25.5** | Telegram: Geocache-Suche mit Teilwort-Matching (z.B. "Lidl" findet "Lidl, Bansin") |
+| **v6.25.5** | Kalender-Sync v5.0: findExistingEvent ohne Zeitfilter — sucht alle Events |
+| **v6.25.4** | Booking-Modus (?mode=booking) + Kunden-Bildschirm Verbesserungen |
+| **v6.25.3** | Fix: Konflikt-Checker filtert deleted/rejected Fahrten |
 
-### Erledigte Aufgaben:
-- CRM-Portal: Unified Modal mit Tabs (Daten, Routen, Fahrten, Rechnungen, E-Mails, Notizen) ✅
-- CRM-Tabs waren leer → Tab-Cache-Reset Fix ✅
-- Konflikt-Checker: deleted/rejected Fahrten werden jetzt gefiltert ✅
-- Konflikt-Telegram zeigt jetzt welche Fahrt den Konflikt verursacht ✅
-- CRM-Adressen werden beim Telegram-Booking direkt mit Koordinaten verwendet ✅
-- Booking-History-Match: Ortsteil-Mismatch (Bansin/Heringsdorf) wird toleriert ✅
+### Erledigte Aufgaben (Session 26.03.2026):
+- Google Calendar Sync v5.0: Events werden über Firebase-ID gesucht, nicht mehr nach Datum → Datumsänderungen werden korrekt übernommen ✅
+- Vorbestell-Scheduler: `startPreorderScheduler()` war im Webhook-Modus aktiv → Browser hat Fahrten zugewiesen statt Cloud Function ✅
+- Admin-Telegram-Buchung: "Nach Hause"/"Von zu Hause" Buttons fehlten komplett → jetzt wird CRM-Adresse des ausgewählten Kunden gezeigt ✅
+- GPS-Sticker: Adresse wird nach Bestätigung im Geocache gespeichert (mit Ja/Nein Frage) ✅
+- Geocache Teilwort-Suche: Scoring-System für partielle Matches ✅
+
+### In Arbeit:
+- `buchen.html` — Eigenständige öffentliche Buchungs-Landingpage (ohne Login, Phone Auth erst bei Buchung)
 
 ### Bekannte offene Punkte:
+- Google Apps Script: Code manuell ins Script kopieren + Zeitzone "Europe/Berlin" prüfen
+- `functions/index.js` geändert → `firebase deploy --only functions` nötig
+- Telegram-Adress-Suche: Weitere Verbesserungen bei Kundenname-Erkennung
 - Vollständiges Changelog: siehe `CHANGELOG.md`
-- Firebase-Struktur erweitert um: `/invoices`, `/emailLog`
-- Nach Deploy (`firebase deploy --only functions`) testen: Telegram-Buchung mit bekanntem Kunden → Adresse sollte ohne Rückfrage erkannt werden
+
+### Architektur-Entscheidungen (26.03.2026):
+- **Auto-Zuweisung:** Browser-Zuweisung (`auto-assign-schichtplan`) ist im Webhook-Modus DEAKTIVIERT. Cloud Function `scheduledAutoAssign` übernimmt (alle 10 Min)
+- **Kalender-Sync:** `findExistingEvent()` sucht Events über Firebase-ID im gesamten Kalender (gestern bis +1 Jahr), kein Datumsfilter
+- **buchen.html:** Soll eigenständige Seite werden (nicht ?mode=booking in index.html), mit gleicher Buchungslogik wie Kunden-Tab
 
 ---
 

@@ -509,14 +509,15 @@ function createEventDescription(ride) {
 // 🔍 EXISTIERENDES EVENT FINDEN
 // ═══════════════════════════════════════════════════════════════
 function findExistingEvent(calendar, firebaseId, startTime) {
-  // 🔧 v5.0: Suche ±1 Tag statt nur am Zieltag!
-  // Problem: Wenn sich die Abholzeit ändert (z.B. anderer Tag oder Uhrzeit verschoben),
-  // wurde das alte Event nicht gefunden → Duplikat statt Update.
+  // 🔧 v5.0: Suche ±7 Tage statt nur am Zieltag!
+  // Problem: Wenn sich das DATUM ändert (z.B. von 01.04. auf 02.04.),
+  // wurde das alte Event nicht gefunden → blieb im Kalender stehen mit falschen Daten.
+  // Breite Suche stellt sicher dass das Event auch bei Datumsänderungen gefunden wird.
   const searchStart = new Date(startTime);
-  searchStart.setDate(searchStart.getDate() - 1);
+  searchStart.setDate(searchStart.getDate() - 7);
   searchStart.setHours(0, 0, 0, 0);
   const searchEnd = new Date(startTime);
-  searchEnd.setDate(searchEnd.getDate() + 1);
+  searchEnd.setDate(searchEnd.getDate() + 7);
   searchEnd.setHours(23, 59, 59, 999);
 
   const events = calendar.getEvents(searchStart, searchEnd);
@@ -533,7 +534,7 @@ function findExistingEvent(calendar, firebaseId, startTime) {
   }
 
   if (matchingEvents.length > 1) {
-    console.log('⚠️ Duplikate gefunden für: ' + firebaseId);
+    console.log('⚠️ Duplikate gefunden für: ' + firebaseId + ' (' + matchingEvents.length + ' Events)');
     for (let i = 1; i < matchingEvents.length; i++) {
       console.log('🗑️ Lösche Duplikat #' + (i+1));
       matchingEvents[i].deleteEvent();

@@ -818,6 +818,10 @@
         let allPOIs = {};
         db.ref('pois').once('value', snap => { allPOIs = snap.val() || {}; });
 
+        // 🆕 v6.34.0: Geocache-Einträge (beliebte Ziele, POIs, private Adressen) laden
+        let geocacheEntries = {};
+        db.ref('geocache').once('value', snap => { geocacheEntries = snap.val() || {}; });
+
         let debounceTimer = null;
         ['b-pickup', 'b-destination'].forEach(id => {
             const input = document.getElementById(id);
@@ -853,6 +857,27 @@
                         name: poi.address ? `${poi.name}, ${poi.address}` : poi.name,
                         lat: poi.lat, lon: poi.lon, icon: '⭐'
                     });
+                }
+            });
+
+            // 🆕 v6.34.0: Geocache-Einträge (beliebte Ziele, POIs, private Adressen)
+            Object.values(geocacheEntries).forEach(gc => {
+                if (!gc.lat || !gc.address) return;
+                if (!gc.type || gc.type === 'korrektur') return; // Korrekturen nicht anzeigen
+                const addr = (gc.address || '').toLowerCase();
+                const label = (gc.label || '').toLowerCase();
+                if (!searchKey || addr.includes(searchKey) || label.includes(searchKey)) {
+                    // Duplikat-Check gegen POIs
+                    const displayName = gc.label ? `${gc.label}, ${gc.address}` : gc.address;
+                    const isDuplicate = results.some(r => r.name.toLowerCase() === displayName.toLowerCase());
+                    if (!isDuplicate) {
+                        const typeIcons = { 'beliebtes-ziel': '⭐', 'poi': '📍', 'privat': '🏠' };
+                        results.push({
+                            name: displayName,
+                            lat: gc.lat, lon: gc.lon,
+                            icon: typeIcons[gc.type] || '📍'
+                        });
+                    }
                 }
             });
 

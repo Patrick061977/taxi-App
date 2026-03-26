@@ -2013,6 +2013,7 @@ async function searchNominatimForTelegram(query) {
     };
 
     // 0) Geocache — gespeicherte Adressen mit Koordinaten (verifizierte zuerst!)
+    // 🔧 v6.25.5: Verbesserte Suche — auch Teilwort-Matches (z.B. "Lidl" findet "Lidl, Ahlbecker Chaussee 9, Bansin")
     try {
         const geocacheSnap = await db.ref('geocache').once('value');
         if (geocacheSnap.exists()) {
@@ -2022,22 +2023,41 @@ async function searchNominatimForTelegram(query) {
                 if (!entry.address || !entry.lat || !entry.lon) return;
                 const addr = entry.address.toLowerCase();
                 const normKey = entry.normalizedKey || '';
+
+                // Score berechnen: Je mehr Suchwörter matchen, desto besser
+                let matchScore = 0;
                 const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey;
                 const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey);
-                const isWordMatch = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
-                if (isExact || isIncludes || isWordMatch) {
+                const isAllWords = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
+
+                if (isExact) matchScore = 100;
+                else if (isIncludes) matchScore = 80;
+                else if (isAllWords) matchScore = 60;
+                else if (searchWords.length > 0) {
+                    // Teilwort-Match: Wie viele Suchwörter sind in der Adresse enthalten?
+                    const matchedWords = searchWords.filter(w => addr.includes(w) || normKey.includes(w));
+                    if (matchedWords.length > 0) {
+                        matchScore = Math.round((matchedWords.length / searchWords.length) * 50);
+                        // Bonus wenn mind. 1 Wort am Anfang steht (z.B. "Lidl" in "Lidl, Chaussee...")
+                        if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w))) matchScore += 10;
+                    }
+                }
+
+                // Mindestens 1 Wort muss matchen (Score > 0)
+                if (matchScore > 0) {
                     cacheHits.push({
                         name: entry.address,
                         lat: entry.lat,
                         lon: entry.lon,
                         source: entry.verified ? 'geocache-verified' : 'geocache',
-                        priority: entry.verified ? -1 : 0, // Verifizierte ganz oben!
-                        usageCount: entry.usageCount || 1
+                        priority: entry.verified ? -1 : 0,
+                        usageCount: entry.usageCount || 1,
+                        matchScore
                     });
                 }
             });
-            // Verifizierte zuerst, dann nach Nutzungshäufigkeit
-            cacheHits.sort((a, b) => (a.priority - b.priority) || (b.usageCount - a.usageCount));
+            // Verifizierte zuerst, dann nach Match-Score, dann nach Nutzungshäufigkeit
+            cacheHits.sort((a, b) => (a.priority - b.priority) || (b.matchScore - a.matchScore) || (b.usageCount - a.usageCount));
             for (const hit of cacheHits.slice(0, 3)) {
                 addIfNew(hit);
             }

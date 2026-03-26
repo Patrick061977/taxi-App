@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🚕 Taxi buchen — Umwelt Taxi Usedom</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f0f4f8;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header-logo { font-size: 20px; font-weight: 700; }
+        .header-login {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .header-login:hover { background: rgba(255,255,255,0.3); }
+        /* Main */
+        .main { max-width: 500px; margin: 0 auto; padding: 20px; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        /* Inputs */
+        .input-group { position: relative; margin-bottom: 12px; }
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 14px 12px 38px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+        }
+        .input-group input:focus, .input-group select:focus {
+            border-color: #059669;
+            outline: none;
+        }
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 34px;
+            font-size: 16px;
+        }
+        .autocomplete-dropdown {
+            display: none;
+            position: absolute;
+            left: 0; right: 0;
+            background: white;
+            border: 2px solid #059669;
+            border-radius: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 100;
+            margin-top: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .autocomplete-item {
+            padding: 12px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .autocomplete-item:hover { background: #ecfdf5; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        /* GPS Button */
+        .gps-btn {
+            position: absolute;
+            right: 8px;
+            top: 28px;
+            padding: 8px;
+            background: #ecfdf5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .gps-btn:hover { background: #d1fae5; }
+        /* Route Info */
+        .route-info {
+            display: none;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .route-stat {
+            text-align: center;
+            padding: 12px;
+            background: #f0fdf4;
+            border-radius: 10px;
+        }
+        .route-stat .value { font-size: 22px; font-weight: 700; color: #059669; }
+        .route-stat .label { font-size: 11px; color: #64748b; margin-top: 2px; }
+        /* Map */
+        .map-container {
+            display: none;
+            height: 200px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 12px 0;
+            border: 2px solid #e2e8f0;
+        }
+        /* Buttons */
+        .btn-book {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(5,150,105,0.3);
+        }
+        .btn-book:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(5,150,105,0.4); }
+        .btn-book:disabled {
+            background: #94a3b8;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        /* SMS Verification Modal */
+        .sms-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+        .sms-modal.active { display: flex; }
+        .sms-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .sms-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 18px;
+            text-align: center;
+            letter-spacing: 8px;
+            margin: 16px 0;
+        }
+        .phone-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin: 12px 0;
+        }
+        /* Success */
+        .success-card {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        .success-card .icon { font-size: 64px; margin-bottom: 16px; }
+        /* Info Footer */
+        .info-footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .info-footer a { color: #059669; text-decoration: none; }
+        /* Status Bar */
+        .status-bar {
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .status-bar.online { background: #d1fae5; color: #065f46; }
+        .status-bar.offline { background: #fecaca; color: #991b1b; }
+        .status-bar.loading { background: #e2e8f0; color: #64748b; }
+        /* Wann-Auswahl */
+        .wann-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #e2e8f0;
+            margin-top: 4px;
+        }
+        .wann-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .wann-btn.active { background: #059669; color: white; }
+        .vorbestellen-felder {
+            display: none;
+            margin-top: 12px;
+            gap: 8px;
+        }
+        .vorbestellen-felder.active { display: flex; }
+        .vorbestellen-felder select, .vorbestellen-felder input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        /* Verfügbarkeits-Anzeige */
+        .availability-card {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+        .availability-card.available { display: block; background: #d1fae5; color: #065f46; }
+        .availability-card.unavailable { display: block; background: #fef3c7; color: #92400e; }
+        .availability-card.error { display: block; background: #fecaca; color: #991b1b; }
+        /* Personen-Auswahl */
+        .pax-selector {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .pax-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .pax-btn.active { border-color: #059669; background: #ecfdf5; color: #059669; font-weight: 700; }
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 2000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">🚕 Umwelt Taxi Usedom</div>
+        <a href="kunden.html" class="header-login">👤 Kunden-Login</a>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar loading" id="status-bar">⏳ Verfügbarkeit wird geprüft...</div>
+
+    <!-- Buchungsformular -->
+    <div class="main">
+        <div class="card" id="booking-card">
+            <div class="card-title">🚖 Taxi buchen</div>
+
+            <!-- Abholort -->
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <span class="input-icon">📍</span>
+                <input type="text" id="b-pickup" placeholder="Wo sollen wir Sie abholen?" autocomplete="off">
+                <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
+                <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
+            </div>
+
+            <!-- Zielort -->
+            <div class="input-group">
+                <label>🎯 Zielort</label>
+                <span class="input-icon">🎯</span>
+                <input type="text" id="b-destination" placeholder="Wohin möchten Sie fahren?" autocomplete="off">
+                <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+            </div>
+
+            <!-- Personen -->
+            <div class="input-group">
+                <label>👥 Personen</label>
+                <div class="pax-selector">
+                    <button class="pax-btn active" onclick="setPax(1)">1</button>
+                    <button class="pax-btn" onclick="setPax(2)">2</button>
+                    <button class="pax-btn" onclick="setPax(3)">3</button>
+                    <button class="pax-btn" onclick="setPax(4)">4</button>
+                    <button class="pax-btn" onclick="setPax(5)">5+</button>
+                </div>
+            </div>
+
+            <!-- Wann? -->
+            <div class="input-group">
+                <label>🕐 Wann?</label>
+                <div class="wann-toggle">
+                    <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
+                    <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
+                </div>
+                <div class="vorbestellen-felder" id="vorbestellen-felder">
+                    <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
+                    <select id="b-hour" onchange="onDateTimeChange()"></select>
+                    <select id="b-minute" onchange="onDateTimeChange()"></select>
+                </div>
+            </div>
+
+            <!-- Verfügbarkeit -->
+            <div class="availability-card" id="availability"></div>
+
+            <!-- Route Info -->
+            <div class="route-info" id="route-info">
+                <div class="route-stat">
+                    <div class="value" id="r-price">—</div>
+                    <div class="label">Preis (ca.)</div>
+                </div>
+                <div class="route-stat">
+                    <div class="value" id="r-distance">—</div>
+                    <div class="label">Kilometer</div>
+                </div>
+                <div class="route-stat">
+                    <div class="value" id="r-duration">—</div>
+                    <div class="label">Minuten</div>
+                </div>
+            </div>
+
+            <!-- Karte -->
+            <div class="map-container" id="route-map"></div>
+
+            <!-- Buchen Button -->
+            <button class="btn-book" id="btn-book" onclick="startBooking()" disabled>
+                🚕 Jetzt Taxi buchen
+            </button>
+            <div style="text-align:center;margin-top:8px;font-size:12px;color:#94a3b8;">
+                Kostenlose Stornierung möglich
+            </div>
+        </div>
+
+        <!-- Telefon eingeben -->
+        <div class="card" style="display:none;" id="phone-card">
+            <div style="text-align:center;">
+                <div style="font-size:48px;margin-bottom:12px;">📱</div>
+                <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Sie erhalten einen Bestätigungscode per SMS (kostenlos)</p>
+                <input type="tel" id="b-phone" class="phone-input" placeholder="0176 12345678" autocomplete="tel">
+                <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
+                <button class="btn-book" id="btn-send-code" onclick="sendFirebaseCode()">📨 Code senden</button>
+                <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
+            </div>
+        </div>
+
+        <!-- SMS-Code eingeben -->
+        <div class="card" style="display:none;" id="sms-card">
+            <div style="text-align:center;">
+                <div style="font-size:48px;margin-bottom:12px;">🔐</div>
+                <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
+                <p style="font-size:13px;color:#64748b;" id="sms-info">Code wurde an Ihre Nummer gesendet</p>
+                <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • • • •" maxlength="6" inputmode="numeric">
+                <button class="btn-book" onclick="verifyAndBook()">✅ Bestätigen & Buchen</button>
+                <button onclick="sendFirebaseCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
+            </div>
+        </div>
+
+        <!-- Erfolg -->
+        <div class="card success-card" id="success-card">
+            <div class="icon">🎉</div>
+            <h2 style="color:#059669;margin-bottom:8px;">Taxi ist gebucht!</h2>
+            <p style="color:#64748b;margin-bottom:20px;">Sie erhalten eine SMS mit dem Tracking-Link sobald ein Fahrer zugewiesen ist.</p>
+            <div id="success-details" style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:left;font-size:14px;margin-bottom:16px;"></div>
+            <div style="font-size:14px;color:#64748b;">
+                📞 Fragen? <a href="tel:03837822022" style="color:#059669;font-weight:600;">038378 22022</a>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="info-footer">
+            📞 <a href="tel:03837822022">038378 22022</a> ·
+            🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
+            Funk Taxi Heringsdorf · Usedom
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Firebase Init
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+
+        // State
+        let pickupCoords = null;
+        let destCoords = null;
+        let passengers = 1;
+        let routeData = null;
+        let smsCode = null;
+        let customerPhone = null;
+        let bookingMap = null;
+        let wannModus = 'sofort'; // 'sofort' oder 'vorbestellen'
+        let shiftsData = {};
+        let isAvailable = false;
+
+        // Offizielle Fahrzeuge (gleich wie index.html)
+        const OFFICIAL_VEHICLES = {
+            'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4 },
+            'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E', capacity: 4 },
+            'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222', capacity: 4 },
+            'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222', capacity: 8 },
+            'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111', capacity: 8 },
+            'pw-ym-222-e': { name: 'Tesla', plate: 'PW-YM 222 E', capacity: 4 }
+        };
+
+        // ═══════════════════════════════════════════════
+        // Schichtplan + Status-Bar
+        // ═══════════════════════════════════════════════
+        function berlinNow() {
+            return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+        }
+        function berlinDateStr(d) {
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+        function berlinTimeStr(d) {
+            return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+
+        function isVehicleInShift(vehicleId, dateStr, timeStr) {
+            const shifts = shiftsData[vehicleId];
+            if (!shifts) return false;
+            const dow = new Date(dateStr + 'T00:00:00').getDay();
+            const dayEntry = shifts[dateStr];
+            if (dayEntry) {
+                if (dayEntry.active === false) return false;
+                if (dayEntry.timeRanges && dayEntry.timeRanges.length > 0)
+                    return dayEntry.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+                if (dayEntry.startTime && dayEntry.endTime)
+                    return timeStr >= dayEntry.startTime && timeStr <= dayEntry.endTime;
+            }
+            const def = (shifts.defaultTimes || {})[dow];
+            if (!def) return false;
+            if (def.active === false) return false;
+            if (def.timeRanges && def.timeRanges.length > 0)
+                return def.timeRanges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+            if (def.startTime && def.endTime)
+                return timeStr >= def.startTime && timeStr <= def.endTime;
+            return false;
+        }
+
+        function getActiveVehicleCount(dateStr, timeStr, minCapacity) {
+            let count = 0;
+            for (const [vid, info] of Object.entries(OFFICIAL_VEHICLES)) {
+                if (info.capacity < (minCapacity || 1)) continue;
+                if (isVehicleInShift(vid, dateStr, timeStr)) count++;
+            }
+            return count;
+        }
+
+        async function updateStatusBar() {
+            try {
+                const snap = await db.ref('vehicleShifts').once('value');
+                shiftsData = snap.val() || {};
+                const now = berlinNow();
+                const count = getActiveVehicleCount(berlinDateStr(now), berlinTimeStr(now), 1);
+                const bar = document.getElementById('status-bar');
+                if (count > 0) {
+                    bar.className = 'status-bar online';
+                    bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                } else {
+                    bar.className = 'status-bar offline';
+                    bar.textContent = '🔴 Aktuell kein Taxi verfügbar — ☎ 038378 22022';
+                }
+            } catch(e) {
+                document.getElementById('status-bar').className = 'status-bar offline';
+                document.getElementById('status-bar').textContent = '⚠️ Verbindungsfehler';
+            }
+        }
+
+        // Status alle 30s aktualisieren
+        updateStatusBar();
+        setInterval(updateStatusBar, 30000);
+
+        // ═══════════════════════════════════════════════
+        // Wann-Toggle (Sofort / Vorbestellen)
+        // ═══════════════════════════════════════════════
+        function setWann(mode) {
+            wannModus = mode;
+            document.querySelectorAll('.wann-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            const felder = document.getElementById('vorbestellen-felder');
+            if (mode === 'vorbestellen') {
+                felder.classList.add('active');
+                initDateTimePickers();
+            } else {
+                felder.classList.remove('active');
+            }
+            checkRoute();
+        }
+
+        function initDateTimePickers() {
+            const dateInput = document.getElementById('b-date');
+            const hourSelect = document.getElementById('b-hour');
+            const minuteSelect = document.getElementById('b-minute');
+            const now = berlinNow();
+            const today = berlinDateStr(now);
+            dateInput.min = today;
+            const maxDate = new Date(now);
+            maxDate.setDate(maxDate.getDate() + 30);
+            dateInput.max = berlinDateStr(maxDate);
+            if (!dateInput.value) dateInput.value = today;
+            if (hourSelect.options.length === 0) {
+                for (let h = 0; h <= 23; h++) {
+                    const opt = document.createElement('option');
+                    opt.value = String(h).padStart(2, '0');
+                    opt.textContent = String(h).padStart(2, '0') + ' Uhr';
+                    hourSelect.appendChild(opt);
+                }
+                hourSelect.value = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
+            }
+            if (minuteSelect.options.length === 0) {
+                for (let m = 0; m < 60; m += 5) {
+                    const opt = document.createElement('option');
+                    opt.value = String(m).padStart(2, '0');
+                    opt.textContent = ':' + String(m).padStart(2, '0');
+                    minuteSelect.appendChild(opt);
+                }
+                minuteSelect.value = '00';
+            }
+        }
+
+        function getPickupTimestamp() {
+            if (wannModus === 'sofort') return Date.now() + 5 * 60000;
+            const d = document.getElementById('b-date').value;
+            const h = document.getElementById('b-hour').value;
+            const m = document.getElementById('b-minute').value;
+            if (!d || !h || !m) return Date.now() + 5 * 60000;
+            return new Date(`${d}T${h}:${m}:00`).getTime();
+        }
+
+        function onDateTimeChange() { checkRoute(); }
+
+        // ═══════════════════════════════════════════════
+        // Verfügbarkeits-Check (Schichtplan + Konflikte)
+        // ═══════════════════════════════════════════════
+        async function checkAvailability() {
+            const el = document.getElementById('availability');
+            const ts = getPickupTimestamp();
+            const dt = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const dateStr = berlinDateStr(dt);
+            const timeStr = berlinTimeStr(dt);
+
+            // Schichtplan-Check
+            const activeCount = getActiveVehicleCount(dateStr, timeStr, passengers >= 5 ? 5 : 1);
+            if (activeCount === 0) {
+                el.className = 'availability-card unavailable';
+                el.innerHTML = '⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>';
+                isAvailable = false;
+                document.getElementById('btn-book').disabled = true;
+                return;
+            }
+
+            // Konflikt-Check: Bestehende Fahrten laden
+            try {
+                const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                    .startAt(ts - 6 * 3600000).endAt(ts + 6 * 3600000).once('value');
+                const activeStatuses = ['new', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+                let conflictCount = 0;
+                ridesSnap.forEach(child => {
+                    const r = child.val();
+                    if (!activeStatuses.includes(r.status)) return;
+                    const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
+                    const buffer = 15 * 60000;
+                    const rEnd = r.pickupTimestamp + rDur + buffer;
+                    const newDur = (routeData ? parseInt(routeData.min) : 20) * 60000;
+                    const newEnd = ts + newDur + buffer;
+                    if (ts < rEnd && r.pickupTimestamp < newEnd) conflictCount++;
+                });
+
+                if (conflictCount < activeCount) {
+                    el.className = 'availability-card available';
+                    el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                    isAvailable = true;
+                    document.getElementById('btn-book').disabled = false;
+                } else {
+                    el.className = 'availability-card unavailable';
+                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>';
+                    isAvailable = false;
+                    document.getElementById('btn-book').disabled = true;
+                }
+            } catch(e) {
+                el.className = 'availability-card available';
+                el.innerHTML = '✅ Taxi verfügbar';
+                isAvailable = true;
+                document.getElementById('btn-book').disabled = false;
+            }
+        }
+
+        // Tarif aus Firebase laden (gleiche Struktur wie index.html)
+        let TARIF = {
+            grundgebuehr: 4.00,
+            km_1_2: 3.30,
+            km_3_4: 2.80,
+            km_ab_5: 2.20,
+            nacht_grundgebuehr: 5.50,
+            nacht_km_1_2: 3.30,
+            nacht_km_3_4: 2.80,
+            nacht_km_ab_5: 2.40
+        };
+        const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
+
+        // Tarif aus Firebase laden
+        db.ref('settings/tarif').once('value', snap => {
+            if (snap.exists()) {
+                const data = snap.val();
+                Object.assign(TARIF, data);
+                console.log('Tarif aus Firebase geladen:', TARIF);
+            }
+        });
+
+        function isFeiertag(date) {
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return FEIERTAGE.includes(`${m}-${d}`);
+        }
+
+        function calculatePrice(distance, timestamp) {
+            const dt = timestamp ? new Date(timestamp) : new Date();
+            const hour = dt.getHours(), day = dt.getDay();
+            const isNight = (hour >= 22 || hour < 6) || (day === 0) || isFeiertag(dt);
+
+            const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
+            const km12 = isNight ? TARIF.nacht_km_1_2 : TARIF.km_1_2;
+            const km34 = isNight ? TARIF.nacht_km_3_4 : TARIF.km_3_4;
+            const km5 = isNight ? TARIF.nacht_km_ab_5 : TARIF.km_ab_5;
+
+            let kmPreis = 0;
+            if (distance <= 2) {
+                kmPreis = distance * km12;
+            } else if (distance <= 4) {
+                kmPreis = (2 * km12) + ((distance - 2) * km34);
+            } else {
+                kmPreis = (2 * km12) + (2 * km34) + ((distance - 4) * km5);
+            }
+
+            let total = grundgebuehr + kmPreis;
+            let hinweise = [];
+
+            // Großraumzuschlag bei 5+ Personen
+            if (passengers >= 5) {
+                total += 10.00;
+                hinweise.push('Großraumzuschlag +10€');
+            }
+
+            if (isFeiertag(dt)) hinweise.push('Feiertagstarif');
+            else if (day === 0) hinweise.push('Sonntagstarif');
+            else if (isNight) hinweise.push('Nachttarif (22-6 Uhr)');
+
+            total = Math.round(total / 0.1) * 0.1;
+            return { total: total.toFixed(2), hinweise };
+        }
+
+        // ═══════════════════════════════════════════════
+        // QR-Code Parameter auswerten
+        // ═══════════════════════════════════════════════
+        const urlParams = new URLSearchParams(window.location.search);
+        const qrFrom = urlParams.get('from');
+        const qrLat = urlParams.get('lat');
+        const qrLon = urlParams.get('lon');
+
+        if (qrFrom) {
+            document.getElementById('b-pickup').value = decodeURIComponent(qrFrom);
+            // Geocode den Abholort
+            geocodeAddress(decodeURIComponent(qrFrom)).then(coords => {
+                if (coords) {
+                    pickupCoords = coords;
+                    checkRoute();
+                }
+            });
+        }
+        if (qrLat && qrLon) {
+            pickupCoords = { lat: parseFloat(qrLat), lon: parseFloat(qrLon) };
+            reverseGeocode(pickupCoords.lat, pickupCoords.lon).then(addr => {
+                if (addr) document.getElementById('b-pickup').value = addr;
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Personen-Auswahl
+        // ═══════════════════════════════════════════════
+        function setPax(n) {
+            passengers = n;
+            document.querySelectorAll('.pax-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i + 1 === n);
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // GPS
+        // ═══════════════════════════════════════════════
+        function useGPS(field) {
+            if (!navigator.geolocation) return showToast('GPS nicht verfügbar');
+            showToast('📡 Standort wird ermittelt...');
+            navigator.geolocation.getCurrentPosition(async pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                const addr = await reverseGeocode(lat, lon);
+                if (field === 'pickup') {
+                    pickupCoords = { lat, lon };
+                    document.getElementById('b-pickup').value = addr || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                }
+                checkRoute();
+            }, err => {
+                showToast('GPS-Fehler: ' + err.message);
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Geocoding
+        // ═══════════════════════════════════════════════
+        async function geocodeAddress(query) {
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Heringsdorf')}&limit=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const data = await resp.json();
+                if (data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+            } catch(e) {}
+            return null;
+        }
+
+        async function reverseGeocode(lat, lon) {
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const data = await resp.json();
+                if (data.address) {
+                    const a = data.address;
+                    const road = a.road || a.residential || a.pedestrian || '';
+                    const nr = a.house_number || '';
+                    const town = a.town || a.city || a.village || '';
+                    return road + (nr ? ' ' + nr : '') + (town ? ', ' + town : '');
+                }
+            } catch(e) {}
+            return null;
+        }
+
+        // ═══════════════════════════════════════════════
+        // Autocomplete — POIs + Nominatim
+        // ═══════════════════════════════════════════════
+        let allPOIs = {};
+        db.ref('pois').once('value', snap => { allPOIs = snap.val() || {}; });
+
+        let debounceTimer = null;
+        ['b-pickup', 'b-destination'].forEach(id => {
+            const input = document.getElementById(id);
+            const dropdown = document.getElementById(id + '-dropdown');
+            if (!input || !dropdown) return;
+
+            input.addEventListener('focus', () => searchAndShow(input.value, id));
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => searchAndShow(input.value, id), 250);
+            });
+        });
+
+        // Klick außerhalb schließt Dropdown
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.input-group')) {
+                document.querySelectorAll('.autocomplete-dropdown').forEach(d => d.style.display = 'none');
+            }
+        });
+
+        async function searchAndShow(query, inputId) {
+            const dropdown = document.getElementById(inputId + '-dropdown');
+            const searchKey = (query || '').toLowerCase().trim();
+            const results = [];
+
+            // POIs
+            Object.values(allPOIs).forEach(poi => {
+                if (!poi.name || !poi.lat) return;
+                const n = poi.name.toLowerCase();
+                const a = (poi.address || '').toLowerCase();
+                if (!searchKey || n.includes(searchKey) || a.includes(searchKey)) {
+                    results.push({
+                        name: poi.address ? `${poi.name}, ${poi.address}` : poi.name,
+                        lat: poi.lat, lon: poi.lon, icon: '⭐'
+                    });
+                }
+            });
+
+            // Nominatim wenn wenig POI-Treffer und User tippt
+            if (searchKey.length >= 3 && results.length < 3) {
+                try {
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Heringsdorf')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                    const data = await resp.json();
+                    data.forEach(item => {
+                        const a = item.address || {};
+                        const road = a.road || a.residential || '';
+                        const nr = a.house_number || '';
+                        const town = a.town || a.city || a.village || '';
+                        const pc = a.postcode || '';
+                        let name = road ? (road + (nr ? ' ' + nr : '')) : (item.name || '');
+                        if (town) name += `, ${pc ? pc + ' ' : ''}${town}`;
+                        results.push({ name: name || item.display_name.split(',').slice(0,2).join(','), lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '🌍' });
+                    });
+                } catch(e) {}
+            }
+
+            const shown = results.slice(0, 6);
+            if (shown.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            dropdown.innerHTML = shown.map((r, i) => `
+                <div class="autocomplete-item" onclick="selectAddr('${inputId}', ${i})">
+                    <span>${r.icon}</span>
+                    <span>${r.name}</span>
+                </div>
+            `).join('');
+            dropdown.style.display = 'block';
+            window._addrResults = { [inputId]: shown };
+        }
+
+        function selectAddr(inputId, index) {
+            const r = (window._addrResults || {})[inputId]?.[index];
+            if (!r) return;
+            document.getElementById(inputId).value = r.name;
+            document.getElementById(inputId + '-dropdown').style.display = 'none';
+            if (inputId === 'b-pickup') pickupCoords = { lat: r.lat, lon: r.lon };
+            if (inputId === 'b-destination') destCoords = { lat: r.lat, lon: r.lon };
+            checkRoute();
+        }
+
+        // ═══════════════════════════════════════════════
+        // Route berechnen + Preis
+        // ═══════════════════════════════════════════════
+        async function checkRoute() {
+            if (!pickupCoords || !destCoords) {
+                document.getElementById('btn-book').disabled = true;
+                return;
+            }
+            try {
+                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords.lon},${pickupCoords.lat};${destCoords.lon},${destCoords.lat}?overview=full&geometries=geojson`);
+                const data = await resp.json();
+                if (data.routes && data.routes[0]) {
+                    const route = data.routes[0];
+                    const km = (route.distance / 1000).toFixed(1);
+                    const min = Math.ceil(route.duration / 60);
+
+                    // Tarifberechnung mit korrektem Zeitpunkt (Sofort = jetzt, Vorbestellen = gewählte Zeit)
+                    const pricingTimestamp = getPickupTimestamp();
+                    const pricing = calculatePrice(parseFloat(km), pricingTimestamp);
+
+                    routeData = { km, min, price: pricing.total, geometry: route.geometry };
+
+                    document.getElementById('r-price').textContent = pricing.total + '€';
+                    document.getElementById('r-distance').textContent = km;
+                    document.getElementById('r-duration').textContent = '~' + min;
+                    // Tarif-Hinweis
+                    const hinweisEl = document.getElementById('r-price');
+                    if (pricing.hinweise.length > 0) {
+                        hinweisEl.title = pricing.hinweise.join(', ');
+                        hinweisEl.innerHTML = pricing.total + '€ <span style="font-size:10px;display:block;color:#92400e;">' + pricing.hinweise.join(', ') + '</span>';
+                    } else {
+                        hinweisEl.innerHTML = pricing.total + '€';
+                    }
+                    document.getElementById('route-info').style.display = 'grid';
+
+                    // Karte zeigen
+                    showRouteMap(route.geometry);
+
+                    // Verfügbarkeits-Check
+                    await checkAvailability();
+                }
+            } catch(e) {
+                console.warn('Route error:', e);
+            }
+        }
+
+        function showRouteMap(geometry) {
+            const mapEl = document.getElementById('route-map');
+            mapEl.style.display = 'block';
+            if (bookingMap) bookingMap.remove();
+            bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
+            L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
+            L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');
+            L.marker([destCoords.lat, destCoords.lon]).addTo(bookingMap).bindPopup('🎯 Zielort');
+            bookingMap.fitBounds([[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]], { padding: [30, 30] });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Buchungs-Flow
+        // ═══════════════════════════════════════════════
+        // Firebase Phone Auth
+        const auth = firebase.auth();
+        auth.languageCode = 'de';
+        let confirmationResult = null;
+        let recaptchaVerifier = null;
+
+        function startBooking() {
+            if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
+            document.getElementById('booking-card').style.display = 'none';
+            document.getElementById('phone-card').style.display = 'block';
+            document.getElementById('b-phone').focus();
+
+            // reCAPTCHA initialisieren (unsichtbar)
+            if (!recaptchaVerifier) {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    size: 'invisible',
+                    callback: () => console.log('reCAPTCHA gelöst')
+                });
+                recaptchaVerifier.render();
+            }
+        }
+
+        // SMS-Code über Firebase Phone Auth senden (kostenlos!)
+        async function sendFirebaseCode() {
+            const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
+            if (phone.length < 10) return showToast('Bitte gültige Telefonnummer eingeben');
+
+            customerPhone = phone.startsWith('0') ? '+49' + phone.slice(1) : (phone.startsWith('+') ? phone : '+49' + phone);
+
+            const btn = document.getElementById('btn-send-code');
+            btn.disabled = true;
+            btn.textContent = '⏳ Code wird gesendet...';
+
+            try {
+                confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
+                document.getElementById('phone-card').style.display = 'none';
+                document.getElementById('sms-card').style.display = 'block';
+                document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
+                document.getElementById('b-sms-code').focus();
+                showToast('📨 SMS-Code gesendet!');
+            } catch(e) {
+                console.error('Firebase Phone Auth Fehler:', e);
+                if (e.code === 'auth/too-many-requests') {
+                    showToast('Zu viele Versuche — bitte später erneut');
+                } else if (e.code === 'auth/invalid-phone-number') {
+                    showToast('Ungültige Telefonnummer');
+                } else {
+                    showToast('Fehler — bitte rufen Sie uns an: 038378 22022');
+                }
+                btn.disabled = false;
+                btn.textContent = '📨 Code senden';
+                // reCAPTCHA neu initialisieren
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    size: 'invisible'
+                });
+                recaptchaVerifier.render();
+            }
+        }
+
+        async function verifyAndBook() {
+            const code = document.getElementById('b-sms-code').value.trim();
+            if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
+
+            if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
+
+            try {
+                // Firebase prüft den Code — bei Erfolg ist User eingeloggt
+                const result = await confirmationResult.confirm(code);
+                customerPhone = result.user.phoneNumber;
+                console.log('✅ Verifiziert:', customerPhone);
+            } catch(e) {
+                if (e.code === 'auth/invalid-verification-code') {
+                    showToast('Falscher Code — bitte erneut versuchen');
+                } else {
+                    showToast('Fehler bei der Verifizierung');
+                }
+                return;
+            }
+
+            // Buchung in Firebase erstellen
+            const pickup = document.getElementById('b-pickup').value;
+            const destination = document.getElementById('b-destination').value;
+            const now = Date.now();
+            const pickupTs = getPickupTimestamp();
+            const isVorbestellt = wannModus === 'vorbestellen' && (pickupTs - now) > 30 * 60000;
+            const pickupTimeStr = new Date(new Date(pickupTs).toLocaleString('en-US', {timeZone:'Europe/Berlin'}))
+                .toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+
+            const rideData = {
+                pickup,
+                destination,
+                pickupLat: pickupCoords.lat,
+                pickupLon: pickupCoords.lon,
+                pickupCoords: { lat: pickupCoords.lat, lon: pickupCoords.lon },
+                destinationLat: destCoords.lat,
+                destinationLon: destCoords.lon,
+                destCoords: { lat: destCoords.lat, lon: destCoords.lon },
+                customerName: 'Web-Kunde',
+                customerPhone: customerPhone,
+                passengers,
+                status: isVorbestellt ? 'vorbestellt' : 'new',
+                isJetzt: !isVorbestellt,
+                source: 'web-booking',
+                createdAt: now,
+                updatedAt: now,
+                pickupTimestamp: pickupTs,
+                pickupTime: pickupTimeStr,
+                paymentMethod: 'bar',
+                ...(routeData && {
+                    price: parseFloat(routeData.price),
+                    estimatedPrice: parseFloat(routeData.price),
+                    distance: routeData.km,
+                    estimatedDistance: routeData.km,
+                    duration: parseInt(routeData.min),
+                    estimatedDuration: parseInt(routeData.min)
+                })
+            };
+
+            try {
+                const ref = db.ref('rides').push();
+                rideData.id = ref.key;
+                await ref.set(rideData);
+
+                // Erfolg anzeigen
+                document.getElementById('sms-card').style.display = 'none';
+                document.getElementById('success-card').style.display = 'block';
+                document.getElementById('success-details').innerHTML = `
+                    <div style="margin-bottom:8px;">📍 <strong>Von:</strong> ${pickup}</div>
+                    <div style="margin-bottom:8px;">🎯 <strong>Nach:</strong> ${destination}</div>
+                    <div style="margin-bottom:8px;">👥 <strong>Personen:</strong> ${passengers}</div>
+                    ${routeData ? `<div style="margin-bottom:8px;">💰 <strong>Preis:</strong> ca. ${routeData.price}€ · ${routeData.km} km · ~${routeData.min} Min</div>` : ''}
+                    <div>📱 <strong>Telefon:</strong> ${customerPhone}</div>
+                `;
+
+                showToast('🎉 Buchung erfolgreich!');
+            } catch(e) {
+                showToast('Fehler bei der Buchung — bitte rufen Sie uns an');
+                console.error(e);
+            }
+        }
+
+        // ═══════════════════════════════════════════════
+        // Helpers
+        // ═══════════════════════════════════════════════
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+    </script>
+</body>
+</html>

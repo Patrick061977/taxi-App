@@ -3780,17 +3780,20 @@ async function continueBookingFlow(chatId, booking, originalText) {
             const _inlineButtons = [];
 
             // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
-            if (_firstMissing === 'pickup' && !booking._adminBooked) {
-                const _knownCust = await getTelegramCustomer(chatId);
+            // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
+            if (_firstMissing === 'pickup') {
+                const _knownCust = preselected || await getTelegramCustomer(chatId);
                 if (_knownCust && _knownCust.address) {
                     // Kunde hat Adresse → Zuhause-Button + Anderer Ort
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                    msg += '📍 <b>Abholort – wo sollen wir Sie abholen?</b>\nWählen Sie unten oder senden Sie Ihren <b>Standort 📎</b>';
+                    const _custLabel2 = booking._adminBooked ? ` für ${_knownCust.name || ''}` : '';
+                    msg += `📍 <b>Abholort${_custLabel2} – wo ${booking._adminBooked ? 'abholen' : 'sollen wir Sie abholen'}?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
                     _inlineButtons.push([{ text: '🏠 Von zu Hause (' + (_knownCust.address.length > 25 ? _knownCust.address.substring(0, 23) + '…' : _knownCust.address) + ')', callback_data: 'use_home_pickup' }]);
                 }
                 // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
-                if (_knownCust && _knownCust.customerId) {
+                const _custId1 = _knownCust?.customerId || (preselected ? booking._crmCustomerId : null);
+                if (_custId1 || (_knownCust && _knownCust.customerId)) {
                     try {
                         const _custSnap = await db.ref('customers/' + _knownCust.customerId).once('value');
                         const _custData = _custSnap.val();

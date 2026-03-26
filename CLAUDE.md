@@ -1,50 +1,41 @@
 # Taxi-App Entwicklungshinweise
 
-## Aktueller Stand (2026-03-25)
+## Aktueller Stand (2026-03-26)
 
-**Version:** v6.25.5 | **Branch:** `claude/assign-strato-domain-JJOsX`
+**Version:** v6.25.5 | **Branch:** `main`
 
-### Zuletzt implementierte Features (Session 25.03.2026):
+### Zuletzt implementierte Features (Session 26.03.2026):
 
 | Version | Feature |
 |---------|---------|
-| **v6.25.5** | KRITISCH: Browser-Auto-Assign deaktiviert (Schichtplan-Bug: Fahrten außerhalb Schichtzeiten zugewiesen) |
-| **v6.25.5** | Booking-Modus (?mode=booking): Buchungsformular ohne Login für Kunden-Website |
-| **v6.25.5** | Booking-Modus: Sauberer Kunden-Bildschirm (Debug/Admin/Version ausgeblendet) |
-| **v6.25.5** | Status-Changer: Klickbare Status-Badges in Fahrtenübersicht + Kalender-Detail |
-| **v6.25.5** | Kalender-Timeline scrollt automatisch zur aktuellen Uhrzeit |
-| **v6.25.5** | Fahrplan: Filter (Direkt/Bus/Bahn) + Zwischenhalte aufklappbar + API-Timeout-Fix |
-| **v6.25.5** | Fahreransicht: "Bereit!" entfernt, "Einsteigen" statt "Angekommen", Ziel-Autocomplete |
-| **v6.25.5** | Stornierung-Alarm flackert nicht mehr beim App-Start |
-| **v6.25.5** | Doppelte Fahrt-Anzeige in Fahreransicht entfernt |
-| **v6.25.5** | Adressdatenbank/Geocache in Firebase + Admin-UI mit Karten-Korrektur |
-| **v6.25.5** | Nominatim-Suche: PLZ als Schlüssel, Structured Search, engere Viewbox |
-| **v6.25.5** | KI-Telefonnummern-Fix: Regex-Korrektur bei verdoppelten Ziffern |
-| **v6.25.5** | Strato-Deployment: strato/ Ordner + deploy.sh + GitHub Action für ZIP |
-| **v6.25.5** | Tracking-Link Domain automatisch erkennen (Strato vs. GitHub Pages) |
+| **v6.25.5** | Fix: Vorbestell-Scheduler im Webhook-Modus deaktiviert (Cloud übernimmt) |
+| **v6.25.5** | Fix: Admin-Buchung zeigt jetzt Kunden-Adresse (Nach Hause / Von zu Hause) |
+| **v6.25.5** | Telegram: GPS-Adresse mit Bestätigung im Geocache speichern |
+| **v6.25.5** | Telegram: Geocache-Suche mit Teilwort-Matching (z.B. "Lidl" findet "Lidl, Bansin") |
+| **v6.25.5** | Kalender-Sync v5.0: findExistingEvent ohne Zeitfilter — sucht alle Events |
+| **v6.25.4** | Booking-Modus (?mode=booking) + Kunden-Bildschirm Verbesserungen |
+| **v6.25.3** | Fix: Konflikt-Checker filtert deleted/rejected Fahrten |
 
-### Erledigte Aufgaben:
-- Browser-Auto-Assign DEAKTIVIERT → Cloud Function übernimmt alle Zuweisungen ✅
-- Booking-Modus (?mode=booking) für Kunden-Website ohne Login ✅
-- Admin-Sicht/Debug im Booking-Modus ausgeblendet ✅
-- Status-Badge klickbar → Admin kann Fahrt-Status direkt ändern ✅
-- Kalender scrollt zur aktuellen Zeit ✅
-- Fahrplan-Filter (Direkt/Bus/Bahn) + aufklappbare Zwischenhalte ✅
-- Fahreransicht aufgeräumt (Bereit-Bild weg, Ziel-Eingabe mit Autocomplete) ✅
-- Stornierung-Alarm nur für NEUE Stornierungen (nicht beim App-Start) ✅
-- Geocache: Adressen in Firebase speichern + bei Suche priorisieren ✅
-- Nominatim: PLZ-basierte Structured Search statt Freitext ✅
-- Strato: deploy.sh + GitHub Action erstellt ZIP automatisch ✅
+### Erledigte Aufgaben (Session 26.03.2026):
+- Google Calendar Sync v5.0: Events werden über Firebase-ID gesucht, nicht mehr nach Datum → Datumsänderungen werden korrekt übernommen ✅
+- Vorbestell-Scheduler: `startPreorderScheduler()` war im Webhook-Modus aktiv → Browser hat Fahrten zugewiesen statt Cloud Function ✅
+- Admin-Telegram-Buchung: "Nach Hause"/"Von zu Hause" Buttons fehlten komplett → jetzt wird CRM-Adresse des ausgewählten Kunden gezeigt ✅
+- GPS-Sticker: Adresse wird nach Bestätigung im Geocache gespeichert (mit Ja/Nein Frage) ✅
+- Geocache Teilwort-Suche: Scoring-System für partielle Matches ✅
+
+### In Arbeit:
+- `buchen.html` — Eigenständige öffentliche Buchungs-Landingpage (ohne Login, Phone Auth erst bei Buchung)
 
 ### Bekannte offene Punkte:
-- buchen.html als eigenständige Buchungsseite noch nicht fertig (aktuell ?mode=booking nutzen)
-- Telegram Adresseingabe bricht manchmal ab → muss noch gefixt werden
-- GPS im Fahrer-Tab feuert jede Sekunde im Standby (Akku-Problem)
-- Dispo-Zentrale Buttons funktionieren teilweise nicht
-- Firebase Permission Errors auf umwelt-taxi-insel-usedom.de (Domain muss in Firebase Auth eingetragen werden)
+- Google Apps Script: Code manuell ins Script kopieren + Zeitzone "Europe/Berlin" prüfen
+- `functions/index.js` geändert → `firebase deploy --only functions` nötig
+- Telegram-Adress-Suche: Weitere Verbesserungen bei Kundenname-Erkennung
 - Vollständiges Changelog: siehe `CHANGELOG.md`
-- Firebase-Struktur erweitert um: `/geocache`, `/geocodeCache`, `/verificationCodes`, `/smsQueue`
-- Nach Deploy (`firebase deploy --only functions`) testen: Schichtplan-Check in Cloud Function
+
+### Architektur-Entscheidungen (26.03.2026):
+- **Auto-Zuweisung:** Browser-Zuweisung (`auto-assign-schichtplan`) ist im Webhook-Modus DEAKTIVIERT. Cloud Function `scheduledAutoAssign` übernimmt (alle 10 Min)
+- **Kalender-Sync:** `findExistingEvent()` sucht Events über Firebase-ID im gesamten Kalender (gestern bis +1 Jahr), kein Datumsfilter
+- **buchen.html:** Soll eigenständige Seite werden (nicht ?mode=booking in index.html), mit gleicher Buchungslogik wie Kunden-Tab
 
 ---
 

@@ -12300,13 +12300,19 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
+            console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min, Prio-Vorteil: ${priorityAdvantageMin} Min)...`);
+
+            // 🔧 v6.34.0: Debug-Log für Phase 2
+            const debugPhase2Lines = [];
 
             for (const ride of optimizableRides) {
                 const currentVehicle = ride.assignedVehicle;
                 const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;
                 const pickupLon = ride.pickupCoords?.lon || ride.pickupLon;
-                if (!pickupLat || !pickupLon) continue;
+                if (!pickupLat || !pickupLon) {
+                    debugPhase2Lines.push(`⏭️ ${ride.customerName || '?'} — keine Koordinaten`);
+                    continue;
+                }
 
                 const dateStr = berlinDate(ride.pickupTimestamp);
                 const timeStr = berlinTime(ride.pickupTimestamp);
@@ -12396,17 +12402,31 @@ exports.autoResolveConflicts = onSchedule(
                     }
                 }
 
-                if (!bestAlt) continue;
+                // 🔧 v6.34.0: Detailliertes Debug-Log
+                const currVName = (OFFICIAL_VEHICLES[currentVehicle] || {}).name || currentVehicle;
+                const bestAltName = bestAlt ? ((OFFICIAL_VEHICLES[bestAlt] || {}).name || bestAlt) : 'keine';
+                const rideTimeDbg = berlinTime(ride.pickupTimestamp);
+                const rideDateDbg = berlinDate(ride.pickupTimestamp);
+
+                if (!bestAlt) {
+                    debugPhase2Lines.push(`⏭️ ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} auf ${currVName} (Score ${Math.round(currentScore)}) — keine bessere Alternative`);
+                    continue;
+                }
 
                 // Vorteil = Differenz der Scores (Leerfahrt + Priorität)
                 const vorteilMin = Math.round(currentScore - bestScore);
 
-                if (vorteilMin < minLeerfahrtVorteilMin) continue;
+                if (vorteilMin < minLeerfahrtVorteilMin) {
+                    debugPhase2Lines.push(`⏭️ ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} auf ${currVName} (Score ${Math.round(currentScore)}) → ${bestAltName} (Score ${Math.round(bestScore)}) — Vorteil ${vorteilMin} Min < ${minLeerfahrtVorteilMin} Min`);
+                    continue;
+                }
 
                 // 🔧 v6.25.4: Nicht umplanen wenn gleiches Ergebnis wie letztes Mal
                 // Verhindert Oszillation (A→B→A→B) und doppelte Nachrichten
                 if (ride.lastOptimizedTo === bestAlt && ride.lastOptimizedAt && (now - ride.lastOptimizedAt) < 60 * 60000) {
-                    console.log(`   ⏭️ Skip: ${ride.customerName || '?'} wurde bereits zu ${bestAlt} optimiert (${Math.round((now - ride.lastOptimizedAt) / 60000)} Min her)`);
+                    const skipMinAgo = Math.round((now - ride.lastOptimizedAt) / 60000);
+                    console.log(`   ⏭️ Skip: ${ride.customerName || '?'} wurde bereits zu ${bestAlt} optimiert (${skipMinAgo} Min her)`);
+                    debugPhase2Lines.push(`⏭️ ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} → Oszillationsschutz (${bestAltName}, ${skipMinAgo} Min her)`);
                     continue;
                 }
 
@@ -12507,8 +12527,19 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
+            // 🔧 v6.34.0: Debug Phase 2 per Telegram (über Firebase-Flag)
+            try {
+                const debugSnap3 = await db.ref('settings/debugOptimierung').once('value');
+                if (debugSnap3.val() === true) {
+                    const p2Header = `🔍 *Debug: Phase 2 Leerfahrt-Optimierung*\n📊 ${optimizableRides.length} Fahrten geprüft, ${totalOptimized} optimiert\n⚙️ Min-Vorteil: ${minLeerfahrtVorteilMin} Min, Prio-Vorteil: ${priorityAdvantageMin} Min\n`;
+                    const p2Msg = p2Header + '\n' + (debugPhase2Lines.length > 0 ? debugPhase2Lines.join('\n') : '(keine Fahrten geprüft)');
+                    await sendToAllAdmins(p2Msg, 'optimization');
+                    await db.ref('settings/debugOptimierung').set(false);
+                }
+            } catch(e) { /* non-critical */ }
+
         } catch (e) {
-            console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message);
+            console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message, e.stack);
         }
     }
 );

@@ -164,15 +164,7 @@ function syncFirebaseToCalendar() {
     if (unchangedRides.length > 0) {
       console.log('🔍 Prüfe', unchangedRides.length, 'unveränderte Fahrten auf fehlende/veraltete Kalender-Einträge...');
       for (const ride of unchangedRides) {
-        let startTime;
-        if (ride.pickupTimestamp) {
-          startTime = new Date(ride.pickupTimestamp);
-        } else if (ride.pickupDate && ride.pickupTime) {
-          startTime = new Date(ride.pickupDate + 'T' + ride.pickupTime + ':00');
-        }
-        if (!startTime || isNaN(startTime.getTime())) continue;
-
-        const existing = findExistingEvent(calendar, ride.firebaseId, startTime);
+        const existing = findExistingEvent(calendar, ride.firebaseId);
         if (!existing) {
           missingRides.push(ride);
           console.log('📌 Fehlender Eintrag gefunden:', ride.firebaseId);
@@ -364,7 +356,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const title = titleParts.join(' | ');
     const description = createEventDescription(ride);
 
-    const existingEvent = findExistingEvent(calendar, ride.firebaseId, startTime);
+    const existingEvent = findExistingEvent(calendar, ride.firebaseId);
 
     if (existingEvent) {
       existingEvent.setTitle(title);
@@ -508,16 +500,15 @@ function createEventDescription(ride) {
 // ═══════════════════════════════════════════════════════════════
 // 🔍 EXISTIERENDES EVENT FINDEN
 // ═══════════════════════════════════════════════════════════════
-function findExistingEvent(calendar, firebaseId, startTime) {
-  // 🔧 v5.0: Suche den GESAMTEN zukünftigen Zeitraum (heute bis +6 Monate)
-  // Wenn eine Fahrt von einem Datum auf ein anderes verschoben wird (egal wie weit),
-  // muss das alte Event gefunden und aktualisiert werden.
+function findExistingEvent(calendar, firebaseId) {
+  // 🔧 v5.0: Kein Zeitfilter! Suche ALLE zukünftigen Events.
+  // Wenn eine Fahrt geändert wurde, muss das Event gefunden werden — egal an welchem Datum es steht.
   const searchStart = new Date();
-  searchStart.setDate(searchStart.getDate() - 1); // Gestern (falls Event gerade vergangen)
+  searchStart.setDate(searchStart.getDate() - 1);
   searchStart.setHours(0, 0, 0, 0);
   const searchEnd = new Date();
-  searchEnd.setMonth(searchEnd.getMonth() + 6); // 6 Monate voraus
-  searchEnd.setHours(23, 59, 59, 999);
+  searchEnd.setFullYear(searchEnd.getFullYear() + 1);
+
 
   const events = calendar.getEvents(searchStart, searchEnd);
   const matchingEvents = [];

@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 4.9 - Fix: Fahrzeug-/Preis-Änderungen werden jetzt auch ohne updatedAt erkannt (Titel+Beschreibung-Vergleich)
+// Version: 5.0 - Fix: Zeitzonen-korrektes Datum-Parsing + findExistingEvent sucht jetzt breit (nicht nur am Zieltag)
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.9...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v5.0...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();
@@ -164,15 +164,7 @@ function syncFirebaseToCalendar() {
     if (unchangedRides.length > 0) {
       console.log('🔍 Prüfe', unchangedRides.length, 'unveränderte Fahrten auf fehlende/veraltete Kalender-Einträge...');
       for (const ride of unchangedRides) {
-        let startTime;
-        if (ride.pickupTimestamp) {
-          startTime = new Date(ride.pickupTimestamp);
-        } else if (ride.pickupDate && ride.pickupTime) {
-          startTime = new Date(ride.pickupDate + 'T' + ride.pickupTime + ':00');
-        }
-        if (!startTime || isNaN(startTime.getTime())) continue;
-
-        const existing = findExistingEvent(calendar, ride.firebaseId, startTime);
+        const existing = findExistingEvent(calendar, ride.firebaseId);
         if (!existing) {
           missingRides.push(ride);
           console.log('📌 Fehlender Eintrag gefunden:', ride.firebaseId);
@@ -282,8 +274,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     let startTime;
 
     if (ride.pickupTimestamp) {
+      // pickupTimestamp ist UTC-Epoch (ms) — new Date() erzeugt korrektes Date-Objekt
+      // Google Calendar API nutzt die Script-Zeitzone (muss Europe/Berlin sein!)
       startTime = new Date(ride.pickupTimestamp);
     } else if (ride.pickupDate && ride.pickupTime) {
+      // 🔧 v5.0: Explizit als Europe/Berlin parsen um Zeitzonen-Fehler zu vermeiden
+      // Format: "2026-04-02T09:00:00" → wird als Script-Zeitzone interpretiert
       startTime = new Date(ride.pickupDate + 'T' + ride.pickupTime + ':00');
     } else if (ride.createdAt) {
       startTime = new Date(ride.createdAt + 15 * 60000);
@@ -294,6 +290,13 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     if (isNaN(startTime.getTime())) {
       console.log('⚠️ Überspringe Fahrt mit ungültigem Datum:', ride.firebaseId);
       return 'skipped';
+    }
+
+    // 🔧 v5.0: Zeitzonen-Diagnose loggen (hilft bei Debugging)
+    const scriptTz = Session.getScriptTimeZone();
+    if (scriptTz !== 'Europe/Berlin') {
+      console.log('⚠️ WARNUNG: Script-Zeitzone ist "' + scriptTz + '" statt "Europe/Berlin"!');
+      console.log('⚠️ → In Projekteinstellungen → Zeitzone auf "Europe/Berlin" setzen!');
     }
 
     const durationMinutes = ride.duration || 30;
@@ -353,7 +356,7 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     const title = titleParts.join(' | ');
     const description = createEventDescription(ride);
 
-    const existingEvent = findExistingEvent(calendar, ride.firebaseId, startTime);
+    const existingEvent = findExistingEvent(calendar, ride.firebaseId);
 
     if (existingEvent) {
       existingEvent.setTitle(title);
@@ -487,7 +490,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.9');
+  lines.push('📝 Erstellt von: CalendarSync v5.0');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -497,13 +500,17 @@ function createEventDescription(ride) {
 // ═══════════════════════════════════════════════════════════════
 // 🔍 EXISTIERENDES EVENT FINDEN
 // ═══════════════════════════════════════════════════════════════
-function findExistingEvent(calendar, firebaseId, startTime) {
-  const dayStart = new Date(startTime);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(startTime);
-  dayEnd.setHours(23, 59, 59, 999);
+function findExistingEvent(calendar, firebaseId) {
+  // 🔧 v5.0: Kein Zeitfilter! Suche ALLE zukünftigen Events.
+  // Wenn eine Fahrt geändert wurde, muss das Event gefunden werden — egal an welchem Datum es steht.
+  const searchStart = new Date();
+  searchStart.setDate(searchStart.getDate() - 1);
+  searchStart.setHours(0, 0, 0, 0);
+  const searchEnd = new Date();
+  searchEnd.setFullYear(searchEnd.getFullYear() + 1);
 
-  const events = calendar.getEvents(dayStart, dayEnd);
+
+  const events = calendar.getEvents(searchStart, searchEnd);
   const matchingEvents = [];
 
   for (const event of events) {
@@ -517,7 +524,7 @@ function findExistingEvent(calendar, firebaseId, startTime) {
   }
 
   if (matchingEvents.length > 1) {
-    console.log('⚠️ Duplikate gefunden für: ' + firebaseId);
+    console.log('⚠️ Duplikate gefunden für: ' + firebaseId + ' (' + matchingEvents.length + ' Events)');
     for (let i = 1; i < matchingEvents.length; i++) {
       console.log('🗑️ Lösche Duplikat #' + (i+1));
       matchingEvents[i].deleteEvent();

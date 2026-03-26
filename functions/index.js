@@ -13321,6 +13321,25 @@ exports.onRideCreated = onValueCreated(
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
         await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
 
+        // 🆕 v6.25.5: Kunden-Bestätigung SOFORT bei Erstellung senden (nicht erst bei Update!)
+        const customerChatId = await getCustomerChatId(ride);
+        if (customerChatId) {
+            const vehicleInfo = ride.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
+            const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+            const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
+                `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+                `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
+                `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
+                (ride.price ? `💰 <b>Preis:</b> ca. ${ride.price}€\n` : '') +
+                vehicleInfo +
+                `\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
+                `✅ Sie erhalten Updates sobald der Fahrer losfährt!\n` +
+                `📞 Bei Fragen: 038378/22022`;
+            await sendTelegramMessage(customerChatId, customerMsg);
+            console.log('📱 Kunden-Bestätigung bei Erstellung gesendet:', customerChatId);
+            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) {}
+        }
+
         // Flag setzen damit Browser nicht nochmal sendet
         try {
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);

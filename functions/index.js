@@ -13469,6 +13469,35 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.25.5: Schicht-Check bei Datum/Zeit-Änderung
+        // Wenn pickupTimestamp geändert UND Fahrzeug zugewiesen → prüfe ob Fahrzeug noch Dienst hat
+        if (before.pickupTimestamp !== after.pickupTimestamp && newVehicle && after.assignedBy !== 'admin') {
+            try {
+                const shiftsSnap = await db.ref('vehicleShifts').once('value');
+                const shiftsData = shiftsSnap.val() || {};
+                const pickupBerlin = new Date(new Date(after.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
+                const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
+
+                if (!isVehicleInShift(newVehicle, shiftsData, pickupDateStr, pickupTimeStr)) {
+                    const oldVehicleName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || '?';
+                    console.log(`🔄 onRideUpdated: ${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr} → Zuweisung entfernen`);
+                    await db.ref('rides/' + rideId).update({
+                        assignedVehicle: null, vehicleId: null, assignedTo: null,
+                        vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                        assignedBy: null, assignedAt: null,
+                        status: 'vorbestellt',
+                        reassignReason: `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`,
+                        reassignedAt: Date.now(),
+                        updatedAt: Date.now()
+                    });
+                    // Auto-Assign für neues Datum
+                    await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
+                    return; // Fertig, Rest nicht ausführen
+                }
+            } catch(e) { console.warn('Schicht-Check Fehler:', e.message); }
+        }
+
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
         if (oldStatus !== newStatus) {
             console.log(`📱 onRideUpdated: ${rideId} Status ${oldStatus} → ${newStatus}`);

@@ -12383,13 +12383,19 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min)...`);
+            console.log(`🚀 Phase 2 (Optimierung): ${optimizableRides.length} Fahrten prüfen (Mindest-Vorteil: ${minLeerfahrtVorteilMin} Min, Prio-Vorteil: ${priorityAdvantageMin} Min)...`);
+
+            // 🔧 v6.34.0: Debug-Log für Phase 2
+            const debugPhase2Lines = [];
 
             for (const ride of optimizableRides) {
                 const currentVehicle = ride.assignedVehicle;
                 const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;
                 const pickupLon = ride.pickupCoords?.lon || ride.pickupLon;
-                if (!pickupLat || !pickupLon) continue;
+                if (!pickupLat || !pickupLon) {
+                    debugPhase2Lines.push(`⏭️ ${ride.customerName || '?'} — keine Koordinaten`);
+                    continue;
+                }
 
                 const dateStr = berlinDate(ride.pickupTimestamp);
                 const timeStr = berlinTime(ride.pickupTimestamp);
@@ -12422,11 +12428,21 @@ exports.autoResolveConflicts = onSchedule(
                     .filter(([vid]) => vid !== currentVehicle)
                     .sort((a, b) => getVehiclePriority(a[0]) - getVehiclePriority(b[0]));
 
+                // 🔧 v6.34.0: Debug-Infos pro Kandidat sammeln
+                const candidateDebug = [];
+
                 for (const [vehicleId, vInfo] of candidates) {
+                    const vName = vInfo.name || vehicleId;
                     // Kapazität
-                    if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
+                    if ((vInfo.capacity || 4) < (ride.passengers || 1)) {
+                        candidateDebug.push(`  ${vName}: ❌ Kapazität ${vInfo.capacity} < ${ride.passengers}`);
+                        continue;
+                    }
                     // Schichtplan
-                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) continue;
+                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
+                        candidateDebug.push(`  ${vName}: ❌ Kein Dienst`);
+                        continue;
+                    }
 
                     // 🆕 v6.26.0: Schichtende-Prüfung
                     const _cRideDurMin = ride.duration || ride.estimatedDuration || 20;
@@ -12434,19 +12450,25 @@ exports.autoResolveConflicts = onSchedule(
                     const _cRideEndBerlin = new Date(new Date(_cRideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                     const _cRideEndTimeStr = String(_cRideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_cRideEndBerlin.getMinutes()).padStart(2,'0');
                     const _cShiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
-                    if (_cShiftEnd && _cRideEndTimeStr > _cShiftEnd) continue;
+                    if (_cShiftEnd && _cRideEndTimeStr > _cShiftEnd) {
+                        candidateDebug.push(`  ${vName}: ❌ Schichtende ${_cShiftEnd} < Fahrtende ${_cRideEndTimeStr}`);
+                        continue;
+                    }
 
                     // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
-                    const vehicleBusy = allRides.some(r =>
+                    const busyRide = allRides.find(r =>
                         (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
                         (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
                         r.firebaseId !== ride.firebaseId
                     );
-                    if (vehicleBusy) continue;
+                    if (busyRide) {
+                        candidateDebug.push(`  ${vName}: ❌ Besetzt (${busyRide.customerName || '?'}, Status: ${busyRide.status})`);
+                        continue;
+                    }
 
                     // 🔧 v6.25.4: Zeitkonflikt prüfen mit mindestAbstandMs (wie Browser)
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
-                    const hasConflict = allRides.some(r => {
+                    const conflictRide = allRides.find(r => {
                         if (r.firebaseId === ride.firebaseId) return false;
                         if (r.assignedVehicle !== vehicleId) return false;
                         if (!r.pickupTimestamp) return false;
@@ -12454,10 +12476,12 @@ exports.autoResolveConflicts = onSchedule(
                         const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
                         const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
                         const newEnd = ride.pickupTimestamp + rideDurMs + bufferMs;
-                        // Mindest-Abstand berücksichtigen (wie autoAssignVehicleToRide Zeile 30276)
                         return (ride.pickupTimestamp < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
                     });
-                    if (hasConflict) continue;
+                    if (conflictRide) {
+                        candidateDebug.push(`  ${vName}: ❌ Zeitkonflikt mit ${conflictRide.customerName || '?'} (${berlinTime(conflictRide.pickupTimestamp)})`);
+                        continue;
+                    }
 
                     // Leerfahrt für Alternative berechnen (OSRM Smart Routing)
                     const altResult = await estimateVehicleLeerfahrt(
@@ -12470,6 +12494,8 @@ exports.autoResolveConflicts = onSchedule(
                     const altLoadPenalty = altRideCount > avgRidesPerVehicle ? Math.round((altRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
                     const altScore = altResult.durationMin + (altPrio - 1) * priorityAdvantageMin + altLoadPenalty;
 
+                    candidateDebug.push(`  ${vName}: Leerfahrt ${altResult.durationMin}min (${altResult.method}) + Prio ${(altPrio-1)*priorityAdvantageMin} + Last ${altLoadPenalty} = Score ${Math.round(altScore)} ${altScore < bestScore ? '✅ BESSER' : '⬜ schlechter'}`);
+
                     if (altScore < bestScore) {
                         bestScore = altScore;
                         bestMin = altResult.durationMin;
@@ -12479,19 +12505,49 @@ exports.autoResolveConflicts = onSchedule(
                     }
                 }
 
-                if (!bestAlt) continue;
+                // 🔧 v6.34.0: Detailliertes Debug-Log
+                const currVName = (OFFICIAL_VEHICLES[currentVehicle] || {}).name || currentVehicle;
+                const bestAltName = bestAlt ? ((OFFICIAL_VEHICLES[bestAlt] || {}).name || bestAlt) : 'keine';
+                const rideTimeDbg = berlinTime(ride.pickupTimestamp);
+                const rideDateDbg = berlinDate(ride.pickupTimestamp);
+                const currScoreDetail = `Leerfahrt ${currentMin}min (${currentResult.method}) + Prio ${(currentPrio-1)*priorityAdvantageMin} + Last ${currentLoadPenalty} = Score ${Math.round(currentScore)}`;
+
+                if (!bestAlt) {
+                    debugPhase2Lines.push(`\n📋 ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} [${ride.status}]`);
+                    debugPhase2Lines.push(`  Aktuell: ${currVName} — ${currScoreDetail}`);
+                    candidateDebug.forEach(l => debugPhase2Lines.push(l));
+                    debugPhase2Lines.push(`  ❌ ERGEBNIS: keine bessere Alternative`);
+                    continue;
+                }
 
                 // Vorteil = Differenz der Scores (Leerfahrt + Priorität)
                 const vorteilMin = Math.round(currentScore - bestScore);
 
-                if (vorteilMin < minLeerfahrtVorteilMin) continue;
+                if (vorteilMin < minLeerfahrtVorteilMin) {
+                    debugPhase2Lines.push(`\n📋 ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} [${ride.status}]`);
+                    debugPhase2Lines.push(`  Aktuell: ${currVName} — ${currScoreDetail}`);
+                    candidateDebug.forEach(l => debugPhase2Lines.push(l));
+                    debugPhase2Lines.push(`  ❌ ERGEBNIS: Vorteil ${vorteilMin} Min < Mindest ${minLeerfahrtVorteilMin} Min`);
+                    continue;
+                }
 
                 // 🔧 v6.25.4: Nicht umplanen wenn gleiches Ergebnis wie letztes Mal
                 // Verhindert Oszillation (A→B→A→B) und doppelte Nachrichten
                 if (ride.lastOptimizedTo === bestAlt && ride.lastOptimizedAt && (now - ride.lastOptimizedAt) < 60 * 60000) {
-                    console.log(`   ⏭️ Skip: ${ride.customerName || '?'} wurde bereits zu ${bestAlt} optimiert (${Math.round((now - ride.lastOptimizedAt) / 60000)} Min her)`);
+                    const skipMinAgo = Math.round((now - ride.lastOptimizedAt) / 60000);
+                    console.log(`   ⏭️ Skip: ${ride.customerName || '?'} wurde bereits zu ${bestAlt} optimiert (${skipMinAgo} Min her)`);
+                    debugPhase2Lines.push(`\n📋 ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} [${ride.status}]`);
+                    debugPhase2Lines.push(`  Aktuell: ${currVName} — ${currScoreDetail}`);
+                    candidateDebug.forEach(l => debugPhase2Lines.push(l));
+                    debugPhase2Lines.push(`  ❌ ERGEBNIS: Oszillationsschutz — ${bestAltName} vor ${skipMinAgo} Min`);
                     continue;
                 }
+
+                // Erfolgreiche Optimierung → auch loggen
+                debugPhase2Lines.push(`\n📋 ${rideDateDbg} ${rideTimeDbg} ${ride.customerName || '?'} [${ride.status}]`);
+                debugPhase2Lines.push(`  Aktuell: ${currVName} — ${currScoreDetail}`);
+                candidateDebug.forEach(l => debugPhase2Lines.push(l));
+                debugPhase2Lines.push(`  ✅ UMPLANUNG: ${currVName} → ${bestAltName} (Vorteil: ${vorteilMin} Min)`);
 
                 const altInfo = OFFICIAL_VEHICLES[bestAlt] || {};
                 const currInfo = OFFICIAL_VEHICLES[currentVehicle] || {};
@@ -12590,8 +12646,40 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
+            // 🔧 v6.34.0: Debug Phase 2 per Telegram senden
+            // Sende IMMER wenn optimizableRides > 0 und debugOptimierung = true
+            // Oder speichere Log immer in Firebase für Analyse
+            try {
+                // Log immer in Firebase speichern
+                if (debugPhase2Lines.length > 0) {
+                    await db.ref('optimierungsLog').push({
+                        timestamp: Date.now(),
+                        type: 'phase2-debug',
+                        optimizableCount: optimizableRides.length,
+                        optimizedCount: totalOptimized,
+                        replannedCount: totalReplanned,
+                        minVorteil: minLeerfahrtVorteilMin,
+                        prioVorteil: priorityAdvantageMin,
+                        details: debugPhase2Lines.join('\n').substring(0, 4000)
+                    });
+                }
+                // Per Telegram senden wenn Flag gesetzt
+                const debugSnap3 = await db.ref('settings/debugOptimierung').once('value');
+                if (debugSnap3.val() === true) {
+                    const p2Header = `🔍 *Debug: Phase 2 Optimierung*\n📊 ${optimizableRides.length} Fahrten, ${totalOptimized} optimiert, ${totalReplanned} umgeplant\n⚙️ Min-Vorteil: ${minLeerfahrtVorteilMin} Min, Prio-Vorteil: ${priorityAdvantageMin} Min\n`;
+                    // Telegram hat 4096 Zeichen Limit — kürzen wenn nötig
+                    let p2Body = debugPhase2Lines.join('\n');
+                    if (p2Header.length + p2Body.length > 3900) {
+                        p2Body = p2Body.substring(0, 3900 - p2Header.length) + '\n...(gekürzt)';
+                    }
+                    const p2Msg = p2Header + '\n' + (p2Body || '(keine Fahrten geprüft)');
+                    await sendToAllAdmins(p2Msg, 'optimization');
+                    await db.ref('settings/debugOptimierung').set(false);
+                }
+            } catch(e) { console.warn('Debug-Log Fehler:', e.message); }
+
         } catch (e) {
-            console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message);
+            console.error('❌ Auto-Konflikt-Prüfung/Optimierung Fehler:', e.message, e.stack);
         }
     }
 );

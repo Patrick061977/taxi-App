@@ -867,9 +867,18 @@
                         const nr = a.house_number || '';
                         const town = a.town || a.city || a.village || '';
                         const pc = a.postcode || '';
-                        let name = road ? (road + (nr ? ' ' + nr : '')) : (item.name || '');
-                        if (town) name += `, ${pc ? pc + ' ' : ''}${town}`;
-                        results.push({ name: name || item.display_name.split(',').slice(0,2).join(','), lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '🌍' });
+                        // 🔧 v6.34.0: POI-Name (z.B. "Polizeirevier") vor Adresse anzeigen
+                        const poiName = item.name || '';
+                        let addr = road ? (road + (nr ? ' ' + nr : '')) : '';
+                        if (town) addr += (addr ? ', ' : '') + `${pc ? pc + ' ' : ''}${town}`;
+                        let name = '';
+                        if (poiName && poiName !== road && poiName !== town) {
+                            // POI-Name ist verschieden von Straße → beides zeigen
+                            name = addr ? `${poiName}, ${addr}` : poiName;
+                        } else {
+                            name = addr || poiName;
+                        }
+                        results.push({ name: name || item.display_name.split(',').slice(0,2).join(','), lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '📍' });
                     });
                 } catch(e) {}
             }

@@ -2123,8 +2123,8 @@ async function searchNominatimForTelegram(query) {
                 const isMatch = cName.includes(searchKey) || cAddr.includes(searchKey) ||
                     (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)));
                 if (isMatch) {
-                    const lat = c.lat || c.pickupLat;
-                    const lon = c.lon || c.pickupLon;
+                    let lat = c.lat || c.pickupLat;
+                    let lon = c.lon || c.pickupLon;
                     if (lat && lon) {
                         // 🔧 v6.15.7: Usedom-Adresse muss Usedom-Koordinaten haben
                         if (_looksLikeUsedom(c.address) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) {
@@ -2139,6 +2139,11 @@ async function searchNominatimForTelegram(query) {
                             }
                         }
                         addIfNew({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer', priority: 2 });
+                    } else {
+                        // 🆕 v6.25.5: CRM-Kunde ohne Koordinaten → trotzdem anzeigen!
+                        // Koordinaten werden bei Auswahl per Geocoding nachgeladen
+                        console.log(`[CRM] "${c.name}" matcht aber hat keine Koordinaten → trotzdem vorschlagen`);
+                        addIfNew({ name: `${c.name}, ${c.address}`, lat: 0, lon: 0, source: 'customer-nocoords', priority: 3 });
                     }
                 }
             });
@@ -11020,14 +11025,26 @@ async function handleCallback(callback) {
         const selected = pending.nominatimResults[index];
         if (!selected) return;
 
+        // 🆕 v6.25.5: Falls CRM-Kunde ohne Koordinaten → per Geocoding nachladen
+        let selLat = selected.lat, selLon = selected.lon;
+        if ((!selLat || !selLon || (selLat === 0 && selLon === 0)) && selected.name) {
+            const addrPart = selected.name.includes(',') ? selected.name.split(',').slice(1).join(',').trim() : selected.name;
+            const geocoded = await geocode(addrPart);
+            if (geocoded) {
+                selLat = geocoded.lat;
+                selLon = geocoded.lon;
+                console.log(`📍 Koordinaten nachgeladen für "${addrPart}": ${selLat}, ${selLon}`);
+            }
+        }
+
         if (isPickup) {
             pending.partial.pickup = selected.name;
-            pending.partial.pickupLat = selected.lat;
-            pending.partial.pickupLon = selected.lon;
+            pending.partial.pickupLat = selLat;
+            pending.partial.pickupLon = selLon;
         } else {
             pending.partial.destination = selected.name;
-            pending.partial.destinationLat = selected.lat;
-            pending.partial.destinationLon = selected.lon;
+            pending.partial.destinationLat = selLat;
+            pending.partial.destinationLon = selLon;
         }
 
         // Prüfe ob noch die andere Adresse fehlt

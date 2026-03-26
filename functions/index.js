@@ -9036,12 +9036,52 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, `✅ <b>Zielort gesetzt:</b> ${gpsAddr}`);
         }
 
+        // 🆕 v6.25.5: Frage ob GPS-Adresse im Geocache gespeichert werden soll
+        // Prüfe ob Adresse bereits im Cache ist
+        const _gpsNormKey = normalizeAddressKey(gpsAddr);
+        const _gpsExisting = _gpsNormKey.length >= 3 ? await db.ref('geocache').orderByChild('normalizedKey').equalTo(_gpsNormKey).once('value') : null;
+        if (!_gpsExisting || !_gpsExisting.exists()) {
+            // Noch nicht im Cache → Frage stellen, aber Buchung trotzdem fortsetzen
+            // Speicher-Button wird parallel zum nächsten Schritt angezeigt
+            await sendTelegramMessage(chatId,
+                `💾 <b>Adresse speichern?</b>\n📍 ${gpsAddr}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal als Vorschlag angezeigt.</i>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${gpsLat.toFixed(5)}_${gpsLon.toFixed(5)}` },
+                     { text: '❌ Nein', callback_data: 'geocache_skip' }]
+                ] }
+            });
+        }
+
         // _gpsChoice entfernen und Buchungsfluss fortsetzen
         delete _gpsPending._gpsChoice;
         if (_gpsPending.partial) _gpsPending.partial = booking;
         else _gpsPending.booking = booking;
         await setPending(chatId, _gpsPending);
         await continueBookingFlow(chatId, booking, _gpsPending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.25.5: GPS-Adresse im Geocache speichern (User hat "Ja, speichern" gewählt)
+    if (data.startsWith('geocache_save_')) {
+        const parts = data.replace('geocache_save_', '').split('_');
+        const saveLat = parseFloat(parts[0]);
+        const saveLon = parseFloat(parts[1]);
+        if (!isNaN(saveLat) && !isNaN(saveLon)) {
+            // Adresse aus der Nachricht extrahieren (steht in der Frage-Nachricht)
+            const msgText = callbackQuery.message?.text || '';
+            const addrMatch = msgText.match(/📍 (.+)/);
+            const saveAddr = addrMatch ? addrMatch[1].trim() : '';
+            if (saveAddr) {
+                await saveToGeocache(saveAddr, saveLat, saveLon, 'gps-verified');
+                await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
+                await sendTelegramMessage(chatId, `✅ <b>Adresse gespeichert!</b>\n📍 ${saveAddr}\n\n<i>Wird beim nächsten Mal als Vorschlag angezeigt.</i>`);
+            }
+        }
+        return;
+    }
+    if (data === 'geocache_skip') {
+        // Nichts tun, Nachricht kann stehen bleiben
+        await sendTelegramMessage(chatId, '👌 OK, nicht gespeichert.');
         return;
     }
 

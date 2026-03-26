@@ -6,6 +6,10 @@
  * Der Bot antwortet jetzt auch wenn kein Browser-Tab offen ist.
  */
 
+// 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
+const CLOUD_FUNCTIONS_VERSION = '6.25.5';
+const CLOUD_FUNCTIONS_BUILD = '26.03.2026 13:00';
+
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onValueCreated, onValueUpdated, onValueDeleted } = require('firebase-functions/v2/database');
@@ -11645,6 +11649,16 @@ async function handleLocation(message) {
 exports.telegramWebhook = onRequest(
     { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1, invoker: 'public' },
     async (req, res) => {
+        // 🆕 v6.25.5: Version in Firebase schreiben (für App-Anzeige)
+        // GET-Request → Version zurückgeben (Health-Check)
+        if (req.method === 'GET') {
+            res.json({ version: CLOUD_FUNCTIONS_VERSION, build: CLOUD_FUNCTIONS_BUILD, status: 'ok' });
+            return;
+        }
+
+        // Version beim ersten Aufruf in Firebase speichern
+        try { await db.ref('settings/cloudFunctions').update({ version: CLOUD_FUNCTIONS_VERSION, build: CLOUD_FUNCTIONS_BUILD, lastActive: Date.now() }); } catch(e) {}
+
         // Nur POST akzeptieren
         if (req.method !== 'POST') {
             res.status(200).send('Funk Taxi Heringsdorf Telegram Bot - Webhook aktiv');

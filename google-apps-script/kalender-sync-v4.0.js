@@ -282,8 +282,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     let startTime;
 
     if (ride.pickupTimestamp) {
+      // pickupTimestamp ist UTC-Epoch (ms) — new Date() erzeugt korrektes Date-Objekt
+      // Google Calendar API nutzt die Script-Zeitzone (muss Europe/Berlin sein!)
       startTime = new Date(ride.pickupTimestamp);
     } else if (ride.pickupDate && ride.pickupTime) {
+      // 🔧 v5.0: Explizit als Europe/Berlin parsen um Zeitzonen-Fehler zu vermeiden
+      // Format: "2026-04-02T09:00:00" → wird als Script-Zeitzone interpretiert
       startTime = new Date(ride.pickupDate + 'T' + ride.pickupTime + ':00');
     } else if (ride.createdAt) {
       startTime = new Date(ride.createdAt + 15 * 60000);
@@ -294,6 +298,13 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     if (isNaN(startTime.getTime())) {
       console.log('⚠️ Überspringe Fahrt mit ungültigem Datum:', ride.firebaseId);
       return 'skipped';
+    }
+
+    // 🔧 v5.0: Zeitzonen-Diagnose loggen (hilft bei Debugging)
+    const scriptTz = Session.getScriptTimeZone();
+    if (scriptTz !== 'Europe/Berlin') {
+      console.log('⚠️ WARNUNG: Script-Zeitzone ist "' + scriptTz + '" statt "Europe/Berlin"!');
+      console.log('⚠️ → In Projekteinstellungen → Zeitzone auf "Europe/Berlin" setzen!');
     }
 
     const durationMinutes = ride.duration || 30;
@@ -498,12 +509,17 @@ function createEventDescription(ride) {
 // 🔍 EXISTIERENDES EVENT FINDEN
 // ═══════════════════════════════════════════════════════════════
 function findExistingEvent(calendar, firebaseId, startTime) {
-  const dayStart = new Date(startTime);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(startTime);
-  dayEnd.setHours(23, 59, 59, 999);
+  // 🔧 v5.0: Suche ±1 Tag statt nur am Zieltag!
+  // Problem: Wenn sich die Abholzeit ändert (z.B. anderer Tag oder Uhrzeit verschoben),
+  // wurde das alte Event nicht gefunden → Duplikat statt Update.
+  const searchStart = new Date(startTime);
+  searchStart.setDate(searchStart.getDate() - 1);
+  searchStart.setHours(0, 0, 0, 0);
+  const searchEnd = new Date(startTime);
+  searchEnd.setDate(searchEnd.getDate() + 1);
+  searchEnd.setHours(23, 59, 59, 999);
 
-  const events = calendar.getEvents(dayStart, dayEnd);
+  const events = calendar.getEvents(searchStart, searchEnd);
   const matchingEvents = [];
 
   for (const event of events) {

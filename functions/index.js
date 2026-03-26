@@ -12157,7 +12157,7 @@ exports.autoResolveConflicts = onSchedule(
                     const header = `🔍 *Debug: Phase 0 Schicht-Validierung*\n📊 ${allRides.length} Fahrten, ${totalShiftFixes} Korrekturen\n\nSchichtdaten vorhanden für: ${Object.keys(shiftsData).join(', ') || 'KEINE!'}\n`;
                     const debugMsg = header + '\n' + debugPhase0Lines.join('\n');
                     await sendToAllAdmins(debugMsg, 'optimization');
-                    await db.ref('settings/debugOptimierung').set(false);
+                    // 🔧 v6.34.0: Flag NICHT hier zurücksetzen — Phase 2 braucht ihn noch!
                 }
             } catch(e) { /* non-critical */ }
 

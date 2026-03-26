@@ -12992,21 +12992,64 @@ exports.scheduledAutoAssign = onSchedule(
             const allRides = [];
             ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
-            // Unzugewiesene Fahrten finden:
-            // - Keine assignedVehicle/vehicleId
-            // - Status: pending, vorbestellt, new, oder leer
-            // - pickupTimestamp in der Zukunft (mindestens 5 Min)
-            // - Nicht gelöscht/storniert/abgeschlossen
+            // 🆕 v6.25.5: Zuerst: Falsch zugewiesene Fahrten korrigieren
+            // Wenn eine Sofortfahrt auf ein anderes Datum verschoben wurde,
+            // muss das Fahrzeug neu geprüft werden
+            const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const todayStr = berlinNow.getFullYear() + '-' + String(berlinNow.getMonth()+1).padStart(2,'0') + '-' + String(berlinNow.getDate()).padStart(2,'0');
+
+            const needsReassign = allRides.filter(r => {
+                if (!r.assignedVehicle && !r.vehicleId) return false;
+                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
+                if (r.assignmentLocked) return false;
+                if (!r.pickupTimestamp || r.pickupTimestamp < now + 5 * 60000) return false;
+
+                // Prüfe: Ist das zugewiesene Fahrzeug zum Abholzeitpunkt im Dienst?
+                const vid = r.assignedVehicle || r.vehicleId;
+                const pickupBerlin = new Date(new Date(r.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
+                const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
+
+                if (!isVehicleInShift(vid, shiftsData, pickupDateStr, pickupTimeStr)) {
+                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${(OFFICIAL_VEHICLES[vid]||{}).name || vid} hat KEINEN Dienst am ${pickupDateStr} ${pickupTimeStr}!`);
+                    return true;
+                }
+                return false;
+            });
+
+            // Falsche Zuweisungen entfernen → werden dann unten neu zugewiesen
+            for (const r of needsReassign) {
+                const oldVehicle = (OFFICIAL_VEHICLES[r.assignedVehicle || r.vehicleId] || {}).name || r.vehicle || '?';
+                console.log(`🔄 Entferne Fahrzeug ${oldVehicle} von ${r.customerName || r.firebaseId} (kein Dienst zum Abholzeitpunkt)`);
+                await db.ref('rides/' + r.firebaseId).update({
+                    assignedVehicle: null, vehicleId: null, assignedTo: null,
+                    vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                    assignedBy: null, assignedAt: null,
+                    status: 'vorbestellt',
+                    reassignReason: `Fahrzeug ${oldVehicle} hatte keinen Dienst zum Abholzeitpunkt`,
+                    reassignedAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+            }
+            if (needsReassign.length > 0) {
+                console.log(`🔄 ${needsReassign.length} Fahrzeug-Zuweisungen entfernt (kein Dienst)`);
+                // Rides neu laden damit die entfernten Zuweisungen berücksichtigt werden
+                const freshSnap = await db.ref('rides').once('value');
+                allRides.length = 0;
+                freshSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+            }
+
+            // Unzugewiesene Fahrten finden
             const unassigned = allRides.filter(r => {
                 if (r.assignedVehicle || r.vehicleId) return false;
                 if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
                 if (r.assignmentLocked) return false;
                 if (!r.pickupTimestamp) return false;
-                if (r.pickupTimestamp < now + 5 * 60000) return false; // Zu spät für Auto-Zuweisung
+                if (r.pickupTimestamp < now + 5 * 60000) return false;
                 return true;
             });
 
-            if (unassigned.length === 0) {
+            if (unassigned.length === 0 && needsReassign.length === 0) {
                 console.log('✅ scheduledAutoAssign: Keine unzugewiesenen Fahrten');
                 return;
             }

@@ -2716,6 +2716,29 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
             if (suggestions.length > 0) {
+                // 🆕 v6.25.5: Verifizierte Adresse direkt übernehmen ohne Nachfrage!
+                const topHit = suggestions[0];
+                const isVerified = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
+                const isExactMatch = topHit.name && addressToResolve &&
+                    (topHit.name.toLowerCase().includes(addressToResolve.toLowerCase()) ||
+                     addressToResolve.toLowerCase().includes(topHit.name.toLowerCase().split(',')[0]));
+
+                if (isVerified && isExactMatch && topHit.lat && topHit.lon) {
+                    console.log(`✅ Verifizierte Adresse direkt übernommen: ${topHit.name} (${topHit.source})`);
+                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → exakt: ${topHit.name}`);
+                    if (needPickup) {
+                        booking.pickup = topHit.name;
+                        booking.pickupLat = topHit.lat;
+                        booking.pickupLon = topHit.lon;
+                    } else {
+                        booking.destination = topHit.name;
+                        booking.destinationLat = topHit.lat;
+                        booking.destinationLon = topHit.lon;
+                    }
+                    await continueBookingFlow(chatId, booking, originalText);
+                    return null;
+                }
+
                 // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
                 const addrBottomRow = [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }];
                 const addrLastRow = [];
@@ -3709,9 +3732,12 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const topHit = suggestions[0];
                 const searchLower = addressToResolve.toLowerCase().trim();
                 const topLower = topHit.name.toLowerCase().trim();
-                const isExactMatch = topLower === searchLower || (topLower.startsWith(searchLower) && topHit.source === 'known');
+                const isVerified2 = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
+                const isExactMatch = topLower === searchLower
+                    || (topLower.startsWith(searchLower) && topHit.source === 'known')
+                    || (isVerified2 && (topLower.includes(searchLower) || searchLower.includes(topLower.split(',')[0])));
 
-                if (isExactMatch && suggestions.length === 1) {
+                if (isExactMatch && (suggestions.length === 1 || isVerified2)) {
                     // Exakter Treffer – direkt übernehmen, keine Rückfrage nötig
                     if (needsPickupResolve) {
                         booking.pickup = topHit.name;

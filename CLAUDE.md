@@ -1,35 +1,50 @@
 # Taxi-App Entwicklungshinweise
 
-## Aktueller Stand (2026-03-15)
+## Aktueller Stand (2026-03-25)
 
-**Version:** v6.25.3 | **Branch:** `claude/deploy-firebase-functions-4qD5d`
+**Version:** v6.25.5 | **Branch:** `claude/assign-strato-domain-JJOsX`
 
-### Zuletzt implementierte Features (Session 15.03.2026):
+### Zuletzt implementierte Features (Session 25.03.2026):
 
 | Version | Feature |
 |---------|---------|
-| **v6.25.3** | Fix: Konflikt-Checker filtert deleted/rejected Fahrten + zeigt kollidierende Fahrt in Telegram + CRM-Adressen mit Koordinaten nutzen statt neu geocoden |
-| **v6.25.2** | Fix: CRM Unified Modal - Tab-Cache Reset (Tabs waren leer nach erneutem Öffnen) |
-| **v6.25.1** | Telefonnummer-Validierung mit Live-Feedback im CRM |
-| **v6.25.0** | Unified CRM Modal - Bearbeiten + Details in einem Fenster, KI-Booking Fix |
-| **v6.24.0** | PDF-Anhang bei Rechnungs-Emails + Rechnungs-Layout-Editor |
-| **v6.23.0** | CRM-Portal mit zentralen Tabs (Rechnungen, E-Mail-Verlauf, Notizen) |
-| **v6.22.0** | payRedirect Cloud Function für scannbare Stripe QR-Codes |
-| **v6.21.0** | Stripe Checkout Integration + SMTP Email-Versand via Cloud Function |
-| **v6.20.2** | Telegram Bot: Sofortfahrt mit Schichtplan-Check, Warteschlange, Bot-UX |
+| **v6.25.5** | KRITISCH: Browser-Auto-Assign deaktiviert (Schichtplan-Bug: Fahrten außerhalb Schichtzeiten zugewiesen) |
+| **v6.25.5** | Booking-Modus (?mode=booking): Buchungsformular ohne Login für Kunden-Website |
+| **v6.25.5** | Booking-Modus: Sauberer Kunden-Bildschirm (Debug/Admin/Version ausgeblendet) |
+| **v6.25.5** | Status-Changer: Klickbare Status-Badges in Fahrtenübersicht + Kalender-Detail |
+| **v6.25.5** | Kalender-Timeline scrollt automatisch zur aktuellen Uhrzeit |
+| **v6.25.5** | Fahrplan: Filter (Direkt/Bus/Bahn) + Zwischenhalte aufklappbar + API-Timeout-Fix |
+| **v6.25.5** | Fahreransicht: "Bereit!" entfernt, "Einsteigen" statt "Angekommen", Ziel-Autocomplete |
+| **v6.25.5** | Stornierung-Alarm flackert nicht mehr beim App-Start |
+| **v6.25.5** | Doppelte Fahrt-Anzeige in Fahreransicht entfernt |
+| **v6.25.5** | Adressdatenbank/Geocache in Firebase + Admin-UI mit Karten-Korrektur |
+| **v6.25.5** | Nominatim-Suche: PLZ als Schlüssel, Structured Search, engere Viewbox |
+| **v6.25.5** | KI-Telefonnummern-Fix: Regex-Korrektur bei verdoppelten Ziffern |
+| **v6.25.5** | Strato-Deployment: strato/ Ordner + deploy.sh + GitHub Action für ZIP |
+| **v6.25.5** | Tracking-Link Domain automatisch erkennen (Strato vs. GitHub Pages) |
 
 ### Erledigte Aufgaben:
-- CRM-Portal: Unified Modal mit Tabs (Daten, Routen, Fahrten, Rechnungen, E-Mails, Notizen) ✅
-- CRM-Tabs waren leer → Tab-Cache-Reset Fix ✅
-- Konflikt-Checker: deleted/rejected Fahrten werden jetzt gefiltert ✅
-- Konflikt-Telegram zeigt jetzt welche Fahrt den Konflikt verursacht ✅
-- CRM-Adressen werden beim Telegram-Booking direkt mit Koordinaten verwendet ✅
-- Booking-History-Match: Ortsteil-Mismatch (Bansin/Heringsdorf) wird toleriert ✅
+- Browser-Auto-Assign DEAKTIVIERT → Cloud Function übernimmt alle Zuweisungen ✅
+- Booking-Modus (?mode=booking) für Kunden-Website ohne Login ✅
+- Admin-Sicht/Debug im Booking-Modus ausgeblendet ✅
+- Status-Badge klickbar → Admin kann Fahrt-Status direkt ändern ✅
+- Kalender scrollt zur aktuellen Zeit ✅
+- Fahrplan-Filter (Direkt/Bus/Bahn) + aufklappbare Zwischenhalte ✅
+- Fahreransicht aufgeräumt (Bereit-Bild weg, Ziel-Eingabe mit Autocomplete) ✅
+- Stornierung-Alarm nur für NEUE Stornierungen (nicht beim App-Start) ✅
+- Geocache: Adressen in Firebase speichern + bei Suche priorisieren ✅
+- Nominatim: PLZ-basierte Structured Search statt Freitext ✅
+- Strato: deploy.sh + GitHub Action erstellt ZIP automatisch ✅
 
 ### Bekannte offene Punkte:
+- buchen.html als eigenständige Buchungsseite noch nicht fertig (aktuell ?mode=booking nutzen)
+- Telegram Adresseingabe bricht manchmal ab → muss noch gefixt werden
+- GPS im Fahrer-Tab feuert jede Sekunde im Standby (Akku-Problem)
+- Dispo-Zentrale Buttons funktionieren teilweise nicht
+- Firebase Permission Errors auf umwelt-taxi-insel-usedom.de (Domain muss in Firebase Auth eingetragen werden)
 - Vollständiges Changelog: siehe `CHANGELOG.md`
-- Firebase-Struktur erweitert um: `/invoices`, `/emailLog`
-- Nach Deploy (`firebase deploy --only functions`) testen: Telegram-Buchung mit bekanntem Kunden → Adresse sollte ohne Rückfrage erkannt werden
+- Firebase-Struktur erweitert um: `/geocache`, `/geocodeCache`, `/verificationCodes`, `/smsQueue`
+- Nach Deploy (`firebase deploy --only functions`) testen: Schichtplan-Check in Cloud Function
 
 ---
 

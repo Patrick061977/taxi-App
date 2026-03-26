@@ -13479,21 +13479,32 @@ exports.onRideUpdated = onValueUpdated(
                 const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
                 const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
 
-                if (!isVehicleInShift(newVehicle, shiftsData, pickupDateStr, pickupTimeStr)) {
+                // Grund 1: Fahrzeug hat keinen Dienst
+                const needsReassign_noShift = !isVehicleInShift(newVehicle, shiftsData, pickupDateStr, pickupTimeStr);
+
+                // Grund 2: War Sofortfahrt (GPS), ist jetzt Vorbestellung → neu optimieren
+                const minutesUntilPickup = (after.pickupTimestamp - Date.now()) / 60000;
+                const wasGpsAssigned = after.assignedBy === 'cloud-auto-assign' || after.assignedBy === 'auto-assign';
+                const isNowVorbestellung = minutesUntilPickup > 60;
+                const needsReassign_sofortToVorbestellung = wasGpsAssigned && isNowVorbestellung && before.pickupTimestamp !== after.pickupTimestamp;
+
+                if (needsReassign_noShift || needsReassign_sofortToVorbestellung) {
                     const oldVehicleName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || '?';
-                    console.log(`🔄 onRideUpdated: ${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr} → Zuweisung entfernen`);
+                    const reason = needsReassign_noShift
+                        ? `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`
+                        : `Sofortfahrt → Vorbestellung: Neu-Optimierung (${oldVehicleName} war GPS-basiert)`;
+                    console.log(`🔄 onRideUpdated: ${reason}`);
                     await db.ref('rides/' + rideId).update({
                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                         vehicle: null, vehicleLabel: null, vehiclePlate: null,
                         assignedBy: null, assignedAt: null,
                         status: 'vorbestellt',
-                        reassignReason: `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`,
+                        reassignReason: reason,
                         reassignedAt: Date.now(),
                         updatedAt: Date.now()
                     });
-                    // Auto-Assign für neues Datum
                     await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
-                    return; // Fertig, Rest nicht ausführen
+                    return;
                 }
             } catch(e) { console.warn('Schicht-Check Fehler:', e.message); }
         }

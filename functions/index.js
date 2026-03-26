@@ -13470,8 +13470,10 @@ exports.onRideUpdated = onValueUpdated(
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
         // 🆕 v6.25.5: Schicht-Check bei JEDER Änderung einer zugewiesenen Fahrt
-        // Prüft ob das Fahrzeug zum Abholzeitpunkt Dienst hat (egal was sich geändert hat)
-        if (newVehicle && after.pickupTimestamp && after.assignedBy !== 'admin' && !after.assignmentLocked) {
+        // Prüft ob das Fahrzeug zum Abholzeitpunkt passt (egal was sich geändert hat)
+        // NUR gesperrte Fahrzeuge (assignmentLocked) werden NICHT angefasst!
+        // Admin-Zuweisungen werden auch geprüft solange nicht gesperrt.
+        if (newVehicle && after.pickupTimestamp && !after.assignmentLocked) {
             try {
                 const shiftsSnap = await db.ref('vehicleShifts').once('value');
                 const shiftsData = shiftsSnap.val() || {};

@@ -519,13 +519,15 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
-            // 🔧 v6.26.0: Besetzt-Check für ALLE Fahrten (nicht nur Sofort!)
+            // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
+            // 🔧 v6.34.0: FIX — 'assigned' entfernt! Vorbestellungen haben Status 'assigned'
+            // aber das Fahrzeug ist NICHT unterwegs. Nur on_way/picked_up = wirklich besetzt.
             const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
+                (r.status === 'on_way' || r.status === 'picked_up')
             );
             if (busyRide) {
-                console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`);
+                console.log(`   ❌ ${info.name}: Aktuell besetzt (${busyRide.status})`);
                 vehicleScores[vehicleId] = { status: 'busy', reason: `Aktuell besetzt: ${busyRide.customerName || '?'} (${busyRide.status})`, check: 'busy', blockingRideCustomer: busyRide.customerName, blockingRideStatus: busyRide.status };
                 continue;
             }
@@ -12360,9 +12362,11 @@ exports.autoResolveConflicts = onSchedule(
                     if (_cShiftEnd && _cRideEndTimeStr > _cShiftEnd) continue;
 
                     // 🔧 v6.26.0: Besetzt-Check — Fahrzeug darf nicht aktiv unterwegs sein!
+                    // 🔧 v6.34.0: FIX — 'assigned' entfernt! Vorbestellungen haben Status 'assigned'
+                    // aber das Fahrzeug ist NICHT unterwegs. Nur on_way/picked_up = wirklich besetzt.
                     const vehicleBusy = allRides.some(r =>
                         (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
-                        (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+                        (r.status === 'on_way' || r.status === 'picked_up') &&
                         r.firebaseId !== ride.firebaseId
                     );
                     if (vehicleBusy) continue;
@@ -12740,9 +12744,10 @@ function findAlternativeVehicle(ride, excludeVehicleId, allRides, shiftsData, da
         if (_fShiftEnd && _fRideEndTimeStr > _fShiftEnd) continue;
 
         // 🔧 v6.26.0: Besetzt-Check — nicht auf aktive Fahrzeuge umplanen!
+        // 🔧 v6.34.0: FIX — 'assigned' entfernt! Nur on_way/picked_up = wirklich besetzt
         const vehicleBusy = allRides.some(r =>
             (r.vehicleId === vehicleId || r.assignedVehicle === vehicleId) &&
-            (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned') &&
+            (r.status === 'on_way' || r.status === 'picked_up') &&
             r.firebaseId !== ride.firebaseId
         );
         if (vehicleBusy) continue;
@@ -13013,10 +13018,11 @@ exports.scheduledAutoAssign = onSchedule(
                         continue;
                     }
 
-                    // Besetzt-Check
+                    // Besetzt-Check — nur on_way/picked_up = wirklich unterwegs
+                    // 🔧 v6.34.0: FIX — 'assigned' entfernt (Vorbestellung ≠ besetzt)
                     const busy = allRides.some(r =>
                         (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                        (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'assigned')
+                        (r.status === 'on_way' || r.status === 'picked_up')
                     );
                     if (busy && isSofort) {
                         console.log(`   ❌ ${info.name}: Aktuell besetzt`);

@@ -498,7 +498,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v4.9');
+  lines.push('📝 Erstellt von: CalendarSync v5.0');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -509,15 +509,14 @@ function createEventDescription(ride) {
 // 🔍 EXISTIERENDES EVENT FINDEN
 // ═══════════════════════════════════════════════════════════════
 function findExistingEvent(calendar, firebaseId, startTime) {
-  // 🔧 v5.0: Suche ±7 Tage statt nur am Zieltag!
-  // Problem: Wenn sich das DATUM ändert (z.B. von 01.04. auf 02.04.),
-  // wurde das alte Event nicht gefunden → blieb im Kalender stehen mit falschen Daten.
-  // Breite Suche stellt sicher dass das Event auch bei Datumsänderungen gefunden wird.
-  const searchStart = new Date(startTime);
-  searchStart.setDate(searchStart.getDate() - 7);
+  // 🔧 v5.0: Suche den GESAMTEN zukünftigen Zeitraum (heute bis +6 Monate)
+  // Wenn eine Fahrt von einem Datum auf ein anderes verschoben wird (egal wie weit),
+  // muss das alte Event gefunden und aktualisiert werden.
+  const searchStart = new Date();
+  searchStart.setDate(searchStart.getDate() - 1); // Gestern (falls Event gerade vergangen)
   searchStart.setHours(0, 0, 0, 0);
-  const searchEnd = new Date(startTime);
-  searchEnd.setDate(searchEnd.getDate() + 7);
+  const searchEnd = new Date();
+  searchEnd.setMonth(searchEnd.getMonth() + 6); // 6 Monate voraus
   searchEnd.setHours(23, 59, 59, 999);
 
   const events = calendar.getEvents(searchStart, searchEnd);

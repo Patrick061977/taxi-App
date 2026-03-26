@@ -1,6 +1,6 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 5.0 - Fix: Zeitzonen-korrektes Datum-Parsing + findExistingEvent sucht jetzt breit (nicht nur am Zieltag)
+// Version: 4.9 - Fix: Fahrzeug-/Preis-Änderungen werden jetzt auch ohne updatedAt erkannt (Titel+Beschreibung-Vergleich)
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
 //   2. Vergangene/abgeschlossene Termine im Kalender NIE anfassen
@@ -88,7 +88,7 @@ function loadExportSettings() {
 // 🚀 HAUPT-FUNKTION - NUR GEÄNDERTE TERMINE!
 // ═══════════════════════════════════════════════════════════════
 function syncFirebaseToCalendar() {
-  console.log('🚀 Starte SMARTE Kalender-Synchronisation v5.0...');
+  console.log('🚀 Starte SMARTE Kalender-Synchronisation v4.9...');
 
   // 🆕 v3.8: Hole letzten Sync-Zeitpunkt
   const lastSync = getLastSyncTimestamp();

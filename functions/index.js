@@ -9927,12 +9927,30 @@ async function handleCallback(callback) {
             const newDateFormatted = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
             const timeFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 
-            await db.ref(`rides/${rideId}`).update({
+            const updateData = {
                 pickupTimestamp: newTimestamp,
                 pickupTime: timeFormatted,
                 editedAt: Date.now(), editedBy: 'telegram-admin',
                 updatedAt: Date.now()
-            });
+            };
+
+            // 🆕 v6.25.5: Bei Datumsänderung Fahrzeug-Zuweisung entfernen wenn Auto-Zuweisung
+            // Sofortfahrt (GPS-basiert) → wird auf anderen Tag verschoben → muss neu optimiert werden
+            const oldDateStr = oldDt.toISOString().split('T')[0];
+            if (oldDateStr !== dateStr && r.assignedBy && (r.assignedBy.includes('auto') || r.assignedBy.includes('cloud'))) {
+                updateData.assignedVehicle = null;
+                updateData.vehicleId = null;
+                updateData.assignedTo = null;
+                updateData.vehicle = null;
+                updateData.vehicleLabel = null;
+                updateData.vehiclePlate = null;
+                updateData.assignedBy = null;
+                updateData.assignedAt = null;
+                updateData.status = 'vorbestellt';
+                console.log(`🔄 Datumsänderung ${oldDateStr} → ${dateStr}: Auto-Zuweisung entfernt → scheduledAutoAssign übernimmt`);
+            }
+
+            await db.ref(`rides/${rideId}`).update(updateData);
             await addTelegramLog('📅', chatId, `Admin: Datum geändert auf ${newDateFormatted}`);
             await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);

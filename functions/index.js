@@ -11678,7 +11678,15 @@ exports.telegramWebhook = onRequest(
         // 🆕 v6.25.5: Version in Firebase schreiben (für App-Anzeige)
         // GET-Request → Version zurückgeben (Health-Check)
         if (req.method === 'GET') {
+            res.set('Access-Control-Allow-Origin', '*');
             res.json({ version: CLOUD_FUNCTIONS_VERSION, build: CLOUD_FUNCTIONS_BUILD, status: 'ok' });
+            return;
+        }
+        // CORS für OPTIONS (Preflight)
+        if (req.method === 'OPTIONS') {
+            res.set('Access-Control-Allow-Origin', '*');
+            res.set('Access-Control-Allow-Methods', 'GET, POST');
+            res.status(204).send('');
             return;
         }
 

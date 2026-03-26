@@ -2013,6 +2013,7 @@ async function searchNominatimForTelegram(query) {
     };
 
     // 0) Geocache — gespeicherte Adressen mit Koordinaten (verifizierte zuerst!)
+    // 🔧 v6.25.5: Verbesserte Suche — auch Teilwort-Matches (z.B. "Lidl" findet "Lidl, Ahlbecker Chaussee 9, Bansin")
     try {
         const geocacheSnap = await db.ref('geocache').once('value');
         if (geocacheSnap.exists()) {
@@ -2022,22 +2023,41 @@ async function searchNominatimForTelegram(query) {
                 if (!entry.address || !entry.lat || !entry.lon) return;
                 const addr = entry.address.toLowerCase();
                 const normKey = entry.normalizedKey || '';
+
+                // Score berechnen: Je mehr Suchwörter matchen, desto besser
+                let matchScore = 0;
                 const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey;
                 const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey);
-                const isWordMatch = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
-                if (isExact || isIncludes || isWordMatch) {
+                const isAllWords = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
+
+                if (isExact) matchScore = 100;
+                else if (isIncludes) matchScore = 80;
+                else if (isAllWords) matchScore = 60;
+                else if (searchWords.length > 0) {
+                    // Teilwort-Match: Wie viele Suchwörter sind in der Adresse enthalten?
+                    const matchedWords = searchWords.filter(w => addr.includes(w) || normKey.includes(w));
+                    if (matchedWords.length > 0) {
+                        matchScore = Math.round((matchedWords.length / searchWords.length) * 50);
+                        // Bonus wenn mind. 1 Wort am Anfang steht (z.B. "Lidl" in "Lidl, Chaussee...")
+                        if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w))) matchScore += 10;
+                    }
+                }
+
+                // Mindestens 1 Wort muss matchen (Score > 0)
+                if (matchScore > 0) {
                     cacheHits.push({
                         name: entry.address,
                         lat: entry.lat,
                         lon: entry.lon,
                         source: entry.verified ? 'geocache-verified' : 'geocache',
-                        priority: entry.verified ? -1 : 0, // Verifizierte ganz oben!
-                        usageCount: entry.usageCount || 1
+                        priority: entry.verified ? -1 : 0,
+                        usageCount: entry.usageCount || 1,
+                        matchScore
                     });
                 }
             });
-            // Verifizierte zuerst, dann nach Nutzungshäufigkeit
-            cacheHits.sort((a, b) => (a.priority - b.priority) || (b.usageCount - a.usageCount));
+            // Verifizierte zuerst, dann nach Match-Score, dann nach Nutzungshäufigkeit
+            cacheHits.sort((a, b) => (a.priority - b.priority) || (b.matchScore - a.matchScore) || (b.usageCount - a.usageCount));
             for (const hit of cacheHits.slice(0, 3)) {
                 addIfNew(hit);
             }
@@ -3786,19 +3806,23 @@ async function continueBookingFlow(chatId, booking, originalText) {
             }
 
             // 🆕 v6.14.0: ZIELORT → Frage "Nach Hause oder anderes Ziel?"
-            if (_firstMissing === 'destination' && !booking._adminBooked) {
-                const _knownCust2 = await getTelegramCustomer(chatId);
+            // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
+            if (_firstMissing === 'destination') {
+                // Kunden-Daten: preselected (Admin-Modus) oder getTelegramCustomer (Kunden-Modus)
+                const _knownCust2 = preselected || await getTelegramCustomer(chatId);
                 if (_knownCust2 && _knownCust2.address) {
                     // Kunde hat Adresse → Nach-Hause-Button
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
-                    msg += '🎯 <b>Zielort – wohin soll die Fahrt gehen?</b>\nWählen Sie unten oder senden Sie den <b>Standort 📎</b>';
+                    const _custLabel = booking._adminBooked ? ` (${_knownCust2.name || ''})` : '';
+                    msg += `🎯 <b>Zielort${_custLabel} – wohin soll die Fahrt gehen?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
                     _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
                 }
                 // Favoriten-Ziele
-                if (_knownCust2 && _knownCust2.customerId) {
+                const _custId2 = _knownCust2?.customerId || (preselected ? booking._crmCustomerId : null);
+                if (_custId2 || (_knownCust2 && _knownCust2.name)) {
                     try {
-                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone);
+                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone);
                         if (favDests && favDests.length > 0) {
                             const destBtns = favDests.slice(0, 3).map((d, i) => ({
                                 text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
@@ -8901,7 +8925,14 @@ async function handleCallback(callback) {
         const _homePending = await getPending(chatId);
         const _homeBooking = _homePending && _homePending.partial;
         if (_homeBooking) {
-            const _homeCust = await getTelegramCustomer(chatId);
+            // 🔧 v6.25.5: Im Admin-Modus den vorausgewählten Kunden nutzen!
+            let _homeCust = null;
+            if (_homeBooking._adminBooked && _homeBooking._crmCustomerId) {
+                const _hcSnap = await db.ref('customers/' + _homeBooking._crmCustomerId).once('value');
+                const _hcData = _hcSnap.val();
+                if (_hcData) _homeCust = { ..._hcData, customerId: _homeBooking._crmCustomerId };
+            }
+            if (!_homeCust) _homeCust = await getTelegramCustomer(chatId);
             let _homeAddr = '';
             if (data === 'use_home_pickup' && _homeCust?.address) {
                 _homeAddr = _homeCust.address;
@@ -8947,7 +8978,14 @@ async function handleCallback(callback) {
         const _destPending = await getPending(chatId);
         const _destBooking = _destPending && _destPending.partial;
         if (_destBooking) {
-            const _destCust = await getTelegramCustomer(chatId);
+            // 🔧 v6.25.5: Im Admin-Modus den vorausgewählten Kunden nutzen, nicht den Admin selbst!
+            let _destCust = null;
+            if (_destBooking._adminBooked && _destBooking._crmCustomerId) {
+                const _cSnap = await db.ref('customers/' + _destBooking._crmCustomerId).once('value');
+                const _cData = _cSnap.val();
+                if (_cData) _destCust = { ..._cData, customerId: _destBooking._crmCustomerId };
+            }
+            if (!_destCust) _destCust = await getTelegramCustomer(chatId);
             if (_destCust && _destCust.address) {
                 _destBooking.destination = _destCust.address;
                 // 🔧 v6.25.3: Koordinaten aus CRM laden → kein erneutes Geocoding nötig!
@@ -9036,12 +9074,52 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, `✅ <b>Zielort gesetzt:</b> ${gpsAddr}`);
         }
 
+        // 🆕 v6.25.5: Frage ob GPS-Adresse im Geocache gespeichert werden soll
+        // Prüfe ob Adresse bereits im Cache ist
+        const _gpsNormKey = normalizeAddressKey(gpsAddr);
+        const _gpsExisting = _gpsNormKey.length >= 3 ? await db.ref('geocache').orderByChild('normalizedKey').equalTo(_gpsNormKey).once('value') : null;
+        if (!_gpsExisting || !_gpsExisting.exists()) {
+            // Noch nicht im Cache → Frage stellen, aber Buchung trotzdem fortsetzen
+            // Speicher-Button wird parallel zum nächsten Schritt angezeigt
+            await sendTelegramMessage(chatId,
+                `💾 <b>Adresse speichern?</b>\n📍 ${gpsAddr}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal als Vorschlag angezeigt.</i>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${gpsLat.toFixed(5)}_${gpsLon.toFixed(5)}` },
+                     { text: '❌ Nein', callback_data: 'geocache_skip' }]
+                ] }
+            });
+        }
+
         // _gpsChoice entfernen und Buchungsfluss fortsetzen
         delete _gpsPending._gpsChoice;
         if (_gpsPending.partial) _gpsPending.partial = booking;
         else _gpsPending.booking = booking;
         await setPending(chatId, _gpsPending);
         await continueBookingFlow(chatId, booking, _gpsPending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.25.5: GPS-Adresse im Geocache speichern (User hat "Ja, speichern" gewählt)
+    if (data.startsWith('geocache_save_')) {
+        const parts = data.replace('geocache_save_', '').split('_');
+        const saveLat = parseFloat(parts[0]);
+        const saveLon = parseFloat(parts[1]);
+        if (!isNaN(saveLat) && !isNaN(saveLon)) {
+            // Adresse aus der Nachricht extrahieren (steht in der Frage-Nachricht)
+            const msgText = callbackQuery.message?.text || '';
+            const addrMatch = msgText.match(/📍 (.+)/);
+            const saveAddr = addrMatch ? addrMatch[1].trim() : '';
+            if (saveAddr) {
+                await saveToGeocache(saveAddr, saveLat, saveLon, 'gps-verified');
+                await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
+                await sendTelegramMessage(chatId, `✅ <b>Adresse gespeichert!</b>\n📍 ${saveAddr}\n\n<i>Wird beim nächsten Mal als Vorschlag angezeigt.</i>`);
+            }
+        }
+        return;
+    }
+    if (data === 'geocache_skip') {
+        // Nichts tun, Nachricht kann stehen bleiben
+        await sendTelegramMessage(chatId, '👌 OK, nicht gespeichert.');
         return;
     }
 

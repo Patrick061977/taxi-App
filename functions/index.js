@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.34.0';
-const CLOUD_FUNCTIONS_BUILD = '26.03.2026 19:50';
+const CLOUD_FUNCTIONS_VERSION = '6.35.0';
+const CLOUD_FUNCTIONS_BUILD = '27.03.2026 19:55';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');

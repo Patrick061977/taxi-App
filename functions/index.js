@@ -1981,6 +1981,9 @@ async function searchNominatimForTelegram(query) {
     // Vor dem standalone-\bStr\b-Replace, damit "Kaiserstr 9" korrekt expandiert wird
     query = query.replace(/([a-zäöüßA-ZÄÖÜ])str\.?(\s|$)/g, (m, pre, post) => pre + 'straße' + post);
     query = query.replace(/\bStr\.?\b/g, 'Straße').replace(/\bPl\.?\b/g, 'Platz').replace(/\bHbf\.?\b/gi, 'Hauptbahnhof').replace(/\bBhf\.?\b/gi, 'Bahnhof');
+    // 🔧 Fix 4: Zusammengeschriebene Abkürzungen wie "Kaiserstr" (ohne Punkt/Leerzeichen) expandieren
+    query = query.replace(/([a-zA-ZäöüÄÖÜß])str\.?\b/g, '$1straße')
+                 .replace(/([a-zA-ZäöüÄÖÜß])pl\.?\b/gi, '$1platz');
     // 🔧 v6.25.5: Wenn nur Ortsname + Hausnummer (z.B. "Bansin 21a"),
     // erkennen und Ort vom Rest trennen — Nominatim sucht sonst nach einer Straße namens "Bansin"
     const ortsnamen = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Koserow', 'Ückeritz',
@@ -2270,10 +2273,10 @@ async function searchNominatimForTelegram(query) {
             generalData = await boundedResp.json();
 
         } else {
-            // ══ KEIN ORT/PLZ: Heringsdorf als Default-Kontext ergänzen ══
-            const localQuery = query + ', Heringsdorf';
+            // 🔧 Fix 5: KEIN ORT/PLZ — NICHT blind Heringsdorf annehmen, stattdessen
+            // strikt auf Usedom viewbox begrenzen → 0 Treffer → continueBookingFlow fragt nach Ort
             const [localResp, boundedResp] = await Promise.all([
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(localQuery)}&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${usedomViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts),
                 fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
             ]);
             usedomData = await localResp.json();
@@ -3881,13 +3884,29 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const _pendingData = await getPending(chatId);
                 const _preselected = _pendingData?.preselectedCustomer || null;
                 const _knownCust = _preselected || await getTelegramCustomer(chatId);
+                // 🔧 Fix 1: CRM-Adresse laden wenn nicht im Telegram-Cache gespeichert
+                if (_knownCust && !_knownCust.address) {
+                    const _cid1 = _knownCust.customerId || booking._crmCustomerId;
+                    if (_cid1) {
+                        try {
+                            const _cs1 = await db.ref('customers/' + _cid1).once('value');
+                            const _cd1 = _cs1.val();
+                            if (_cd1 && _cd1.address) {
+                                _knownCust.address = _cd1.address;
+                                if (!_knownCust.lat) _knownCust.lat = _cd1.lat || _cd1.pickupLat || null;
+                                if (!_knownCust.lon) _knownCust.lon = _cd1.lon || _cd1.pickupLon || null;
+                            }
+                        } catch(_e1) {}
+                    }
+                }
                 if (_knownCust && _knownCust.address) {
-                    // Kunde hat Adresse → Zuhause-Button + Anderer Ort
+                    // Kunde hat Adresse → CRM-Adresse als Vorschlag mit Button anbieten
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
                     const _custLabel2 = booking._adminBooked ? ` für ${_knownCust.name || ''}` : '';
+                    const _shortAddr1 = _knownCust.address.length > 30 ? _knownCust.address.substring(0, 28) + '…' : _knownCust.address;
                     msg += `📍 <b>Abholort${_custLabel2} – wo ${booking._adminBooked ? 'abholen' : 'sollen wir Sie abholen'}?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
-                    _inlineButtons.push([{ text: '🏠 Von zu Hause (' + (_knownCust.address.length > 25 ? _knownCust.address.substring(0, 23) + '…' : _knownCust.address) + ')', callback_data: 'use_home_pickup' }]);
+                    _inlineButtons.push([{ text: `📍 Ja, von ${_shortAddr1} abholen`, callback_data: 'use_home_pickup' }]);
                 }
                 // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
                 const _custId1 = _knownCust?.customerId || (_preselected ? booking._crmCustomerId : null);

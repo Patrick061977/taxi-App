@@ -1977,6 +1977,9 @@ async function searchNominatimForTelegram(query) {
     // Nominatim kann keine Hausnummern-Bereiche, nimmt nur die erste Nummer
     query = query.replace(/(\d+)\s*(?:bis|[-–])\s*\d+/gi, '$1');
     // 🔧 v6.25.5: Deutsche Straßen-Abkürzungen expandieren für bessere Nominatim-Ergebnisse
+    // 🔧 v6.35.0 Fix 4: Zusammengeschriebene Formen zuerst ("Kaiserstr" → "Kaiserstraße")
+    // Vor dem standalone-\bStr\b-Replace, damit "Kaiserstr 9" korrekt expandiert wird
+    query = query.replace(/([a-zäöüßA-ZÄÖÜ])str\.?(\s|$)/g, (m, pre, post) => pre + 'straße' + post);
     query = query.replace(/\bStr\.?\b/g, 'Straße').replace(/\bPl\.?\b/g, 'Platz').replace(/\bHbf\.?\b/gi, 'Hauptbahnhof').replace(/\bBhf\.?\b/gi, 'Bahnhof');
     // 🔧 v6.25.5: Wenn nur Ortsname + Hausnummer (z.B. "Bansin 21a"),
     // erkennen und Ort vom Rest trennen — Nominatim sucht sonst nach einer Straße namens "Bansin"
@@ -3573,6 +3576,33 @@ Nur gültiges JSON, kein Markdown:
             }
         }
 
+        // 🔧 v6.35.0 Fix 1+2: CRM-ID für bekannte Nicht-Admin-Kunden explizit setzen
+        // Ermöglicht den CRM-Koordinaten-Shortcut in continueBookingFlow (Fix 2)
+        if (!isAdmin && !preselected && knownCustomer && knownCustomer.customerId) {
+            if (!booking._crmCustomerId) booking._crmCustomerId = knownCustomer.customerId;
+            // "zu Hause"/"von zu Hause" literal → direkt mit CRM-Adresse ersetzen
+            // (KI liefert manchmal den Rohtext statt der gespeicherten Heimadresse)
+            const _zuHausePat = /^(von\s+)?zu\s*hause$/i;
+            if (booking.pickup && _zuHausePat.test(booking.pickup.trim()) && knownCustomer.address) {
+                booking.pickup = knownCustomer.address;
+                booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
+                if (knownCustomer.lat && knownCustomer.lon) {
+                    booking.pickupLat = parseFloat(knownCustomer.lat);
+                    booking.pickupLon = parseFloat(knownCustomer.lon);
+                }
+                await addTelegramLog('🏠', chatId, `"zu Hause" → CRM-Adresse: ${knownCustomer.address}`);
+            }
+            if (booking.destination && /^(nach\s+)?zu\s*hause$/i.test(booking.destination.trim()) && knownCustomer.address) {
+                booking.destination = knownCustomer.address;
+                booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+                if (knownCustomer.lat && knownCustomer.lon) {
+                    booking.destinationLat = parseFloat(knownCustomer.lat);
+                    booking.destinationLon = parseFloat(knownCustomer.lon);
+                }
+                await addTelegramLog('🏠', chatId, `"nach Hause" → CRM-Adresse: ${knownCustomer.address}`);
+            }
+        }
+
         // 🆕 Vorausgefüllte Koordinaten aus Favoriten übernehmen (überspringt Adress-Bestätigung)
         // 🔧 v6.25.4: PLZ-Distanz-Check — bei Mismatch Koordinaten verwerfen und neu geocodieren lassen
         const prefilledCoords = options.prefilledCoords || null;
@@ -3679,9 +3709,11 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
         // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,
         // direkt CRM-Koordinaten verwenden statt neu zu geocoden
-        if (booking.customerId && (booking.pickup && !booking.pickupLat || booking.destination && !booking.destinationLat)) {
+        // 🔧 v6.35.0 Fix 2: Auch _crmCustomerId prüfen (für Nicht-Admin-Selbstbucher)
+        const _effectiveCrmId = booking.customerId || booking._crmCustomerId;
+        if (_effectiveCrmId && (booking.pickup && !booking.pickupLat || booking.destination && !booking.destinationLat)) {
             try {
-                const _crmSnap = await db.ref('customers/' + booking.customerId).once('value');
+                const _crmSnap = await db.ref('customers/' + _effectiveCrmId).once('value');
                 const _crm = _crmSnap.val();
                 if (_crm && _crm.address) {
                     const _crmAddr = _crm.address.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
@@ -3783,8 +3815,35 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     );
                     return; // Warte auf Kundenauswahl
                 }
+            } else {
+                // 🔧 v6.35.0 Fix 3+5: 0 Geocoding-Treffer → Ort nachfragen statt lautlos
+                const _hasPlz3 = /\b\d{5}\b/.test(addressToResolve);
+                const _ortList3 = ['heringsdorf','ahlbeck','bansin','zinnowitz',
+                    'trassenheide','karlshagen','koserow','loddin','ückeritz',
+                    'zempin','peenemünde','wolgast','usedom','greifswald','anklam'];
+                const _hasOrt3 = _ortList3.some(o => addressToResolve.toLowerCase().includes(o));
+                const _isStreet3 = /straße|weg\b|ring\b|allee|chaussee|platz|gasse|damm|steig|str\b|str\./i.test(addressToResolve);
+                if (!_hasPlz3 && !_hasOrt3 && _isStreet3) {
+                    // Straße ohne Ortskontext → Nutzer nach Ort fragen
+                    const _ps3 = { partial: { ...booking }, originalText };
+                    _ps3._awaitingOrtForAddress = { field: fieldToResolve, address: addressToResolve };
+                    await setPending(chatId, _ps3);
+                    await addTelegramLog('❓', chatId, `📍 ${fieldLabel} "${addressToResolve}" ohne Ort (0 Treffer) → Ort abfragen`);
+                    await sendTelegramMessage(chatId,
+                        `❓ <b>Welcher Ort?</b>\n\nEingabe: <b>${addressToResolve}</b>\n\nIn welchem Ort liegt diese Adresse?`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '📍 Heringsdorf', callback_data: `addr_ort_heringsdorf_${fieldToResolve}` },
+                             { text: '📍 Ahlbeck', callback_data: `addr_ort_ahlbeck_${fieldToResolve}` },
+                             { text: '📍 Bansin', callback_data: `addr_ort_bansin_${fieldToResolve}` }],
+                            [{ text: '✏️ Andere Adresse', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ] } }
+                    );
+                    return;
+                }
+                // Kein Straßenmuster oder Ort vorhanden → validateTelegramAddresses übernimmt
             }
-            // Keine Ergebnisse → Adresse trotzdem behalten, wird am Ende nochmal validiert
+            // Keine Ergebnisse → Adresse behalten, validateTelegramAddresses übernimmt
         }
 
         if (booking.missing && booking.missing.length > 0) {

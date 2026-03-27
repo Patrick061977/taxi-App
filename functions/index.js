@@ -3256,11 +3256,26 @@ STRASSENNAMEN — häufige ASR-Fehler erkennen und korrigieren:
 • Bindestrich-Straßen: "Haupt straße" → "Hauptstraße" (zusammensetzen wenn sinnvoll)
 • Umlaute: "ae" → ä, "oe" → ö, "ue" → ü wenn es ein bekannter Straßenname ergibt
 
-USEDOM — bekannte Orte und Straßen:
-• Heringsdorf, Ahlbeck, Bansin = Seebäder auf Usedom (immer auf Usedom ergänzen wenn unklar)
+FAHRTRICHTUNG — KRITISCH! Pickup vs. Destination korrekt erkennen:
+⚠️ "Taxi ZUM/ZUR/NACH X" → X ist ZIELORT (destination), NICHT Abholort!
+• "Ich brauche ein Taxi zum Haus Gotensee" → destination="Haus Gotensee", pickup=null (nachfragen!)
+• "Taxi nach Ahlbeck" → destination="Ahlbeck", pickup=null
+• "Von zu Hause zum Bahnhof" → pickup=Heimadresse, destination="Bahnhof"
+• Ruft jemand von einer Einrichtung an (erkennbar am CRM/Vorname) → das IST der Abholort
+• NIEMALS "zum X" als Abholort setzen!
+
+UHRZEITEN — korrekt parsen:
+• "13.45 Uhr" → 13:45 (NICHT 10:45!) | "halb zwei" → 13:30 | "Viertel nach drei" → 15:15
+• Dezimalpunkt: "13.45" = 13 Uhr 45 Minuten (kein Komma-Wert!)
+• "dreizehn Uhr fünfundvierzig" → 13:45 | "halb elf" → 10:30 | "Viertel vor zwölf" → 11:45
+• Immer 24h-Format: 13:45, nicht 1:45
+
+USEDOM — bekannte Orte:
+• Heringsdorf, Ahlbeck, Bansin = Seebäder auf Usedom
 • Zinnowitz, Trassenheide, Karlshagen, Peenemünde, Wolgast = weitere Usedom-Orte
-• "am Bahnhof" → Bahnhof Heringsdorf | "am Flughafen" → Flughafen Heringsdorf (HDF)
-• "an der Seebrücke" → Seebrücke [genannter Ort, z.B. Heringsdorf]
+• "am Bahnhof" OHNE Ortsangabe → Bahnhof nachfragen (welcher Ort?) — NICHT automatisch Heringsdorf annehmen!
+• "am Flughafen" → Flughafen Heringsdorf (HDF) — eindeutig, kein anderer Flughafen auf Usedom
+• "an der Seebrücke" → nachfragen welcher Ort (Heringsdorf, Ahlbeck oder Bansin?)
 • Straßennamen mit Ortsangabe bevorzugen: "Lindenstraße Bansin" → "Lindenstraße, Bansin"
 
 UNVOLLSTÄNDIGE ADRESSEN — trotzdem extrahieren:

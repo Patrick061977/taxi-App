@@ -3241,7 +3241,37 @@ ZWISCHENSTOPPS:
 • Mehrere Stopps möglich: waypoints=["B", "C"] für "über B und C"
 • Zwischenstopps sind ADRESSEN, NICHT Notizen! Nie in notes schreiben!
 • Wenn keine Zwischenstopps → waypoints=[]${options.isAudioTranscript ? `
-⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
+
+━━━ AUDIO-TRANSKRIPT — BESONDERE REGELN ━━━
+Dies ist ein automatisches Sprachtranskript (ASR). Bitte beachte:
+
+ZAHLEN ALS WÖRTER → ZIFFERN umwandeln:
+• "dreiundvierzig" → 43 | "siebzehn" → 17 | "acht" → 8 | "zwölf" → 12
+• "Hausnummer drei" / "Nummer fünf" → Hausnummer 3 / 5
+• "fünfzehnter" / "am Fünfzehnten" → Hausnummer oder Datum (aus Kontext erschließen)
+
+STRASSENNAMEN — häufige ASR-Fehler erkennen und korrigieren:
+• "strasse" / "Strase" / "Schtraße" → Straße
+• "weg" / "wek" → Weg | "Allee" / "alee" → Allee | "platz" / "Plaz" → Platz
+• Bindestrich-Straßen: "Haupt straße" → "Hauptstraße" (zusammensetzen wenn sinnvoll)
+• Umlaute: "ae" → ä, "oe" → ö, "ue" → ü wenn es ein bekannter Straßenname ergibt
+
+USEDOM — bekannte Orte und Straßen:
+• Heringsdorf, Ahlbeck, Bansin = Seebäder auf Usedom (immer auf Usedom ergänzen wenn unklar)
+• Zinnowitz, Trassenheide, Karlshagen, Peenemünde, Wolgast = weitere Usedom-Orte
+• "am Bahnhof" → Bahnhof Heringsdorf | "am Flughafen" → Flughafen Heringsdorf (HDF)
+• "an der Seebrücke" → Seebrücke [genannter Ort, z.B. Heringsdorf]
+• Straßennamen mit Ortsangabe bevorzugen: "Lindenstraße Bansin" → "Lindenstraße, Bansin"
+
+UNVOLLSTÄNDIGE ADRESSEN — trotzdem extrahieren:
+• Straßenname OHNE Hausnummer → Straße trotzdem übernehmen! In question nach Hausnummer fragen.
+• Ortsname allein (z.B. "Zinnowitz") → übernehmen, nach Straße fragen
+• Name eines Gebäudes/Einrichtung ohne Straße → Name übernehmen (z.B. "Kreiskrankenhaus Wolgast"), nach Straße fragen
+• BESSER: "Lindenstraße [Hausnummer fehlt]" extrahieren + nachfragen als gar nichts extrahieren!
+
+ABGESCHNITTENER TEXT:
+• Endet der Text mitten im Satz → fehlende Felder als null, in missing aufnehmen, nachfragen
+• NICHT aus dem Kontext raten wenn unklar` : ''}
 
 TELEFON: Nummer EXAKT Ziffer für Ziffer übernehmen! KEINE Ziffern hinzufügen, verdoppeln oder weglassen!
 • 0176 38 559 559 → +4917638559559 (Leerzeichen entfernen, 0 durch +49 ersetzen, sonst NICHTS ändern!)

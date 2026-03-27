@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.36.0';
-const CLOUD_FUNCTIONS_BUILD = '27.03.2026 20:30';
+const CLOUD_FUNCTIONS_VERSION = '6.38.0';
+const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -1965,25 +1965,30 @@ async function saveToGeocache(address, lat, lon, source = 'nominatim') {
     try {
         const existing = await db.ref('geocache').orderByChild('normalizedKey').equalTo(key).once('value');
         if (existing.exists()) {
-            // Bereits im Cache → usageCount erhöhen
+            // Bereits im Cache → usageCount erhöhen, ggf. verifizieren
+            const _shouldVerify = source === 'gps-verified' || source === 'admin-edit';
             existing.forEach(child => {
                 const data = child.val();
                 db.ref(`geocache/${child.key}`).update({
                     usageCount: (data.usageCount || 1) + 1,
                     lastUsed: Date.now(),
-                    // Koordinaten nur updaten wenn vom Admin verifiziert wurde (nicht überschreiben)
-                    ...(!data.verified && { lat, lon })
+                    // Koordinaten updaten wenn nicht bereits verifiziert
+                    ...(!data.verified && { lat, lon }),
+                    // Verified-Status setzen wenn GPS-bestätigt oder Admin
+                    ...(_shouldVerify && !data.verified && { verified: true, verifiedAt: Date.now() })
                 });
             });
         } else {
-            // Neu eintragen
+            // Neu eintragen — GPS-verifiziert und Admin-Einträge direkt als verified markieren
+            const _isVerified = source === 'gps-verified' || source === 'admin-edit';
             await db.ref('geocache').push({
                 address: address.trim(),
                 normalizedKey: key,
                 lat: parseFloat(lat),
                 lon: parseFloat(lon),
                 source,
-                verified: false,
+                verified: _isVerified,
+                verifiedAt: _isVerified ? Date.now() : null,
                 usageCount: 1,
                 createdAt: Date.now(),
                 lastUsed: Date.now()

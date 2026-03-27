@@ -3818,7 +3818,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
             // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
             // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
             if (_firstMissing === 'pickup') {
-                const _knownCust = preselected || await getTelegramCustomer(chatId);
+                // 🔧 v6.34.0: preselected aus pending laden (nicht als Variable vorhanden in continueBookingFlow)
+                const _pendingData = await getPending(chatId);
+                const _preselected = _pendingData?.preselectedCustomer || null;
+                const _knownCust = _preselected || await getTelegramCustomer(chatId);
                 if (_knownCust && _knownCust.address) {
                     // Kunde hat Adresse → Zuhause-Button + Anderer Ort
                     msg = '';
@@ -3828,7 +3831,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     _inlineButtons.push([{ text: '🏠 Von zu Hause (' + (_knownCust.address.length > 25 ? _knownCust.address.substring(0, 23) + '…' : _knownCust.address) + ')', callback_data: 'use_home_pickup' }]);
                 }
                 // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
-                const _custId1 = _knownCust?.customerId || (preselected ? booking._crmCustomerId : null);
+                const _custId1 = _knownCust?.customerId || (_preselected ? booking._crmCustomerId : null);
                 if (_custId1 || (_knownCust && _knownCust.customerId)) {
                     try {
                         const _custSnap = await db.ref('customers/' + _knownCust.customerId).once('value');
@@ -3847,8 +3850,11 @@ async function continueBookingFlow(chatId, booking, originalText) {
             // 🆕 v6.14.0: ZIELORT → Frage "Nach Hause oder anderes Ziel?"
             // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
             if (_firstMissing === 'destination') {
-                // Kunden-Daten: preselected (Admin-Modus) oder getTelegramCustomer (Kunden-Modus)
-                const _knownCust2 = preselected || await getTelegramCustomer(chatId);
+                // Kunden-Daten: aus pending laden oder getTelegramCustomer
+                // 🔧 v6.34.0: preselected existiert nicht in continueBookingFlow
+                const _pendingData2 = _pendingData || await getPending(chatId);
+                const _preselected2 = _pendingData2?.preselectedCustomer || null;
+                const _knownCust2 = _preselected2 || await getTelegramCustomer(chatId);
                 if (_knownCust2 && _knownCust2.address) {
                     // Kunde hat Adresse → Nach-Hause-Button
                     msg = '';
@@ -3858,7 +3864,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
                 }
                 // Favoriten-Ziele
-                const _custId2 = _knownCust2?.customerId || (preselected ? booking._crmCustomerId : null);
+                const _custId2 = _knownCust2?.customerId || (_preselected2 ? booking._crmCustomerId : null);
                 if (_custId2 || (_knownCust2 && _knownCust2.name)) {
                     try {
                         const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone);

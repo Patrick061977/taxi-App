@@ -3256,19 +3256,10 @@ STRASSENNAMEN — häufige ASR-Fehler erkennen und korrigieren:
 • Bindestrich-Straßen: "Haupt straße" → "Hauptstraße" (zusammensetzen wenn sinnvoll)
 • Umlaute: "ae" → ä, "oe" → ö, "ue" → ü wenn es ein bekannter Straßenname ergibt
 
-FAHRTRICHTUNG — KRITISCH! Pickup vs. Destination korrekt erkennen:
-⚠️ "Taxi ZUM/ZUR/NACH X" → X ist ZIELORT (destination), NICHT Abholort!
-• "Ich brauche ein Taxi zum Haus Gotensee" → destination="Haus Gotensee", pickup=null (nachfragen!)
-• "Taxi nach Ahlbeck" → destination="Ahlbeck", pickup=null
-• "Von zu Hause zum Bahnhof" → pickup=Heimadresse, destination="Bahnhof"
-• Ruft jemand von einer Einrichtung an (erkennbar am CRM/Vorname) → das IST der Abholort
-• NIEMALS "zum X" als Abholort setzen!
-
 UHRZEITEN — korrekt parsen:
-• "13.45 Uhr" → 13:45 (NICHT 10:45!) | "halb zwei" → 13:30 | "Viertel nach drei" → 15:15
-• Dezimalpunkt: "13.45" = 13 Uhr 45 Minuten (kein Komma-Wert!)
-• "dreizehn Uhr fünfundvierzig" → 13:45 | "halb elf" → 10:30 | "Viertel vor zwölf" → 11:45
-• Immer 24h-Format: 13:45, nicht 1:45
+• "halb zwei" → 13:30 | "Viertel nach drei" → 15:15 | "Viertel vor zwölf" → 11:45
+• "zehn Uhr fünfundvierzig" → 10:45 | "dreizehn Uhr fünfundvierzig" → 13:45
+• Immer 24h-Format verwenden
 
 USEDOM — bekannte Orte:
 • Heringsdorf, Ahlbeck, Bansin = Seebäder auf Usedom

@@ -503,6 +503,19 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
+            // 🔧 v6.37.1: Sofortfahrt → Fahrer muss online und NICHT in Pause sein
+            if (isSofort) {
+                const _vData = vehicles[vehicleId] || {};
+                const _isPaused = _vData.shift && _vData.shift.status === 'paused';
+                const _isOffline = _vData.online === false;
+                if (_isPaused || _isOffline) {
+                    const _reason = _isPaused ? 'Fahrer in Pause' : 'Fahrer offline';
+                    console.log(`   ❌ ${info.name}: ${_reason} — Sofortfahrt nicht möglich`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: _reason, check: 'online-pause' };
+                    continue;
+                }
+            }
+
             // Schicht-Details für Prüfprotokoll sammeln
             const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
             if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {

@@ -1,6 +1,11 @@
 name: Deploy Telegram Bot (Cloud Functions)
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
   workflow_dispatch:
     inputs:
       branch:

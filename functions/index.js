@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.6';
+const CLOUD_FUNCTIONS_VERSION = '6.38.7';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -5590,7 +5590,7 @@ async function handleMessage(message) {
     }
 
     // === PENDING-BUCHUNGEN PRÜFEN ===
-    const pending = await getPending(chatId);
+    let pending = await getPending(chatId); // 🔧 v6.38.6: let statt const — wird bei Audio-Reset auf null gesetzt
 
     // Auto-Timeout
     if (pending && isPendingExpired(pending)) {

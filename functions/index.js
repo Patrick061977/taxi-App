@@ -2833,20 +2833,44 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     );
                     return null;
                 }
+                // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen (keine Auswahl nötig)
+                if (_hasHausnrInAddr1 && suggestions.length > 0) {
+                    const _bestHit = suggestions.find(s => s.source !== 'nominatim') || suggestions[0];
+                    if (_bestHit.lat && _bestHit.lon) {
+                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
+                        if (needPickup) {
+                            booking.pickup = _bestHit.name; booking.pickupLat = _bestHit.lat; booking.pickupLon = _bestHit.lon;
+                        } else {
+                            booking.destination = _bestHit.name; booking.destinationLat = _bestHit.lat; booking.destinationLon = _bestHit.lon;
+                        }
+                        await continueBookingFlow(chatId, booking, originalText);
+                        return null;
+                    }
+                }
+
                 // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
                 const _displaySugg1 = _hasTrustedSugg1 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
 
                 // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
+                // 🔧 v6.38.14: POI-Name muss zur Suchanfrage passen (nicht nur die Stadtadresse)
                 if (_displaySugg1.length === 1 && _hasTrustedSugg1 && _displaySugg1[0].lat && _displaySugg1[0].lon) {
                     const _solo = _displaySugg1[0];
-                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo.name}`);
-                    if (needPickup) {
-                        booking.pickup = _solo.name; booking.pickupLat = _solo.lat; booking.pickupLon = _solo.lon;
-                    } else {
-                        booking.destination = _solo.name; booking.destinationLat = _solo.lat; booking.destinationLon = _solo.lon;
+                    const _soloFirstName = (_solo.name || '').toLowerCase().split(',')[0].trim();
+                    const _qLow = addressToResolve.trim().toLowerCase();
+                    const _qWords = _qLow.split(/[\s,]+/).filter(w => w.length > 3);
+                    const _nameMatches = _soloFirstName.includes(_qLow) || _qLow.includes(_soloFirstName) ||
+                        _qWords.some(w => _soloFirstName.includes(w));
+                    if (_nameMatches) {
+                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo.name}`);
+                        if (needPickup) {
+                            booking.pickup = _solo.name; booking.pickupLat = _solo.lat; booking.pickupLon = _solo.lon;
+                        } else {
+                            booking.destination = _solo.name; booking.destinationLat = _solo.lat; booking.destinationLon = _solo.lon;
+                        }
+                        await continueBookingFlow(chatId, booking, originalText);
+                        return null;
                     }
-                    await continueBookingFlow(chatId, booking, originalText);
-                    return null;
+                    // Name passt nicht → weiter zu Vorschlägen
                 }
 
                 // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
@@ -4012,20 +4036,47 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         );
                         return;
                     }
+                    // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
+                    if (_hasHausnrInAddr2 && suggestions.length > 0) {
+                        const _bestHit2 = suggestions.find(s => s.source !== 'nominatim') || suggestions[0];
+                        if (_bestHit2.lat && _bestHit2.lon) {
+                            await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
+                            if (needsPickupResolve) {
+                                booking.pickup = _bestHit2.name; booking.pickupLat = _bestHit2.lat; booking.pickupLon = _bestHit2.lon;
+                            } else {
+                                booking.destination = _bestHit2.name; booking.destinationLat = _bestHit2.lat; booking.destinationLon = _bestHit2.lon;
+                            }
+                            return await continueBookingFlow(chatId, booking, originalText);
+                        }
+                    }
+
                     // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
                     const _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
 
                     // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
+                    // 🔧 v6.38.14: POI-Name muss zur Suchanfrage passen
                     if (_displaySugg2.length === 1 && _hasTrustedSugg2 && _displaySugg2[0].lat && _displaySugg2[0].lon) {
                         const _solo2 = _displaySugg2[0];
-                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo2.name}`);
-                        if (needsPickupResolve) {
-                            booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
-                        } else {
-                            booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
+                        const _soloName2 = (_solo2.name || '').toLowerCase().split(',')[0].trim();
+                        const _qLow2 = addressToResolve.trim().toLowerCase();
+                        const _qWords2 = _qLow2.split(/[\s,]+/).filter(w => w.length > 3);
+                        const _nameMatches2 = _soloName2.includes(_qLow2) || _qLow2.includes(_soloName2) ||
+                            _qWords2.some(w => _soloName2.includes(w));
+                        if (_nameMatches2) {
+                            await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo2.name}`);
+                            if (needsPickupResolve) {
+                                booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
+                            } else {
+                                booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
+                            }
+                            return await continueBookingFlow(chatId, booking, originalText);
                         }
-                        return await continueBookingFlow(chatId, booking, originalText);
-                    } else {
+                        // Name passt nicht → weiter zu Vorschlägen
+                    }
+
+                    // Multi-Treffer → Auswahlmenü zeigen
+                    {
+
 
                     // 🔧 v6.25.4: Zurück-Button bei Zielort-Vorschlägen
                     const _addrLastRow2 = [];

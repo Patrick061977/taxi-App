@@ -3626,6 +3626,13 @@ Nur gültiges JSON, kein Markdown:
                         const _significantWord = _a.split(/[\s,]/).find(w => w.length > 3 && !/^\d+$/.test(w));
                         if (_significantWord && _p.includes(_significantWord)) {
                             booking._pickupConfirmedByCRM = true;
+                            // 🔧 v6.38.10: Vollständige CRM-Adresse + Koordinaten übernehmen → kein doppeltes Nachfragen
+                            booking.pickup = pickupDefault;
+                            if (preselected.addressLat && preselected.addressLon) {
+                                booking.pickupLat = parseFloat(preselected.addressLat);
+                                booking.pickupLon = parseFloat(preselected.addressLon);
+                            }
+                            booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
                             await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" von ${preselected.name} → Geocoding übersprungen`);
                         }
                     }
@@ -3920,7 +3927,8 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
         // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
         // Nur wenn Adresse da ist ABER noch keine Koordinaten
-        const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon;
+        // 🔧 v6.38.10: _pickupConfirmedByCRM respektieren (wie in Path 1)
+        const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon && !booking._pickupConfirmedByCRM;
         const needsDestResolve = booking.destination && !booking.destinationLat && !booking.destinationLon;
 
         if (needsPickupResolve || needsDestResolve) {

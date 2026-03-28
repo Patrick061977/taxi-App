@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.0';
+const CLOUD_FUNCTIONS_VERSION = '6.38.3';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3585,14 +3585,16 @@ Nur gültiges JSON, kein Markdown:
                     }
                     // 🔧 v6.38.1: Pickup bereits gesetzt + stimmt mit CRM-Adresse überein
                     // → Admin hat die Adresse selbst eingetragen → kein Geocoding nötig
+                    // 🔧 v6.38.3: erstes signifikantes Wort (>3 Zeichen) statt erstem Wort
+                    //             → "Im Mühlenkamp" → "mühlenkamp" statt "im" (zu kurz)
                     if (booking.pickup && !booking.pickupLat) {
                         const _p = booking.pickup.toLowerCase().replace(/\s+/g, ' ').trim();
                         const _a = pickupDefault.toLowerCase().replace(/\s+/g, ' ').trim();
-                        // Matcht wenn mindestes das erste Wort der Straße übereinstimmt (z.B. "mühlenkamp")
-                        const _firstStreetWord = _a.split(/[\s,]/)[0];
-                        if (_firstStreetWord.length > 3 && _p.includes(_firstStreetWord)) {
+                        // Ersten signifikanten Straßennamen-Teil finden (>3 Zeichen, keine Zahl)
+                        const _significantWord = _a.split(/[\s,]/).find(w => w.length > 3 && !/^\d+$/.test(w));
+                        if (_significantWord && _p.includes(_significantWord)) {
                             booking._pickupConfirmedByCRM = true;
-                            await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" = CRM-Adresse von ${preselected.name} → Geocoding übersprungen`);
+                            await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" von ${preselected.name} → Geocoding übersprungen`);
                         }
                     }
                     if (preselected.address && /^(zu hause|zuhause|nach hause)$/i.test((booking.destination || '').trim())) {
@@ -5614,6 +5616,7 @@ async function handleMessage(message) {
             await addTelegramLog('🔄', chatId, `Neues Audio unterbricht laufendes Pending → Reset für neue Buchung (${message._callerPhone})`);
         }
         await deletePending(chatId);
+        pending = null; // 🔧 v6.38.3: Lokale Variable zurücksetzen — sonst triggert Follow-Up Check mit altem Pending
     }
 
     // 🆕 v6.11.6: NUMMER ZU BESTEHENDEM KUNDEN HINZUFÜGEN — Admin sucht Kunden

@@ -35,6 +35,28 @@ async function getStripe() {
 // ═══════════════════════════════════════════════════════════════
 
 // 🔧 v6.14.6: Mobilnummer-Erkennung (DE/AT/CH) — gleiche Logik wie index.html
+// 🆕 v6.38.10: Name aus Audio-Transkript extrahieren (für Neukunden-Flow)
+function extractNameFromTranscript(text) {
+    if (!text || text.length < 5) return null;
+    const t = text.trim();
+    // "mein Name ist [Name]"
+    let m = t.match(/mein\s+Name\s+ist\s+([A-ZÜÖÄ][a-züöäß]+(?:\s+[A-ZÜÖÄ][a-züöäß-]+){0,2})/i);
+    if (m) return m[1].trim();
+    // "hier ist [Name]" / "hier spricht [Name]"
+    m = t.match(/hier\s+(?:ist|spricht)\s+([A-ZÜÖÄ][a-züöäß]+(?:\s+[A-ZÜÖÄ][a-züöäß-]+){0,2})/i);
+    if (m) return m[1].trim();
+    // "ich bin [Name]"
+    m = t.match(/ich\s+bin\s+([A-ZÜÖÄ][a-züöäß]+(?:\s+[A-ZÜÖÄ][a-züöäß-]+){0,2})/i);
+    if (m) return m[1].trim();
+    // "[Vorname] [Nachname], hallo" — typisch: "Daniela Zanetti, hallo"
+    m = t.match(/([A-ZÜÖÄ][a-züöäß]+\s+[A-ZÜÖÄ][a-züöäß-]+)\s*,?\s*hallo/i);
+    if (m) return m[1].trim();
+    // "hallo, ich bin [Name]" / "hallo, [Name] hier"
+    m = t.match(/hallo[,.]?\s+(?:ich\s+bin\s+)?([A-ZÜÖÄ][a-züöäß]+(?:\s+[A-ZÜÖÄ][a-züöäß-]+)?)\s+hier/i);
+    if (m) return m[1].trim();
+    return null;
+}
+
 function isMobileNumber(phone) {
     if (!phone) return false;
     const n = String(phone).replace(/[\s\-\/\(\)]/g, '');
@@ -7784,13 +7806,75 @@ async function handleCallback(callback) {
             await analyzeTelegramBooking(chatId, text, userName, { forSelf: true });
         } else {
             // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
-            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null });
-            await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
+            // 🆕 v6.38.10: Name aus Transkript extrahieren und als Vorschlag anbieten
+            const _suggestedName = extractNameFromTranscript(text);
+            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null, _suggestedName: _suggestedName || null });
+            const _custNameBtns = [];
+            if (_suggestedName) _custNameBtns.push([{ text: `👤 ${_suggestedName}`, callback_data: `admin_suggest_name_${Date.now().toString(36)}` }]);
+            _custNameBtns.push([{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }]);
+            _custNameBtns.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+            const _custMsg = _suggestedName
+                ? `👤 <b>Für welchen Kunden?</b>\n\n📝 Erkannter Name aus Transkript: <b>${_suggestedName}</b>\n\nBestätigen oder anderen Namen eingeben:`
+                : '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:';
+            await sendTelegramMessage(chatId, _custMsg, { reply_markup: { inline_keyboard: _custNameBtns } });
+        }
+        return;
+    }
+
+    // 🆕 v6.38.10: Vorgeschlagenen Namen aus Transkript bestätigen
+    if (data.startsWith('admin_suggest_name_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._suggestedName) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.');
+            return;
+        }
+        // Vorgeschlagenen Namen als Eingabe behandeln — wie wenn Admin den Namen getippt hätte
+        const fakeMsg = { text: pending._suggestedName };
+        // Pending in awaitingCustomerName-State lassen — handleMessage wird ihn als Namenseingabe verarbeiten
+        // Wir simulieren die Texteingabe direkt:
+        const allCust = await loadAllCustomers();
+        const matches = findAllCustomersForSecretary(allCust, pending._suggestedName);
+        const confirmId = Date.now().toString(36);
+        if (matches.length === 0) {
+            // Nicht gefunden → Neukunde anlegen anbieten
+            await setPending(chatId, {
+                awaitingNewCustomerChoice: true,
+                newCustomerName: pending._suggestedName,
+                originalText: pending.originalText,
+                userName: pending.userName,
+                _callerPhone: pending._callerPhone || null,
+                _newCustId: confirmId
+            });
+            await sendTelegramMessage(chatId,
+                `🔍 <b>"${pending._suggestedName}" nicht im CRM gefunden.</b>\n\nWas möchtest du tun?`, {
                 reply_markup: { inline_keyboard: [
-                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
-                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: `admin_create_cust_${confirmId}` }],
+                    [{ text: '➡️ Trotzdem buchen (ohne CRM)', callback_data: `admin_skip_crm_${confirmId}` }],
+                    [{ text: '🔍 Anderen Namen eingeben', callback_data: `admin_retry_name_${confirmId}` }]
                 ] }
             });
+        } else if (matches.length === 1) {
+            const found = matches[0];
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmConfirm: { found, confirmId }, customerName: pending._suggestedName, _callerPhone: pending._callerPhone || null });
+            let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+            if (found.mobilePhone || found.phone) confirmMsg += `📱 ${found.mobilePhone || found.phone}\n`;
+            if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+            confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+            await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] } });
+        } else {
+            await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: pending.originalText, userName: pending.userName, crmMultiSelect: { matches, confirmId }, customerName: pending._suggestedName, _callerPhone: pending._callerPhone || null });
+            let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${pending._suggestedName}":</b>`;
+            const buttons = matches.map((m, i) => {
+                let label = `👤 ${m.name}`;
+                if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                return [{ text: label, callback_data: `admin_cust_sel_${i}_${confirmId}` }];
+            });
+            buttons.push([{ text: '🆕 Keiner davon', callback_data: `admin_cust_no_${confirmId}` }]);
+            buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+            await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
         }
         return;
     }

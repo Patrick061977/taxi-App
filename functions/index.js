@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.8';
+const CLOUD_FUNCTIONS_VERSION = '6.38.9';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3774,6 +3774,9 @@ Nur gültiges JSON, kein Markdown:
             await sendTelegramMessage(chatId, `🤖 <b>Erkannt:</b>\n${_recognized.join('\n')}`);
         }
 
+        // 🆕 v6.38.9: Email aus Foto-Analyse übernehmen (wenn KI es nicht selbst erkannt hat)
+        if (options.prefilledEmail && !booking.email) booking.email = options.prefilledEmail;
+
         await continueBookingFlow(chatId, booking, text);
 
     } catch (e) {
@@ -3869,6 +3872,20 @@ async function continueBookingFlow(chatId, booking, originalText) {
             } catch(e) { console.warn('CRM-Adress-Check Fehler:', e.message); }
         }
 
+        // 🆕 v6.38.9: CRM-Heimadresse für Geocoding-Vorschläge merken (Kawohl-Verbesserung)
+        // Wird weiter unten bei den Geocoding-Vorschlägen als "🏠 Nach Hause" Button angeboten
+        if (_effectiveCrmId && !booking._crmHomeAddress) {
+            try {
+                const _chSnap = await db.ref('customers/' + _effectiveCrmId).once('value');
+                const _chData = _chSnap.val();
+                if (_chData && _chData.address) {
+                    booking._crmHomeAddress = _chData.address;
+                    booking._crmHomeLat = _chData.lat || _chData.pickupLat || null;
+                    booking._crmHomeLon = _chData.lon || _chData.pickupLon || null;
+                }
+            } catch(_che) {}
+        }
+
         // 🆕 v6.11.4: Adressen SOFORT validieren – "Meinten Sie...?" bevor nach fehlenden Feldern gefragt wird
         // Nur wenn Adresse da ist ABER noch keine Koordinaten
         const needsPickupResolve = booking.pickup && !booking.pickupLat && !booking.pickupLon;
@@ -3916,8 +3933,21 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         _addrLastRow2.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
                     }
                     _addrLastRow2.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
+                    // 🆕 v6.38.9: CRM-Heimadresse als erste Option anbieten (Kawohl-Verbesserung)
+                    const _crmHomeRows = [];
+                    if (booking._crmHomeAddress && booking._crmHomeLat) {
+                        const _shortCrmHome = booking._crmHomeAddress.length > 28 ? booking._crmHomeAddress.substring(0, 26) + '…' : booking._crmHomeAddress;
+                        if (!needsPickupResolve) {
+                            // Zielort → "Nach Hause"
+                            _crmHomeRows.push([{ text: `🏠 Nach Hause (${_shortCrmHome})`, callback_data: 'use_home_dest' }]);
+                        } else {
+                            // Abholort → "Von zu Hause"
+                            _crmHomeRows.push([{ text: `📍 Von zu Hause (${_shortCrmHome})`, callback_data: 'use_home_pickup' }]);
+                        }
+                    }
                     const keyboard = {
                         inline_keyboard: [
+                            ..._crmHomeRows,
                             ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             _addrLastRow2
@@ -4503,6 +4533,7 @@ function buildTelegramConfirmMsg(booking, routePrice) {
         if (cleanPhone) msg += `📱 ${cleanPhone}\n`;
     }
     if (booking.notes && booking.notes !== 'null') msg += `📝 ${booking.notes}\n`;
+    if (booking.email) msg += `📧 ${booking.email}\n`;
     // Zahlungsmethode anzeigen
     const payMethod = booking.paymentMethod || 'bar';
     msg += `💳 Zahlung: ${payMethod === 'karte' ? 'Kartenzahlung' : 'Barzahlung'}\n`;
@@ -7419,8 +7450,12 @@ async function handleCallback(callback) {
             // (handleMessage triggert Admin-Flow "Für Kunden oder selbst?" → unnötige Rückfragen)
             const bookingText = analysis.extractedText || _buildBookingText(analysis.booking);
             const userName = callback.from?.first_name || 'Admin';
+            // 🆕 v6.38.9: Email aus Foto-Analyse extrahieren (aus booking.email oder Regex im Text)
+            const _photoEmail = analysis.booking?.email ||
+                (analysis.extractedText || '').match(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/)?.[0] || null;
+            if (_photoEmail) await addTelegramLog('📧', chatId, `Foto: Email erkannt → ${_photoEmail}`);
             await sendTelegramMessage(chatId, `📷 <b>Buchung wird analysiert...</b>\n<i>${analysis.summary || ''}</i>`);
-            await analyzeTelegramBooking(chatId, bookingText, userName, { isAdmin: true, isAudioTranscript: true });
+            await analyzeTelegramBooking(chatId, bookingText, userName, { isAdmin: true, isAudioTranscript: true, prefilledEmail: _photoEmail });
             return;
         }
 
@@ -8221,6 +8256,8 @@ async function handleCallback(callback) {
                 [{ text: '🔄 Rückfahrt buchen', callback_data: `return_${rideData.id}` }],
                 [{ text: '📅 Datum ändern', callback_data: `chdate_${rideData.id}` }, { text: '👥 Personen', callback_data: `chpax_${rideData.id}` }],
                 [{ text: '👤 Gastname', callback_data: `chguest_${rideData.id}` }],
+                // 🆕 v6.38.9: Email-Bestätigung wenn Email vorhanden
+                ...(rideData.customerEmail ? [[{ text: `📧 Bestätigung an ${rideData.customerEmail.length > 28 ? rideData.customerEmail.substring(0, 26) + '…' : rideData.customerEmail}`, callback_data: `email_ride_${rideData.id}` }]] : []),
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             const _isJetztFahrt = booking._isJetzt;
@@ -9270,11 +9307,18 @@ async function handleCallback(callback) {
         const _homeBooking = _homePending && _homePending.partial;
         if (_homeBooking) {
             // 🔧 v6.25.5: Im Admin-Modus den vorausgewählten Kunden nutzen!
+            // 🔧 v6.38.9: Auch booking.customerId prüfen (KI-erkannte Stammkunden)
             let _homeCust = null;
-            if (_homeBooking._adminBooked && _homeBooking._crmCustomerId) {
-                const _hcSnap = await db.ref('customers/' + _homeBooking._crmCustomerId).once('value');
-                const _hcData = _hcSnap.val();
-                if (_hcData) _homeCust = { ..._hcData, customerId: _homeBooking._crmCustomerId };
+            const _homePickupCrmId = _homeBooking._crmCustomerId || _homeBooking.customerId;
+            if (_homePickupCrmId) {
+                // 🆕 v6.38.9: Wenn _crmHomeAddress im Booking, direkt nutzen (kein DB-Zugriff nötig)
+                if (_homeBooking._crmHomeAddress) {
+                    _homeCust = { address: _homeBooking._crmHomeAddress, lat: _homeBooking._crmHomeLat, lon: _homeBooking._crmHomeLon, customerId: _homePickupCrmId };
+                } else {
+                    const _hcSnap = await db.ref('customers/' + _homePickupCrmId).once('value');
+                    const _hcData = _hcSnap.val();
+                    if (_hcData) _homeCust = { ..._hcData, customerId: _homePickupCrmId };
+                }
             }
             if (!_homeCust) _homeCust = await getTelegramCustomer(chatId);
             let _homeAddr = '';
@@ -9323,11 +9367,18 @@ async function handleCallback(callback) {
         const _destBooking = _destPending && _destPending.partial;
         if (_destBooking) {
             // 🔧 v6.25.5: Im Admin-Modus den vorausgewählten Kunden nutzen, nicht den Admin selbst!
+            // 🔧 v6.38.9: Auch booking.customerId prüfen (KI-erkannte Stammkunden)
             let _destCust = null;
-            if (_destBooking._adminBooked && _destBooking._crmCustomerId) {
-                const _cSnap = await db.ref('customers/' + _destBooking._crmCustomerId).once('value');
-                const _cData = _cSnap.val();
-                if (_cData) _destCust = { ..._cData, customerId: _destBooking._crmCustomerId };
+            const _destCrmId2 = _destBooking._crmCustomerId || _destBooking.customerId;
+            if (_destCrmId2) {
+                // 🆕 v6.38.9: Wenn _crmHomeAddress im Booking, direkt nutzen
+                if (_destBooking._crmHomeAddress) {
+                    _destCust = { address: _destBooking._crmHomeAddress, lat: _destBooking._crmHomeLat, lon: _destBooking._crmHomeLon, customerId: _destCrmId2 };
+                } else {
+                    const _cSnap = await db.ref('customers/' + _destCrmId2).once('value');
+                    const _cData = _cSnap.val();
+                    if (_cData) _destCust = { ..._cData, customerId: _destCrmId2 };
+                }
             }
             if (!_destCust) _destCust = await getTelegramCustomer(chatId);
             if (_destCust && _destCust.address) {
@@ -9659,6 +9710,77 @@ async function handleCallback(callback) {
     }
 
     // 🔧 v6.11.0: Rückfahrt buchen (Von ↔ Nach tauschen)
+    // 🆕 v6.38.9: Buchungsbestätigung per Email senden
+    if (data.startsWith('email_ride_')) {
+        const _emailRideId = data.replace('email_ride_', '');
+        try {
+            const _erSnap = await db.ref(`rides/${_emailRideId}`).once('value');
+            const _erRide = _erSnap.val();
+            if (!_erRide) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
+            const _toEmail = _erRide.customerEmail;
+            if (!_toEmail) { await sendTelegramMessage(chatId, '⚠️ Keine Email-Adresse bei dieser Fahrt gespeichert.'); return; }
+            // SMTP-Einstellungen laden
+            const _smtpSnap = await db.ref('settings/smtp').once('value');
+            const _smtp = _smtpSnap.val();
+            if (!_smtp || !_smtp.host || !_smtp.user || !_smtp.pass) {
+                await sendTelegramMessage(chatId, '⚠️ SMTP nicht konfiguriert! Bitte unter Einstellungen → Rechnungseinstellungen → SMTP einrichten.');
+                return;
+            }
+            const _settSnap = await db.ref('settings/invoice').once('value');
+            const _sett = _settSnap.val() || {};
+            const _companyName = _sett.companyName || 'Funk Taxi Heringsdorf';
+            const _companyPhone = _sett.phone || '+49 38378 22722';
+            const _companyEmail = _sett.email || 'info@funk-taxi-heringsdorf.de';
+            // Fahrtdaten formatieren
+            const _erDt = new Date(_erRide.pickupTimestamp || 0);
+            const _erDateStr = _erDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const _erTimeStr = _erDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+            const _erName = _erRide.guestName || _erRide.customerName || 'Sehr geehrter Fahrgast';
+            const _salutation = _erName && _erName !== 'Sehr geehrter Fahrgast' ? `Sehr geehrte/r ${_erName}` : 'Sehr geehrter Fahrgast';
+            const _emailSubject = `Taxibuchung bestätigt – ${_erDateStr} um ${_erTimeStr} Uhr`;
+            const _emailHtml = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+<div style="background:#1a1a2e;padding:20px;border-radius:8px;text-align:center;margin-bottom:20px">
+  <h1 style="color:#fff;margin:0;font-size:22px">🚕 Taxibuchung bestätigt</h1>
+  <p style="color:#aaa;margin:5px 0 0">${_companyName}</p>
+</div>
+<p>${_salutation},</p>
+<p>Ihre Taxibuchung wurde erfolgreich eingetragen. Hier sind Ihre Fahrtdetails:</p>
+<div style="background:#f8f9fa;border-left:4px solid #007bff;padding:15px;border-radius:4px;margin:20px 0">
+  <p style="margin:5px 0">📅 <strong>Abfahrt:</strong> ${_erDateStr} um ${_erTimeStr} Uhr</p>
+  <p style="margin:5px 0">📍 <strong>Abholort:</strong> ${_erRide.pickup || '–'}</p>
+  <p style="margin:5px 0">🎯 <strong>Zielort:</strong> ${_erRide.destination || '–'}</p>
+  <p style="margin:5px 0">👥 <strong>Personen:</strong> ${_erRide.passengers || 1}</p>
+  ${_erRide.estimatedPrice ? `<p style="margin:5px 0">💰 <strong>Geschätzter Preis:</strong> ca. ${_erRide.estimatedPrice} €</p>` : ''}
+  ${_erRide.paymentMethod === 'karte' ? '<p style="margin:5px 0">💳 <strong>Zahlung:</strong> Kartenzahlung</p>' : '<p style="margin:5px 0">💵 <strong>Zahlung:</strong> Barzahlung</p>'}
+</div>
+<p>Bei Fragen oder Änderungen erreichen Sie uns unter:</p>
+<p>📞 <a href="tel:${_companyPhone}">${_companyPhone}</a><br>
+📧 <a href="mailto:${_companyEmail}">${_companyEmail}</a></p>
+<p style="color:#666;font-size:12px;border-top:1px solid #eee;padding-top:15px;margin-top:20px">${_companyName} · Buchungsnr. ${_emailRideId.substring(0, 8)}</p>
+</body></html>`;
+            const _nodemailer = require('nodemailer');
+            const _transporter = _nodemailer.createTransport({
+                host: _smtp.host, port: parseInt(_smtp.port) || 587,
+                secure: (parseInt(_smtp.port) || 587) === 465,
+                auth: { user: _smtp.user, pass: _smtp.pass }
+            });
+            const _fromName = _sett.fromName || _companyName;
+            const _fromAddr = _smtp.from || _smtp.user;
+            await _transporter.sendMail({
+                from: `"${_fromName}" <${_fromAddr}>`,
+                to: _toEmail,
+                subject: _emailSubject,
+                html: _emailHtml
+            });
+            await addTelegramLog('📧', chatId, `Buchungsbestätigung gesendet an ${_toEmail} (Fahrt ${_emailRideId})`);
+            await sendTelegramMessage(chatId, `✅ <b>Buchungsbestätigung gesendet!</b>\n\n📧 An: <code>${_toEmail}</code>\n📅 ${_erDateStr} um ${_erTimeStr} Uhr\n📍 ${_erRide.pickup} → ${_erRide.destination}`);
+        } catch(_emailErr) {
+            await addTelegramLog('❌', chatId, `Email-Fehler: ${_emailErr.message}`);
+            await sendTelegramMessage(chatId, `❌ Email-Fehler: ${_emailErr.message}`);
+        }
+        return;
+    }
+
     if (data.startsWith('return_')) {
         const origRideId = data.replace('return_', '');
         try {
@@ -11887,6 +12009,7 @@ Antworte NUR mit diesem JSON (kein anderer Text):
   "booking": {
     "name": null,
     "phone": null,
+    "email": null,
     "pickup": null,
     "destination": null,
     "datetime": null,

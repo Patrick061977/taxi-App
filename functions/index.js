@@ -3674,6 +3674,20 @@ Nur gültiges JSON, kein Markdown:
                         booking.destinationLon = null;
                         if (!booking.missing.includes('destination')) booking.missing.push('destination');
                     }
+                } else if (preselected._addressRole === 'destination') {
+                    // 🆕 v6.38.16: Admin hat "Zielort" gewählt → Adresse als Destination setzen
+                    const _destAddr = preselected.address || pickupDefault;
+                    if (_destAddr && (!booking.destination || /^(nach hause|zu hause|zuhause)$/i.test((booking.destination || '').trim()))) {
+                        booking.destination = _destAddr;
+                        booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+                        if (preselected.addressLat && preselected.addressLon) {
+                            booking.destinationLat = parseFloat(preselected.addressLat);
+                            booking.destinationLon = parseFloat(preselected.addressLon);
+                        }
+                        await addTelegramLog('🎯', chatId, `Zielort aus _addressRole gesetzt: ${_destAddr}`);
+                    }
+                } else if (preselected._addressRole === 'skip') {
+                    // Adresse nicht verwenden — nichts tun
                 } else if (pickupDefault) {
                     if (!booking.pickup || /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test((booking.pickup || '').trim())) {
                         booking.pickup = pickupDefault;
@@ -9626,6 +9640,56 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.38.16: Stammkunden-Adresse → Abholort oder Zielort?
+    if (data.startsWith('addr_role_pickup_') || data.startsWith('addr_role_dest_') || data.startsWith('addr_role_skip_')) {
+        const _arPending = await getPending(chatId);
+        if (!_arPending?._awaitingAddrRole) return;
+        const _arCustomer = { ..._arPending.preselectedCustomer };
+
+        if (data.startsWith('addr_role_dest_')) {
+            _arCustomer._addressRole = 'destination'; // Adresse als Zielort
+            await addTelegramLog('🎯', chatId, `Adresse von ${_arCustomer.name} wird als Zielort gesetzt: ${_arCustomer.address}`);
+        } else if (data.startsWith('addr_role_skip_')) {
+            _arCustomer._addressRole = 'skip'; // Adresse nicht verwenden
+            await addTelegramLog('📝', chatId, `Adresse von ${_arCustomer.name} wird NICHT verwendet`);
+        } else {
+            await addTelegramLog('🏠', chatId, `Adresse von ${_arCustomer.name} wird als Abholort gesetzt: ${_arCustomer.address}`);
+        }
+
+        // Favoriten nur anzeigen wenn Abholort (nicht wenn Zielort schon gesetzt)
+        const _arFavs = data.startsWith('addr_role_dest_') ? [] :
+            await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone);
+
+        if (_arFavs.length > 0) {
+            const _arFavId = Date.now().toString(36);
+            await setPending(chatId, {
+                awaitingFavDestination: true,
+                originalText: _arPending.originalText,
+                userName: _arPending.userName,
+                preselectedCustomer: _arCustomer,
+                favorites: _arFavs,
+                favId: _arFavId
+            });
+            for (const f of _arFavs) {
+                if (f.destinationLat && f.destinationLon) f.destination = await cleanupAddress(f.destination, f.destinationLat, f.destinationLon);
+            }
+            let _arFavMsg = `✅ <b>${_arCustomer.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
+            const _arBtns = _arFavs.map((f, i) => {
+                _arFavMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
+                const _lbl = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
+                return [{ text: `📍 ${_lbl}`, callback_data: `fav_dest_${i}_${_arFavId}` }];
+            });
+            _arBtns.push([{ text: '📝 Anderes Ziel', callback_data: `fav_dest_other_${_arFavId}` }]);
+            await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
+        } else {
+            await deletePending(chatId);
+            const _arLabel = data.startsWith('addr_role_dest_') ? '🎯 Zielort' : (data.startsWith('addr_role_skip_') ? '📝 Ohne Adresse' : '🏠 Abholort');
+            await sendTelegramMessage(chatId, `✅ <b>${_arCustomer.name}</b> (${_arLabel})\n🤖 <i>Analysiere Buchung...</i>`);
+            await analyzeTelegramBooking(chatId, _arPending.originalText, _arPending.userName, { isAdmin: true, preselectedCustomer: _arCustomer });
+        }
+        return;
+    }
+
     // 🆕 v6.14.0: "Anderer Ort" → Standort oder Adresse eingeben
     if (data === 'pickup_other_location' || data === 'dest_other_location') {
         const _locPending = await getPending(chatId);
@@ -11151,6 +11215,32 @@ async function handleCallback(callback) {
         }
 
         await addTelegramLog('👤', chatId, `Admin: Vorausgewählter Kunde: ${found.name}`);
+
+        // 🆕 v6.38.16: Wenn Stammkunde mit Adresse → fragen: Abholort oder Zielort?
+        // Nur wenn der Originaltext NICHT eindeutig "von zuhause" oder "nach hause" enthält
+        const _origTextLower = (pending.originalText || '').toLowerCase();
+        const _hasHomePickupKW = /von\s*(zu\s*hause|zuhause|heim)/.test(_origTextLower);
+        const _hasHomeDestKW = /(nach\s*hause|nachhause)/.test(_origTextLower);
+        if (found.address && !_hasHomePickupKW && !_hasHomeDestKW) {
+            const _roleId = Date.now().toString(36);
+            const _shortAddr = found.address.length > 32 ? found.address.substring(0, 30) + '…' : found.address;
+            await setPending(chatId, {
+                _awaitingAddrRole: true,
+                _addrRoleId: _roleId,
+                preselectedCustomer: found,
+                originalText: pending.originalText,
+                userName: pending.userName
+            });
+            await sendTelegramMessage(chatId,
+                `👤 <b>${found.name}</b>\n🏠 <code>${_shortAddr}</code>\n\n<b>Diese Adresse als…?</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '🏠 Abholort', callback_data: `addr_role_pickup_${_roleId}` },
+                     { text: '🎯 Zielort (Nach Hause)', callback_data: `addr_role_dest_${_roleId}` }],
+                    [{ text: '📝 Nicht verwenden', callback_data: `addr_role_skip_${_roleId}` }]
+                ]}
+            });
+            return;
+        }
 
         // Beliebte Ziele des Kunden laden
         // 🔧 v6.14.7: Auch mobilePhone für Favoriten-Suche nutzen

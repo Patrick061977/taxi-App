@@ -2391,6 +2391,31 @@ async function searchNominatimForTelegram(query) {
     } catch (e) { console.warn('Nominatim Fehler:', e); }
 
     // ═══════════════════════════════════════════════════════════
+    // 🔧 v6.38.1: RELEVANZ-FILTER für Nominatim-Ergebnisse
+    // Zeige nur Nominatim-Treffer wo der gesuchte Straßenname vorkommt.
+    // Verhindert: "Im Mühlenkamp 19" suchen → "Maxim-Gorki-Straße" angezeigt
+    // ═══════════════════════════════════════════════════════════
+    if (nominatimResults.length > 0) {
+        // Straßenwörter extrahieren: alles >3 Buchstaben, keine PLZ-Zahlen, keine Ortsnamen
+        const knownOrtWords = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz',
+            'loddin', 'trassenheide', 'zempin', 'karlshagen', 'wolgast', 'peenemünde', 'greifswald',
+            'anklam', 'usedom', 'swinemünde', 'berlin', 'hamburg', 'rostock', 'stralsund'];
+        const streetWords = searchWords.filter(w =>
+            w.length > 3 &&
+            !/^\d{4,5}$/.test(w) &&  // keine PLZ
+            !knownOrtWords.includes(w) // keine Ortsnamen
+        );
+        if (streetWords.length > 0) {
+            const relevantNominatim = nominatimResults.filter(r => {
+                const rName = r.name.toLowerCase();
+                return streetWords.some(w => rName.includes(w));
+            });
+            // Wenn kein Nominatim-Treffer relevant → alle raus (lieber 0 Treffer als Schrott)
+            nominatimResults.splice(0, nominatimResults.length, ...relevantNominatim);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // ERGEBNIS: Lokale Treffer zuerst, dann Nominatim — max 5 gesamt
     // ═══════════════════════════════════════════════════════════
     return [...localResults, ...nominatimResults].slice(0, 5);
@@ -2773,13 +2798,14 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 }
 
                 // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
+                // 🔧 v6.38.1: "So verwenden" jetzt klarer benannt
+                const shortAddrNorm = addressToResolve.length > 28 ? addressToResolve.slice(0, 26) + '…' : addressToResolve;
                 const addrBottomRow = [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }];
                 const addrLastRow = [];
                 if (!needPickup && needDest) {
-                    // Zielort-Vorschläge: Zurück = Abholort nochmal ändern
                     addrLastRow.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
                 }
-                addrLastRow.push({ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' });
+                addrLastRow.push({ text: `✅ "${shortAddrNorm}" so verwenden`, callback_data: 'addr_skip' });
                 addrLastRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                 const keyboard = {
                     inline_keyboard: [
@@ -2885,11 +2911,14 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (topSimilar.length > 0) {
                     // Ähnliche Orte gefunden → als Buttons anbieten
                     const simSuggestions = topSimilar.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, source: 'known' }));
+                    const shortAddrSim = addressToResolve.length > 28 ? addressToResolve.slice(0, 26) + '…' : addressToResolve;
                     const keyboard = {
                         inline_keyboard: [
+                            // 🔧 v6.38.1: "So verwenden" immer als erste Option
+                            [{ text: `✅ "${shortAddrSim}" so verwenden`, callback_data: 'addr_skip' }],
                             ...simSuggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                            [{ text: '⏩ Weiter ohne Preis', callback_data: 'addr_skip' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                         ]
                     };
                     const pendingState = { partial: { ...booking, missing: [] }, originalText };
@@ -2908,16 +2937,29 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     return null;
                 }
 
-                // Wirklich nichts gefunden → Neu eingeben (aber freundlicher)
-                await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → keine Ergebnisse`);
+                // 🔧 v6.38.1: Adresse unbekannt → als-ist anbieten + Neu-Eingabe
+                // (nicht einfach löschen — die Adresse könnte trotzdem richtig sein, nur Nominatim kennt sie nicht)
+                await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → nicht in Nominatim/Cache, biete as-is an`);
+                if (needPickup) {
+                    booking.pickupLat = null; booking.pickupLon = null;
+                } else {
+                    booking.destinationLat = null; booking.destinationLon = null;
+                }
+                const pendingForUnknown = { partial: { ...booking, missing: [] }, originalText };
+                if (hasPickupCoords) { pendingForUnknown.partial.pickupLat = booking.pickupLat; pendingForUnknown.partial.pickupLon = booking.pickupLon; }
+                if (hasDestCoords) { pendingForUnknown.partial.destinationLat = booking.destinationLat; pendingForUnknown.partial.destinationLon = booking.destinationLon; }
+                pendingForUnknown.pendingDestValidation = (needPickup && needDest);
+                await setPending(chatId, pendingForUnknown);
+                const shortAddr = addressToResolve.length > 30 ? addressToResolve.slice(0, 28) + '…' : addressToResolve;
                 await sendTelegramMessage(chatId,
-                    `⚠️ <b>${fieldLabel}: "${addressToResolve}" nicht gefunden.</b>\n\n` +
-                    `Bitte versuchen Sie es mit:\n• Einem bekannten Ortsnamen (z.B. <i>Seebrücke Heringsdorf</i>)\n• Einer Adresse (z.B. <i>Dünenweg 10, Heringsdorf</i>)\n• Oder senden Sie einen 📍 Standort`
+                    `📍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                    `Diese Adresse ist nicht in unserer Datenbank — trotzdem verwenden?`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: `✅ "${shortAddr}" so verwenden`, callback_data: 'addr_skip' }],
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] } }
                 );
-                booking[fieldToResolve] = null;
-                if (!booking.missing) booking.missing = [];
-                if (!booking.missing.includes(fieldToResolve)) booking.missing.push(fieldToResolve);
-                await setPending(chatId, { partial: booking, originalText });
                 return null;
             }
         } catch (e) {

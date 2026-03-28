@@ -2778,7 +2778,8 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
 
             if (suggestions.length > 0) {
                 // 🆕 v6.25.5: Verifizierte Adresse direkt übernehmen ohne Nachfrage!
-                const topHit = suggestions[0];
+                // 🔧 v6.38.10: Ersten VERTRAUENSWÜRDIGEN Treffer für auto-select nutzen (nicht Nominatim-Müll)
+                const topHit = suggestions.find(s => s.source !== 'nominatim') || suggestions[0];
                 // 🔧 v6.38.9: KNOWN_PLACES/POI/Cache/CRM → auto-selektieren wenn guter Match
                 const isVerified = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified'
                     || topHit.source === 'known' || topHit.source === 'poi';
@@ -2786,9 +2787,14 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 const _addrLow = addressToResolve.toLowerCase().trim();
                 const isCacheStartMatch = (topHit.source === 'geocache' || topHit.source === 'geocache-verified') &&
                     (_topFirst === _addrLow || topHit.name.toLowerCase().startsWith(_addrLow + ','));
+                // 🔧 v6.38.10: Wortüberschneidung für known/poi (z.B. "Bahnhof Osebach-Bansin" → "Bahnhof Bansin")
+                const _searchWords = _addrLow.split(/[\s,]+/).filter(w => w.length > 3);
+                const _hitWords = topHit.name.toLowerCase().split(/[\s,]+/).filter(w => w.length > 3);
+                const _wordOverlap = _searchWords.filter(w => _hitWords.some(hw => hw.includes(w) || w.includes(hw))).length;
                 const isExactMatch = topHit.name && addressToResolve &&
                     (topHit.name.toLowerCase().includes(addressToResolve.toLowerCase()) ||
-                     addressToResolve.toLowerCase().includes(topHit.name.toLowerCase().split(',')[0]));
+                     addressToResolve.toLowerCase().includes(topHit.name.toLowerCase().split(',')[0]) ||
+                     ((topHit.source === 'known' || topHit.source === 'poi') && _wordOverlap >= 2));
 
                 if ((isVerified || isCacheStartMatch) && isExactMatch && topHit.lat && topHit.lon) {
                     console.log(`✅ Verifizierte Adresse direkt übernommen: ${topHit.name} (${topHit.source})`);
@@ -2829,6 +2835,19 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 }
                 // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
                 const _displaySugg1 = _hasTrustedSugg1 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+
+                // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
+                if (_displaySugg1.length === 1 && _hasTrustedSugg1 && _displaySugg1[0].lat && _displaySugg1[0].lon) {
+                    const _solo = _displaySugg1[0];
+                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo.name}`);
+                    if (needPickup) {
+                        booking.pickup = _solo.name; booking.pickupLat = _solo.lat; booking.pickupLon = _solo.lon;
+                    } else {
+                        booking.destination = _solo.name; booking.destinationLat = _solo.lat; booking.destinationLon = _solo.lon;
+                    }
+                    await continueBookingFlow(chatId, booking, originalText);
+                    return null;
+                }
 
                 // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
                 // 🔧 v6.38.1: "So verwenden" jetzt klarer benannt
@@ -3352,7 +3371,10 @@ UNVOLLSTÄNDIGE ADRESSEN — trotzdem extrahieren:
 
 ABGESCHNITTENER TEXT:
 • Endet der Text mitten im Satz → fehlende Felder als null, in missing aufnehmen, nachfragen
-• NICHT aus dem Kontext raten wenn unklar` : ''}
+• NICHT aus dem Kontext raten wenn unklar
+• "in Ban..." / "in Hering..." / "in Ahl..." → Ort unvollständig → pickup/destination = null (nicht erraten!)
+• "Bäderbahn" oder "Zug" → Ankunft am Bahnhof, aber NUR wenn Ort VOLLSTÄNDIG im Text steht → "Bahnhof [Ort]". Fehlt der Ort → pickup = null!
+• NIEMALS Ortsnamen wie "Osebach-Bansin" o.ä. erfinden die nicht explizit im Text stehen!` : ''}
 
 TELEFON: Nummer EXAKT Ziffer für Ziffer übernehmen! KEINE Ziffern hinzufügen, verdoppeln oder weglassen!
 • 0176 38 559 559 → +4917638559559 (Leerzeichen entfernen, 0 durch +49 ersetzen, sonst NICHTS ändern!)
@@ -3993,6 +4015,18 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
                     const _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
 
+                    // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
+                    if (_displaySugg2.length === 1 && _hasTrustedSugg2 && _displaySugg2[0].lat && _displaySugg2[0].lon) {
+                        const _solo2 = _displaySugg2[0];
+                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo2.name}`);
+                        if (needsPickupResolve) {
+                            booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
+                        } else {
+                            booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
+                        }
+                        return await continueBookingFlow(chatId, booking, originalText);
+                    } else {
+
                     // 🔧 v6.25.4: Zurück-Button bei Zielort-Vorschlägen
                     const _addrLastRow2 = [];
                     if (!needsPickupResolve && needsDestResolve) {
@@ -4032,6 +4066,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         { reply_markup: keyboard }
                     );
                     return; // Warte auf Kundenauswahl
+                    } // Ende else (Multi-Treffer-Buttons)
                 }
             } else {
                 // 🔧 v6.35.0 Fix 3+5: 0 Geocoding-Treffer → Ort nachfragen statt lautlos

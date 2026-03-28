@@ -1014,7 +1014,20 @@ const KNOWN_PLACES = {
     'klinikum greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'fleischmannstraße greifswald': { lat: 54.0932, lon: 13.3851, name: 'Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald' },
     'sauerbruchstraße greifswald': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
-    'greifswald sauerbruchstraße': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' }
+    'greifswald sauerbruchstraße': { lat: 54.0932, lon: 13.3840, name: 'Sauerbruchstraße, 17475 Greifswald' },
+    // 🆕 v6.38.16: Supermärkte Usedom
+    'rewe bansin': { lat: 53.9683, lon: 14.1393, name: 'Rewe, Seestraße 18, 17429 Bansin' },
+    'bansin rewe': { lat: 53.9683, lon: 14.1393, name: 'Rewe, Seestraße 18, 17429 Bansin' },
+    'rewe heringsdorf': { lat: 53.9575, lon: 14.1711, name: 'Rewe, Kulmstraße 1, 17424 Heringsdorf' },
+    'heringsdorf rewe': { lat: 53.9575, lon: 14.1711, name: 'Rewe, Kulmstraße 1, 17424 Heringsdorf' },
+    'edeka ahlbeck': { lat: 53.9414, lon: 14.1939, name: 'Edeka, Dünenstraße 47, 17419 Ahlbeck' },
+    'ahlbeck edeka': { lat: 53.9414, lon: 14.1939, name: 'Edeka, Dünenstraße 47, 17419 Ahlbeck' },
+    'lidl bansin': { lat: 53.9650, lon: 14.1367, name: 'Lidl, Seestraße 5, 17429 Bansin' },
+    'bansin lidl': { lat: 53.9650, lon: 14.1367, name: 'Lidl, Seestraße 5, 17429 Bansin' },
+    'netto heringsdorf': { lat: 53.9560, lon: 14.1680, name: 'Netto, Bäderstraße 28, 17424 Heringsdorf' },
+    'heringsdorf netto': { lat: 53.9560, lon: 14.1680, name: 'Netto, Bäderstraße 28, 17424 Heringsdorf' },
+    'penny heringsdorf': { lat: 53.9568, lon: 14.1650, name: 'Penny, Bäderstraße, 17424 Heringsdorf' },
+    'heringsdorf penny': { lat: 53.9568, lon: 14.1650, name: 'Penny, Bäderstraße, 17424 Heringsdorf' }
 };
 
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minuten
@@ -9387,11 +9400,13 @@ async function handleCallback(callback) {
             reply_markup: { inline_keyboard: [
                 [
                     { text: `${hh}:00`, callback_data: `dtmin_${selectedDate}_${hh}00` },
-                    { text: `${hh}:10`, callback_data: `dtmin_${selectedDate}_${hh}10` },
-                    { text: `${hh}:20`, callback_data: `dtmin_${selectedDate}_${hh}20` }
+                    { text: `${hh}:15`, callback_data: `dtmin_${selectedDate}_${hh}15` },
+                    { text: `${hh}:30`, callback_data: `dtmin_${selectedDate}_${hh}30` },
+                    { text: `${hh}:45`, callback_data: `dtmin_${selectedDate}_${hh}45` }
                 ],
                 [
-                    { text: `${hh}:30`, callback_data: `dtmin_${selectedDate}_${hh}30` },
+                    { text: `${hh}:10`, callback_data: `dtmin_${selectedDate}_${hh}10` },
+                    { text: `${hh}:20`, callback_data: `dtmin_${selectedDate}_${hh}20` },
                     { text: `${hh}:40`, callback_data: `dtmin_${selectedDate}_${hh}40` },
                     { text: `${hh}:50`, callback_data: `dtmin_${selectedDate}_${hh}50` }
                 ],

@@ -2779,9 +2779,9 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
             if (suggestions.length > 0) {
                 // 🆕 v6.25.5: Verifizierte Adresse direkt übernehmen ohne Nachfrage!
                 const topHit = suggestions[0];
-                const isVerified = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
-                // 🔧 v6.38.9: Auch unverifizierte Cache-Treffer auto-selektieren wenn Name mit Suchbegriff beginnt
-                // (z.B. "Rewe" → "Rewe, Seestraße 18, 17429 Bansin" aus Buchungs-History)
+                // 🔧 v6.38.9: KNOWN_PLACES/POI/Cache/CRM → auto-selektieren wenn guter Match
+                const isVerified = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified'
+                    || topHit.source === 'known' || topHit.source === 'poi';
                 const _topFirst = (topHit.name || '').split(',')[0].trim().toLowerCase();
                 const _addrLow = addressToResolve.toLowerCase().trim();
                 const isCacheStartMatch = (topHit.source === 'geocache' || topHit.source === 'geocache-verified') &&
@@ -3912,12 +3912,13 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const topHit = suggestions[0];
                 const searchLower = addressToResolve.toLowerCase().trim();
                 const topLower = topHit.name.toLowerCase().trim();
-                const isVerified2 = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
-                // 🔧 v6.38.9: Unverifizierter Cache-Treffer ebenfalls auto-selektieren wenn erster Name-Teil exakt passt
+                // 🔧 v6.38.9: KNOWN_PLACES/POI ebenfalls auto-selektieren
+                const isVerified2 = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified'
+                    || topHit.source === 'known' || topHit.source === 'poi';
                 const isCacheStartMatch2 = (topHit.source === 'geocache' || topHit.source === 'geocache-verified') &&
                     (topLower.split(',')[0].trim() === searchLower || topLower.startsWith(searchLower + ','));
                 const isExactMatch = topLower === searchLower
-                    || (topLower.startsWith(searchLower) && topHit.source === 'known')
+                    || (topLower.startsWith(searchLower) && (topHit.source === 'known' || topHit.source === 'poi'))
                     || ((isVerified2 || isCacheStartMatch2) && (topLower.includes(searchLower) || searchLower.includes(topLower.split(',')[0])));
 
                 if (isExactMatch && (suggestions.length === 1 || isVerified2 || isCacheStartMatch2)) {

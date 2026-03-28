@@ -2780,11 +2780,17 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 // 🆕 v6.25.5: Verifizierte Adresse direkt übernehmen ohne Nachfrage!
                 const topHit = suggestions[0];
                 const isVerified = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
+                // 🔧 v6.38.9: Auch unverifizierte Cache-Treffer auto-selektieren wenn Name mit Suchbegriff beginnt
+                // (z.B. "Rewe" → "Rewe, Seestraße 18, 17429 Bansin" aus Buchungs-History)
+                const _topFirst = (topHit.name || '').split(',')[0].trim().toLowerCase();
+                const _addrLow = addressToResolve.toLowerCase().trim();
+                const isCacheStartMatch = (topHit.source === 'geocache' || topHit.source === 'geocache-verified') &&
+                    (_topFirst === _addrLow || topHit.name.toLowerCase().startsWith(_addrLow + ','));
                 const isExactMatch = topHit.name && addressToResolve &&
                     (topHit.name.toLowerCase().includes(addressToResolve.toLowerCase()) ||
                      addressToResolve.toLowerCase().includes(topHit.name.toLowerCase().split(',')[0]));
 
-                if (isVerified && isExactMatch && topHit.lat && topHit.lon) {
+                if ((isVerified || isCacheStartMatch) && isExactMatch && topHit.lat && topHit.lon) {
                     console.log(`✅ Verifizierte Adresse direkt übernommen: ${topHit.name} (${topHit.source})`);
                     await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → exakt: ${topHit.name}`);
                     if (needPickup) {
@@ -3907,11 +3913,14 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const searchLower = addressToResolve.toLowerCase().trim();
                 const topLower = topHit.name.toLowerCase().trim();
                 const isVerified2 = topHit.source === 'geocache-verified' || topHit.source === 'crm-verified';
+                // 🔧 v6.38.9: Unverifizierter Cache-Treffer ebenfalls auto-selektieren wenn erster Name-Teil exakt passt
+                const isCacheStartMatch2 = (topHit.source === 'geocache' || topHit.source === 'geocache-verified') &&
+                    (topLower.split(',')[0].trim() === searchLower || topLower.startsWith(searchLower + ','));
                 const isExactMatch = topLower === searchLower
                     || (topLower.startsWith(searchLower) && topHit.source === 'known')
-                    || (isVerified2 && (topLower.includes(searchLower) || searchLower.includes(topLower.split(',')[0])));
+                    || ((isVerified2 || isCacheStartMatch2) && (topLower.includes(searchLower) || searchLower.includes(topLower.split(',')[0])));
 
-                if (isExactMatch && (suggestions.length === 1 || isVerified2)) {
+                if (isExactMatch && (suggestions.length === 1 || isVerified2 || isCacheStartMatch2)) {
                     // Exakter Treffer – direkt übernehmen, keine Rückfrage nötig
                     if (needsPickupResolve) {
                         booking.pickup = topHit.name;
@@ -7026,6 +7035,25 @@ async function handleMessage(message) {
                 }
             }
         }
+    }
+
+    // 🔧 v6.38.9: Wenn Adress-Vorschläge warten und User schreibt Text → direkte neue Adresssuche (kein KI-Follow-Up)
+    if (pending && pending.partial && pending.nominatimResults && !isPendingExpired(pending)) {
+        const _needField = pending.partial.missing?.includes('pickup') ? 'pickup' : 'destination';
+        await addTelegramLog('🔍', chatId, `Adress-Klärung: "${text}" für ${_needField}`);
+        if (_needField === 'pickup') {
+            pending.partial.pickup = text;
+            delete pending.partial.pickupLat;
+            delete pending.partial.pickupLon;
+        } else {
+            pending.partial.destination = text;
+            delete pending.partial.destinationLat;
+            delete pending.partial.destinationLon;
+        }
+        delete pending.nominatimResults;
+        await setPending(chatId, pending);
+        await continueBookingFlow(chatId, pending.partial, pending.originalText || text);
+        return;
     }
 
     // Follow-Up: Unvollständige Buchung ergänzen

@@ -2806,6 +2806,30 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     return null;
                 }
 
+                // 🔧 v6.38.10: Vage Adresse ohne Hausnummer/PLZ + nur Nominatim → Rückfrage statt Unsinn
+                const _hasTrustedSugg1 = suggestions.some(s => s.source !== 'nominatim');
+                const _hasPlzInAddr1 = /\b\d{5}\b/.test(addressToResolve);
+                const _hasHausnrInAddr1 = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, '').trim());
+                const _isVagueAddr1 = !_hasPlzInAddr1 && !_hasHausnrInAddr1 && addressToResolve.trim().split(/\s+/).length <= 2;
+                if (_isVagueAddr1 && !_hasTrustedSugg1) {
+                    const _psVague1 = { partial: { ...booking, missing: [] }, originalText };
+                    _psVague1.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
+                    if (hasPickupCoords) { _psVague1.partial.pickupLat = booking.pickupLat; _psVague1.partial.pickupLon = booking.pickupLon; }
+                    if (hasDestCoords) { _psVague1.partial.destinationLat = booking.destinationLat; _psVague1.partial.destinationLon = booking.destinationLon; }
+                    await setPending(chatId, _psVague1);
+                    await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" zu vage → Rückfrage`);
+                    await sendTelegramMessage(chatId,
+                        `❓ <b>${fieldLabel} nicht eindeutig</b>\n\nBitte Straße, Hausnummer und PLZ eingeben:\n<i>Beispiel: Bahnhofstraße 5, 17419 Ahlbeck</i>`,
+                        { reply_markup: { inline_keyboard: [
+                            [{ text: '✏️ Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ] } }
+                    );
+                    return null;
+                }
+                // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
+                const _displaySugg1 = _hasTrustedSugg1 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+
                 // 🔧 v6.25.4: Zurück-Button bei Adressvorschlägen
                 // 🔧 v6.38.1: "So verwenden" jetzt klarer benannt
                 const shortAddrNorm = addressToResolve.length > 28 ? addressToResolve.slice(0, 26) + '…' : addressToResolve;
@@ -2818,14 +2842,14 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 addrLastRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                 const keyboard = {
                     inline_keyboard: [
-                        ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
+                        ..._displaySugg1.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
                         addrBottomRow,
                         addrLastRow
                     ]
                 };
 
                 const pendingState = { partial: { ...booking, missing: [] }, originalText };
-                pendingState.nominatimResults = suggestions;
+                pendingState.nominatimResults = _displaySugg1;
                 if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
                 if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
                 // Wenn beide Adressen noch aufgelöst werden müssen, Destination nachher
@@ -3938,7 +3962,29 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         return await continueBookingFlow(chatId, booking, originalText);
                     }
                 } else {
-                    // Mehrere Treffer oder kein exakter → "Meinten Sie...?" Buttons zeigen
+                    // Mehrere Treffer oder kein exakter → ggf. Rückfrage oder Buttons
+                    // 🔧 v6.38.10: Vage Adresse + nur Nominatim → kurze Rückfrage statt Unsinn
+                    const _hasTrustedSugg2 = suggestions.some(s => s.source !== 'nominatim');
+                    const _hasPlzInAddr2 = /\b\d{5}\b/.test(addressToResolve);
+                    const _hasHausnrInAddr2 = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, '').trim());
+                    const _isVagueAddr2 = !_hasPlzInAddr2 && !_hasHausnrInAddr2 && addressToResolve.trim().split(/\s+/).length <= 2;
+                    if (_isVagueAddr2 && !_hasTrustedSugg2) {
+                        const _psVague2 = { partial: { ...booking, missing: booking.missing }, originalText };
+                        _psVague2.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
+                        await setPending(chatId, _psVague2);
+                        await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" zu vage → Rückfrage`);
+                        await sendTelegramMessage(chatId,
+                            `❓ <b>${fieldLabel} nicht eindeutig</b>\n\nBitte Straße, Hausnummer und PLZ eingeben:\n<i>Beispiel: Bahnhofstraße 5, 17419 Ahlbeck</i>`,
+                            { reply_markup: { inline_keyboard: [
+                                [{ text: '✏️ Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                            ] } }
+                        );
+                        return;
+                    }
+                    // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
+                    const _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+
                     // 🔧 v6.25.4: Zurück-Button bei Zielort-Vorschlägen
                     const _addrLastRow2 = [];
                     if (!needsPickupResolve && needsDestResolve) {
@@ -3960,14 +4006,14 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     const keyboard = {
                         inline_keyboard: [
                             ..._crmHomeRows,
-                            ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
+                            ..._displaySugg2.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             _addrLastRow2
                         ]
                     };
 
                     const pendingState = { partial: { ...booking, missing: booking.missing }, originalText };
-                    pendingState.nominatimResults = suggestions;
+                    pendingState.nominatimResults = _displaySugg2;
                     pendingState.pendingDestValidation = (needsPickupResolve && needsDestResolve);
                     await setPending(chatId, pendingState);
 

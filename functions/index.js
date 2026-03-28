@@ -2818,12 +2818,13 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     return null;
                 }
 
-                // 🔧 v6.38.10: Vage Adresse ohne Hausnummer/PLZ + nur Nominatim → Rückfrage statt Unsinn
+                // 🔧 v6.38.10: Vage Adresse ohne Hausnummer/PLZ + nur Nominatim → Rückfrage
+                // 🆕 v6.38.15: NUR wenn auch KEINE Nominatim-Ergebnisse — mit Ergebnissen → Vorschläge zeigen (wie Autocomplete)
                 const _hasTrustedSugg1 = suggestions.some(s => s.source !== 'nominatim');
                 const _hasPlzInAddr1 = /\b\d{5}\b/.test(addressToResolve);
                 const _hasHausnrInAddr1 = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, '').trim());
                 const _isVagueAddr1 = !_hasPlzInAddr1 && !_hasHausnrInAddr1 && addressToResolve.trim().split(/\s+/).length <= 2;
-                if (_isVagueAddr1 && !_hasTrustedSugg1) {
+                if (_isVagueAddr1 && !_hasTrustedSugg1 && suggestions.length === 0) {
                     const _psVague1 = { partial: { ...booking, missing: [] }, originalText };
                     _psVague1.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
                     if (hasPickupCoords) { _psVague1.partial.pickupLat = booking.pickupLat; _psVague1.partial.pickupLon = booking.pickupLon; }
@@ -4031,13 +4032,14 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     const _hasPlzInAddr2 = /\b\d{5}\b/.test(addressToResolve);
                     const _hasHausnrInAddr2 = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, '').trim());
                     const _isVagueAddr2 = !_hasPlzInAddr2 && !_hasHausnrInAddr2 && addressToResolve.trim().split(/\s+/).length <= 2;
-                    if (_isVagueAddr2 && !_hasTrustedSugg2) {
+                    // 🆕 v6.38.15: Vage-Sperre nur wenn auch KEINE Nominatim-Ergebnisse → mit Ergebnissen Vorschläge zeigen
+                    if (_isVagueAddr2 && !_hasTrustedSugg2 && suggestions.length === 0) {
                         const _psVague2 = { partial: { ...booking, missing: booking.missing }, originalText };
                         _psVague2.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
                         await setPending(chatId, _psVague2);
-                        await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" zu vage → Rückfrage`);
+                        await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" → keine Treffer, Rückfrage`);
                         await sendTelegramMessage(chatId,
-                            `❓ <b>${fieldLabel} nicht eindeutig</b>\n\nBitte Straße, Hausnummer und PLZ eingeben:\n<i>Beispiel: Bahnhofstraße 5, 17419 Ahlbeck</i>`,
+                            `❓ <b>${fieldLabel} nicht gefunden</b>\n\nKein Ergebnis für "<b>${addressToResolve}</b>".\n\nBitte Straße, Hausnummer und PLZ eingeben:\n<i>Beispiel: Bahnhofstraße 5, 17419 Ahlbeck</i>`,
                             { reply_markup: { inline_keyboard: [
                                 [{ text: '✏️ Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                                 [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]

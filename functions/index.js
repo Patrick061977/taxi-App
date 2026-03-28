@@ -2731,7 +2731,8 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
     const hasPickupCoords = !!(booking.pickupLat && booking.pickupLon);
     const hasDestCoords = !!(booking.destinationLat && booking.destinationLon);
 
-    const needPickup = !hasPickupCoords && !!booking.pickup;
+    // 🔧 v6.38.1: _pickupConfirmedByCRM = Admin hat Adresse selbst eingetragen → kein Geocoding
+    const needPickup = !hasPickupCoords && !!booking.pickup && !booking._pickupConfirmedByCRM;
     const needDest = !hasDestCoords && !!booking.destination;
 
     // Wenn Adressen per Text eingegeben → IMMER Vorschläge zeigen, Kunde wählt selbst
@@ -3580,6 +3581,18 @@ Nur gültiges JSON, kein Markdown:
                         if (preselected.addressLat && preselected.addressLon) {
                             booking.pickupLat = parseFloat(preselected.addressLat);
                             booking.pickupLon = parseFloat(preselected.addressLon);
+                        }
+                    }
+                    // 🔧 v6.38.1: Pickup bereits gesetzt + stimmt mit CRM-Adresse überein
+                    // → Admin hat die Adresse selbst eingetragen → kein Geocoding nötig
+                    if (booking.pickup && !booking.pickupLat) {
+                        const _p = booking.pickup.toLowerCase().replace(/\s+/g, ' ').trim();
+                        const _a = pickupDefault.toLowerCase().replace(/\s+/g, ' ').trim();
+                        // Matcht wenn mindestes das erste Wort der Straße übereinstimmt (z.B. "mühlenkamp")
+                        const _firstStreetWord = _a.split(/[\s,]/)[0];
+                        if (_firstStreetWord.length > 3 && _p.includes(_firstStreetWord)) {
+                            booking._pickupConfirmedByCRM = true;
+                            await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" = CRM-Adresse von ${preselected.name} → Geocoding übersprungen`);
                         }
                     }
                     if (preselected.address && /^(zu hause|zuhause|nach hause)$/i.test((booking.destination || '').trim())) {

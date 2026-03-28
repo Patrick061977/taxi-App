@@ -9499,52 +9499,63 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, `✅ <b>Zielort gesetzt:</b> ${gpsAddr}`);
         }
 
-        // 🆕 v6.25.5: Frage ob GPS-Adresse im Geocache gespeichert werden soll
-        // Prüfe ob Adresse bereits im Cache ist
-        const _gpsNormKey = normalizeAddressKey(gpsAddr);
-        const _gpsExisting = _gpsNormKey.length >= 3 ? await db.ref('geocache').orderByChild('normalizedKey').equalTo(_gpsNormKey).once('value') : null;
-        if (!_gpsExisting || !_gpsExisting.exists()) {
-            // Noch nicht im Cache → Frage stellen, aber Buchung trotzdem fortsetzen
-            // Speicher-Button wird parallel zum nächsten Schritt angezeigt
-            await sendTelegramMessage(chatId,
-                `💾 <b>Adresse speichern?</b>\n📍 ${gpsAddr}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal als Vorschlag angezeigt.</i>`, {
-                reply_markup: { inline_keyboard: [
-                    [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${gpsLat.toFixed(5)}_${gpsLon.toFixed(5)}` },
-                     { text: '❌ Nein', callback_data: 'geocache_skip' }]
-                ] }
-            });
-        }
-
-        // _gpsChoice entfernen und Buchungsfluss fortsetzen
+        // 🔧 v6.38.9: GPS-Adresse speichern? → IMMER fragen, Buchung wartet auf Antwort
         delete _gpsPending._gpsChoice;
+        _gpsPending._awaitingGeocache = true;  // Buchungsfluss pausiert bis Ja/Nein
+        _gpsPending._geocacheLat = gpsLat;
+        _gpsPending._geocacheLon = gpsLon;
+        _gpsPending._geocacheAddr = gpsAddr;
         if (_gpsPending.partial) _gpsPending.partial = booking;
         else _gpsPending.booking = booking;
         await setPending(chatId, _gpsPending);
-        await continueBookingFlow(chatId, booking, _gpsPending.originalText || '');
-        return;
+
+        await sendTelegramMessage(chatId,
+            `💾 <b>Adresse im Geocache speichern?</b>\n📍 ${gpsAddr}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal als Vorschlag angezeigt.</i>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${gpsLat.toFixed(5)}_${gpsLon.toFixed(5)}` },
+                 { text: '❌ Nein', callback_data: 'geocache_skip' }]
+            ] }
+        });
+        return;  // Warte auf Antwort – kein continueBookingFlow hier!
     }
 
-    // 🆕 v6.25.5: GPS-Adresse im Geocache speichern (User hat "Ja, speichern" gewählt)
+    // 🔧 v6.38.9: GPS-Adresse speichern → Buchung danach fortsetzen
     if (data.startsWith('geocache_save_')) {
         const parts = data.replace('geocache_save_', '').split('_');
         const saveLat = parseFloat(parts[0]);
         const saveLon = parseFloat(parts[1]);
-        if (!isNaN(saveLat) && !isNaN(saveLon)) {
-            // Adresse aus der Nachricht extrahieren (steht in der Frage-Nachricht)
-            const msgText = callbackQuery.message?.text || '';
-            const addrMatch = msgText.match(/📍 (.+)/);
-            const saveAddr = addrMatch ? addrMatch[1].trim() : '';
-            if (saveAddr) {
-                await saveToGeocache(saveAddr, saveLat, saveLon, 'gps-verified');
-                await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
-                await sendTelegramMessage(chatId, `✅ <b>Adresse gespeichert!</b>\n📍 ${saveAddr}\n\n<i>Wird beim nächsten Mal als Vorschlag angezeigt.</i>`);
-            }
+        const _gcPending = await getPending(chatId);
+        const saveAddr = _gcPending?._geocacheAddr || '';
+        if (!isNaN(saveLat) && !isNaN(saveLon) && saveAddr) {
+            await saveToGeocache(saveAddr, saveLat, saveLon, 'gps-verified');
+            await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Gespeichert!</b> 📍 ${saveAddr}`);
+        }
+        // Buchungsfluss fortsetzen falls wartend
+        if (_gcPending?._awaitingGeocache) {
+            delete _gcPending._awaitingGeocache;
+            delete _gcPending._geocacheAddr;
+            delete _gcPending._geocacheLat;
+            delete _gcPending._geocacheLon;
+            await setPending(chatId, _gcPending);
+            const _gcBooking = _gcPending.partial || _gcPending.booking;
+            if (_gcBooking) await continueBookingFlow(chatId, _gcBooking, _gcPending.originalText || '');
         }
         return;
     }
     if (data === 'geocache_skip') {
-        // Nichts tun, Nachricht kann stehen bleiben
-        await sendTelegramMessage(chatId, '👌 OK, nicht gespeichert.');
+        const _gcSkipPending = await getPending(chatId);
+        await sendTelegramMessage(chatId, '👌 Nicht gespeichert.');
+        // Buchungsfluss fortsetzen falls wartend
+        if (_gcSkipPending?._awaitingGeocache) {
+            delete _gcSkipPending._awaitingGeocache;
+            delete _gcSkipPending._geocacheAddr;
+            delete _gcSkipPending._geocacheLat;
+            delete _gcSkipPending._geocacheLon;
+            await setPending(chatId, _gcSkipPending);
+            const _gcBooking2 = _gcSkipPending.partial || _gcSkipPending.booking;
+            if (_gcBooking2) await continueBookingFlow(chatId, _gcBooking2, _gcSkipPending.originalText || '');
+        }
         return;
     }
 

@@ -8923,18 +8923,20 @@ async function handleCallback(callback) {
         const dayLabel = pending._selectedDateLabel || selectedDate;
         await addTelegramLog('🕐', chatId, `Stunde gewählt: ${hh}:xx → Minuten-Auswahl`);
 
-        // Minuten-Buttons: 10-Minuten-Schritte (:00, :10, :20, :30, :40, :50)
+        // Minuten-Buttons: (:00, :10, :15, :20, :30, :40, :45, :50)
         await sendTelegramMessage(chatId,
             `🕐 <b>${hh}:__ Uhr</b> — Minuten wählen:`, {
             reply_markup: { inline_keyboard: [
                 [
                     { text: `${hh}:00`, callback_data: `dtmin_${selectedDate}_${hh}00` },
                     { text: `${hh}:10`, callback_data: `dtmin_${selectedDate}_${hh}10` },
+                    { text: `${hh}:15`, callback_data: `dtmin_${selectedDate}_${hh}15` },
                     { text: `${hh}:20`, callback_data: `dtmin_${selectedDate}_${hh}20` }
                 ],
                 [
                     { text: `${hh}:30`, callback_data: `dtmin_${selectedDate}_${hh}30` },
                     { text: `${hh}:40`, callback_data: `dtmin_${selectedDate}_${hh}40` },
+                    { text: `${hh}:45`, callback_data: `dtmin_${selectedDate}_${hh}45` },
                     { text: `${hh}:50`, callback_data: `dtmin_${selectedDate}_${hh}50` }
                 ],
                 [{ text: '◀️ Zurück', callback_data: `dtback_minutes_${selectedDate}` }]

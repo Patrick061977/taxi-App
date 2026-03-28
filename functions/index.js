@@ -11760,7 +11760,7 @@ async function handleLocation(message) {
 // ═══════════════════════════════════════════════════════════════
 
 exports.telegramWebhook = onRequest(
-    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 1, invoker: 'public' },
+    { region: 'europe-west1', timeoutSeconds: 120, memory: '256MiB', minInstances: 0, invoker: 'public' },
     async (req, res) => {
         // 🆕 v6.25.5: Version in Firebase schreiben (für App-Anzeige)
         // GET-Request → Version zurückgeben (Health-Check)
@@ -13999,43 +13999,52 @@ exports.onRideDeleted = onValueDeleted(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// 🆕 v6.20.0: OFFENE FAHRTEN PRÜFUNG (alle 1 Minute)
+// 🆕 v6.20.0: OFFENE FAHRTEN PRÜFUNG (alle 5 Minuten)
 // Warnt Admins wenn Vorbestellungen < 10 Min vor Abholzeit ohne Fahrer sind
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledOpenRideCheck = onSchedule(
     {
-        schedule: 'every 1 minutes',
+        schedule: 'every 5 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
     },
     async (event) => {
         try {
-            const ridesSnap = await db.ref('rides').once('value');
-            if (!ridesSnap.val()) return;
+            // Nur aktive Rides laden (new + vorbestellt) — kein completed/cancelled
+            const [newSnap, vorSnap] = await Promise.all([
+                db.ref('rides').orderByChild('status').equalTo('new').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value')
+            ]);
+            if (!newSnap.val() && !vorSnap.val()) return;
 
             const now = Date.now();
             const warnings = [];
 
-            ridesSnap.forEach(child => {
-                const ride = child.val();
-                const rideId = child.key;
+            const processSnap = (snap) => {
+                if (!snap.val()) return;
+                snap.forEach(child => {
+                    const ride = child.val();
+                    const rideId = child.key;
 
-                // Nur Fahrten ohne Fahrer prüfen
-                if (ride.status !== 'new' && ride.status !== 'vorbestellt') return;
-                if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
+                    // Nur Fahrten ohne Fahrer prüfen
+                    if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
 
-                // Prüfe ob Abholzeit in <= 10 Minuten
-                const pickupTime = ride.pickupTimestamp || 0;
-                const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
+                    // Prüfe ob Abholzeit in <= 10 Minuten
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
 
-                if (minutesUntilPickup <= 10 && minutesUntilPickup > -5) {
-                    // Prüfe ob schon gewarnt (Flag in Firebase)
-                    if (!ride.openRideWarned) {
-                        warnings.push({ rideId, ride, minutesUntilPickup });
+                    if (minutesUntilPickup <= 10 && minutesUntilPickup > -5) {
+                        // Prüfe ob schon gewarnt (Flag in Firebase)
+                        if (!ride.openRideWarned) {
+                            warnings.push({ rideId, ride, minutesUntilPickup });
+                        }
                     }
-                }
-            });
+                });
+            };
+
+            processSnap(newSnap);
+            processSnap(vorSnap);
 
             if (warnings.length === 0) return;
 

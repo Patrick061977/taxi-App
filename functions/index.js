@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.3';
+const CLOUD_FUNCTIONS_VERSION = '6.38.6';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -7374,15 +7374,12 @@ async function handleCallback(callback) {
         }
 
         if (data === 'photo_action_booking') {
+            // 🔧 v6.38.6: Direkt analyzeTelegramBooking aufrufen — kein handleMessage
+            // (handleMessage triggert Admin-Flow "Für Kunden oder selbst?" → unnötige Rückfragen)
             const bookingText = analysis.extractedText || _buildBookingText(analysis.booking);
-            await sendTelegramMessage(chatId, `📷 <b>Buchung wird verarbeitet...</b>\n<i>${analysis.summary || ''}</i>`);
-            const fakeMessage = {
-                chat: { id: chatId },
-                from: callback.message.chat,
-                text: bookingText,
-                _isPhotoTranscript: true
-            };
-            await handleMessage(fakeMessage);
+            const userName = callback.from?.first_name || 'Admin';
+            await sendTelegramMessage(chatId, `📷 <b>Buchung wird analysiert...</b>\n<i>${analysis.summary || ''}</i>`);
+            await analyzeTelegramBooking(chatId, bookingText, userName, { isAdmin: true, isAudioTranscript: true });
             return;
         }
 

@@ -10709,16 +10709,47 @@ async function handleCallback(callback) {
     // 🆕 v6.14.0: Admin — Neuen Kunden anlegen (direkt aus Menü)
     if (data === 'admin_new_customer') {
         const pending = await getPending(chatId);
-        await setPending(chatId, {
-            _adminNewCust: true,
-            _adminNewCustStep: 'name',
-            _callerPhone: pending ? pending._callerPhone || null : null, // 🆕 v6.11.5: Telefon durchreichen
-            originalText: pending ? pending.originalText : '',
-            userName: pending ? pending.userName : ''
-        });
-        await sendTelegramMessage(chatId, '🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Bitte den <b>Namen</b> eingeben:', { reply_markup: { inline_keyboard: [
-            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-        ]}});
+        // 🔧 v6.38.10: Name aus vorherigem Suchversuch (newCustomerName) übernehmen → nicht nochmal fragen
+        const prefilledName = pending ? (pending.newCustomerName || pending.customerName || '') : '';
+        const callerPhone = pending ? pending._callerPhone || null : null;
+        if (prefilledName) {
+            // Name bekannt → direkt zu admin_create_cust Flow weiterleiten (überspringt Name-Eingabe)
+            await setPending(chatId, {
+                _adminNewCust: true,
+                _adminNewCustStep: callerPhone ? (isMobileNumber(callerPhone) ? 'address' : 'mobilePhone') : 'phone',
+                _adminNewCustName: prefilledName,
+                _adminNewCustPhone: callerPhone || null,
+                _callerPhone: callerPhone,
+                originalText: pending.originalText || '',
+                userName: pending.userName || ''
+            });
+            if (!callerPhone) {
+                await sendTelegramMessage(chatId, `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${prefilledName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`, { reply_markup: { inline_keyboard: [
+                    [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}});
+            } else if (!isMobileNumber(callerPhone)) {
+                await sendTelegramMessage(chatId, `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${prefilledName}</b>\n☎️ Festnetz: <b>${callerPhone}</b>\n\n📱 Mobilnummer hinzufügen?`, { reply_markup: { inline_keyboard: [
+                    [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}});
+            } else {
+                await sendTelegramMessage(chatId, `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${prefilledName}</b>\n📱 Telefon: <b>${callerPhone}</b>\n\n🏠 Bitte die <b>Adresse</b> eingeben:`, { reply_markup: { inline_keyboard: [
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ]}});
+            }
+        } else {
+            await setPending(chatId, {
+                _adminNewCust: true,
+                _adminNewCustStep: 'name',
+                _callerPhone: callerPhone,
+                originalText: pending ? pending.originalText : '',
+                userName: pending ? pending.userName : ''
+            });
+            await sendTelegramMessage(chatId, '🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Bitte den <b>Namen</b> eingeben:', { reply_markup: { inline_keyboard: [
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}});
+        }
         return;
     }
 

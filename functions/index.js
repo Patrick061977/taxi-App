@@ -2841,8 +2841,11 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 }
                 // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen (keine Auswahl nötig)
                 if (_hasHausnrInAddr1 && suggestions.length > 0) {
-                    const _bestHit = suggestions.find(s => s.source !== 'nominatim') || suggestions[0];
-                    if (_bestHit.lat && _bestHit.lon) {
+                    // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
+                    // Verhindert Fehlauswahl wie "Chausseestraße, Wolgast" für "Badstraße 11, Heringsdorf"
+                    const _bestHit = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
+                        || suggestions.find(s => s.lat && s.lon && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                    if (_bestHit && _bestHit.lat && _bestHit.lon) {
                         await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
                         if (needPickup) {
                             booking.pickup = _bestHit.name; booking.pickupLat = _bestHit.lat; booking.pickupLon = _bestHit.lon;
@@ -4044,8 +4047,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                     // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
-                        const _bestHit2 = suggestions.find(s => s.source !== 'nominatim') || suggestions[0];
-                        if (_bestHit2.lat && _bestHit2.lon) {
+                        // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
+                        const _bestHit2 = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
+                            || suggestions.find(s => s.lat && s.lon && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                        if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
                             await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
                             if (needsPickupResolve) {
                                 booking.pickup = _bestHit2.name; booking.pickupLat = _bestHit2.lat; booking.pickupLon = _bestHit2.lon;

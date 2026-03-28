@@ -658,7 +658,8 @@ async function autoAssignRide(rideId, rideData) {
         if (isSofort) {
             candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
             best = candidates[0];
-            drivingTimeMin = Math.max(3, Math.round((best.distance / 40) * 60));
+            // 🔧 v6.38.9: 999 km = kein GPS-Standort → sinnvolle Fallback-Zeit (10 Min)
+            drivingTimeMin = best.distance >= 999 ? 10 : Math.max(3, Math.round((best.distance / 40) * 60));
         } else {
             // 🔧 v6.25.4: Vorbestellung mit Smart Routing + Prioritäts-Penalty (wie Browser)
             // Score = Leerfahrt (Min) + (Prio - 1) * priorityAdvantageMin → niedrigster Score gewinnt
@@ -862,7 +863,7 @@ async function autoAssignRide(rideId, rideData) {
                 `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
                 (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone)}\n` : '') +
                 `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
-                (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min (${best.distance.toFixed(1)} km)\n\n` : '\n') +
+                (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min${best.distance < 999 ? ` (${best.distance.toFixed(1)} km)` : ' (GPS nicht verfügbar)'}\n\n` : '\n') +
                 (isSofort ? `⏱️ <i>60 Sek zum Annehmen</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
             );
         }
@@ -2175,12 +2176,13 @@ async function searchNominatimForTelegram(query) {
                                 return;
                             }
                         }
-                        addIfNew({ name: `${c.name}, ${c.address}`, lat, lon, source: 'customer', priority: 2 });
+                        // 🔧 v6.38.9: name = nur Adresse (wird als Buchungsadresse gespeichert), label = für Anzeige
+                        addIfNew({ name: c.address, label: `${c.name}: ${c.address}`, lat, lon, source: 'customer', priority: 2 });
                     } else {
                         // 🆕 v6.25.5: CRM-Kunde ohne Koordinaten → trotzdem anzeigen!
                         // Koordinaten werden bei Auswahl per Geocoding nachgeladen
                         console.log(`[CRM] "${c.name}" matcht aber hat keine Koordinaten → trotzdem vorschlagen`);
-                        addIfNew({ name: `${c.name}, ${c.address}`, lat: 0, lon: 0, source: 'customer-nocoords', priority: 3 });
+                        addIfNew({ name: c.address, label: `${c.name}: ${c.address}`, lat: 0, lon: 0, source: 'customer-nocoords', priority: 3 });
                     }
                 }
             });
@@ -2810,7 +2812,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 addrLastRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                 const keyboard = {
                     inline_keyboard: [
-                        ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                        ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
                         addrBottomRow,
                         addrLastRow
                     ]
@@ -3948,7 +3950,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     const keyboard = {
                         inline_keyboard: [
                             ..._crmHomeRows,
-                            ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
+                            ...suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' || s.source === 'customer-nocoords' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             _addrLastRow2
                         ]
@@ -8284,11 +8286,11 @@ async function handleCallback(callback) {
                     await sendTelegramMessage(chatId,
                         `🚗 <b>Fahrer gefunden!</b>\n\n` +
                         `🚕 <b>${assignResult.name}</b>\n` +
-                        `📏 ${assignResult.distance.toFixed(1)} km entfernt\n` +
+                        `📏 ${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km entfernt' : 'GPS nicht verfügbar'}\n` +
                         `⏱️ <b>Geschätzte Ankunft: ca. ${etaMin} Minuten</b>\n\n` +
                         `💡 <i>Sie werden benachrichtigt sobald der Fahrer losfährt.</i>`
                     );
-                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance.toFixed(1)} km, ~${etaMin} Min)`);
+                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km' : 'kein GPS'}, ~${etaMin} Min)`);
                 } else if (_isJetztFahrt) {
                     // 🔧 v6.20.2: Sofortfahrt ohne Auto-Zuweisung → Admin-Vermittlung
                     await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', updatedAt: Date.now() });
@@ -11484,10 +11486,10 @@ async function handleCallback(callback) {
         if (!selected) return;
 
         // 🆕 v6.25.5: Falls CRM-Kunde ohne Koordinaten → per Geocoding nachladen
+        // 🔧 v6.38.9: selected.name ist jetzt nur Adresse (kein "Kundenname, Adresse" mehr)
         let selLat = selected.lat, selLon = selected.lon;
         if ((!selLat || !selLon || (selLat === 0 && selLon === 0)) && selected.name) {
-            const addrPart = selected.name.includes(',') ? selected.name.split(',').slice(1).join(',').trim() : selected.name;
-            const geocoded = await geocode(addrPart);
+            const geocoded = await geocode(selected.name);
             if (geocoded) {
                 selLat = geocoded.lat;
                 selLon = geocoded.lon;

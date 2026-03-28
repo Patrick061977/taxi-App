@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.35.0';
-const CLOUD_FUNCTIONS_BUILD = '27.03.2026 19:55';
+const CLOUD_FUNCTIONS_VERSION = '6.38.0';
+const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -501,6 +501,19 @@ async function autoAssignRide(rideId, rideData) {
                 console.log(`   ❌ ${info.name}: Kapazität ${info.capacity} < ${passengers} Personen`);
                 vehicleScores[vehicleId] = { status: 'rejected', reason: `Kapazität ${info.capacity} < ${passengers} Personen`, check: 'capacity' };
                 continue;
+            }
+
+            // 🔧 v6.37.1: Sofortfahrt → Fahrer muss online und NICHT in Pause sein
+            if (isSofort) {
+                const _vData = vehicles[vehicleId] || {};
+                const _isPaused = _vData.shift && _vData.shift.status === 'paused';
+                const _isOffline = _vData.online === false;
+                if (_isPaused || _isOffline) {
+                    const _reason = _isPaused ? 'Fahrer in Pause' : 'Fahrer offline';
+                    console.log(`   ❌ ${info.name}: ${_reason} — Sofortfahrt nicht möglich`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: _reason, check: 'online-pause' };
+                    continue;
+                }
             }
 
             // Schicht-Details für Prüfprotokoll sammeln
@@ -1198,13 +1211,18 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const phone = await getCustomerWhatsAppNumber(ride);
     if (!phone) return false;
 
+    // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
+    const passengerName = ride.guestName || ride.customerName;
+    const greeting = passengerName ? `Hallo ${passengerName},\n\n` : '';
+
     const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
     let message = '';
 
     if (type === 'booking_confirmed') {
         const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
         const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
-        message = `🚕 Ihr Taxi ist unterwegs!\n\n` +
+        message = greeting +
+            `🚕 Ihr Taxi ist unterwegs!\n\n` +
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
@@ -1214,7 +1232,8 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
             `📞 Bei Fragen: 038378/22022`;
 
     } else if (type === 'booking_new') {
-        message = `✅ Ihre Buchung wurde aufgenommen!\n\n` +
+        message = greeting +
+            `✅ Ihre Buchung wurde aufgenommen!\n\n` +
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
@@ -1223,7 +1242,8 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
             `📞 Bei Fragen: 038378/22022`;
 
     } else if (type === 'cancelled') {
-        message = `❌ Ihre Fahrt wurde storniert.\n\n` +
+        message = greeting +
+            `❌ Ihre Fahrt wurde storniert.\n\n` +
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n\n` +
             `📞 Bei Fragen: 038378/22022`;
@@ -1231,7 +1251,8 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     } else if (type === 'driver_assigned') {
         const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
         const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
-        message = `🚕 Fahrer zugeteilt!\n\n` +
+        message = greeting +
+            `🚕 Fahrer zugeteilt!\n\n` +
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
@@ -1245,7 +1266,7 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const result = await sendWhatsAppMessage(phone, message);
     if (result) {
         console.log(`📱 WhatsApp-Kunden-Nachricht (${type}) gesendet an: ${phone}`);
-        await addTelegramLog('📱', 'whatsapp', `WhatsApp ${type}: ${ride.customerName || '?'}`, { rideId, phone });
+        await addTelegramLog('📱', 'whatsapp', `WhatsApp ${type}: ${passengerName || '?'}`, { rideId, phone });
     }
     return !!result;
 }
@@ -1944,25 +1965,30 @@ async function saveToGeocache(address, lat, lon, source = 'nominatim') {
     try {
         const existing = await db.ref('geocache').orderByChild('normalizedKey').equalTo(key).once('value');
         if (existing.exists()) {
-            // Bereits im Cache → usageCount erhöhen
+            // Bereits im Cache → usageCount erhöhen, ggf. verifizieren
+            const _shouldVerify = source === 'gps-verified' || source === 'admin-edit';
             existing.forEach(child => {
                 const data = child.val();
                 db.ref(`geocache/${child.key}`).update({
                     usageCount: (data.usageCount || 1) + 1,
                     lastUsed: Date.now(),
-                    // Koordinaten nur updaten wenn vom Admin verifiziert wurde (nicht überschreiben)
-                    ...(!data.verified && { lat, lon })
+                    // Koordinaten updaten wenn nicht bereits verifiziert
+                    ...(!data.verified && { lat, lon }),
+                    // Verified-Status setzen wenn GPS-bestätigt oder Admin
+                    ...(_shouldVerify && !data.verified && { verified: true, verifiedAt: Date.now() })
                 });
             });
         } else {
-            // Neu eintragen
+            // Neu eintragen — GPS-verifiziert und Admin-Einträge direkt als verified markieren
+            const _isVerified = source === 'gps-verified' || source === 'admin-edit';
             await db.ref('geocache').push({
                 address: address.trim(),
                 normalizedKey: key,
                 lat: parseFloat(lat),
                 lon: parseFloat(lon),
                 source,
-                verified: false,
+                verified: _isVerified,
+                verifiedAt: _isVerified ? Date.now() : null,
                 usageCount: 1,
                 createdAt: Date.now(),
                 lastUsed: Date.now()
@@ -3215,7 +3241,43 @@ ZWISCHENSTOPPS:
 • Mehrere Stopps möglich: waypoints=["B", "C"] für "über B und C"
 • Zwischenstopps sind ADRESSEN, NICHT Notizen! Nie in notes schreiben!
 • Wenn keine Zwischenstopps → waypoints=[]${options.isAudioTranscript ? `
-⚠️ ACHTUNG: Dies ist ein Audio-Transkript eines Telefonats. Der Text kann abgeschnitten oder unvollständig sein! Besondere Vorsicht: Adressen NUR übernehmen wenn sie KLAR und VOLLSTÄNDIG im Text stehen. Bei abgeschnittenem Text lieber nachfragen als raten.` : ''}
+
+━━━ AUDIO-TRANSKRIPT — BESONDERE REGELN ━━━
+Dies ist ein automatisches Sprachtranskript (ASR). Bitte beachte:
+
+ZAHLEN ALS WÖRTER → ZIFFERN umwandeln:
+• "dreiundvierzig" → 43 | "siebzehn" → 17 | "acht" → 8 | "zwölf" → 12
+• "Hausnummer drei" / "Nummer fünf" → Hausnummer 3 / 5
+• "fünfzehnter" / "am Fünfzehnten" → Hausnummer oder Datum (aus Kontext erschließen)
+
+STRASSENNAMEN — häufige ASR-Fehler erkennen und korrigieren:
+• "strasse" / "Strase" / "Schtraße" → Straße
+• "weg" / "wek" → Weg | "Allee" / "alee" → Allee | "platz" / "Plaz" → Platz
+• Bindestrich-Straßen: "Haupt straße" → "Hauptstraße" (zusammensetzen wenn sinnvoll)
+• Umlaute: "ae" → ä, "oe" → ö, "ue" → ü wenn es ein bekannter Straßenname ergibt
+
+UHRZEITEN — korrekt parsen:
+• "halb zwei" → 13:30 | "Viertel nach drei" → 15:15 | "Viertel vor zwölf" → 11:45
+• "zehn Uhr fünfundvierzig" → 10:45 | "dreizehn Uhr fünfundvierzig" → 13:45
+• Immer 24h-Format verwenden
+
+USEDOM — bekannte Orte:
+• Heringsdorf, Ahlbeck, Bansin = Seebäder auf Usedom
+• Zinnowitz, Trassenheide, Karlshagen, Peenemünde, Wolgast = weitere Usedom-Orte
+• "am Bahnhof" OHNE Ortsangabe → Bahnhof nachfragen (welcher Ort?) — NICHT automatisch Heringsdorf annehmen!
+• "am Flughafen" → Flughafen Heringsdorf (HDF) — eindeutig, kein anderer Flughafen auf Usedom
+• "an der Seebrücke" → nachfragen welcher Ort (Heringsdorf, Ahlbeck oder Bansin?)
+• Straßennamen mit Ortsangabe bevorzugen: "Lindenstraße Bansin" → "Lindenstraße, Bansin"
+
+UNVOLLSTÄNDIGE ADRESSEN — trotzdem extrahieren:
+• Straßenname OHNE Hausnummer → Straße trotzdem übernehmen! In question nach Hausnummer fragen.
+• Ortsname allein (z.B. "Zinnowitz") → übernehmen, nach Straße fragen
+• Name eines Gebäudes/Einrichtung ohne Straße → Name übernehmen (z.B. "Kreiskrankenhaus Wolgast"), nach Straße fragen
+• BESSER: "Lindenstraße [Hausnummer fehlt]" extrahieren + nachfragen als gar nichts extrahieren!
+
+ABGESCHNITTENER TEXT:
+• Endet der Text mitten im Satz → fehlende Felder als null, in missing aufnehmen, nachfragen
+• NICHT aus dem Kontext raten wenn unklar` : ''}
 
 TELEFON: Nummer EXAKT Ziffer für Ziffer übernehmen! KEINE Ziffern hinzufügen, verdoppeln oder weglassen!
 • 0176 38 559 559 → +4917638559559 (Leerzeichen entfernen, 0 durch +49 ersetzen, sonst NICHTS ändern!)
@@ -13594,9 +13656,13 @@ exports.onRideCreated = onValueCreated(
         // 🆕 v6.25.5: Kunden-Bestätigung SOFORT bei Erstellung senden (nicht erst bei Update!)
         const customerChatId = await getCustomerChatId(ride);
         if (customerChatId) {
+            // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
+            const _passengerName = ride.guestName || ride.customerName;
+            const _greeting = _passengerName ? `Hallo ${_passengerName},\n\n` : '';
             const vehicleInfo = ride.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
             const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
             const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
+                _greeting +
                 `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                 `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
                 `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
@@ -13717,10 +13783,14 @@ exports.onRideUpdated = onValueUpdated(
                 // Auch Kunden per Telegram benachrichtigen (Bestätigung)
                 const customerChatId = await getCustomerChatId(after);
                 if (customerChatId) {
+                    // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
+                    const _passengerName2 = after.guestName || after.customerName;
+                    const _greeting2 = _passengerName2 ? `Hallo ${_passengerName2},\n\n` : '';
                     const driverInfo = after.driverName ? `\n👤 <b>Fahrer:</b> ${after.driverName}` : '';
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
                     const customerMsg = `🚕 <b>IHR TAXI IST UNTERWEGS!</b> 🚕\n\n` +
+                        _greeting2 +
                         `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                         `🎯 <b>Nach:</b> ${after.destination || '?'}\n` +
                         `🕐 <b>Abholung:</b> ${after.pickupTime || 'Sofort'}\n` +
@@ -13909,9 +13979,13 @@ exports.onRideUpdated = onValueUpdated(
             if (!after.customerTelegramSent) {
                 const customerChatId = await getCustomerChatId(after);
                 if (customerChatId) {
+                    // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
+                    const _passengerName3 = after.guestName || after.customerName;
+                    const _greeting3 = _passengerName3 ? `Hallo ${_passengerName3},\n\n` : '';
                     const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
+                        _greeting3 +
                         `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                         `🎯 <b>Nach:</b> ${after.destination || '?'}\n` +
                         `🕐 <b>Abholung:</b> ${after.pickupTime || 'Sofort'}\n` +

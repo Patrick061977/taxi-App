@@ -9656,37 +9656,83 @@ async function handleCallback(callback) {
             await addTelegramLog('🏠', chatId, `Adresse von ${_arCustomer.name} wird als Abholort gesetzt: ${_arCustomer.address}`);
         }
 
-        // Favoriten nur anzeigen wenn Abholort (nicht wenn Zielort schon gesetzt)
-        const _arFavs = data.startsWith('addr_role_dest_') ? [] :
-            await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone);
+        // Favoriten laden — als Zielvorschläge (Abholort) oder Abholvorschläge (Zielort)
+        const _arFavs = await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone);
+        const _arIsDest = data.startsWith('addr_role_dest_');
 
         if (_arFavs.length > 0) {
             const _arFavId = Date.now().toString(36);
-            await setPending(chatId, {
-                awaitingFavDestination: true,
-                originalText: _arPending.originalText,
-                userName: _arPending.userName,
-                preselectedCustomer: _arCustomer,
-                favorites: _arFavs,
-                favId: _arFavId
-            });
             for (const f of _arFavs) {
                 if (f.destinationLat && f.destinationLon) f.destination = await cleanupAddress(f.destination, f.destinationLat, f.destinationLon);
             }
-            let _arFavMsg = `✅ <b>${_arCustomer.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
-            const _arBtns = _arFavs.map((f, i) => {
-                _arFavMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
-                const _lbl = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
-                return [{ text: `📍 ${_lbl}`, callback_data: `fav_dest_${i}_${_arFavId}` }];
-            });
-            _arBtns.push([{ text: '📝 Anderes Ziel', callback_data: `fav_dest_other_${_arFavId}` }]);
-            await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
+            if (_arIsDest) {
+                // Zielort = Zuhause → Favoriten als ABHOLORT-Vorschläge zeigen
+                await setPending(chatId, {
+                    awaitingFavPickup: true,
+                    originalText: _arPending.originalText,
+                    userName: _arPending.userName,
+                    preselectedCustomer: _arCustomer,
+                    favorites: _arFavs,
+                    favId: _arFavId
+                });
+                let _arFavMsg = `✅ <b>${_arCustomer.name}</b> → 🏠 Nach Hause\n\n📍 <b>Von wo abholen?</b>\n`;
+                const _arBtns = _arFavs.map((f, i) => {
+                    _arFavMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
+                    const _lbl = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
+                    return [{ text: `🚖 ${_lbl}`, callback_data: `fav_pickup_${i}_${_arFavId}` }];
+                });
+                _arBtns.push([{ text: '📝 Anderer Abholort', callback_data: `fav_pickup_other_${_arFavId}` }]);
+                await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
+            } else {
+                // Abholort = Zuhause → Favoriten als ZIELORT-Vorschläge zeigen
+                await setPending(chatId, {
+                    awaitingFavDestination: true,
+                    originalText: _arPending.originalText,
+                    userName: _arPending.userName,
+                    preselectedCustomer: _arCustomer,
+                    favorites: _arFavs,
+                    favId: _arFavId
+                });
+                let _arFavMsg = `✅ <b>${_arCustomer.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
+                const _arBtns = _arFavs.map((f, i) => {
+                    _arFavMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
+                    const _lbl = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
+                    return [{ text: `📍 ${_lbl}`, callback_data: `fav_dest_${i}_${_arFavId}` }];
+                });
+                _arBtns.push([{ text: '📝 Anderes Ziel', callback_data: `fav_dest_other_${_arFavId}` }]);
+                await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
+            }
         } else {
             await deletePending(chatId);
-            const _arLabel = data.startsWith('addr_role_dest_') ? '🎯 Zielort' : (data.startsWith('addr_role_skip_') ? '📝 Ohne Adresse' : '🏠 Abholort');
+            const _arLabel = _arIsDest ? '🎯 Zielort' : (data.startsWith('addr_role_skip_') ? '📝 Ohne Adresse' : '🏠 Abholort');
             await sendTelegramMessage(chatId, `✅ <b>${_arCustomer.name}</b> (${_arLabel})\n🤖 <i>Analysiere Buchung...</i>`);
             await analyzeTelegramBooking(chatId, _arPending.originalText, _arPending.userName, { isAdmin: true, preselectedCustomer: _arCustomer });
         }
+        return;
+    }
+
+    // 🆕 v6.38.16: Favoriten-Ort als Abholort gewählt (wenn Zielort = Nach Hause)
+    if (data.startsWith('fav_pickup_')) {
+        const _fpPending = await getPending(chatId);
+        if (!_fpPending?.awaitingFavPickup) return;
+        const { preselectedCustomer, originalText, userName, favorites } = _fpPending;
+
+        if (data.startsWith('fav_pickup_other_')) {
+            await setPending(chatId, { _awaitingNewBookingText: true, preselectedCustomer, userName });
+            await sendTelegramMessage(chatId, `📝 <b>Abholort für ${preselectedCustomer.name}</b>\n\nBitte Abholort eingeben:`);
+            return;
+        }
+        const _fpMatch = data.match(/^fav_pickup_(\d+)_(.+)$/);
+        if (!_fpMatch || !favorites) return;
+        const _fpFav = favorites[parseInt(_fpMatch[1])];
+        if (!_fpFav) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+
+        await addTelegramLog('🚖', chatId, `Abholort aus Favoriten: ${_fpFav.destination} → Nach Hause (${preselectedCustomer.address})`);
+        // Buchungstext aufbauen: von [Favorit] nach Hause
+        const _fpText = (originalText || '') + ` von ${_fpFav.destination} nach Hause`;
+        await deletePending(chatId);
+        await sendTelegramMessage(chatId, `✅ <b>${preselectedCustomer.name}</b>\n🚖 Von: ${_fpFav.destination}\n🏠 Nach: ${preselectedCustomer.address}\n🤖 <i>Analysiere...</i>`);
+        await analyzeTelegramBooking(chatId, _fpText, userName, { isAdmin: true, preselectedCustomer });
         return;
     }
 

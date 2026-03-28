@@ -3938,6 +3938,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
             // 🆕 v6.14.0: Inline-Buttons für Abholort/Zielort mit Zuhause-Frage
             const _inlineButtons = [];
+            let _favDestsForFlow = [];
 
             // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
             // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
@@ -4009,9 +4010,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     try {
                         const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone);
                         if (favDests && favDests.length > 0) {
+                            _favDestsForFlow = favDests;
                             const destBtns = favDests.slice(0, 3).map((d, i) => ({
-                                text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
-                                callback_data: 'fav_dest_' + i
+                                text: '⭐ ' + (d.destination || '').substring(0, 30),
+                                callback_data: 'fav_dest_direct_' + i
                             }));
                             _inlineButtons.push(destBtns);
                         }
@@ -4034,7 +4036,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
             _backRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
             _inlineButtons.push(_backRow);
 
-            await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
+            await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null, _favDestsForFlow: _favDestsForFlow.length > 0 ? _favDestsForFlow : undefined });
             await sendTelegramMessage(chatId, msg, {
                 reply_markup: { inline_keyboard: _inlineButtons }
             });
@@ -9422,7 +9424,30 @@ async function handleCallback(callback) {
         return;
     }
 
-    // Beliebtes Ziel ausgewählt
+    // 🆕 v6.38.10: Beliebtes Ziel direkt im Buchungs-Flow (continueBookingFlow)
+    if (data.startsWith('fav_dest_direct_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden. Bitte nochmal starten.');
+            return;
+        }
+        const favIndex = parseInt(data.replace('fav_dest_direct_', ''));
+        const fav = pending._favDestsForFlow && pending._favDestsForFlow[favIndex];
+        if (!fav) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
+
+        const booking = pending.partial;
+        booking.destination = fav.destination;
+        if (fav.destinationLat) booking.destinationLat = parseFloat(fav.destinationLat);
+        if (fav.destinationLon) booking.destinationLon = parseFloat(fav.destinationLon);
+        booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+
+        await addTelegramLog('⭐', chatId, `Beliebtes Ziel gewählt: ${fav.destination} (${fav.count}x gebucht)`);
+        await sendTelegramMessage(chatId, `✅ <b>Zielort:</b> ${fav.destination}`);
+        await continueBookingFlow(chatId, booking, pending.originalText);
+        return;
+    }
+
+    // Beliebtes Ziel ausgewählt (Admin-Flow: awaitingFavDestination)
     if (data.startsWith('fav_dest_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending.awaitingFavDestination) {

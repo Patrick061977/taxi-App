@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.7';
+const CLOUD_FUNCTIONS_VERSION = '6.38.8';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -4002,7 +4002,16 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 // 🔧 v6.34.0: preselected aus pending laden (nicht als Variable vorhanden in continueBookingFlow)
                 const _pendingData = await getPending(chatId);
                 const _preselected = _pendingData?.preselectedCustomer || null;
-                const _knownCust = _preselected || await getTelegramCustomer(chatId);
+                let _knownCust = _preselected || await getTelegramCustomer(chatId);
+                // 🆕 v6.38.8: KI hat customerId erkannt (Stammkunde) → direkt CRM laden
+                const _pickupCrmId = booking.customerId || booking._crmCustomerId;
+                if (_pickupCrmId && (!_knownCust || !_knownCust.address)) {
+                    try {
+                        const _pcSnap = await db.ref('customers/' + _pickupCrmId).once('value');
+                        const _pcData = _pcSnap.val();
+                        if (_pcData) _knownCust = { name: _pcData.name || _knownCust?.name, address: _pcData.address, lat: _pcData.lat || _pcData.pickupLat || null, lon: _pcData.lon || _pcData.pickupLon || null, customerId: _pickupCrmId };
+                    } catch(_pce) {}
+                }
                 // 🔧 Fix 1: CRM-Adresse laden wenn nicht im Telegram-Cache gespeichert
                 if (_knownCust && !_knownCust.address) {
                     const _cid1 = _knownCust.customerId || booking._crmCustomerId;
@@ -4048,10 +4057,42 @@ async function continueBookingFlow(chatId, booking, originalText) {
             // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
             if (_firstMissing === 'destination') {
                 // Kunden-Daten: aus pending laden oder getTelegramCustomer
-                // 🔧 v6.34.0: preselected existiert nicht in continueBookingFlow
-                const _pendingData2 = _pendingData || await getPending(chatId);
+                // 🔧 v6.38.8: _pendingData ist out-of-scope (nur in pickup-Block) → neu laden
+                const _pendingData2 = await getPending(chatId);
                 const _preselected2 = _pendingData2?.preselectedCustomer || null;
-                const _knownCust2 = _preselected2 || await getTelegramCustomer(chatId);
+                let _knownCust2 = _preselected2 || await getTelegramCustomer(chatId);
+                // 🆕 v6.38.8: KI hat customerId erkannt (Stammkunde) → CRM-Daten direkt laden
+                const _destCrmId = booking.customerId || booking._crmCustomerId;
+                if (_destCrmId && (!_knownCust2 || !_knownCust2.address)) {
+                    try {
+                        const _dcSnap = await db.ref('customers/' + _destCrmId).once('value');
+                        const _dcData = _dcSnap.val();
+                        if (_dcData) {
+                            _knownCust2 = {
+                                name: _dcData.name || _knownCust2?.name,
+                                address: _dcData.address,
+                                lat: _dcData.lat || _dcData.pickupLat || null,
+                                lon: _dcData.lon || _dcData.pickupLon || null,
+                                customerId: _destCrmId
+                            };
+                        }
+                    } catch(_de2) {}
+                }
+                // Falls _knownCust2 vorhanden aber ohne Adresse → CRM nachladen
+                if (_knownCust2 && !_knownCust2.address) {
+                    const _cid2b = _knownCust2.customerId || _destCrmId;
+                    if (_cid2b) {
+                        try {
+                            const _cs2b = await db.ref('customers/' + _cid2b).once('value');
+                            const _cd2b = _cs2b.val();
+                            if (_cd2b?.address) {
+                                _knownCust2.address = _cd2b.address;
+                                if (!_knownCust2.lat) _knownCust2.lat = _cd2b.lat || _cd2b.pickupLat || null;
+                                if (!_knownCust2.lon) _knownCust2.lon = _cd2b.lon || _cd2b.pickupLon || null;
+                            }
+                        } catch(_e2b) {}
+                    }
+                }
                 if (_knownCust2 && _knownCust2.address) {
                     // Kunde hat Adresse → Nach-Hause-Button
                     msg = '';

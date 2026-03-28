@@ -9713,8 +9713,22 @@ async function handleCallback(callback) {
         const saveAddr = _gcPending?._geocacheAddr || '';
         if (!isNaN(saveLat) && !isNaN(saveLon) && saveAddr) {
             await saveToGeocache(saveAddr, saveLat, saveLon, 'gps-verified');
+            // 🆕 v6.38.16: Auch in Browser-POIs speichern → erscheint in App-Autocomplete
+            try {
+                const _poiName = saveAddr.split(',')[0].trim();
+                await db.ref('pois').push({
+                    name: _poiName,
+                    address: saveAddr,
+                    lat: saveLat,
+                    lon: saveLon,
+                    category: 'Sonstige',
+                    createdAt: Date.now(),
+                    createdBy: 'Telegram-GPS',
+                    source: 'gps-verified'
+                });
+            } catch (e) { console.warn('[geocache_save] POI-Speichern fehlgeschlagen:', e.message); }
             await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
-            await sendTelegramMessage(chatId, `✅ <b>Gespeichert!</b> 📍 ${saveAddr}`);
+            await sendTelegramMessage(chatId, `✅ <b>Gespeichert!</b> 📍 ${saveAddr}\n<i>Auch als bekannter Ort in der App gespeichert ⭐</i>`);
         }
         // Buchungsfluss fortsetzen falls wartend
         if (_gcPending?._awaitingGeocache) {

@@ -6778,8 +6778,18 @@ async function handleMessage(message) {
                     await addTelegramLog('🔍', chatId, `${label} "${text}" → ${suggestions.length} Vorschläge`);
                     await sendTelegramMessage(chatId, `🔍 <b>${label}: "${text}"</b>\n\nBitte wähle die korrekte Adresse:`, { reply_markup: { inline_keyboard: keyboard } });
                 } else {
-                    // Keine Ergebnisse → direkt speichern mit Warnung
-                    await applyAdminAddressChange(chatId, rideId, field, text, null);
+                    // 🔧 v6.38.11: Keine Geocoding-Ergebnisse → Warnung + Bestätigung verlangen
+                    const _label = field === 'pickup' ? 'Abholort' : 'Zielort';
+                    await setPending(chatId, { _adminAddrResults: [], _adminAddrRaw: text, _adminAddrRide: rideId, _adminAddrField: field });
+                    await addTelegramLog('⚠️', chatId, `${_label} "${text}" → Nominatim: keine Ergebnisse`);
+                    await sendTelegramMessage(chatId,
+                        `⚠️ <b>Adresse nicht gefunden</b>\n\n"${text}" konnte nicht geocodiert werden (Nominatim: 0 Ergebnisse).\n\nKeine Koordinaten → kein Routenpreis, kein GPS.\n\nWas möchtest du tun?`, {
+                        reply_markup: { inline_keyboard: [
+                            [{ text: '💾 Trotzdem speichern (ohne GPS)', callback_data: `adm_addr_raw_${rideId}_${field}` }],
+                            [{ text: '✏️ Andere Adresse eingeben', callback_data: `adm_setfield_${rideId}_${field}` }],
+                            [{ text: '✖ Abbrechen', callback_data: `adm_ride_${rideId}` }]
+                        ]}
+                    });
                 }
             } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
             return;
@@ -7083,7 +7093,7 @@ async function handleMessage(message) {
         // 🔧 v6.11.6: Direkt Admin-Auswahl zeigen, Namens-Matching überspringen (zu fehleranfällig bei Transkripten)
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
-            await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone });
+            await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone, _callerIsNew: true });
             await sendTelegramMessage(chatId,
                 `📞 <b>Unbekannte Nummer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Was möchtest du tun?</b>`, {
                 reply_markup: { inline_keyboard: [
@@ -7808,7 +7818,7 @@ async function handleCallback(callback) {
             // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
             // 🆕 v6.38.10: Name aus Transkript extrahieren und als Vorschlag anbieten
             const _suggestedName = extractNameFromTranscript(text);
-            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null, _suggestedName: _suggestedName || null });
+            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null, _callerIsNew: pending._callerIsNew || false, _suggestedName: _suggestedName || null });
             const _custNameBtns = [];
             if (_suggestedName) _custNameBtns.push([{ text: `👤 ${_suggestedName}`, callback_data: `admin_suggest_name_${Date.now().toString(36)}` }]);
             _custNameBtns.push([{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }]);
@@ -7828,10 +7838,23 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '⚠️ Anfrage nicht mehr gefunden.');
             return;
         }
-        // Vorgeschlagenen Namen als Eingabe behandeln — wie wenn Admin den Namen getippt hätte
-        const fakeMsg = { text: pending._suggestedName };
-        // Pending in awaitingCustomerName-State lassen — handleMessage wird ihn als Namenseingabe verarbeiten
-        // Wir simulieren die Texteingabe direkt:
+        // 🔧 v6.38.11: Wenn Anrufer bereits als Neukunde erkannt → direkt anlegen, keine CRM-Suche
+        if (pending._callerIsNew) {
+            await setPending(chatId, {
+                _adminNewCust: true,
+                _adminNewCustStep: pending._callerPhone ? (isMobileNumber(pending._callerPhone) ? 'address' : 'mobilePhone') : 'phone',
+                _adminNewCustName: pending._suggestedName,
+                _adminNewCustPhone: pending._callerPhone || null,
+                _callerPhone: pending._callerPhone || null,
+                originalText: pending.originalText || '',
+                userName: pending.userName || ''
+            });
+            const _stepMsg = pending._callerPhone
+                ? (isMobileNumber(pending._callerPhone) ? `✅ Name: <b>${pending._suggestedName}</b>\n📱 Mobilnummer: <b>${pending._callerPhone}</b>\n\n🏠 Bitte die <b>Heimadresse</b> eingeben:` : `✅ Name: <b>${pending._suggestedName}</b>\n📞 Festnetz: <b>${pending._callerPhone}</b>\n\n📱 Bitte die <b>Mobilnummer</b> eingeben:`)
+                : `✅ Name: <b>${pending._suggestedName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`;
+            await sendTelegramMessage(chatId, `🆕 <b>Neukunde anlegen</b>\n\n${_stepMsg}`, { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } });
+            return;
+        }
         const allCust = await loadAllCustomers();
         const matches = findAllCustomersForSecretary(allCust, pending._suggestedName);
         const confirmId = Date.now().toString(36);

@@ -2688,12 +2688,18 @@ async function calculateTelegramRoutePrice(booking) {
         if (booking.waypoints && booking.waypoints.length > 0) {
             console.log(`[RoutePrice] ${booking.waypoints.length} Zwischenstopps geocoden...`);
             for (const wp of booking.waypoints) {
-                const wpAddr = typeof wp === 'string' ? wp : (wp.address || wp);
+                const wpAddr = typeof wp === 'string' ? wp : (wp.address || String(wp));
+                // 🆕 v6.38.15: Gespeicherte Koordinaten direkt verwenden (kein re-geocoding nötig)
+                if (typeof wp === 'object' && wp.lat && wp.lon) {
+                    waypointCoords.push({ lat: wp.lat, lon: wp.lon });
+                    console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → gespeicherte Koordinaten: ${wp.lat}, ${wp.lon}`);
+                    continue;
+                }
                 try {
                     const coords = await geocode(wpAddr);
                     if (coords && coords.lat && coords.lon) {
                         waypointCoords.push({ lat: coords.lat, lon: coords.lon });
-                        console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → ${coords.lat}, ${coords.lon}`);
+                        console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → geocodiert: ${coords.lat}, ${coords.lon}`);
                     } else {
                         console.warn(`[RoutePrice] ⚠️ Zwischenstopp "${wpAddr}" konnte nicht geocodiert werden`);
                     }
@@ -4672,7 +4678,10 @@ function buildTelegramConfirmMsg(booking, routePrice) {
     // 🔧 v6.11.0: Zwischenstopps anzeigen
     if (booking.waypoints && booking.waypoints.length > 0) {
         booking.waypoints.forEach((wp, i) => {
-            msg += `📍 Stopp ${i + 1}: ${wp}\n`;
+            // 🆕 v6.38.15: wp kann String oder {address, lat, lon} Objekt sein
+            const wpLabel = typeof wp === 'string' ? wp : (wp.address || String(wp));
+            const wpCoords = (typeof wp === 'object' && wp.lat) ? ` ✅` : '';
+            msg += `📍 Stopp ${i + 1}: ${wpLabel}${wpCoords}\n`;
         });
     }
     if (booking.destination) msg += `🎯 Nach: ${booking.destination} ✅\n`;
@@ -6023,11 +6032,24 @@ async function handleMessage(message) {
     if (pending && pending._awaitingWaypoint && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
         const waypointText = text.trim().slice(0, 200);
         const updatedBooking = { ...pending.booking };
+        // 🆕 v6.38.15: Zwischenstopp sofort geocodieren + Koordinaten speichern
+        let waypointEntry = waypointText; // Fallback: nur Text
+        try {
+            const wpCoords = await geocode(waypointText);
+            if (wpCoords && wpCoords.lat && wpCoords.lon) {
+                waypointEntry = { address: waypointText, lat: wpCoords.lat, lon: wpCoords.lon };
+                await addTelegramLog('✅', chatId, `Zwischenstopp geocodiert: ${waypointText} → ${wpCoords.lat.toFixed(5)}, ${wpCoords.lon.toFixed(5)}`);
+            } else {
+                await addTelegramLog('⚠️', chatId, `Zwischenstopp nicht geocodiert: ${waypointText}`);
+            }
+        } catch (e) {
+            await addTelegramLog('⚠️', chatId, `Zwischenstopp Geocode-Fehler: ${e.message}`);
+        }
         // Zwischenstopps als Array speichern
         if (!updatedBooking.waypoints) updatedBooking.waypoints = [];
-        updatedBooking.waypoints.push(waypointText);
-        // Bemerkung mit Zwischenstopps ergänzen
-        const wpNote = `Zwischenstopp: ${updatedBooking.waypoints.join(' → ')}`;
+        updatedBooking.waypoints.push(waypointEntry);
+        // Bemerkung mit Zwischenstopps ergänzen (wp kann String oder Objekt sein)
+        const wpNote = `Zwischenstopp: ${updatedBooking.waypoints.map(w => typeof w === 'string' ? w : (w.address || String(w))).join(' → ')}`;
         updatedBooking.notes = updatedBooking.notes ? `${updatedBooking.notes} | ${wpNote}` : wpNote;
         const updatedPending = { ...pending, booking: updatedBooking };
         delete updatedPending._awaitingWaypoint;
@@ -12385,25 +12407,45 @@ async function handleLocation(message) {
             const missingPickup = !booking.pickup || (booking.missing && booking.missing.includes('pickup'));
             const missingDest = !booking.destination || (booking.missing && booking.missing.includes('destination'));
 
-            // Nur Abholort fehlt → direkt als Abholort setzen
+            // Nur Abholort fehlt → direkt als Abholort setzen + Geocache-Frage
             if (missingPickup && !missingDest) {
                 booking.pickup = addressName;
                 booking.pickupLat = lat;
                 booking.pickupLon = lon;
                 if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'pickup');
                 await sendTelegramMessage(chatId, `📍 <b>Abholort per GPS gesetzt:</b>\n🏠 ${addressName}`);
-                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                // 🆕 v6.38.15: Geocache-Frage stellen (pausiert Buchungsfluss bis Ja/Nein)
+                const _gcUpdated = { ...pending, _awaitingGeocache: true, _geocacheLat: lat, _geocacheLon: lon, _geocacheAddr: addressName };
+                if (pending.partial) _gcUpdated.partial = booking; else _gcUpdated.booking = booking;
+                await setPending(chatId, _gcUpdated);
+                await sendTelegramMessage(chatId,
+                    `💾 <b>Adresse im Geocache speichern?</b>\n📍 ${addressName}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal bevorzugt angezeigt.</i>`, {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${lat.toFixed(5)}_${lon.toFixed(5)}` },
+                         { text: '❌ Nein', callback_data: 'geocache_skip' }]
+                    ] }
+                });
                 return;
             }
 
-            // Nur Zielort fehlt → direkt als Zielort setzen
+            // Nur Zielort fehlt → direkt als Zielort setzen + Geocache-Frage
             if (!missingPickup && missingDest) {
                 booking.destination = addressName;
                 booking.destinationLat = lat;
                 booking.destinationLon = lon;
                 if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'destination');
                 await sendTelegramMessage(chatId, `📍 <b>Zielort per GPS gesetzt:</b>\n🎯 ${addressName}`);
-                await continueBookingFlow(chatId, booking, pending.originalText || '');
+                // 🆕 v6.38.15: Geocache-Frage stellen (pausiert Buchungsfluss bis Ja/Nein)
+                const _gcUpdated2 = { ...pending, _awaitingGeocache: true, _geocacheLat: lat, _geocacheLon: lon, _geocacheAddr: addressName };
+                if (pending.partial) _gcUpdated2.partial = booking; else _gcUpdated2.booking = booking;
+                await setPending(chatId, _gcUpdated2);
+                await sendTelegramMessage(chatId,
+                    `💾 <b>Adresse im Geocache speichern?</b>\n📍 ${addressName}\n\n<i>Gespeicherte Adressen werden beim nächsten Mal bevorzugt angezeigt.</i>`, {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, speichern', callback_data: `geocache_save_${lat.toFixed(5)}_${lon.toFixed(5)}` },
+                         { text: '❌ Nein', callback_data: 'geocache_skip' }]
+                    ] }
+                });
                 return;
             }
 
@@ -14295,9 +14337,14 @@ exports.onRideCreated = onValueCreated(
 
         // 🆕 v6.34.2: WhatsApp-Link neben Telefonnummer
         const waLink = formatWhatsAppLink(ride.customerPhone || ride.customerMobile || ride.mobilePhone);
+        // 🆕 v6.38.15: Zwischenstopps in Admin-Nachricht anzeigen
+        const _wpLines = ride.waypoints && ride.waypoints.length > 0
+            ? ride.waypoints.map((wp, i) => `↪️ <b>Stopp ${i + 1}:</b> ${typeof wp === 'string' ? wp : (wp.address || String(wp))}`).join('\n') + '\n'
+            : '';
         const message = `${statusEmoji} <b>${statusText}</b>\n` +
             `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
             `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+            _wpLines +
             `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
             `👤 <b>Name:</b> ${ride.customerName || '?'}\n` +
             `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${waLink}\n` +

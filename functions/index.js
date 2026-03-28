@@ -7300,6 +7300,69 @@ async function handleCallback(callback) {
     await addTelegramLog('🖱️', chatId, `Button: ${data.substring(0, 25)}`);
     await answerCallbackQuery(callback.id);
 
+    // 🆕 v6.38.0: Foto/Screenshot-Aktionen
+    if (data === 'photo_action_booking' || data === 'photo_action_contact' || data === 'photo_action_cancel') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._photoAnalysis) {
+            await sendTelegramMessage(chatId, '⚠️ Aktion abgelaufen. Bitte Bild erneut senden.');
+            return;
+        }
+        const analysis = pending._photoAnalysis;
+        await deletePending(chatId);
+
+        if (data === 'photo_action_cancel') {
+            await sendTelegramMessage(chatId, '❌ Abgebrochen.');
+            return;
+        }
+
+        if (data === 'photo_action_booking') {
+            const bookingText = analysis.extractedText || _buildBookingText(analysis.booking);
+            await sendTelegramMessage(chatId, `📷 <b>Buchung wird verarbeitet...</b>\n<i>${analysis.summary || ''}</i>`);
+            const fakeMessage = {
+                chat: { id: chatId },
+                from: callback.message.chat,
+                text: bookingText,
+                _isPhotoTranscript: true
+            };
+            await handleMessage(fakeMessage);
+            return;
+        }
+
+        if (data === 'photo_action_contact') {
+            const c = analysis.contact || {};
+            if (!c.name) {
+                await sendTelegramMessage(chatId, '⚠️ Kein Name erkannt — Kontakt kann nicht gespeichert werden.');
+                return;
+            }
+            const newRef = db.ref('customers').push();
+            const isMobile = (c.mobile || '').startsWith('+49 1') || (c.mobile || '').startsWith('+491') || (c.mobile || '').match(/^(015|016|017)/);
+            await newRef.set({
+                name: c.name,
+                phone: isMobile ? '' : (c.phone || c.mobile || ''),
+                mobilePhone: isMobile ? (c.mobile || c.phone || '') : (c.mobile || ''),
+                address: c.address || '',
+                email: c.email || '',
+                notes: [c.company ? `Firma: ${c.company}` : '', c.notes || ''].filter(Boolean).join('\n'),
+                createdAt: Date.now(),
+                createdBy: 'telegram-photo',
+                source: 'telegram-foto',
+                customerKind: 'gelegenheitskunde',
+                totalRides: 0,
+                isVIP: false
+            });
+            const customerId = newRef.key;
+            await addTelegramLog('📷', chatId, `CRM-Kontakt aus Foto: ${c.name} (${customerId})`);
+            let confirmMsg = `✅ <b>Kontakt im CRM gespeichert!</b>\n\n👤 <b>${c.name}</b>\n`;
+            if (c.company) confirmMsg += `🏢 ${c.company}\n`;
+            if (c.mobile || c.phone) confirmMsg += `📱 ${c.mobile || c.phone}\n`;
+            if (c.address) confirmMsg += `📍 ${c.address}\n`;
+            if (c.email) confirmMsg += `✉️ ${c.email}\n`;
+            confirmMsg += `\n🆔 ID: <code>${customerId}</code>`;
+            await sendTelegramMessage(chatId, confirmMsg);
+            return;
+        }
+    }
+
     // Menü-Buttons
     if (data === 'menu_buchen') {
         let _buchenMsg = '🚕 <b>Neue Fahrt buchen</b>\n\n';
@@ -11647,6 +11710,200 @@ async function handleAudioFile(message) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.0: FOTO/SCREENSHOT-HANDLER — Claude Vision OCR + Analyse
+// Foto senden → Text erkennen → Termin oder CRM-Kontakt anlegen
+// ═══════════════════════════════════════════════════════════════
+
+function _buildBookingText(booking) {
+    if (!booking) return '';
+    return [
+        booking.datetime && `Zeit: ${booking.datetime}`,
+        booking.name && `Name: ${booking.name}`,
+        booking.phone && `Tel: ${booking.phone}`,
+        booking.pickup && `Von: ${booking.pickup}`,
+        booking.destination && `Nach: ${booking.destination}`,
+        booking.passengers && booking.passengers > 1 && `Personen: ${booking.passengers}`,
+        booking.notes && `Hinweis: ${booking.notes}`,
+    ].filter(Boolean).join('\n');
+}
+
+async function handlePhoto(message) {
+    const chatId = message.chat.id;
+    const photos = message.photo;
+    const caption = message.caption || '';
+
+    if (!photos || photos.length === 0) {
+        await sendTelegramMessage(chatId, '⚠️ Bild konnte nicht verarbeitet werden.');
+        return;
+    }
+
+    const isAdmin = await isTelegramAdmin(chatId);
+
+    try {
+        // 1. Anthropic API Key prüfen
+        const anthropicKey = await getAnthropicApiKey();
+        if (!anthropicKey) {
+            await addTelegramLog('⚠️', chatId, 'Foto empfangen, aber kein Anthropic API Key');
+            await sendTelegramMessage(chatId, '⚠️ Bildanalyse nicht konfiguriert.\nBitte Anfrage als Text oder Sprachnachricht senden.');
+            return;
+        }
+
+        await sendTelegramMessage(chatId, '🖼️ <i>Screenshot wird analysiert...</i>');
+
+        // 2. Höchste Auflösung wählen (letztes Element = größtes Bild)
+        const bestPhoto = photos[photos.length - 1];
+
+        // 3. Datei von Telegram holen
+        const token = await loadBotToken();
+        const fileResp = await fetch(`https://api.telegram.org/bot${token}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: bestPhoto.file_id })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) {
+            await sendTelegramMessage(chatId, '⚠️ Bild konnte nicht geladen werden.');
+            return;
+        }
+
+        // 4. Bild herunterladen + Base64 konvertieren
+        const fileUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+        const imgResp = await fetch(fileUrl);
+        if (!imgResp.ok) {
+            await sendTelegramMessage(chatId, '⚠️ Bild-Download fehlgeschlagen.');
+            return;
+        }
+        const base64 = Buffer.from(await imgResp.arrayBuffer()).toString('base64');
+        const filePath = fileData.result.file_path || '';
+        const mediaType = filePath.endsWith('.png') ? 'image/png' :
+                          filePath.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+
+        // 5. Claude Vision — Text + Typ erkennen
+        const prompt = `Du bist ein Assistent für ein Taxi-Unternehmen auf Usedom (Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Wolgast).
+${caption ? `Zusatz-Text des Senders: "${caption}"\n` : ''}
+Analysiere dieses Bild. Lies ALLEN sichtbaren Text und bestimme ob es eine Buchung/Termin oder ein Kontakt ist.
+
+Antworte NUR mit diesem JSON (kein anderer Text):
+{
+  "type": "booking" | "contact" | "both" | "unknown",
+  "extractedText": "Gesamter sichtbarer Text aus dem Bild",
+  "booking": {
+    "name": null,
+    "phone": null,
+    "pickup": null,
+    "destination": null,
+    "datetime": null,
+    "passengers": 1,
+    "notes": null
+  },
+  "contact": {
+    "name": null,
+    "phone": null,
+    "mobile": null,
+    "address": null,
+    "email": null,
+    "company": null,
+    "notes": null
+  },
+  "confidence": "high" | "medium" | "low",
+  "summary": "Kurze Zusammenfassung was erkannt wurde (1 Satz)"
+}
+
+Regeln:
+- "booking": enthält Datum/Uhrzeit + Adresse/Ort (Taxi-Fahrt, Termin, Buchungsbestätigung)
+- "contact": enthält Name + Telefon/Adresse (Visitenkarte, Kontaktliste, WhatsApp-Profil)
+- "both": beides erkennbar
+- "unknown": keine verwertbaren Daten (Foto, Landschaft etc.)
+- Unbekannte Felder als null lassen`;
+
+        const visionResp = await callAnthropicAPI(anthropicKey, 'claude-haiku-4-5-20251001', 1024, [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                { type: 'text', text: prompt }
+            ]
+        }]);
+
+        const rawText = (visionResp.content?.[0]?.text || '').trim();
+        await addTelegramLog('📷', chatId, `Foto-Analyse: ${rawText.substring(0, 120)}`);
+
+        // 6. JSON parsen
+        let analysis;
+        try {
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            analysis = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+        } catch (e) {
+            // Fallback: Rohtext als Buchungstext verwenden
+            await addTelegramLog('⚠️', chatId, `Foto JSON-Fehler, Fallback auf Rohtext: ${e.message}`);
+            if (rawText.length > 10) {
+                await sendTelegramMessage(chatId, `📷 <b>Text erkannt:</b>\n<i>"${rawText.substring(0, 300)}"</i>\n\n⏳ Wird als Buchung verarbeitet...`);
+                const fakeMsg = { chat: { id: chatId }, from: message.from, text: rawText, _isPhotoTranscript: true };
+                await handleMessage(fakeMsg);
+            } else {
+                await sendTelegramMessage(chatId, '⚠️ Konnte keinen Text aus dem Bild lesen. Bitte bessere Beleuchtung oder schärferes Bild versuchen.');
+            }
+            return;
+        }
+
+        const { type, extractedText, booking, contact, confidence, summary } = analysis;
+
+        // 7. Wenn nichts erkannt
+        if (type === 'unknown' || (!extractedText && !booking?.name && !contact?.name)) {
+            await sendTelegramMessage(chatId, `🖼️ <b>Bild analysiert</b>\n\n${summary || 'Keine verwertbaren Informationen gefunden.'}\n\n💡 Tipp: Screenshot von WhatsApp-Nachricht, Buchungsformular oder Visitenkarte senden.`);
+            return;
+        }
+
+        // 8. Zusammenfassung aufbauen
+        let infoMsg = `📷 <b>Erkannt (${confidence || 'medium'}):</b> ${summary || type}\n\n`;
+        if (type === 'booking' || type === 'both') {
+            if (booking?.datetime) infoMsg += `🕐 ${booking.datetime}\n`;
+            if (booking?.name) infoMsg += `👤 ${booking.name}\n`;
+            if (booking?.phone) infoMsg += `📱 ${booking.phone}\n`;
+            if (booking?.pickup) infoMsg += `📍 Von: ${booking.pickup}\n`;
+            if (booking?.destination) infoMsg += `🎯 Nach: ${booking.destination}\n`;
+            if (booking?.passengers && booking.passengers > 1) infoMsg += `👥 ${booking.passengers} Personen\n`;
+        }
+        if (type === 'contact' || type === 'both') {
+            if (contact?.name) infoMsg += `👤 ${contact.name}\n`;
+            if (contact?.company) infoMsg += `🏢 ${contact.company}\n`;
+            if (contact?.mobile) infoMsg += `📱 ${contact.mobile}\n`;
+            if (contact?.phone) infoMsg += `☎️ ${contact.phone}\n`;
+            if (contact?.address) infoMsg += `📍 ${contact.address}\n`;
+            if (contact?.email) infoMsg += `✉️ ${contact.email}\n`;
+        }
+        infoMsg += '\nWas soll ich tun?';
+
+        // 9. Inline-Buttons je nach Typ + Admin-Status
+        const buttons = [];
+        if (type === 'booking' || type === 'both') {
+            buttons.push({ text: '📋 Als Buchung anlegen', callback_data: 'photo_action_booking' });
+        }
+        if ((type === 'contact' || type === 'both') && isAdmin) {
+            buttons.push({ text: '👤 Im CRM speichern', callback_data: 'photo_action_contact' });
+        }
+        if (type === 'unknown' || (!buttons.length && extractedText)) {
+            buttons.push({ text: '📋 Als Buchung versuchen', callback_data: 'photo_action_booking' });
+        }
+        buttons.push({ text: '❌ Abbrechen', callback_data: 'photo_action_cancel' });
+
+        // 10. Analyse in Pending speichern (60 Minuten)
+        await setPending(chatId, {
+            _photoAnalysis: { type, extractedText, booking, contact, summary },
+            _createdAt: Date.now()
+        });
+
+        await sendTelegramMessage(chatId, infoMsg, {
+            reply_markup: { inline_keyboard: [buttons] }
+        });
+
+    } catch (error) {
+        console.error('handlePhoto Fehler:', error);
+        await addTelegramLog('❌', chatId, `Foto-Fehler: ${error.message}`);
+        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Bildanalyse: ' + error.message);
+    }
+}
+
 async function handleLocation(message) {
     const chatId = message.chat.id;
     const lat = message.location.latitude;
@@ -11970,6 +12227,9 @@ exports.telegramWebhook = onRequest(
                 } else if (update.message.audio) {
                     // 🆕 v6.14.0: Audio-Dateien (MP3 etc.) transkribieren
                     await handleAudioFile(update.message);
+                } else if (update.message.photo) {
+                    // 🆕 v6.38.0: Fotos/Screenshots analysieren (Claude Vision)
+                    await handlePhoto(update.message);
                 } else if (update.message.document && isAudioDocument(update.message.document)) {
                     // 🆕 v6.14.0: Dokumente die Audio sind (WAV, M4A, OGG etc.)
                     await handleAudioFile(update.message);

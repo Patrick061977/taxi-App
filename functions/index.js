@@ -2866,8 +2866,10 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     const _TOWNS1 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                     const _explTown1 = _TOWNS1.find(t => addressToResolve.toLowerCase().includes(t));
                     const _townOk1 = (s) => !_explTown1 || s.name.toLowerCase().includes(_explTown1);
-                    const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _streetOk1(s) && _townOk1(s))
-                        || suggestions.find(s => s.lat && s.lon && _streetOk1(s) && _townOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                    // 🔧 v6.38.19: 3-Stufen Auto-Select (Trusted → Lokal+Ort → Nominatim+Hausnr+Ort)
+                    const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _townOk1(s))
+                        || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s)))
+                        || (_hasHausnrInAddr1 && _explTown1 && suggestions.find(s => s.lat && s.lon && _streetOk1(s) && _townOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
                     if (_bestHit && _bestHit.lat && _bestHit.lon) {
                         await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
                         if (needPickup) {
@@ -4095,8 +4097,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                         const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
                         const _townOk2 = (s) => !_explTown2 || s.name.toLowerCase().includes(_explTown2);
-                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _streetOk2(s) && _townOk2(s))
-                            || suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                        // 🔧 v6.38.19: 3-Stufen Auto-Select
+                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s))
+                            || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s)))
+                            || (_hasHausnrInAddr2 && _explTown2 && suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
                         if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
                             await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
                             if (needsPickupResolve) {
@@ -7141,9 +7145,17 @@ async function handleMessage(message) {
         const suggestions2 = await searchNominatimForTelegram(combinedAddr);
         const isPickupField2 = _awaitingField === 'pickup';
         const fieldLabel2 = isPickupField2 ? 'Abholort' : 'Zielort';
-        const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-        const bestHit2 = suggestions2.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon)
-            || suggestions2.find(s => s.lat && s.lon);
+        // 🔧 v6.38.19: PLZ-Handler mit streetOk + townOk Checks
+        const _TRUSTED_P = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+        const _qStreetP = _awaitingPLZAddr.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
+        const _qPfxP = _qStreetP.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
+        const _streetOkP = (s) => !_qPfxP || s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPfxP);
+        const _TOWNS_P = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
+        const _plzCenter2 = PLZ_CENTERS[text.trim()];
+        const _plzTown = _plzCenter2 ? _plzCenter2.name.toLowerCase() : null;
+        const _townOkP = (s) => !_plzTown || s.name.toLowerCase().includes(_plzTown);
+        const bestHit2 = suggestions2.find(s => _TRUSTED_P.includes(s.source) && s.lat && s.lon && _townOkP(s))
+            || suggestions2.find(s => s.lat && s.lon && _streetOkP(s) && _townOkP(s));
         if (bestHit2) {
             const partial2 = savedPartial || {};
             if (isPickupField2) { partial2.pickup = bestHit2.name; partial2.pickupLat = bestHit2.lat; partial2.pickupLon = bestHit2.lon; }
@@ -7201,22 +7213,24 @@ async function handleMessage(message) {
             return;
         }
 
-        // Auto-Select: Hausnummer vorhanden + vertrauenswürdige Quelle oder Usedom-Straßenname passt
+        // 🔧 v6.38.19: Robuste Auto-Select Logik
         const _hasHausnr = /\b\d+[a-z]?\b/i.test(text.replace(/\b\d{5}\b/g, '').trim());
         const _qStreet = text.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
         const _qPfx = _qStreet.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
         const _streetOk = (s) => !_qPfx ||
             s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPfx);
         const _TRUSTED = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-        // 🔧 v6.38.18: Expliziter Ortsname im Query → Ergebnis MUSS diesen Ort enthalten (Wolgast bei "... Heringsdorf" ausschließen)
         const _TOWNS = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
         const _explTown = _TOWNS.find(t => text.toLowerCase().includes(t));
         const _townOk = (s) => !_explTown || s.name.toLowerCase().includes(_explTown);
-        const _hasTrusted = suggestions.some(s => _TRUSTED.includes(s.source));
-        const _bestHit = _hasHausnr && (
-            suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _streetOk(s) && _townOk(s)) ||
-            suggestions.find(s => s.lat && s.lon && _streetOk(s) && _townOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)))
-        );
+
+        const _bestHit =
+            // 1) Verifizierte Quellen (POI, geocache-verified, known, crm): sofort auto-select wenn townOk
+            suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s)) ||
+            // 2) Lokale Quellen (booking, customer, geocache): auto-select wenn Ort explizit genannt + townOk
+            (_explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s))) ||
+            // 3) Nominatim: nur mit Hausnummer + streetOk + townOk + expliziter Ort + isNearUsedom
+            (_hasHausnr && _explTown && suggestions.find(s => s.lat && s.lon && _streetOk(s) && _townOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
 
         if (_bestHit) {
             if (isPickupField) {
@@ -7224,15 +7238,15 @@ async function handleMessage(message) {
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
-            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name}`);
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}]`);
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);
             return;
         }
 
-        // 🔧 v6.38.18: Vorschlag vorhanden → "Meinten Sie X?" zeigen, sonst PLZ abfragen
-        const _bestGuess = suggestions.find(s => s.lat && s.lon && _streetOk(s));
+        // Kein Auto-Select → "Meinten Sie?" mit bestem Vorschlag + PLZ-Fallback
+        const _bestGuess = suggestions.find(s => s.lat && s.lon && _townOk(s)) || suggestions.find(s => s.lat && s.lon);
         await setPending(chatId, {
             _awaitingPLZ: true,
             _awaitingField,
@@ -7244,12 +7258,13 @@ async function handleMessage(message) {
         });
         if (_bestGuess) {
             await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Vorschlag: ${_bestGuess.name}`);
+            const guessName = _bestGuess.name.length > 40 ? _bestGuess.name.slice(0, 38) + '…' : _bestGuess.name;
             const keyboard = { inline_keyboard: [
-                [{ text: `✅ Ja, ${_bestGuess.name}`, callback_data: 'plzguess_yes' }],
+                [{ text: `✅ Ja: ${guessName}`, callback_data: 'plzguess_yes' }],
                 [{ text: '🔢 Nein → PLZ eingeben', callback_data: 'plzguess_no' }],
                 [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
             ]};
-            await sendTelegramMessage(chatId, `❓ <b>Meinten Sie?</b>\n\n📍 ${_bestGuess.name}`, { reply_markup: keyboard });
+            await sendTelegramMessage(chatId, `❓ <b>Meinten Sie?</b>\n\n📍 ${_bestGuess.name}\n\nSonst bitte PLZ eingeben.`, { reply_markup: keyboard });
         } else {
             await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → kein Vorschlag → PLZ abfragen`);
             await sendTelegramMessage(chatId,

@@ -5093,18 +5093,68 @@ async function linkTelegramChatToCustomer(chatId, booking) {
         });
 
         if (customerId && customerData) {
+            // 🔧 v6.38.23: customerKind im Telegram-Cache speichern!
             await saveTelegramCustomer(chatId, {
                 customerId, name: customerData.name || name,
                 phone: customerData.mobilePhone || customerData.phone || phone,
                 mobile: customerData.mobilePhone || null,
-                address: customerData.address || null, linkedAt: Date.now()
+                address: customerData.address || null,
+                customerKind: customerData.customerKind || 'gelegenheitskunde',
+                linkedAt: Date.now()
             });
             await db.ref('customers/' + customerId).update({ telegramChatId: String(chatId) });
         } else {
-            await saveTelegramCustomer(chatId, {
-                customerId: null, name: name || 'Telegram-Gast',
-                phone: phone || '', linkedAt: Date.now()
-            });
+            // 🆕 v6.38.23: Neuen CRM-Eintrag automatisch anlegen (nicht nur für Admin!)
+            // Kunde bucht über Telegram → CRM-Eintrag erstellen
+            if (name && name !== 'Telegram-Gast') {
+                try {
+                    const _isMobil = isMobileNumber(phone || '');
+                    const newCrmRef = db.ref('customers').push();
+                    await newCrmRef.set({
+                        name: name,
+                        phone: _isMobil ? '' : (phone || ''),
+                        mobilePhone: _isMobil ? (phone || '') : '',
+                        address: '',
+                        defaultPickup: '',
+                        email: '',
+                        createdAt: Date.now(),
+                        createdBy: 'telegram-auto',
+                        source: 'telegram',
+                        customerKind: 'gelegenheitskunde',
+                        totalRides: 1,
+                        isVIP: false,
+                        notes: '',
+                        telegramChatId: String(chatId)
+                    });
+                    const newCrmId = newCrmRef.key;
+                    console.log(`🆕 CRM-Kunde auto-angelegt (Telegram): ${name} (${newCrmId})`);
+                    await saveTelegramCustomer(chatId, {
+                        customerId: newCrmId, name: name,
+                        phone: phone || '',
+                        customerKind: 'gelegenheitskunde',
+                        linkedAt: Date.now()
+                    });
+                    // Ride mit CRM verknüpfen (wenn booking.rideId vorhanden)
+                    if (booking.rideId) {
+                        await db.ref('rides/' + booking.rideId).update({
+                            customerId: newCrmId,
+                            updatedAt: Date.now()
+                        });
+                    }
+                } catch(_crmErr) {
+                    console.warn('Auto-CRM-Anlage Fehler:', _crmErr.message);
+                    // Fallback: Nur Telegram-Cache ohne CRM
+                    await saveTelegramCustomer(chatId, {
+                        customerId: null, name: name || 'Telegram-Gast',
+                        phone: phone || '', linkedAt: Date.now()
+                    });
+                }
+            } else {
+                await saveTelegramCustomer(chatId, {
+                    customerId: null, name: name || 'Telegram-Gast',
+                    phone: phone || '', linkedAt: Date.now()
+                });
+            }
         }
     } catch (e) { console.warn('linkTelegramChatToCustomer:', e.message); }
 }
@@ -8774,30 +8824,48 @@ async function handleCallback(callback) {
                 return;
             }
 
-            // 🔧 v6.20.2: Sofortfahrt — Schichtplan-Check statt GPS-Check
-            // Geht durch wenn mindestens 1 Fahrzeug im Schichtdienst ist
-            if (booking._isJetzt && !pending._noDriverOverride) {
+            // 🔧 v6.20.2: Schichtplan-Check — für Sofortfahrten UND Vorbestellungen!
+            // 🔧 v6.38.23: Auch Vorbestellungen prüfen — verhindert Buchungen wenn kein Taxi fährt
+            if (!pending._noDriverOverride) {
                 const _shiftsSnap = await db.ref('vehicleShifts').once('value');
                 const _shiftsData = _shiftsSnap.val() || {};
-                const _now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-                const _dateStr = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
-                const _timeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+                let _shiftDateStr, _shiftTimeStr;
+                if (booking._isJetzt) {
+                    // Sofortfahrt → aktuelle Zeit prüfen
+                    const _now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    _shiftDateStr = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0') + '-' + String(_now.getDate()).padStart(2,'0');
+                    _shiftTimeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+                } else {
+                    // Vorbestellung → Abholzeitpunkt prüfen
+                    const _pickupDate = new Date(pickupTimestamp);
+                    const _berlinStr = _pickupDate.toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
+                    const _berlinDate = new Date(_berlinStr);
+                    _shiftDateStr = _berlinDate.getFullYear() + '-' + String(_berlinDate.getMonth()+1).padStart(2,'0') + '-' + String(_berlinDate.getDate()).padStart(2,'0');
+                    _shiftTimeStr = String(_berlinDate.getHours()).padStart(2,'0') + ':' + String(_berlinDate.getMinutes()).padStart(2,'0');
+                }
                 let _anyInShift = false;
                 for (const [vId] of Object.entries(OFFICIAL_VEHICLES)) {
-                    if (isVehicleInShift(vId, _shiftsData, _dateStr, _timeStr)) { _anyInShift = true; break; }
+                    if (isVehicleInShift(vId, _shiftsData, _shiftDateStr, _shiftTimeStr)) { _anyInShift = true; break; }
                 }
                 if (!_anyInShift) {
-                    await sendTelegramMessage(chatId,
-                        `😔 <b>Zur Zeit ist leider kein Fahrer online erreichbar.</b>\n\n` +
-                        `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>`,
-                        { reply_markup: { inline_keyboard: [
-                            [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
-                        ] } }
-                    );
-                    await addTelegramLog('😔', chatId, `Sofortfahrt blockiert: Kein Fahrzeug im Schichtdienst (${_dateStr} ${_timeStr})`);
-                    return;
+                    if (booking._isJetzt) {
+                        await sendTelegramMessage(chatId,
+                            `😔 <b>Zur Zeit ist leider kein Fahrer online erreichbar.</b>\n\n` +
+                            `📞 Bitte rufen Sie uns an: <b>038378 / 22022</b>`,
+                            { reply_markup: { inline_keyboard: [
+                                [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                            ] } }
+                        );
+                        await addTelegramLog('😔', chatId, `Sofortfahrt blockiert: Kein Fahrzeug im Schichtdienst (${_shiftDateStr} ${_shiftTimeStr})`);
+                        return;
+                    } else {
+                        // Vorbestellung → Warnung an Admin, aber trotzdem eintragen (Admin kann entscheiden)
+                        await addTelegramLog('⚠️', chatId, `Vorbestellung: Kein Fahrzeug hat Schicht am ${_shiftDateStr} um ${_shiftTimeStr} — wird trotzdem eingetragen`);
+                        // Admin-Info nach Buchungserstellung (nicht blockieren)
+                    }
+                } else {
+                    await addTelegramLog('🟢', chatId, `${booking._isJetzt ? 'Sofortfahrt' : 'Vorbestellung'}: Fahrzeug im Schichtdienst (${_shiftDateStr} ${_shiftTimeStr})`);
                 }
-                await addTelegramLog('🟢', chatId, `Sofortfahrt: Fahrzeug im Schichtdienst → wird eingetragen`);
             }
 
             // Preis: gespeicherten verwenden, nur als Fallback neu berechnen

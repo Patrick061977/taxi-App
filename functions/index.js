@@ -10528,7 +10528,7 @@ async function handleCallback(callback) {
                 ..._copyRide2.guestName && { guestName: _copyRide2.guestName },
                 ..._copyRide2.guestPhone && { guestPhone: _copyRide2.guestPhone },
                 ..._copyRide2.paymentMethod && { paymentMethod: _copyRide2.paymentMethod },
-                ..._copyRide2.waypoints && _copyRide2.waypoints.length > 0 && { waypoints: _copyRide2.waypoints }
+                ...(() => { const _w = _copyRide2.waypoints; const _wa = Array.isArray(_w) ? _w : (typeof _w === 'object' && _w ? Object.values(_w) : []); return _wa.length > 0 ? { waypoints: _wa } : {}; })()
             };
 
             // Admin-Flags setzen
@@ -10584,7 +10584,7 @@ async function handleCallback(callback) {
                 ..._chgRide.guestName && { guestName: _chgRide.guestName },
                 ..._chgRide.guestPhone && { guestPhone: _chgRide.guestPhone },
                 ..._chgRide.paymentMethod && { paymentMethod: _chgRide.paymentMethod },
-                ..._chgRide.waypoints && _chgRide.waypoints.length > 0 && { waypoints: _chgRide.waypoints }
+                ...(() => { const _w = _chgRide.waypoints; const _wa = Array.isArray(_w) ? _w : (typeof _w === 'object' && _w ? Object.values(_w) : []); return _wa.length > 0 ? { waypoints: _wa } : {}; })()
             };
             _chgData._adminBooked = true;
             _chgData._adminChatId = chatId;
@@ -14590,9 +14590,11 @@ exports.onRideCreated = onValueCreated(
 
         // 🆕 v6.34.2: WhatsApp-Link neben Telefonnummer
         const waLink = formatWhatsAppLink(ride.customerPhone || ride.customerMobile || ride.mobilePhone);
-        // 🆕 v6.38.15: Zwischenstopps in Admin-Nachricht anzeigen
-        const _wpLines = ride.waypoints && ride.waypoints.length > 0
-            ? ride.waypoints.map((wp, i) => `↪️ <b>Stopp ${i + 1}:</b> ${typeof wp === 'string' ? wp : (wp.address || String(wp))}`).join('\n') + '\n'
+        // 🔧 v6.38.17: Firebase gibt Arrays als Objekte zurück → normalisieren
+        const _wpRaw = ride.waypoints;
+        const _wpArr = Array.isArray(_wpRaw) ? _wpRaw : (typeof _wpRaw === 'object' && _wpRaw !== null ? Object.values(_wpRaw) : []);
+        const _wpLines = _wpArr.length > 0
+            ? _wpArr.map((wp, i) => `↪️ <b>Stopp ${i + 1}:</b> ${typeof wp === 'string' ? wp : (wp.address || String(wp))}`).join('\n') + '\n'
             : '';
         const message = `${statusEmoji} <b>${statusText}</b>\n` +
             `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +

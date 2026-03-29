@@ -2541,8 +2541,10 @@ function isFeiertag(date) {
 
 function calculatePrice(distance, timestamp = null) {
     const calcTime = timestamp ? new Date(timestamp) : new Date();
-    const hour = calcTime.getHours(), day = calcTime.getDay();
-    const istFeiertag_ = isFeiertag(calcTime);
+    // 🔧 v6.38.24: BERLIN-Zeit für Tarifberechnung! getHours() ist UTC → falscher Nachttarif!
+    const berlinTime = new Date(calcTime.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    const hour = berlinTime.getHours(), day = berlinTime.getDay();
+    const istFeiertag_ = isFeiertag(berlinTime);
     const isNight = (hour >= 22 || hour < 6) || (day === 0) || istFeiertag_;
 
     const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;

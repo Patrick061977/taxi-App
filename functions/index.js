@@ -4349,7 +4349,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const _custId2 = _knownCust2?.customerId || (_preselected2 ? booking._crmCustomerId : null);
                 if (_custId2 || (_knownCust2 && _knownCust2.name)) {
                     try {
-                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone);
+                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone, _custId2);
                         if (favDests && favDests.length > 0) {
                             const destBtns = favDests.slice(0, 3).map((d, i) => ({
                                 text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
@@ -4880,16 +4880,29 @@ async function linkTelegramChatToCustomer(chatId, booking) {
 // BELIEBTE ZIELE (Kundenhistorie)
 // ═══════════════════════════════════════════════════════════════
 
-async function getCustomerFavoriteDestinations(customerName, customerPhone) {
+async function getCustomerFavoriteDestinations(customerName, customerPhone, customerId) {
     try {
-        // 🆕 v6.38.16: Suche nach Name UND Telefon (parallel), merge Ergebnisse
+        // 🔧 v6.38.19: Suche nach Name + Nachname + Telefon + customerId (parallel)
         const queries = [
             db.ref('rides').orderByChild('customerName').equalTo(customerName).limitToLast(200).once('value')
         ];
+        // Nachname extrahieren: "Frau Strömig" → auch nach "Strömig" suchen
+        const _nameParts = customerName.split(/\s+/);
+        if (_nameParts.length > 1) {
+            const _lastName = _nameParts[_nameParts.length - 1];
+            queries.push(db.ref('rides').orderByChild('customerName').equalTo(_lastName).limitToLast(100).once('value'));
+            // Auch "Vorname Nachname" Variante: "Stephanie Strömig"
+            if (_nameParts[0].toLowerCase() !== 'herr' && _nameParts[0].toLowerCase() !== 'frau') {
+                queries.push(db.ref('rides').orderByChild('customerName').equalTo(_nameParts[0] + ' ' + _lastName).limitToLast(100).once('value'));
+            }
+        }
         if (customerPhone) {
             const _cleanPhone = customerPhone.replace(/\s/g, '');
             queries.push(db.ref('rides').orderByChild('customerPhone').equalTo(_cleanPhone).limitToLast(100).once('value'));
             queries.push(db.ref('rides').orderByChild('customerMobile').equalTo(_cleanPhone).limitToLast(100).once('value'));
+        }
+        if (customerId) {
+            queries.push(db.ref('rides').orderByChild('customerId').equalTo(customerId).limitToLast(100).once('value'));
         }
         const snaps = await Promise.all(queries);
 
@@ -9806,7 +9819,7 @@ async function handleCallback(callback) {
         }
 
         // Favoriten laden — als Zielvorschläge (Abholort) oder Abholvorschläge (Zielort)
-        const _arFavs = await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone);
+        const _arFavs = await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone, _arCustomer.id || _arCustomer.customerId);
         const _arIsDest = data.startsWith('addr_role_dest_');
 
         if (_arFavs.length > 0) {
@@ -11441,7 +11454,7 @@ async function handleCallback(callback) {
 
         // Beliebte Ziele des Kunden laden
         // 🔧 v6.14.7: Auch mobilePhone für Favoriten-Suche nutzen
-        const favorites = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone);
+        const favorites = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone, found.id || found.customerId);
         if (favorites.length > 0) {
             const favId = Date.now().toString(36);
             await setPending(chatId, {

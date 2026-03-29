@@ -2132,7 +2132,7 @@ async function searchNominatimForTelegram(query) {
                 const isIncludes = poiName.includes(searchKey) || poiAddr.includes(searchKey);
                 const isWordMatch = searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w));
                 if (isExact || isIncludes || isWordMatch) {
-                    const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                    const displayName = poi.address ? (poi.address.toLowerCase().startsWith(poi.name.toLowerCase()) ? poi.address : `${poi.name}, ${poi.address}`) : poi.name;
                     addIfNew({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi', priority: isExact ? 0 : 1 });
                 }
             });
@@ -2963,7 +2963,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             const pAddr = (poi.address || '').toLowerCase();
                             const matchCount = fuzzyWords.filter(w => pName.includes(w) || pAddr.includes(w)).length;
                             if (matchCount > 0) {
-                                const displayName = poi.address ? `${poi.name}, ${poi.address}` : poi.name;
+                                const displayName = poi.address ? (poi.address.toLowerCase().startsWith(poi.name.toLowerCase()) ? poi.address : `${poi.name}, ${poi.address}`) : poi.name;
                                 similarPlaces.push({ name: displayName, lat: poi.lat, lon: poi.lon, score: matchCount });
                             }
                         });
@@ -7237,13 +7237,13 @@ async function handleMessage(message) {
         const _explTown = _TOWNS.find(t => text.toLowerCase().includes(t));
         const _townOk = (s) => !_explTown || s.name.toLowerCase().includes(_explTown);
 
-        const _bestHit =
-            // 1) Verifizierte Quellen (POI, geocache-verified, known, crm): sofort auto-select wenn townOk
-            suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s)) ||
-            // 2) Lokale Quellen (booking, customer, geocache): auto-select wenn Ort explizit genannt + townOk
-            (_explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s))) ||
-            // 3) Nominatim: nur mit Hausnummer + streetOk + townOk + expliziter Ort + isNearUsedom
-            (_hasHausnr && _explTown && suggestions.find(s => s.lat && s.lon && _streetOk(s) && _townOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
+        // Stufe 1: Verifizierte Quellen → stilles Auto-Select
+        const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s));
+        // Stufe 2: Lokale Quellen (booking, customer) → "Meinten Sie?" Bestätigung
+        const _confirmHit = !_autoHit && _explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s));
+        // Stufe 3: Nominatim → stilles Auto-Select nur mit Hausnr + Ort + streetOk
+        const _bestHit = _autoHit ||
+            (!_confirmHit && _hasHausnr && _explTown && suggestions.find(s => s.lat && s.lon && _streetOk(s) && _townOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
 
         if (_bestHit) {
             if (isPickupField) {
@@ -7255,6 +7255,28 @@ async function handleMessage(message) {
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);
+            return;
+        }
+
+        // 🔧 v6.38.19: Stufe 2 — Booking/Customer Treffer → "Meinten Sie?" Bestätigung
+        if (_confirmHit) {
+            await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Bestätigung: ${_confirmHit.name} [${_confirmHit.source}]`);
+            await setPending(chatId, {
+                _awaitingPLZ: true,
+                _awaitingField,
+                _awaitingPLZAddr: text,
+                _awaitingPLZGuess: _confirmHit,
+                partialBooking,
+                preselectedCustomer,
+                userName: savedUserName
+            });
+            const guessName = _confirmHit.name.length > 40 ? _confirmHit.name.slice(0, 38) + '…' : _confirmHit.name;
+            const keyboard = { inline_keyboard: [
+                [{ text: `✅ Ja: ${guessName}`, callback_data: 'plzguess_yes' }],
+                [{ text: '🔢 Nein → PLZ eingeben', callback_data: 'plzguess_no' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]};
+            await sendTelegramMessage(chatId, `❓ <b>Meinten Sie?</b>\n\n📍 ${_confirmHit.name}`, { reply_markup: keyboard });
             return;
         }
 

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(git:*)",
+      "Bash(firebase:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Edit",
+      "Write",
+      "Read"
+    ]
+  }
+}

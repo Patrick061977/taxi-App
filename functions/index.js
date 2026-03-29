@@ -4355,6 +4355,29 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             await addTelegramLog('🔍', chatId, `Ort-Filter "${_explTown2}": ${_beforeFilter} → ${_displaySugg2.length} Vorschläge`);
                         }
                     }
+                    // 🔧 v6.38.25: Straßenname-Filter — Vorschläge mit komplett falscher Straße rauswerfen!
+                    // "Rathenaustraße 3" darf NICHT "Labahnstraße 18" als Vorschlag zeigen
+                    if (_hasHausnrInAddr2 && _displaySugg2.length > 0) {
+                        const _qStreetDisp = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                        if (_qStreetDisp && _qStreetDisp.length > 3) {
+                            const _qStreetCore = _qStreetDisp.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            const _streetFiltered = _displaySugg2.filter(s => {
+                                const sName = (s.name || '').toLowerCase().split(',')[0].trim();
+                                const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
+                                const sCore = sStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                                return sCore.includes(_qStreetCore) || _qStreetCore.includes(sCore);
+                            });
+                            if (_streetFiltered.length > 0) {
+                                const _removed = _displaySugg2.length - _streetFiltered.length;
+                                if (_removed > 0) await addTelegramLog('🔍', chatId, `Straßen-Filter "${_qStreetDisp}": ${_removed} irrelevante Vorschläge entfernt`);
+                                _displaySugg2 = _streetFiltered;
+                            } else {
+                                // ALLE Vorschläge haben falsche Straße → leere Liste = nur "Andere Adresse" Button
+                                await addTelegramLog('⚠️', chatId, `Straßen-Filter: ALLE ${_displaySugg2.length} Vorschläge entfernt (keine passt zu "${_qStreetDisp}") → manuelle Eingabe`);
+                                _displaySugg2 = [];
+                            }
+                        }
+                    }
 
                     // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
                     // 🔧 v6.38.14: POI-Name muss zur Suchanfrage passen

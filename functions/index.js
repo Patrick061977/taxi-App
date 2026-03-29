@@ -4301,6 +4301,11 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         );
                         return;
                     }
+                    // 🔧 v6.38.25: Town-Filter VOR dem Hausnummer-Block — wird auch danach gebraucht
+                    const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
+                    const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
+                    const _townOk2 = (s) => !_explTown2 || s.name.toLowerCase().includes(_explTown2);
+
                     // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
                         // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
@@ -4322,10 +4327,6 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             return sNr === _qHausnr2;
                         };
                         const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-                        // 🔧 v6.38.18: Expliziter Ortsname → Ergebnis muss Ort enthalten
-                        const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
-                        const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
-                        const _townOk2 = (s) => !_explTown2 || s.name.toLowerCase().includes(_explTown2);
                         // 🔧 v6.38.25: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN in ALLEN Stufen passen!
                         const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s))
                             || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s)))

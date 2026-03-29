@@ -3648,9 +3648,10 @@ Nur gültiges JSON, kein Markdown:
 
                 // 🆕 v6.15.0: Auftraggeber (Hotel/Firma/Klinik) → CRM-Adresse NICHT automatisch als Pickup
                 // Stattdessen: In continueBookingFlow fragen "Abholort oder Zielort?"
-                // 🔧 v6.26.0: IMMER fragen! KI-Ergebnis für Auftraggeber-Adresse zurücksetzen,
-                // damit die Frage nicht übersprungen wird. Vorher hat "zu Hause" die Adresse
-                // automatisch als Pickup gesetzt → Frage wurde nie gestellt.
+                // 🔧 v6.26.0: Auftraggeber-Adresse → fragen ob Abholort oder Zielort
+                // 🔧 v6.38.21: SMART — NUR fragen wenn KI nicht BEIDE Adressen hat!
+                // Wenn KI sowohl Pickup als auch Destination erkannt hat → KI hat's richtig,
+                // Auftraggeber-Adresse nicht zurücksetzen. Nur wenn ein Feld fehlt → fragen.
                 if (_isAuftraggeberKunde && pickupDefault) {
                     booking._auftraggeberAddress = pickupDefault;
                     booking._auftraggeberName = preselected.name;
@@ -3659,9 +3660,6 @@ Nur gültiges JSON, kein Markdown:
                         booking._auftraggeberLat = parseFloat(preselected.addressLat);
                         booking._auftraggeberLon = parseFloat(preselected.addressLon);
                     }
-                    // 🔧 v6.26.0: Wenn KI die Auftraggeber-Adresse als Pickup/Ziel erkannt hat
-                    // (z.B. "von zu Hause", "Setheweg 11" = CRM-Adresse), diese Zuweisung
-                    // RÜCKGÄNGIG machen → continueBookingFlow fragt dann immer "Abholort oder Zielort?"
                     const _pickupMatchesAuftraggeber = booking.pickup && (
                         booking.pickup === pickupDefault ||
                         /^(zu hause|zuhause|von zu hause|von zuhause)$/i.test(booking.pickup.trim()) ||
@@ -3676,20 +3674,43 @@ Nur gültiges JSON, kein Markdown:
                         booking.destination.toLowerCase().replace(/,.*/, '').trim().length > 3 &&
                         pickupDefault.toLowerCase().includes(booking.destination.toLowerCase().replace(/,.*/, '').trim())
                     );
-                    if (_pickupMatchesAuftraggeber) {
-                        // KI hat Auftraggeber-Adresse als Pickup erkannt → zurücksetzen
-                        booking._kiOriginalPickup = booking.pickup; // merken für Log
-                        booking.pickup = null;
-                        booking.pickupLat = null;
-                        booking.pickupLon = null;
-                        if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
-                    }
-                    if (_destMatchesAuftraggeber) {
-                        booking._kiOriginalDest = booking.destination;
-                        booking.destination = null;
-                        booking.destinationLat = null;
-                        booking.destinationLon = null;
-                        if (!booking.missing.includes('destination')) booking.missing.push('destination');
+                    // 🔧 v6.38.21: Wenn KI BEIDE Felder hat (Pickup + Destination) und eins
+                    // davon die Auftraggeber-Adresse ist → KI hat korrekt zugeordnet, NICHT zurücksetzen!
+                    const _kiBothFieldsSet = booking.pickup && booking.destination;
+                    const _kiOneMatchesAuftraggeber = _pickupMatchesAuftraggeber || _destMatchesAuftraggeber;
+                    if (_kiBothFieldsSet && _kiOneMatchesAuftraggeber) {
+                        // KI hat Pickup + Ziel erkannt, eins davon = Auftraggeber-Adresse → übernehmen!
+                        const _matchedField = _pickupMatchesAuftraggeber ? 'Pickup' : 'Destination';
+                        await addTelegramLog('🤖', chatId, `KI hat ${_matchedField} als Auftraggeber-Adresse erkannt → übernehme ohne Rückfrage`);
+                        // Koordinaten für das gematchte Feld setzen wenn fehlend
+                        if (_pickupMatchesAuftraggeber && !booking.pickupLat && preselected.addressLat) {
+                            booking.pickup = pickupDefault; // vollständige Adresse
+                            booking.pickupLat = parseFloat(preselected.addressLat);
+                            booking.pickupLon = parseFloat(preselected.addressLon);
+                            booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
+                        }
+                        if (_destMatchesAuftraggeber && !booking.destinationLat && preselected.addressLat) {
+                            booking.destination = pickupDefault; // vollständige Adresse
+                            booking.destinationLat = parseFloat(preselected.addressLat);
+                            booking.destinationLon = parseFloat(preselected.addressLon);
+                            booking.missing = (booking.missing || []).filter(f => f !== 'destination');
+                        }
+                    } else {
+                        // KI hat NUR ein Feld oder keins → Auftraggeber-Adresse zurücksetzen und fragen
+                        if (_pickupMatchesAuftraggeber) {
+                            booking._kiOriginalPickup = booking.pickup;
+                            booking.pickup = null;
+                            booking.pickupLat = null;
+                            booking.pickupLon = null;
+                            if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
+                        }
+                        if (_destMatchesAuftraggeber) {
+                            booking._kiOriginalDest = booking.destination;
+                            booking.destination = null;
+                            booking.destinationLat = null;
+                            booking.destinationLon = null;
+                            if (!booking.missing.includes('destination')) booking.missing.push('destination');
+                        }
                     }
                 } else if (preselected._addressRole === 'destination') {
                     // 🆕 v6.38.16: Admin hat "Zielort" gewählt → Adresse als Destination setzen

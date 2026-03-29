@@ -1814,6 +1814,59 @@ async function geocode(address) {
         const isNonUsedomPLZ = anyPLZMatch && !plzMatch; // PLZ gefunden, aber KEINE Usedom-PLZ
         if (isNonUsedomPLZ) console.log(`[Geocode] Nicht-Usedom PLZ erkannt: ${anyPLZMatch[1]} → Direkte Deutschland-Suche`);
 
+        // 🔧 v6.38.23: Adress-Validierung — prüft ob Geocoding-Ergebnis zur Eingabe passt
+        const _extractStreetFromAddr = (addr) => {
+            if (!addr) return '';
+            return addr.split(',')[0].replace(/\s*\d+[a-z]?\s*$/i, '').toLowerCase().trim();
+        };
+        const _extractHouseNr = (addr) => {
+            if (!addr) return null;
+            const m = addr.match(/(\d+)\s*[a-z]?\s*(?:,|$)/i);
+            return m ? m[1] : null;
+        };
+        // Bewertet wie gut ein Nominatim-Ergebnis zur Nutzereingabe passt
+        const _scoreResult = (result, inputAddr) => {
+            const inputLower = inputAddr.toLowerCase();
+            const resultName = (result.display_name || '').toLowerCase();
+            const resultAddr = result.address || {};
+
+            let score = 0;
+
+            // Straßenname prüfen
+            const inputStreet = _extractStreetFromAddr(inputAddr);
+            const resultStreet = (resultAddr.road || resultAddr.pedestrian || resultAddr.path || '').toLowerCase();
+
+            if (inputStreet && resultStreet) {
+                if (resultStreet === inputStreet) {
+                    score += 50; // Exakter Straßen-Match
+                } else if (resultStreet.includes(inputStreet) || inputStreet.includes(resultStreet)) {
+                    score += 20; // Partieller Match (z.B. "Strandpromenade" in "Asgard Strandpromenade")
+                } else {
+                    score -= 30; // Falscher Straßenname!
+                }
+            }
+
+            // Hausnummer prüfen
+            const inputNr = _extractHouseNr(inputAddr);
+            const resultNr = resultAddr.house_number || _extractHouseNr(result.display_name);
+            if (inputNr && resultNr) {
+                if (resultNr === inputNr) {
+                    score += 30; // Richtige Hausnummer
+                } else {
+                    score -= 20; // Falsche Hausnummer!
+                }
+            }
+
+            // Ortsname prüfen
+            const inputWords = inputLower.split(/[\s,]+/).filter(w => w.length > 2);
+            for (const word of inputWords) {
+                if (word.match(/^\d+$/) || word.match(/^(der|die|das|str|straße|weg)$/)) continue;
+                if (resultName.includes(word)) score += 5;
+            }
+
+            return score;
+        };
+
         // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region + PLZ-Match
         const fetchAndValidate = async (url) => {
             const resp = await fetch(url, { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } });
@@ -1838,33 +1891,42 @@ async function geocode(address) {
             }
 
             if (usedomHits.length > 0) {
+                // 🆕 v6.38.23: Adress-Validierung — Ergebnisse nach Übereinstimmung mit Eingabe bewerten
+                if (usedomHits.length > 1) {
+                    usedomHits.forEach(h => { h._score = _scoreResult(h, address); });
+                    usedomHits.sort((a, b) => b._score - a._score);
+                    console.log(`[Geocode] "${address}" → ${usedomHits.length} Usedom-Treffer, Scores:`, usedomHits.map(h => `${h._score}: ${h.display_name}`).join(' | '));
+                } else {
+                    usedomHits[0]._score = _scoreResult(usedomHits[0], address);
+                }
+
                 // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Distanz-Check
                 const _plzC = addressPLZ ? PLZ_CENTERS[addressPLZ] : null;
 
                 // 🔧 v6.25.4: Wenn PLZ angegeben → Ergebnisse nach Distanz zum PLZ-Zentrum filtern
                 if (_plzC && usedomHits.length > 1) {
-                    // Sortiere nach Distanz zum PLZ-Zentrum
-                    usedomHits.sort((a, b) => {
-                        const aDist = distanceKm(a.lat, a.lon, _plzC.lat, _plzC.lon);
-                        const bDist = distanceKm(b.lat, b.lon, _plzC.lat, _plzC.lon);
-                        return aDist - bDist;
-                    });
                     // Nur Ergebnisse innerhalb PLZ_MAX_RADIUS_KM vom PLZ-Zentrum akzeptieren
                     const nearHits = usedomHits.filter(h => distanceKm(h.lat, h.lon, _plzC.lat, _plzC.lon) <= PLZ_MAX_RADIUS_KM);
                     if (nearHits.length > 0) {
-                        console.log(`[Geocode] "${address}" → PLZ-Distanz-Match (${addressPLZ}, ${nearHits.length} Treffer): ${nearHits[0].lat}, ${nearHits[0].lon} (${nearHits[0].display_name})`);
+                        // 🆕 v6.38.23: Innerhalb der PLZ-Treffer → den mit bestem Score nehmen
+                        nearHits.sort((a, b) => b._score - a._score);
+                        console.log(`[Geocode] "${address}" → PLZ+Score-Match (${addressPLZ}): Score ${nearHits[0]._score}, ${nearHits[0].display_name}`);
                         return nearHits[0];
                     }
-                    console.log(`[Geocode] "${address}" → Kein Treffer innerhalb ${PLZ_MAX_RADIUS_KM}km von PLZ ${addressPLZ}, nutze nächsten: ${usedomHits[0].display_name}`);
+                    console.log(`[Geocode] "${address}" → Kein Treffer innerhalb ${PLZ_MAX_RADIUS_KM}km von PLZ ${addressPLZ}, nutze besten Score: ${usedomHits[0].display_name}`);
                 } else if (_plzC && usedomHits.length === 1) {
-                    // Einzeltreffer: Warnung wenn zu weit weg
                     const dist = distanceKm(usedomHits[0].lat, usedomHits[0].lon, _plzC.lat, _plzC.lon);
                     if (dist > PLZ_MAX_RADIUS_KM) {
                         console.warn(`[Geocode] ⚠️ "${address}" → Einziger Treffer ${dist.toFixed(1)}km von PLZ ${addressPLZ} entfernt! ${usedomHits[0].display_name}`);
                     }
                 }
-                // Kein PLZ-Filter oder Fallback → ersten Usedom-Treffer nehmen
-                console.log(`[Geocode] "${address}" → Usedom-Treffer: ${usedomHits[0].lat}, ${usedomHits[0].lon} (${usedomHits[0].display_name})`);
+
+                // 🆕 v6.38.23: Warnung wenn bester Treffer negativen Score hat (wahrscheinlich falsch)
+                if (usedomHits[0]._score < -10) {
+                    console.warn(`[Geocode] ⚠️ "${address}" → Bester Treffer hat negativen Score ${usedomHits[0]._score}: ${usedomHits[0].display_name} — möglicherweise falsch!`);
+                }
+
+                console.log(`[Geocode] "${address}" → Usedom-Treffer (Score ${usedomHits[0]._score}): ${usedomHits[0].lat}, ${usedomHits[0].lon} (${usedomHits[0].display_name})`);
                 return usedomHits[0];
             }
 
@@ -2867,20 +2929,34 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen (keine Auswahl nötig)
                 if (_hasHausnrInAddr1 && suggestions.length > 0) {
                     // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
-                    // 🆕 v6.38.16: Zusätzlich: Straßenname im Ergebnis muss zur Query passen
-                    //   z.B. "Seetheweg 11" → Nominatim "Chausseestraße, Wolgast" → KEIN Auto-Select (völlig anderer Straßenname)
-                    const _qStreet1 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
-                    const _qPrefix1 = _qStreet1.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
-                    const _streetOk1 = (s) => !_qPrefix1 || s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix1);
+                    // 🔧 v6.38.23: Straßenname + Hausnummer müssen EXAKT passen!
+                    //   z.B. "Strandpromenade 31" → "Asgard Strandpromenade 15" = FALSCH (anderer Name + andere Nr)
+                    const _qStreet1 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                    const _qHausnr1 = addressToResolve.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
+                    const _streetOk1 = (s) => {
+                        if (!_qStreet1) return true;
+                        const sName = s.name.toLowerCase().split(',')[0].trim();
+                        // Straßenname muss am ANFANG der Ergebnis-Adresse stehen
+                        // "Strandpromenade" muss matchen, "Asgard Strandpromenade" darf NICHT matchen
+                        const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
+                        return sStreet === _qStreet1 || sStreet.startsWith(_qStreet1 + ' ') || _qStreet1.startsWith(sStreet + ' ');
+                    };
+                    // 🆕 v6.38.23: Hausnummer muss übereinstimmen!
+                    const _hausnrOk1 = (s) => {
+                        if (!_qHausnr1) return true; // Keine Hausnummer eingegeben → alles OK
+                        const sName = s.name || '';
+                        const sNr = sName.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
+                        return sNr === _qHausnr1;
+                    };
                     const _TRUSTED1 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-                    // 🔧 v6.38.18: Expliziter Ortsname im Query → Ergebnis MUSS diesen Ort enthalten (verhindert Wolgast bei "... Heringsdorf")
+                    // 🔧 v6.38.18: Expliziter Ortsname im Query → Ergebnis MUSS diesen Ort enthalten
                     const _TOWNS1 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                     const _explTown1 = _TOWNS1.find(t => addressToResolve.toLowerCase().includes(t));
                     const _townOk1 = (s) => !_explTown1 || s.name.toLowerCase().includes(_explTown1);
-                    // 🔧 v6.38.19: 3-Stufen Auto-Select (Trusted → Lokal+Ort → Nominatim+Hausnr+Ort)
-                    const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _townOk1(s))
-                        || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s)))
-                        || (_hasHausnrInAddr1 && _explTown1 && suggestions.find(s => s.lat && s.lon && _streetOk1(s) && _townOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
+                    // 🔧 v6.38.23: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN passen
+                    const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s))
+                        || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s)))
+                        || (_hasHausnrInAddr1 && _explTown1 && suggestions.find(s => s.lat && s.lon && _streetOk1(s) && _hausnrOk1(s) && _townOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
                     if (_bestHit && _bestHit.lat && _bestHit.lon) {
                         await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
                         if (needPickup) {

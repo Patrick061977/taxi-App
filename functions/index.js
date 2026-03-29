@@ -2856,9 +2856,14 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen (keine Auswahl nötig)
                 if (_hasHausnrInAddr1 && suggestions.length > 0) {
                     // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
-                    // Verhindert Fehlauswahl wie "Chausseestraße, Wolgast" für "Badstraße 11, Heringsdorf"
+                    // 🆕 v6.38.16: Zusätzlich: Straßenname im Ergebnis muss zur Query passen
+                    //   z.B. "Seetheweg 11" → Nominatim "Chausseestraße, Wolgast" → KEIN Auto-Select (völlig anderer Straßenname)
+                    const _qStreet1 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
+                    const _qPrefix1 = _qStreet1.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
+                    const _streetOk1 = (s) => s.source !== 'nominatim' || !_qPrefix1 ||
+                        s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix1);
                     const _bestHit = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
-                        || suggestions.find(s => s.lat && s.lon && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                        || suggestions.find(s => s.lat && s.lon && _streetOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
                     if (_bestHit && _bestHit.lat && _bestHit.lon) {
                         await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
                         if (needPickup) {
@@ -4077,8 +4082,13 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
                         // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
+                        // 🆕 v6.38.16: Straßenname-Plausibilitäts-Check
+                        const _qStreet2 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
+                        const _qPrefix2 = _qStreet2.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
+                        const _streetOk2 = (s) => s.source !== 'nominatim' || !_qPrefix2 ||
+                            s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix2);
                         const _bestHit2 = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
-                            || suggestions.find(s => s.lat && s.lon && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
+                            || suggestions.find(s => s.lat && s.lon && _streetOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
                         if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
                             await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
                             if (needsPickupResolve) {
@@ -4860,36 +4870,41 @@ async function linkTelegramChatToCustomer(chatId, booking) {
 
 async function getCustomerFavoriteDestinations(customerName, customerPhone) {
     try {
-        const snap = await db.ref('rides').orderByChild('customerName').equalTo(customerName).limitToLast(50).once('value');
-        if (!snap.exists()) return [];
+        // 🆕 v6.38.16: Suche nach Name UND Telefon (parallel), merge Ergebnisse
+        const queries = [
+            db.ref('rides').orderByChild('customerName').equalTo(customerName).limitToLast(200).once('value')
+        ];
+        if (customerPhone) {
+            const _cleanPhone = customerPhone.replace(/\s/g, '');
+            queries.push(db.ref('rides').orderByChild('customerPhone').equalTo(_cleanPhone).limitToLast(100).once('value'));
+            queries.push(db.ref('rides').orderByChild('customerMobile').equalTo(_cleanPhone).limitToLast(100).once('value'));
+        }
+        const snaps = await Promise.all(queries);
 
         const destCount = {};
         const destDetails = {};
-        snap.forEach(child => {
-            const r = child.val();
+        const _processRide = (r) => {
             if (!r.destination || r.status === 'cancelled' || r.status === 'storniert') return;
             const dest = r.destination.trim();
             const key = dest.toLowerCase();
             destCount[key] = (destCount[key] || 0) + 1;
             if (!destDetails[key]) {
-                destDetails[key] = {
-                    name: dest,
-                    lat: r.destinationLat || null,
-                    lon: r.destinationLon || null
-                };
+                destDetails[key] = { name: dest, lat: r.destinationLat || null, lon: r.destinationLon || null };
             }
-            // Pickup als mögliche "Von"-Adresse merken (häufigster = Zuhause)
             if (!destDetails[key].lastPickup && r.pickup) {
                 destDetails[key].lastPickup = r.pickup;
                 destDetails[key].pickupLat = r.pickupLat || null;
                 destDetails[key].pickupLon = r.pickupLon || null;
             }
-        });
+        };
+        for (const snap of snaps) {
+            if (snap.exists()) snap.forEach(child => _processRide(child.val()));
+        }
 
-        // Sortiere nach Häufigkeit, max 4 Ziele
+        // Sortiere nach Häufigkeit, max 5 Ziele
         return Object.entries(destCount)
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 4)
+            .slice(0, 5)
             .map(([key, count]) => ({
                 destination: destDetails[key].name,
                 destinationLat: destDetails[key].lat,

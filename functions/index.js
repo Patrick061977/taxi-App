@@ -4165,8 +4165,19 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     }
 
-                    // Nominatim-Rauschen rausfiltern wenn vertrauenswürdige Quellen vorhanden
-                    const _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+                    // 🔧 v6.38.21: Nominatim-Rauschen UND falsche Orte rausfiltern
+                    // Wenn expliziter Ort genannt (z.B. "Ahlbeck Bahnhof"), ALLE Ergebnisse
+                    // die nicht den genannten Ort enthalten rauswerfen (z.B. Wolgast raus)
+                    let _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+                    if (_explTown2) {
+                        const _beforeFilter = _displaySugg2.length;
+                        _displaySugg2 = _displaySugg2.filter(s => _townOk2(s));
+                        if (_displaySugg2.length === 0) _displaySugg2 = suggestions.filter(s => _townOk2(s));
+                        if (_displaySugg2.length === 0) _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions; // Fallback: kein Filter
+                        if (_beforeFilter !== _displaySugg2.length) {
+                            await addTelegramLog('🔍', chatId, `Ort-Filter "${_explTown2}": ${_beforeFilter} → ${_displaySugg2.length} Vorschläge`);
+                        }
+                    }
 
                     // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
                     // 🔧 v6.38.14: POI-Name muss zur Suchanfrage passen
@@ -4732,9 +4743,12 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
         return;
     }
 
-    const hasExplicitPassengers = booking._passengersExplicit || (booking.passengers && booking.passengers > 1);
+    // 🔧 v6.38.21: Personenzahl nicht nochmal fragen wenn schon gesetzt
+    // _passengersExplicit = User hat Personenzahl explizit gewählt
+    // booking.passengers >= 1 = Personenzahl war schon gesetzt (z.B. beim Ziel-Ändern)
+    const hasExplicitPassengers = booking._passengersExplicit || (booking.passengers && booking.passengers >= 1);
     if (hasExplicitPassengers) {
-        await addTelegramLog('👥', chatId, `Personen explizit (${booking.passengers}) → direkt zur Bestätigung`);
+        await addTelegramLog('👥', chatId, `Personen bereits gesetzt (${booking.passengers}) → direkt zur Bestätigung`);
         return showTelegramConfirmation(chatId, booking, routePrice);
     }
 
@@ -7342,8 +7356,9 @@ async function handleMessage(message) {
             return;
         }
 
-        // Kein Auto-Select → "Meinten Sie?" mit bestem Vorschlag + PLZ-Fallback
-        const _bestGuess = suggestions.find(s => s.lat && s.lon && _townOk(s)) || suggestions.find(s => s.lat && s.lon);
+        // 🔧 v6.38.21: Kein Auto-Select → "Meinten Sie?" mit bestem Vorschlag + PLZ-Fallback
+        // KEIN Fallback ohne _townOk! Sonst kommt Wolgast als Vorschlag bei "Ahlbeck Bahnhof"
+        const _bestGuess = suggestions.find(s => s.lat && s.lon && _townOk(s)) || (!_explTown && suggestions.find(s => s.lat && s.lon));
         await setPending(chatId, {
             _awaitingPLZ: true,
             _awaitingField,

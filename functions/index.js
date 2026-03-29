@@ -3900,6 +3900,32 @@ Nur gültiges JSON, kein Markdown:
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
+        // 🆕 v6.38.20: Stammkunden Auto-Fill — wenn genau Pickup ODER Destination fehlt,
+        // Kundenadresse automatisch für das fehlende Feld einsetzen.
+        // Beispiel: Ostseeblick ruft an, sagt "Abholen am Bahnhof 16:25" → Ziel = Ostseeblick-Adresse
+        const _custAddr = booking._customerAddress;
+        if (_custAddr && preselected) {
+            const _hasPickup = !!booking.pickup;
+            const _hasDest = !!booking.destination;
+            // Kundenadresse als fehlendes Feld eintragen (nur wenn GENAU 1 fehlt)
+            if (_hasPickup && !_hasDest) {
+                // Pickup bekannt → Ziel = Kundenadresse ("Nach Hause")
+                booking.destination = _custAddr;
+                booking.missing = booking.missing.filter(f => f !== 'destination');
+                // Koordinaten aus CRM übernehmen
+                if (preselected.addressLat) { booking.destinationLat = preselected.addressLat; booking.destinationLon = preselected.addressLon; }
+                else if (preselected.lat) { booking.destinationLat = preselected.lat; booking.destinationLon = preselected.lon; }
+                await addTelegramLog('🏠', chatId, `Stammkunde ${preselected.name}: Zielort auto → ${_custAddr}`);
+            } else if (!_hasPickup && _hasDest) {
+                // Ziel bekannt → Abholort = Kundenadresse ("Von zu Hause")
+                booking.pickup = _custAddr;
+                booking.missing = booking.missing.filter(f => f !== 'pickup');
+                if (preselected.addressLat) { booking.pickupLat = preselected.addressLat; booking.pickupLon = preselected.addressLon; }
+                else if (preselected.lat) { booking.pickupLat = preselected.lat; booking.pickupLon = preselected.lon; }
+                await addTelegramLog('🏠', chatId, `Stammkunde ${preselected.name}: Abholort auto → ${_custAddr}`);
+            }
+        }
+
         // 🆕 v6.20.1: Erkannte Daten als Übersicht anzeigen
         const _recognized = [];
         if (booking.datetime) {

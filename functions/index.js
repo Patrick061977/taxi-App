@@ -7231,20 +7231,32 @@ async function handleMessage(message) {
             return;
         }
 
-        // 🔧 v6.38.18: Kein eindeutiges Ergebnis → PLZ abfragen (statt Buttons)
-        await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → unklar → PLZ abfragen`);
+        // 🔧 v6.38.18: Vorschlag vorhanden → "Meinten Sie X?" zeigen, sonst PLZ abfragen
+        const _bestGuess = suggestions.find(s => s.lat && s.lon && _streetOk(s));
         await setPending(chatId, {
             _awaitingPLZ: true,
             _awaitingField,
             _awaitingPLZAddr: text,
+            _awaitingPLZGuess: _bestGuess || null,
             partialBooking,
             preselectedCustomer,
             userName: savedUserName
         });
-        await sendTelegramMessage(chatId,
-            `📮 <b>${fieldLabel}: "${text}"</b>\n\nAdresse nicht eindeutig — bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,
-            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
-        );
+        if (_bestGuess) {
+            await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Vorschlag: ${_bestGuess.name}`);
+            const keyboard = { inline_keyboard: [
+                [{ text: `✅ Ja, ${_bestGuess.name}`, callback_data: 'plzguess_yes' }],
+                [{ text: '🔢 Nein → PLZ eingeben', callback_data: 'plzguess_no' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]};
+            await sendTelegramMessage(chatId, `❓ <b>Meinten Sie?</b>\n\n📍 ${_bestGuess.name}`, { reply_markup: keyboard });
+        } else {
+            await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → kein Vorschlag → PLZ abfragen`);
+            await sendTelegramMessage(chatId,
+                `📮 <b>${fieldLabel}: "${text}"</b>\n\nAdresse nicht gefunden — bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+            );
+        }
         return;
     }
 
@@ -11954,6 +11966,32 @@ async function handleCallback(callback) {
                 `• 📍 Oder senden Sie Ihren <b>Standort</b> (📎 → Standort)`);
             await setPending(chatId, { partial: booking, originalText: pending.originalText || '' });
         }
+        return;
+    }
+
+    // 🔧 v6.38.18: PLZ-Guess Callbacks
+    if (data === 'plzguess_yes') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._awaitingPLZ || !pending._awaitingPLZGuess) return;
+        const { _awaitingField, _awaitingPLZGuess: guess, partialBooking, preselectedCustomer } = pending;
+        const isPickupField = _awaitingField === 'pickup';
+        if (isPickupField) { partialBooking.pickup = guess.name; partialBooking.pickupLat = guess.lat; partialBooking.pickupLon = guess.lon; }
+        else { partialBooking.destination = guess.name; partialBooking.destinationLat = guess.lat; partialBooking.destinationLon = guess.lon; }
+        await addTelegramLog('✅', chatId, `PLZ-Guess bestätigt: ${guess.name}`);
+        await deletePending(chatId);
+        const routePrice = await calculateTelegramRoutePrice(partialBooking);
+        await askPassengersOrConfirm(chatId, partialBooking, routePrice, guess.name);
+        return;
+    }
+
+    if (data === 'plzguess_no') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._awaitingPLZ) return;
+        await setPending(chatId, pending); // State behalten
+        await sendTelegramMessage(chatId,
+            `🔢 Bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,
+            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+        );
         return;
     }
 

@@ -2696,13 +2696,14 @@ const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
 async function calculateTelegramRoutePrice(booking) {
     if (!booking.pickupLat || !booking.destinationLat) return null;
     try {
-        // 🔧 v6.33.6: Zwischenstopps geocoden und in Route einbeziehen!
+        // 🔧 v6.38.20: Zwischenstopps geocoden, als {address,lat,lon} Objekte speichern und in Route einbeziehen
         const waypointCoords = [];
         if (booking.waypoints && booking.waypoints.length > 0) {
             console.log(`[RoutePrice] ${booking.waypoints.length} Zwischenstopps geocoden...`);
-            for (const wp of booking.waypoints) {
+            for (let _wpI = 0; _wpI < booking.waypoints.length; _wpI++) {
+                const wp = booking.waypoints[_wpI];
                 const wpAddr = typeof wp === 'string' ? wp : (wp.address || String(wp));
-                // 🆕 v6.38.15: Gespeicherte Koordinaten direkt verwenden (kein re-geocoding nötig)
+                // Gespeicherte Koordinaten direkt verwenden (kein re-geocoding nötig)
                 if (typeof wp === 'object' && wp.lat && wp.lon) {
                     waypointCoords.push({ lat: wp.lat, lon: wp.lon });
                     console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → gespeicherte Koordinaten: ${wp.lat}, ${wp.lon}`);
@@ -2712,11 +2713,16 @@ async function calculateTelegramRoutePrice(booking) {
                     const coords = await geocode(wpAddr);
                     if (coords && coords.lat && coords.lon) {
                         waypointCoords.push({ lat: coords.lat, lon: coords.lon });
+                        // String-Waypoint → Objekt mit Koordinaten upgraden
+                        booking.waypoints[_wpI] = { address: wpAddr, lat: coords.lat, lon: coords.lon };
                         console.log(`[RoutePrice] ✅ Zwischenstopp "${wpAddr}" → geocodiert: ${coords.lat}, ${coords.lon}`);
                     } else {
+                        // Kein Geocode-Treffer → trotzdem als Objekt speichern
+                        if (typeof wp === 'string') booking.waypoints[_wpI] = { address: wpAddr };
                         console.warn(`[RoutePrice] ⚠️ Zwischenstopp "${wpAddr}" konnte nicht geocodiert werden`);
                     }
                 } catch (e) {
+                    if (typeof wp === 'string') booking.waypoints[_wpI] = { address: wpAddr };
                     console.warn(`[RoutePrice] Geocode-Fehler für Zwischenstopp "${wpAddr}":`, e.message);
                 }
             }
@@ -6106,9 +6112,18 @@ async function handleMessage(message) {
     if (pending && pending._awaitingWaypoint && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
         const waypointText = text.trim().slice(0, 200);
         const updatedBooking = { ...pending.booking };
-        // 🔧 v6.38.17: Zwischenstopp nur als String speichern (kein Geocoding, calculateTelegramRoutePrice übernimmt das)
+        // 🔧 v6.38.20: Zwischenstopp als {address, lat, lon} Objekt speichern
         if (!updatedBooking.waypoints) updatedBooking.waypoints = [];
-        updatedBooking.waypoints.push(waypointText);
+        let waypointEntry = { address: waypointText };
+        try {
+            const wpCoords = await geocode(waypointText);
+            if (wpCoords && wpCoords.lat && wpCoords.lon) {
+                waypointEntry.lat = wpCoords.lat;
+                waypointEntry.lon = wpCoords.lon;
+                console.log(`[Waypoint] Geocodiert: "${waypointText}" → ${wpCoords.lat}, ${wpCoords.lon}`);
+            }
+        } catch (e) { console.warn('[Waypoint] Geocode-Fehler:', e.message); }
+        updatedBooking.waypoints.push(waypointEntry);
         // Bemerkung mit Zwischenstopps ergänzen (wp kann String oder Objekt sein)
         const wpNote = `Zwischenstopp: ${updatedBooking.waypoints.map(w => typeof w === 'string' ? w : (w.address || String(w))).join(' → ')}`;
         updatedBooking.notes = updatedBooking.notes ? `${updatedBooking.notes} | ${wpNote}` : wpNote;

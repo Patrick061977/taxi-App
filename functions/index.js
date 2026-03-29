@@ -3956,13 +3956,8 @@ Nur gültiges JSON, kein Markdown:
                     }
                 }
 
-                // SCHRITT 3 — Kein Match → Buchung ohne CRM fortsetzen (wird nach Buchung auto-angelegt)
-                if (customerSearchName) {
-                    booking.name = customerSearchName;
-                    booking._forCustomer = customerSearchName;
-                }
-                booking._crmCustomerId = null;
-                // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
+                // 🔧 v6.38.25: SCHRITT 3 — Kein CRM-Match → ERST fragen ob Kunde angelegt werden soll!
+                // Telefonnummer aus Text extrahieren (für CRM-Anlage)
                 if (!booking.phone && text) {
                     const _phoneMatch = text.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
                     if (_phoneMatch) {
@@ -3981,6 +3976,35 @@ Nur gültiges JSON, kein Markdown:
                         }
                     }
                 }
+
+                // Kundenname vorhanden → Kunde anlegen anbieten BEVOR Buchung weitergeht!
+                const _newCustName = customerSearchName || booking.forCustomer || booking.name || null;
+                const _newCustPhone = booking.phone || null;
+                if (_newCustName && _newCustName !== 'Admin') {
+                    const confirmId = Date.now().toString(36);
+                    booking._crmCustomerId = null;
+                    booking.name = _newCustName;
+                    booking._forCustomer = _newCustName;
+                    if (!booking.phone) {
+                        booking.missing = booking.missing || [];
+                        if (!booking.missing.includes('phone')) booking.missing.push('phone');
+                    }
+                    await setPending(chatId, { partial: booking, crmNewCustomer: { name: _newCustName, phone: _newCustPhone, confirmId }, originalText: text });
+                    await addTelegramLog('🆕', chatId, `Kein CRM-Match für "${_newCustName}" → frage ob Kunde angelegt werden soll`);
+                    let askMsg = `⚠️ <b>Kunde nicht im CRM gefunden!</b>\n\n`;
+                    askMsg += `👤 <b>${_newCustName}</b>\n`;
+                    if (_newCustPhone) askMsg += `📱 ${_newCustPhone}\n`;
+                    askMsg += `\n<b>Soll der Kunde jetzt im CRM angelegt werden?</b>`;
+                    await sendTelegramMessage(chatId, askMsg, { reply_markup: { inline_keyboard: [
+                        [{ text: '🏠 Ja, als Stammkunde anlegen', callback_data: `crm_newcust_stamm_${confirmId}` }],
+                        [{ text: '🧳 Ja, als Gelegenheitskunde', callback_data: `crm_newcust_geleg_${confirmId}` }],
+                        [{ text: '⏩ Ohne CRM weiter buchen', callback_data: `crm_newcust_skip_${confirmId}` }]
+                    ] } });
+                    return;
+                }
+
+                // Kein Name → einfach ohne CRM fortsetzen
+                booking._crmCustomerId = null;
                 if (!booking.phone) {
                     booking.missing = booking.missing || [];
                     if (!booking.missing.includes('phone')) booking.missing.push('phone');
@@ -4281,18 +4305,31 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
                         // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
                         // 🆕 v6.38.16: Straßenname-Plausibilitäts-Check
-                        const _qStreet2 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
+                        const _qStreet2 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                         const _qPrefix2 = _qStreet2.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
-                        const _streetOk2 = (s) => !_qPrefix2 || s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix2);
+                        const _streetOk2 = (s) => {
+                            if (!_qStreet2) return true;
+                            const sName = s.name.toLowerCase().split(',')[0].trim();
+                            const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
+                            return sStreet === _qStreet2 || sStreet.startsWith(_qStreet2 + ' ') || _qStreet2.startsWith(sStreet + ' ');
+                        };
+                        // 🔧 v6.38.25: Hausnummer-Check — muss exakt übereinstimmen!
+                        const _qHausnr2 = addressToResolve.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
+                        const _hausnrOk2 = (s) => {
+                            if (!_qHausnr2) return true;
+                            const sName = s.name || '';
+                            const sNr = sName.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
+                            return sNr === _qHausnr2;
+                        };
                         const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
                         // 🔧 v6.38.18: Expliziter Ortsname → Ergebnis muss Ort enthalten
                         const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                         const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
                         const _townOk2 = (s) => !_explTown2 || s.name.toLowerCase().includes(_explTown2);
-                        // 🔧 v6.38.19: 3-Stufen Auto-Select
-                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s))
-                            || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s)))
-                            || (_hasHausnrInAddr2 && _explTown2 && suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
+                        // 🔧 v6.38.25: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN in ALLEN Stufen passen!
+                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s))
+                            || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s)))
+                            || (_hasHausnrInAddr2 && _explTown2 && suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _hausnrOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
                         if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
                             await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
                             if (needsPickupResolve) {
@@ -12205,6 +12242,61 @@ async function handleCallback(callback) {
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
+        await continueBookingFlow(chatId, booking, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.38.25: Neuen Kunden anlegen VOR Buchung (Stammkunde/Gelegenheitskunde/Skip)
+    if (data.startsWith('crm_newcust_stamm_') || data.startsWith('crm_newcust_geleg_') || data.startsWith('crm_newcust_skip_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending.crmNewCustomer) { await sendTelegramMessage(chatId, '⚠️ Nicht mehr gefunden.'); return; }
+        const booking = { ...(pending.partial || {}) };
+        const custInfo = pending.crmNewCustomer;
+        booking._adminBooked = true;
+        booking._adminChatId = chatId;
+
+        if (data.startsWith('crm_newcust_skip_')) {
+            // Ohne CRM weiter buchen
+            booking._crmCustomerId = null;
+            await addTelegramLog('⏩', chatId, `CRM-Anlage übersprungen für "${custInfo.name}" → Buchung fortsetzen`);
+        } else {
+            // Kunde anlegen!
+            const kind = data.startsWith('crm_newcust_stamm_') ? 'stammkunde' : 'gelegenheitskunde';
+            const _phoneIsMob = isMobileNumber(custInfo.phone || '');
+            const newRef = db.ref('customers').push();
+            await newRef.set({
+                name: custInfo.name,
+                phone: _phoneIsMob ? '' : (custInfo.phone || ''),
+                mobilePhone: _phoneIsMob ? (custInfo.phone || '') : '',
+                address: '',
+                email: '',
+                createdAt: Date.now(),
+                createdBy: 'telegram-admin',
+                source: 'telegram-admin',
+                customerKind: kind,
+                totalRides: 0,
+                isVIP: false,
+                notes: ''
+            });
+            const customerId = newRef.key;
+            booking._crmCustomerId = customerId;
+            booking.name = custInfo.name;
+            booking._forCustomer = custInfo.name;
+            const kindLabel = kind === 'stammkunde' ? '🏠 Stammkunde' : '🧳 Gelegenheitskunde';
+            await addTelegramLog('🆕', chatId, `CRM-Kunde angelegt: ${custInfo.name} (${customerId}) [${kind}]`);
+            let confirmMsg = `✅ <b>Kunde im CRM angelegt!</b>\n\n`;
+            confirmMsg += `👤 <b>${custInfo.name}</b> · ${kindLabel}\n`;
+            if (custInfo.phone) confirmMsg += `📱 ${custInfo.phone}\n`;
+            confirmMsg += `🆔 <code>${customerId}</code>\n\n`;
+            confirmMsg += `📋 <i>Buchung wird fortgesetzt...</i>`;
+            await sendTelegramMessage(chatId, confirmMsg);
+        }
+
+        if (!booking.missing) booking.missing = [];
+        if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
+        if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
+        if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
+        if (!booking.phone && !booking.missing.includes('phone')) booking.missing.push('phone');
         await continueBookingFlow(chatId, booking, pending.originalText || '');
         return;
     }

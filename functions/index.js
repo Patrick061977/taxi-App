@@ -4342,10 +4342,36 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     }
 
-                    // 🔧 v6.38.21: Nominatim-Rauschen UND falsche Orte rausfiltern
-                    // Wenn expliziter Ort genannt (z.B. "Ahlbeck Bahnhof"), ALLE Ergebnisse
-                    // die nicht den genannten Ort enthalten rauswerfen (z.B. Wolgast raus)
-                    let _displaySugg2 = _hasTrustedSugg2 ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+                    // 🔧 v6.38.25: INTELLIGENTER Nominatim-Filter
+                    // Alte Logik: Trusted vorhanden → Nominatim komplett rauswerfen
+                    // PROBLEM: Geocache "Labahnstraße, Heringsdorf" = trusted, aber FALSCHE Straße!
+                    //          → Nominatim "Rathenaustraße 3" (richtig!) wurde rausgeworfen!
+                    // NEUE Logik: Nominatim nur rauswerfen wenn trusted-Treffer die RICHTIGE Straße haben
+                    let _displaySugg2;
+                    if (_hasTrustedSugg2 && _hasHausnrInAddr2) {
+                        // Prüfe ob mindestens 1 trusted-Treffer die richtige Straße hat
+                        const _qStreetDisp0 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                        const _qStreetCore0 = _qStreetDisp0.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                        const _trustedHaveRightStreet = _qStreetCore0.length > 2 && suggestions.some(s => {
+                            if (s.source === 'nominatim') return false;
+                            const sName = (s.name || '').toLowerCase().split(',')[0].trim();
+                            const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
+                            const sCore = sStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            return sCore.includes(_qStreetCore0) || _qStreetCore0.includes(sCore);
+                        });
+                        if (_trustedHaveRightStreet) {
+                            // Trusted-Treffer haben richtige Straße → Nominatim raus (wie bisher)
+                            _displaySugg2 = suggestions.filter(s => s.source !== 'nominatim');
+                        } else {
+                            // Trusted-Treffer haben FALSCHE Straße → Nominatim MUSS rein!
+                            await addTelegramLog('🔍', chatId, `Trusted-Treffer haben falsche Straße (gesucht: "${_qStreetDisp0}") → Nominatim-Ergebnisse beibehalten`);
+                            _displaySugg2 = suggestions;
+                        }
+                    } else if (_hasTrustedSugg2) {
+                        _displaySugg2 = suggestions.filter(s => s.source !== 'nominatim');
+                    } else {
+                        _displaySugg2 = suggestions;
+                    }
                     if (_explTown2) {
                         const _beforeFilter = _displaySugg2.length;
                         _displaySugg2 = _displaySugg2.filter(s => _townOk2(s));

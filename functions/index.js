@@ -6081,22 +6081,9 @@ async function handleMessage(message) {
     if (pending && pending._awaitingWaypoint && pending.booking && pending.bookingId && !isPendingExpired(pending)) {
         const waypointText = text.trim().slice(0, 200);
         const updatedBooking = { ...pending.booking };
-        // 🆕 v6.38.15: Zwischenstopp sofort geocodieren + Koordinaten speichern
-        let waypointEntry = waypointText; // Fallback: nur Text
-        try {
-            const wpCoords = await geocode(waypointText);
-            if (wpCoords && wpCoords.lat && wpCoords.lon) {
-                waypointEntry = { address: waypointText, lat: wpCoords.lat, lon: wpCoords.lon };
-                await addTelegramLog('✅', chatId, `Zwischenstopp geocodiert: ${waypointText} → ${wpCoords.lat.toFixed(5)}, ${wpCoords.lon.toFixed(5)}`);
-            } else {
-                await addTelegramLog('⚠️', chatId, `Zwischenstopp nicht geocodiert: ${waypointText}`);
-            }
-        } catch (e) {
-            await addTelegramLog('⚠️', chatId, `Zwischenstopp Geocode-Fehler: ${e.message}`);
-        }
-        // Zwischenstopps als Array speichern
+        // 🔧 v6.38.17: Zwischenstopp nur als String speichern (kein Geocoding, calculateTelegramRoutePrice übernimmt das)
         if (!updatedBooking.waypoints) updatedBooking.waypoints = [];
-        updatedBooking.waypoints.push(waypointEntry);
+        updatedBooking.waypoints.push(waypointText);
         // Bemerkung mit Zwischenstopps ergänzen (wp kann String oder Objekt sein)
         const wpNote = `Zwischenstopp: ${updatedBooking.waypoints.map(w => typeof w === 'string' ? w : (w.address || String(w))).join(' → ')}`;
         updatedBooking.notes = updatedBooking.notes ? `${updatedBooking.notes} | ${wpNote}` : wpNote;
@@ -7132,12 +7119,89 @@ async function handleMessage(message) {
         return;
     }
 
-    // "Anderes Ziel" → Admin hat Freitext für neue Buchung eingegeben
+    // 🔧 v6.38.17: "Anderes Ziel" / "Anderer Abholort" → Adresssuche statt KI-Analyse
     if (pending && pending._awaitingNewBookingText) {
-        const { preselectedCustomer, userName: savedUserName } = pending;
-        await deletePending(chatId);
-        await sendTelegramMessage(chatId, `🤖 <i>Analysiere Buchung für ${preselectedCustomer.name}...</i>`);
-        await analyzeTelegramBooking(chatId, text, savedUserName || userName, { isAdmin: true, preselectedCustomer });
+        const { preselectedCustomer, userName: savedUserName, _awaitingField } = pending;
+        const isPickupField = _awaitingField === 'pickup';
+        const fieldLabel = isPickupField ? 'Abholort' : 'Zielort';
+        const prefix = isPickupField ? 'np' : 'nd';
+
+        // Partial-Buchung aufbauen: Kunden-Adresse ist das ANDERE Feld (bereits bekannt)
+        const custAddr = preselectedCustomer.address || '';
+        const custLat = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
+        const custLon = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
+        const partialBooking = {
+            intent: 'buchung',
+            customerName: preselectedCustomer.name,
+            customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
+            customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+            missing: [isPickupField ? 'pickup' : 'destination'],  // für nominatimResults-Handler (line ~7330)
+        };
+        if (isPickupField) {
+            // Kunde Nach-Hause = Zielort bereits gesetzt
+            partialBooking.destination = custAddr;
+            if (custLat) { partialBooking.destinationLat = custLat; partialBooking.destinationLon = custLon; }
+        } else {
+            // Kunden-Adresse = Abholort bereits gesetzt
+            partialBooking.pickup = custAddr;
+            if (custLat) { partialBooking.pickupLat = custLat; partialBooking.pickupLon = custLon; }
+        }
+
+        await sendTelegramMessage(chatId, `🔍 <i>Suche "${text}"...</i>`);
+        const suggestions = await searchNominatimForTelegram(text);
+
+        if (suggestions.length === 0) {
+            // Keine Ergebnisse → erneut warten
+            await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → keine Ergebnisse`);
+            await setPending(chatId, { _awaitingNewBookingText: true, _awaitingField, preselectedCustomer, userName: savedUserName });
+            await sendTelegramMessage(chatId,
+                `❓ <b>Keine Ergebnisse für "${text}"</b>\n\nBitte konkreter angeben:\n<i>Beispiel: Maxim-Gorki-Straße 37, Heringsdorf</i>`,
+                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+            );
+            return;
+        }
+
+        // Auto-Select: Hausnummer vorhanden + vertrauenswürdige Quelle oder Usedom-Straßenname passt
+        const _hasHausnr = /\b\d+[a-z]?\b/i.test(text.replace(/\b\d{5}\b/g, '').trim());
+        const _qStreet = text.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
+        const _qPfx = _qStreet.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
+        const _streetOk = (s) => s.source !== 'nominatim' || !_qPfx ||
+            s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPfx);
+        const _hasTrusted = suggestions.some(s => s.source !== 'nominatim');
+        const _bestHit = _hasHausnr && (
+            suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon) ||
+            suggestions.find(s => s.lat && s.lon && _streetOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)))
+        );
+
+        if (_bestHit) {
+            if (isPickupField) {
+                partialBooking.pickup = _bestHit.name; partialBooking.pickupLat = _bestHit.lat; partialBooking.pickupLon = _bestHit.lon;
+            } else {
+                partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
+            }
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name}`);
+            await deletePending(chatId);
+            const routePrice = await calculateTelegramRoutePrice(partialBooking);
+            await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);
+            return;
+        }
+
+        // Vorschläge als Inline-Buttons zeigen (wie validateTelegramAddresses)
+        const displaySugg = _hasTrusted ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
+        const shortText = text.length > 28 ? text.slice(0, 26) + '…' : text;
+        const keyboard = {
+            inline_keyboard: [
+                ...displaySugg.map((s, i) => [{
+                    text: `${['poi','known'].includes(s.source) ? '⭐' : ['customer','customer-nocoords'].includes(s.source) ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`,
+                    callback_data: `${prefix}_${i}`
+                }]),
+                [{ text: `✅ "${shortText}" so verwenden`, callback_data: 'addr_skip' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]
+        };
+        await setPending(chatId, { partial: partialBooking, originalText: text, nominatimResults: displaySugg, preselectedCustomer });
+        await addTelegramLog('🔍', chatId, `${fieldLabel} "${text}" → ${displaySugg.length} Vorschläge`);
+        await sendTelegramMessage(chatId, `🔍 <b>${fieldLabel}: "${text}"</b>\n\nBitte Adresse wählen:`, { reply_markup: keyboard });
         return;
     }
 
@@ -9733,8 +9797,9 @@ async function handleCallback(callback) {
         const { preselectedCustomer, originalText, userName, favorites } = _fpPending;
 
         if (data.startsWith('fav_pickup_other_')) {
-            await setPending(chatId, { _awaitingNewBookingText: true, preselectedCustomer, userName });
-            await sendTelegramMessage(chatId, `📝 <b>Abholort für ${preselectedCustomer.name}</b>\n\nBitte Abholort eingeben:`);
+            // 🔧 v6.38.17: Direkte Abholort-Adresssuche
+            await setPending(chatId, { _awaitingNewBookingText: true, _awaitingField: 'pickup', preselectedCustomer, userName });
+            await sendTelegramMessage(chatId, `📍 <b>Abholort für ${preselectedCustomer.name}</b>\n\nBitte Abholadresse eingeben:\n<i>Beispiel: Bahnhof Heringsdorf</i>`);
             return;
         }
         const _fpMatch = data.match(/^fav_pickup_(\d+)_(.+)$/);
@@ -10006,13 +10071,14 @@ async function handleCallback(callback) {
         const { preselectedCustomer, originalText, userName, favorites } = pending;
 
         if (data.startsWith('fav_dest_other_')) {
-            // "Anderes Ziel" → Freitext-Eingabe für neue Buchung
+            // 🔧 v6.38.17: Direkte Zieladresssuche statt KI-Analyse
             await setPending(chatId, {
                 _awaitingNewBookingText: true,
+                _awaitingField: 'destination',
                 preselectedCustomer,
                 userName
             });
-            await sendTelegramMessage(chatId, `📝 <b>Neue Buchung für ${preselectedCustomer.name}</b>\n\nBitte schreibe den Fahrtwunsch (z.B. <i>Morgen 10 Uhr vom Bahnhof nach Ahlbeck</i>):`);
+            await sendTelegramMessage(chatId, `📍 <b>Zielort für ${preselectedCustomer.name}</b>\n\nBitte Zieladresse eingeben:\n<i>Beispiel: Maxim-Gorki-Straße 37, Heringsdorf</i>`);
             return;
         }
 

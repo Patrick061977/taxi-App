@@ -7523,27 +7523,28 @@ async function handleMessage(message) {
         });
     }
 
-    // Buchungsabfrage?
-    if (isTelegramBookingQuery(text)) {
+    // Buchungsabfrage? (NICHT bei Audio-Transkripten — die sind immer Buchungen!)
+    if (!message._isAudioFile && isTelegramBookingQuery(text)) {
         await handleTelegramBookingQuery(chatId, text, knownForGreeting);
         return;
     }
 
     // 🆕 v6.10.0: "Fahrt buchen", "Taxi buchen" etc. → Buchungsassistent
-    if (isTelegramBookCommand(text)) {
+    // 🔧 v6.38.20: Audio-Transkripte sind immer Buchungen → Intent-Checks überspringen
+    if (!message._isAudioFile && isTelegramBookCommand(text)) {
         await addTelegramLog('🚕', chatId, 'Buchen-Intent erkannt → Buchungsassistent');
         await sendTelegramMessage(chatId, '🚕 <b>Neue Fahrt buchen</b>\n\nSchreiben Sie mir einfach Ihre Fahrtwünsche:\n\n• <i>Jetzt vom Bahnhof Heringsdorf nach Ahlbeck</i>\n• <i>Morgen 10 Uhr Hotel Maritim → Flughafen BER</i>\n• <i>Freitag 14:30 Seebrücke Bansin nach Zinnowitz, 3 Personen</i>\n\n📍 <b>Oder:</b> Tippen Sie auf 📎 → <b>Standort</b>, um direkt ab Ihrem aktuellen Standort zu buchen!\n\n<i>Ich analysiere Ihre Nachricht automatisch.</i>');
         return;
     }
 
     // Lösch-Intent?
-    if (isTelegramDeleteQuery(text)) {
+    if (!message._isAudioFile && isTelegramDeleteQuery(text)) {
         await handleTelegramDeleteQuery(chatId, knownForGreeting);
         return;
     }
 
     // Änderungs-Intent? (Kunde will Fahrt bearbeiten)
-    if (isTelegramModifyQuery(text)) {
+    if (!message._isAudioFile && isTelegramModifyQuery(text)) {
         await handleTelegramModifyQuery(chatId, knownForGreeting);
         return;
     }
@@ -7556,8 +7557,9 @@ async function handleMessage(message) {
     }
 
     // Admin-Modus: Erst prüfen ob es eine Frage ist, sonst Buchung
+    // 🔧 v6.38.20: Audio-Transkripte NICHT durch Smart-Conversation klassifizieren — direkt zum Audio-Handler!
     if (isAdminUser) {
-        const adminClass = await handleSmartConversation(chatId, text, userName, knownForGreeting);
+        const adminClass = message._isAudioFile ? { intent: 'booking' } : await handleSmartConversation(chatId, text, userName, knownForGreeting);
         if (['question', 'price_inquiry', 'greeting'].includes(adminClass.intent)) {
             await addTelegramLog('🧠', chatId, `Admin-Intent: ${adminClass.intent}`);
             let adminResponse = adminClass.response || '';

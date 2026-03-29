@@ -2860,9 +2860,10 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     //   z.B. "Seetheweg 11" → Nominatim "Chausseestraße, Wolgast" → KEIN Auto-Select (völlig anderer Straßenname)
                     const _qStreet1 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
                     const _qPrefix1 = _qStreet1.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
-                    const _streetOk1 = (s) => s.source !== 'nominatim' || !_qPrefix1 ||
-                        s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix1);
-                    const _bestHit = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
+                    // 🔧 v6.38.17: _streetOk für ALLE Quellen (nicht nur Nominatim) — verhindert falsche Buchungen als "vertrauenswürdig"
+                    const _streetOk1 = (s) => !_qPrefix1 || s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix1);
+                    const _TRUSTED1 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+                    const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _streetOk1(s))
                         || suggestions.find(s => s.lat && s.lon && _streetOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
                     if (_bestHit && _bestHit.lat && _bestHit.lon) {
                         await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
@@ -4085,9 +4086,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         // 🆕 v6.38.16: Straßenname-Plausibilitäts-Check
                         const _qStreet2 = addressToResolve.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
                         const _qPrefix2 = _qStreet2.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
-                        const _streetOk2 = (s) => s.source !== 'nominatim' || !_qPrefix2 ||
-                            s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix2);
-                        const _bestHit2 = suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon)
+                        // 🔧 v6.38.17: _streetOk für ALLE Quellen
+                        const _streetOk2 = (s) => !_qPrefix2 || s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPrefix2);
+                        const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _streetOk2(s))
                             || suggestions.find(s => s.lat && s.lon && _streetOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)));
                         if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
                             await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
@@ -7165,11 +7167,13 @@ async function handleMessage(message) {
         const _hasHausnr = /\b\d+[a-z]?\b/i.test(text.replace(/\b\d{5}\b/g, '').trim());
         const _qStreet = text.replace(/\s*\d[\d\w]*\s*$/, '').trim().toLowerCase();
         const _qPfx = _qStreet.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
-        const _streetOk = (s) => s.source !== 'nominatim' || !_qPfx ||
+        // 🔧 v6.38.17: Nur verifizierte Quellen + streetOk für ALLE (kein 'booking'/'customer' ohne Prüfung)
+        const _streetOk = (s) => !_qPfx ||
             s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPfx);
-        const _hasTrusted = suggestions.some(s => s.source !== 'nominatim');
+        const _TRUSTED = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+        const _hasTrusted = suggestions.some(s => _TRUSTED.includes(s.source));
         const _bestHit = _hasHausnr && (
-            suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon) ||
+            suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _streetOk(s)) ||
             suggestions.find(s => s.lat && s.lon && _streetOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)))
         );
 

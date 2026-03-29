@@ -7127,6 +7127,38 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🔧 v6.38.18: PLZ-Eingabe nach unklarer Adresse → kombinieren + direkt buchen
+    if (pending && pending._awaitingPLZ) {
+        const { preselectedCustomer, userName: savedUserName, _awaitingField, _awaitingPLZAddr, partialBooking: savedPartial } = pending;
+        const plzMatch = text.trim().match(/^\d{5}$/);
+        if (!plzMatch) {
+            await setPending(chatId, pending); // State behalten
+            await sendTelegramMessage(chatId, `❌ Bitte nur die 5-stellige PLZ eingeben, z.B. <b>17424</b>`);
+            return;
+        }
+        const combinedAddr = `${_awaitingPLZAddr}, ${text.trim()}`;
+        await addTelegramLog('🔢', chatId, `PLZ eingegeben: "${text.trim()}" → kombiniert: "${combinedAddr}"`);
+        const suggestions2 = await searchNominatimForTelegram(combinedAddr);
+        const isPickupField2 = _awaitingField === 'pickup';
+        const fieldLabel2 = isPickupField2 ? 'Abholort' : 'Zielort';
+        const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+        const bestHit2 = suggestions2.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon)
+            || suggestions2.find(s => s.lat && s.lon);
+        if (bestHit2) {
+            const partial2 = savedPartial || {};
+            if (isPickupField2) { partial2.pickup = bestHit2.name; partial2.pickupLat = bestHit2.lat; partial2.pickupLon = bestHit2.lon; }
+            else { partial2.destination = bestHit2.name; partial2.destinationLat = bestHit2.lat; partial2.destinationLon = bestHit2.lon; }
+            await addTelegramLog('✅', chatId, `${fieldLabel2} PLZ-Auto: "${combinedAddr}" → ${bestHit2.name}`);
+            await deletePending(chatId);
+            const routePrice2 = await calculateTelegramRoutePrice(partial2);
+            await askPassengersOrConfirm(chatId, partial2, routePrice2, combinedAddr);
+        } else {
+            await setPending(chatId, pending);
+            await sendTelegramMessage(chatId, `❌ Auch mit PLZ ${text.trim()} keine Adresse gefunden.\n\nBitte vollständige Adresse mit Ort eingeben:\n<i>Beispiel: Maxim-Gorki-Straße 22, Heringsdorf</i>`);
+        }
+        return;
+    }
+
     // 🔧 v6.38.17: "Anderes Ziel" / "Anderer Abholort" → Adresssuche statt KI-Analyse
     if (pending && pending._awaitingNewBookingText) {
         const { preselectedCustomer, userName: savedUserName, _awaitingField } = pending;
@@ -7199,22 +7231,20 @@ async function handleMessage(message) {
             return;
         }
 
-        // Vorschläge als Inline-Buttons zeigen (wie validateTelegramAddresses)
-        const displaySugg = _hasTrusted ? suggestions.filter(s => s.source !== 'nominatim') : suggestions;
-        const shortText = text.length > 28 ? text.slice(0, 26) + '…' : text;
-        const keyboard = {
-            inline_keyboard: [
-                ...displaySugg.map((s, i) => [{
-                    text: `${['poi','known'].includes(s.source) ? '⭐' : ['customer','customer-nocoords'].includes(s.source) ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.label || s.name}`,
-                    callback_data: `${prefix}_${i}`
-                }]),
-                [{ text: `✅ "${shortText}" so verwenden`, callback_data: 'addr_skip' }],
-                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-            ]
-        };
-        await setPending(chatId, { partial: partialBooking, originalText: text, nominatimResults: displaySugg, preselectedCustomer });
-        await addTelegramLog('🔍', chatId, `${fieldLabel} "${text}" → ${displaySugg.length} Vorschläge`);
-        await sendTelegramMessage(chatId, `🔍 <b>${fieldLabel}: "${text}"</b>\n\nBitte Adresse wählen:`, { reply_markup: keyboard });
+        // 🔧 v6.38.18: Kein eindeutiges Ergebnis → PLZ abfragen (statt Buttons)
+        await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → unklar → PLZ abfragen`);
+        await setPending(chatId, {
+            _awaitingPLZ: true,
+            _awaitingField,
+            _awaitingPLZAddr: text,
+            partialBooking,
+            preselectedCustomer,
+            userName: savedUserName
+        });
+        await sendTelegramMessage(chatId,
+            `📮 <b>${fieldLabel}: "${text}"</b>\n\nAdresse nicht eindeutig — bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,
+            { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+        );
         return;
     }
 

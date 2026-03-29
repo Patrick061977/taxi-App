@@ -1488,9 +1488,14 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
         return dp[m][n];
     }
 
-    // Hilfsfunktion: Prüfe ob Name fuzzy passt (max 2 Zeichen Unterschied bei langen Namen, max 1 bei kurzen)
+    // Hilfsfunktion: Prüfe ob Name fuzzy passt
+    // 🔧 v6.38.23 Fix: Strengere Schwellen — "Miehe" darf nicht "Miegel" matchen
+    //   - Kurze Namen (<= 6 Zeichen): max 1 Zeichen Unterschied
+    //   - Mittlere Namen (7-9 Zeichen): max 2 Zeichen Unterschied
+    //   - Lange Namen (>= 10 Zeichen): max 2 Zeichen Unterschied
     function fuzzyMatch(name, search) {
-        const maxDist = Math.max(name.length, search.length) >= 6 ? 2 : 1;
+        const longer = Math.max(name.length, search.length);
+        const maxDist = longer >= 7 ? 2 : 1;
         return levenshtein(name, search) <= maxDist;
     }
 
@@ -3794,19 +3799,40 @@ Nur gültiges JSON, kein Markdown:
                 }
             }
 
-            // CRM-Suche wenn Kundenname in Nachricht
+            // 🔧 v6.38.23: CRM-Suche — TELEFONNUMMER hat Vorrang vor Name!
+            // "Miehe" darf nicht "Miegel" matchen — stattdessen über Telefonnummer identifizieren
             const customerSearchName = (!preselected && !forCustomerName) ? (booking.forCustomer || null) : null;
-            if (customerSearchName) {
+            const _searchPhone = booking.phone || '';
+            if (customerSearchName || _searchPhone) {
                 const allCust = await loadAllCustomers();
-                const matches = findAllCustomersForSecretary(allCust, customerSearchName);
-                if (matches.length === 1) {
-                    const found = matches[0];
+
+                // 🆕 v6.38.23: SCHRITT 1 — Telefonnummer-Suche (eindeutig!)
+                let _phoneMatchedCustomer = null;
+                if (_searchPhone) {
+                    const _phoneDigits = _searchPhone.replace(/\D/g, '');
+                    if (_phoneDigits.length >= 6) {
+                        const _last9 = _phoneDigits.slice(-9);
+                        for (const c of allCust) {
+                            const cPhone1 = (c.mobilePhone || c.phone || '').replace(/\D/g, '');
+                            const cPhone2 = (c.phone || '').replace(/\D/g, '');
+                            if ((cPhone1.length >= 6 && cPhone1.endsWith(_last9)) ||
+                                (cPhone2.length >= 6 && cPhone2.endsWith(_last9))) {
+                                _phoneMatchedCustomer = c;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (_phoneMatchedCustomer) {
+                    // Telefon-Match → direkt als CRM-Kunde vorschlagen (viel sicherer als Name)
+                    const found = _phoneMatchedCustomer;
                     const confirmId = Date.now().toString(36);
                     await setPending(chatId, { partial: booking, crmConfirm: { found, confirmId }, originalText: text });
-                    let confirmMsg = `🔍 <b>Kunden im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-                    // 🔧 v6.14.7: Auch mobilePhone anzeigen
-            const _dispPhone = found.mobilePhone || found.phone;
-            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
+                    await addTelegramLog('📱', chatId, `CRM-Kunde per Telefon gefunden: ${found.name} (${_searchPhone})`);
+                    let confirmMsg = `🔍 <b>Kunden im CRM gefunden (Telefon-Match):</b>\n\n👤 <b>${found.name}</b>\n`;
+                    const _dispPhone = found.mobilePhone || found.phone;
+                    if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                     if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                     confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
                     await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
@@ -3814,46 +3840,68 @@ Nur gültiges JSON, kein Markdown:
                         { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }
                     ]] } });
                     return;
-                } else if (matches.length > 1) {
-                    const confirmId = Date.now().toString(36);
-                    await setPending(chatId, { partial: booking, crmMultiSelect: { matches, confirmId }, originalText: text });
-                    let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${customerSearchName}":</b>\n\nWelchen Kunden meinen Sie?`;
-                    const buttons = matches.map((m, i) => {
-                        let label = `👤 ${m.name}`;
-                        if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
-                        return [{ text: label, callback_data: `crm_select_${i}_${confirmId}` }];
-                    });
-                    buttons.push([{ text: '🆕 Keiner davon – neu anlegen', callback_data: `crm_confirm_no_${confirmId}` }]);
-                    await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
-                    return;
-                } else {
+                }
+
+                // SCHRITT 2 — Name-Suche (nur wenn kein Telefon-Match)
+                if (customerSearchName) {
+                    const matches = findAllCustomersForSecretary(allCust, customerSearchName);
+                    if (matches.length === 1) {
+                        const found = matches[0];
+                        const confirmId = Date.now().toString(36);
+                        await setPending(chatId, { partial: booking, crmConfirm: { found, confirmId }, originalText: text });
+                        let confirmMsg = `🔍 <b>Kunden im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
+                        const _dispPhone = found.mobilePhone || found.phone;
+                        if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
+                        if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+                        confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
+                        await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
+                            { text: '✅ Ja, genau!', callback_data: `crm_confirm_yes_${confirmId}` },
+                            { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }
+                        ]] } });
+                        return;
+                    } else if (matches.length > 1) {
+                        const confirmId = Date.now().toString(36);
+                        await setPending(chatId, { partial: booking, crmMultiSelect: { matches, confirmId }, originalText: text });
+                        let selectMsg = `🔍 <b>Mehrere Kunden gefunden für „${customerSearchName}":</b>\n\nWelchen Kunden meinen Sie?`;
+                        const buttons = matches.map((m, i) => {
+                            let label = `👤 ${m.name}`;
+                            if (m.address) label += ` · 📍 ${m.address.length > 30 ? m.address.slice(0, 28) + '…' : m.address}`;
+                            return [{ text: label, callback_data: `crm_select_${i}_${confirmId}` }];
+                        });
+                        buttons.push([{ text: '🆕 Keiner davon – neu anlegen', callback_data: `crm_confirm_no_${confirmId}` }]);
+                        await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
+                        return;
+                    }
+                }
+
+                // SCHRITT 3 — Kein Match → Buchung ohne CRM fortsetzen (wird nach Buchung auto-angelegt)
+                if (customerSearchName) {
                     booking.name = customerSearchName;
                     booking._forCustomer = customerSearchName;
-                    booking._crmCustomerId = null;
-                    // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
-                    if (!booking.phone && text) {
-                        const _phoneMatch = text.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
-                        if (_phoneMatch) {
-                            let _extractedPhone = _phoneMatch[0].replace(/[\s\-\/]/g, '');
-                            if (_extractedPhone.startsWith('0') && !_extractedPhone.startsWith('00')) {
-                                _extractedPhone = '+49' + _extractedPhone.slice(1);
-                            } else if (_extractedPhone.startsWith('0049')) {
-                                _extractedPhone = '+49' + _extractedPhone.slice(4);
-                            }
-                            // 🆕 v6.25.1: Validierung der extrahierten Nummer
-                            const _phoneValid = validatePhoneNumber(_extractedPhone);
-                            booking.phone = _extractedPhone;
-                            if (_phoneValid.valid) {
-                                await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
-                            } else {
-                                await addTelegramLog('⚠️', chatId, `Telefonnummer extrahiert aber möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
-                            }
+                }
+                booking._crmCustomerId = null;
+                // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
+                if (!booking.phone && text) {
+                    const _phoneMatch = text.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
+                    if (_phoneMatch) {
+                        let _extractedPhone = _phoneMatch[0].replace(/[\s\-\/]/g, '');
+                        if (_extractedPhone.startsWith('0') && !_extractedPhone.startsWith('00')) {
+                            _extractedPhone = '+49' + _extractedPhone.slice(1);
+                        } else if (_extractedPhone.startsWith('0049')) {
+                            _extractedPhone = '+49' + _extractedPhone.slice(4);
+                        }
+                        const _phoneValid = validatePhoneNumber(_extractedPhone);
+                        booking.phone = _extractedPhone;
+                        if (_phoneValid.valid) {
+                            await addTelegramLog('📱', chatId, `Telefonnummer aus Text extrahiert: ${_extractedPhone}`);
+                        } else {
+                            await addTelegramLog('⚠️', chatId, `Telefonnummer extrahiert aber möglicherweise ungültig: ${_extractedPhone} — ${_phoneValid.warning}`);
                         }
                     }
-                    if (!booking.phone) {
-                        booking.missing = booking.missing || [];
-                        if (!booking.missing.includes('phone')) booking.missing.push('phone');
-                    }
+                }
+                if (!booking.phone) {
+                    booking.missing = booking.missing || [];
+                    if (!booking.missing.includes('phone')) booking.missing.push('phone');
                 }
             }
         }
@@ -4018,39 +4066,48 @@ async function continueBookingFlow(chatId, booking, originalText) {
             return;
         }
 
-        // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse ähnlich,
+        // 🆕 v6.25.3: CRM-Adresse als Shortcut — wenn Kunde bekannt ist und Adresse EXAKT gleich,
         // direkt CRM-Koordinaten verwenden statt neu zu geocoden
         // 🔧 v6.35.0 Fix 2: Auch _crmCustomerId prüfen (für Nicht-Admin-Selbstbucher)
+        // 🔧 v6.38.23 Fix: Nur EXAKTE Straßennamen-Übereinstimmung — verhindert falsche Ersetzung
+        //    (z.B. "Rathenaustraße" wurde fälschlicherweise durch "Labahnstraße" ersetzt)
         const _effectiveCrmId = booking.customerId || booking._crmCustomerId;
         if (_effectiveCrmId && (booking.pickup && !booking.pickupLat || booking.destination && !booking.destinationLat)) {
             try {
                 const _crmSnap = await db.ref('customers/' + _effectiveCrmId).once('value');
                 const _crm = _crmSnap.val();
                 if (_crm && _crm.address) {
-                    const _crmAddr = _crm.address.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+                    // Straßennamen extrahieren (ohne Hausnummer, PLZ, Ort)
+                    const _extractStreet = (addr) => {
+                        if (!addr) return '';
+                        // Nimm nur den Teil vor dem Komma (Straße + Hausnr)
+                        const parts = addr.split(',')[0].trim();
+                        // Entferne Hausnummer am Ende
+                        return parts.replace(/\s*\d+[a-z]?\s*$/i, '').toLowerCase().trim();
+                    };
+                    const _crmStreet = _extractStreet(_crm.address);
                     const _crmLat = _crm.lat || _crm.pickupLat;
                     const _crmLon = _crm.lon || _crm.pickupLon;
-                    if (_crmLat && _crmLon) {
-                        // Pickup prüfen
+                    if (_crmLat && _crmLon && _crmStreet.length > 3) {
+                        // Pickup prüfen — nur bei EXAKTEM Straßennamen-Match
                         if (booking.pickup && !booking.pickupLat) {
-                            const _pAddr = booking.pickup.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
-                            // Ähnlichkeits-Check: CRM-Adresse enthält Pickup oder umgekehrt (min. 10 Zeichen Übereinstimmung)
-                            if (_crmAddr.length > 10 && (_crmAddr.includes(_pAddr.substring(0, 15)) || _pAddr.includes(_crmAddr.substring(0, 15)))) {
-                                booking.pickup = _crm.address; // Vollständige CRM-Adresse verwenden
+                            const _pStreet = _extractStreet(booking.pickup);
+                            if (_pStreet === _crmStreet) {
+                                booking.pickup = _crm.address;
                                 booking.pickupLat = _crmLat;
                                 booking.pickupLon = _crmLon;
-                                console.log('📍 CRM-Adresse erkannt für Pickup:', _crm.address, _crmLat, _crmLon);
-                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Match: ${_crm.address}`);
+                                console.log('📍 CRM-Adresse erkannt für Pickup (exakt):', _crm.address, _crmLat, _crmLon);
+                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Match (exakt): ${_crm.address}`);
                             }
                         }
-                        // Destination prüfen
+                        // Destination prüfen — nur bei EXAKTEM Straßennamen-Match
                         if (booking.destination && !booking.destinationLat) {
-                            const _dAddr = booking.destination.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
-                            if (_crmAddr.length > 10 && (_crmAddr.includes(_dAddr.substring(0, 15)) || _dAddr.includes(_crmAddr.substring(0, 15)))) {
+                            const _dStreet = _extractStreet(booking.destination);
+                            if (_dStreet === _crmStreet) {
                                 booking.destination = _crm.address;
                                 booking.destinationLat = _crmLat;
                                 booking.destinationLon = _crmLon;
-                                console.log('📍 CRM-Adresse erkannt für Destination:', _crm.address, _crmLat, _crmLon);
+                                console.log('📍 CRM-Adresse erkannt für Destination (exakt):', _crm.address, _crmLat, _crmLon);
                             }
                         }
                     }

@@ -4469,13 +4469,25 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                 }
                 if (_knownCust && _knownCust.address) {
-                    // Kunde hat Adresse → CRM-Adresse als Vorschlag mit Button anbieten
+                    // 🔧 v6.38.23: customerKind prüfen — Label anpassen
+                    let _custKind1 = _knownCust.customerKind || '';
+                    if (!_custKind1) {
+                        const _ckId1 = _knownCust.customerId || _pickupCrmId;
+                        if (_ckId1) {
+                            try {
+                                const _ckSnap1 = await db.ref('customers/' + _ckId1 + '/customerKind').once('value');
+                                _custKind1 = _ckSnap1.val() || '';
+                            } catch(_ek1) {}
+                        }
+                    }
+                    const _isStammkunde1 = _custKind1 === 'stammkunde';
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
                     const _custLabel2 = booking._adminBooked ? ` für ${_knownCust.name || ''}` : '';
                     const _shortAddr1 = _knownCust.address.length > 30 ? _knownCust.address.substring(0, 28) + '…' : _knownCust.address;
                     msg += `📍 <b>Abholort${_custLabel2} – wo ${booking._adminBooked ? 'abholen' : 'sollen wir Sie abholen'}?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
-                    _inlineButtons.push([{ text: `📍 Ja, von ${_shortAddr1} abholen`, callback_data: 'use_home_pickup' }]);
+                    const _pickupLabel = _isStammkunde1 ? '🏠 Von zu Hause' : '📍 Von';
+                    _inlineButtons.push([{ text: `${_pickupLabel} (${_shortAddr1})`, callback_data: 'use_home_pickup' }]);
                 }
                 // Favoriten-Abholort (wenn vorhanden und anders als Zuhause)
                 const _custId1 = _knownCust?.customerId || (_preselected ? booking._crmCustomerId : null);
@@ -4535,12 +4547,33 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                 }
                 if (_knownCust2 && _knownCust2.address) {
-                    // Kunde hat Adresse → Nach-Hause-Button
+                    // 🔧 v6.38.23: customerKind prüfen — "Nach Hause" nur bei Stammkunden!
+                    // Gelegenheitskunden haben keine Wohnadresse, nur Abholadresse
+                    let _custKind2 = _knownCust2.customerKind || '';
+                    if (!_custKind2) {
+                        // customerKind aus CRM nachladen
+                        const _ckId = _knownCust2.customerId || _destCrmId;
+                        if (_ckId) {
+                            try {
+                                const _ckSnap = await db.ref('customers/' + _ckId + '/customerKind').once('value');
+                                _custKind2 = _ckSnap.val() || '';
+                            } catch(_ek) {}
+                        }
+                    }
+                    const _isStammkunde2 = _custKind2 === 'stammkunde';
+                    const _isHotel2 = _custKind2 === 'hotel' || _custKind2 === 'firma';
                     msg = '';
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
                     const _custLabel = booking._adminBooked ? ` (${_knownCust2.name || ''})` : '';
                     msg += `🎯 <b>Zielort${_custLabel} – wohin soll die Fahrt gehen?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
-                    _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                    if (_isStammkunde2) {
+                        // Stammkunde → "Nach Hause" (Wohnadresse)
+                        _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                    } else if (_isHotel2) {
+                        // Hotel/Firma → "Zum Hotel"
+                        _inlineButtons.push([{ text: '🏨 Zum Hotel (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                    }
+                    // Gelegenheitskunde → KEIN "Nach Hause"-Button (Bahnhof etc. ist keine Wohnadresse)
                 }
                 // Favoriten-Ziele
                 const _custId2 = _knownCust2?.customerId || (_preselected2 ? booking._crmCustomerId : null);

@@ -284,7 +284,9 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
         }
         console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) hat Eintrag (active=${shifts[dateStr].active})`);
     } else {
-        const defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+        // 🔧 v6.38.24: KEIN Mo-Fr Fallback! Ohne explizite defaults → KEIN DIENST
+        // Vorher: { 0:false, 1:true, ...6:false } — Fahrzeuge ohne defaults wurden Mo-Fr als aktiv behandelt
+        const defaults = shifts.defaults || {};
         if (defaults[dow] !== true) {
             console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} (dow=${dow}) nicht im Wochenplan (defaults[${dow}]=${defaults[dow]})`);
             return false;
@@ -301,7 +303,8 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
             // 🔧 v6.15.10: KEIN Fallback auf 06:00-22:00!
             // Wochenplan (defaultTimes) ist Gesetz – ohne eingetragene Zeiten = kein Standard-Block
             // 🔧 v6.25.5: Default-Zeiten NUR wenn Tag im Wochenplan aktiv ist!
-            const _defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+            // 🔧 v6.38.24: Kein Mo-Fr Fallback
+            const _defaults = shifts.defaults || {};
             const _isDayActiveByDefault = _defaults[dow] === true;
             const _effDefault = (_isDayActiveByDefault && defaultEntry) ? defaultEntry : null;
             if (_effDefault) {
@@ -420,7 +423,8 @@ function getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr) {
         dayActive = shifts[dateStr].active !== false;
         daySource = dayActive ? `${dateStr} explizit aktiv` : `${dateStr} explizit INAKTIV`;
     } else {
-        const defaults = shifts.defaults || { 0:false, 1:true, 2:true, 3:true, 4:true, 5:true, 6:false };
+        // 🔧 v6.38.24: Kein Mo-Fr Fallback
+        const defaults = shifts.defaults || {};
         dayActive = defaults[dow] === true;
         daySource = dayActive ? `${dayNames[dow]} im Wochenplan aktiv` : `${dayNames[dow]} nicht im Wochenplan`;
     }

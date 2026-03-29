@@ -43,6 +43,8 @@ APP_FILES=(
     "service-worker.js"
     "favicon.svg"
     "icon-192.png"
+    "advanced-logger.js"
+    "firebase-remote-logger.js"
 )
 
 for file in "${APP_FILES[@]}"; do

@@ -2955,10 +2955,18 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         return sNr === _qHausnr1;
                     };
                     const _TRUSTED1 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-                    // 🔧 v6.38.18: Expliziter Ortsname im Query → Ergebnis MUSS diesen Ort enthalten
+                    // 🔧 v6.38.25: Kaiserbäder = Heringsdorf + Ahlbeck + Bansin sind EINE Gemeinde!
+                    const _KAISERBAEDER1 = ['heringsdorf', 'ahlbeck', 'bansin'];
                     const _TOWNS1 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                     const _explTown1 = _TOWNS1.find(t => addressToResolve.toLowerCase().includes(t));
-                    const _townOk1 = (s) => !_explTown1 || s.name.toLowerCase().includes(_explTown1);
+                    const _isKaiserbad1 = _KAISERBAEDER1.includes(_explTown1);
+                    const _townOk1 = (s) => {
+                        if (!_explTown1) return true;
+                        const sLow = s.name.toLowerCase();
+                        if (sLow.includes(_explTown1)) return true;
+                        if (_isKaiserbad1) return _KAISERBAEDER1.some(k => sLow.includes(k));
+                        return false;
+                    };
                     // 🔧 v6.38.23: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN passen
                     const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s))
                         || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s)))
@@ -4302,9 +4310,19 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         return;
                     }
                     // 🔧 v6.38.25: Town-Filter VOR dem Hausnummer-Block — wird auch danach gebraucht
+                    // 🔧 v6.38.25: Kaiserbäder = Heringsdorf + Ahlbeck + Bansin sind EINE Gemeinde!
+                    const _KAISERBAEDER = ['heringsdorf', 'ahlbeck', 'bansin'];
                     const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                     const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
-                    const _townOk2 = (s) => !_explTown2 || s.name.toLowerCase().includes(_explTown2);
+                    const _isKaiserbad2 = _KAISERBAEDER.includes(_explTown2);
+                    const _townOk2 = (s) => {
+                        if (!_explTown2) return true;
+                        const sLow = s.name.toLowerCase();
+                        if (sLow.includes(_explTown2)) return true;
+                        // Kaiserbäder-Synonym: Heringsdorf = Ahlbeck = Bansin (gleiche Gemeinde!)
+                        if (_isKaiserbad2) return _KAISERBAEDER.some(k => sLow.includes(k));
+                        return false;
+                    };
 
                     // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
@@ -7551,7 +7569,15 @@ async function handleMessage(message) {
         const _TOWNS_P = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
         const _plzCenter2 = PLZ_CENTERS[text.trim()];
         const _plzTown = _plzCenter2 ? _plzCenter2.name.toLowerCase() : null;
-        const _townOkP = (s) => !_plzTown || s.name.toLowerCase().includes(_plzTown);
+        const _KAISERBAEDER_P = ['heringsdorf', 'ahlbeck', 'bansin'];
+        const _isKaiserbadP = _plzTown ? _KAISERBAEDER_P.includes(_plzTown) : false;
+        const _townOkP = (s) => {
+            if (!_plzTown) return true;
+            const sLow = s.name.toLowerCase();
+            if (sLow.includes(_plzTown)) return true;
+            if (_isKaiserbadP) return _KAISERBAEDER_P.some(k => sLow.includes(k));
+            return false;
+        };
         const bestHit2 = suggestions2.find(s => _TRUSTED_P.includes(s.source) && s.lat && s.lon && _townOkP(s))
             || suggestions2.find(s => s.lat && s.lon && _streetOkP(s) && _townOkP(s));
         if (bestHit2) {
@@ -7619,8 +7645,16 @@ async function handleMessage(message) {
             s.name.toLowerCase().replace(/straße|str\.|weg|allee|platz/g, '').includes(_qPfx);
         const _TRUSTED = ['geocache-verified', 'crm-verified', 'known', 'poi'];
         const _TOWNS = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
+        const _KAISERBAEDER = ['heringsdorf', 'ahlbeck', 'bansin'];
         const _explTown = _TOWNS.find(t => text.toLowerCase().includes(t));
-        const _townOk = (s) => !_explTown || s.name.toLowerCase().includes(_explTown);
+        const _isKaiserbad = _explTown ? _KAISERBAEDER.includes(_explTown) : false;
+        const _townOk = (s) => {
+            if (!_explTown) return true;
+            const sLow = s.name.toLowerCase();
+            if (sLow.includes(_explTown)) return true;
+            if (_isKaiserbad) return _KAISERBAEDER.some(k => sLow.includes(k));
+            return false;
+        };
 
         // Stufe 1: Verifizierte Quellen → stilles Auto-Select
         const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s));

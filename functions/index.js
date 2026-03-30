@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.27';
+const CLOUD_FUNCTIONS_VERSION = '6.38.28';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -4051,10 +4051,11 @@ Nur gültiges JSON, kein Markdown:
                     if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                     if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                     confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-                    await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                        { text: '✅ Ja, genau!', callback_data: `crm_confirm_yes_${confirmId}` },
-                        { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }
-                    ]] } });
+                    await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                        [{ text: '✅ Ja, genau!', callback_data: `crm_confirm_yes_${confirmId}` },
+                        { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] } });
                     return;
                 }
 
@@ -4070,10 +4071,11 @@ Nur gültiges JSON, kein Markdown:
                         if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
                         if (found.address) confirmMsg += `🏠 ${found.address}\n`;
                         confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-                        await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [[
-                            { text: '✅ Ja, genau!', callback_data: `crm_confirm_yes_${confirmId}` },
-                            { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }
-                        ]] } });
+                        await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
+                            [{ text: '✅ Ja, genau!', callback_data: `crm_confirm_yes_${confirmId}` },
+                            { text: '❌ Anderer Kunde', callback_data: `crm_confirm_no_${confirmId}` }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                        ] } });
                         return;
                     } else if (matches.length > 1) {
                         const confirmId = Date.now().toString(36);
@@ -4085,6 +4087,7 @@ Nur gültiges JSON, kein Markdown:
                             return [{ text: label, callback_data: `crm_select_${i}_${confirmId}` }];
                         });
                         buttons.push([{ text: '🆕 Keiner davon – neu anlegen', callback_data: `crm_confirm_no_${confirmId}` }]);
+                        buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
                         await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
                         return;
                     }
@@ -4132,7 +4135,8 @@ Nur gültiges JSON, kein Markdown:
                     await sendTelegramMessage(chatId, askMsg, { reply_markup: { inline_keyboard: [
                         [{ text: '🏠 Ja, als Stammkunde anlegen', callback_data: `crm_newcust_stamm_${confirmId}` }],
                         [{ text: '🧳 Ja, als Gelegenheitskunde', callback_data: `crm_newcust_geleg_${confirmId}` }],
-                        [{ text: '⏩ Ohne CRM weiter buchen', callback_data: `crm_newcust_skip_${confirmId}` }]
+                        [{ text: '⏩ Ohne CRM weiter buchen', callback_data: `crm_newcust_skip_${confirmId}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } });
                     return;
                 }
@@ -4300,7 +4304,8 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 reply_markup: { inline_keyboard: [
                     [{ text: '📍 Abholort (von dort)', callback_data: `auftr_pickup_${bookingId}` }],
                     [{ text: '🎯 Zielort (dorthin)', callback_data: `auftr_dest_${bookingId}` }],
-                    [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }]
+                    [{ text: '❌ Weder noch', callback_data: `auftr_skip_${bookingId}` }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ] }
             });
             return;
@@ -4803,12 +4808,18 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     if (noted.length > 0) msg += `✅ <b>Bereits notiert:</b>\n${noted.join('\n')}\n\n`;
                     const _custLabel = booking._adminBooked ? ` (${_knownCust2.name || ''})` : '';
                     msg += `🎯 <b>Zielort${_custLabel} – wohin soll die Fahrt gehen?</b>\n${booking._adminBooked ? 'Wähle' : 'Wählen Sie'} unten oder sende${booking._adminBooked ? '' : 'n Sie'} den <b>Standort 📎</b>`;
-                    if (_isStammkunde2) {
-                        // Stammkunde → "Nach Hause" (Wohnadresse)
-                        _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
-                    } else if (_isHotel2) {
-                        // Hotel/Firma → "Zum Hotel"
-                        _inlineButtons.push([{ text: '🏨 Zum Hotel (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                    // 🔧 v6.38.28: "Zum Hotel"/"Nach Hause" NICHT zeigen wenn Pickup = eigene Adresse
+                    const _pickupNorm2 = booking.pickup ? normalizeAddressKey(booking.pickup) : '';
+                    const _homeNorm3 = normalizeAddressKey(_knownCust2.address);
+                    const _pickupIsHome = _pickupNorm2 && _homeNorm3 && (_pickupNorm2 === _homeNorm3 || _pickupNorm2.includes(_homeNorm3) || _homeNorm3.includes(_pickupNorm2));
+                    if (!_pickupIsHome) {
+                        if (_isStammkunde2) {
+                            // Stammkunde → "Nach Hause" (Wohnadresse)
+                            _inlineButtons.push([{ text: '🏠 Nach Hause (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                        } else if (_isHotel2) {
+                            // Hotel/Firma → "Zum Hotel"
+                            _inlineButtons.push([{ text: '🏨 Zum Hotel (' + (_knownCust2.address.length > 25 ? _knownCust2.address.substring(0, 23) + '…' : _knownCust2.address) + ')', callback_data: 'use_home_dest' }]);
+                        }
                     }
                     // Gelegenheitskunde → KEIN "Nach Hause"-Button (Bahnhof etc. ist keine Wohnadresse)
                 }
@@ -4816,7 +4827,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const _custId2 = _knownCust2?.customerId || (_preselected2 ? booking._crmCustomerId : null);
                 if (_custId2 || (_knownCust2 && _knownCust2.name)) {
                     try {
-                        const favDests = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone, _custId2);
+                        const _favRaw3 = await getCustomerFavoriteDestinations(_knownCust2.name, _knownCust2.phone || _knownCust2.mobilePhone, _custId2);
+                        // 🔧 v6.38.28: Pickup-Adresse und eigene Adresse aus Favoriten filtern
+                        const _pickNorm3 = booking.pickup ? normalizeAddressKey(booking.pickup) : '';
+                        const _homeNorm4 = _knownCust2.address ? normalizeAddressKey(_knownCust2.address) : '';
+                        const favDests = _favRaw3.filter(f => {
+                            if (!f.destination) return false;
+                            const _dn = normalizeAddressKey(f.destination);
+                            if (_pickNorm3 && (_dn === _pickNorm3 || _dn.includes(_pickNorm3) || _pickNorm3.includes(_dn))) return false;
+                            if (_homeNorm4 && (_dn === _homeNorm4 || _dn.includes(_homeNorm4) || _homeNorm4.includes(_dn))) return false;
+                            return true;
+                        });
                         if (favDests && favDests.length > 0) {
                             const destBtns = favDests.slice(0, 3).map((d, i) => ({
                                 text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
@@ -6870,7 +6891,8 @@ async function handleMessage(message) {
                     await sendTelegramMessage(chatId,
                         `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n☎️ Festnetz: <b>${pending._callerPhone}</b> <i>(aus Audiodatei)</i>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
                         { reply_markup: { inline_keyboard: [
-                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                         ] } }
                     );
                     return;
@@ -6897,7 +6919,8 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId,
                 `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${custName}</b>\n\n📱 Bitte die <b>Telefonnummer</b> eingeben:`,
                 { reply_markup: { inline_keyboard: [
-                    [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+                    [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ] } }
             );
             return;
@@ -6919,7 +6942,8 @@ async function handleMessage(message) {
                     await sendTelegramMessage(chatId,
                         `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${audioPhone}</b> <i>(aus Audiodatei)</i>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
                         { reply_markup: { inline_keyboard: [
-                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                            [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }],
+                            [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                         ] } }
                     );
                     return;
@@ -6944,7 +6968,8 @@ async function handleMessage(message) {
                 await sendTelegramMessage(chatId,
                     `⚠️ Das sieht nicht wie eine Telefonnummer aus.\n\n📱 Bitte eine <b>Telefonnummer</b> eingeben (z.B. +49 171 1234567):`,
                     { reply_markup: { inline_keyboard: [
-                        [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }]
+                        [{ text: '⏩ Ohne Telefon weiter', callback_data: 'admin_newcust_nophone' }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } }
                 );
                 return;
@@ -6965,7 +6990,8 @@ async function handleMessage(message) {
                 await sendTelegramMessage(chatId,
                     `🆕 <b>Neuen Kunden anlegen</b>\n\n👤 Name: <b>${pending._adminNewCustName}</b>\n☎️ Festnetz: <b>${normalizedPhone}</b>\n\n📱 Möchtest du eine <b>Mobilnummer</b> hinzufügen?`,
                     { reply_markup: { inline_keyboard: [
-                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } }
                 );
                 return;
@@ -6991,7 +7017,8 @@ async function handleMessage(message) {
                 await sendTelegramMessage(chatId,
                     `⚠️ Das sieht nicht wie eine Mobilnummer aus.\n\n📱 Bitte eine <b>Mobilnummer</b> eingeben oder überspringen:`,
                     { reply_markup: { inline_keyboard: [
-                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }]
+                        [{ text: '⏩ Ohne Mobilnummer weiter', callback_data: 'admin_newcust_nomobile' }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } }
                 );
                 return;
@@ -7043,6 +7070,7 @@ async function handleMessage(message) {
                 const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
                 keyboard.push([{ text: '📝 Original verwenden: ' + (rawAddress.length > 25 ? rawAddress.slice(0, 23) + '…' : rawAddress), callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
                 keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
+                keyboard.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
 
                 await setPending(chatId, {
                     ...pending,
@@ -7068,7 +7096,8 @@ async function handleMessage(message) {
                     `⚠️ <b>Keine Ergebnisse für:</b> "${rawAddress}"\n\nWas möchtest du tun?`, {
                     reply_markup: { inline_keyboard: [
                         [{ text: '📝 Trotzdem verwenden', callback_data: `admin_newcust_addr_raw_${confirmId}` }],
-                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]
+                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] }
                 });
             }
@@ -10422,8 +10451,14 @@ async function handleCallback(callback) {
         }
 
         // Favoriten laden — als Zielvorschläge (Abholort) oder Abholvorschläge (Zielort)
-        const _arFavs = await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone, _arCustomer.id || _arCustomer.customerId);
+        const _arFavsRaw = await getCustomerFavoriteDestinations(_arCustomer.name, _arCustomer.mobilePhone || _arCustomer.phone, _arCustomer.id || _arCustomer.customerId);
         const _arIsDest = data.startsWith('addr_role_dest_');
+        // 🔧 v6.38.28: Eigene Adresse aus Favoriten filtern (z.B. Hotel-Adresse nicht als Ziel zeigen wenn Pickup = Hotel)
+        const _arHomeNorm = _arCustomer.address ? normalizeAddressKey(_arCustomer.address) : '';
+        const _arFavs = _arFavsRaw.filter(f => {
+            if (!_arHomeNorm || !f.destination) return true;
+            return normalizeAddressKey(f.destination) !== _arHomeNorm;
+        });
 
         if (_arFavs.length > 0) {
             const _arFavId = Date.now().toString(36);
@@ -12054,7 +12089,13 @@ async function handleCallback(callback) {
 
         // Häufige Ziele des Kunden laden
         // 🔧 v6.14.7: Auch mobilePhone für Favoriten-Suche nutzen
-        const favorites = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone, found.id || found.customerId);
+        // 🔧 v6.38.28: Eigene Adresse filtern (Hotel-Adresse nicht als Ziel zeigen)
+        const _favRaw2 = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone, found.id || found.customerId);
+        const _homeNorm2 = found.address ? normalizeAddressKey(found.address) : '';
+        const favorites = _favRaw2.filter(f => {
+            if (!_homeNorm2 || !f.destination) return true;
+            return normalizeAddressKey(f.destination) !== _homeNorm2;
+        });
         if (favorites.length > 0) {
             const favId = Date.now().toString(36);
             await setPending(chatId, {

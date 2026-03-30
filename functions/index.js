@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.29';
+const CLOUD_FUNCTIONS_VERSION = '6.38.30';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1594,11 +1594,21 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
         }
     }
     // 3. Nachname-Match (exakt + Substring)
+    // 🔧 v6.38.30: Strengere Substring-Prüfung — "ostseeblick" darf nicht "seeblick" oder "see" matchen
     for (const c of allCustomers) {
         if (results.length >= 5) break;
         const lastName = (c.name || '').toLowerCase().split(' ').pop();
         const searchLast = normalized.split(' ').pop();
-        if (!seen.has(c.id) && lastName.length > 2 && (lastName === searchLast || lastName.includes(searchLast) || searchLast.includes(lastName))) { seen.add(c.id); results.push(c); }
+        if (!seen.has(c.id) && lastName.length > 2) {
+            if (lastName === searchLast) {
+                seen.add(c.id); results.push(c);
+            } else if (lastName.includes(searchLast) || searchLast.includes(lastName)) {
+                // Substring-Match nur wenn kürzerer String mindestens 80% des längeren ist
+                const shorter = Math.min(lastName.length, searchLast.length);
+                const longer = Math.max(lastName.length, searchLast.length);
+                if (shorter >= longer * 0.8) { seen.add(c.id); results.push(c); }
+            }
+        }
     }
     // 3b. 🆕 v6.14.2: Fuzzy Vorname + Nachname separat — "Schindl" findet "Nicole Schindel"
     for (const c of allCustomers) {
@@ -12083,6 +12093,19 @@ async function handleCallback(callback) {
 
         await addTelegramLog('👤', chatId, `Admin: Vorausgewählter Kunde: ${found.name}`);
 
+        // 🔧 v6.38.30: Hotels/Lieferanten (Auftraggeber) → direkt zu analyzeTelegramBooking
+        // Wie bei Audio-Transkription: Kunde bestätigt → KI analysiert Buchung mit Kunde gesetzt
+        const _isAuftraggeberCust = isAuftraggeber(found.customerKind, found.type);
+        if (_isAuftraggeberCust && found.address) {
+            await addTelegramLog('🏨', chatId, `Auftraggeber ${found.name} bestätigt → direkt zur KI-Analyse (wie Audio)`);
+            await deletePending(chatId);
+            const _shortAddr = found.address.length > 32 ? found.address.substring(0, 30) + '…' : found.address;
+            const _kindLabel = found.customerKind === 'hotel' ? '🏨 Hotel' : (found.type === 'supplier' ? '🚚 Lieferant' : '🏢 Auftraggeber');
+            await sendTelegramMessage(chatId, `✅ <b>${found.name}</b> (${_kindLabel})\n📍 ${_shortAddr}\n🤖 <i>Analysiere Buchung...</i>`);
+            await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, preselectedCustomer: found });
+            return;
+        }
+
         // 🆕 v6.38.16: Wenn Stammkunde mit Adresse → fragen: Abholort oder Zielort?
         // Nur wenn der Originaltext NICHT eindeutig "von zuhause" oder "nach hause" enthält
         const _origTextLower = (pending.originalText || '').toLowerCase();
@@ -14991,7 +15014,7 @@ exports.scheduledAutoAssign = onSchedule(
         memory: '256MiB'
     },
     async (event) => {
-        console.log('🎯 v6.38.29: scheduledAutoAssign gestartet...');
+        console.log('🎯 v6.38.30: scheduledAutoAssign gestartet...');
 
         try {
             // Alle nötigen Daten parallel laden

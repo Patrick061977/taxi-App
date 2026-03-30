@@ -5416,9 +5416,19 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
             }
         }
         if (customerPhone) {
-            const _cleanPhone = customerPhone.replace(/\s/g, '');
-            queries.push(db.ref('rides').orderByChild('customerPhone').equalTo(_cleanPhone).limitToLast(100).once('value'));
-            queries.push(db.ref('rides').orderByChild('customerMobile').equalTo(_cleanPhone).limitToLast(100).once('value'));
+            // 🔧 v6.38.27: Mehrere Telefon-Formate suchen (Firebase braucht exakte Übereinstimmung)
+            const _cleanPhone = customerPhone.replace(/[\s\-\(\)\/]/g, '');
+            const _phoneVariants = new Set([_cleanPhone]);
+            // +49... → 0... und umgekehrt
+            if (_cleanPhone.startsWith('+49')) _phoneVariants.add('0' + _cleanPhone.slice(3));
+            if (_cleanPhone.startsWith('0') && !_cleanPhone.startsWith('00')) _phoneVariants.add('+49' + _cleanPhone.slice(1));
+            // Mit Leerzeichen nach Vorwahl: +49 178...
+            if (_cleanPhone.startsWith('+49') && _cleanPhone.length > 5) _phoneVariants.add('+49 ' + _cleanPhone.slice(3));
+            if (_cleanPhone.startsWith('0') && _cleanPhone.length > 4) _phoneVariants.add(_cleanPhone.slice(0, 4) + ' ' + _cleanPhone.slice(4));
+            for (const variant of _phoneVariants) {
+                queries.push(db.ref('rides').orderByChild('customerPhone').equalTo(variant).limitToLast(100).once('value'));
+                queries.push(db.ref('rides').orderByChild('customerMobile').equalTo(variant).limitToLast(100).once('value'));
+            }
         }
         if (customerId) {
             queries.push(db.ref('rides').orderByChild('customerId').equalTo(customerId).limitToLast(100).once('value'));
@@ -5427,8 +5437,13 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
 
         const destCount = {};
         const destDetails = {};
-        const _processRide = (r) => {
-            if (!r.destination || r.status === 'cancelled' || r.status === 'storniert') return;
+        const _seenRides = new Set(); // 🔧 v6.38.27: Duplikate verhindern
+        const _processRide = (r, rideKey) => {
+            if (!r.destination || r.status === 'cancelled' || r.status === 'storniert' || r.status === 'deleted') return;
+            // Deduplizierung: gleiche Fahrt kann über Name + Telefon doppelt gefunden werden
+            const _rideFingerprint = rideKey || (r.pickupTimestamp + '_' + (r.customerName || '') + '_' + (r.destination || ''));
+            if (_seenRides.has(_rideFingerprint)) return;
+            _seenRides.add(_rideFingerprint);
             const dest = r.destination.trim();
             const key = dest.toLowerCase();
             destCount[key] = (destCount[key] || 0) + 1;
@@ -5442,7 +5457,7 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
             }
         };
         for (const snap of snaps) {
-            if (snap.exists()) snap.forEach(child => _processRide(child.val()));
+            if (snap.exists()) snap.forEach(child => _processRide(child.val(), child.key));
         }
 
         // Sortiere nach Häufigkeit, max 5 Ziele

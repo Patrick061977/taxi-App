@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.28';
+const CLOUD_FUNCTIONS_VERSION = '6.38.29';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -14969,7 +14969,7 @@ exports.scheduledAutoAssign = onSchedule(
         memory: '256MiB'
     },
     async (event) => {
-        console.log('🎯 v6.26.0: scheduledAutoAssign gestartet...');
+        console.log('🎯 v6.38.29: scheduledAutoAssign gestartet...');
 
         try {
             // Alle nötigen Daten parallel laden
@@ -15016,6 +15016,13 @@ exports.scheduledAutoAssign = onSchedule(
                 const pickupBerlin = new Date(new Date(r.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                 const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
                 const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
+
+                // 🔧 v6.38.29: Inkonsistenz-Check — wenn assignedVehicle ≠ vehicleId, BEIDE prüfen
+                const vid2 = r.vehicleId && r.assignedVehicle && r.vehicleId !== r.assignedVehicle ? r.vehicleId : null;
+                if (vid2) {
+                    console.warn(`⚠️ INKONSISTENZ ${r.customerName || r.firebaseId}: assignedVehicle=${r.assignedVehicle} ≠ vehicleId=${r.vehicleId} — Fahrt braucht Korrektur!`);
+                    return true; // Inkonsistente Daten → immer umplanen
+                }
 
                 // 🔧 v6.38.27: Vier-Augen-Prinzip — zwei unabhängige Prüfungen
                 const _check1 = isVehicleInShift(vid, shiftsData, pickupDateStr, pickupTimeStr);

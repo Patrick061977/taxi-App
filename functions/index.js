@@ -2163,6 +2163,20 @@ async function searchNominatimForTelegram(query) {
                         // Bonus wenn mind. 1 Wort am Anfang steht (z.B. "Lidl" in "Lidl, Chaussee...")
                         if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w))) matchScore += 10;
                     }
+                    // 🔧 v6.38.26: Fuzzy-Fallback — auch bei Tippfehlern matchen
+                    // z.B. "Bierkuscher" (ohne 't') → "Bierkutscher" (Levenshtein = 1)
+                    if (matchScore === 0) {
+                        const addrWords = addr.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+                        const fuzzyMatched = searchWords.filter(sw =>
+                            addrWords.some(aw => {
+                                if (aw.includes(sw) || sw.includes(aw)) return true;
+                                const maxD = Math.max(sw.length, aw.length) >= 7 ? 2 : 1;
+                                return levenshtein(sw, aw) <= maxD;
+                            })
+                        );
+                        if (fuzzyMatched.length === searchWords.length) matchScore = 40;
+                        else if (fuzzyMatched.length > 0) matchScore = Math.round((fuzzyMatched.length / searchWords.length) * 30);
+                    }
                 }
 
                 // Mindestens 1 Wort muss matchen (Score > 0)
@@ -2190,6 +2204,23 @@ async function searchNominatimForTelegram(query) {
     // STUFE 1: LOKALE QUELLEN (gepflegte Daten)
     // ═══════════════════════════════════════════════════════════
 
+    // 🔧 v6.38.26: Fuzzy-Wort-Match Hilfsfunktion für POI/Geocache/KNOWN_PLACES
+    // Prüft ob JEDES Suchwort fuzzy (Levenshtein ≤ 2) in einem der Ziel-Wörter vorkommt
+    const _fuzzyWordMatch = (searchWds, targetText) => {
+        if (searchWds.length === 0) return false;
+        const targetWords = targetText.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+        if (targetWords.length === 0) return false;
+        return searchWds.every(sw =>
+            targetWords.some(tw => {
+                // Exakter Substring im Wort? (z.B. "bierkutsch" in "bierkutscher")
+                if (tw.includes(sw) || sw.includes(tw)) return true;
+                // Fuzzy-Match: Levenshtein-Distanz ≤ 2 (bei kurzen Wörtern ≤ 1)
+                const maxDist = Math.max(sw.length, tw.length) >= 7 ? 2 : 1;
+                return levenshtein(sw, tw) <= maxDist;
+            })
+        );
+    };
+
     // 1a) POIs aus Firebase (⭐ deine gepflegten Favoriten)
     try {
         const poisSnap = await db.ref('pois').once('value');
@@ -2202,9 +2233,11 @@ async function searchNominatimForTelegram(query) {
                 const isExact = wordBoundaryRegex.test(poiName) || wordBoundaryRegex.test(poiAddr);
                 const isIncludes = poiName.includes(searchKey) || poiAddr.includes(searchKey);
                 const isWordMatch = searchWords.length > 0 && searchWords.every(w => poiName.includes(w) || poiAddr.includes(w));
-                if (isExact || isIncludes || isWordMatch) {
+                // 🔧 v6.38.26: Fuzzy-Match als Fallback (z.B. "Bierkuscher" → "Bierkutscher")
+                const isFuzzy = !isExact && !isIncludes && !isWordMatch && _fuzzyWordMatch(searchWords, poiName + ' ' + poiAddr);
+                if (isExact || isIncludes || isWordMatch || isFuzzy) {
                     const displayName = poi.address ? (poi.address.toLowerCase().startsWith(poi.name.toLowerCase()) ? poi.address : `${poi.name}, ${poi.address}`) : poi.name;
-                    addIfNew({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi', priority: isExact ? 0 : 1 });
+                    addIfNew({ name: displayName, lat: poi.lat, lon: poi.lon, source: 'poi', priority: isExact ? 0 : (isFuzzy ? 2 : 1) });
                 }
             });
         }
@@ -2216,8 +2249,10 @@ async function searchNominatimForTelegram(query) {
         const isExact = wordBoundaryRegex.test(key) || wordBoundaryRegex.test(placeName);
         const isIncludes = key.includes(searchKey) || placeName.includes(searchKey);
         const isWordMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
-        if (isExact || isIncludes || isWordMatch) {
-            addIfNew({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known', priority: isExact ? 0 : 1 });
+        // 🔧 v6.38.26: Fuzzy-Match für KNOWN_PLACES
+        const isFuzzy = !isExact && !isIncludes && !isWordMatch && _fuzzyWordMatch(searchWords, key + ' ' + placeName);
+        if (isExact || isIncludes || isWordMatch || isFuzzy) {
+            addIfNew({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known', priority: isExact ? 0 : (isFuzzy ? 2 : 1) });
         }
     }
 
@@ -3043,12 +3078,22 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 return null; // Warte auf Kundenauswahl
             } else {
                 // Keine exakten Ergebnisse → Fuzzy-Suche in KNOWN_PLACES + POIs + Buchungen + Kunden
+                // 🔧 v6.38.26: Echtes Levenshtein-Matching statt nur includes()
                 const fuzzyWords = addressToResolve.toLowerCase().replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2);
                 const similarPlaces = [];
+                // Hilfsfunktion: Fuzzy-Wort-Match mit Levenshtein
+                const _fuzzyWordCount = (fWords, targetText) => {
+                    const tWords = targetText.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+                    return fWords.filter(fw => tWords.some(tw => {
+                        if (tw.includes(fw) || fw.includes(tw)) return true;
+                        const maxD = Math.max(fw.length, tw.length) >= 7 ? 2 : 1;
+                        return levenshtein(fw, tw) <= maxD;
+                    })).length;
+                };
                 // 1. KNOWN_PLACES
                 for (const [key, place] of Object.entries(KNOWN_PLACES)) {
                     const pName = (place.name || '').toLowerCase();
-                    const matchCount = fuzzyWords.filter(w => key.includes(w) || pName.includes(w)).length;
+                    const matchCount = _fuzzyWordCount(fuzzyWords, key + ' ' + pName);
                     if (matchCount > 0) {
                         similarPlaces.push({ ...place, name: place.name || key, score: matchCount });
                     }
@@ -3062,7 +3107,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             if (!poi.name || !poi.lat || !poi.lon) return;
                             const pName = poi.name.toLowerCase();
                             const pAddr = (poi.address || '').toLowerCase();
-                            const matchCount = fuzzyWords.filter(w => pName.includes(w) || pAddr.includes(w)).length;
+                            const matchCount = _fuzzyWordCount(fuzzyWords, pName + ' ' + pAddr);
                             if (matchCount > 0) {
                                 const displayName = poi.address ? (poi.address.toLowerCase().startsWith(poi.name.toLowerCase()) ? poi.address : `${poi.name}, ${poi.address}`) : poi.name;
                                 similarPlaces.push({ name: displayName, lat: poi.lat, lon: poi.lon, score: matchCount });
@@ -3084,7 +3129,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             const key = addr.toLowerCase().trim();
                             if (seen.has(key)) continue;
                             seen.add(key);
-                            const matchCount = fuzzyWords.filter(w => key.includes(w)).length;
+                            const matchCount = _fuzzyWordCount(fuzzyWords, key);
                             if (matchCount > 0) {
                                 similarPlaces.push({ name: addr, lat, lon, score: matchCount });
                             }
@@ -3103,7 +3148,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             const lat = c.lat || c.pickupLat;
                             const lon = c.lon || c.pickupLon;
                             if (!lat || !lon) return;
-                            const matchCount = fuzzyWords.filter(w => cName.includes(w) || cAddr.includes(w)).length;
+                            const matchCount = _fuzzyWordCount(fuzzyWords, cName + ' ' + cAddr);
                             if (matchCount > 0) {
                                 similarPlaces.push({ name: `${c.name}, ${c.address}`, lat, lon, score: matchCount });
                             }

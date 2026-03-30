@@ -10503,10 +10503,32 @@ async function handleCallback(callback) {
                 await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
             }
         } else {
-            await deletePending(chatId);
-            const _arLabel = _arIsDest ? '🎯 Zielort' : (data.startsWith('addr_role_skip_') ? '📝 Ohne Adresse' : '🏠 Abholort');
-            await sendTelegramMessage(chatId, `✅ <b>${_arCustomer.name}</b> (${_arLabel})\n🤖 <i>Analysiere Buchung...</i>`);
-            await analyzeTelegramBooking(chatId, _arPending.originalText, _arPending.userName, { isAdmin: true, preselectedCustomer: _arCustomer });
+            if (_arIsDest) {
+                // 🔧 v6.38.29: Keine Favoriten → direkt nach Abholort fragen (KEIN analyzeTelegramBooking, das würde Loop verursachen!)
+                await setPending(chatId, {
+                    _awaitingNewBookingText: true,
+                    _awaitingField: 'pickup',
+                    preselectedCustomer: _arCustomer,
+                    userName: _arPending.userName,
+                    originalText: _arPending.originalText
+                });
+                const _htlLabel = _arCustomer.type === 'hotel' ? '🏨 Zum Hotel' : '🏠 Nach Hause';
+                await sendTelegramMessage(chatId,
+                    `✅ <b>${_arCustomer.name}</b> → ${_htlLabel}\n` +
+                    `🎯 Ziel: ${_arCustomer.address}\n\n` +
+                    `📍 <b>Von wo abholen?</b>\n` +
+                    `Bitte Abholadresse eingeben:\n` +
+                    `<i>Beispiel: Bahnhof Heringsdorf</i>`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] } }
+                );
+            } else {
+                await deletePending(chatId);
+                const _arLabel = data.startsWith('addr_role_skip_') ? '📝 Ohne Adresse' : '🏠 Abholort';
+                await sendTelegramMessage(chatId, `✅ <b>${_arCustomer.name}</b> (${_arLabel})\n🤖 <i>Analysiere Buchung...</i>`);
+                await analyzeTelegramBooking(chatId, _arPending.originalText, _arPending.userName, { isAdmin: true, preselectedCustomer: _arCustomer });
+            }
         }
         return;
     }

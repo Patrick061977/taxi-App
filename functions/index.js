@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.9';
+const CLOUD_FUNCTIONS_VERSION = '6.38.27';
 const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -265,6 +265,50 @@ function gpsDistanceKm(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// 🆕 v6.38.27: Unabhängige Kontroll-Prüfung — Vier-Augen-Prinzip
+// Prüft DIREKT die Rohdaten in Firebase, NICHT über isVehicleInShift()
+function verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr) {
+    const shifts = shiftsData[vehicleId];
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+    if (!shifts) {
+        const hasAny = Object.keys(shiftsData).length > 0;
+        if (hasAny) return { ok: false, reason: `${vehicleId} hat keinen Eintrag in vehicleShifts` };
+        return { ok: true, reason: 'Kein Schichtsystem aktiv' };
+    }
+
+    const defaults = shifts.defaults || {};
+    const dayActive = defaults[dow] === true;
+    const dateEntry = shifts[dateStr];
+    const dateExplicitInactive = dateEntry && dateEntry.active === false;
+    const dateExplicitActive = dateEntry && dateEntry.active === true;
+    const dateHasTimes = dateEntry && (dateEntry.startTime || dateEntry.endTime || (dateEntry.timeRanges && dateEntry.timeRanges.length > 0));
+    const defTimesEntry = (shifts.defaultTimes || {})[dow];
+    const hasDefaultTimes = defTimesEntry && (defTimesEntry.startTime || (defTimesEntry.timeRanges && defTimesEntry.timeRanges.length > 0));
+
+    if (dateExplicitInactive) return { ok: false, reason: `${dateStr} explizit inaktiv` };
+    if (dateExplicitActive && dateHasTimes) {
+        if (timeStr) {
+            const ranges = (dateEntry.timeRanges && dateEntry.timeRanges.length > 0)
+                ? dateEntry.timeRanges : [{ startTime: dateEntry.startTime || '00:00', endTime: dateEntry.endTime || '23:59' }];
+            const inRange = ranges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+            if (!inRange) return { ok: false, reason: `${timeStr} außerhalb Datums-Schicht` };
+        }
+        return { ok: true, reason: `Datums-Ausnahme ${dateStr} aktiv` };
+    }
+    if (!dayActive) return { ok: false, reason: `${dayNames[dow]} nicht aktiv in defaults` };
+    if (!hasDefaultTimes) return { ok: false, reason: `${dayNames[dow]} aktiv aber keine defaultTimes` };
+    if (timeStr) {
+        const ranges = (defTimesEntry.timeRanges && defTimesEntry.timeRanges.length > 0)
+            ? defTimesEntry.timeRanges : [{ startTime: defTimesEntry.startTime || '00:00', endTime: defTimesEntry.endTime || '23:59' }];
+        const inRange = ranges.some(r => timeStr >= r.startTime && timeStr <= r.endTime);
+        if (!inRange) return { ok: false, reason: `${timeStr} außerhalb Wochenplan-Schicht` };
+    }
+    return { ok: true, reason: `${dayNames[dow]} aktiv, Zeiten ok` };
+}
+
 function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
     const shifts = shiftsData[vehicleId];
     if (!shifts) {
@@ -282,13 +326,26 @@ function isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr) {
             console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) explizit INAKTIV`);
             return false;
         }
+        // 🔧 v6.38.27: Datums-Eintrag OHNE Zeiten → prüfe ob defaultTimes echte Zeiten hat
+        if (!(shifts[dateStr].startTime || shifts[dateStr].endTime || (shifts[dateStr].timeRanges && shifts[dateStr].timeRanges.length > 0))) {
+            const _dtEntry = (shifts.defaultTimes || {})[dow];
+            if (!_dtEntry || !(_dtEntry.startTime || (_dtEntry.timeRanges && _dtEntry.timeRanges.length > 0))) {
+                console.log(`   🔍 Schicht-Check ${vehicleId}: Datums-Eintrag ${dateStr} ohne Zeiten, keine defaultTimes → KEIN DIENST`);
+                return false;
+            }
+        }
         console.log(`   🔍 Schicht-Check ${vehicleId}: Tag ${dateStr} (${dayNames[dow]}) hat Eintrag (active=${shifts[dateStr].active})`);
     } else {
         // 🔧 v6.38.24: KEIN Mo-Fr Fallback! Ohne explizite defaults → KEIN DIENST
-        // Vorher: { 0:false, 1:true, ...6:false } — Fahrzeuge ohne defaults wurden Mo-Fr als aktiv behandelt
         const defaults = shifts.defaults || {};
         if (defaults[dow] !== true) {
             console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} (dow=${dow}) nicht im Wochenplan (defaults[${dow}]=${defaults[dow]})`);
+            return false;
+        }
+        // 🔧 v6.38.27: Tag aktiv aber KEINE Schichtzeiten → KEIN DIENST
+        const _defTimesEntry = (shifts.defaultTimes || {})[dow];
+        if (!_defTimesEntry || !(_defTimesEntry.startTime || (_defTimesEntry.timeRanges && _defTimesEntry.timeRanges.length > 0))) {
+            console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} aktiv aber KEINE defaultTimes → KEIN DIENST`);
             return false;
         }
         console.log(`   🔍 Schicht-Check ${vehicleId}: ${dayNames[dow]} im Wochenplan aktiv (defaults[${dow}]=true)`);
@@ -520,11 +577,14 @@ async function autoAssignRide(rideId, rideData) {
                 }
             }
 
-            // Schicht-Details für Prüfprotokoll sammeln
+            // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
             const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
-            if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
-                console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr}`);
-                vehicleScores[vehicleId] = { status: 'rejected', reason: _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
+            const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
+            const _verifyOk = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
+            if (!_shiftOk || !_verifyOk.ok) {
+                if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
+                console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
                 continue;
             }
 
@@ -10382,7 +10442,7 @@ async function handleCallback(callback) {
                     favorites: _arFavs,
                     favId: _arFavId
                 });
-                let _arFavMsg = `✅ <b>${_arCustomer.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
+                let _arFavMsg = `✅ <b>${_arCustomer.name}</b>\n\n⭐ <b>Häufige Ziele:</b>\n`;
                 const _arBtns = _arFavs.map((f, i) => {
                     _arFavMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
                     const _lbl = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
@@ -11976,7 +12036,7 @@ async function handleCallback(callback) {
             return;
         }
 
-        // Beliebte Ziele des Kunden laden
+        // Häufige Ziele des Kunden laden
         // 🔧 v6.14.7: Auch mobilePhone für Favoriten-Suche nutzen
         const favorites = await getCustomerFavoriteDestinations(found.name, found.mobilePhone || found.phone, found.id || found.customerId);
         if (favorites.length > 0) {
@@ -11995,7 +12055,7 @@ async function handleCallback(callback) {
                     f.destination = await cleanupAddress(f.destination, f.destinationLat, f.destinationLon);
                 }
             }
-            let favMsg = `✅ <b>${found.name}</b>\n\n⭐ <b>Beliebte Ziele:</b>\n`;
+            let favMsg = `✅ <b>${found.name}</b>\n\n⭐ <b>Häufige Ziele:</b>\n`;
             const buttons = favorites.map((f, i) => {
                 favMsg += `${i + 1}. ${f.destination} (${f.count}x)\n`;
                 const label = f.destination.length > 35 ? f.destination.slice(0, 33) + '…' : f.destination;
@@ -14900,8 +14960,13 @@ exports.scheduledAutoAssign = onSchedule(
                 const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
                 const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
 
-                if (!isVehicleInShift(vid, shiftsData, pickupDateStr, pickupTimeStr)) {
-                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${(OFFICIAL_VEHICLES[vid]||{}).name || vid} hat KEINEN Dienst am ${pickupDateStr} ${pickupTimeStr}!`);
+                // 🔧 v6.38.27: Vier-Augen-Prinzip — zwei unabhängige Prüfungen
+                const _check1 = isVehicleInShift(vid, shiftsData, pickupDateStr, pickupTimeStr);
+                const _check2 = verifyVehicleShiftIndependent(vid, shiftsData, pickupDateStr, pickupTimeStr);
+                if (!_check1 || !_check2.ok) {
+                    const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
+                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} hat KEINEN Dienst am ${pickupDateStr} ${pickupTimeStr}! (${_check2.reason})`);
+                    if (_check1 !== _check2.ok) console.warn(`⚠️ DISKREPANZ ${vName}: isVehicleInShift=${_check1}, verify=${_check2.ok} (${_check2.reason})`);
                     return true;
                 }
                 return false;
@@ -14974,8 +15039,12 @@ exports.scheduledAutoAssign = onSchedule(
 
                 for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
                     if (info.capacity < passengers) continue;
-                    if (!isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr)) {
-                        console.log(`   ❌ ${info.name}: Kein Dienst`);
+                    // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
+                    const _sc1 = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
+                    const _sc2 = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
+                    if (!_sc1 || !_sc2.ok) {
+                        if (_sc1 !== _sc2.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_sc1}, verify=${_sc2.ok} (${_sc2.reason})`);
+                        console.log(`   ❌ ${info.name}: Kein Dienst (${_sc2.reason})`);
                         continue;
                     }
 

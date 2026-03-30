@@ -2082,6 +2082,26 @@ async function saveToGeocache(address, lat, lon, source = 'nominatim') {
     } catch (e) { console.warn('Geocache-Speichern Fehler:', e.message); }
 }
 
+// 🔧 v6.38.26: Top-Level Levenshtein für Fuzzy-Adresssuche (nicht nur CRM-Kundensuche)
+function _levenshteinDist(a, b) {
+    const m = a.length, n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = Math.min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+        }
+    }
+    return dp[m][n];
+}
+
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
     // 🔧 v6.25.4: Hausnummern-Bereiche normalisieren ("7 bis 8" → "7", "7-8" → "7")
@@ -2171,7 +2191,7 @@ async function searchNominatimForTelegram(query) {
                             addrWords.some(aw => {
                                 if (aw.includes(sw) || sw.includes(aw)) return true;
                                 const maxD = Math.max(sw.length, aw.length) >= 7 ? 2 : 1;
-                                return levenshtein(sw, aw) <= maxD;
+                                return _levenshteinDist(sw, aw) <= maxD;
                             })
                         );
                         if (fuzzyMatched.length === searchWords.length) matchScore = 40;
@@ -2216,7 +2236,7 @@ async function searchNominatimForTelegram(query) {
                 if (tw.includes(sw) || sw.includes(tw)) return true;
                 // Fuzzy-Match: Levenshtein-Distanz ≤ 2 (bei kurzen Wörtern ≤ 1)
                 const maxDist = Math.max(sw.length, tw.length) >= 7 ? 2 : 1;
-                return levenshtein(sw, tw) <= maxDist;
+                return _levenshteinDist(sw, tw) <= maxDist;
             })
         );
     };
@@ -3087,7 +3107,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     return fWords.filter(fw => tWords.some(tw => {
                         if (tw.includes(fw) || fw.includes(tw)) return true;
                         const maxD = Math.max(fw.length, tw.length) >= 7 ? 2 : 1;
-                        return levenshtein(fw, tw) <= maxD;
+                        return _levenshteinDist(fw, tw) <= maxD;
                     })).length;
                 };
                 // 1. KNOWN_PLACES

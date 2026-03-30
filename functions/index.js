@@ -11438,20 +11438,17 @@ async function handleCallback(callback) {
                 updatedAt: Date.now()
             };
 
-            // 🆕 v6.25.5: Bei Datumsänderung Fahrzeug-Zuweisung entfernen wenn Auto-Zuweisung
-            // Sofortfahrt (GPS-basiert) → wird auf anderen Tag verschoben → muss neu optimiert werden
+            // 🔧 v6.38.26: Bei Datumsänderung → Warnung zurücksetzen + openRideWarned löschen
+            // damit bei Bedarf eine neue Warnung gesendet werden kann
             const oldDateStr = oldDt.toISOString().split('T')[0];
-            if (oldDateStr !== dateStr && r.assignedBy && (r.assignedBy.includes('auto') || r.assignedBy.includes('cloud'))) {
-                updateData.assignedVehicle = null;
-                updateData.vehicleId = null;
-                updateData.assignedTo = null;
-                updateData.vehicle = null;
-                updateData.vehicleLabel = null;
-                updateData.vehiclePlate = null;
-                updateData.assignedBy = null;
-                updateData.assignedAt = null;
-                updateData.status = 'vorbestellt';
-                console.log(`🔄 Datumsänderung ${oldDateStr} → ${dateStr}: Auto-Zuweisung entfernt → scheduledAutoAssign übernimmt`);
+            if (oldDateStr !== dateStr) {
+                updateData.openRideWarned = null;
+                // 🔧 v6.38.26: Fahrzeug bei Datumsänderung NICHT mehr entfernen!
+                // Das Entfernen verursachte "OFFENE FAHRT" Warnungen weil scheduledAutoAssign
+                // erst beim nächsten 10-Min-Zyklus neu zuweist.
+                // Stattdessen: Fahrzeug behalten, scheduledAutoAssign/autoResolveConflicts
+                // prüft selbständig ob das Fahrzeug am neuen Tag Schicht hat.
+                console.log(`🔄 Datumsänderung ${oldDateStr} → ${dateStr}: Fahrzeug beibehalten, Cloud prüft Schicht`);
             }
 
             await db.ref(`rides/${rideId}`).update(updateData);

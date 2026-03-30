@@ -2388,9 +2388,10 @@ async function searchNominatimForTelegram(query) {
         }
     } catch (e) { console.warn('Kunden-Suche Fehler:', e.message); }
 
-    // 1d) Häufige Ziele aus letzten Buchungen (nutzt USEDOM_PLZ/_looksLikeUsedom von oben)
+    // 1d) Häufige Ziele aus ALLEN Buchungen (nutzt USEDOM_PLZ/_looksLikeUsedom von oben)
+    // 🔧 v6.38.27: ALLE Fahrten durchsuchen, nicht nur die letzten 200
     try {
-        const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(200).once('value');
+        const ridesSnap = await db.ref('rides').once('value');
         const destCount = {};
         ridesSnap.forEach(child => {
             const ride = child.val();

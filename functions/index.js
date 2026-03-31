@@ -15011,15 +15011,18 @@ exports.scheduledAutoAssign = onSchedule(
         schedule: 'every 10 minutes',
         region: 'europe-west1',
         timeoutSeconds: 120,
-        memory: '256MiB'
+        memory: '1GiB' // 🔧 v6.38.30: 256/512MB reichte nicht für 5000+ Fahrten
     },
     async (event) => {
         console.log('🎯 v6.38.30: scheduledAutoAssign gestartet...');
 
         try {
-            // Alle nötigen Daten parallel laden
-            const [ridesSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
-                db.ref('rides').once('value'),
+            // 🔧 v6.38.30: Relevante Fahrten laden (nicht alle 5000+)
+            const now = Date.now();
+            const [assignedSnap, vorbestelltSnap, newSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
+                db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('new').once('value'),
                 db.ref('vehicles').once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
@@ -15039,16 +15042,24 @@ exports.scheduledAutoAssign = onSchedule(
                 return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
             };
 
-            // Alle Fahrten laden
-            const now = Date.now();
+            // Fahrten aus 3 Status-Queries zusammenführen
             const allRides = [];
-            ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+            assignedSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+            vorbestelltSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+            newSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
             // 🆕 v6.25.5: Zuerst: Falsch zugewiesene Fahrten korrigieren
             // Wenn eine Sofortfahrt auf ein anderes Datum verschoben wurde,
             // muss das Fahrzeug neu geprüft werden
             const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
             const todayStr = berlinNow.getFullYear() + '-' + String(berlinNow.getMonth()+1).padStart(2,'0') + '-' + String(berlinNow.getDate()).padStart(2,'0');
+
+            // 🔧 v6.38.30: Debug — nur zukünftige zugewiesene Fahrten loggen
+            const _futureAssigned = allRides.filter(r => (r.assignedVehicle || r.vehicleId) && r.pickupTimestamp > now && !['deleted','cancelled','storniert','completed'].includes(r.status));
+            console.log(`📊 ${allRides.length} Fahrten geladen, ${_futureAssigned.length} zugewiesene in Zukunft`);
+            for (const _dbg of _futureAssigned) {
+                console.log(`   📋 ${_dbg.firebaseId}: ${_dbg.customerName || '?'} ts=${_dbg.pickupTimestamp} status=${_dbg.status} vId=${JSON.stringify(_dbg.vehicleId)} aV=${JSON.stringify(_dbg.assignedVehicle)}`);
+            }
 
             const needsReassign = allRides.filter(r => {
                 if (!r.assignedVehicle && !r.vehicleId) return false;
@@ -15065,7 +15076,7 @@ exports.scheduledAutoAssign = onSchedule(
                 // 🔧 v6.38.29: Inkonsistenz-Check — wenn assignedVehicle ≠ vehicleId, BEIDE prüfen
                 const vid2 = r.vehicleId && r.assignedVehicle && r.vehicleId !== r.assignedVehicle ? r.vehicleId : null;
                 if (vid2) {
-                    console.warn(`⚠️ INKONSISTENZ ${r.customerName || r.firebaseId}: assignedVehicle=${r.assignedVehicle} ≠ vehicleId=${r.vehicleId} — Fahrt braucht Korrektur!`);
+                    console.log(`⚠️ INKONSISTENZ ${r.customerName || r.firebaseId}: assignedVehicle=${r.assignedVehicle} ≠ vehicleId=${r.vehicleId} — Fahrt braucht Korrektur!`);
                     return true; // Inkonsistente Daten → immer umplanen
                 }
 
@@ -15098,9 +15109,15 @@ exports.scheduledAutoAssign = onSchedule(
             if (needsReassign.length > 0) {
                 console.log(`🔄 ${needsReassign.length} Fahrzeug-Zuweisungen entfernt (kein Dienst)`);
                 // Rides neu laden damit die entfernten Zuweisungen berücksichtigt werden
-                const freshSnap = await db.ref('rides').once('value');
                 allRides.length = 0;
-                freshSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+                const [_fAssigned, _fVorbestellt, _fNew] = await Promise.all([
+                    db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
+                    db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
+                    db.ref('rides').orderByChild('status').equalTo('new').once('value')
+                ]);
+                _fAssigned.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+                _fVorbestellt.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+                _fNew.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
             }
 
             // Unzugewiesene Fahrten finden

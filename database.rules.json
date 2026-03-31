@@ -12,7 +12,8 @@
 
     "rides": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": "auth != null",
+      ".indexOn": ["pickupTimestamp", "status"]
     },
 
     "drivers": {

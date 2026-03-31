@@ -3072,30 +3072,25 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     );
                     return null;
                 }
-                // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen (keine Auswahl nötig)
+                // 🔧 v6.38.32: Hausnummer-Auto-Select NUR für verifizierte Quellen!
+                // Nominatim-Treffer müssen IMMER vom User bestätigt werden
                 if (_hasHausnrInAddr1 && suggestions.length > 0) {
-                    // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
-                    // 🔧 v6.38.23: Straßenname + Hausnummer müssen EXAKT passen!
-                    //   z.B. "Strandpromenade 31" → "Asgard Strandpromenade 15" = FALSCH (anderer Name + andere Nr)
                     const _qStreet1 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                     const _qHausnr1 = addressToResolve.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
                     const _streetOk1 = (s) => {
                         if (!_qStreet1) return true;
                         const sName = s.name.toLowerCase().split(',')[0].trim();
-                        // Straßenname muss am ANFANG der Ergebnis-Adresse stehen
-                        // "Strandpromenade" muss matchen, "Asgard Strandpromenade" darf NICHT matchen
                         const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
                         return sStreet === _qStreet1 || sStreet.startsWith(_qStreet1 + ' ') || _qStreet1.startsWith(sStreet + ' ');
                     };
-                    // 🆕 v6.38.23: Hausnummer muss übereinstimmen!
                     const _hausnrOk1 = (s) => {
-                        if (!_qHausnr1) return true; // Keine Hausnummer eingegeben → alles OK
+                        if (!_qHausnr1) return true;
                         const sName = s.name || '';
                         const sNr = sName.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
                         return sNr === _qHausnr1;
                     };
+                    // NUR verifizierte Quellen dürfen auto-selektiert werden!
                     const _TRUSTED1 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-                    // 🔧 v6.38.25: Kaiserbäder = Heringsdorf + Ahlbeck + Bansin sind EINE Gemeinde!
                     const _KAISERBAEDER1 = ['heringsdorf', 'ahlbeck', 'bansin'];
                     const _TOWNS1 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
                     const _explTown1 = _TOWNS1.find(t => addressToResolve.toLowerCase().includes(t));
@@ -3107,12 +3102,12 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         if (_isKaiserbad1) return _KAISERBAEDER1.some(k => sLow.includes(k));
                         return false;
                     };
-                    // 🔧 v6.38.23: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN passen
+                    // 🔧 v6.38.32: NUR verifizierte Quellen auto-selektieren — Nominatim IMMER fragen!
                     const _bestHit = suggestions.find(s => _TRUSTED1.includes(s.source) && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s))
-                        || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s)))
-                        || (_hasHausnrInAddr1 && _explTown1 && suggestions.find(s => s.lat && s.lon && _streetOk1(s) && _hausnrOk1(s) && _townOk1(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
+                        || (_explTown1 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk1(s) && _streetOk1(s) && _hausnrOk1(s)));
+                    // Dritte Stufe (Nominatim mit isNearUsedom) ENTFERNT — Nominatim muss immer bestätigt werden
                     if (_bestHit && _bestHit.lat && _bestHit.lon) {
-                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit.name}`);
+                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → verifiziert (${_bestHit.source}): ${_bestHit.name}`);
                         if (needPickup) {
                             booking.pickup = _bestHit.name; booking.pickupLat = _bestHit.lat; booking.pickupLon = _bestHit.lon;
                         } else {
@@ -12822,17 +12817,67 @@ async function handleCallback(callback) {
         if (!selected) return;
 
         // 🆕 v6.25.5: Falls CRM-Kunde ohne Koordinaten → per Geocoding nachladen
-        // 🔧 v6.38.9: selected.name ist jetzt nur Adresse (kein "Kundenname, Adresse" mehr)
         let selLat = selected.lat, selLon = selected.lon;
         if ((!selLat || !selLon || (selLat === 0 && selLon === 0)) && selected.name) {
             const geocoded = await geocode(selected.name);
             if (geocoded) {
                 selLat = geocoded.lat;
                 selLon = geocoded.lon;
-                console.log(`📍 Koordinaten nachgeladen für "${addrPart}": ${selLat}, ${selLon}`);
+                console.log(`📍 Koordinaten nachgeladen für "${selected.name}": ${selLat}, ${selLon}`);
             }
         }
 
+        // 🔧 v6.38.32: Nicht-verifizierte Adressen → Frage "Im Adressspeicher speichern?"
+        const _VERIFIED_SOURCES = ['geocache-verified', 'crm-verified', 'known', 'poi'];
+        const _isVerifiedSource = _VERIFIED_SOURCES.includes(selected.source);
+
+        if (!_isVerifiedSource && selLat && selLon) {
+            // Adresse wurde per Button bestätigt → jetzt fragen ob speichern
+            const _shortAddr = selected.name.length > 40 ? selected.name.substring(0, 38) + '…' : selected.name;
+            const _fieldType = isPickup ? 'pickup' : 'dest';
+            await setPending(chatId, {
+                ...pending,
+                _awaitingGeocacheSave: true,
+                _geocacheSaveAddr: selected.name,
+                _geocacheSaveLat: selLat,
+                _geocacheSaveLon: selLon,
+                _geocacheSaveField: _fieldType,
+                _geocacheSaveSource: selected.source || 'nominatim'
+            });
+            // Adresse direkt in partial setzen (wird unabhängig von Speicher-Antwort verwendet)
+            if (isPickup) {
+                pending.partial.pickup = selected.name;
+                pending.partial.pickupLat = selLat;
+                pending.partial.pickupLon = selLon;
+            } else {
+                pending.partial.destination = selected.name;
+                pending.partial.destinationLat = selLat;
+                pending.partial.destinationLon = selLon;
+            }
+            await setPending(chatId, {
+                ...pending,
+                _awaitingGeocacheSave: true,
+                _geocacheSaveAddr: selected.name,
+                _geocacheSaveLat: selLat,
+                _geocacheSaveLon: selLon,
+                _geocacheSaveField: _fieldType,
+                _geocacheSaveSource: selected.source || 'nominatim'
+            });
+            await addTelegramLog('📍', chatId, `Adresse bestätigt (${selected.source || 'nominatim'}): ${selected.name} — frage Geocache-Speicherung`);
+            await sendTelegramMessage(chatId,
+                `✅ <b>${_shortAddr}</b>\n\n` +
+                `📍 Quelle: ${selected.source || 'Nominatim'}\n\n` +
+                `💾 <b>Adresse in Datenbank speichern?</b>\n` +
+                `<i>Gespeicherte Adressen werden beim nächsten Mal automatisch erkannt.</i>`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '✅ Ja, speichern & weiter', callback_data: 'geocache_save_yes' },
+                     { text: '⏭️ Nicht speichern', callback_data: 'geocache_save_no' }]
+                ] } }
+            );
+            return;
+        }
+
+        // Verifizierte Adresse → direkt weiter
         if (isPickup) {
             pending.partial.pickup = selected.name;
             pending.partial.pickupLat = selLat;
@@ -12853,6 +12898,44 @@ async function handleCallback(callback) {
 
         const booking = pending.partial;
         delete pending.nominatimResults;
+        const routePrice = await calculateTelegramRoutePrice(booking);
+        await askPassengersOrConfirm(chatId, booking, routePrice, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.38.32: Geocache-Speicher-Antwort
+    if (data === 'geocache_save_yes' || data === 'geocache_save_no') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._awaitingGeocacheSave) return;
+
+        if (data === 'geocache_save_yes') {
+            // Als verifiziert speichern (User hat bestätigt)
+            await saveToGeocache(pending._geocacheSaveAddr, pending._geocacheSaveLat, pending._geocacheSaveLon, 'user-verified');
+            await addTelegramLog('💾', chatId, `Adresse gespeichert: ${pending._geocacheSaveAddr} (verifiziert)`);
+            await sendTelegramMessage(chatId, `💾 <b>Gespeichert!</b> ✅`);
+        } else {
+            await addTelegramLog('⏭️', chatId, `Adresse NICHT gespeichert: ${pending._geocacheSaveAddr}`);
+        }
+
+        // Cleanup und weiter
+        delete pending._awaitingGeocacheSave;
+        delete pending._geocacheSaveAddr;
+        delete pending._geocacheSaveLat;
+        delete pending._geocacheSaveLon;
+        delete pending._geocacheSaveField;
+        delete pending._geocacheSaveSource;
+        delete pending.nominatimResults;
+
+        // Prüfe ob noch die andere Adresse fehlt
+        const isPickup = pending._geocacheSaveField === 'pickup';
+        if (pending.pendingDestValidation && isPickup) {
+            pending.pendingDestValidation = false;
+            const destValidated = await validateTelegramAddresses(chatId, pending.partial, pending.originalText || '');
+            if (!destValidated) return;
+            Object.assign(pending.partial, destValidated);
+        }
+
+        const booking = pending.partial;
         const routePrice = await calculateTelegramRoutePrice(booking);
         await askPassengersOrConfirm(chatId, booking, routePrice, pending.originalText || '');
         return;

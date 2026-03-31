@@ -3615,7 +3615,8 @@ async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
 
     const knownCustomer = preselected ? null : (isAdmin ? null : await getTelegramCustomer(chatId));
     const prefilledName = preselected ? preselected.name : (knownCustomer ? knownCustomer.name : (isAdmin ? forCustomerName : userName));
-    const prefilledPhone = preselected ? (preselected.mobilePhone || preselected.phone || null) : (knownCustomer ? (knownCustomer.mobile || knownCustomer.phone || null) : null);
+    // 🔧 v6.38.35: prefilledPhone auch aus options (z.B. Foto-Analyse) übernehmen
+    const prefilledPhone = options.prefilledPhone || (preselected ? (preselected.mobilePhone || preselected.phone || null) : (knownCustomer ? (knownCustomer.mobile || knownCustomer.phone || null) : null));
     const phoneRequired = !knownCustomer && !preselected && !isAdmin;
 
     let homeAddressHint = '';
@@ -8526,8 +8527,20 @@ async function handleCallback(callback) {
             const _photoEmail = analysis.booking?.email ||
                 (analysis.extractedText || '').match(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/)?.[0] || null;
             if (_photoEmail) await addTelegramLog('📧', chatId, `Foto: Email erkannt → ${_photoEmail}`);
+            // 🔧 v6.38.35: Telefonnummer aus Foto-Text extrahieren und als prefilledPhone übergeben
+            // Damit die KI die Nummer nicht ignoriert (Admin-Modus = phoneRequired=false)
+            let _photoPhone = analysis.contact?.phone || analysis.contact?.mobile || analysis.booking?.phone || null;
+            if (!_photoPhone && analysis.extractedText) {
+                const _phoneMatch = analysis.extractedText.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
+                if (_phoneMatch) {
+                    _photoPhone = _phoneMatch[0].replace(/[\s\-\/]/g, '');
+                    if (_photoPhone.startsWith('0') && !_photoPhone.startsWith('00')) _photoPhone = '+49' + _photoPhone.slice(1);
+                    else if (_photoPhone.startsWith('0049')) _photoPhone = '+49' + _photoPhone.slice(4);
+                }
+            }
+            if (_photoPhone) await addTelegramLog('📱', chatId, `Foto: Telefon erkannt → ${_photoPhone}`);
             await sendTelegramMessage(chatId, `📷 <b>Buchung wird analysiert...</b>\n<i>${analysis.summary || ''}</i>`);
-            await analyzeTelegramBooking(chatId, bookingText, userName, { isAdmin: true, isAudioTranscript: true, prefilledEmail: _photoEmail });
+            await analyzeTelegramBooking(chatId, bookingText, userName, { isAdmin: true, isAudioTranscript: true, prefilledEmail: _photoEmail, prefilledPhone: _photoPhone });
             return;
         }
 

@@ -2291,30 +2291,35 @@ async function searchNominatimForTelegram(query) {
                 if (!entry.address || !entry.lat || !entry.lon) return;
                 const addr = entry.address.toLowerCase();
                 const normKey = entry.normalizedKey || '';
+                // 🔧 v6.38.37: Label (Firmenname von CRM-Lieferanten) auch durchsuchen
+                const label = (entry.label || '').toLowerCase();
+                const labelNorm = label.replace(/[''`´]/g, '').replace(/[^a-zäöüß0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+                // Alle durchsuchbaren Texte kombinieren
+                const allText = addr + ' ' + normKey + ' ' + label + ' ' + labelNorm;
 
                 // Score berechnen: Je mehr Suchwörter matchen, desto besser
                 let matchScore = 0;
-                const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey;
-                const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey);
-                const isAllWords = searchWords.length > 0 && searchWords.every(w => addr.includes(w) || normKey.includes(w));
+                const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey ||
+                    wordBoundaryRegex.test(label) || wordBoundaryRegex.test(labelNorm);
+                const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey) ||
+                    label.includes(searchKey) || labelNorm.includes(searchKey);
+                const isAllWords = searchWords.length > 0 && searchWords.every(w => allText.includes(w));
 
                 if (isExact) matchScore = 100;
                 else if (isIncludes) matchScore = 80;
                 else if (isAllWords) matchScore = 60;
                 else if (searchWords.length > 0) {
-                    // Teilwort-Match: Wie viele Suchwörter sind in der Adresse enthalten?
-                    const matchedWords = searchWords.filter(w => addr.includes(w) || normKey.includes(w));
+                    // Teilwort-Match: Wie viele Suchwörter sind in Adresse ODER Label enthalten?
+                    const matchedWords = searchWords.filter(w => allText.includes(w));
                     if (matchedWords.length > 0) {
                         matchScore = Math.round((matchedWords.length / searchWords.length) * 50);
-                        // Bonus wenn mind. 1 Wort am Anfang steht (z.B. "Lidl" in "Lidl, Chaussee...")
-                        if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w))) matchScore += 10;
+                        if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w) || label.startsWith(w))) matchScore += 10;
                     }
                     // 🔧 v6.38.26: Fuzzy-Fallback — auch bei Tippfehlern matchen
-                    // z.B. "Bierkuscher" (ohne 't') → "Bierkutscher" (Levenshtein = 1)
                     if (matchScore === 0) {
-                        const addrWords = addr.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+                        const allWords = allText.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
                         const fuzzyMatched = searchWords.filter(sw =>
-                            addrWords.some(aw => {
+                            allWords.some(aw => {
                                 if (aw.includes(sw) || sw.includes(aw)) return true;
                                 const maxD = Math.max(sw.length, aw.length) >= 7 ? 2 : 1;
                                 return _levenshteinDist(sw, aw) <= maxD;
@@ -2327,8 +2332,11 @@ async function searchNominatimForTelegram(query) {
 
                 // Mindestens 1 Wort muss matchen (Score > 0)
                 if (matchScore > 0) {
+                    // 🔧 v6.38.37: Bei Label-Match → "Label — Adresse" als Name anzeigen
+                    const displayName = (label && matchScore >= 60 && searchWords.some(w => label.includes(w) || labelNorm.includes(w)))
+                        ? `${entry.label} — ${entry.address}` : entry.address;
                     cacheHits.push({
-                        name: entry.address,
+                        name: displayName,
                         lat: entry.lat,
                         lon: entry.lon,
                         source: entry.verified ? 'geocache-verified' : 'geocache',

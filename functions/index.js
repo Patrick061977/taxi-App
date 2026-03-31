@@ -2418,14 +2418,27 @@ async function searchNominatimForTelegram(query) {
     try {
         const custSnap = await db.ref('customers').once('value');
         if (custSnap.exists()) {
+            // 🔧 v6.38.37: Sonderzeichen-Normalisierung für Fuzzy-Vergleich
+            // "Marc O'Polo" → "marc opolo", "Marco Polo" → "marco polo"
+            const _normalizeName = (s) => s.toLowerCase().replace(/[''`´]/g, '').replace(/[^a-zäöüß0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+            const _searchNorm = _normalizeName(query);
+            const _searchWordsNorm = _searchNorm.split(/\s+/).filter(w => w.length > 1);
             custSnap.forEach(child => {
                 const c = child.val();
                 if (!c.name || !c.address) return;
                 const cName = c.name.toLowerCase();
                 const cAddr = c.address.toLowerCase();
-                const isMatch = cName.includes(searchKey) || cAddr.includes(searchKey) ||
+                const cNameNorm = _normalizeName(c.name);
+                // Exakter/Teilstring-Match
+                const isExactMatch = cName.includes(searchKey) || cAddr.includes(searchKey) ||
                     (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)));
-                if (isMatch) {
+                // 🔧 v6.38.37: Normalisierter Match (Apostrophe/Sonderzeichen entfernt)
+                // "marco polo" → Wörter ["marco", "polo"] — jedes muss irgendwo im normalisierten Namen vorkommen
+                const isNormMatch = !isExactMatch && (cNameNorm.includes(_searchNorm) || _searchNorm.includes(cNameNorm.split(' ')[0]) ||
+                    (_searchWordsNorm.length > 0 && _searchWordsNorm.every(w => cNameNorm.includes(w) || cNameNorm.split(' ').some(nw => nw.includes(w) || w.includes(nw)))));
+                // 🔧 v6.38.37: Fuzzy-Match als letzter Fallback (Levenshtein)
+                const isFuzzyMatch = !isExactMatch && !isNormMatch && _fuzzyWordMatch(_searchWordsNorm, cNameNorm);
+                if (isExactMatch || isNormMatch || isFuzzyMatch) {
                     let lat = c.lat || c.pickupLat;
                     let lon = c.lon || c.pickupLon;
                     if (lat && lon) {

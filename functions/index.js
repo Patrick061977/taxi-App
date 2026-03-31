@@ -715,14 +715,15 @@ async function autoAssignRide(rideId, rideData) {
                 if (driver && driver.lat && driver.lon && driver.timestamp && (Date.now() - driver.timestamp <= MAX_GPS_AGE)) {
                     vLat = driver.lat; vLon = driver.lon; posSource = 'GPS';
                 } else {
-                    // 2. Heimatstandort aus Schichtplan
-                    const vShift = shiftsData[vehicleId];
-                    if (vShift) {
-                        const defTimes = vShift.defaultTimes || {};
-                        const dayEntry = vShift[dateStr];
-                        const homeCoords = (dayEntry && dayEntry.homeCoords) || (defTimes[dow] && defTimes[dow].homeCoords) || null;
-                        if (homeCoords && homeCoords.lat && homeCoords.lon) {
-                            vLat = homeCoords.lat; vLon = homeCoords.lon; posSource = 'Schichtplan-Home';
+                    // 2. Heimatstandort aus Schichtplan (mit Text-Auflösung!)
+                    // 🔧 v6.38.35: Nutze getVehicleHomeCoords() mit homeLocation-Fallback
+                    const homeCoords = getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr);
+                    if (homeCoords && homeCoords.lat && homeCoords.lon) {
+                        vLat = homeCoords.lat; vLon = homeCoords.lon; posSource = 'Schichtplan-Home';
+                    } else {
+                        // Fallback: Fahrzeug-Daten aus /vehicles/
+                        if (driver && driver.homeCoords?.lat) {
+                            vLat = driver.homeCoords.lat; vLon = driver.homeCoords.lon; posSource = 'Fahrzeug-Home';
                         }
                     }
                     // 3. Letzter bekannter GPS-Standort
@@ -12630,6 +12631,15 @@ async function handleCallback(callback) {
         booking._adminBooked = true;
         booking._adminChatId = chatId;
         booking._crmCustomerId = null;
+        // 🔧 v6.38.35: Telefonnummer auch aus Foto-Analyse übernehmen
+        if (!booking.phone && pending._photoAnalysis?.contact?.phone) {
+            booking.phone = pending._photoAnalysis.contact.phone;
+            await addTelegramLog('📱', chatId, `Telefon aus Foto-Analyse übernommen: ${booking.phone}`);
+        }
+        if (!booking.phone && pending._photoAnalysis?.contact?.mobile) {
+            booking.phone = pending._photoAnalysis.contact.mobile;
+            await addTelegramLog('📱', chatId, `Mobilnr. aus Foto-Analyse übernommen: ${booking.phone}`);
+        }
         // 🔧 v6.15.6: Telefonnummer aus Originaltext extrahieren bevor wir fragen
         if (!booking.phone && pending.originalText) {
             const _phoneMatch = pending.originalText.match(/(?:\+49|0049|0)\s*(\d[\d\s\-\/]{6,14}\d)/);
@@ -14924,6 +14934,27 @@ exports.autoResolveConflicts = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 // 🔧 v6.25.4: Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
 // Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes
+// 🔧 v6.38.35: Bekannte Standorte mit Koordinaten (für Schichtplan-Auflösung)
+const KNOWN_HOME_LOCATIONS = {
+    'bahnhof heringsdorf': { lat: 53.9498, lon: 14.1592 },
+    'bahnhof heringsdorf, am bahnhof 17424 heringsdorf': { lat: 53.9498, lon: 14.1592 },
+    'am bahnhof 17424 heringsdorf': { lat: 53.9498, lon: 14.1592 },
+    'home base patrick': { lat: 53.9659, lon: 14.1523 },
+    'im mühlenkamp 19': { lat: 53.9659, lon: 14.1523 },
+    'im mühlenkamp 19, 17424 heringsdorf': { lat: 53.9659, lon: 14.1523 }
+};
+
+function resolveHomeLocationToCoords(locationName) {
+    if (!locationName) return null;
+    const key = locationName.toLowerCase().trim();
+    if (KNOWN_HOME_LOCATIONS[key]) return KNOWN_HOME_LOCATIONS[key];
+    // Teilwort-Match
+    for (const [k, coords] of Object.entries(KNOWN_HOME_LOCATIONS)) {
+        if (key.includes(k) || k.includes(key)) return coords;
+    }
+    return null;
+}
+
 function getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr) {
     const vShift = shiftsData[vehicleId];
     if (!vShift) return null;
@@ -14936,23 +14967,36 @@ function getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr) {
     // 1. Tagesausnahme mit timeRanges (Split-Schicht)
     if (dayEntry && dayEntry.timeRanges && dayEntry.timeRanges.length > 1) {
         for (const range of dayEntry.timeRanges) {
-            if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
-                return range.homeCoords;
+            if (timeStr >= range.startTime && timeStr <= range.endTime) {
+                if (range.homeCoords?.lat) return range.homeCoords;
+                // 🔧 v6.38.35: homeLocation-Text in Koordinaten auflösen
+                const resolved = resolveHomeLocationToCoords(range.homeLocation);
+                if (resolved) return resolved;
             }
         }
     }
     // 2. Tagesausnahme direkt
     if (dayEntry && dayEntry.homeCoords?.lat) return dayEntry.homeCoords;
+    if (dayEntry && dayEntry.homeLocation) {
+        const resolved = resolveHomeLocationToCoords(dayEntry.homeLocation);
+        if (resolved) return resolved;
+    }
     // 3. defaultTimes mit timeRanges (Split-Schicht)
     if (defTimes[dow] && defTimes[dow].timeRanges && defTimes[dow].timeRanges.length > 1) {
         for (const range of defTimes[dow].timeRanges) {
-            if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
-                return range.homeCoords;
+            if (timeStr >= range.startTime && timeStr <= range.endTime) {
+                if (range.homeCoords?.lat) return range.homeCoords;
+                const resolved = resolveHomeLocationToCoords(range.homeLocation);
+                if (resolved) return resolved;
             }
         }
     }
     // 4. defaultTimes direkt
     if (defTimes[dow] && defTimes[dow].homeCoords?.lat) return defTimes[dow].homeCoords;
+    if (defTimes[dow] && defTimes[dow].homeLocation) {
+        const resolved = resolveHomeLocationToCoords(defTimes[dow].homeLocation);
+        if (resolved) return resolved;
+    }
 
     return null;
 }
@@ -15867,8 +15911,10 @@ exports.onRideCreated = onValueCreated(
                 await addRideLog(rideId, '🔍', 'Cloud: Suche Fahrzeug (onRideCreated)', 'Vorbestellung > 30 Min');
                 const assignResult = await autoAssignRide(rideId, ride);
                 if (assignResult && assignResult.vehicleId) {
-                    console.log(`✅ Cloud: Vorbestellung ${rideId} → ${assignResult.vehicleName || assignResult.vehicleId} zugewiesen`);
-                    await addRideLog(rideId, '✅', `Cloud: Fahrzeug zugewiesen (onRideCreated)`, { fahrzeug: assignResult.vehicleName || assignResult.vehicleId, quelle: 'onRideCreated → autoAssignRide' });
+                    // 🔧 v6.38.35: autoAssignRide gibt best.name zurück, nicht vehicleName
+                    const _assignName = assignResult.name || (OFFICIAL_VEHICLES[assignResult.vehicleId] || {}).name || assignResult.vehicleId;
+                    console.log(`✅ Cloud: Vorbestellung ${rideId} → ${_assignName} zugewiesen`);
+                    await addRideLog(rideId, '✅', `Cloud: Fahrzeug zugewiesen (onRideCreated)`, { fahrzeug: _assignName, quelle: 'onRideCreated → autoAssignRide' });
                 } else {
                     console.log(`⚠️ Cloud: Kein Fahrzeug für Vorbestellung ${rideId} gefunden — wird von autoResolveConflicts behandelt`);
                     await addRideLog(rideId, '⚠️', 'Cloud: Kein Fahrzeug gefunden (onRideCreated)', 'autoResolveConflicts übernimmt');

@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.31';
-const CLOUD_FUNCTIONS_BUILD = '31.03.2026 10:30';
+const CLOUD_FUNCTIONS_VERSION = '6.38.32';
+const CLOUD_FUNCTIONS_BUILD = '31.03.2026 11:15';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -3991,15 +3991,18 @@ Nur gültiges JSON, kein Markdown:
                         // Ersten signifikanten Straßennamen-Teil finden (>3 Zeichen, keine Zahl)
                         const _significantWord = _a.split(/[\s,]/).find(w => w.length > 3 && !/^\d+$/.test(w));
                         if (_significantWord && _p.includes(_significantWord)) {
-                            booking._pickupConfirmedByCRM = true;
                             // 🔧 v6.38.10: Vollständige CRM-Adresse + Koordinaten übernehmen → kein doppeltes Nachfragen
                             booking.pickup = pickupDefault;
                             if (preselected.addressLat && preselected.addressLon) {
                                 booking.pickupLat = parseFloat(preselected.addressLat);
                                 booking.pickupLon = parseFloat(preselected.addressLon);
+                                booking._pickupConfirmedByCRM = true;
+                                await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" von ${preselected.name} → Geocoding übersprungen`);
+                            } else {
+                                // 🔧 v6.38.31: CRM-Adresse OHNE Koordinaten → Nominatim muss geocoden!
+                                await addTelegramLog('📍', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" OHNE Koordinaten → Geocoding nötig`);
                             }
                             booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
-                            await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" von ${preselected.name} → Geocoding übersprungen`);
                         }
                     }
                     if (preselected.address && /^(zu hause|zuhause|nach hause)$/i.test((booking.destination || '').trim())) {

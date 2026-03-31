@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.32';
-const CLOUD_FUNCTIONS_BUILD = '31.03.2026 11:15';
+const CLOUD_FUNCTIONS_VERSION = '6.38.36';
+const CLOUD_FUNCTIONS_BUILD = '31.03.2026 14:30';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -10790,7 +10790,7 @@ async function handleCallback(callback) {
     }
 
     // 🔧 v6.38.9: GPS-Adresse speichern → Buchung danach fortsetzen
-    if (data.startsWith('geocache_save_')) {
+    if (data.startsWith('geocache_save_') && data !== 'geocache_save_yes' && data !== 'geocache_save_no') {
         const parts = data.replace('geocache_save_', '').split('_');
         const saveLat = parseFloat(parts[0]);
         const saveLon = parseFloat(parts[1]);
@@ -15354,6 +15354,21 @@ exports.scheduledAutoAssign = onSchedule(
     },
     async (event) => {
         console.log('🎯 v6.38.30: scheduledAutoAssign gestartet...');
+
+        // 🔧 v6.38.36: Einmalige Migration — Kalender-Export-Settings reparieren
+        try {
+            const _calExpSnap = await db.ref('settings/calendarExport/showPassengers').once('value');
+            if (_calExpSnap.val() === false) {
+                await db.ref('settings/calendarExport').update({
+                    showPassengers: true,
+                    showPhone: true,
+                    showPickup: true,
+                    showDestination: true,
+                    showPrice: true
+                });
+                console.log('✅ v6.38.36: Kalender-Export-Settings repariert (showPassengers/showPhone waren false)');
+            }
+        } catch(_e) { console.warn('⚠️ CalExport-Fix:', _e.message); }
 
         try {
             // 🔧 v6.38.30: Relevante Fahrten laden (nicht alle 5000+)

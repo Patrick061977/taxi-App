@@ -9397,6 +9397,21 @@ async function handleCallback(callback) {
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
             const _isJetztFahrt = booking._isJetzt;
+
+            // 🆕 v6.38.35: Vorbestellungen SOFORT zuweisen + Fahrzeug in Bestätigung anzeigen
+            let _assignedVehicleName = null;
+            if (isVorbestellung && rideData.pickupLat && rideData.destinationLat) {
+                try {
+                    const _preAssign = await autoAssignRide(rideData.id, rideData);
+                    if (_preAssign && _preAssign.name) {
+                        _assignedVehicleName = _preAssign.name;
+                        await addTelegramLog('🚕', chatId, `Vorbestellung: Sofort zugewiesen → ${_preAssign.name}`, { rideId: rideData.id });
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Vorbestellung Auto-Assign fehlgeschlagen:', e.message);
+                }
+            }
+
             await sendTelegramMessage(chatId,
                 successHeader +
                 (_isJetztFahrt
@@ -9406,13 +9421,21 @@ async function handleCallback(callback) {
                 `👤 ${rideData.customerName}` + (rideData.customerPhone ? ` · 📱 ${rideData.customerPhone}` : '') + '\n' +
                 `👥 ${passengers} Person(en)\n` +
                 (telegramRoutePrice ? `🗺️ ca. ${telegramRoutePrice.distance} km (~${telegramRoutePrice.duration} Min)\n💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                `📋 Status: ${_isJetztFahrt ? 'Sofortfahrt' : (isVorbestellung ? 'Vorbestellt' : 'Offen')}\n\n✅ Fahrt ist im System!\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`,
+                (_assignedVehicleName
+                    ? `🚕 <b>Fahrzeug: ${_assignedVehicleName}</b>\n`
+                    : '') +
+                `📋 Status: ${_isJetztFahrt ? 'Sofortfahrt' : (isVorbestellung ? 'Vorbestellt' : 'Offen')}` +
+                (_assignedVehicleName ? ' ✅' : '') +
+                `\n\n✅ Fahrt ist im System!` +
+                (_assignedVehicleName
+                    ? `\n\n🚕 <i>${_assignedVehicleName} wurde automatisch zugewiesen.</i>`
+                    : `\n\n💡 <i>Sie werden benachrichtigt, sobald ein Fahrer zugewiesen ist.</i>`),
                 { reply_markup: returnKeyboard }
             );
 
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
 
-            // 🔧 v6.25.4: Auto-Zuweisung NUR für Sofortfahrten — Vorbestellungen NICHT sofort zuweisen
+            // 🔧 v6.25.4: Auto-Zuweisung für Sofortfahrten (Vorbestellungen werden oben bereits zugewiesen)
             if (rideData.pickupCoords && !isVorbestellung) {
                 const assignResult = await autoAssignRide(rideData.id, rideData);
                 if (assignResult) {

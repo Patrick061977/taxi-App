@@ -13395,15 +13395,21 @@ async function handleAudioFile(message) {
         await addTelegramLog('🎙️', chatId, `Audio-Datei transkribiert (${fileName}): "${transcript.substring(0, 100)}..."`);
 
         // 🆕 v6.14.8: TELEFONNUMMER AUS DATEINAMEN EXTRAHIEREN + CRM-SUCHE
-        // Dateiname-Format: "+49_172_6324074_+491726324074_2026_03_10_09_33_20_Eingehend.m4a"
+        // Dateiname-Format 1 (alt): "+49_172_6324074_+491726324074_2026_03_10_09_33_20_Eingehend.m4a"
+        // Dateiname-Format 2 (ACR): "+49 170 3522828 (+491703522828) [2026-03-31 15-38-32] [Eingehend].m4a"
         // oder: "Steigenberger_+4938378495901_2026_03_11_08_13_15_Eingehend.m4a"
-        // 🔧 v6.11.6: Regex stoppt vor dem Datumsteil _YYYY_ (z.B. _2026_)
         let callerPhone = null;
         let callerCustomer = null;
-        // 🔧 v6.25.1: Greedy statt lazy matching — lazy {8,}? schnitt Nummern ab
-        const phoneMatch = fileName.match(/\+(\d[\d_]{8,})(?=_20\d{2}_)/);
+        // 🔧 v6.38.36: Unterstützt ACR Phone Format mit Klammern + Leerzeichen
+        // Priorität 1: Nummer in Klammern (+491703522828)
+        const phoneParenMatch = fileName.match(/\((\+\d{10,15})\)/);
+        // Priorität 2: Underscore-Format +49_172_6324074
+        const phoneUnderscoreMatch = fileName.match(/\+(\d[\d_]{8,})(?=_20\d{2}_)/);
+        // Priorität 3: Nummer mit Leerzeichen am Anfang +49 170 3522828
+        const phoneSpaceMatch = fileName.match(/^\+(\d[\d ]{8,?\d})(?=\s*[\(\[])/);
+        const phoneMatch = phoneParenMatch || phoneUnderscoreMatch || phoneSpaceMatch;
         if (phoneMatch) {
-            callerPhone = '+' + phoneMatch[1].replace(/_/g, '');
+            callerPhone = phoneMatch[1].startsWith('+') ? phoneMatch[1] : '+' + phoneMatch[1].replace(/[_ ]/g, '');
             // 🆕 v6.25.1: Validierung der Anrufer-Nummer
             const callerValid = validatePhoneNumber(callerPhone);
             if (callerValid.valid) {

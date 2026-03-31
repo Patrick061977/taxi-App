@@ -523,6 +523,47 @@ async function autoAssignRide(rideId, rideData) {
         const allRides = [];
         ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
+        // 🔧 v6.38.34: PFLICHT — Duration muss vorhanden sein! Kein Fallback auf 20 Min!
+        if (!rideData.duration && !rideData.estimatedDuration) {
+            console.warn(`⚠️ autoAssignRide: Fahrt ${rideId} hat KEINE Duration! Versuche Neuberechnung...`);
+            if (rideData.pickupLat && rideData.destinationLat) {
+                try {
+                    const _routeResult = await calculateTelegramRoutePrice({
+                        pickupLat: rideData.pickupLat, pickupLon: rideData.pickupLon,
+                        destinationLat: rideData.destinationLat, destinationLon: rideData.destinationLon,
+                        datetime: rideData.pickupTimestamp ? new Date(rideData.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) : null
+                    });
+                    if (_routeResult && _routeResult.duration) {
+                        console.log(`✅ Route nachberechnet: ${_routeResult.distance} km, ${_routeResult.duration} min, ${_routeResult.price}€`);
+                        rideData.duration = _routeResult.duration;
+                        rideData.estimatedDuration = _routeResult.duration;
+                        rideData.distance = _routeResult.distance;
+                        rideData.estimatedDistance = _routeResult.distance;
+                        rideData.price = _routeResult.price;
+                        rideData.estimatedPrice = _routeResult.price;
+                        // In Firebase speichern damit die Daten nicht nochmal fehlen
+                        await db.ref(`rides/${rideId}`).update({
+                            duration: _routeResult.duration, estimatedDuration: _routeResult.duration,
+                            distance: _routeResult.distance, estimatedDistance: _routeResult.distance,
+                            price: _routeResult.price, estimatedPrice: _routeResult.price
+                        });
+                    } else {
+                        console.error(`❌ autoAssignRide: Route konnte NICHT berechnet werden für ${rideId} — KEINE ZUWEISUNG!`);
+                        await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat keine Routendaten (Dauer/Entfernung) und OSRM-Berechnung ist fehlgeschlagen.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                        return null;
+                    }
+                } catch (e) {
+                    console.error(`❌ autoAssignRide: Route-Berechnung Fehler für ${rideId}:`, e.message);
+                    await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId}: Route-Berechnung Fehler: ${e.message}\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                    return null;
+                }
+            } else {
+                console.error(`❌ autoAssignRide: Fahrt ${rideId} hat KEINE Koordinaten UND keine Duration — KEINE ZUWEISUNG!`);
+                await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${rideId} hat weder Routendaten noch Koordinaten.\n\n❌ <b>Fahrt wird NICHT automatisch zugewiesen!</b>\nBitte manuell prüfen und zuweisen.`);
+                return null;
+            }
+        }
+
         // 🔧 v6.25.4: Firebase-Prioritäten nutzen (wie Browser), Fallback auf OFFICIAL_VEHICLES
         const getVehiclePrio = (vid) => {
             if (vehiclePriorities[vid] !== undefined) return vehiclePriorities[vid];
@@ -3151,7 +3192,8 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (!needPickup && needDest) {
                     addrLastRow.push({ text: '◀️ Zurück', callback_data: 'addr_back_to_pickup' });
                 }
-                addrLastRow.push({ text: `✅ "${shortAddrNorm}" so verwenden`, callback_data: 'addr_skip' });
+                // 🔧 v6.38.34: "So verwenden" ENTFERNT — Adressen MÜSSEN aus Liste gewählt werden!
+                // Ohne verifizierte Koordinaten keine Fahrt möglich
                 addrLastRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
                 const keyboard = {
                     inline_keyboard: [
@@ -3268,10 +3310,9 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     // Ähnliche Orte gefunden → als Buttons anbieten
                     const simSuggestions = topSimilar.map(p => ({ name: p.name, lat: p.lat, lon: p.lon, source: 'known' }));
                     const shortAddrSim = addressToResolve.length > 28 ? addressToResolve.slice(0, 26) + '…' : addressToResolve;
+                    // 🔧 v6.38.34: "So verwenden" ENTFERNT — Adressen MÜSSEN aus Liste gewählt werden!
                     const keyboard = {
                         inline_keyboard: [
-                            // 🔧 v6.38.1: "So verwenden" immer als erste Option
-                            [{ text: `✅ "${shortAddrSim}" so verwenden`, callback_data: 'addr_skip' }],
                             ...simSuggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `${prefix}_${i}` }]),
                             [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                             [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
@@ -3306,13 +3347,18 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (hasDestCoords) { pendingForUnknown.partial.destinationLat = booking.destinationLat; pendingForUnknown.partial.destinationLon = booking.destinationLon; }
                 pendingForUnknown.pendingDestValidation = (needPickup && needDest);
                 await setPending(chatId, pendingForUnknown);
-                const shortAddr = addressToResolve.length > 30 ? addressToResolve.slice(0, 28) + '…' : addressToResolve;
+                // 🔧 v6.38.34: Adresse nicht gefunden → MUSS neu eingegeben werden, kein "so verwenden"!
                 await sendTelegramMessage(chatId,
-                    `📍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
-                    `Diese Adresse ist nicht in unserer Datenbank — trotzdem verwenden?`,
+                    `❌ <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                    `Diese Adresse konnte nicht verifiziert werden.\n\n` +
+                    `💡 <b>Bitte genauer eingeben:</b>\n` +
+                    `• Straße + Hausnummer + Ort\n` +
+                    `• Oder PLZ statt Ort\n` +
+                    `• Oder Standort senden (📎 → Standort)\n\n` +
+                    `<i>Beispiel: Strandstraße 5, 17424 Heringsdorf</i>`,
                     { reply_markup: { inline_keyboard: [
-                        [{ text: `✅ "${shortAddr}" so verwenden`, callback_data: 'addr_skip' }],
-                        [{ text: '✏️ Andere Adresse eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                        [{ text: '✏️ Adresse neu eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                        [{ text: '📞 Telefonisch buchen: 038378/22022', callback_data: 'cancel_booking' }],
                         [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } }
                 );
@@ -9187,10 +9233,45 @@ async function handleCallback(callback) {
                 }
             }
 
-            // Preis: gespeicherten verwenden, nur als Fallback neu berechnen
+            // 🔧 v6.38.34: PFLICHT — Route MUSS berechnet sein! Keine Fahrt ohne Routendaten!
             let telegramRoutePrice = pending.routePrice || null;
             if (!telegramRoutePrice && booking.pickupLat && booking.destinationLat) {
-                try { telegramRoutePrice = await calculateTelegramRoutePrice(booking); } catch (e) {}
+                try { telegramRoutePrice = await calculateTelegramRoutePrice(booking); } catch (e) {
+                    console.error('❌ Route-Berechnung fehlgeschlagen:', e.message);
+                }
+            }
+            // BLOCK: Ohne Routendaten → Fahrt wird NICHT erstellt!
+            if (!telegramRoutePrice || !telegramRoutePrice.duration || !telegramRoutePrice.distance) {
+                const _missingInfo = !booking.pickupLat ? 'Abholort ohne Koordinaten' :
+                                     !booking.destinationLat ? 'Zielort ohne Koordinaten' :
+                                     'OSRM-Routenberechnung fehlgeschlagen';
+                console.error(`❌ Fahrt BLOCKIERT: Keine Routendaten! Grund: ${_missingInfo}`);
+                await addTelegramLog('❌', chatId, `Fahrt BLOCKIERT: ${_missingInfo} — ${booking.pickup} → ${booking.destination}`);
+                await sendTelegramMessage(chatId,
+                    `❌ <b>Fahrt konnte nicht erstellt werden!</b>\n\n` +
+                    `Grund: ${_missingInfo}\n\n` +
+                    `📍 Von: ${booking.pickup || '?'}\n` +
+                    `🎯 Nach: ${booking.destination || '?'}\n\n` +
+                    `💡 <b>Bitte prüfen Sie die Adressen:</b>\n` +
+                    `• Adressen aus der Vorschlagsliste wählen\n` +
+                    `• Oder Adresse mit Straße + Hausnummer + Ort eingeben\n\n` +
+                    `📞 Für Hilfe: <b>038378 / 22022</b>`,
+                    { reply_markup: { inline_keyboard: [
+                        [{ text: '🔄 Erneut buchen', callback_data: 'book_ride' }],
+                        [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
+                    ] } }
+                );
+                // Admin informieren
+                await sendToAllAdmins(
+                    `⚠️ <b>Telegram-Buchung BLOCKIERT</b>\n\n` +
+                    `👤 ${booking.name || 'Unbekannt'}\n` +
+                    `📍 ${booking.pickup || '?'} → ${booking.destination || '?'}\n` +
+                    `❌ ${_missingInfo}\n\n` +
+                    `Die Adressen konnten nicht geokodiert/berechnet werden. Bitte manuell buchen.`
+                );
+                // Pending löschen
+                await db.ref(`settings/telegram/pending/${chatId}`).remove();
+                return;
             }
 
             // 🔧 v6.14.2: Telefonnummer-Absicherung — wenn phone fehlt, aus CRM nachladen
@@ -14114,7 +14195,7 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            if (allRides.length === 0) {
+            if (allRides.length === 0 && unassignedRides.length === 0) {
                 console.log('✅ Keine relevanten Fahrten gefunden');
                 return;
             }
@@ -14128,6 +14209,69 @@ exports.autoResolveConflicts = onSchedule(
                 const d = new Date(ts);
                 return d.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
             };
+
+            // ═══════════════════════════════════════════════════════════
+            // 🔧 v6.38.34: PHASE -2 — ROUTENDATEN-GESUNDHEITSCHECK
+            // Alle Fahrten ohne duration/distance → nachberechnen + Admin warnen
+            // ═══════════════════════════════════════════════════════════
+            const _allCheckRides = [...allRides, ...unassignedRides];
+            const _missingRouteRides = _allCheckRides.filter(r => !r.duration && !r.estimatedDuration);
+            if (_missingRouteRides.length > 0) {
+                console.warn(`⚠️ Phase -2: ${_missingRouteRides.length} Fahrt(en) OHNE Routendaten!`);
+                const _fixedRides = [];
+                const _brokenRides = [];
+                for (const ride of _missingRouteRides) {
+                    if (ride.pickupLat && ride.destinationLat) {
+                        try {
+                            const _rr = await calculateTelegramRoutePrice({
+                                pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                                destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+                            });
+                            if (_rr && _rr.duration) {
+                                ride.duration = _rr.duration;
+                                ride.estimatedDuration = _rr.duration;
+                                ride.distance = _rr.distance;
+                                ride.price = _rr.price;
+                                await db.ref(`rides/${ride.firebaseId}`).update({
+                                    duration: _rr.duration, estimatedDuration: _rr.duration,
+                                    distance: _rr.distance, estimatedDistance: _rr.distance,
+                                    price: _rr.price, estimatedPrice: _rr.price
+                                });
+                                _fixedRides.push(ride);
+                                console.log(`   ✅ ${ride.customerName || ride.firebaseId}: Route nachberechnet (${_rr.duration} min, ${_rr.distance} km)`);
+                            } else {
+                                _brokenRides.push(ride);
+                                console.error(`   ❌ ${ride.customerName || ride.firebaseId}: OSRM fehlgeschlagen`);
+                            }
+                        } catch (e) {
+                            _brokenRides.push(ride);
+                            console.error(`   ❌ ${ride.customerName || ride.firebaseId}: Fehler: ${e.message}`);
+                        }
+                    } else {
+                        _brokenRides.push(ride);
+                        console.error(`   ❌ ${ride.customerName || ride.firebaseId}: Keine Koordinaten!`);
+                    }
+                }
+                // Admin über ALLE problematischen Fahrten informieren
+                if (_brokenRides.length > 0) {
+                    const _brokenList = _brokenRides.map(r => {
+                        const _t = r.pickupTimestamp ? berlinTime(r.pickupTimestamp) : '?';
+                        const _d = r.pickupTimestamp ? berlinDate(r.pickupTimestamp) : '?';
+                        const _hasCoords = r.pickupLat && r.destinationLat;
+                        return `• ${_d} ${_t} — ${r.customerName || '?'}: ${r.pickup || '?'} → ${r.destination || '?'} ${_hasCoords ? '(OSRM fehlgeschlagen)' : '(Keine Koordinaten!)'}`;
+                    }).join('\n');
+                    await sendToAllAdmins(
+                        `🚨 <b>ACHTUNG: ${_brokenRides.length} Fahrt(en) ohne Routendaten!</b>\n\n` +
+                        `Diese Fahrten haben keine Dauer/Entfernung und können NICHT korrekt eingeplant werden:\n\n` +
+                        `${_brokenList}\n\n` +
+                        `❌ <b>Konflikterkennung funktioniert NICHT für diese Fahrten!</b>\n` +
+                        `Bitte Adressen prüfen und manuell korrigieren.`
+                    );
+                }
+                if (_fixedRides.length > 0) {
+                    console.log(`✅ Phase -2: ${_fixedRides.length} Fahrt(en) repariert, ${_brokenRides.length} problematisch`);
+                }
+            }
 
             // ═══════════════════════════════════════════════════════════
             // 🚀 v6.26.0: PHASE 0 — SCHICHT-VALIDIERUNG
@@ -14255,7 +14399,8 @@ exports.autoResolveConflicts = onSchedule(
                     const next = vehicleRides[i + 1];
 
                     // Fahrtdauer + Puffer
-                    const currDurMs = (curr.duration || curr.estimatedDuration || 20) * 60000;
+                    // 🔧 v6.38.34: Kein 20-Min-Fallback! Phase -2 hat Duration repariert, ansonsten 60 Min Sicherheit
+                    const currDurMs = (curr.duration || curr.estimatedDuration || 60) * 60000;
                     const currEndMs = curr.pickupTimestamp + currDurMs + bufferMs;
                     const nextStartMs = next.pickupTimestamp;
 
@@ -15269,6 +15414,44 @@ exports.scheduledAutoAssign = onSchedule(
 
                 console.log(`\n📋 Fahrt ${rideId}: ${ride.customerName || '?'} | ${dateStr} ${timeStr} | ${passengers} Pax | ${isSofort ? 'SOFORT' : 'Vorbestellung'}`);
 
+                // 🔧 v6.38.34: PFLICHT — Duration muss vorhanden sein!
+                if (!ride.duration && !ride.estimatedDuration) {
+                    console.warn(`⚠️ scheduledAutoAssign: Fahrt ${rideId} hat KEINE Duration! Versuche Neuberechnung...`);
+                    if (ride.pickupLat && ride.destinationLat) {
+                        try {
+                            const _rr = await calculateTelegramRoutePrice({
+                                pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                                destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+                            });
+                            if (_rr && _rr.duration) {
+                                console.log(`✅ Route nachberechnet: ${_rr.distance} km, ${_rr.duration} min, ${_rr.price}€`);
+                                ride.duration = _rr.duration;
+                                ride.estimatedDuration = _rr.duration;
+                                ride.distance = _rr.distance;
+                                ride.price = _rr.price;
+                                await db.ref(`rides/${rideId}`).update({
+                                    duration: _rr.duration, estimatedDuration: _rr.duration,
+                                    distance: _rr.distance, estimatedDistance: _rr.distance,
+                                    price: _rr.price, estimatedPrice: _rr.price
+                                });
+                            } else {
+                                console.error(`❌ scheduledAutoAssign: Route nicht berechenbar für ${rideId} — ÜBERSPRINGE!`);
+                                await sendToAllAdmins(`⚠️ <b>Auto-Zuweisung FEHLGESCHLAGEN</b>\n\nFahrt ${ride.customerName || rideId}: Keine Routendaten, OSRM fehlgeschlagen.\n❌ Bitte manuell prüfen!`);
+                                failedCount++;
+                                continue;
+                            }
+                        } catch (e) {
+                            console.error(`❌ scheduledAutoAssign: Route-Fehler ${rideId}:`, e.message);
+                            failedCount++;
+                            continue;
+                        }
+                    } else {
+                        console.error(`❌ scheduledAutoAssign: Fahrt ${rideId} — keine Koordinaten, keine Duration — ÜBERSPRINGE!`);
+                        failedCount++;
+                        continue;
+                    }
+                }
+
                 // Kandidaten filtern
                 const candidates = [];
                 const MAX_GPS_AGE = 10 * 60 * 1000;
@@ -15430,7 +15613,8 @@ exports.scheduledAutoAssign = onSchedule(
 
                     if (_sPrevRides.length > 0) {
                         const _sPrev = _sPrevRides[0];
-                        const _sPrevDurMs = (_sPrev.duration || _sPrev.estimatedDuration || 20) * 60000;
+                        // 🔧 v6.38.34: Kein Fallback! Ohne Duration → 60 Min als Sicherheits-Maximum
+                        const _sPrevDurMs = (_sPrev.duration || _sPrev.estimatedDuration || 60) * 60000;
                         const _sPrevEndMs = _sPrev.pickupTimestamp + _sPrevDurMs + bufferMs;
                         const _sLeerfahrtMs = (bestDrivingTime || 10) * 60000;
                         const _sEarliestMs = _sPrevEndMs + _sLeerfahrtMs + mindestAbstandMs;

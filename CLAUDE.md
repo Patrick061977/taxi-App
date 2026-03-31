@@ -2,7 +2,7 @@
 
 ## Aktueller Stand (2026-03-26)
 
-**Version:** v6.25.5 | **Branch:** `main`
+**Version:** v6.38.34 | **Branch:** `main`
 
 ### Zuletzt implementierte Features (Session 26.03.2026):
 
@@ -31,6 +31,9 @@
 - `functions/index.js` geändert → `firebase deploy --only functions` nötig
 - Telegram-Adress-Suche: Weitere Verbesserungen bei Kundenname-Erkennung
 - Vollständiges Changelog: siehe `CHANGELOG.md`
+
+### TODO (Später):
+- **Google Places Autocomplete** — Nominatim durch Google Places API ersetzen für Adresssuche (bessere POI-Erkennung, Tippfehler-Toleranz, schneller). Benötigt: Google Cloud Account + API Key mit Places API (New) aktiviert. Geschätzte Kosten: ~0-42 €/Monat (200$/Monat Gratis-Guthaben von Google). OSRM für Routing bleibt, Nominatim als Fallback.
 
 ### Architektur-Entscheidungen (26.03.2026):
 - **Auto-Zuweisung:** Browser-Zuweisung (`auto-assign-schichtplan`) ist im Webhook-Modus DEAKTIVIERT. Cloud Function `scheduledAutoAssign` übernimmt (alle 10 Min)
@@ -85,34 +88,40 @@ firebase deploy --only functions
 - **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen (siehe unten)
 
 ### Regel:
-- Änderungen an `index.html` → Build-Timestamp aktualisieren **+ Strato-Deploy** (siehe unten)
+- Änderungen an `index.html` → Build-Timestamp aktualisieren **+ `gh workflow run strato-zip.yml --ref main` PARALLEL ausführen!**
 - Änderungen an `functions/index.js` → User auf `firebase deploy --only functions` hinweisen
 - Änderungen an `google-apps-script/kalender-sync-v4.0.js` → User erinnern: Code manuell ins Google Apps Script kopieren
 - Änderungen an beiden/allen → alles tun
 
 ---
 
-## Strato-Deploy (WICHTIG — PARALLEL!)
+## Strato-Deploy (WICHTIG — IMMER PARALLEL MACHEN!)
 
-Die Fahrer-App (`index.html`) wird auf **Strato** gehostet (nicht Firebase Hosting!).
-Jeder Push von `index.html` erfordert **parallel** ein Strato-Deploy, sonst sehen Fahrer die alte Version!
+Die Fahrer-App (`index.html`) wird auf **Strato** gehostet.
+**Bei JEDEM Push der `index.html` ändert MUSS Claude PARALLEL den Strato-Deploy auslösen!**
 
-### Warum?
-- Fahrer laden die App über die Strato-URL (Redirect auf Firebase-App)
-- Die `index.html` auf Strato muss manuell aktualisiert werden
-- **Strato hat KEINE automatische Synchronisierung mit GitHub!**
+### GitHub Actions Workflow: `strato-zip.yml`
 
-### Deploy-Prozess:
+Das Strato-Deploy läuft über eine **GitHub Actions Workflow** namens **"Strato ZIP erstellen"**.
+- **Workflow:** `strato-zip.yml` im Repository `Patrick061977/taxi-App`
+- **Trigger:** `workflow_dispatch` (manuell) + automatisch bei Push auf `main`
+- **Was es tut:** Erstellt eine ZIP-Datei mit der aktuellen `index.html` für Strato
+
+### PFLICHT für Claude:
 ```bash
-# 1. ZIP erstellen mit aktueller index.html
-# 2. ZIP auf Strato hochladen (FTP oder Strato-Webinterface)
-# 3. Prüfen ob neue Version angezeigt wird (v-Nummer unten rechts in der Fahrer-App)
+# Nach JEDEM git push der index.html ändert → Strato-Workflow triggern:
+gh workflow run strato-zip.yml --ref main
 ```
 
+### Ablauf bei index.html Änderungen:
+1. `git add index.html && git commit`
+2. `git push`
+3. **PARALLEL:** `gh workflow run strato-zip.yml --ref main` ← NICHT VERGESSEN!
+4. Prüfen: `gh run list --workflow=strato-zip.yml --limit 1`
+
 ### Regel:
-- **Bei JEDER Änderung an `index.html`** den User erinnern:
-  > "⚠️ STRATO: index.html wurde geändert → Neue ZIP auf Strato hochladen, damit Fahrer die neue Version bekommen!"
-- Aktuell auf Strato: Version wird unten rechts in der Fahrer-App angezeigt (z.B. `v6.38.33`)
+- **Claude MUSS bei JEDER Änderung an `index.html` AUTOMATISCH den Strato-Workflow auslösen** — NICHT nur den User erinnern, sondern SELBER machen!
+- Aktuell auf Strato: Version wird unten rechts in der Fahrer-App angezeigt (z.B. `v6.38.34`)
 - Wenn Strato veraltet ist, sehen Fahrer alte Bugs/fehlendes Features
 
 ---

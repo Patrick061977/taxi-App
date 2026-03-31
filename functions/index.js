@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.36';
+const CLOUD_FUNCTIONS_VERSION = '6.38.37';
 const CLOUD_FUNCTIONS_BUILD = '31.03.2026 14:30';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -4472,7 +4472,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     || (topLower.startsWith(searchLower) && (topHit.source === 'known' || topHit.source === 'poi'))
                     || ((isVerified2 || isCacheStartMatch2) && (topLower.includes(searchLower) || searchLower.includes(topLower.split(',')[0])));
 
-                if (isExactMatch && (suggestions.length === 1 || isVerified2 || isCacheStartMatch2)) {
+                // 🔧 v6.38.37: EINFACHE REGEL — Auto-Select NUR bei verifizierten Quellen (Geocache/CRM/POI)
+                // Nominatim-Ergebnisse werden IMMER als Vorschläge mit Buttons angezeigt
+                const _isTrustedSource = isVerified2 || isCacheStartMatch2;
+                if (isExactMatch && _isTrustedSource) {
                     // Exakter Treffer – direkt übernehmen, keine Rückfrage nötig
                     if (needsPickupResolve) {
                         booking.pickup = topHit.name;
@@ -4624,25 +4627,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     }
 
-                    // 🔧 v6.38.10: Nur 1 vertrauenswürdiger Treffer nach Filter → direkt auto-selektieren
-                    // 🔧 v6.38.14: POI-Name muss zur Suchanfrage passen
-                    if (_displaySugg2.length === 1 && _hasTrustedSugg2 && _displaySugg2[0].lat && _displaySugg2[0].lon) {
+                    // 🔧 v6.38.37: Einzel-Treffer auto-select NUR bei verifizierten Quellen (nicht Nominatim!)
+                    if (_displaySugg2.length === 1 && _displaySugg2[0].lat && _displaySugg2[0].lon &&
+                        _displaySugg2[0].source && _displaySugg2[0].source !== 'nominatim') {
                         const _solo2 = _displaySugg2[0];
-                        const _soloName2 = (_solo2.name || '').toLowerCase().split(',')[0].trim();
-                        const _qLow2 = addressToResolve.trim().toLowerCase();
-                        const _qWords2 = _qLow2.split(/[\s,]+/).filter(w => w.length > 3);
-                        const _nameMatches2 = _soloName2.includes(_qLow2) || _qLow2.includes(_soloName2) ||
-                            _qWords2.some(w => _soloName2.includes(w));
-                        if (_nameMatches2) {
-                            await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Einzel-Treffer: ${_solo2.name}`);
-                            if (needsPickupResolve) {
-                                booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
-                            } else {
-                                booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
-                            }
-                            return await continueBookingFlow(chatId, booking, originalText);
+                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → verifiziert: ${_solo2.name} (${_solo2.source})`);
+                        if (needsPickupResolve) {
+                            booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
+                        } else {
+                            booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
                         }
-                        // Name passt nicht → weiter zu Vorschlägen
+                        return await continueBookingFlow(chatId, booking, originalText);
                     }
 
                     // Multi-Treffer → Auswahlmenü zeigen

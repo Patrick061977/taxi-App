@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.30';
-const CLOUD_FUNCTIONS_BUILD = '27.03.2026 23:00';
+const CLOUD_FUNCTIONS_VERSION = '6.38.31';
+const CLOUD_FUNCTIONS_BUILD = '31.03.2026 10:30';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -1407,6 +1407,20 @@ async function addTelegramLog(emoji, chatId, msg, details = null) {
         }
     } catch (e) { /* Log-Fehler ignorieren */ }
     console.log(`${emoji} [${chatId}] ${msg}`);
+}
+
+// 🆕 v6.38.31: Lifecycle-Log pro Fahrt — dokumentiert jeden Schritt
+async function addRideLog(rideId, icon, action, details = null) {
+    if (!rideId) return;
+    try {
+        const entry = {
+            t: Date.now(),
+            icon,
+            action,
+            ...(details ? { details: typeof details === 'string' ? details : JSON.stringify(details).substring(0, 800) } : {})
+        };
+        await db.ref(`rides/${rideId}/lifecycleLog`).push(entry);
+    } catch (e) { /* Log-Fehler ignorieren */ }
 }
 
 function trimTelegramLogs(currentDay) {
@@ -9268,6 +9282,18 @@ async function handleCallback(callback) {
             rideData.id = newRef.key;
             await newRef.set(rideData);
 
+            // 🆕 v6.38.31: Lifecycle-Log — Fahrt erstellt
+            const _logSource = booking._adminBooked ? 'Admin-Telegram' : (booking._audioBooking ? 'Audio-Transkription' : 'Telegram-Kunde');
+            await addRideLog(newRef.key, '📥', `Fahrt erstellt (${_logSource})`, {
+                kunde: rideData.customerName,
+                von: rideData.pickup,
+                nach: rideData.destination,
+                zeit: rideData.pickupTime,
+                preis: rideData.price,
+                status: rideData.status,
+                quelle: _logSource
+            });
+
             // 🆕 v6.25.5: Adressen in Geocache speichern (für zukünftige Suchen)
             if (rideData.pickup && rideData.pickupLat) {
                 saveToGeocache(rideData.pickup, rideData.pickupLat, rideData.pickupLon, 'booking').catch(() => {});
@@ -11730,6 +11756,7 @@ async function handleCallback(callback) {
             const snap = await db.ref(`rides/${rideId}`).once('value');
             const r = snap.val();
             await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-admin', deletedAt: Date.now(), updatedAt: Date.now() });
+            await addRideLog(rideId, '🗑️', 'Admin hat storniert (Telegram)', { admin: chatId, kunde: r ? r.customerName : '?' });
             await addTelegramLog('🗑️', chatId, `Admin: Fahrt gelöscht: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
             await sendTelegramMessage(chatId, `🗑️ <b>Fahrt storniert!</b>\n\n${r ? `📍 ${r.pickup} → ${r.destination}\n👤 ${r.customerName || '?'}` : ''}`);
         } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
@@ -12038,6 +12065,7 @@ async function handleCallback(callback) {
             await db.ref(`rides/${rideId}`).update({ status: 'storniert', deletedBy: 'telegram-customer', deletedAt: Date.now(), updatedAt: Date.now() });
             const snap = await db.ref(`rides/${rideId}`).once('value');
             const r = snap.val();
+            await addRideLog(rideId, '🗑️', 'Kunde hat storniert (Telegram)', { kunde: r ? r.customerName : '?', chatId });
             await addTelegramLog('🗑️', chatId, `Kunde hat storniert: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
             const cancelKeyboard = { inline_keyboard: [
                 [{ text: '🚕 Neue Fahrt buchen', callback_data: 'menu_buchen' }],
@@ -15381,6 +15409,16 @@ exports.scheduledAutoAssign = onSchedule(
 
                 await db.ref('rides/' + rideId).update(rideUpdate);
 
+                // 🆕 v6.38.31: Lifecycle-Log — Fahrzeug zugewiesen
+                await addRideLog(rideId, '🚕', `Fahrzeug zugewiesen: ${bestCandidate.name}`, {
+                    fahrzeug: bestCandidate.name,
+                    fahrzeugId: bestCandidate.vehicleId,
+                    score: bestScore,
+                    leerfahrt: bestDrivingTime + ' Min',
+                    quelle: 'scheduledAutoAssign (Cloud, alle 10 Min)',
+                    grund: Object.entries(vehicleScores).filter(([k,v]) => v.status === 'rejected').map(([k,v]) => `${k}: ${v.rejectReason || v.status}`).join(', ').substring(0, 400)
+                });
+
                 // allRides aktualisieren für nächste Iteration (damit Zeitkonflikte korrekt sind)
                 const rideIdx = allRides.findIndex(r => r.firebaseId === rideId);
                 if (rideIdx >= 0) {
@@ -15494,6 +15532,9 @@ exports.onRideCreated = onValueCreated(
         await sendToAllAdmins(message, 'new_ride');
         await sendToSystemChannel(message, 'new_ride');
 
+        // 🆕 v6.38.31: Lifecycle-Log — Admins benachrichtigt
+        await addRideLog(rideId, '📢', 'Admin-Benachrichtigung gesendet', isSofort ? 'SOFORT' : 'VORBESTELLUNG');
+
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
         await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
 
@@ -15530,14 +15571,18 @@ exports.onRideCreated = onValueCreated(
         if (!isSofort && !ride.assignedVehicle && ride.pickupTimestamp && ride.pickupTimestamp > now + 30 * 60000) {
             try {
                 console.log(`🚕 Cloud: Auto-Zuweisung für Vorbestellung ${rideId}...`);
+                await addRideLog(rideId, '🔍', 'Cloud: Suche Fahrzeug (onRideCreated)', 'Vorbestellung > 30 Min');
                 const assignResult = await autoAssignRide(rideId, ride);
                 if (assignResult && assignResult.vehicleId) {
                     console.log(`✅ Cloud: Vorbestellung ${rideId} → ${assignResult.vehicleName || assignResult.vehicleId} zugewiesen`);
+                    await addRideLog(rideId, '✅', `Cloud: Fahrzeug zugewiesen (onRideCreated)`, { fahrzeug: assignResult.vehicleName || assignResult.vehicleId, quelle: 'onRideCreated → autoAssignRide' });
                 } else {
                     console.log(`⚠️ Cloud: Kein Fahrzeug für Vorbestellung ${rideId} gefunden — wird von autoResolveConflicts behandelt`);
+                    await addRideLog(rideId, '⚠️', 'Cloud: Kein Fahrzeug gefunden (onRideCreated)', 'autoResolveConflicts übernimmt');
                 }
             } catch(e) {
                 console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
+                await addRideLog(rideId, '❌', 'Cloud: Auto-Zuweisung Fehler', e.message);
             }
         }
 
@@ -15593,6 +15638,7 @@ exports.onRideUpdated = onValueUpdated(
                         ? `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`
                         : `Sofortfahrt → Vorbestellung: Neu-Optimierung (${oldVehicleName} war GPS-basiert)`;
                     console.log(`🔄 onRideUpdated: ${reason}`);
+                    await addRideLog(rideId, '🔄', `Fahrzeug entfernt: ${reason}`, { altFahrzeug: oldVehicleName, quelle: 'onRideUpdated Schicht-Check' });
                     await db.ref('rides/' + rideId).update({
                         assignedVehicle: null, vehicleId: null, assignedTo: null,
                         vehicle: null, vehicleLabel: null, vehiclePlate: null,
@@ -15611,6 +15657,8 @@ exports.onRideUpdated = onValueUpdated(
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
         if (oldStatus !== newStatus) {
             console.log(`📱 onRideUpdated: ${rideId} Status ${oldStatus} → ${newStatus}`);
+            // 🆕 v6.38.31: Lifecycle-Log — Status-Änderung
+            await addRideLog(rideId, '📊', `Status: ${oldStatus} → ${newStatus}`, { altStatus: oldStatus, neuStatus: newStatus, quelle: 'onRideUpdated' });
 
             let message = '';
             if (newStatus === 'accepted') {
@@ -15661,6 +15709,9 @@ exports.onRideUpdated = onValueUpdated(
                 else if (deletedBy.includes('@')) storniertVon = `👤 ${deletedBy}`;
                 else if (deletedBy === 'customer-telegram' || deletedBy === 'telegram-customer') storniertVon = '📱 Kunde (Telegram)';
                 else storniertVon = deletedBy;
+
+                // 🆕 v6.38.31: Lifecycle-Log — Stornierung
+                await addRideLog(rideId, '🗑️', `STORNIERT von: ${storniertVon}`, { deletedBy, storniertVon, quelle: 'onRideUpdated' });
 
                 message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
@@ -15788,6 +15839,10 @@ exports.onRideUpdated = onValueUpdated(
         // ─── FAHRER-ZUWEISUNG (neues Fahrzeug) → Fahrer benachrichtigen ───
         if (newVehicle && newVehicle !== oldVehicle && newStatus !== 'storniert' && newStatus !== 'cancelled') {
             console.log(`📱 Fahrer-Zuweisung: ${rideId} → ${newVehicle}`);
+            // 🆕 v6.38.31: Lifecycle-Log — Fahrzeug-Wechsel
+            const _newVName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || newVehicle;
+            const _oldVName = oldVehicle ? ((OFFICIAL_VEHICLES[oldVehicle] || {}).name || before.vehicle || oldVehicle) : 'keins';
+            await addRideLog(rideId, '🚗', `Fahrzeug: ${_oldVName} → ${_newVName}`, { von: _oldVName, nach: _newVName, assignedBy: after.assignedBy || '?', quelle: 'onRideUpdated' });
 
             // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)
             if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan' && after.assignedBy !== 'cloud-auto-optimize' && after.assignedBy !== 'cloud-scheduled-auto-assign') {

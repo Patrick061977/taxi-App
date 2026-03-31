@@ -85,10 +85,35 @@ firebase deploy --only functions
 - **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen (siehe unten)
 
 ### Regel:
-- Änderungen an `index.html` → Build-Timestamp aktualisieren
+- Änderungen an `index.html` → Build-Timestamp aktualisieren **+ Strato-Deploy** (siehe unten)
 - Änderungen an `functions/index.js` → User auf `firebase deploy --only functions` hinweisen
 - Änderungen an `google-apps-script/kalender-sync-v4.0.js` → User erinnern: Code manuell ins Google Apps Script kopieren
 - Änderungen an beiden/allen → alles tun
+
+---
+
+## Strato-Deploy (WICHTIG — PARALLEL!)
+
+Die Fahrer-App (`index.html`) wird auf **Strato** gehostet (nicht Firebase Hosting!).
+Jeder Push von `index.html` erfordert **parallel** ein Strato-Deploy, sonst sehen Fahrer die alte Version!
+
+### Warum?
+- Fahrer laden die App über die Strato-URL (Redirect auf Firebase-App)
+- Die `index.html` auf Strato muss manuell aktualisiert werden
+- **Strato hat KEINE automatische Synchronisierung mit GitHub!**
+
+### Deploy-Prozess:
+```bash
+# 1. ZIP erstellen mit aktueller index.html
+# 2. ZIP auf Strato hochladen (FTP oder Strato-Webinterface)
+# 3. Prüfen ob neue Version angezeigt wird (v-Nummer unten rechts in der Fahrer-App)
+```
+
+### Regel:
+- **Bei JEDER Änderung an `index.html`** den User erinnern:
+  > "⚠️ STRATO: index.html wurde geändert → Neue ZIP auf Strato hochladen, damit Fahrer die neue Version bekommen!"
+- Aktuell auf Strato: Version wird unten rechts in der Fahrer-App angezeigt (z.B. `v6.38.33`)
+- Wenn Strato veraltet ist, sehen Fahrer alte Bugs/fehlendes Features
 
 ---
 

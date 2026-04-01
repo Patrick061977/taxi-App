@@ -16004,10 +16004,25 @@ exports.scheduledAutoAssign = onSchedule(
                 if (ageMs > STALE_TIMEOUT_MS) {
                     const vName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
                     const ageMin = Math.round(ageMs / 60000);
+                    const lastGpsTime = new Date(vData.lastUpdate).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
                     console.log(`🧹 STALE-CLEANUP: ${vName} — letztes GPS vor ${ageMin} Min → offline setzen`);
                     try {
                         await db.ref('vehicles/' + vid).remove();
                         console.log(`   ✅ ${vName} aus /vehicles entfernt`);
+                        // 📋 Im ActivityLog speichern (sichtbar im System-Log)
+                        await db.ref('activityLog').push({
+                            type: 'system',
+                            action: 'stale_cleanup',
+                            message: `🧹 Geister-Fahrzeug entfernt: ${vName} — letztes GPS: ${lastGpsTime} (${ageMin} Min alt)`,
+                            timestamp: now,
+                            vehicle: vid,
+                            vehicleName: vName,
+                            lastGps: lastGpsTime,
+                            ageMinutes: ageMin,
+                            hadShift: vData.shift ? vData.shift.status : null,
+                            wasOnline: vData.online || false,
+                            source: `☁️ Cloud v${CLOUD_FUNCTIONS_VERSION}`
+                        });
                     } catch (cleanupErr) {
                         console.error(`   ❌ ${vName} Cleanup-Fehler:`, cleanupErr.message);
                     }

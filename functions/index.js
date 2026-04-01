@@ -9148,7 +9148,16 @@ async function handleMessage(message) {
                 if (_dispPhone2) confirmMsg += `📱 ${_dispPhone2}\n`;
                 if (_dispPhone2b) confirmMsg += `📞 ${_dispPhone2b}\n`;
                 if (found.address) confirmMsg += `🏠 ${found.address}\n`;
-                if (found.totalRides) confirmMsg += `🚕 ${found.totalRides} Fahrt${found.totalRides > 1 ? 'en' : ''}\n`;
+                // 🔧 v6.38.51: Fahrten live zählen (totalRides im CRM ist oft veraltet)
+                try {
+                    const _rSnap = await db.ref('rides').orderByChild('customerId').equalTo(found.id || found.customerId).once('value');
+                    const _rData = _rSnap.val();
+                    if (_rData) {
+                        const _rAll = Object.values(_rData);
+                        const _rDone = _rAll.filter(r => !['deleted', 'cancelled', 'storniert'].includes(r.status));
+                        if (_rDone.length > 0) confirmMsg += `🚕 ${_rDone.length} Fahrt${_rDone.length > 1 ? 'en' : ''}\n`;
+                    }
+                } catch(_re) {}
                 confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
                 await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
                     [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],

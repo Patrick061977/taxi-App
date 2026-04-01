@@ -968,6 +968,40 @@ async function autoAssignRide(rideId, rideData) {
 
         const bestInfo = OFFICIAL_VEHICLES[best.vehicleId] || {};
 
+        // 🆕 v6.38.45: ENTSCHEIDUNGS-PROTOKOLL — jeder Schritt der Fahrzeugwahl wird geloggt
+        try {
+            // Zusammenfassung aller Fahrzeug-Entscheidungen für den Auftrags-Verlauf
+            const _allVehicles = Object.entries(OFFICIAL_VEHICLES);
+            const _rejected = Object.entries(vehicleScores).filter(([,s]) => s.status !== 'chosen' && s.status !== 'available');
+            const _available = Object.entries(vehicleScores).filter(([,s]) => s.status === 'available' || s.status === 'chosen');
+
+            // Ablehnungsgründe kompakt zusammenfassen
+            const _rejectSummary = _rejected.map(([vid, s]) => {
+                const name = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+                return `${name}: ${s.reason || s.check || s.status}`;
+            }).join(' | ');
+
+            // Kandidaten mit Scores
+            const _candSummary = _available.map(([vid, s]) => {
+                const name = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+                const score = s.totalScore ?? s.score ?? '?';
+                const detail = s.distanceKm !== undefined
+                    ? `${s.distanceKm}km/${s.drivingTimeMin}min+${s.priorityPenalty||0}prio=${score}`
+                    : `Leerfahrt:${s.leerfahrtMin||0}min+${s.priorityPenalty||0}prio+${s.loadPenalty||0}last=${score}`;
+                return `${vid === best.vehicleId ? '✅' : '🟡'} ${name} (${detail})`;
+            }).join(' | ');
+
+            await addRideLog(rideId, '🔍', `Auto-Zuweisung: ${isSofort ? 'SOFORTFAHRT' : 'VORBESTELLUNG'} | ${dateStr} ${timeStr}`, {
+                modus: isSofort ? 'Sofortfahrt' : 'Vorbestellung',
+                geprüft: _allVehicles.length,
+                kandidaten: _available.length,
+                abgelehnt: _rejected.length,
+                gewählt: `${best.name} (Score: ${vehicleScores[best.vehicleId]?.totalScore ?? '?'})`,
+                ablehnungen: _rejectSummary || 'keine',
+                bewertung: _candSummary
+            });
+        } catch (_logErr) { console.warn('Decision-Log Fehler:', _logErr.message); }
+
         // Status: Sofortfahrt → assigned, Vorbestellung → vorbestellt (mit zugewiesenem Fahrzeug)
         const rideUpdate = {
             status: isSofort ? 'assigned' : 'vorbestellt',
@@ -1009,7 +1043,7 @@ async function autoAssignRide(rideId, rideData) {
         // Fahrer per Telegram benachrichtigen
         if (best.telegramChatId) {
             const pickupLabel = rideData.pickupTime || (isSofort ? 'Sofort' : timeStr + ' Uhr');
-            await sendTelegramMessage(best.telegramChatId,
+            const _driverMsgResult = await sendTelegramMessage(best.telegramChatId,
                 `🚕 <b>${isSofort ? 'NEUE FAHRT!' : '📅 NEUE VORBESTELLUNG!'}</b>\n\n` +
                 `📍 <b>Von:</b> ${rideData.pickup}\n` +
                 `🎯 <b>Nach:</b> ${rideData.destination}\n` +
@@ -1019,6 +1053,17 @@ async function autoAssignRide(rideId, rideData) {
                 (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min${best.distance < 999 ? ` (${best.distance.toFixed(1)} km)` : ' (GPS nicht verfügbar)'}\n\n` : '\n') +
                 (isSofort ? `⏱️ <i>60 Sek zum Annehmen</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
             );
+            // 🆕 v6.38.45: Fahrer-Benachrichtigung loggen
+            await addRideLog(rideId, '📨', `Fahrer-Telegram: ${best.name}`, {
+                chatId: best.telegramChatId,
+                ergebnis: _driverMsgResult ? 'gesendet' : 'FEHLGESCHLAGEN',
+                fahrzeug: best.name
+            });
+        } else {
+            // 🆕 v6.38.45: Kein Telegram → loggen warum nicht
+            await addRideLog(rideId, '⚠️', `Fahrer-Telegram NICHT gesendet: ${best.name} hat keine Chat-ID`, {
+                fahrzeug: best.name, vehicleId: best.vehicleId
+            });
         }
 
         best.drivingTimeMin = drivingTimeMin;
@@ -9816,6 +9861,25 @@ async function handleCallback(callback) {
                 quelle: _logSource
             });
 
+            // 🆕 v6.38.45: Adress-Herkunft loggen — woher kamen die Koordinaten?
+            try {
+                const _pickupHasCoords = !!(rideData.pickupLat && rideData.pickupLon);
+                const _destHasCoords = !!(rideData.destinationLat && rideData.destinationLon);
+                const _pickupSource = booking._pickupSource || (booking._pickupFromCRM ? 'CRM' : (booking._pickupFromGPS ? 'GPS' : (_pickupHasCoords ? 'Geocoding' : 'FEHLT')));
+                const _destSource = booking._destSource || (booking._destFromCRM ? 'CRM' : (booking._destFromGPS ? 'GPS' : (_destHasCoords ? 'Geocoding' : 'FEHLT')));
+                await addRideLog(newRef.key, '📍', 'Adressen aufgelöst', {
+                    abholort: rideData.pickup || '?',
+                    abholKoords: _pickupHasCoords ? `${rideData.pickupLat.toFixed(5)}, ${rideData.pickupLon.toFixed(5)}` : 'KEINE',
+                    abholQuelle: _pickupSource,
+                    zielort: rideData.destination || '?',
+                    zielKoords: _destHasCoords ? `${rideData.destinationLat.toFixed(5)}, ${rideData.destinationLon.toFixed(5)}` : 'KEINE',
+                    zielQuelle: _destSource,
+                    strecke: rideData.distance ? `${rideData.distance} km` : 'nicht berechnet',
+                    dauer: rideData.duration ? `${rideData.duration} Min` : 'nicht berechnet',
+                    preis: rideData.price ? `${rideData.price}€` : 'nicht berechnet'
+                });
+            } catch (_addrLogErr) { /* nicht kritisch */ }
+
             // 🆕 v6.25.5: Adressen in Geocache speichern (für zukünftige Suchen)
             if (rideData.pickup && rideData.pickupLat) {
                 saveToGeocache(rideData.pickup, rideData.pickupLat, rideData.pickupLon, 'booking').catch(() => {});
@@ -16440,16 +16504,27 @@ exports.onRideCreated = onValueCreated(
             `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
 
         console.log(`📢 onRideCreated: Sende Admin-Benachrichtigung für ${rideId}...`);
+        let _adminNotifResult = 'unbekannt';
         try {
+            // 🔧 v6.38.45: Admin-Chat-IDs loggen damit man sieht WER benachrichtigt wurde
+            const _adminChatsSnap = await db.ref('settings/telegram/adminChats').once('value');
+            const _rawAdmChats = _adminChatsSnap.val();
+            const _admChatList = Array.isArray(_rawAdmChats) ? _rawAdmChats : (typeof _rawAdmChats === 'object' && _rawAdmChats !== null ? Object.values(_rawAdmChats) : (_rawAdmChats ? [_rawAdmChats] : []));
+
             await sendToAllAdmins(message, 'new_ride');
-            console.log(`✅ onRideCreated: Admin-Benachrichtigung gesendet für ${rideId}`);
+            _adminNotifResult = `gesendet an ${_admChatList.length} Admin(s): ${_admChatList.join(', ')}`;
+            console.log(`✅ onRideCreated: Admin-Benachrichtigung gesendet für ${rideId} an ${_admChatList.length} Admins`);
         } catch (_notifErr) {
+            _adminNotifResult = `FEHLER: ${_notifErr.message}`;
             console.error(`❌ onRideCreated: sendToAllAdmins FEHLER für ${rideId}:`, _notifErr.message, _notifErr.stack);
         }
         await sendToSystemChannel(message, 'new_ride');
 
-        // 🆕 v6.38.31: Lifecycle-Log — Admins benachrichtigt
-        await addRideLog(rideId, '📢', 'Admin-Benachrichtigung gesendet (onRideCreated)', isSofort ? 'SOFORT' : 'VORBESTELLUNG');
+        // 🔧 v6.38.45: Detailliertes Benachrichtigungs-Log
+        await addRideLog(rideId, '📢', `Admin-Benachrichtigung (onRideCreated)`, {
+            typ: isSofort ? 'SOFORT' : 'VORBESTELLUNG',
+            ergebnis: _adminNotifResult
+        });
 
         // 🔧 v6.38.40: Datenqualitäts-Check — Koordinaten + Duration prüfen
         const _hasPickup = ride.pickupLat && ride.pickupLon;
@@ -16555,8 +16630,14 @@ exports.onRideCreated = onValueCreated(
                 `\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
                 `✅ Sie erhalten Updates sobald der Fahrer losfährt!\n` +
                 `📞 Bei Fragen: 038378/22022`;
-            await sendTelegramMessage(customerChatId, customerMsg);
+            const _custMsgResult = await sendTelegramMessage(customerChatId, customerMsg);
             console.log('📱 Kunden-Bestätigung bei Erstellung gesendet:', customerChatId);
+            // 🆕 v6.38.45: Kunden-Benachrichtigung detailliert loggen
+            await addRideLog(rideId, '📱', `Kunden-Telegram gesendet`, {
+                chatId: String(customerChatId),
+                ergebnis: _custMsgResult ? 'gesendet' : 'FEHLGESCHLAGEN',
+                kunde: ride.customerName || '?'
+            });
             try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) { await logError('onRideCreated.customerTgSent', e, { rideId, severity: 'warning' }); }
         }
 

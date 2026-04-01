@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.41';
+const CLOUD_FUNCTIONS_VERSION = '6.38.42';
 const CLOUD_FUNCTIONS_BUILD = '31.03.2026 14:30';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2229,6 +2229,64 @@ function _levenshteinDist(a, b) {
         }
     }
     return dp[m][n];
+}
+
+// 🆕 v6.38.42: Google Maps Link erkennen → Koordinaten + Adresse extrahieren
+function extractGoogleMapsCoords(text) {
+    if (!text) return null;
+    // Format 1: https://www.google.com/maps/place/.../@54.1234,13.5678,17z/...
+    // Format 2: https://maps.google.com/?q=54.1234,13.5678
+    // Format 3: https://www.google.de/maps/@54.1234,13.5678,...
+    // Format 4: https://maps.app.goo.gl/... (short URL — can't resolve server-side)
+    // Format 5: google.com/maps?q=... or maps?ll=...
+    let match;
+    // @lat,lon pattern (most common when sharing from Google Maps)
+    match = text.match(/google\.[a-z.]+\/maps[^\s]*\/@(-?\d+\.\d+),(-?\d+\.\d+)/i);
+    if (match) return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    // ?q=lat,lon or &q=lat,lon
+    match = text.match(/google\.[a-z.]+\/maps[^\s]*[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/i);
+    if (match) return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    // ?ll=lat,lon
+    match = text.match(/google\.[a-z.]+\/maps[^\s]*[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/i);
+    if (match) return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    // place/.../ with coords in URL
+    match = text.match(/google\.[a-z.]+\/maps\/place\/[^@]*@(-?\d+\.\d+),(-?\d+\.\d+)/i);
+    if (match) return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    // Direct coordinate paste: 54.1234, 13.5678 (not in a URL context but could be useful)
+    match = text.match(/^(-?\d{1,3}\.\d{3,8})\s*[,;]\s*(-?\d{1,3}\.\d{3,8})$/);
+    if (match) {
+        const lat = parseFloat(match[1]), lon = parseFloat(match[2]);
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+    }
+    return null;
+}
+
+// 🆕 v6.38.42: Reverse Geocoding — Koordinaten → Adresse
+async function reverseGeocode(lat, lon) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+        const resp = await fetch(url, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        if (!data || data.error) return null;
+        const addr = data.address || {};
+        // Schöne Adresse formatieren
+        let street = addr.road || addr.pedestrian || addr.cycleway || '';
+        const houseNr = addr.house_number || '';
+        const plz = addr.postcode || '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || '';
+        let formatted = '';
+        if (street) {
+            formatted = street + (houseNr ? ' ' + houseNr : '');
+            if (plz || city) formatted += ', ' + (plz ? plz + ' ' : '') + city;
+        } else {
+            formatted = data.display_name || `${lat}, ${lon}`;
+        }
+        return { address: formatted, lat: parseFloat(data.lat), lon: parseFloat(data.lon), raw: data };
+    } catch (e) {
+        console.warn('Reverse Geocoding Fehler:', e.message);
+        return null;
+    }
 }
 
 async function searchNominatimForTelegram(query) {
@@ -4936,6 +4994,53 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     } catch(_e) { /* ignore */ }
                 }
+                // 🆕 v6.38.42: Top-POIs als Quick-Buttons (häufigste Ziele)
+                try {
+                    const _poiSnap = await db.ref('pois').orderByChild('category').limitToFirst(50).once('value');
+                    const _poiData = _poiSnap.val();
+                    if (_poiData) {
+                        const _pickupNormPoi = booking.pickup ? normalizeAddressKey(booking.pickup) : '';
+                        // Beliebte Kategorien: klinik, bahnhof, flughafen, hotel
+                        const _topCategories = ['klinik', 'krankenhaus', 'bahnhof', 'flughafen', 'airport', 'hafen'];
+                        const _allPois = Object.values(_poiData).filter(p => p && p.name && p.lat && p.lon);
+                        // Erst Top-Kategorien, dann alphabetisch
+                        const _relevantPois = _allPois
+                            .filter(p => {
+                                const _pn = normalizeAddressKey(p.address || p.name);
+                                if (_pickupNormPoi && (_pn === _pickupNormPoi || _pn.includes(_pickupNormPoi))) return false;
+                                return true;
+                            })
+                            .sort((a, b) => {
+                                const aTop = _topCategories.some(c => (a.category || '').toLowerCase().includes(c)) ? 0 : 1;
+                                const bTop = _topCategories.some(c => (b.category || '').toLowerCase().includes(c)) ? 0 : 1;
+                                return aTop - bTop || (a.name || '').localeCompare(b.name || '');
+                            })
+                            .slice(0, 4);
+                        if (_relevantPois.length > 0) {
+                            // Prüfe ob diese POIs nicht schon in den Favoriten sind
+                            const _existingBtnTexts = _inlineButtons.flat().map(b => b.text.toLowerCase());
+                            const _poiBtns = _relevantPois
+                                .filter(p => !_existingBtnTexts.some(t => t.includes(p.name.toLowerCase().substring(0, 10))))
+                                .slice(0, 3)
+                                .map((p, i) => ({
+                                    text: '📍 ' + (p.name.length > 28 ? p.name.substring(0, 26) + '…' : p.name),
+                                    callback_data: `poi_dest_${i}`
+                                }));
+                            if (_poiBtns.length > 0) {
+                                // POIs als Pending speichern für Callback-Handler
+                                if (!pending) pending = await getPending(chatId);
+                                if (pending) {
+                                    pending._poiDestOptions = _relevantPois.slice(0, 3).map(p => ({
+                                        name: p.name, address: p.address || p.name,
+                                        lat: p.lat, lon: p.lon
+                                    }));
+                                }
+                                _inlineButtons.push(_poiBtns);
+                            }
+                        }
+                    }
+                } catch(_poiErr) { console.warn('POI-Buttons Fehler:', _poiErr.message); }
+
                 _inlineButtons.push([{ text: '📍 Anderes Ziel (Standort/Adresse)', callback_data: 'dest_other_location' }]);
             } else if (_firstMissing === 'destination') {
                 msg += '\n\n📍 Oder: <b>Büroklammer 📎</b> antippen → <b>Standort senden</b>';
@@ -7861,6 +7966,36 @@ async function handleMessage(message) {
         const fieldLabel = isPickupField ? 'Abholort' : 'Zielort';
         const prefix = isPickupField ? 'np' : 'nd';
 
+        // 🆕 v6.38.42: Google Maps Link erkennen bei Adress-Eingabe
+        const _mapsCoords2 = extractGoogleMapsCoords(text);
+        if (_mapsCoords2) {
+            await sendTelegramMessage(chatId, '🗺️ <i>Google Maps Link erkannt...</i>');
+            const _geo2 = await reverseGeocode(_mapsCoords2.lat, _mapsCoords2.lon);
+            const _addr2 = _geo2 ? _geo2.address : `${_mapsCoords2.lat.toFixed(5)}, ${_mapsCoords2.lon.toFixed(5)}`;
+            const custAddr2 = preselectedCustomer.address || '';
+            const custLat2 = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
+            const custLon2 = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
+            const partialB = {
+                intent: 'buchung',
+                customerName: preselectedCustomer.name,
+                customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
+                customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+            };
+            if (isPickupField) {
+                partialB.pickup = _addr2; partialB.pickupLat = _mapsCoords2.lat; partialB.pickupLon = _mapsCoords2.lon;
+                partialB.destination = custAddr2; if (custLat2) { partialB.destinationLat = custLat2; partialB.destinationLon = custLon2; }
+            } else {
+                partialB.destination = _addr2; partialB.destinationLat = _mapsCoords2.lat; partialB.destinationLon = _mapsCoords2.lon;
+                partialB.pickup = custAddr2; if (custLat2) { partialB.pickupLat = custLat2; partialB.pickupLon = custLon2; }
+            }
+            partialB.missing = ['datetime'];
+            await addTelegramLog('🗺️', chatId, `Google Maps → ${fieldLabel}: ${_addr2}`);
+            await deletePending(chatId);
+            const routePrice2 = await calculateTelegramRoutePrice(partialB);
+            await askPassengersOrConfirm(chatId, partialB, routePrice2, text);
+            return;
+        }
+
         // Partial-Buchung aufbauen: Kunden-Adresse ist das ANDERE Feld (bereits bekannt)
         const custAddr = preselectedCustomer.address || '';
         const custLat = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
@@ -8097,6 +8232,36 @@ async function handleMessage(message) {
         }
     }
 
+    // 🆕 v6.38.42: Google Maps Link erkennen → Koordinaten extrahieren + Adresse auflösen
+    if (pending && pending.partial && !isPendingExpired(pending)) {
+        const _mapsCoords = extractGoogleMapsCoords(text);
+        if (_mapsCoords) {
+            const _needField = pending.partial.missing?.includes('pickup') ? 'pickup'
+                : pending.partial.missing?.includes('destination') ? 'destination' : null;
+            if (_needField) {
+                await sendTelegramMessage(chatId, '🗺️ <i>Google Maps Link erkannt, löse Adresse auf...</i>');
+                const _geo = await reverseGeocode(_mapsCoords.lat, _mapsCoords.lon);
+                const _addr = _geo ? _geo.address : `${_mapsCoords.lat.toFixed(5)}, ${_mapsCoords.lon.toFixed(5)}`;
+                if (_needField === 'pickup') {
+                    pending.partial.pickup = _addr;
+                    pending.partial.pickupLat = _mapsCoords.lat;
+                    pending.partial.pickupLon = _mapsCoords.lon;
+                    pending.partial.missing = (pending.partial.missing || []).filter(f => f !== 'pickup');
+                } else {
+                    pending.partial.destination = _addr;
+                    pending.partial.destinationLat = _mapsCoords.lat;
+                    pending.partial.destinationLon = _mapsCoords.lon;
+                    pending.partial.missing = (pending.partial.missing || []).filter(f => f !== 'destination');
+                }
+                delete pending.nominatimResults;
+                await addTelegramLog('🗺️', chatId, `Google Maps → ${_needField}: ${_addr} (${_mapsCoords.lat}, ${_mapsCoords.lon})`);
+                await setPending(chatId, pending);
+                await continueBookingFlow(chatId, pending.partial, pending.originalText || text);
+                return;
+            }
+        }
+    }
+
     // 🔧 v6.38.9: Wenn Adress-Vorschläge warten und User schreibt Text → direkte neue Adresssuche (kein KI-Follow-Up)
     if (pending && pending.partial && pending.nominatimResults && !isPendingExpired(pending)) {
         const _needField = pending.partial.missing?.includes('pickup') ? 'pickup' : 'destination';
@@ -8153,6 +8318,22 @@ async function handleMessage(message) {
         await addTelegramLog('🔄', chatId, 'Follow-Up Analyse');
         await sendTelegramMessage(chatId, '🤖 <i>Ergänze fehlende Infos...</i>');
         await analyzeTelegramFollowUp(chatId, text, userName, pending);
+        return;
+    }
+
+    // 🆕 v6.38.42: Google Maps Link als neue Buchung (ohne Pending)
+    const _mapsNewCoords = extractGoogleMapsCoords(text);
+    if (_mapsNewCoords) {
+        const _geoNew = await reverseGeocode(_mapsNewCoords.lat, _mapsNewCoords.lon);
+        const _addrNew = _geoNew ? _geoNew.address : `${_mapsNewCoords.lat.toFixed(5)}, ${_mapsNewCoords.lon.toFixed(5)}`;
+        await sendTelegramMessage(chatId, `🗺️ <b>Google Maps Link erkannt!</b>\n📍 ${_addrNew}\n\n<i>Soll das der Abholort oder das Ziel sein?</i>`, {
+            reply_markup: { inline_keyboard: [
+                [{ text: '📍 Als Abholort', callback_data: 'maps_as_pickup' }, { text: '🎯 Als Ziel', callback_data: 'maps_as_dest' }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ]}
+        });
+        await setPending(chatId, { _mapsAddress: _addrNew, _mapsLat: _mapsNewCoords.lat, _mapsLon: _mapsNewCoords.lon, _createdAt: Date.now() });
+        await addTelegramLog('🗺️', chatId, `Google Maps Link: ${_addrNew} (${_mapsNewCoords.lat}, ${_mapsNewCoords.lon})`);
         return;
     }
 
@@ -11054,6 +11235,65 @@ async function handleCallback(callback) {
         return;
     }
 
+    // 🆕 v6.38.42: Google Maps Link → Als Abholort oder Ziel verwenden
+    if (data === 'maps_as_pickup' || data === 'maps_as_dest') {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._mapsAddress) {
+            await sendTelegramMessage(chatId, '⚠️ Maps-Adresse nicht mehr verfügbar. Bitte Link erneut senden.');
+            return;
+        }
+        const isPickup = data === 'maps_as_pickup';
+        const booking = {
+            intent: 'buchung',
+            missing: isPickup ? ['destination', 'datetime'] : ['pickup', 'datetime']
+        };
+        if (isPickup) {
+            booking.pickup = pending._mapsAddress;
+            booking.pickupLat = pending._mapsLat;
+            booking.pickupLon = pending._mapsLon;
+        } else {
+            booking.destination = pending._mapsAddress;
+            booking.destinationLat = pending._mapsLat;
+            booking.destinationLon = pending._mapsLon;
+        }
+        // Kunden-Daten laden falls vorhanden
+        const _mapsCust = await getTelegramCustomer(chatId);
+        if (_mapsCust) {
+            booking.customerName = _mapsCust.name;
+            booking.customerPhone = _mapsCust.phone || _mapsCust.mobilePhone || '';
+        }
+        await addTelegramLog('🗺️', chatId, `Maps → ${isPickup ? 'Abholort' : 'Ziel'}: ${pending._mapsAddress}`);
+        await deletePending(chatId);
+        await continueBookingFlow(chatId, booking, pending._mapsAddress);
+        return;
+    }
+
+    // 🆕 v6.38.42: POI-Ziel aus Quick-Buttons gewählt
+    if (data.startsWith('poi_dest_')) {
+        const _poiIdx = parseInt(data.replace('poi_dest_', ''));
+        const pending = await getPending(chatId);
+        if (!pending || !pending.partial) {
+            await sendTelegramMessage(chatId, '⚠️ Anfrage abgelaufen. Bitte nochmal starten.');
+            return;
+        }
+        const _poiOptions = pending._poiDestOptions;
+        if (!_poiOptions || !_poiOptions[_poiIdx]) {
+            await sendTelegramMessage(chatId, '⚠️ POI nicht mehr verfügbar.');
+            return;
+        }
+        const _selectedPoi = _poiOptions[_poiIdx];
+        pending.partial.destination = _selectedPoi.address || _selectedPoi.name;
+        pending.partial.destinationLat = _selectedPoi.lat;
+        pending.partial.destinationLon = _selectedPoi.lon;
+        pending.partial.missing = (pending.partial.missing || []).filter(f => f !== 'destination');
+        delete pending._poiDestOptions;
+        delete pending.nominatimResults;
+        await addTelegramLog('📍', chatId, `POI-Ziel gewählt: ${_selectedPoi.name}`);
+        await setPending(chatId, pending);
+        await continueBookingFlow(chatId, pending.partial, pending.originalText || _selectedPoi.name);
+        return;
+    }
+
     // 🔧 v6.11.0: Rückfahrt buchen (Von ↔ Nach tauschen)
     // 🆕 v6.38.9: Buchungsbestätigung per Email senden
     if (data.startsWith('email_ride_')) {
@@ -11137,6 +11377,18 @@ async function handleCallback(callback) {
             }
             // Rückfahrt-Text zusammenbauen: Von und Nach getauscht
             const returnText = `${origRide.destination} nach ${origRide.pickup}`;
+            // 🔧 v6.38.42: Personenzahl + Datum VOR Verwendung deklarieren (Fix: ReferenceError)
+            const origPassengers = parseInt(origRide.passengers) || 1;
+            const origDatetime = origRide.datetime || origRide.scheduledTime || null;
+            // Datum aus der Originalfahrt extrahieren (für "nur Uhrzeit" → gleicher Tag)
+            let _returnOrigDate = null;
+            if (origDatetime) {
+                const _dt = new Date(origDatetime);
+                if (!isNaN(_dt.getTime())) {
+                    const _pad = n => String(n).padStart(2, '0');
+                    _returnOrigDate = `${_dt.getFullYear()}-${_pad(_dt.getMonth()+1)}-${_pad(_dt.getDate())}`;
+                }
+            }
             // 🔧 v6.15.5: Datum + Personenzahl aus Hinfahrt anzeigen
             let _returnDateHint = '';
             if (_returnOrigDate) {
@@ -11155,18 +11407,6 @@ async function handleCallback(callback) {
                     // 🔧 v6.14.7: mobilePhone bevorzugen
                     if (_rcData && (_rcData.mobilePhone || _rcData.phone)) _returnPhone = _rcData.mobilePhone || _rcData.phone;
                 } catch (_e) { /* ignore */ }
-            }
-            // 🔧 v6.15.5: Personenzahl + Datum der Originalfahrt übernehmen
-            const origPassengers = parseInt(origRide.passengers) || 1;
-            const origDatetime = origRide.datetime || origRide.scheduledTime || null;
-            // Datum aus der Originalfahrt extrahieren (für "nur Uhrzeit" → gleicher Tag)
-            let _returnOrigDate = null;
-            if (origDatetime) {
-                const _dt = new Date(origDatetime);
-                if (!isNaN(_dt.getTime())) {
-                    const _pad = n => String(n).padStart(2, '0');
-                    _returnOrigDate = `${_dt.getFullYear()}-${_pad(_dt.getMonth()+1)}-${_pad(_dt.getDate())}`;
-                }
             }
             const returnBooking = {
                 pickup: origRide.destination,

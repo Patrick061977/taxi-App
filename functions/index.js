@@ -4863,6 +4863,8 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
             // 🆕 v6.14.0: Inline-Buttons für Abholort/Zielort mit Zuhause-Frage
             const _inlineButtons = [];
+            let _favDestsForPending = null; // 🔧 v6.38.43: Für fav_dest Buttons im Pending
+            let _knownCust2 = null; // 🔧 v6.38.43: Für Favoriten-Pending
 
             // 🆕 v6.14.0: ABHOLORT → Frage "Von zu Hause oder anderer Ort?"
             // 🔧 v6.25.5: Auch im Admin-Modus! Admin bucht FÜR Kunden → dessen Adresse zeigen
@@ -4940,7 +4942,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 // 🔧 v6.38.8: _pendingData ist out-of-scope (nur in pickup-Block) → neu laden
                 const _pendingData2 = await getPending(chatId);
                 const _preselected2 = _pendingData2?.preselectedCustomer || null;
-                let _knownCust2 = _preselected2 || await getTelegramCustomer(chatId);
+                _knownCust2 = _preselected2 || await getTelegramCustomer(chatId);
                 // 🆕 v6.38.8: KI hat customerId erkannt (Stammkunde) → CRM-Daten direkt laden
                 const _destCrmId = booking.customerId || booking._crmCustomerId;
                 if (_destCrmId && (!_knownCust2 || !_knownCust2.address)) {
@@ -5009,6 +5011,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // Gelegenheitskunde → KEIN "Nach Hause"-Button (Bahnhof etc. ist keine Wohnadresse)
                 }
                 // Favoriten-Ziele
+                // 🔧 v6.38.43: Favoriten-Buttons mit Booking-ID + awaitingFavDestination setzen
                 const _custId2 = _knownCust2?.customerId || (_preselected2 ? booking._crmCustomerId : null);
                 if (_custId2 || (_knownCust2 && _knownCust2.name)) {
                     try {
@@ -5024,9 +5027,11 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             return true;
                         });
                         if (favDests && favDests.length > 0) {
-                            const destBtns = favDests.slice(0, 3).map((d, i) => ({
-                                text: '⭐ ' + (d.name || d.address || '').substring(0, 30),
-                                callback_data: 'fav_dest_' + i
+                            _favDestsForPending = favDests.slice(0, 3);
+                            const _favBtnId = pending.bookingId || String(Date.now()).slice(-8);
+                            const destBtns = _favDestsForPending.map((d, i) => ({
+                                text: '⭐ ' + (d.name || d.destination || '').substring(0, 30),
+                                callback_data: `fav_dest_${i}_${_favBtnId}`
                             }));
                             _inlineButtons.push(destBtns);
                         }
@@ -5096,7 +5101,18 @@ async function continueBookingFlow(chatId, booking, originalText) {
             _backRow.push({ text: '❌ Abbrechen', callback_data: 'cancel_booking' });
             _inlineButtons.push(_backRow);
 
-            await setPending(chatId, { partial: booking, originalText, lastQuestion: booking.question || null });
+            // 🔧 v6.38.43: Favoriten + POIs im Pending speichern für Callback-Handler
+            const _pendingUpdate = { partial: booking, originalText, lastQuestion: booking.question || null };
+            if (_favDestsForPending && _favDestsForPending.length > 0 && _firstMissing === 'destination') {
+                _pendingUpdate.awaitingFavDestination = true;
+                _pendingUpdate.favorites = _favDestsForPending;
+                _pendingUpdate.preselectedCustomer = _knownCust2 || null;
+                _pendingUpdate.userName = booking.name || (booking._adminBooked ? 'Admin' : 'Kunde');
+            }
+            if (pending && pending._poiDestOptions) {
+                _pendingUpdate._poiDestOptions = pending._poiDestOptions;
+            }
+            await setPending(chatId, _pendingUpdate);
             await sendTelegramMessage(chatId, msg, {
                 reply_markup: { inline_keyboard: _inlineButtons }
             });

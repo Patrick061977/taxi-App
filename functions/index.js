@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.43';
-const CLOUD_FUNCTIONS_BUILD = '01.04.2026 14:00';
+const CLOUD_FUNCTIONS_VERSION = '6.38.45';
+const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -599,19 +599,32 @@ async function autoAssignRide(rideId, rideData) {
 
         for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
             console.log(`\n   ═══ Prüfe ${info.name} (${vehicleId}) ═══`);
+
+            // 🆕 v6.38.45: Fahrzeug-Level Deaktivierung prüfen
+            // Admin kann in Firebase /vehicles/{id}/active = false setzen → komplett von Auto-Zuweisung ausgeschlossen
+            const _vData = vehicles[vehicleId] || {};
+            if (_vData.active === false || _vData.deactivated === true) {
+                console.log(`   ❌ ${info.name}: Fahrzeug DEAKTIVIERT (active=${_vData.active}, deactivated=${_vData.deactivated})`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrzeug deaktiviert', check: 'deactivated' };
+                continue;
+            }
+
             if (info.capacity < passengers) {
                 console.log(`   ❌ ${info.name}: Kapazität ${info.capacity} < ${passengers} Personen`);
                 vehicleScores[vehicleId] = { status: 'rejected', reason: `Kapazität ${info.capacity} < ${passengers} Personen`, check: 'capacity' };
                 continue;
             }
 
-            // 🔧 v6.37.1: Sofortfahrt → Fahrer muss online und NICHT in Pause sein
+            // 🔧 v6.38.45: Sofortfahrt → Fahrer muss AKTIV online sein (strenger Check!)
+            // Vorher: online === false → nur explizites false erkannt. undefined/null ging durch!
+            // Jetzt: Fahrzeug MUSS online === true ODER GPS < 10 Min haben
             if (isSofort) {
-                const _vData = vehicles[vehicleId] || {};
                 const _isPaused = _vData.shift && _vData.shift.status === 'paused';
-                const _isOffline = _vData.online === false;
+                const _hasRecentGPS = _vData.timestamp && (Date.now() - _vData.timestamp <= MAX_GPS_AGE);
+                const _isExplicitlyOnline = _vData.online === true;
+                const _isOffline = !_isExplicitlyOnline && !_hasRecentGPS;
                 if (_isPaused || _isOffline) {
-                    const _reason = _isPaused ? 'Fahrer in Pause' : 'Fahrer offline';
+                    const _reason = _isPaused ? 'Fahrer in Pause' : (_isExplicitlyOnline ? 'Kein GPS' : `Fahrer nicht online (online=${_vData.online}, GPS=${_vData.timestamp ? Math.round((Date.now() - _vData.timestamp) / 60000) + ' Min alt' : 'nie'})`);
                     console.log(`   ❌ ${info.name}: ${_reason} — Sofortfahrt nicht möglich`);
                     vehicleScores[vehicleId] = { status: 'rejected', reason: _reason, check: 'online-pause' };
                     continue;
@@ -762,10 +775,44 @@ async function autoAssignRide(rideId, rideData) {
         let drivingTimeMin = 0;
 
         if (isSofort) {
-            candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority);
+            // 🔧 v6.38.45: Prioritäts-Vorsprung AUCH bei Sofortfahrten!
+            // Vorher: nur Distanz → Prio 2 Fahrzeug (0.4 km) schlug Prio 1 (5 km)
+            // Jetzt: Score = Fahrzeit (Min) + (Prio - 1) * priorityAdvantageMin
+            // Beispiel: Prio-Vorsprung 10 Min → Tesla (Prio 2): 3 Min + 10 = 13 | Prius IK (Prio 1): 8 Min + 0 = 8 → Prius gewinnt!
+            let bestScore = Infinity;
             best = candidates[0];
-            // 🔧 v6.38.9: 999 km = kein GPS-Standort → sinnvolle Fallback-Zeit (10 Min)
-            drivingTimeMin = best.distance >= 999 ? 10 : Math.max(3, Math.round((best.distance / 40) * 60));
+            for (const cand of candidates) {
+                const prio = getVehiclePrio(cand.vehicleId);
+                const prioPenalty = (prio - 1) * priorityAdvantageMin;
+                const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
+                const score = estDrivingMin + prioPenalty;
+
+                // vehicleScores aktualisieren
+                if (vehicleScores[cand.vehicleId]) {
+                    Object.assign(vehicleScores[cand.vehicleId], {
+                        distanceKm: Math.round(cand.distance * 10) / 10,
+                        drivingTimeMin: estDrivingMin,
+                        priorityPenalty: prioPenalty,
+                        posSource: cand.posSource,
+                        totalScore: score
+                    });
+                }
+
+                console.log(`   📊 ${cand.name}: ${cand.distance < 999 ? cand.distance.toFixed(1) + ' km' : 'kein GPS'} → ${estDrivingMin} Min Fahrzeit + ${prioPenalty} Min Prio-Penalty = Score ${score} [P${prio}, ${cand.posSource}]`);
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = cand;
+                    drivingTimeMin = estDrivingMin;
+                }
+            }
+
+            // Gewähltes Fahrzeug markieren
+            if (vehicleScores[best.vehicleId]) {
+                vehicleScores[best.vehicleId].status = 'chosen';
+            }
+
+            console.log(`   🏆 Bestes Fahrzeug: ${best.name} (Score: ${bestScore}, Distanz: ${best.distance < 999 ? best.distance.toFixed(1) + ' km' : 'kein GPS'})`);
         } else {
             // 🔧 v6.25.4: Vorbestellung mit Smart Routing + Prioritäts-Penalty (wie Browser)
             // Score = Leerfahrt (Min) + (Prio - 1) * priorityAdvantageMin → niedrigster Score gewinnt
@@ -1466,6 +1513,130 @@ async function addRideLog(rideId, icon, action, details = null) {
         };
         await db.ref(`rides/${rideId}/lifecycleLog`).push(entry);
     } catch (e) { /* Log-Fehler ignorieren */ }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.44: ZENTRALES FEHLERANALYSE-SYSTEM
+// Alle Fehler werden in Firebase gespeichert + Admin wird alarmiert
+// ═══════════════════════════════════════════════════════════════
+
+// Schweregrade: 'critical' (Admin-Alert sofort), 'error' (geloggt + täglicher Bericht), 'warning' (nur geloggt)
+const _errorRateLimit = {}; // Schutz gegen Endlos-Loops: max 1 Alert pro Funktion pro 5 Min
+
+async function logError(functionName, error, context = {}) {
+    const now = Date.now();
+    const severity = context.severity || 'error';
+    const dayKey = getTodayLogKey();
+
+    const entry = {
+        t: now,
+        ts: new Date(now).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }),
+        fn: functionName,
+        severity,
+        msg: error?.message || String(error),
+        stack: (error?.stack || '').substring(0, 1000),
+        chatId: context.chatId ? String(context.chatId) : null,
+        rideId: context.rideId || null,
+        data: context.data ? JSON.stringify(context.data).substring(0, 500) : null,
+        pendingState: context.pendingState ? JSON.stringify(context.pendingState).substring(0, 300) : null,
+        version: CLOUD_FUNCTIONS_VERSION
+    };
+
+    // 1. In Firebase speichern: /errorLogs/{datum}/{id}
+    try {
+        await db.ref(`errorLogs/${dayKey}`).push(entry);
+    } catch (e2) {
+        console.error('❌ logError: Firebase-Write fehlgeschlagen:', e2.message);
+    }
+
+    // 2. Console-Log (für Cloud Logging / GCP)
+    const logPrefix = severity === 'critical' ? '🔴 CRITICAL' : (severity === 'warning' ? '⚠️ WARNING' : '❌ ERROR');
+    console.error(`${logPrefix} [${functionName}] ${entry.msg}`, entry.stack ? `\n${entry.stack}` : '');
+
+    // 3. Admin-Alert bei kritischen Fehlern (Rate-Limited: max 1 pro 5 Min pro Funktion)
+    if (severity === 'critical') {
+        const rateKey = `${functionName}_${Math.floor(now / 300000)}`; // 5-Min-Fenster
+        if (!_errorRateLimit[rateKey]) {
+            _errorRateLimit[rateKey] = true;
+            try {
+                const alertMsg = `🔴 <b>KRITISCHER FEHLER!</b>\n\n` +
+                    `⚙️ <b>Funktion:</b> ${functionName}\n` +
+                    `❌ <b>Fehler:</b> ${entry.msg}\n` +
+                    (context.chatId ? `💬 <b>Chat:</b> ${context.chatId}\n` : '') +
+                    (context.rideId ? `🚕 <b>Fahrt:</b> ${context.rideId}\n` : '') +
+                    `🕐 <b>Zeit:</b> ${entry.ts}\n` +
+                    `📦 <b>Version:</b> v${CLOUD_FUNCTIONS_VERSION}\n\n` +
+                    (entry.stack ? `<pre>${entry.stack.substring(0, 300)}</pre>\n\n` : '') +
+                    `💡 <i>Fehlerlog: Firebase → errorLogs/${dayKey}</i>`;
+                await sendToAllAdmins(alertMsg);
+            } catch (e3) {
+                console.error('❌ logError: Admin-Alert fehlgeschlagen:', e3.message);
+            }
+        }
+    }
+
+    // 4. Lifecycle-Log wenn Ride vorhanden
+    if (context.rideId) {
+        await addRideLog(context.rideId, '❌', `Fehler in ${functionName}: ${entry.msg}`);
+    }
+
+    // Cleanup: alte Rate-Limit-Keys entfernen (älter als 10 Min)
+    for (const key of Object.keys(_errorRateLimit)) {
+        const keyTime = parseInt(key.split('_').pop()) * 300000;
+        if (now - keyTime > 600000) delete _errorRateLimit[key];
+    }
+}
+
+// 🆕 v6.38.44: Daten-Inkonsistenz melden (Strecke fehlt, Preis fehlt, etc.)
+async function logDataInconsistency(rideId, ride, issues) {
+    const dayKey = getTodayLogKey();
+    const entry = {
+        t: Date.now(),
+        ts: new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }),
+        type: 'data_inconsistency',
+        rideId,
+        customer: ride?.customerName || '?',
+        pickup: ride?.pickup || '?',
+        destination: ride?.destination || '?',
+        issues,
+        version: CLOUD_FUNCTIONS_VERSION
+    };
+
+    try {
+        await db.ref(`errorLogs/${dayKey}`).push(entry);
+    } catch (e) { /* ignore */ }
+
+    // Admin warnen wenn schwerwiegend
+    if (issues.length > 0) {
+        const warnMsg = `⚠️ <b>DATEN-INKONSISTENZ</b>\n\n` +
+            `🚕 Fahrt: <b>${ride?.customerName || '?'}</b>\n` +
+            `📍 ${ride?.pickup || '?'} → ${ride?.destination || '?'}\n\n` +
+            issues.map(i => `❌ ${i}`).join('\n') +
+            `\n\n🔧 <i>Bitte Fahrt prüfen: ${rideId}</i>`;
+        try {
+            await sendToAllAdmins(warnMsg);
+        } catch (e) { /* ignore */ }
+        await addRideLog(rideId, '⚠️', `Daten-Inkonsistenz: ${issues.join(', ')}`);
+    }
+}
+
+// 🆕 v6.38.44: ErrorLogs automatisch aufräumen (max 7 Tage behalten)
+async function trimErrorLogs() {
+    try {
+        const snap = await db.ref('errorLogs').once('value');
+        const logs = snap.val();
+        if (!logs) return;
+        const now = new Date();
+        const cutoff = new Date(now);
+        cutoff.setDate(cutoff.getDate() - 7);
+        const cutoffKey = cutoff.toISOString().slice(0, 10);
+        for (const dayKey of Object.keys(logs)) {
+            if (dayKey < cutoffKey) {
+                await db.ref(`errorLogs/${dayKey}`).remove();
+                console.log(`🧹 ErrorLogs gelöscht: ${dayKey}`);
+            }
+        }
+    } catch (e) { /* ignore */ }
 }
 
 function trimTelegramLogs(currentDay) {
@@ -4447,7 +4618,10 @@ Nur gültiges JSON, kein Markdown:
 // ═══════════════════════════════════════════════════════════════
 
 async function continueBookingFlow(chatId, booking, originalText) {
+    // 🔧 v6.38.44: pending auf Funktions-Ebene deklarieren — verhindert "pending is not defined"
+    let pending = null;
     try {
+        pending = await getPending(chatId);
         if (!booking.missing) booking.missing = [];
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
@@ -5028,7 +5202,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         });
                         if (favDests && favDests.length > 0) {
                             _favDestsForPending = favDests.slice(0, 3);
-                            const _favBtnId = pending.bookingId || String(Date.now()).slice(-8);
+                            const _favBtnId = (pending && pending.bookingId) || String(Date.now()).slice(-8);
                             const destBtns = _favDestsForPending.map((d, i) => ({
                                 text: '⭐ ' + (d.name || d.destination || '').substring(0, 30),
                                 callback_data: `fav_dest_${i}_${_favBtnId}`
@@ -9759,9 +9933,9 @@ async function handleCallback(callback) {
                                     sendTelegramMessage(adminChatId, _urgentMsg, { reply_markup: { inline_keyboard: _assignButtons } }).catch(e => console.error('❌ Sofort-Push Fehler:', adminChatId, e.message));
                                 }
                                 // System-Kanal (ohne Buttons)
-                                sendToSystemChannel(_urgentMsg, 'new_ride').catch(() => {});
+                                sendToSystemChannel(_urgentMsg, 'new_ride').catch(e => logError('sendToSystemChannel', e, { rideId: rideData.id }));
                             }
-                        } catch (_e) { console.error('Admin-Sofort-Push Fehler:', _e.message); }
+                        } catch (_e) { await logError('adminSofortPush', _e, { chatId, rideId: rideData.id, severity: 'error' }); }
 
                         await addTelegramLog('🚨', chatId, `Sofortfahrt: Kein Fahrer auto-zugewiesen → Admin-Vermittlung`);
                     } else {
@@ -9777,7 +9951,7 @@ async function handleCallback(callback) {
 
             // Kunden-Erkennung
             if (!booking._adminBooked && (booking.phone || booking.name)) {
-                linkTelegramChatToCustomer(chatId, booking).catch(() => {});
+                linkTelegramChatToCustomer(chatId, booking).catch(e => logError('linkTelegramChatToCustomer', e, { chatId }));
             }
 
             // 🔧 v6.38.43: Admin-Benachrichtigung wird von onRideCreated-Trigger gesendet
@@ -9938,7 +10112,7 @@ async function handleCallback(callback) {
             // Route neu berechnen
             let newRoutePrice = null;
             if (b.pickupLat && b.destinationLat) {
-                try { newRoutePrice = await calculateRoutePrice(b); } catch(e) {}
+                try { newRoutePrice = await calculateRoutePrice(b); } catch(e) { await logError('swapRouteCalc', e, { chatId, severity: 'warning' }); }
             }
             swapPending.routePrice = newRoutePrice;
             await setPending(chatId, swapPending);
@@ -14318,7 +14492,25 @@ exports.telegramWebhook = onRequest(
                 }
             }
         } catch (err) {
-            console.error('Webhook-Fehler:', err);
+            // 🔧 v6.38.44: Zentrales Error-Logging statt nur console.error
+            const _errChatId = update?.callback_query?.from?.id || update?.message?.from?.id || update?.message?.chat?.id || null;
+            const _errContext = {
+                chatId: _errChatId,
+                severity: 'critical',
+                data: {
+                    updateType: update?.callback_query ? 'callback' : (update?.message?.text ? 'text' : (update?.message?.voice ? 'voice' : 'other')),
+                    callbackData: update?.callback_query?.data?.substring(0, 100),
+                    messageText: update?.message?.text?.substring(0, 100)
+                }
+            };
+            // Pending-State für Debugging holen
+            if (_errChatId) {
+                try {
+                    const _errPending = await db.ref(`settings/telegram/pending/${_errChatId}`).once('value');
+                    _errContext.pendingState = _errPending.val();
+                } catch (e) { /* ignore */ }
+            }
+            await logError('telegramWebhook', err, _errContext);
         }
 
         // Immer 200 zurückgeben (sonst wiederholt Telegram den Request)
@@ -15724,6 +15916,14 @@ exports.scheduledAutoAssign = onSchedule(
                 const pickupDateStr = pickupBerlin.getFullYear() + '-' + String(pickupBerlin.getMonth()+1).padStart(2,'0') + '-' + String(pickupBerlin.getDate()).padStart(2,'0');
                 const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
 
+                // 🆕 v6.38.45: Deaktiviertes Fahrzeug → umplanen!
+                const _vehData = vehiclesData[vid] || {};
+                if (_vehData.active === false || _vehData.deactivated === true) {
+                    const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
+                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} ist DEAKTIVIERT → umplanen!`);
+                    return true;
+                }
+
                 // 🔧 v6.38.29: Inkonsistenz-Check — wenn assignedVehicle ≠ vehicleId, BEIDE prüfen
                 const vid2 = r.vehicleId && r.assignedVehicle && r.vehicleId !== r.assignedVehicle ? r.vehicleId : null;
                 if (vid2) {
@@ -16224,6 +16424,7 @@ exports.onRideCreated = onValueCreated(
                 `⚠️ Route kann NICHT berechnet werden!\nBitte Koordinaten manuell prüfen.`;
             await sendToAllAdmins(_warnMsg);
             await addRideLog(rideId, '⚠️', `Fehlende Daten: ${_missing.join(', ')}`, 'Route nicht berechenbar');
+            await logDataInconsistency(rideId, ride, _missing.map(m => `${m} fehlt`));
         } else if (!_hasDuration && _hasPickup && _hasDest) {
             // Koordinaten da aber keine Duration → Route nachberechnen
             try {
@@ -16244,7 +16445,7 @@ exports.onRideCreated = onValueCreated(
                     ride.distance = _calcRoute.distance;
                 }
             } catch(e) {
-                console.warn(`⚠️ onRideCreated: Route-Nachberechnung fehlgeschlagen für ${rideId}:`, e.message);
+                await logError('onRideCreated.routeCalc', e, { rideId, severity: 'error' });
             }
         } else if (_hasDuration && _hasPickup && _hasDest) {
             // Duration vorhanden — Plausibilitäts-Check: stimmt die Dauer zur Strecke?
@@ -16277,8 +16478,15 @@ exports.onRideCreated = onValueCreated(
                     }
                 }
             } catch(e) {
-                console.warn(`⚠️ Plausibilitäts-Check fehlgeschlagen:`, e.message);
+                await logError('onRideCreated.plausibilityCheck', e, { rideId, severity: 'warning' });
             }
+        }
+
+        // 🆕 v6.38.44: Echtzeit-Konsistenz-Prüfung (Strecke fehlt? Preis fehlt? Status falsch?)
+        try {
+            await validateRideConsistency(rideId, ride);
+        } catch (e) {
+            await logError('validateRideConsistency', e, { rideId, severity: 'warning' });
         }
 
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
@@ -16304,13 +16512,13 @@ exports.onRideCreated = onValueCreated(
                 `📞 Bei Fragen: 038378/22022`;
             await sendTelegramMessage(customerChatId, customerMsg);
             console.log('📱 Kunden-Bestätigung bei Erstellung gesendet:', customerChatId);
-            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) {}
+            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) { await logError('onRideCreated.customerTgSent', e, { rideId, severity: 'warning' }); }
         }
 
         // Flag setzen damit Browser nicht nochmal sendet
         try {
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
-        } catch (e) { /* non-critical */ }
+        } catch (e) { await logError('onRideCreated.cloudNotifSent', e, { rideId, severity: 'warning' }); }
 
         // 🔧 v6.25.4: Auto-Zuweisung für Vorbestellungen direkt in Cloud
         // Browser macht das nicht mehr wenn Webhook aktiv
@@ -16359,11 +16567,17 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
-        // 🆕 v6.25.5: Schicht-Check bei JEDER Änderung einer zugewiesenen Fahrt
-        // Prüft ob das Fahrzeug zum Abholzeitpunkt passt (egal was sich geändert hat)
-        // NUR gesperrte Fahrzeuge (assignmentLocked) werden NICHT angefasst!
-        // Admin-Zuweisungen werden auch geprüft solange nicht gesperrt.
-        if (newVehicle && after.pickupTimestamp && !after.assignmentLocked) {
+        // 🆕 v6.25.5: Schicht-Check bei Änderung einer zugewiesenen Fahrt
+        // 🔧 v6.38.44: Admin-manuelle Zuweisungen werden NICHT mehr automatisch umgeplant!
+        // Nur auto-assigns (cloud-auto-assign, auto-assign, cloud-auto-replan) werden geprüft.
+        // Admin kann über "Sperren" Button zusätzlich schützen.
+        // 🔧 v6.38.44: Nur automatische Zuweisungen dürfen vom System korrigiert werden
+        const _autoAssignSources = ['cloud-auto-assign', 'auto-assign', 'cloud-auto-replan', 'auto-replan', 'cloud-auto-optimize', 'cloud-scheduled-auto-assign'];
+        const _isAutoAssign = _autoAssignSources.includes(after.assignedBy);
+        // Manuelle Zuweisungen (Admin, Telegram-Admin, qassign, etc.) werden NICHT angefasst
+        const _isManualAssign = !_isAutoAssign && after.assignedBy;
+        const _skipSchichtCheck = after.assignmentLocked || _isManualAssign;
+        if (newVehicle && after.pickupTimestamp && !_skipSchichtCheck) {
             try {
                 const shiftsSnap = await db.ref('vehicleShifts').once('value');
                 const shiftsData = shiftsSnap.val() || {};
@@ -16399,7 +16613,7 @@ exports.onRideUpdated = onValueUpdated(
                     await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
                     return;
                 }
-            } catch(e) { console.warn('Schicht-Check Fehler:', e.message); }
+            } catch(e) { await logError('onRideUpdated.schichtCheck', e, { rideId, severity: 'warning' }); }
         }
 
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
@@ -17773,6 +17987,42 @@ exports.dailySystemCheck = onSchedule(
             }
 
             // ═══════════════════════════════════════
+            // 7. ERROR-LOG ZUSAMMENFASSUNG (letzte 24h)
+            // ═══════════════════════════════════════
+            let errorCount24h = 0;
+            let criticalErrors24h = 0;
+            let topErrorFunctions = {};
+            try {
+                const yesterdayKey = new Date(now - 86400000).toISOString().slice(0, 10);
+                const todayKey = getTodayLogKey();
+                for (const dayKey of [yesterdayKey, todayKey]) {
+                    const errSnap = await db.ref(`errorLogs/${dayKey}`).once('value');
+                    const errLogs = errSnap.val() || {};
+                    for (const [, entry] of Object.entries(errLogs)) {
+                        if (entry.t && entry.t > now - 86400000) {
+                            errorCount24h++;
+                            if (entry.severity === 'critical') criticalErrors24h++;
+                            if (entry.fn) {
+                                topErrorFunctions[entry.fn] = (topErrorFunctions[entry.fn] || 0) + 1;
+                            }
+                        }
+                    }
+                }
+                if (errorCount24h > 0) {
+                    issues.push(`🔴 ${errorCount24h} Fehler in den letzten 24h (${criticalErrors24h} kritisch)`);
+                    // Top-3 Fehlerquellen
+                    const topErrors = Object.entries(topErrorFunctions).sort((a, b) => b[1] - a[1]).slice(0, 3);
+                    for (const [fn, count] of topErrors) {
+                        issues.push(`   ↳ ${fn}: ${count}x`);
+                    }
+                }
+                // ErrorLogs aufräumen (max 7 Tage)
+                await trimErrorLogs();
+            } catch (e) {
+                console.warn('⚠️ ErrorLog-Zusammenfassung fehlgeschlagen:', e.message);
+            }
+
+            // ═══════════════════════════════════════
             // BERICHT SENDEN
             // ═══════════════════════════════════════
             const statusEmoji = issues.length === 0 ? '✅' : (issues.length <= 3 ? '⚠️' : '🔴');
@@ -17783,7 +18033,8 @@ exports.dailySystemCheck = onSchedule(
                 `   📅 ${todayRides} Fahrten heute (${todayCompleted} erledigt, ${todayUnassigned} ohne Fahrer)\n` +
                 `   🚗 ${stats.vehicles} Fahrzeuge\n` +
                 `   👥 ${stats.customers} CRM-Kunden\n` +
-                `   📱 ${stats.pendings} aktive Telegram-Buchungen\n`;
+                `   📱 ${stats.pendings} aktive Telegram-Buchungen\n` +
+                (errorCount24h > 0 ? `   🔴 ${errorCount24h} Fehler (${criticalErrors24h} kritisch)\n` : `   ✅ Keine Fehler in 24h\n`);
 
             let report;
             if (issues.length === 0) {
@@ -17813,9 +18064,257 @@ exports.dailySystemCheck = onSchedule(
 
         } catch (err) {
             console.error('❌ Systemkontrolle Fehler:', err.message, err.stack);
+            await logError('dailySystemCheck', err, { severity: 'critical' });
             try {
-                await sendToAllAdmins(`❌ <b>Systemkontrolle fehlgeschlagen!</b>\n\nFehler: ${err.message}\n\n<i>Bitte Firebase-Logs prüfen.</i>`);
+                await sendToAllAdmins(`❌ <b>Systemkontrolle fehlgeschlagen!</b>\n\nFehler: ${err.message}\n\n<i>Fehlerlog: Firebase → errorLogs</i>`);
             } catch (_) {}
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.44: FEHLERANALYSE-DASHBOARD (HTTP-Endpunkt)
+// Zeigt alle Fehler der letzten 7 Tage als JSON oder HTML
+// ═══════════════════════════════════════════════════════════════
+
+exports.errorDashboard = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        // Admin-Check (Telegram-Webhook-Secret als Key)
+        const key = req.query.key;
+        const secretSnap = await db.ref('settings/telegram/webhookSecret').once('value');
+        const secret = secretSnap.val();
+        if (!key || key !== secret) {
+            res.status(403).json({ error: 'Nicht autorisiert. ?key= Parameter fehlt oder falsch.' });
+            return;
+        }
+
+        const format = req.query.format || 'html';
+        const days = Math.min(parseInt(req.query.days) || 3, 7);
+
+        // ErrorLogs laden
+        const allErrors = [];
+        const now = new Date();
+        for (let i = 0; i < days; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dayKey = d.toISOString().slice(0, 10);
+            try {
+                const snap = await db.ref(`errorLogs/${dayKey}`).once('value');
+                const logs = snap.val() || {};
+                for (const [id, entry] of Object.entries(logs)) {
+                    allErrors.push({ id, dayKey, ...entry });
+                }
+            } catch (e) { /* skip */ }
+        }
+
+        allErrors.sort((a, b) => (b.t || 0) - (a.t || 0));
+
+        if (format === 'json') {
+            res.status(200).json({ total: allErrors.length, days, errors: allErrors.slice(0, 200) });
+            return;
+        }
+
+        // Statistiken
+        const bySeverity = { critical: 0, error: 0, warning: 0, data_inconsistency: 0 };
+        const byFunction = {};
+        for (const e of allErrors) {
+            const sev = e.type === 'data_inconsistency' ? 'data_inconsistency' : (e.severity || 'error');
+            bySeverity[sev] = (bySeverity[sev] || 0) + 1;
+            const fn = e.fn || e.type || '?';
+            byFunction[fn] = (byFunction[fn] || 0) + 1;
+        }
+        const topFunctions = Object.entries(byFunction).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+        // HTML
+        const html = `<!DOCTYPE html><html lang="de"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fehleranalyse — Taxi Heringsdorf</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:20px;background:#1a1a2e;color:#eee}
+h1{color:#e94560}h2{color:#fff;background:#0f3460;padding:8px 16px;border-radius:8px;display:inline-block}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin:20px 0}
+.stat{background:#16213e;padding:16px;border-radius:12px;min-width:120px;text-align:center}
+.stat .num{font-size:2em;font-weight:bold}
+.stat.critical .num{color:#e94560}.stat.error .num{color:#ff9800}
+.stat.warning .num{color:#ffc107}.stat.data .num{color:#2196f3}
+.error-list{margin:20px 0}
+.error-item{background:#16213e;padding:12px 16px;border-radius:8px;margin:8px 0;border-left:4px solid #666}
+.error-item.critical{border-left-color:#e94560}.error-item.error{border-left-color:#ff9800}
+.error-item.warning{border-left-color:#ffc107}.error-item.data_inconsistency{border-left-color:#2196f3}
+.meta{color:#888;font-size:.85em}.fn{color:#00d2ff;font-weight:bold}
+.msg{color:#ff6b6b;margin:4px 0}
+pre{background:#0a0a1a;padding:8px;border-radius:4px;overflow-x:auto;font-size:.8em;color:#888;max-height:100px}
+.top-fn{display:flex;gap:8px;flex-wrap:wrap}
+.fn-badge{background:#16213e;padding:6px 12px;border-radius:20px;font-size:.85em}
+.fn-count{color:#e94560;font-weight:bold}
+.refresh{background:#e94560;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:1em;margin:10px 0}
+</style></head><body>
+<h1>🔍 Fehleranalyse-Dashboard v${CLOUD_FUNCTIONS_VERSION}</h1>
+<p>Zeitraum: letzte ${days} Tage · ${allErrors.length} Einträge · <button class="refresh" onclick="location.reload()">🔄 Aktualisieren</button></p>
+<div class="stats">
+<div class="stat critical"><div class="num">${bySeverity.critical}</div>Kritisch</div>
+<div class="stat error"><div class="num">${bySeverity.error}</div>Fehler</div>
+<div class="stat warning"><div class="num">${bySeverity.warning}</div>Warnungen</div>
+<div class="stat data"><div class="num">${bySeverity.data_inconsistency}</div>Daten-Fehler</div>
+</div>
+<h2>Top Fehlerquellen</h2>
+<div class="top-fn">
+${topFunctions.map(([fn, count]) => '<span class="fn-badge">' + fn + ': <span class="fn-count">' + count + 'x</span></span>').join('\n')}
+</div>
+<h2>Fehlerlog (neueste zuerst)</h2>
+<div class="error-list">
+${allErrors.slice(0, 50).map(e => {
+    const sev = e.type === 'data_inconsistency' ? 'data_inconsistency' : (e.severity || 'error');
+    const sevIcon = sev === 'critical' ? '🔴' : (sev === 'error' ? '🟠' : (sev === 'warning' ? '🟡' : '🔵'));
+    return '<div class="error-item ' + sev + '">' +
+'<div class="meta">' + sevIcon + ' ' + (e.ts || new Date(e.t).toLocaleString('de-DE')) + ' · <span class="fn">' + (e.fn || e.type || '?') + '</span>' + (e.chatId ? ' · Chat: ' + e.chatId : '') + (e.rideId ? ' · Ride: ' + e.rideId : '') + '</div>' +
+'<div class="msg">' + ((e.msg || (e.issues || []).join(', ') || '?') + '').substring(0, 200) + '</div>' +
+(e.stack ? '<pre>' + (e.stack + '').substring(0, 300) + '</pre>' : '') +
+(e.data ? '<pre>Kontext: ' + (e.data + '').substring(0, 200) + '</pre>' : '') +
+'</div>';
+}).join('\n')}
+</div>
+<p class="meta">JSON: ?format=json&days=${days}&key=... · Max 7 Tage · Auto-Cleanup</p>
+</body></html>`;
+
+        res.status(200).send(html);
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.44: ECHTZEIT-KONSISTENZ-PRÜFUNG bei Fahrt-Erstellung
+// Prüft sofort ob Strecke/Preis/Koordinaten konsistent sind
+// ═══════════════════════════════════════════════════════════════
+
+async function validateRideConsistency(rideId, ride) {
+    const issues = [];
+
+    // 1. Koordinaten vorhanden aber kein Preis?
+    if (ride.pickupLat && ride.destinationLat && !ride.price && !ride.estimatedPrice) {
+        issues.push('Preis fehlt trotz vorhandener Koordinaten');
+        try {
+            const route = await calculateTelegramRoutePrice({
+                pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+            });
+            if (route && route.price) {
+                await db.ref(`rides/${rideId}`).update({
+                    price: route.price, estimatedPrice: route.price,
+                    distance: route.distance, estimatedDistance: route.distance,
+                    duration: route.duration, estimatedDuration: route.duration,
+                    updatedAt: Date.now()
+                });
+                await addRideLog(rideId, '🔧', `Auto-Fix: Preis/Strecke nachberechnet (${route.price}€, ${route.distance} km)`, 'validateRideConsistency');
+                issues.push('→ Auto-Fix: ' + route.price + '€, ' + route.distance + ' km berechnet');
+            }
+        } catch (e) {
+            issues.push('→ Preis-Auto-Fix fehlgeschlagen: ' + e.message);
+        }
+    }
+
+    // 2. Preis vorhanden aber keine Strecke?
+    if (ride.price && !ride.distance && !ride.estimatedDistance && ride.pickupLat && ride.destinationLat) {
+        issues.push('Strecke fehlt trotz Preis und Koordinaten (genau dein Fall!)');
+        try {
+            const route = await calculateTelegramRoutePrice({
+                pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+            });
+            if (route && route.distance) {
+                await db.ref(`rides/${rideId}`).update({
+                    distance: route.distance, estimatedDistance: route.distance,
+                    duration: route.duration, estimatedDuration: route.duration,
+                    updatedAt: Date.now()
+                });
+                await addRideLog(rideId, '🔧', `Auto-Fix: Strecke nachberechnet (${route.distance} km, ${route.duration} Min)`, 'validateRideConsistency');
+                issues.push('→ Auto-Fix: ' + route.distance + ' km berechnet');
+            }
+        } catch (e) {
+            issues.push('→ Strecke-Auto-Fix fehlgeschlagen: ' + e.message);
+        }
+    }
+
+    // 3. distance=0 aber estimatedDistance vorhanden → korrigieren
+    if ((!ride.distance || ride.distance === 0 || ride.distance === '0') && ride.estimatedDistance && parseFloat(ride.estimatedDistance) > 0) {
+        issues.push('distance=0 aber estimatedDistance=' + ride.estimatedDistance + ' vorhanden');
+        try {
+            await db.ref(`rides/${rideId}`).update({
+                distance: parseFloat(ride.estimatedDistance),
+                updatedAt: Date.now()
+            });
+            await addRideLog(rideId, '🔧', 'Auto-Fix: distance=0 -> ' + ride.estimatedDistance + ' km (aus estimatedDistance)', 'validateRideConsistency');
+            issues.push('-> Auto-Fix: distance=' + ride.estimatedDistance);
+        } catch (e) { /* ignore */ }
+    }
+
+    // 3b. price=0 aber estimatedPrice vorhanden → korrigieren
+    if ((!ride.price || ride.price === 0 || ride.price === '0') && ride.estimatedPrice && parseFloat(ride.estimatedPrice) > 0) {
+        issues.push('price=0 aber estimatedPrice=' + ride.estimatedPrice + ' vorhanden');
+        try {
+            await db.ref(`rides/${rideId}`).update({
+                price: parseFloat(ride.estimatedPrice),
+                updatedAt: Date.now()
+            });
+            await addRideLog(rideId, '🔧', 'Auto-Fix: price=0 -> ' + ride.estimatedPrice + ' (aus estimatedPrice)', 'validateRideConsistency');
+            issues.push('-> Auto-Fix: price=' + ride.estimatedPrice);
+        } catch (e) { /* ignore */ }
+    }
+
+    // 3c. duration falsch niedrig (< 5 Min bei Strecke > 10 km) → Route neu berechnen
+    if (ride.pickupLat && ride.destinationLat && ride.estimatedDistance && parseFloat(ride.estimatedDistance) > 10 && ride.duration && parseInt(ride.duration) < 5) {
+        issues.push('duration=' + ride.duration + ' Min bei ' + ride.estimatedDistance + ' km Strecke - unrealistisch');
+        try {
+            const route = await calculateTelegramRoutePrice({
+                pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+            });
+            if (route && route.duration > 5) {
+                await db.ref(`rides/${rideId}`).update({
+                    duration: route.duration, estimatedDuration: route.duration,
+                    updatedAt: Date.now()
+                });
+                await addRideLog(rideId, '🔧', 'Auto-Fix: duration ' + ride.duration + ' -> ' + route.duration + ' Min (OSRM)', 'validateRideConsistency');
+                issues.push('-> Auto-Fix: duration=' + route.duration + ' Min');
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // 4. Koordinaten fehlen komplett
+    if (!ride.pickupLat && ride.pickup) {
+        issues.push('Abholort ohne Koordinaten: "' + ride.pickup + '"');
+    }
+    if (!ride.destinationLat && ride.destination) {
+        issues.push('Zielort ohne Koordinaten: "' + ride.destination + '"');
+    }
+
+    // 5. Status-Konsistenz
+    if (ride.assignedVehicle && ride.status === 'new') {
+        issues.push('Status "new" aber Fahrzeug zugewiesen (' + ride.assignedVehicle + ')');
+        // Auto-Fix
+        try {
+            await db.ref(`rides/${rideId}/status`).set('assigned');
+            await addRideLog(rideId, '🔧', 'Auto-Fix: Status new → assigned (Fahrzeug war zugewiesen)');
+            issues.push('→ Auto-Fix: Status auf "assigned" gesetzt');
+        } catch (e) { /* ignore */ }
+    }
+
+    // 5. Datum-Konsistenz
+    if (ride.pickupTimestamp) {
+        const now = Date.now();
+        if (ride.pickupTimestamp < now - 48 * 3600000 && !['completed', 'cancelled', 'deleted'].includes(ride.status)) {
+            issues.push('Abholzeit >48h in Vergangenheit aber Status: ' + ride.status);
+        }
+    }
+
+    if (issues.length > 0) {
+        await logDataInconsistency(rideId, ride, issues);
+    }
+
+    return issues;
+}

@@ -15995,6 +15995,24 @@ exports.scheduledAutoAssign = onSchedule(
             const pricingSettings = settingsSnap.val() || {};
             const vehiclePriorities = prioritiesSnap.val() || {};
             const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
+
+            // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
+            const STALE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minuten
+            for (const [vid, vData] of Object.entries(vehiclesData)) {
+                if (!vData.lastUpdate) continue;
+                const ageMs = now - vData.lastUpdate;
+                if (ageMs > STALE_TIMEOUT_MS) {
+                    const vName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+                    const ageMin = Math.round(ageMs / 60000);
+                    console.log(`🧹 STALE-CLEANUP: ${vName} — letztes GPS vor ${ageMin} Min → offline setzen`);
+                    try {
+                        await db.ref('vehicles/' + vid).remove();
+                        console.log(`   ✅ ${vName} aus /vehicles entfernt`);
+                    } catch (cleanupErr) {
+                        console.error(`   ❌ ${vName} Cleanup-Fehler:`, cleanupErr.message);
+                    }
+                }
+            }
             const lastverteilungMalus = pricingSettings.lastverteilungMalusMinuten || 3;
             const anschlussBonus = pricingSettings.anschlussfahrtBonusMinuten || 5;
 

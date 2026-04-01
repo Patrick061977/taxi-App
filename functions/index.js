@@ -17532,3 +17532,274 @@ exports.sendCrmEmail = onRequest(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.43: TÄGLICHE SYSTEMKONTROLLE
+// Prüft jeden Morgen um 06:00 auf Unstimmigkeiten im System
+// ═══════════════════════════════════════════════════════════════
+
+exports.dailySystemCheck = onSchedule(
+    {
+        schedule: 'every day 06:00',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        console.log('🔍 Tägliche Systemkontrolle gestartet...');
+        const now = Date.now();
+        const today = new Date(now);
+        const todayStr = today.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: '2-digit' });
+        const issues = [];
+        const stats = { rides: 0, vehicles: 0, customers: 0, pendings: 0 };
+
+        try {
+            // ═══════════════════════════════════════
+            // 1. FAHRTEN-KONSISTENZ
+            // ═══════════════════════════════════════
+            const ridesSnap = await db.ref('rides').once('value');
+            const rides = ridesSnap.val() || {};
+            stats.rides = Object.keys(rides).length;
+
+            let zombieRides = 0;         // Fahrten ohne Status
+            let orphanedRides = 0;       // Fahrten mit gelöschtem Fahrzeug
+            let pastOpenRides = 0;       // Offene Fahrten in der Vergangenheit
+            let duplicateVehicle = {};   // Fahrzeug doppelt zugewiesen zur gleichen Zeit
+            let missingCoords = 0;       // Fahrten ohne Koordinaten
+            let missingPrice = 0;        // Fahrten ohne Preis
+            let stuckPending = 0;        // Fahrten mit Status "new" > 2h alt
+
+            for (const [rideId, ride] of Object.entries(rides)) {
+                // Zombie-Rides (kein Status)
+                if (!ride.status) {
+                    zombieRides++;
+                    issues.push(`🧟 Fahrt ${rideId} ohne Status (${ride.customerName || '?'})`);
+                }
+
+                // Vergangene offene Fahrten (> 2h in der Vergangenheit, noch "new" oder "vorbestellt")
+                if (['new', 'vorbestellt', 'warteschlange'].includes(ride.status)) {
+                    const pickupTs = ride.pickupTimestamp || ride.createdAt || 0;
+                    if (pickupTs > 0 && pickupTs < now - 2 * 3600000) {
+                        pastOpenRides++;
+                        const age = Math.round((now - pickupTs) / 3600000);
+                        issues.push(`⏰ Fahrt ${rideId} "${ride.status}" — ${age}h überfällig (${ride.customerName || '?'}: ${ride.pickup || '?'} → ${ride.destination || '?'})`);
+                    }
+                }
+
+                // Steckengebliebene "new" Fahrten (> 2h, kein Fahrzeug)
+                if (ride.status === 'new' && !ride.assignedVehicle && ride.createdAt && ride.createdAt < now - 2 * 3600000) {
+                    stuckPending++;
+                }
+
+                // Aktive Fahrten ohne Koordinaten
+                if (!['completed', 'cancelled', 'deleted', 'rejected'].includes(ride.status)) {
+                    if (!ride.pickupLat || !ride.destinationLat) {
+                        missingCoords++;
+                    }
+                    if (!ride.price && !ride.estimatedPrice) {
+                        missingPrice++;
+                    }
+                }
+
+                // Fahrzeug-Doppelbelegung prüfen (nur aktive Fahrten)
+                if (ride.assignedVehicle && !['completed', 'cancelled', 'deleted', 'rejected'].includes(ride.status)) {
+                    const vKey = ride.assignedVehicle;
+                    if (!duplicateVehicle[vKey]) duplicateVehicle[vKey] = [];
+                    duplicateVehicle[vKey].push({
+                        rideId,
+                        pickupTs: ride.pickupTimestamp || ride.createdAt,
+                        duration: ride.duration || ride.estimatedDuration || 30,
+                        customer: ride.customerName || '?'
+                    });
+                }
+            }
+
+            // Zeitkonflikte finden
+            for (const [vehicleId, vehicleRides] of Object.entries(duplicateVehicle)) {
+                if (vehicleRides.length < 2) continue;
+                vehicleRides.sort((a, b) => (a.pickupTs || 0) - (b.pickupTs || 0));
+                for (let i = 0; i < vehicleRides.length - 1; i++) {
+                    const current = vehicleRides[i];
+                    const next = vehicleRides[i + 1];
+                    const currentEnd = (current.pickupTs || 0) + (current.duration || 30) * 60000;
+                    if (next.pickupTs && next.pickupTs < currentEnd) {
+                        const vName = (OFFICIAL_VEHICLES[vehicleId] || {}).name || vehicleId;
+                        issues.push(`⚡ ZEITKONFLIKT: ${vName} — ${current.customer} (${current.rideId}) und ${next.customer} (${next.rideId}) überlappen!`);
+                    }
+                }
+            }
+
+            if (zombieRides > 0) issues.push(`🧟 ${zombieRides} Fahrten ohne Status`);
+            if (stuckPending > 0) issues.push(`🔒 ${stuckPending} Fahrten seit >2h im Status "new" ohne Fahrzeug`);
+            if (missingCoords > 0) issues.push(`📍 ${missingCoords} aktive Fahrten ohne Koordinaten`);
+            if (missingPrice > 0) issues.push(`💰 ${missingPrice} aktive Fahrten ohne Preis`);
+
+            // ═══════════════════════════════════════
+            // 2. FAHRZEUG-STATUS
+            // ═══════════════════════════════════════
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+            stats.vehicles = Object.keys(vehicles).length;
+
+            for (const [vId, vehicle] of Object.entries(vehicles)) {
+                // GPS veraltet (> 24h ohne Update bei "online" Fahrzeug)
+                if (vehicle.isOnline && vehicle.lastUpdate) {
+                    const gpsAge = now - vehicle.lastUpdate;
+                    if (gpsAge > 24 * 3600000) {
+                        const hours = Math.round(gpsAge / 3600000);
+                        issues.push(`📡 Fahrzeug ${vehicle.name || vId} "online" aber GPS seit ${hours}h veraltet`);
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════
+            // 3. TELEGRAM PENDINGS (hängengebliebene Buchungen)
+            // ═══════════════════════════════════════
+            const pendingSnap = await db.ref('settings/telegram/pending').once('value');
+            const pendings = pendingSnap.val() || {};
+            stats.pendings = Object.keys(pendings).length;
+            let stalePendings = 0;
+
+            for (const [chatId, pending] of Object.entries(pendings)) {
+                const age = pending.createdAt ? (now - pending.createdAt) : 0;
+                // Älter als 6 Stunden → wahrscheinlich hängengeblieben
+                if (age > 6 * 3600000 || (!pending.createdAt && pending.partial)) {
+                    stalePendings++;
+                    const name = (pending.partial || {}).name || chatId;
+                    const ageH = age ? `${Math.round(age / 3600000)}h` : 'unbekannt';
+                    issues.push(`🔒 Telegram-Pending hängt: ${name} (Chat ${chatId}, Alter: ${ageH})`);
+                }
+            }
+
+            if (stalePendings > 0) {
+                issues.push(`📱 ${stalePendings} hängengebliebene Telegram-Buchungen → automatisch bereinigt`);
+                // Auto-Cleanup: Pendings > 24h löschen
+                for (const [chatId, pending] of Object.entries(pendings)) {
+                    const age = pending.createdAt ? (now - pending.createdAt) : 0;
+                    if (age > 24 * 3600000) {
+                        await db.ref(`settings/telegram/pending/${chatId}`).remove();
+                        console.log(`🧹 Stale Pending gelöscht: ${chatId}`);
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════
+            // 4. CRM-DATEN-QUALITÄT
+            // ═══════════════════════════════════════
+            const customersSnap = await db.ref('customers').once('value');
+            const customers = customersSnap.val() || {};
+            stats.customers = Object.keys(customers).length;
+
+            let noPhone = 0;
+            let noAddress = 0;
+            let duplicatePhones = {};
+
+            for (const [cId, cust] of Object.entries(customers)) {
+                if (!cust.phone && !cust.mobilePhone) noPhone++;
+                if (!cust.address && !cust.street) noAddress++;
+
+                // Telefon-Duplikate finden
+                const phones = [cust.phone, cust.mobilePhone].filter(p => p);
+                for (const p of phones) {
+                    const normalized = String(p).replace(/\D/g, '').slice(-9);
+                    if (normalized.length >= 8) {
+                        if (!duplicatePhones[normalized]) duplicatePhones[normalized] = [];
+                        duplicatePhones[normalized].push(cust.name || cId);
+                    }
+                }
+            }
+
+            const dupes = Object.entries(duplicatePhones).filter(([_, names]) => names.length > 1);
+            if (dupes.length > 0) {
+                issues.push(`👥 ${dupes.length} mögliche CRM-Duplikate (gleiche Telefonnummer):`);
+                dupes.slice(0, 5).forEach(([phone, names]) => {
+                    issues.push(`   ↳ ...${phone}: ${names.join(' / ')}`);
+                });
+                if (dupes.length > 5) issues.push(`   ↳ ...und ${dupes.length - 5} weitere`);
+            }
+
+            // ═══════════════════════════════════════
+            // 5. RECHNUNGEN PRÜFEN
+            // ═══════════════════════════════════════
+            const invoicesSnap = await db.ref('invoices').once('value');
+            const invoices = invoicesSnap.val() || {};
+            let unpaidInvoices = 0;
+            let missingPdf = 0;
+
+            for (const [invId, inv] of Object.entries(invoices)) {
+                if (inv.status === 'offen' || inv.status === 'open') unpaidInvoices++;
+                if (!inv.pdfUrl) missingPdf++;
+            }
+
+            if (unpaidInvoices > 0) issues.push(`💶 ${unpaidInvoices} offene/unbezahlte Rechnungen`);
+            if (missingPdf > 0) issues.push(`📄 ${missingPdf} Rechnungen ohne PDF`);
+
+            // ═══════════════════════════════════════
+            // 6. HEUTIGE FAHRTEN ZUSAMMENFASSUNG
+            // ═══════════════════════════════════════
+            const todayStart = new Date(today.toLocaleDateString('en-US', { timeZone: 'Europe/Berlin' })).getTime();
+            const todayEnd = todayStart + 24 * 3600000;
+
+            let todayRides = 0;
+            let todayUnassigned = 0;
+            let todayCompleted = 0;
+
+            for (const [rideId, ride] of Object.entries(rides)) {
+                const rideTs = ride.pickupTimestamp || ride.createdAt || 0;
+                if (rideTs >= todayStart && rideTs < todayEnd) {
+                    todayRides++;
+                    if (!ride.assignedVehicle && !['completed', 'cancelled', 'deleted'].includes(ride.status)) {
+                        todayUnassigned++;
+                    }
+                    if (ride.status === 'completed') todayCompleted++;
+                }
+            }
+
+            // ═══════════════════════════════════════
+            // BERICHT SENDEN
+            // ═══════════════════════════════════════
+            const statusEmoji = issues.length === 0 ? '✅' : (issues.length <= 3 ? '⚠️' : '🔴');
+            const header = `${statusEmoji} <b>TÄGLICHER SYSTEMBERICHT</b>\n📅 ${todayStr} · 06:00 Uhr\n`;
+
+            const statsBlock = `📊 <b>System-Status:</b>\n` +
+                `   🚕 ${stats.rides} Fahrten gesamt\n` +
+                `   📅 ${todayRides} Fahrten heute (${todayCompleted} erledigt, ${todayUnassigned} ohne Fahrer)\n` +
+                `   🚗 ${stats.vehicles} Fahrzeuge\n` +
+                `   👥 ${stats.customers} CRM-Kunden\n` +
+                `   📱 ${stats.pendings} aktive Telegram-Buchungen\n`;
+
+            let report;
+            if (issues.length === 0) {
+                report = header + '\n' + statsBlock + '\n✅ <b>Keine Unstimmigkeiten gefunden!</b>\n\n🎉 System läuft einwandfrei.';
+            } else {
+                report = header + '\n' + statsBlock +
+                    `\n⚠️ <b>${issues.length} Unstimmigkeiten gefunden:</b>\n\n` +
+                    issues.map((issue, i) => `${i + 1}. ${issue}`).join('\n') +
+                    `\n\n💡 <i>Bitte prüfen und ggf. korrigieren.</i>`;
+            }
+
+            // An alle Admins senden
+            await sendToAllAdmins(report, 'system_check');
+            await sendToSystemChannel(report, 'system_check');
+
+            console.log(`✅ Systemkontrolle abgeschlossen: ${issues.length} Probleme gefunden`);
+
+            // In Firebase loggen
+            await db.ref('settings/systemCheck').update({
+                lastRun: now,
+                issuesCount: issues.length,
+                issues: issues.slice(0, 20), // Max 20 speichern
+                stats: stats,
+                todayRides: todayRides,
+                todayUnassigned: todayUnassigned
+            });
+
+        } catch (err) {
+            console.error('❌ Systemkontrolle Fehler:', err.message, err.stack);
+            try {
+                await sendToAllAdmins(`❌ <b>Systemkontrolle fehlgeschlagen!</b>\n\nFehler: ${err.message}\n\n<i>Bitte Firebase-Logs prüfen.</i>`);
+            } catch (_) {}
+        }
+    }
+);

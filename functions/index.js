@@ -4967,8 +4967,56 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             } else if (!_isOrtsteil) {
                                 // ALLE Vorschläge haben falsche Straße → leere Liste = nur "Andere Adresse" Button
                                 // 🔧 v6.38.42: Bei Ortsteilen NIE alles entfernen — lieber unpassende zeigen
-                                await addTelegramLog('⚠️', chatId, `Straßen-Filter: ALLE ${_displaySugg2.length} Vorschläge entfernt (keine passt zu "${_qStreetDisp}") → manuelle Eingabe`);
-                                _displaySugg2 = [];
+                                await addTelegramLog('⚠️', chatId, `Straßen-Filter: ALLE ${_displaySugg2.length} Vorschläge entfernt (keine passt zu "${_qStreetDisp}") → Direkt-Geocoding versuchen`);
+                                // 🔧 v6.38.46: Statt leere Liste → Nominatim Direkt-Geocoding mit exakter Adresse
+                                // "Friedrichstraße 9, Ahlbeck" → Nominatim structured search
+                                try {
+                                    const _directQuery = encodeURIComponent(addressToResolve);
+                                    const _directUrl = `https://nominatim.openstreetmap.org/search?q=${_directQuery}&format=json&limit=3&countrycodes=de&addressdetails=1`;
+                                    const _directResp = await fetch(_directUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                                    const _directResults = await _directResp.json();
+                                    if (_directResults && _directResults.length > 0) {
+                                        // Nur Ergebnisse im Usedom-Umkreis (lat 53.8-54.1, lon 13.8-14.3)
+                                        const _nearbyResults = _directResults.filter(r => {
+                                            const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                                            return lat >= 53.8 && lat <= 54.15 && lon >= 13.8 && lon <= 14.35;
+                                        });
+                                        if (_nearbyResults.length > 0) {
+                                            _displaySugg2 = _nearbyResults.map(r => ({
+                                                name: r.display_name.split(',').slice(0, 3).join(',').trim(),
+                                                lat: parseFloat(r.lat), lon: parseFloat(r.lon),
+                                                source: 'nominatim-direct', label: r.display_name.split(',').slice(0, 3).join(',').trim()
+                                            }));
+                                            await addTelegramLog('✅', chatId, `Direkt-Geocoding: ${_nearbyResults.length} Treffer für "${addressToResolve}"`);
+                                        } else {
+                                            _displaySugg2 = [];
+                                        }
+                                    } else {
+                                        _displaySugg2 = [];
+                                    }
+                                } catch(_directErr) {
+                                    console.error('Direkt-Geocoding Fehler:', _directErr.message);
+                                    _displaySugg2 = [];
+                                }
+                                // Wenn auch Direkt-Geocoding nichts findet → Nachfragen
+                                if (_displaySugg2.length === 0) {
+                                    await addTelegramLog('⚠️', chatId, `Adresse "${addressToResolve}" nicht gefunden → Nachfrage an Kunden`);
+                                    const _askMsg = `❌ <b>"${addressToResolve}" nicht gefunden</b>\n\n` +
+                                        `Die Straße konnte nicht zugeordnet werden.\n\n` +
+                                        `💡 <b>Bitte prüfen Sie:</b>\n` +
+                                        `• Ist der Straßenname korrekt geschrieben?\n` +
+                                        `• Ist der Ort richtig? (z.B. Ahlbeck, Heringsdorf, Bansin)\n\n` +
+                                        `✏️ Bitte geben Sie die Adresse erneut ein:`;
+                                    const _retryKb = { inline_keyboard: [
+                                        [{ text: '✏️ Adresse erneut eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                                    ]};
+                                    await sendTelegramMessage(chatId, _askMsg, { reply_markup: _retryKb });
+                                    const _ps = { partial: { ...booking, missing: booking.missing }, originalText };
+                                    _ps._awaitingRetry = fieldToResolve;
+                                    await setPending(chatId, _ps);
+                                    return; // Warte auf neue Eingabe
+                                }
                             } else {
                                 await addTelegramLog('🔍', chatId, `Straßen-Filter: Ortsteil "${_qStreetDisp}" → Vorschläge beibehalten`);
                             }

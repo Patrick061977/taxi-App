@@ -3895,7 +3895,8 @@ Nur gültiges JSON, kein Markdown:
         }
 
         // Datum-Halluzinations-Schutz: Wenn der User kein Datum/Uhrzeit geschrieben hat, datetime löschen
-        const _timeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
+        // 🔧 v6.38.42: "halb", "viertel", "dreiviertel" + "halb 11" etc. als Zeitangabe erkennen
+        const _timeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|halb\s*\d{1,2}|viertel\s*(vor|nach)\s*\d{1,2}|dreiviertel\s*\d{1,2}|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|um\s+halb|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
         if (booking.datetime && !_timeKeywords.test(text)) {
             await addTelegramLog('🛡️', chatId, `Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber User schrieb "${text}" ohne Zeitangabe → datetime gelöscht`);
             booking.datetime = null;
@@ -4124,8 +4125,22 @@ Nur gültiges JSON, kein Markdown:
                                 booking._pickupConfirmedByCRM = true;
                                 await addTelegramLog('✅', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" von ${preselected.name} → Geocoding übersprungen`);
                             } else {
-                                // 🔧 v6.38.31: CRM-Adresse OHNE Koordinaten → Nominatim muss geocoden!
-                                await addTelegramLog('📍', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" OHNE Koordinaten → Geocoding nötig`);
+                                // 🔧 v6.38.42: CRM-Adresse OHNE Koordinaten → direkt geocoden (kein "Meinten Sie?" Dialog!)
+                                await addTelegramLog('📍', chatId, `Pickup "${booking.pickup}" ≈ CRM-Adresse "${pickupDefault}" OHNE Koordinaten → Auto-Geocoding`);
+                                try {
+                                    const _crmGeo = await geocode(pickupDefault);
+                                    if (_crmGeo && _crmGeo.lat && _crmGeo.lon) {
+                                        booking.pickupLat = parseFloat(_crmGeo.lat);
+                                        booking.pickupLon = parseFloat(_crmGeo.lon);
+                                        booking._pickupConfirmedByCRM = true;
+                                        await addTelegramLog('✅', chatId, `CRM Auto-Geocoding: "${pickupDefault}" → ${_crmGeo.lat}, ${_crmGeo.lon}`);
+                                        // Koordinaten auch im CRM speichern für nächstes Mal
+                                        const _crmId = preselected.customerId || preselected.id;
+                                        if (_crmId) {
+                                            db.ref('customers/' + _crmId).update({ lat: _crmGeo.lat, lon: _crmGeo.lon }).catch(() => {});
+                                        }
+                                    }
+                                } catch (_geoErr) { /* Fallback: Nominatim-Dialog */ }
                             }
                             booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
                         }
@@ -4137,6 +4152,17 @@ Nur gültiges JSON, kein Markdown:
                         if (preselected.addressLat && preselected.addressLon) {
                             booking.destinationLat = parseFloat(preselected.addressLat);
                             booking.destinationLon = parseFloat(preselected.addressLon);
+                        } else {
+                            // 🔧 v6.38.42: Auto-Geocoding für "Nach Hause" ohne Koordinaten
+                            try {
+                                const _destGeo = await geocode(preselected.address);
+                                if (_destGeo && _destGeo.lat) {
+                                    booking.destinationLat = parseFloat(_destGeo.lat);
+                                    booking.destinationLon = parseFloat(_destGeo.lon);
+                                    const _crmId2 = preselected.customerId || preselected.id;
+                                    if (_crmId2) db.ref('customers/' + _crmId2).update({ lat: _destGeo.lat, lon: _destGeo.lon }).catch(() => {});
+                                }
+                            } catch (_e) {}
                         }
                     }
                 }
@@ -4691,20 +4717,32 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         const _qStreetDisp = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                         if (_qStreetDisp && _qStreetDisp.length > 3) {
                             const _qStreetCore = _qStreetDisp.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            // 🔧 v6.38.42: "Dorf X" / "Siedlung X" etc. = Ortsteilname, nicht normaler Straßenname
+                            // → Straßen-Filter lockerer: auch Teilort-Match zulassen
+                            const _isOrtsteil = /^(dorf|siedlung|ausbau|kolonie|gut)\s/i.test(_qStreetDisp);
                             const _streetFiltered = _displaySugg2.filter(s => {
                                 const sName = (s.name || '').toLowerCase().split(',')[0].trim();
                                 const sStreet = sName.replace(/\s*\d+[a-z]?\s*$/i, '').trim();
                                 const sCore = sStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
-                                return sCore.includes(_qStreetCore) || _qStreetCore.includes(sCore);
+                                if (sCore.includes(_qStreetCore) || _qStreetCore.includes(sCore)) return true;
+                                // Ortsteil-Match: "Dorf Bansin" in "Dorf 8d, Bansin" oder umgekehrt
+                                if (_isOrtsteil) {
+                                    const _qWords = _qStreetCore.split(/\s+/);
+                                    return _qWords.every(w => sName.includes(w));
+                                }
+                                return false;
                             });
                             if (_streetFiltered.length > 0) {
                                 const _removed = _displaySugg2.length - _streetFiltered.length;
                                 if (_removed > 0) await addTelegramLog('🔍', chatId, `Straßen-Filter "${_qStreetDisp}": ${_removed} irrelevante Vorschläge entfernt`);
                                 _displaySugg2 = _streetFiltered;
-                            } else {
+                            } else if (!_isOrtsteil) {
                                 // ALLE Vorschläge haben falsche Straße → leere Liste = nur "Andere Adresse" Button
+                                // 🔧 v6.38.42: Bei Ortsteilen NIE alles entfernen — lieber unpassende zeigen
                                 await addTelegramLog('⚠️', chatId, `Straßen-Filter: ALLE ${_displaySugg2.length} Vorschläge entfernt (keine passt zu "${_qStreetDisp}") → manuelle Eingabe`);
                                 _displaySugg2 = [];
+                            } else {
+                                await addTelegramLog('🔍', chatId, `Straßen-Filter: Ortsteil "${_qStreetDisp}" → Vorschläge beibehalten`);
                             }
                         }
                     }
@@ -5191,7 +5229,8 @@ Nur gültiges JSON, kein Markdown:
         }
 
         // Datum-Halluzinations-Schutz für Follow-Up: Wenn vorher kein datetime und User kein Datum nennt → nicht erfinden
-        const _fuTimeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
+        // 🔧 v6.38.42: "halb", "viertel", "dreiviertel" als Zeitangabe erkennen
+        const _fuTimeKeywords = /\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*uhr|halb\s*\d{1,2}|viertel\s*(vor|nach)\s*\d{1,2}|dreiviertel\s*\d{1,2}|heute|morgen|übermorgen|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|nächst|um\s+\d|um\s+halb|ab\s+\d|sofort|jetzt|gleich|nachher|abend|mittag|früh|vormittag|nachmittag|nacht)\b/i;
         if (!_pDatetime && booking.datetime && !_fuTimeKeywords.test(newText)) {
             await addTelegramLog('🛡️', chatId, `Follow-Up Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber Antwort "${newText}" enthält keine Zeitangabe → datetime gelöscht`);
             booking.datetime = null;

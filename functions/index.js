@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.46';
+const CLOUD_FUNCTIONS_VERSION = '6.38.47';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3361,6 +3361,54 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 return null;
             }
 
+            // 🔧 v6.38.46: DIREKT-GEOCODING ZUERST — wenn Adresse klar ist (Straße + Nr + Ort)
+            // "Friedrichstraße 9, Ahlbeck" → direkt bei Nominatim nachschlagen, BEVOR der komplexe Such-Pipeline
+            const _hasHausnr = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, ''));
+            const _hasOrtOrPlz = _addrHasPlz || _addrHasOrt;
+            let _directGeoResult = null;
+            if (_hasHausnr && _hasOrtOrPlz && _addrLooksLikeStreet) {
+                try {
+                    const _dq = encodeURIComponent(addressToResolve);
+                    const _dUrl = `https://nominatim.openstreetmap.org/search?q=${_dq}&format=json&limit=3&countrycodes=de&addressdetails=1`;
+                    const _dResp = await fetch(_dUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                    const _dResults = await _dResp.json();
+                    if (_dResults && _dResults.length > 0) {
+                        // Nur Usedom-Umkreis + richtige Straße
+                        const _qStreetLow = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                        const _qStreetCore = _qStreetLow.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                        for (const r of _dResults) {
+                            const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                            if (lat < 53.5 || lat > 54.3 || lon < 13.5 || lon > 14.5) continue;
+                            const rStreet = (r.address?.road || '').toLowerCase();
+                            const rCore = rStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            if (rCore.includes(_qStreetCore) || _qStreetCore.includes(rCore)) {
+                                const _displayName = `${r.address?.road || ''} ${r.address?.house_number || ''}, ${r.address?.postcode || ''} ${r.address?.city || r.address?.town || r.address?.village || ''}`.replace(/\s+/g, ' ').trim();
+                                _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-direct' };
+                                await addTelegramLog('✅', chatId, `Direkt-Geocoding: "${addressToResolve}" → ${_displayName} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
+                                break;
+                            }
+                        }
+                        if (!_directGeoResult && _dResults.length > 0) {
+                            // Kein Straßen-Match aber Nominatim hat was → loggen
+                            await addTelegramLog('⚠️', chatId, `Direkt-Geocoding: Nominatim fand "${_dResults[0].display_name}" aber Straße passt nicht zu "${_qStreetLow}"`);
+                        }
+                    }
+                } catch(_dgErr) {
+                    console.error('Direkt-Geocoding Fehler:', _dgErr.message);
+                }
+            }
+
+            // Wenn Direkt-Geocoding erfolgreich → sofort übernehmen, keine weitere Suche nötig
+            if (_directGeoResult) {
+                if (needPickup) {
+                    booking.pickup = _directGeoResult.name; booking.pickupLat = _directGeoResult.lat; booking.pickupLon = _directGeoResult.lon;
+                } else {
+                    booking.destination = _directGeoResult.name; booking.destinationLat = _directGeoResult.lat; booking.destinationLon = _directGeoResult.lon;
+                }
+                await addRideLog(null, '📍', `${fieldLabel} direkt aufgelöst: ${_directGeoResult.name}`, { quelle: 'nominatim-direct', koordinaten: `${_directGeoResult.lat.toFixed(5)}, ${_directGeoResult.lon.toFixed(5)}` });
+                return await continueBookingFlow(chatId, booking, originalText);
+            }
+
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
             if (suggestions.length > 0) {
@@ -3655,18 +3703,20 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (hasDestCoords) { pendingForUnknown.partial.destinationLat = booking.destinationLat; pendingForUnknown.partial.destinationLon = booking.destinationLon; }
                 pendingForUnknown.pendingDestValidation = (needPickup && needDest);
                 await setPending(chatId, pendingForUnknown);
-                // 🔧 v6.38.34: Adresse nicht gefunden → MUSS neu eingegeben werden, kein "so verwenden"!
+                // 🔧 v6.38.47: Adresse nicht gefunden → GPS-Standort als Alternative anbieten!
                 await sendTelegramMessage(chatId,
                     `❌ <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
-                    `Diese Adresse konnte nicht verifiziert werden.\n\n` +
-                    `💡 <b>Bitte genauer eingeben:</b>\n` +
+                    `Diese Adresse konnte nicht gefunden werden.\n\n` +
+                    `📍 <b>Am einfachsten:</b> Senden Sie Ihren <b>GPS-Standort</b>!\n` +
+                    `→ Tippen Sie auf 📎 (Büroklammer) → <b>Standort</b>\n\n` +
+                    `✏️ <b>Oder genauer eingeben:</b>\n` +
                     `• Straße + Hausnummer + Ort\n` +
-                    `• Oder PLZ statt Ort\n` +
-                    `• Oder Standort senden (📎 → Standort)\n\n` +
-                    `<i>Beispiel: Strandstraße 5, 17424 Heringsdorf</i>`,
+                    `• z.B. <i>Strandstraße 5, Heringsdorf</i>\n` +
+                    `• Oder PLZ statt Ort: <i>Strandstraße 5, 17424</i>`,
                     { reply_markup: { inline_keyboard: [
+                        [{ text: '📍 GPS-Standort senden (Anleitung)', callback_data: `gps_help_${fieldToResolve}` }],
                         [{ text: '✏️ Adresse neu eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                        [{ text: '📞 Telefonisch buchen: 038378/22022', callback_data: 'cancel_booking' }],
+                        [{ text: '📞 Telefonisch: 038378/22022', callback_data: 'cancel_booking' }],
                         [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                     ] } }
                 );
@@ -5000,14 +5050,16 @@ async function continueBookingFlow(chatId, booking, originalText) {
                                 }
                                 // Wenn auch Direkt-Geocoding nichts findet → Nachfragen
                                 if (_displaySugg2.length === 0) {
-                                    await addTelegramLog('⚠️', chatId, `Adresse "${addressToResolve}" nicht gefunden → Nachfrage an Kunden`);
+                                    await addTelegramLog('⚠️', chatId, `Adresse "${addressToResolve}" nicht gefunden → GPS-Standort anbieten`);
                                     const _askMsg = `❌ <b>"${addressToResolve}" nicht gefunden</b>\n\n` +
                                         `Die Straße konnte nicht zugeordnet werden.\n\n` +
-                                        `💡 <b>Bitte prüfen Sie:</b>\n` +
-                                        `• Ist der Straßenname korrekt geschrieben?\n` +
-                                        `• Ist der Ort richtig? (z.B. Ahlbeck, Heringsdorf, Bansin)\n\n` +
-                                        `✏️ Bitte geben Sie die Adresse erneut ein:`;
+                                        `📍 <b>Am einfachsten:</b> Senden Sie Ihren <b>GPS-Standort</b>!\n` +
+                                        `→ Tippen Sie auf 📎 (Büroklammer) → <b>Standort</b>\n\n` +
+                                        `✏️ <b>Oder prüfen Sie:</b>\n` +
+                                        `• Ist der Straßenname korrekt? (z.B. <i>Friedrichstraße</i>)\n` +
+                                        `• Ist der Ort richtig? (z.B. Ahlbeck, Heringsdorf, Bansin)`;
                                     const _retryKb = { inline_keyboard: [
+                                        [{ text: '📍 GPS-Standort senden (Anleitung)', callback_data: `gps_help_${fieldToResolve}` }],
                                         [{ text: '✏️ Adresse erneut eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                                         [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                                     ]};
@@ -13467,6 +13519,31 @@ async function handleCallback(callback) {
                 `• 📍 Oder senden Sie Ihren <b>Standort</b> (📎 → Standort)`);
             await setPending(chatId, { partial: booking, originalText: pending.originalText || '' });
         }
+        return;
+    }
+
+    // 🔧 v6.38.47: GPS-Standort Anleitung — wenn Adresse nicht gefunden
+    if (data.startsWith('gps_help_')) {
+        const field = data.replace('gps_help_', ''); // 'pickup' oder 'destination'
+        const fieldLabel = field === 'pickup' ? 'Abholort' : 'Zielort';
+        const pending = await getPending(chatId);
+        if (pending && pending.partial) {
+            const booking = pending.partial;
+            booking[field] = null;
+            if (field === 'pickup') { booking.pickupLat = null; booking.pickupLon = null; }
+            else { booking.destinationLat = null; booking.destinationLon = null; }
+            if (!booking.missing) booking.missing = [];
+            if (!booking.missing.includes(field)) booking.missing.push(field);
+            await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _awaitingGpsLocation: field });
+        }
+        await sendTelegramMessage(chatId,
+            `📍 <b>So senden Sie Ihren Standort als ${fieldLabel}:</b>\n\n` +
+            `1️⃣ Tippen Sie unten auf die <b>📎 Büroklammer</b>\n` +
+            `2️⃣ Wählen Sie <b>„Standort"</b>\n` +
+            `3️⃣ Tippen Sie auf <b>„Meinen Standort senden"</b>\n\n` +
+            `✅ Der GPS-Standort wird automatisch als <b>${fieldLabel}</b> übernommen!\n\n` +
+            `<i>💡 Tipp: Standort funktioniert auch wenn die Adresse unbekannt ist — ` +
+            `wir erkennen die genaue Position über GPS.</i>`);
         return;
     }
 

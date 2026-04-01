@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.45';
+const CLOUD_FUNCTIONS_VERSION = '6.38.46';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -629,11 +629,22 @@ async function autoAssignRide(rideId, rideData) {
             const _shiftInfo = getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr);
             const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
             const _verifyOk = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
+
+            // 🔧 v6.38.46: Sofortfahrt + Fahrer ONLINE → Schichtplan überschreiben!
+            // Wenn ein Fahrer sich aktiv per GPS anmeldet, ist er verfügbar — egal was der Schichtplan sagt
+            const _isDriverOnline = _vData.online === true || (_vData.shift && _vData.shift.status === 'active');
+            const _hasRecentGPS = _vData.lastUpdate && (Date.now() - _vData.lastUpdate < 10 * 60 * 1000); // GPS < 10 Min alt
+            const _driverActiveOverride = isSofort && (_isDriverOnline || _hasRecentGPS);
+
             if (!_shiftOk || !_verifyOk.ok) {
-                if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
-                console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
-                vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
-                continue;
+                if (_driverActiveOverride) {
+                    console.log(`   ⚠️ ${info.name}: Kein Schichtplan, aber Fahrer ist ONLINE → Sofortfahrt erlaubt! (online=${_isDriverOnline}, GPS<10min=${_hasRecentGPS})`);
+                } else {
+                    if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
+                    console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
+                    continue;
+                }
             }
 
             // 🆕 v6.26.0: Schichtende-Prüfung — Fahrtende darf Schicht nicht überschreiten

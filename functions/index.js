@@ -14166,14 +14166,56 @@ async function handleLocation(message) {
     }
 
     if (pending && pending._adminNewCust && (pending._adminNewCustStep === 'address' || pending._adminNewCustStep === 'address_select')) {
-        await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse übernommen: ${addressName}`);
-        // Wie Adresseingabe behandeln → Vorschläge zeigen mit dieser Adresse
-        const suggestions = await searchNominatimForTelegram(addressName);
+        await addTelegramLog('📍', chatId, `GPS-Standort als Kundenadresse: ${addressName} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
+
+        // 🔧 v6.38.45: GPS = exakte Position. KEINE Nominatim-Vorwärtssuche!
+        // Nur Reverse-Geocoding Adresse + nahegelegene CRM/Geocache-Adressen (< 200m)
+        const GPS_RADIUS_KM = 0.2; // 200 Meter — GPS ist auf den Meter genau
+        const nearbyAddresses = [];
+        const seenAddrs = new Set();
+
+        // Reverse-Geocoding Adresse als Hauptvorschlag
+        nearbyAddresses.push({ name: addressName, lat, lon, source: 'gps-reverse' });
+        seenAddrs.add(addressName.toLowerCase().trim());
+
+        // Nur CRM-Kunden und Geocache im Umkreis von 200m prüfen — KEIN Nominatim!
+        try {
+            const [geocacheSnap, custSnap] = await Promise.all([
+                db.ref('geocache').once('value'),
+                db.ref('customers').once('value')
+            ]);
+            // Geocache: gespeicherte Adressen in der Nähe
+            if (geocacheSnap.exists()) {
+                geocacheSnap.forEach(child => {
+                    const e = child.val();
+                    if (!e.address || !e.lat || !e.lon) return;
+                    const dist = distanceKm(lat, lon, parseFloat(e.lat), parseFloat(e.lon));
+                    if (dist <= GPS_RADIUS_KM && !seenAddrs.has(e.address.toLowerCase().trim())) {
+                        seenAddrs.add(e.address.toLowerCase().trim());
+                        nearbyAddresses.push({ name: e.address, lat: e.lat, lon: e.lon, source: 'geocache' });
+                    }
+                });
+            }
+            // CRM: Kunden-Adressen in der Nähe
+            if (custSnap.exists()) {
+                custSnap.forEach(child => {
+                    const c = child.val();
+                    if (!c.address || !c.lat || !c.lon) return;
+                    const dist = distanceKm(lat, lon, parseFloat(c.lat), parseFloat(c.lon));
+                    if (dist <= GPS_RADIUS_KM && !seenAddrs.has(c.address.toLowerCase().trim())) {
+                        seenAddrs.add(c.address.toLowerCase().trim());
+                        nearbyAddresses.push({ name: `${c.name}: ${c.address}`, lat: c.lat, lon: c.lon, source: 'customer' });
+                    }
+                });
+            }
+        } catch (e) { console.warn('GPS-Nearby-Suche Fehler:', e.message); }
+
+        console.log(`📍 GPS-Adressvorschläge: ${nearbyAddresses.length} im Umkreis von ${GPS_RADIUS_KM * 1000}m`);
         const confirmId = Date.now().toString(36);
 
-        if (suggestions.length > 0) {
-            const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
-            keyboard.push([{ text: `📝 GPS-Adresse verwenden: ${addressName.length > 30 ? addressName.slice(0, 28) + '…' : addressName}`, callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
+        if (nearbyAddresses.length > 1) {
+            // Mehrere Adressen in der Nähe → Auswahl anbieten
+            const keyboard = nearbyAddresses.map((s, i) => [{ text: `${s.source === 'customer' ? '👤' : s.source === 'geocache' ? '💾' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
             keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
 
             await setPending(chatId, {
@@ -14182,7 +14224,7 @@ async function handleLocation(message) {
                 _adminNewCustAddr: addressName,
                 _adminNewCustAddrLat: lat,
                 _adminNewCustAddrLon: lon,
-                _adminNewCustSuggestions: suggestions,
+                _adminNewCustSuggestions: nearbyAddresses,
                 _addrConfirmId: confirmId
             });
             await sendTelegramMessage(chatId,
@@ -14190,6 +14232,7 @@ async function handleLocation(message) {
                 reply_markup: { inline_keyboard: keyboard }
             });
         } else {
+            // Nur eine Adresse (die Reverse-Geocoding Adresse) → direkt weiter zur Kundenart
             await setPending(chatId, {
                 ...pending,
                 _adminNewCustStep: 'customerKind',
@@ -14201,7 +14244,9 @@ async function handleLocation(message) {
                 `🏷️ <b>Kundenart festlegen</b>\n\n👤 <b>${pending._adminNewCustName}</b>\n📍 ${addressName}\n\nIst das die <b>Wohnanschrift</b> oder nur eine <b>Abholadresse</b>?`, {
                 reply_markup: { inline_keyboard: [
                     [{ text: '🏠 Wohnanschrift (Stammkunde)', callback_data: 'admin_newcust_kind_stamm' }],
-                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }]
+                    [{ text: '📍 Nur Abholadresse (Gelegenheitskunde)', callback_data: 'admin_newcust_kind_gelegenheit' }],
+                    [{ text: '🏨 Hotel / Pension (bucht für Gäste)', callback_data: 'admin_newcust_kind_hotel' }],
+                    [{ text: '🏢 Firma (Klinik/bucht für Andere)', callback_data: 'admin_newcust_kind_firma' }]
                 ] }
             });
         }

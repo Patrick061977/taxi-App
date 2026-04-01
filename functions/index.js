@@ -659,11 +659,11 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
-            // 🔧 v6.26.0: Besetzt-Check — nur WIRKLICH unterwegs!
-            // 🔧 v6.34.0: FIX — 'assigned' entfernt! Vorbestellungen blockieren nicht.
+            // 🔧 v6.38.50 BUG-05 FIX: accepted + on_way + picked_up blockieren!
+            // Fahrer der gerade zum Kunden fährt (accepted) darf keine zweite Fahrt bekommen
             const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up')
+                (r.status === 'on_way' || r.status === 'picked_up' || (isSofort && r.status === 'accepted'))
             );
             if (busyRide) {
                 console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`);
@@ -960,10 +960,10 @@ async function autoAssignRide(rideId, rideData) {
 
                         console.log(`   🔄 v6.25.5: Abholzeit verschoben ${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min) — ${best.name} erst ab ${_prevEndFormatted} frei`);
 
-                        // pickupTimestamp im rideData aktualisieren
+                        // 🔧 v6.38.50 BUG-01 FIX: Original ZUERST speichern, dann überschreiben!
+                        rideData.originalPickupTimestamp = rideData.pickupTimestamp;
                         rideData.pickupTimestamp = _newPickupTs;
                         rideData.pickupTimeShifted = true;
-                        rideData.originalPickupTimestamp = rideData.pickupTimestamp;
                         rideData.pickupShiftReason = `Fahrzeug ${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`;
                         rideData.pickupShiftMinutes = _delayMin;
 
@@ -2074,7 +2074,9 @@ async function getPending(chatId) {
 }
 
 async function setPending(chatId, data) {
-    data._createdAt = data._createdAt || Date.now();
+    // 🔧 v6.38.50 BUG-15 FIX: Timeout ab LETZTER Aktivität, nicht ab Erstellung
+    if (!data._createdAt) data._createdAt = Date.now();
+    data._lastActivity = Date.now(); // Wird bei JEDEM setPending aktualisiert
     // Firebase erlaubt kein undefined – rekursiv entfernen
     const clean = JSON.parse(JSON.stringify(data));
     await db.ref('settings/telegram/pending/' + chatId).set(clean);
@@ -2086,7 +2088,9 @@ async function deletePending(chatId) {
 
 function isPendingExpired(pending) {
     if (!pending || !pending._createdAt) return false;
-    return (Date.now() - pending._createdAt) > PENDING_TIMEOUT_MS;
+    // 🔧 v6.38.50 BUG-15 FIX: Prüfe _lastActivity statt _createdAt
+    const lastActive = pending._lastActivity || pending._createdAt;
+    return (Date.now() - lastActive) > PENDING_TIMEOUT_MS;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2797,7 +2801,7 @@ async function searchNominatimForTelegram(query) {
             n = n.replace(/\s+/g, ' ').trim();
             return n;
         };
-        const _ckRound = (lat, lon) => `${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}`;
+        const _ckRound = (lat, lon) => `${parseFloat(lat).toFixed(4)}_${parseFloat(lon).toFixed(4)}`;
         const _coordMap = {}; // coordKey → normKey
         const _addAddr = (addr, lat, lon) => {
             let key = _normAddr(addr);
@@ -3430,13 +3434,17 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                                     }
                                 }
                             }
-                            // Kein Straßen-Match → ersten Usedom-Treffer als Vorschlag nehmen
-                            if (!_directGeoResult) {
+                            // 🔧 v6.38.50 BUG-08 FIX: Kein Straßen-Match → NICHT auto-akzeptieren!
+                            // Nur wenn Straße+Hausnr vorhanden war, den besten Treffer nehmen
+                            if (!_directGeoResult && _hasHausnr && _addrLooksLikeStreet) {
                                 const bestR = _usedomResults[0];
                                 const lat = parseFloat(bestR.lat); const lon = parseFloat(bestR.lon);
                                 const _displayName = `${bestR.address?.road || bestR.address?.amenity || bestR.display_name.split(',')[0]} ${bestR.address?.house_number || ''}, ${bestR.address?.postcode || ''} ${bestR.address?.city || bestR.address?.town || bestR.address?.village || ''}`.replace(/\s+/g, ' ').trim();
                                 _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-direct-best' };
                                 await addTelegramLog('✅', chatId, `Direkt-Geocoding (bester Treffer): "${addressToResolve}" → ${_displayName}`);
+                            } else if (!_directGeoResult) {
+                                // Unverifizierter Treffer → weiter zur normalen Such-Pipeline für Bestätigung durch User
+                                await addTelegramLog('⚠️', chatId, `Direkt-Geocoding: ${_usedomResults.length} Usedom-Treffer aber kein Straßen-Match → Such-Pipeline`);
                             }
                         } else if (_dResults.length > 0) {
                             await addTelegramLog('⚠️', chatId, `Direkt-Geocoding: ${_dResults.length} Treffer aber keiner auf Usedom. Erster: "${_dResults[0].display_name}"`);
@@ -4308,7 +4316,7 @@ Nur gültiges JSON, kein Markdown:
         if (booking.datetime && !_timeKeywords.test(text)) {
             await addTelegramLog('🛡️', chatId, `Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber User schrieb "${text}" ohne Zeitangabe → datetime gelöscht`);
             booking.datetime = null;
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
         }
 
@@ -4354,7 +4362,7 @@ Nur gültiges JSON, kein Markdown:
                 const nowTimeStr = `${pad(berlinNow.getHours())}:${pad(berlinNow.getMinutes())}`;
                 await addTelegramLog('🛡️', chatId, `Vergangenheits-Schutz: Termin ${booking.datetime} liegt in der Vergangenheit (jetzt: ${nowTimeStr}) → datetime gelöscht, wird nachgefragt`);
                 booking.datetime = null;
-                if (!booking.missing) booking.missing = [];
+                if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
                 if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
                 // Spezifische Rückfrage: Heute-gleicher-Tag oder anderer Tag?
                 const isToday = bookingDate.getDate() === berlinNow.getDate() && bookingDate.getMonth() === berlinNow.getMonth();
@@ -4387,7 +4395,7 @@ Nur gültiges JSON, kein Markdown:
             if (_streetMatch.length >= 2 && _pickupLower !== _destLower) {
                 await addTelegramLog('🛡️', chatId, `Adress-Schutz: Ziel "${booking.destination}" enthält Teile der Abholadresse "${booking.pickup}" → Ziel gelöscht, wird nachgefragt`, { matchedParts: _streetMatch });
                 booking.destination = null;
-                if (!booking.missing) booking.missing = [];
+                if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
                 if (!booking.missing.includes('destination')) booking.missing.push('destination');
                 booking.question = booking.question || 'Wohin soll die Fahrt gehen?';
             }
@@ -4794,7 +4802,7 @@ Nur gültiges JSON, kein Markdown:
         }
 
         // Defensive missing-Prüfung
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -4859,7 +4867,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
     let pending = null;
     try {
         pending = await getPending(chatId);
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -5723,7 +5731,7 @@ Nur gültiges JSON, kein Markdown:
         if (!_pDatetime && booking.datetime && !_fuTimeKeywords.test(newText)) {
             await addTelegramLog('🛡️', chatId, `Follow-Up Datum-Schutz: AI hat "${booking.datetime}" gesetzt, aber Antwort "${newText}" enthält keine Zeitangabe → datetime gelöscht`);
             booking.datetime = null;
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
         }
 
@@ -5748,7 +5756,7 @@ Nur gültiges JSON, kein Markdown:
                 const _fuNowTimeStr = `${_fuPad(_fuBerlinNow.getHours())}:${_fuPad(_fuBerlinNow.getMinutes())}`;
                 await addTelegramLog('🛡️', chatId, `Follow-Up Vergangenheits-Schutz: ${booking.datetime} liegt in der Vergangenheit (jetzt: ${_fuNowTimeStr}) → nachfragen`);
                 booking.datetime = null;
-                if (!booking.missing) booking.missing = [];
+                if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
                 if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
                 const _fuIsToday = _fuBookingDate.getDate() === _fuBerlinNow.getDate() && _fuBookingDate.getMonth() === _fuBerlinNow.getMonth();
                 if (_fuIsToday) {
@@ -5867,7 +5875,7 @@ async function askPassengersOrConfirm(chatId, booking, routePrice, originalText)
     // 🔧 v6.16.1: Datum/Uhrzeit-Picker statt "Jetzt/Sofort"-Button
     if (!booking.datetime) {
         await addTelegramLog('🛡️', chatId, 'Datum fehlt → Datum/Uhrzeit-Picker anzeigen');
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
         await showDateTimePicker(chatId, booking, originalText);
         return;
@@ -6194,11 +6202,10 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
             return n;
         };
 
-        // 🔧 v6.38.48: Koordinaten-Nähe prüfen — gleicher Ort wenn < 100m Abstand
+        // 🔧 v6.38.50 BUG-17 FIX: Koordinaten auf ~11m runden (toFixed(4) statt toFixed(3))
         const _coordKey = (lat, lon) => {
             if (!lat || !lon) return null;
-            // Auf ~100m runden
-            return `${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}`;
+            return `${parseFloat(lat).toFixed(4)}_${parseFloat(lon).toFixed(4)}`;
         };
         const _coordToNormKey = {}; // coordKey → normKey Mapping für Zusammenführung
 
@@ -6249,9 +6256,10 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
             if (_commaMatch) {
                 const _firstPart = _commaMatch[1].trim();
                 const _rest = _commaMatch[2].trim();
-                // Wenn der erste Teil KEIN Straßen-/Orts-Keyword enthält → wahrscheinlich ein Name
-                const _isStreetOrPlace = /straße|str\.|weg\b|ring\b|allee|platz|gasse|damm|dorf|bahnhof|hotel|zum\b|zur\b|seebrücke|flughafen|\d/i.test(_firstPart);
-                if (!_isStreetOrPlace && _firstPart.length < 25) {
+                // 🔧 v6.38.50 BUG-18 FIX: Mehr Orts-Keywords + nur echte Personennamen entfernen
+                const _isStreetOrPlace = /straße|str\.|weg\b|ring\b|allee|platz|gasse|damm|dorf|bahnhof|hotel|pension|villa|haus\b|kurhaus|café|cafe|restaurant|klinik|praxis|markt|kirche|schule|zum\b|zur\b|am\b|seebrücke|flughafen|\d/i.test(_firstPart);
+                // Nur entfernen wenn: kein Ort-Keyword UND sieht aus wie ein einzelner Vorname (< 20 Zeichen, ein Wort)
+                if (!_isStreetOrPlace && _firstPart.length < 20 && /^[A-ZÄÖÜ][a-zäöüß]+$/.test(_firstPart.trim())) {
                     d.name = _rest; // "Marion, Dorf Bansin 8d" → "Dorf Bansin 8d"
                 }
             }
@@ -9909,7 +9917,7 @@ async function handleCallback(callback) {
             if (!booking.datetime) {
                 await addTelegramLog('🛡️', chatId, 'Buchung abgebrochen: Kein Datum/Uhrzeit gesetzt');
                 await sendTelegramMessage(chatId, '⚠️ <b>Datum/Uhrzeit fehlt!</b>\n\nBitte nenne mir zuerst, wann du das Taxi brauchst (Datum und Uhrzeit).');
-                if (!booking.missing) booking.missing = [];
+                if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
                 if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
                 await setPending(chatId, { partial: booking, originalText: '' });
                 return;
@@ -10799,11 +10807,11 @@ async function handleCallback(callback) {
         const isPickup = data === 'dtback_change_pickup';
         if (isPickup) {
             booking.pickup = null; booking.pickupLat = null; booking.pickupLon = null;
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
         } else {
             booking.destination = null; booking.destinationLat = null; booking.destinationLon = null;
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes('destination')) booking.missing.push('destination');
         }
         await addTelegramLog('◀️', chatId, `Zurück: ${isPickup ? 'Abholort' : 'Zielort'} wird geändert`);
@@ -10828,7 +10836,7 @@ async function handleCallback(callback) {
         booking.pickup = null;
         booking.pickupLat = null;
         booking.pickupLon = null;
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
         // Zielort auch löschen damit er danach erneut abgefragt wird
         booking.destination = null;
@@ -10850,7 +10858,7 @@ async function handleCallback(callback) {
         booking.destination = null;
         booking.destinationLat = null;
         booking.destinationLon = null;
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.missing.includes('destination')) booking.missing.push('destination');
         delete pending.nominatimResults;
         await addTelegramLog('◀️', chatId, 'Zurück → Zielort nochmal eingeben');
@@ -10865,7 +10873,7 @@ async function handleCallback(callback) {
         const booking = pending.booking || pending.partial;
         if (!booking) return;
         delete booking.datetime;
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
         delete pending._awaitingBookingGuest;
         await addTelegramLog('◀️', chatId, 'Zurück von Gastname → Uhrzeit-Auswahl');
@@ -10882,7 +10890,7 @@ async function handleCallback(callback) {
         if (!booking) return;
         // Datum/Uhrzeit zurücksetzen → Datetime-Picker erneut anzeigen
         delete booking.datetime;
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
         await addTelegramLog('◀️', chatId, 'Zurück von Personenzahl → Uhrzeit-Auswahl');
         await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _dtPicker: true });
@@ -13459,7 +13467,7 @@ async function handleCallback(callback) {
                 booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
             }
         }
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -13501,10 +13509,10 @@ async function handleCallback(callback) {
             }
         }
         if (!booking.phone) {
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes('phone')) booking.missing.push('phone');
         }
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -13528,7 +13536,7 @@ async function handleCallback(callback) {
         booking._adminBooked = true;
         booking._adminChatId = chatId;
         if ((found.mobilePhone || found.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -13582,7 +13590,7 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, confirmMsg);
         }
 
-        if (!booking.missing) booking.missing = [];
+        if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
@@ -13703,7 +13711,7 @@ async function handleCallback(callback) {
             booking[field] = null;
             if (field === 'pickup') { booking.pickupLat = null; booking.pickupLon = null; }
             else { booking.destinationLat = null; booking.destinationLon = null; }
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes(field)) booking.missing.push(field);
             delete pending.nominatimResults;
             const fieldLabel = field === 'pickup' ? 'Abholort' : 'Zielort';
@@ -13730,7 +13738,7 @@ async function handleCallback(callback) {
             booking[field] = null;
             if (field === 'pickup') { booking.pickupLat = null; booking.pickupLon = null; }
             else { booking.destinationLat = null; booking.destinationLon = null; }
-            if (!booking.missing) booking.missing = [];
+            if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
             if (!booking.missing.includes(field)) booking.missing.push(field);
             await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _awaitingGpsLocation: field });
         }
@@ -13777,7 +13785,7 @@ async function handleCallback(callback) {
             const booking = pending.partial;
             // Prüfe ob noch Pflichtfelder fehlen (datetime!)
             if (!booking.datetime) {
-                if (!booking.missing) booking.missing = [];
+                if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
                 if (!booking.missing.includes('datetime')) booking.missing.push('datetime');
                 await continueBookingFlow(chatId, booking, pending.originalText || '');
                 return;
@@ -16320,11 +16328,27 @@ exports.scheduledAutoAssign = onSchedule(
             const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
 
             // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
+            // 🔧 v6.38.50 BUG-13 FIX: NIEMALS Fahrzeuge löschen die auf aktiver Fahrt sind!
+            // Sammle alle aktiven Fahrten vorab
+            const _allRidesForCleanup = [];
+            const _ridesSnapCleanup = await db.ref('rides').once('value');
+            if (_ridesSnapCleanup.exists()) _ridesSnapCleanup.forEach(c => { const r = c.val(); if (r) { r._id = c.key; _allRidesForCleanup.push(r); } });
+
             const STALE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minuten
             for (const [vid, vData] of Object.entries(vehiclesData)) {
                 if (!vData.lastUpdate) continue;
                 const ageMs = now - vData.lastUpdate;
                 if (ageMs > STALE_TIMEOUT_MS) {
+                    // BUG-13 FIX: Prüfe ob Fahrzeug gerade auf einer aktiven Fahrt ist
+                    const _hasActiveRide = _allRidesForCleanup.some(r =>
+                        (r.vehicleId === vid || r.assignedVehicle === vid) &&
+                        ['on_way', 'picked_up', 'assigned', 'accepted'].includes(r.status)
+                    );
+                    if (_hasActiveRide) {
+                        console.log(`🛡️ STALE-CLEANUP: ${(OFFICIAL_VEHICLES[vid] || {}).name || vid} — GPS veraltet aber auf aktiver Fahrt → NICHT löschen`);
+                        continue;
+                    }
+
                     const vName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
                     const ageMin = Math.round(ageMs / 60000);
                     const lastGpsTime = new Date(vData.lastUpdate).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
@@ -16378,9 +16402,10 @@ exports.scheduledAutoAssign = onSchedule(
                 console.log(`   📋 ${_dbg.firebaseId}: ${_dbg.customerName || '?'} ts=${_dbg.pickupTimestamp} status=${_dbg.status} vId=${JSON.stringify(_dbg.vehicleId)} aV=${JSON.stringify(_dbg.assignedVehicle)}`);
             }
 
+            // 🔧 v6.38.50 BUG-14 FIX: accepted Fahrten NICHT re-assignen
             const needsReassign = allRides.filter(r => {
                 if (!r.assignedVehicle && !r.vehicleId) return false;
-                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
+                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up','accepted'].includes(r.status)) return false;
                 if (r.assignmentLocked) return false;
                 if (!r.pickupTimestamp || r.pickupTimestamp < now + 5 * 60000) return false;
 

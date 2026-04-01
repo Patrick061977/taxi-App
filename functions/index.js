@@ -9134,12 +9134,21 @@ async function handleMessage(message) {
             } else if (matches.length === 1) {
                 const found = matches[0];
                 const confirmId = Date.now().toString(36);
+                await addTelegramLog('🔍', chatId, `CRM-Treffer: ${found.name} | phone="${found.phone || ''}" | mobilePhone="${found.mobilePhone || ''}" | address="${found.address || ''}"`);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
-                let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n👤 <b>${found.name}</b>\n`;
-                // 🔧 v6.14.7: Auch mobilePhone anzeigen
-            const _dispPhone = found.mobilePhone || found.phone;
-            if (_dispPhone) confirmMsg += `📱 ${_dispPhone}\n`;
+                // 🔧 v6.38.51: Vollständige CRM-Info anzeigen bei Kundenbestätigung
+                const _dispPhone2 = found.mobilePhone || found.phone || '';
+                const _dispPhone2b = found.phone && found.phone !== _dispPhone2 ? found.phone : '';
+                const _custKindLabel = found.customerKind === 'stammkunde' ? '⭐ Stammkunde' : (found.customerKind === 'hotel' ? '🏨 Hotel' : (found.type === 'supplier' ? '🚚 Lieferant' : ''));
+                let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n`;
+                if (found.anrede) confirmMsg += `${found.anrede} `;
+                confirmMsg += `<b>${found.name}</b>`;
+                if (_custKindLabel) confirmMsg += ` (${_custKindLabel})`;
+                confirmMsg += `\n`;
+                if (_dispPhone2) confirmMsg += `📱 ${_dispPhone2}\n`;
+                if (_dispPhone2b) confirmMsg += `📞 ${_dispPhone2b}\n`;
                 if (found.address) confirmMsg += `🏠 ${found.address}\n`;
+                if (found.totalRides) confirmMsg += `🚕 ${found.totalRides} Fahrt${found.totalRides > 1 ? 'en' : ''}\n`;
                 confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
                 await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
                     [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],

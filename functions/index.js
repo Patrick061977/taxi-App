@@ -615,18 +615,12 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
-            // 🔧 v6.38.45: Sofortfahrt → Fahrer muss AKTIV online sein (strenger Check!)
-            // Vorher: online === false → nur explizites false erkannt. undefined/null ging durch!
-            // Jetzt: Fahrzeug MUSS online === true ODER GPS < 10 Min haben
+            // 🔧 v6.38.45: Sofortfahrt → nur PAUSE blockiert (Schichtplan entscheidet, nicht GPS!)
             if (isSofort) {
                 const _isPaused = _vData.shift && _vData.shift.status === 'paused';
-                const _hasRecentGPS = _vData.timestamp && (Date.now() - _vData.timestamp <= MAX_GPS_AGE);
-                const _isExplicitlyOnline = _vData.online === true;
-                const _isOffline = !_isExplicitlyOnline && !_hasRecentGPS;
-                if (_isPaused || _isOffline) {
-                    const _reason = _isPaused ? 'Fahrer in Pause' : (_isExplicitlyOnline ? 'Kein GPS' : `Fahrer nicht online (online=${_vData.online}, GPS=${_vData.timestamp ? Math.round((Date.now() - _vData.timestamp) / 60000) + ' Min alt' : 'nie'})`);
-                    console.log(`   ❌ ${info.name}: ${_reason} — Sofortfahrt nicht möglich`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: _reason, check: 'online-pause' };
+                if (_isPaused) {
+                    console.log(`   ❌ ${info.name}: Fahrer in Pause — Sofortfahrt nicht möglich`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer in Pause', check: 'paused' };
                     continue;
                 }
             }

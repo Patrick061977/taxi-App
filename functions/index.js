@@ -16494,8 +16494,36 @@ exports.onRideCreated = onValueCreated(
             return;
         }
 
+        // 🔧 v6.38.46: Race-Condition-Fix — Browser schreibt Koordinaten NACH dem Erstellen
+        // Wenn Koordinaten fehlen, 3 Sekunden warten und nochmal aus Firebase laden
+        if (!ride.pickupLat || !ride.destinationLat) {
+            console.log(`⏳ onRideCreated: Koordinaten fehlen — warte 3s auf Browser-Nachlieferung...`);
+            await new Promise(r => setTimeout(r, 3000));
+            const freshSnap = await db.ref('rides/' + rideId).once('value');
+            const freshRide = freshSnap.val();
+            if (freshRide) {
+                // Nur fehlende Felder nachfüllen
+                if (!ride.pickupLat && freshRide.pickupLat) { ride.pickupLat = freshRide.pickupLat; ride.pickupLon = freshRide.pickupLon; }
+                if (!ride.destinationLat && freshRide.destinationLat) { ride.destinationLat = freshRide.destinationLat; ride.destinationLon = freshRide.destinationLon; }
+                if (!ride.duration && freshRide.duration) { ride.duration = freshRide.duration; ride.estimatedDuration = freshRide.estimatedDuration; }
+                if (!ride.distance && freshRide.distance) { ride.distance = freshRide.distance; ride.estimatedDistance = freshRide.estimatedDistance; }
+                if (!ride.price && freshRide.price) { ride.price = freshRide.price; ride.estimatedPrice = freshRide.estimatedPrice; }
+                if (!ride.pickupTimestamp && freshRide.pickupTimestamp) { ride.pickupTimestamp = freshRide.pickupTimestamp; }
+                const _fixed = [];
+                if (ride.pickupLat && !event.data.val().pickupLat) _fixed.push('Abholort-Koordinaten');
+                if (ride.destinationLat && !event.data.val().destinationLat) _fixed.push('Zielort-Koordinaten');
+                if (ride.duration && !event.data.val().duration) _fixed.push('Duration');
+                if (_fixed.length > 0) {
+                    console.log(`✅ onRideCreated: Race-Condition behoben! Nachgeliefert: ${_fixed.join(', ')}`);
+                    await addRideLog(rideId, '🔄', `Race-Condition behoben — Daten nachgeladen`, { nachgeliefert: _fixed.join(', '), wartezeit: '3s' });
+                } else {
+                    console.log(`⚠️ onRideCreated: Nach 3s immer noch keine Koordinaten`);
+                }
+            }
+        }
+
         // 🔧 v6.38.43: Detailliertes Logging für Debugging
-        console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}`);
+        console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}, pickupLat=${ride.pickupLat}, destLat=${ride.destinationLat}`);
 
         const timestamp = formatBerlinTime();
 
@@ -16567,6 +16595,21 @@ exports.onRideCreated = onValueCreated(
             typ: isSofort ? 'SOFORT' : 'VORBESTELLUNG',
             ergebnis: _adminNotifResult
         });
+
+        // 🔧 v6.38.46: Koordinaten aus pickupCoords/destCoords extrahieren (Browser speichert dort!)
+        if (!ride.pickupLat && ride.pickupCoords && ride.pickupCoords.lat) {
+            ride.pickupLat = ride.pickupCoords.lat;
+            ride.pickupLon = ride.pickupCoords.lon || ride.pickupCoords.lng;
+            console.log(`🔧 pickupLat aus pickupCoords extrahiert: ${ride.pickupLat}, ${ride.pickupLon}`);
+            // Auch in Firebase nachschreiben damit andere Funktionen es finden
+            try { await db.ref(`rides/${rideId}`).update({ pickupLat: ride.pickupLat, pickupLon: ride.pickupLon }); } catch(e) {}
+        }
+        if (!ride.destinationLat && ride.destCoords && ride.destCoords.lat) {
+            ride.destinationLat = ride.destCoords.lat;
+            ride.destinationLon = ride.destCoords.lon || ride.destCoords.lng;
+            console.log(`🔧 destinationLat aus destCoords extrahiert: ${ride.destinationLat}, ${ride.destinationLon}`);
+            try { await db.ref(`rides/${rideId}`).update({ destinationLat: ride.destinationLat, destinationLon: ride.destinationLon }); } catch(e) {}
+        }
 
         // 🔧 v6.38.40: Datenqualitäts-Check — Koordinaten + Duration prüfen
         const _hasPickup = ride.pickupLat && ride.pickupLon;
@@ -16688,25 +16731,30 @@ exports.onRideCreated = onValueCreated(
             await db.ref('rides/' + rideId + '/cloudNotificationSent').set(true);
         } catch (e) { await logError('onRideCreated.cloudNotifSent', e, { rideId, severity: 'warning' }); }
 
-        // 🔧 v6.25.4: Auto-Zuweisung für Vorbestellungen direkt in Cloud
-        // Browser macht das nicht mehr wenn Webhook aktiv
-        if (!isSofort && !ride.assignedVehicle && ride.pickupTimestamp && ride.pickupTimestamp > now + 30 * 60000) {
-            try {
-                console.log(`🚕 Cloud: Auto-Zuweisung für Vorbestellung ${rideId}...`);
-                await addRideLog(rideId, '🔍', 'Cloud: Suche Fahrzeug (onRideCreated)', 'Vorbestellung > 30 Min');
-                const assignResult = await autoAssignRide(rideId, ride);
-                if (assignResult && assignResult.vehicleId) {
-                    // 🔧 v6.38.35: autoAssignRide gibt best.name zurück, nicht vehicleName
-                    const _assignName = assignResult.name || (OFFICIAL_VEHICLES[assignResult.vehicleId] || {}).name || assignResult.vehicleId;
-                    console.log(`✅ Cloud: Vorbestellung ${rideId} → ${_assignName} zugewiesen`);
-                    await addRideLog(rideId, '✅', `Cloud: Fahrzeug zugewiesen (onRideCreated)`, { fahrzeug: _assignName, quelle: 'onRideCreated → autoAssignRide' });
-                } else {
-                    console.log(`⚠️ Cloud: Kein Fahrzeug für Vorbestellung ${rideId} gefunden — wird von autoResolveConflicts behandelt`);
-                    await addRideLog(rideId, '⚠️', 'Cloud: Kein Fahrzeug gefunden (onRideCreated)', 'autoResolveConflicts übernimmt');
+        // 🔧 v6.38.46: Auto-Zuweisung für ALLE Fahrten (Sofort + Vorbestellung)
+        if (!ride.assignedVehicle) {
+            const _hasCoords = ride.pickupLat && ride.destinationLat;
+            if (_hasCoords) {
+                try {
+                    const _zuweisTyp = isSofort ? 'Sofortfahrt' : 'Vorbestellung';
+                    console.log(`🚕 Cloud: Auto-Zuweisung für ${_zuweisTyp} ${rideId}...`);
+                    await addRideLog(rideId, '🔍', `Cloud: Suche Fahrzeug (onRideCreated)`, { typ: _zuweisTyp });
+                    const assignResult = await autoAssignRide(rideId, ride);
+                    if (assignResult && assignResult.vehicleId) {
+                        const _assignName = assignResult.name || (OFFICIAL_VEHICLES[assignResult.vehicleId] || {}).name || assignResult.vehicleId;
+                        console.log(`✅ Cloud: ${_zuweisTyp} ${rideId} → ${_assignName} zugewiesen`);
+                        await addRideLog(rideId, '✅', `Cloud: Fahrzeug zugewiesen (onRideCreated)`, { fahrzeug: _assignName, typ: _zuweisTyp, quelle: 'onRideCreated → autoAssignRide' });
+                    } else {
+                        console.log(`⚠️ Cloud: Kein Fahrzeug für ${_zuweisTyp} ${rideId} gefunden`);
+                        await addRideLog(rideId, '⚠️', `Cloud: Kein Fahrzeug gefunden (onRideCreated)`, { typ: _zuweisTyp, hinweis: isSofort ? 'Kein Fahrer online/verfügbar' : 'scheduledAutoAssign übernimmt' });
+                    }
+                } catch(e) {
+                    console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
+                    await addRideLog(rideId, '❌', 'Cloud: Auto-Zuweisung Fehler', e.message);
                 }
-            } catch(e) {
-                console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
-                await addRideLog(rideId, '❌', 'Cloud: Auto-Zuweisung Fehler', e.message);
+            } else {
+                console.log(`⚠️ Cloud: Keine Koordinaten für Auto-Zuweisung von ${rideId}`);
+                await addRideLog(rideId, '⚠️', 'Cloud: Auto-Zuweisung übersprungen — keine Koordinaten', { pickupLat: ride.pickupLat || 'fehlt', destLat: ride.destinationLat || 'fehlt' });
             }
         }
 

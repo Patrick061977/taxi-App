@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.48';
+const CLOUD_FUNCTIONS_VERSION = '6.38.49';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1309,6 +1309,27 @@ async function sendTelegramMessage(chatId, text, extraParams = {}) {
     }
 }
 
+// 🔧 v6.38.49: Fehler-Nachricht mit Menü-Buttons — KEINE SACKGASSEN!
+// Wird bei JEDEM Fehler aufgerufen, damit der Kunde immer weiterkommt
+async function sendErrorWithMenu(chatId, errorText, options = {}) {
+    const _menuButtons = [
+        [{ text: '🚕 Neue Fahrt buchen', callback_data: 'menu_buchen' }],
+        [{ text: '🏠 Hauptmenü', callback_data: 'main_menu' }]
+    ];
+    if (options.retryCallback) {
+        _menuButtons.unshift([{ text: '🔄 Nochmal versuchen', callback_data: options.retryCallback }]);
+    }
+    if (options.extraButtons) {
+        _menuButtons.unshift(...options.extraButtons);
+    }
+    const _msg = `${errorText}\n\n💡 <b>Was möchten Sie tun?</b>`;
+    await sendTelegramMessage(chatId, _msg, { reply_markup: { inline_keyboard: _menuButtons } });
+    // Pending löschen damit der Kunde sauber neu starten kann
+    if (options.clearPending !== false) {
+        try { await deletePending(chatId); } catch(_e) {}
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.28.0: WhatsApp Business API — Server-seitiger Versand
 // ═══════════════════════════════════════════════════════════════
@@ -2039,7 +2060,7 @@ async function createAdminNewCustomer(chatId, name, phone, address, originalText
         }
     } catch (e) {
         console.error('CRM-Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message);
+        await sendErrorWithMenu(chatId, '⚠️ CRM-Fehler. Bitte versuchen Sie es erneut.');
     }
 }
 
@@ -4061,7 +4082,7 @@ NUR gueltiges JSON, sonst nichts:
 async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
     const apiKey = await getAnthropicApiKey();
     if (!apiKey) {
-        await sendTelegramMessage(chatId, '⚠️ AI-Assistent nicht konfiguriert. Bitte Anthropic API-Key in der App eintragen.');
+        await sendErrorWithMenu(chatId, '⚠️ AI-Assistent nicht konfiguriert.\n\nBitte den Anthropic API-Key in der App eintragen.');
         return;
     }
 
@@ -4126,16 +4147,19 @@ DATUM + UHRZEIT → ISO-Format YYYY-MM-DDTHH:MM:
 • NIEMALS ein Datum/Uhrzeit erfinden oder raten! Nur setzen wenn EXPLIZIT vom Fahrgast genannt!
 • NIEMALS 00:00 verwenden!
 
-ADRESSEN:
+ADRESSEN — SORGFÄLTIG EXTRAHIEREN:
 • Straße + Hausnummer immer vollständig übernehmen
+• TRENNZEICHEN: Komma, Punkt oder Leerzeichen zwischen Adressteilen ist OK — "Friedrichstraße 9 Ahlbeck" = "Friedrichstraße 9, Ahlbeck"
 • Bekannte Ziele: "Bahnhof Heringsdorf", "Flughafen Heringsdorf (HDF)", "Seebrücke Heringsdorf"
-• Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → kurz nachfragen
-• NUR ORTSNAME (z.B. "Bansin", "Ahlbeck", "Heringsdorf") OHNE Straße → Adresse übernehmen ABER in question freundlich nach genauer Straße fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer wäre ideal – oder soll ich den Ortskern nehmen?"
-• "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, nach Straße fragen
+• Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → in question KONKRET nachfragen: "Welchen Bahnhof meinen Sie?"
+• NUR ORTSNAME (z.B. "Bansin", "Ahlbeck") OHNE Straße → Adresse übernehmen ABER in question fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer helfen uns, Sie schneller zu finden."
+• "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, fragen: "Was ist Ihre Heimadresse? Straße, Hausnummer und Ort bitte."
 • NIEMALS eine Adresse erfinden oder raten! Nur Adressen setzen die EXPLIZIT im Text stehen.
-• Wenn nur ein Name/Titel genannt wird (z.B. "Dr. Krohn", "Hotel Maritim") OHNE Straße → NUR den Namen als Adresse übernehmen, KEINE Straße/Hausnummer dazuerfinden!
-• Pickup und Destination müssen UNTERSCHIEDLICHE Orte sein. NIEMALS Teile der Abholadresse (Straße/Hausnummer) für das Ziel verwenden oder umgekehrt.
-• Abgeschnittener/unvollständiger Text (z.B. endet mitten im Satz) → fehlende Adressen als null setzen und in missing aufnehmen, NICHT aus dem Kontext raten.
+• Wenn nur ein Name/Titel genannt wird (z.B. "Dr. Krohn", "Hotel Maritim") → NUR den Namen übernehmen, KEINE Straße/Hausnummer dazuerfinden!
+• Pickup und Destination müssen UNTERSCHIEDLICHE Orte sein.
+• SCHREIBFEHLER ERKENNEN: "Herringsdorf" = Heringsdorf, "Albeeck" = Ahlbeck, "Bahnsin" = Bansin — korrigiere offensichtliche Tippfehler bei Ortsnamen!
+• ADRESSE MIT ORT ZUSAMMENFÜHREN: Wenn getrennt angegeben (z.B. "Friedrichstraße 9" + "in Ahlbeck"), zusammensetzen → "Friedrichstraße 9, Ahlbeck"
+• Abgeschnittener/unvollständiger Text → fehlende Adressen als null, in missing, nachfragen.
 
 ZWISCHENSTOPPS:
 • "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array!
@@ -4204,10 +4228,19 @@ NIEMALS andere Feldnamen verwenden! Kein "destination_street", "return_datetime"
 • Rückfahrt-Infos (Rückfahrt-Uhrzeit, Rückfahrt-Ziel) → in "notes" speichern, z.B.: "Rückfahrt gewünscht: ca. 21 Uhr zurück zum Ahlbecker Hof"
 • KEINE Rückfahrt-Felder in "missing"! Das System erstellt Rückfahrten separat nach der Hinfahrt.
 
-━━━ SCHRITT 4: RÜCKFRAGE FORMULIEREN ━━━
-Wenn Felder fehlen → "question" = EINE einzige, kurze, natürliche Frage
+━━━ SCHRITT 4: RÜCKFRAGE FORMULIEREN (WICHTIG!) ━━━
+NIEMALS den Kunden ohne Antwort lassen! IMMER eine hilfreiche Rückfrage stellen wenn etwas unklar ist.
+Wenn Felder fehlen → "question" = EINE einzige, kurze, natürliche Frage:
 • Reihenfolge: erst datetime, dann pickup, dann destination, dann phone
 • Wenn alles vollständig: question = null
+• UNKLARE Angaben → KONKRET nachfragen:
+  - "Bahnhof" ohne Ort → "Welchen Bahnhof meinen Sie? Heringsdorf, Ahlbeck oder Zinnowitz?"
+  - Nur Ortsname → "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer wäre ideal."
+  - Straße ohne Nr → "Welche Hausnummer in der [Straße]?"
+  - Nur "10 Uhr" → "Soll die Fahrt heute um 10 Uhr sein oder an einem anderen Tag?"
+  - Mehrdeutig → "Meinen Sie [A] oder [B]?"
+• NIEMALS "question": null wenn noch etwas unklar ist! Lieber einmal zu viel fragen als zu wenig.
+• Formuliere Fragen FREUNDLICH und MIT KONKRETEN BEISPIELEN — der Kunde soll sofort wissen was er antworten soll.
 ${isAdmin ? `
 ━━━ DISPONENTEN-MODUS ━━━
 Du buchst für einen Kunden (nicht für den Disponenten selbst):
@@ -4813,7 +4846,7 @@ Nur gültiges JSON, kein Markdown:
     } catch (e) {
         console.error('Analyse-Fehler:', e);
         await addTelegramLog('❌', chatId, 'Analyse-Fehler: ' + e.message);
-        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Analyse: ' + e.message + '\n\nBitte versuche es nochmal.');
+        await sendErrorWithMenu(chatId, '⚠️ Bei der Analyse ist ein Fehler aufgetreten.\n\nSie können es nochmal versuchen oder eine neue Buchung starten.');
     }
 }
 
@@ -5563,7 +5596,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
         await askPassengersOrConfirm(chatId, booking, routePrice, originalText);
     } catch (e) {
         console.error('continueBookingFlow Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        await sendErrorWithMenu(chatId, '⚠️ Bei der Buchung ist ein Fehler aufgetreten.\n\nBitte versuchen Sie es erneut — Ihre Daten gehen nicht verloren.');
     }
 }
 
@@ -5625,15 +5658,18 @@ REGELN:
 2. BESTEHENDE FELDER: Nie überschreiben, außer Fahrgast korrigiert explizit
 3. DATUM: ISO YYYY-MM-DDTHH:MM (LOKALE BERLINER ZEIT, NICHT UTC!) | heute=${berlinDateGlobal(Date.now())} | morgen=${berlinDateGlobal(Date.now() + 86400000)} | aktuelle Uhrzeit Berlin: ${berlinTimeGlobal(Date.now())} | nur Uhrzeit → Datum=${_returnOrigDate ? _returnOrigDate + ' (Rückfahrt-Datum der Hinfahrt!)' : 'heute'} | nur Datum → datetime=null+missing | KEIN Datum/Uhrzeit in Antwort → datetime NICHT setzen, in missing lassen! | nie 00:00! | "13 Uhr" = 13:00, "14 Uhr" = 14:00 (KEINE Zeitzonen-Konvertierung nötig, Uhrzeiten sind bereits Berliner Ortszeit!)
 4. HEIMADRESSE: ${followUpHomeAddress ? `"${followUpHomeAddress}" → bei "zu Hause"/"nach Hause" verwenden` : 'unbekannt → frage "Welche Adresse ist Ihr Zuhause?"'}
-5. UNKLARE ORTE → kurz nachfragen
-6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question nach genauer Adresse fragen
-7. ABBRECHEN: Wenn der Fahrgast "abbrechen", "stop", "nein danke", "doch nicht" sagt → setze intent auf "cancel"
-8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Nur Name/Titel (z.B. "Dr. Krohn") → NUR den Namen übernehmen, KEINE Straße dazuerfinden. Pickup und Destination müssen unterschiedliche Orte sein.
-9. ZWISCHENSTOPPS: "Zwischenstopp", "Zwischenhalt", "über", "via", "mit Stopp in/bei/am" → waypoints-Array! Das sind ADRESSEN, nicht Notizen.
-10. ERLAUBTE WERTE für "missing": NUR ["datetime", "pickup", "destination", "phone"]. NIEMALS andere Feldnamen wie "destination_street", "return_datetime", "return_destination" etc.!
-11. RÜCKFAHRT: IMMER NUR EINE FAHRT pro Buchung (die aktuelle). Rückfahrt-Infos in "notes" speichern, NICHT in missing oder als separate Felder.
-12. ADRESS-KORREKTUR: Wenn die Antwort wie eine Adresse aussieht (Straße + Hausnummer) und ähnlich klingt wie der bisherige pickup oder destination (z.B. "Dünenweg 13" vs. "Dühlweg 13"), ist es eine KORREKTUR → pickup/destination aktualisieren! Adressen NIEMALS als "name" setzen.
-13. NAME vs ADRESSE: Ein Name ist ein Personenname (z.B. "Müller", "Dr. Krohn"). Etwas mit Straße/Weg/Platz/Allee + Hausnummer ist IMMER eine Adresse, NIEMALS ein Name.
+5. UNKLARE ORTE → KONKRET nachfragen: "Welchen Bahnhof meinen Sie?" / "Welche Hausnummer?"
+6. NUR ORTSNAME ohne Straße (z.B. "Bansin", "Ahlbeck") → Ort übernehmen, aber in question fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer helfen uns, Sie schneller zu finden."
+7. ABBRECHEN: "abbrechen", "stop", "nein danke", "doch nicht" → intent="cancel"
+8. ADRESSEN NIE ERFINDEN: Nur Adressen setzen die explizit genannt werden. Pickup und Destination müssen unterschiedliche Orte sein.
+9. ZWISCHENSTOPPS: "Zwischenstopp", "über", "via" → waypoints-Array!
+10. ERLAUBTE WERTE für "missing": NUR ["datetime", "pickup", "destination", "phone"].
+11. RÜCKFAHRT: IMMER NUR EINE FAHRT. Rückfahrt-Infos in "notes".
+12. ADRESS-KORREKTUR: Antwort sieht aus wie Adresse → pickup/destination aktualisieren, NICHT als Name setzen.
+13. NAME vs ADRESSE: Straße/Weg/Platz + Hausnummer = IMMER Adresse.
+14. SCHREIBFEHLER KORRIGIEREN: "Herringsdorf" = Heringsdorf, "Albeeck" = Ahlbeck — korrigiere offensichtliche Tippfehler.
+15. TRENNZEICHEN: "Friedrichstraße 9 Ahlbeck" = "Friedrichstraße 9, Ahlbeck" — Komma oder Leerzeichen als Trennung ist OK.
+16. IMMER FRAGEN wenn etwas unklar: Lieber einmal zu viel fragen als den Kunden hängen lassen!
 ${aiRulesBlock}
 Nur gültiges JSON, kein Markdown:
 {
@@ -5788,7 +5824,7 @@ Nur gültiges JSON, kein Markdown:
 
     } catch (e) {
         console.error('Follow-Up Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message);
+        await sendErrorWithMenu(chatId, '⚠️ Die Eingabe konnte nicht verarbeitet werden.\n\nBitte versuchen Sie es nochmal oder starten Sie eine neue Buchung.');
     }
 }
 
@@ -5997,7 +6033,7 @@ async function showTelegramConfirmation(chatId, booking, routePrice) {
     });
     if (!btnSent) {
         await deletePending(chatId);
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Senden der Bestätigung. Bitte nochmal versuchen.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Senden der Bestätigung.');
     } else {
         // Message-ID speichern für späteres Inline-Editieren
         await setPending(chatId, { booking, bookingId, routePrice, _confirmMsgId: btnSent.message_id });
@@ -6294,7 +6330,7 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
 
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
 }
 
@@ -6362,7 +6398,7 @@ async function handleTelegramHistoryQuery(chatId, knownCustomer) {
         await addTelegramLog('📋', chatId, `Vergangene Fahrten: ${pastRides.length} angezeigt`);
     } catch (e) {
         console.error('Vergangene Fahrten Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der vergangenen Fahrten.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Laden der vergangenen Fahrten.');
     }
 }
 
@@ -6512,7 +6548,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
 
     } catch (e) {
         console.error('Admin Fahrten-Übersicht Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Fahrten: ' + e.message);
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Laden der Fahrten.');
     }
 }
 
@@ -6639,7 +6675,7 @@ async function handleAdminEditTime(chatId, rideId) {
         await setPending(chatId, { _adminEditRide: rideId, _adminEditField: 'time' });
     } catch (e) {
         console.error('handleAdminRideDetail ERROR:', e);
-        try { await sendTelegramMessage(chatId, '⚠️ Fehler beim Laden der Fahrt-Details: ' + (e.message || e)); } catch (e2) { console.error('Auch Fehlernachricht fehlgeschlagen:', e2); }
+        try { await sendErrorWithMenu(chatId, '⚠️ Fehler beim Laden der Fahrt-Details.'); } catch (e2) { console.error('Auch Fehlernachricht fehlgeschlagen:', e2); }
     }
 }
 
@@ -6796,7 +6832,7 @@ async function handleTelegramDeleteQuery(chatId, knownCustomer) {
         buttons.push([{ text: '✖️ Nichts löschen', callback_data: 'del_cancel' }]);
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
 }
 
@@ -6831,7 +6867,7 @@ async function handleTelegramModifyQuery(chatId, knownCustomer) {
         buttons.push([{ text: '✖ Nichts ändern', callback_data: 'cust_edit_cancel' }]);
         await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
     } catch (e) {
-        await sendTelegramMessage(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler beim Abrufen der Buchungen.');
     }
 }
 
@@ -6856,7 +6892,7 @@ async function handleWebAppData(message) {
         }
     } catch (e) {
         console.error('handleWebAppData Fehler:', e);
-        await sendTelegramMessage(chatId, '⚠️ Fehler bei der Verarbeitung. Bitte erneut versuchen.');
+        await sendErrorWithMenu(chatId, '⚠️ Fehler bei der Verarbeitung.');
     }
 }
 
@@ -7270,7 +7306,7 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, selectMsg, { reply_markup: { inline_keyboard: buttons } });
             return;
         } catch(e) {
-            await sendTelegramMessage(chatId, '⚠️ Fehler bei der Kundensuche. Bitte nochmal versuchen.');
+            await sendErrorWithMenu(chatId, '⚠️ Fehler bei der Kundensuche.');
             return;
         }
     }
@@ -7470,7 +7506,7 @@ async function handleMessage(message) {
                 `🔍 <b>${results.length} Kunde(n) gefunden</b> für "<b>${text.trim()}</b>":\n\nWählen Sie einen Kunden:`, {
                 reply_markup: { inline_keyboard: buttons }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -7521,7 +7557,7 @@ async function handleMessage(message) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -7606,7 +7642,7 @@ async function handleMessage(message) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -8195,7 +8231,7 @@ async function handleMessage(message) {
                                 pickupTimestamp: newTimestamp, pickupTime: newTime
                             }, rideInfo);
                         }
-                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
                     return;
                 }
             }
@@ -8260,7 +8296,7 @@ async function handleMessage(message) {
                 } else {
                     await sendTelegramMessage(chatId, '⚠️ Ungültiges Datum. Bitte z.B. "25.03." oder "morgen" eingeben.');
                 }
-            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
             return;
         }
 
@@ -8300,7 +8336,7 @@ async function handleMessage(message) {
                         await sendTelegramMessage(chatId, `⚠️ <i>Hinweis: Adresse "${text}" konnte nicht verifiziert werden.</i>`);
                     }
                 }
-            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
             return;
         }
     }
@@ -8364,7 +8400,7 @@ async function handleMessage(message) {
                             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>`);
                             await handleAdminRideDetail(chatId, rideId);
                         }
-                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
                     return;
                 }
             }
@@ -8409,7 +8445,7 @@ async function handleMessage(message) {
                             await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
                             await handleAdminRideDetail(chatId, rideId);
                         }
-                    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+                    } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
                     return;
                 }
             }
@@ -8434,7 +8470,7 @@ async function handleMessage(message) {
                     // Keine Ergebnisse → direkt speichern mit Warnung
                     await applyAdminAddressChange(chatId, rideId, field, text, null);
                 }
-            } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+            } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
             return;
         }
     }
@@ -9236,7 +9272,7 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
         await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${addressText}"${geoInfo}`);
         await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${addressText}</b>${geoInfo}`);
         await handleAdminRideDetail(chatId, rideId);
-    } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+    } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
 }
 
 // CALLBACK-HANDLER (Inline Keyboard Buttons)
@@ -9504,7 +9540,7 @@ async function handleCallback(callback) {
                 [{ text: '🏷️ Stammkunde/Gelegenheit', callback_data: `crm_kind_${custId}` }],
                 [{ text: '🔍 Anderen Kunden suchen', callback_data: 'menu_crm_edit' }, { text: '🏠 Menü', callback_data: 'back_to_menu' }]
             ] } });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9528,7 +9564,7 @@ async function handleCallback(callback) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9547,7 +9583,7 @@ async function handleCallback(callback) {
                     [{ text: '↩️ Zurück', callback_data: `crm_view_${custId}` }]
                 ] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9567,7 +9603,7 @@ async function handleCallback(callback) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9599,7 +9635,7 @@ async function handleCallback(callback) {
             }
             keyboard.push([{ text: '🏠 Menü', callback_data: 'back_to_menu' }]);
             await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: keyboard } });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9628,7 +9664,7 @@ async function handleCallback(callback) {
             });
             keyboard.push([{ text: '↩️ Zurück', callback_data: 'menu_ai_rules' }]);
             await sendTelegramMessage(chatId, '🗑️ <b>Welche Regel löschen?</b>', { reply_markup: { inline_keyboard: keyboard } });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9644,7 +9680,7 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, `✅ <b>Regel gelöscht:</b>\n\n<s>${ruleText}</s>`, {
                 reply_markup: { inline_keyboard: [[{ text: '↩️ Zurück zu KI-Training', callback_data: 'menu_ai_rules' }]] }
             });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -9735,7 +9771,7 @@ async function handleCallback(callback) {
                 awaitingCustomerName: false
             });
         } catch(e) {
-            await sendTelegramMessage(chatId, '⚠️ Fehler beim Speichern: ' + e.message);
+            await sendErrorWithMenu(chatId, '⚠️ Fehler beim Speichern.');
         }
         return;
     }
@@ -10403,7 +10439,7 @@ async function handleCallback(callback) {
             }
         } catch (e) {
             await addTelegramLog('❌', chatId, 'Fehler: ' + e.message);
-            await sendTelegramMessage(chatId, '⚠️ Fehler beim Eintragen: ' + e.message);
+            await sendErrorWithMenu(chatId, '⚠️ Fehler beim Eintragen der Buchung.');
         }
         return;
     }
@@ -12173,7 +12209,7 @@ async function handleCallback(callback) {
             await addTelegramLog('📋', chatId, `Admin kopiert Fahrt: ${_copyRide.pickup} → ${_copyRide.destination}`);
         } catch (e) {
             console.error('Admin Fahrt kopieren Fehler:', e);
-            await sendTelegramMessage(chatId, '⚠️ Fehler beim Kopieren: ' + e.message);
+            await sendErrorWithMenu(chatId, '⚠️ Fehler beim Kopieren der Fahrt.');
         }
         return;
     }
@@ -12351,7 +12387,7 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: [
                 [{ text: '◀ Zurück zur Fahrt', callback_data: `adm_ride_${rideId}` }]
             ]}});
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
     if (data.startsWith('adm_del_')) {
@@ -12452,7 +12488,7 @@ async function handleCallback(callback) {
                 } catch (notifyErr) { /* Nicht kritisch */ }
             }
             await handleAdminRideDetail(chatId, rideId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12476,7 +12512,7 @@ async function handleCallback(callback) {
             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${newTime} (${offset > 0 ? '+' : ''}${offset}min)`);
             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${newTime} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12533,7 +12569,7 @@ async function handleCallback(callback) {
             await addTelegramLog('📅', chatId, `Admin: Datum geändert auf ${newDateFormatted}`);
             await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12595,7 +12631,7 @@ async function handleCallback(callback) {
             await addTelegramLog('✏️', chatId, `Admin: Personenzahl geändert auf ${pax}`);
             await sendTelegramMessage(chatId, `✅ Personenzahl geändert auf <b>${pax}</b>`);
             await handleAdminRideDetail(chatId, rideId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12654,7 +12690,7 @@ async function handleCallback(callback) {
             }
 
             await handleAdminRideDetail(chatId, rideId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12668,7 +12704,7 @@ async function handleCallback(callback) {
             await addRideLog(rideId, '🗑️', 'Admin hat storniert (Telegram)', { admin: chatId, kunde: r ? r.customerName : '?' });
             await addTelegramLog('🗑️', chatId, `Admin: Fahrt gelöscht: ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}`);
             await sendTelegramMessage(chatId, `🗑️ <b>Fahrt storniert!</b>\n\n${r ? `📍 ${r.pickup} → ${r.destination}\n👤 ${r.customerName || '?'}` : ''}`);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12695,7 +12731,7 @@ async function handleCallback(callback) {
                 [{ text: '📍 Abholort ändern', callback_data: `cust_addr_${rideId}_pickup` }, { text: '🎯 Ziel ändern', callback_data: `cust_addr_${rideId}_destination` }],
                 [{ text: '🗑️ Stornieren', callback_data: `cust_del_${rideId}` }, { text: '✖ Zurück', callback_data: 'cust_edit_cancel' }]
             ]}});
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12735,7 +12771,7 @@ async function handleCallback(callback) {
                 destination: rideData.destination || '?'
             };
             await requestAdminApprovalForRideChange(chatId, rideId, field, changeData, rideInfo);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12772,7 +12808,7 @@ async function handleCallback(callback) {
                 ]}}
             );
             await setPending(chatId, { _custEditRide: rideId, _custEditField: 'time' });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12821,7 +12857,7 @@ async function handleCallback(callback) {
                 ]}}
             );
             await setPending(chatId, { _custEditRide: rideId, _custEditField: 'date' });
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12855,7 +12891,7 @@ async function handleCallback(callback) {
                 pickupTime: timeStr
             }, rideInfo);
             await deletePending(chatId);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12883,7 +12919,7 @@ async function handleCallback(callback) {
             await requestAdminApprovalForRideChange(chatId, rideId, 'time', {
                 pickupTimestamp: newTs, pickupTime: newTime
             }, rideInfo);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12916,7 +12952,7 @@ async function handleCallback(callback) {
             } catch (e2) { console.error('Kunde-Benachrichtigung fehlgeschlagen:', e2.message); }
 
             await addTelegramLog('✅', chatId, `Admin: Änderung bestätigt (${chg.changeType}) für Fahrt ${chg.rideId}`);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12944,7 +12980,7 @@ async function handleCallback(callback) {
             } catch (e2) { console.error('Kunde-Benachrichtigung fehlgeschlagen:', e2.message); }
 
             await addTelegramLog('❌', chatId, `Admin: Änderung abgelehnt (${chg.changeType}) für Fahrt ${chg.rideId}`);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12963,7 +12999,7 @@ async function handleCallback(callback) {
                     [{ text: '🗑️ Ja, stornieren!', callback_data: `cust_delok_${rideId}` }, { text: '✖ Behalten', callback_data: `cust_edit_${rideId}` }]
                 ]}}
             );
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
         return;
     }
 
@@ -12990,7 +13026,7 @@ async function handleCallback(callback) {
                 await sendToAllAdmins(cancelMsg, 'cancellation');
                 await sendToSystemChannel(cancelMsg, 'status_change');
             } catch (e) { /* Admin-Benachrichtigung ist nicht kritisch */ }
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ Fehler beim Stornieren.'); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ Fehler beim Stornieren.'); }
         return;
     }
 
@@ -13003,7 +13039,7 @@ async function handleCallback(callback) {
             const r = ridesSnap.val();
             await sendTelegramMessage(chatId, `✅ <b>Buchung gelöscht!</b>\n\n📍 ${r ? r.pickup : '?'} → ${r ? r.destination : '?'}\n\n<i>Neues Taxi? Schreiben Sie wann und wohin!</i>`);
         } catch (e) {
-            await sendTelegramMessage(chatId, '⚠️ Fehler beim Löschen.');
+            await sendErrorWithMenu(chatId, '⚠️ Fehler beim Löschen.');
         }
         return;
     }
@@ -13567,7 +13603,7 @@ async function handleCallback(callback) {
             if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key, updatedAt: Date.now() });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt!\n📱 ${crmPending.customerPhone || '(kein Tel.)'}\n🏠 ${crmPending.pickupAddress || '(keine Adresse)'}`);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ CRM-Fehler. Bitte versuchen Sie es erneut.'); }
         return;
     }
     if (data.startsWith('crm_create_yesnoaddr_')) {
@@ -13581,7 +13617,7 @@ async function handleCallback(callback) {
             if (rideId) await db.ref(`rides/${rideId}`).update({ customerId: newRef.key, updatedAt: Date.now() });
             await db.ref('settings/telegram/pending/crm_' + chatId).remove();
             await sendTelegramMessage(chatId, `✅ <b>${crmPending.customerName}</b> im CRM angelegt (ohne Adresse)!`);
-        } catch (e) { await sendTelegramMessage(chatId, '⚠️ CRM-Fehler: ' + e.message); }
+        } catch (e) { await sendErrorWithMenu(chatId, '⚠️ CRM-Fehler. Bitte versuchen Sie es erneut.'); }
         return;
     }
     if (data.startsWith('crm_create_no_')) {

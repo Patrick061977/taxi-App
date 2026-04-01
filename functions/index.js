@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.47';
+const CLOUD_FUNCTIONS_VERSION = '6.38.48';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -3361,36 +3361,86 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 return null;
             }
 
-            // 🔧 v6.38.46: DIREKT-GEOCODING ZUERST — wenn Adresse klar ist (Straße + Nr + Ort)
-            // "Friedrichstraße 9, Ahlbeck" → direkt bei Nominatim nachschlagen, BEVOR der komplexe Such-Pipeline
+            // 🔧 v6.38.48: DIREKT-GEOCODING — immer wenn Ort/PLZ vorhanden ist
+            // Funktioniert mit: "Friedrichstraße 9, Ahlbeck", "Friedrichstraße, Ahlbeck", "Bahnhof Heringsdorf"
             const _hasHausnr = /\b\d+[a-z]?\b/i.test(addressToResolve.replace(/\b\d{5}\b/g, ''));
             const _hasOrtOrPlz = _addrHasPlz || _addrHasOrt;
             let _directGeoResult = null;
-            if (_hasHausnr && _hasOrtOrPlz && _addrLooksLikeStreet) {
+            // Direkt-Geocoding wenn: (Straße+Ort) ODER (Hausnr+Ort) — nicht mehr NUR wenn alle 3 da sind
+            if (_hasOrtOrPlz) {
                 try {
+                    // Schritt 1: Direkt mit dem vollen String suchen
                     const _dq = encodeURIComponent(addressToResolve);
-                    const _dUrl = `https://nominatim.openstreetmap.org/search?q=${_dq}&format=json&limit=3&countrycodes=de&addressdetails=1`;
+                    const _dUrl = `https://nominatim.openstreetmap.org/search?q=${_dq}&format=json&limit=5&countrycodes=de&addressdetails=1`;
                     const _dResp = await fetch(_dUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
                     const _dResults = await _dResp.json();
+
                     if (_dResults && _dResults.length > 0) {
-                        // Nur Usedom-Umkreis + richtige Straße
-                        const _qStreetLow = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
-                        const _qStreetCore = _qStreetLow.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
-                        for (const r of _dResults) {
+                        // Usedom-Umkreis filtern
+                        const _usedomResults = _dResults.filter(r => {
                             const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
-                            if (lat < 53.5 || lat > 54.3 || lon < 13.5 || lon > 14.5) continue;
-                            const rStreet = (r.address?.road || '').toLowerCase();
-                            const rCore = rStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
-                            if (rCore.includes(_qStreetCore) || _qStreetCore.includes(rCore)) {
-                                const _displayName = `${r.address?.road || ''} ${r.address?.house_number || ''}, ${r.address?.postcode || ''} ${r.address?.city || r.address?.town || r.address?.village || ''}`.replace(/\s+/g, ' ').trim();
-                                _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-direct' };
-                                await addTelegramLog('✅', chatId, `Direkt-Geocoding: "${addressToResolve}" → ${_displayName} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
-                                break;
+                            return lat >= 53.5 && lat <= 54.3 && lon >= 13.5 && lon <= 14.5;
+                        });
+
+                        if (_usedomResults.length > 0) {
+                            // Straßen-Matching wenn Straße vorhanden
+                            if (_addrLooksLikeStreet) {
+                                const _qStreetLow = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                                const _qStreetCore = _qStreetLow.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                                for (const r of _usedomResults) {
+                                    const rStreet = (r.address?.road || '').toLowerCase();
+                                    const rCore = rStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                                    if (rCore.includes(_qStreetCore) || _qStreetCore.includes(rCore)) {
+                                        const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                                        const _displayName = `${r.address?.road || ''} ${r.address?.house_number || ''}, ${r.address?.postcode || ''} ${r.address?.city || r.address?.town || r.address?.village || ''}`.replace(/\s+/g, ' ').trim();
+                                        _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-direct' };
+                                        await addTelegramLog('✅', chatId, `Direkt-Geocoding: "${addressToResolve}" → ${_displayName} (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
+                                        break;
+                                    }
+                                }
+                            }
+                            // Kein Straßen-Match → ersten Usedom-Treffer als Vorschlag nehmen
+                            if (!_directGeoResult) {
+                                const bestR = _usedomResults[0];
+                                const lat = parseFloat(bestR.lat); const lon = parseFloat(bestR.lon);
+                                const _displayName = `${bestR.address?.road || bestR.address?.amenity || bestR.display_name.split(',')[0]} ${bestR.address?.house_number || ''}, ${bestR.address?.postcode || ''} ${bestR.address?.city || bestR.address?.town || bestR.address?.village || ''}`.replace(/\s+/g, ' ').trim();
+                                _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-direct-best' };
+                                await addTelegramLog('✅', chatId, `Direkt-Geocoding (bester Treffer): "${addressToResolve}" → ${_displayName}`);
+                            }
+                        } else if (_dResults.length > 0) {
+                            await addTelegramLog('⚠️', chatId, `Direkt-Geocoding: ${_dResults.length} Treffer aber keiner auf Usedom. Erster: "${_dResults[0].display_name}"`);
+                        }
+                    }
+
+                    // Schritt 2: Wenn nichts gefunden → strukturierte Suche (Straße + Ort getrennt)
+                    if (!_directGeoResult && _addrLooksLikeStreet) {
+                        // Adresse in Teile zerlegen: "Friedrichstraße 9, Ahlbeck" → street="Friedrichstraße 9", city="Ahlbeck"
+                        const _parts = addressToResolve.split(/[,;]\s*/);
+                        let _street = '', _city = '';
+                        if (_parts.length >= 2) {
+                            _street = _parts[0].trim();
+                            _city = _parts[_parts.length - 1].replace(/\b\d{5}\b/, '').trim();
+                        } else {
+                            // Kein Komma → Ort am Ende extrahieren
+                            const _ortMatch = addressToResolve.match(new RegExp(`(${_addrOrtNames.join('|')})`, 'i'));
+                            if (_ortMatch) {
+                                _city = _ortMatch[1];
+                                _street = addressToResolve.replace(_ortMatch[0], '').replace(/\s+/g, ' ').trim();
                             }
                         }
-                        if (!_directGeoResult && _dResults.length > 0) {
-                            // Kein Straßen-Match aber Nominatim hat was → loggen
-                            await addTelegramLog('⚠️', chatId, `Direkt-Geocoding: Nominatim fand "${_dResults[0].display_name}" aber Straße passt nicht zu "${_qStreetLow}"`);
+                        if (_street && _city) {
+                            const _sUrl = `https://nominatim.openstreetmap.org/search?street=${encodeURIComponent(_street)}&city=${encodeURIComponent(_city)}&format=json&limit=3&countrycodes=de&addressdetails=1`;
+                            const _sResp = await fetch(_sUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                            const _sResults = await _sResp.json();
+                            if (_sResults && _sResults.length > 0) {
+                                const r = _sResults[0];
+                                const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                                if (lat >= 53.5 && lat <= 54.3 && lon >= 13.5 && lon <= 14.5) {
+                                    const _displayName = `${r.address?.road || _street} ${r.address?.house_number || ''}, ${r.address?.postcode || ''} ${r.address?.city || r.address?.town || r.address?.village || _city}`.replace(/\s+/g, ' ').trim();
+                                    _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-structured' };
+                                    await addTelegramLog('✅', chatId, `Strukturierte Suche: "${_street}" + "${_city}" → ${_displayName}`);
+                                }
+                            }
                         }
                     }
                 } catch(_dgErr) {
@@ -3703,22 +3753,62 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (hasDestCoords) { pendingForUnknown.partial.destinationLat = booking.destinationLat; pendingForUnknown.partial.destinationLon = booking.destinationLon; }
                 pendingForUnknown.pendingDestValidation = (needPickup && needDest);
                 await setPending(chatId, pendingForUnknown);
-                // 🔧 v6.38.47: Adresse nicht gefunden → GPS-Standort als Alternative anbieten!
+                // 🔧 v6.38.48: Intelligente Analyse — WAS fehlt an der Adresse?
+                const _addr = addressToResolve;
+                const _hasStreet = /straße|weg\b|ring\b|allee|chaussee|platz|gasse|damm|steig|pfad|ufer|str\b|str\./i.test(_addr);
+                const _hasNr = /\b\d+[a-z]?\b/i.test(_addr.replace(/\b\d{5}\b/g, ''));
+                const _hasOrt = _addrHasOrt || _addrHasPlz;
+
+                let _missingHint = '';
+                let _missingButtons = [];
+                if (_hasStreet && _hasNr && _hasOrt) {
+                    // Alles da, aber Nominatim kennt die Adresse nicht → evtl. Tippfehler
+                    _missingHint = `Die Adresse scheint vollständig zu sein, wurde aber nicht gefunden.\n\n` +
+                        `🔍 <b>Bitte prüfen:</b>\n` +
+                        `• Ist der <b>Straßenname</b> richtig geschrieben?\n` +
+                        `• Stimmt der <b>Ort</b>? (z.B. Ahlbeck ≠ Heringsdorf)\n` +
+                        `• Gibt es die <b>Hausnummer</b> an dieser Straße?`;
+                } else if (_hasStreet && !_hasNr && _hasOrt) {
+                    _missingHint = `<b>Hausnummer fehlt!</b>\n\nBitte ergänzen Sie die Hausnummer:\n` +
+                        `<i>z.B. "${_addr} <b>5</b>"</i>`;
+                    _missingButtons.push([{ text: '✏️ Hausnummer ergänzen', callback_data: `addr_retry_${fieldToResolve}` }]);
+                } else if (_hasStreet && _hasNr && !_hasOrt) {
+                    // Dieser Fall sollte oben schon gefangen werden, aber als Fallback
+                    _missingHint = `<b>Ort/PLZ fehlt!</b>\n\nIn welchem Ort ist diese Adresse?`;
+                    _missingButtons.push(
+                        [{ text: '📍 Heringsdorf', callback_data: `addr_ort_heringsdorf_${fieldToResolve}` },
+                         { text: '📍 Ahlbeck', callback_data: `addr_ort_ahlbeck_${fieldToResolve}` },
+                         { text: '📍 Bansin', callback_data: `addr_ort_bansin_${fieldToResolve}` }],
+                        [{ text: '📍 Zinnowitz', callback_data: `addr_ort_zinnowitz_${fieldToResolve}` },
+                         { text: '📍 Koserow', callback_data: `addr_ort_koserow_${fieldToResolve}` },
+                         { text: '📍 Trassenheide', callback_data: `addr_ort_trassenheide_${fieldToResolve}` }]
+                    );
+                } else if (!_hasStreet && _hasOrt) {
+                    _missingHint = `<b>Straße fehlt!</b>\n\nBitte geben Sie die Straße + Hausnummer ein:\n` +
+                        `<i>z.B. "Strandstraße 5, ${_addr}"</i>`;
+                } else if (_hasStreet && !_hasNr && !_hasOrt) {
+                    _missingHint = `<b>Hausnummer + Ort fehlen!</b>\n\nBitte vollständig eingeben:\n` +
+                        `<i>z.B. "${_addr} 5, Heringsdorf"</i>`;
+                } else {
+                    _missingHint = `Diese Adresse konnte nicht zugeordnet werden.\n\n` +
+                        `💡 <b>So geht's:</b> Straße + Hausnummer + Ort\n` +
+                        `<i>z.B. Strandstraße 5, Heringsdorf</i>`;
+                }
+
+                const _smartButtons = [
+                    ..._missingButtons,
+                    [{ text: '📍 GPS-Standort senden', callback_data: `gps_help_${fieldToResolve}` }],
+                    [{ text: '✏️ Adresse neu eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
+                    [{ text: '📞 Telefonisch: 038378/22022', callback_data: 'cancel_booking' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ];
+
+                await addTelegramLog('🧠', chatId, `Intelligente Analyse: Straße=${_hasStreet}, Nr=${_hasNr}, Ort=${_hasOrt} → "${addressToResolve}"`);
                 await sendTelegramMessage(chatId,
                     `❌ <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
-                    `Diese Adresse konnte nicht gefunden werden.\n\n` +
-                    `📍 <b>Am einfachsten:</b> Senden Sie Ihren <b>GPS-Standort</b>!\n` +
-                    `→ Tippen Sie auf 📎 (Büroklammer) → <b>Standort</b>\n\n` +
-                    `✏️ <b>Oder genauer eingeben:</b>\n` +
-                    `• Straße + Hausnummer + Ort\n` +
-                    `• z.B. <i>Strandstraße 5, Heringsdorf</i>\n` +
-                    `• Oder PLZ statt Ort: <i>Strandstraße 5, 17424</i>`,
-                    { reply_markup: { inline_keyboard: [
-                        [{ text: '📍 GPS-Standort senden (Anleitung)', callback_data: `gps_help_${fieldToResolve}` }],
-                        [{ text: '✏️ Adresse neu eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
-                        [{ text: '📞 Telefonisch: 038378/22022', callback_data: 'cancel_booking' }],
-                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-                    ] } }
+                    _missingHint + `\n\n` +
+                    `📍 <b>Alternativ:</b> Senden Sie Ihren <b>GPS-Standort</b> (📎 → Standort)`,
+                    { reply_markup: { inline_keyboard: _smartButtons } }
                 );
                 return null;
             }
@@ -5050,16 +5140,25 @@ async function continueBookingFlow(chatId, booking, originalText) {
                                 }
                                 // Wenn auch Direkt-Geocoding nichts findet → Nachfragen
                                 if (_displaySugg2.length === 0) {
-                                    await addTelegramLog('⚠️', chatId, `Adresse "${addressToResolve}" nicht gefunden → GPS-Standort anbieten`);
+                                    await addTelegramLog('⚠️', chatId, `Adresse "${addressToResolve}" nicht gefunden → intelligente Nachfrage`);
+                                    // 🔧 v6.38.48: Intelligente Nachfrage — was genau ist falsch?
+                                    const _sfAddr = addressToResolve;
+                                    const _sfHasNr = /\b\d+[a-z]?\b/i.test(_sfAddr.replace(/\b\d{5}\b/g, ''));
+                                    let _sfHint = '';
+                                    if (!_sfHasNr) {
+                                        _sfHint = `💡 <b>Tipp:</b> Versuchen Sie es mit <b>Hausnummer</b>!\n` +
+                                            `<i>z.B. "${_sfAddr} 1"</i>`;
+                                    } else {
+                                        _sfHint = `🔍 <b>Bitte prüfen:</b>\n` +
+                                            `• Ist der <b>Straßenname</b> richtig geschrieben?\n` +
+                                            `• Stimmt der <b>Ort</b>? (Ahlbeck, Heringsdorf, Bansin…)\n` +
+                                            `• Existiert die <b>Hausnummer</b>?`;
+                                    }
                                     const _askMsg = `❌ <b>"${addressToResolve}" nicht gefunden</b>\n\n` +
-                                        `Die Straße konnte nicht zugeordnet werden.\n\n` +
-                                        `📍 <b>Am einfachsten:</b> Senden Sie Ihren <b>GPS-Standort</b>!\n` +
-                                        `→ Tippen Sie auf 📎 (Büroklammer) → <b>Standort</b>\n\n` +
-                                        `✏️ <b>Oder prüfen Sie:</b>\n` +
-                                        `• Ist der Straßenname korrekt? (z.B. <i>Friedrichstraße</i>)\n` +
-                                        `• Ist der Ort richtig? (z.B. Ahlbeck, Heringsdorf, Bansin)`;
+                                        _sfHint + `\n\n` +
+                                        `📍 <b>Alternativ:</b> Senden Sie Ihren <b>GPS-Standort</b> (📎 → Standort)`;
                                     const _retryKb = { inline_keyboard: [
-                                        [{ text: '📍 GPS-Standort senden (Anleitung)', callback_data: `gps_help_${fieldToResolve}` }],
+                                        [{ text: '📍 GPS-Standort senden', callback_data: `gps_help_${fieldToResolve}` }],
                                         [{ text: '✏️ Adresse erneut eingeben', callback_data: `addr_retry_${fieldToResolve}` }],
                                         [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                                     ]};

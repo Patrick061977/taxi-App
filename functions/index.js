@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.49';
+const CLOUD_FUNCTIONS_VERSION = '6.38.51';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -4430,6 +4430,11 @@ Nur gültiges JSON, kein Markdown:
                 booking._forCustomer = preselected.name;
                 booking._crmCustomerId = preselected.customerId || null;
                 if ((preselected.mobilePhone || preselected.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
+                // 🔧 v6.38.51: Wenn CRM-Telefon vorhanden → "Telefonnummer" aus question/summary entfernen
+                if ((preselected.mobilePhone || preselected.phone) && booking.question) {
+                    booking.question = booking.question.replace(/\s*(Und u|U)nter welcher Telefonnummer[^?]*\??/gi, '').replace(/\s*Telefonnummer noch erforderlich\.?/gi, '').trim();
+                    if (booking.summary) booking.summary = booking.summary.replace(/\s*(und )?Telefonnummer noch erforderlich\.?/gi, '').trim();
+                }
                 const pickupDefault = preselected.defaultPickup || preselected.address;
                 const _isAuftraggeberKunde = isAuftraggeber(preselected.customerKind, preselected.type);
 
@@ -13088,10 +13093,19 @@ async function handleCallback(callback) {
         }
 
         // 🆕 v6.38.16: Wenn Stammkunde mit Adresse → fragen: Abholort oder Zielort?
-        // Nur wenn der Originaltext NICHT eindeutig "von zuhause" oder "nach hause" enthält
+        // 🔧 v6.38.51: NICHT fragen wenn Text schon "von X nach Y" enthält — KI kann das direkt!
         const _origTextLower = (pending.originalText || '').toLowerCase();
         const _hasHomePickupKW = /von\s*(zu\s*hause|zuhause|heim)/.test(_origTextLower);
         const _hasHomeDestKW = /(nach\s*hause|nachhause)/.test(_origTextLower);
+        const _hasVonNach = /\bvon\s+.{3,}\s+(nach|zu[mr]?|in|an)\s+.{3,}/i.test(_origTextLower);
+        if (_hasVonNach) {
+            // 🔧 v6.38.51: Text enthält "von X nach Y" → direkt KI-Analyse, nicht erst Abholort/Zielort fragen
+            await addTelegramLog('🚀', chatId, `Text enthält "von...nach..." → direkt zur KI-Analyse (Adresse-Rollen-Frage übersprungen)`);
+            await deletePending(chatId);
+            await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+            await analyzeTelegramBooking(chatId, pending.originalText, pending.userName, { isAdmin: true, preselectedCustomer: found });
+            return;
+        }
         if (found.address && !_hasHomePickupKW && !_hasHomeDestKW) {
             const _roleId = Date.now().toString(36);
             const _shortAddr = found.address.length > 32 ? found.address.substring(0, 30) + '…' : found.address;

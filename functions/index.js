@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.42';
-const CLOUD_FUNCTIONS_BUILD = '31.03.2026 14:30';
+const CLOUD_FUNCTIONS_VERSION = '6.38.43';
+const CLOUD_FUNCTIONS_BUILD = '01.04.2026 14:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -9689,63 +9689,71 @@ async function handleCallback(callback) {
             await addTelegramLog('💾', chatId, `Fahrt erstellt: ${rideData.pickup} → ${rideData.destination}`, { rideId: rideData.id });
 
             // 🔧 v6.25.4: Auto-Zuweisung für Sofortfahrten (Vorbestellungen werden oben bereits zugewiesen)
+            // 🔧 v6.38.43: try/catch um autoAssignRide — verhindert Crash der gesamten Buchung
             if (rideData.pickupCoords && !isVorbestellung) {
-                const assignResult = await autoAssignRide(rideData.id, rideData);
-                if (assignResult) {
-                    const etaMin = assignResult.drivingTimeMin || Math.max(3, Math.round((assignResult.distance / 40) * 60));
-                    await sendTelegramMessage(chatId,
-                        `🚗 <b>Fahrer gefunden!</b>\n\n` +
-                        `🚕 <b>${assignResult.name}</b>\n` +
-                        `📏 ${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km entfernt' : 'GPS nicht verfügbar'}\n` +
-                        `⏱️ <b>Geschätzte Ankunft: ca. ${etaMin} Minuten</b>\n\n` +
-                        `💡 <i>Sie werden benachrichtigt sobald der Fahrer losfährt.</i>`
-                    );
-                    await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km' : 'kein GPS'}, ~${etaMin} Min)`);
-                } else if (_isJetztFahrt) {
-                    // 🔧 v6.20.2: Sofortfahrt ohne Auto-Zuweisung → Admin-Vermittlung
-                    await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', updatedAt: Date.now() });
+                try {
+                    const assignResult = await autoAssignRide(rideData.id, rideData);
+                    if (assignResult) {
+                        const etaMin = assignResult.drivingTimeMin || Math.max(3, Math.round((assignResult.distance / 40) * 60));
+                        await sendTelegramMessage(chatId,
+                            `🚗 <b>Fahrer gefunden!</b>\n\n` +
+                            `🚕 <b>${assignResult.name}</b>\n` +
+                            `📏 ${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km entfernt' : 'GPS nicht verfügbar'}\n` +
+                            `⏱️ <b>Geschätzte Ankunft: ca. ${etaMin} Minuten</b>\n\n` +
+                            `💡 <i>Sie werden benachrichtigt sobald der Fahrer losfährt.</i>`
+                        );
+                        await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km' : 'kein GPS'}, ~${etaMin} Min)`);
+                    } else if (_isJetztFahrt) {
+                        // 🔧 v6.20.2: Sofortfahrt ohne Auto-Zuweisung → Admin-Vermittlung
+                        await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', updatedAt: Date.now() });
 
-                    // Kunde beruhigen
-                    await sendTelegramMessage(chatId,
-                        `🚕 <b>Wir suchen einen Fahrer für Sie!</b>\n\n` +
-                        `📢 Sie werden in wenigen Minuten benachrichtigt.\n\n` +
-                        `💡 <i>Sie müssen nichts weiter tun — der Fahrer meldet sich automatisch bei Ihnen.</i>`,
-                        { reply_markup: { inline_keyboard: [
-                            [{ text: '📅 Lieber für später buchen', callback_data: `chdate_${rideData.id}` }],
-                            [{ text: '🗑️ Stornieren', callback_data: `cancel_ride_${rideData.id}` }]
-                        ] } }
-                    );
+                        // Kunde beruhigen
+                        await sendTelegramMessage(chatId,
+                            `🚕 <b>Wir suchen einen Fahrer für Sie!</b>\n\n` +
+                            `📢 Sie werden in wenigen Minuten benachrichtigt.\n\n` +
+                            `💡 <i>Sie müssen nichts weiter tun — der Fahrer meldet sich automatisch bei Ihnen.</i>`,
+                            { reply_markup: { inline_keyboard: [
+                                [{ text: '📅 Lieber für später buchen', callback_data: `chdate_${rideData.id}` }],
+                                [{ text: '🗑️ Stornieren', callback_data: `cancel_ride_${rideData.id}` }]
+                            ] } }
+                        );
 
-                    // 🚨 Admin-Sofort-Push mit Zuweisungs-Buttons
-                    try {
-                        const _adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                        const _adminChats = _adminSnap.val() || [];
-                        if (_adminChats.length > 0) {
-                            // Verfügbare Fahrzeuge für Quick-Assign-Buttons sammeln
-                            const _assignButtons = [];
-                            for (const [vId, vInfo] of Object.entries(OFFICIAL_VEHICLES)) {
-                                _assignButtons.push([{ text: `🚕 ${vInfo.name} zuweisen`, callback_data: `qassign_${rideData.id}_${vId}` }]);
-                                if (_assignButtons.length >= 4) break;
+                        // 🚨 Admin-Sofort-Push mit Zuweisungs-Buttons
+                        try {
+                            const _adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                            const _rawAdm = _adminSnap.val();
+                            // 🔧 v6.38.43: Firebase Arrays normalisieren
+                            const _adminChats = Array.isArray(_rawAdm) ? _rawAdm : (typeof _rawAdm === 'object' && _rawAdm !== null ? Object.values(_rawAdm) : (_rawAdm ? [_rawAdm] : []));
+                            if (_adminChats.length > 0) {
+                                // Verfügbare Fahrzeuge für Quick-Assign-Buttons sammeln
+                                const _assignButtons = [];
+                                for (const [vId, vInfo] of Object.entries(OFFICIAL_VEHICLES)) {
+                                    _assignButtons.push([{ text: `🚕 ${vInfo.name} zuweisen`, callback_data: `qassign_${rideData.id}_${vId}` }]);
+                                    if (_assignButtons.length >= 4) break;
+                                }
+                                const _urgentMsg = `🚨 <b>SOFORTFAHRT – Fahrer gesucht!</b>\n\n` +
+                                    `📍 <b>Von:</b> ${rideData.pickup}\n` +
+                                    `🎯 <b>Nach:</b> ${rideData.destination}\n` +
+                                    `👤 <b>Name:</b> ${rideData.customerName}\n` +
+                                    (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
+                                    `👥 <b>Personen:</b> ${passengers}\n` +
+                                    (telegramRoutePrice ? `💰 ca. ${telegramRoutePrice.price} €\n` : '') +
+                                    `\n⚡ <b>Bitte Fahrer zuweisen:</b>`;
+                                for (const adminChatId of _adminChats) {
+                                    sendTelegramMessage(adminChatId, _urgentMsg, { reply_markup: { inline_keyboard: _assignButtons } }).catch(e => console.error('❌ Sofort-Push Fehler:', adminChatId, e.message));
+                                }
+                                // System-Kanal (ohne Buttons)
+                                sendToSystemChannel(_urgentMsg, 'new_ride').catch(() => {});
                             }
-                            const _urgentMsg = `🚨 <b>SOFORTFAHRT – Fahrer gesucht!</b>\n\n` +
-                                `📍 <b>Von:</b> ${rideData.pickup}\n` +
-                                `🎯 <b>Nach:</b> ${rideData.destination}\n` +
-                                `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
-                                `👥 <b>Personen:</b> ${passengers}\n` +
-                                (telegramRoutePrice ? `💰 ca. ${telegramRoutePrice.price} €\n` : '') +
-                                `\n⚡ <b>Bitte Fahrer zuweisen:</b>`;
-                            for (const adminChatId of _adminChats) {
-                                sendTelegramMessage(adminChatId, _urgentMsg, { reply_markup: { inline_keyboard: _assignButtons } }).catch(() => {});
-                            }
-                        }
-                        // System-Kanal (ohne Buttons)
-                        sendToSystemChannel(_urgentMsg, 'new_ride').catch(() => {});
-                    } catch (_e) { console.error('Admin-Sofort-Push Fehler:', _e.message); }
+                        } catch (_e) { console.error('Admin-Sofort-Push Fehler:', _e.message); }
 
-                    await addTelegramLog('🚨', chatId, `Sofortfahrt: Kein Fahrer auto-zugewiesen → Admin-Vermittlung`);
-                } else {
-                    await addTelegramLog('⚠️', chatId, 'Kein Fahrzeug für Auto-Zuweisung verfügbar');
+                        await addTelegramLog('🚨', chatId, `Sofortfahrt: Kein Fahrer auto-zugewiesen → Admin-Vermittlung`);
+                    } else {
+                        await addTelegramLog('⚠️', chatId, 'Kein Fahrzeug für Auto-Zuweisung verfügbar');
+                    }
+                } catch (_autoAssignErr) {
+                    console.error('❌ Auto-Zuweisung Sofortfahrt Fehler:', _autoAssignErr.message, _autoAssignErr.stack);
+                    await addTelegramLog('❌', chatId, `Auto-Zuweisung fehlgeschlagen: ${_autoAssignErr.message}`);
                 }
             }
 
@@ -9756,54 +9764,16 @@ async function handleCallback(callback) {
                 linkTelegramChatToCustomer(chatId, booking).catch(() => {});
             }
 
-            // Admin-Benachrichtigung bei ALLEN Buchungen (Kunden + Admin)
-            try {
-                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                const adminChats = adminSnap.val() || [];
-                if (adminChats.length > 0) {
-                    const now = new Date();
-                    const isTodayBerlin = dt.toLocaleDateString('de-DE', TZ_BERLIN) === now.toLocaleDateString('de-DE', TZ_BERLIN);
-                    let timeLabel;
-                    if (!isVorbestellung) {
-                        timeLabel = 'SOFORT';
-                    } else if (isTodayBerlin) {
-                        timeLabel = `Heute ${timeStr} Uhr`;
-                    } else {
-                        timeLabel = `${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
-                    }
-                    const sentAt = now.toLocaleString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    const statusEmoji = isVorbestellung ? '📅' : '🚕';
-                    const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
-                    const adminBookedHint = booking._adminBooked ? `\n👔 <i>Admin-Buchung für ${booking._forCustomer || rideData.customerName}</i>` : '';
-                    const adminMsg = `${statusEmoji} <b>${statusText}</b>\n` +
-                        `🆔 <b>ID:</b> <code>${rideData.id}</code>\n\n` +
-                        `📍 <b>Von:</b> ${rideData.pickup}\n` +
-                        `🎯 <b>Nach:</b> ${rideData.destination}\n` +
-                        `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                        (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
-                        `🕐 <b>Abholung:</b> ${timeLabel}\n` +
-                        `👥 <b>Personen:</b> ${passengers}\n` +
-                        (telegramRoutePrice ? `💰 <b>Preis:</b> ca. ${telegramRoutePrice.price} €\n` : '') +
-                        `⏰ <b>Gesendet:</b> ${sentAt}` +
-                        adminBookedHint + `\n\n` +
-                        `📱 <i>Via Telegram-Bot</i>`;
-                    // Bei Admin-Buchungen: An ANDERE Admins senden (nicht an den Buchenden selbst)
-                    for (const adminChatId of adminChats) {
-                        if (booking._adminBooked && String(adminChatId) === String(chatId)) continue;
-                        const prefs = await getAdminNotifyPrefs(adminChatId);
-                        if (prefs && prefs.new_ride === false) continue;
-                        sendTelegramMessage(adminChatId, adminMsg).catch(() => {});
-                    }
-                    // Bei Admin-Buchungen: Dem buchenden Admin eine Kurzbestätigung senden (als separater Block)
-                    if (booking._adminBooked) {
-                        await addTelegramLog(statusEmoji, 'system', `${statusText}: ${rideData.customerName} → ${timeLabel}`, { rideId: rideData.id, adminBooked: true });
-                    }
-                    // System-Kanal
-                    sendToSystemChannel(adminMsg, 'new_ride').catch(() => {});
-                }
-            } catch (e) {
-                console.error('Admin-Benachrichtigung Fehler:', e.message);
+            // 🔧 v6.38.43: Admin-Benachrichtigung wird von onRideCreated-Trigger gesendet
+            // Webhook setzt cloudNotificationSent NICHT → onRideCreated übernimmt einheitlich
+            // Nur Logging für Admin-Buchungen hier:
+            if (booking._adminBooked) {
+                const statusEmoji = isVorbestellung ? '📅' : '🚕';
+                const statusText = isVorbestellung ? 'VORBESTELLUNG' : 'SOFORT-FAHRT!';
+                const timeLabel = !isVorbestellung ? 'SOFORT' : `${dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, day: '2-digit', month: '2-digit', year: '2-digit' })} ${timeStr} Uhr`;
+                await addTelegramLog(statusEmoji, 'system', `${statusText}: ${rideData.customerName} → ${timeLabel}`, { rideId: rideData.id, adminBooked: true });
             }
+            console.log(`📢 Webhook: Admin-Benachrichtigung wird von onRideCreated für ${rideData.id} gesendet`);
 
             // 🆕 v6.14.0: Admin-Buchung → CRM-Eintrag AUTOMATISCH anlegen!
             // 🔧 v6.14.2: Auch undefined prüfen (Firebase entfernt null-Werte) + Duplikat-Check
@@ -15548,21 +15518,28 @@ async function getAdminNotifyPrefs(chatId) {
 async function sendToAllAdmins(message, category) {
     try {
         const snapshot = await db.ref('settings/telegram/adminChats').once('value');
-        const adminChats = snapshot.val() || [];
+        const _raw = snapshot.val();
+        // 🔧 v6.38.43: Firebase gibt Arrays manchmal als Objekte zurück → normalisieren
+        const adminChats = Array.isArray(_raw) ? _raw : (typeof _raw === 'object' && _raw !== null ? Object.values(_raw) : (_raw ? [_raw] : []));
         if (adminChats.length === 0) {
             console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
             return;
         }
+        console.log(`📢 sendToAllAdmins: ${adminChats.length} Admins, Kategorie: ${category || 'alle'}`);
         for (const chatId of adminChats) {
             // 🔔 v6.20.1: Kategorie-Filter prüfen
             if (category) {
                 const prefs = await getAdminNotifyPrefs(chatId);
-                if (prefs && prefs[category] === false) continue; // Admin hat diese Kategorie deaktiviert
+                if (prefs && prefs[category] === false) {
+                    console.log(`🔕 Admin ${chatId}: Kategorie '${category}' deaktiviert`);
+                    continue;
+                }
             }
-            await sendTelegramMessage(chatId, message);
+            const result = await sendTelegramMessage(chatId, message);
+            if (!result) console.error(`❌ sendToAllAdmins: Nachricht an ${chatId} fehlgeschlagen`);
         }
     } catch (e) {
-        console.error('❌ sendToAllAdmins Fehler:', e.message);
+        console.error('❌ sendToAllAdmins Fehler:', e.message, e.stack);
     }
 }
 
@@ -16142,13 +16119,16 @@ exports.onRideCreated = onValueCreated(
         const ride = event.data.val();
         if (!ride) return;
 
-        console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'}`);
+        console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
         // Prüfe ob Benachrichtigung schon gesendet wurde (z.B. vom Webhook-Handler selbst)
         if (ride.cloudNotificationSent) {
             console.log('⚠️ Benachrichtigung bereits gesendet (cloudNotificationSent flag)');
             return;
         }
+
+        // 🔧 v6.38.43: Detailliertes Logging für Debugging
+        console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}`);
 
         const timestamp = formatBerlinTime();
 
@@ -16198,11 +16178,17 @@ exports.onRideCreated = onValueCreated(
             `⏰ <b>Gesendet:</b> ${timestamp}\n` +
             `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
 
-        await sendToAllAdmins(message, 'new_ride');
+        console.log(`📢 onRideCreated: Sende Admin-Benachrichtigung für ${rideId}...`);
+        try {
+            await sendToAllAdmins(message, 'new_ride');
+            console.log(`✅ onRideCreated: Admin-Benachrichtigung gesendet für ${rideId}`);
+        } catch (_notifErr) {
+            console.error(`❌ onRideCreated: sendToAllAdmins FEHLER für ${rideId}:`, _notifErr.message, _notifErr.stack);
+        }
         await sendToSystemChannel(message, 'new_ride');
 
         // 🆕 v6.38.31: Lifecycle-Log — Admins benachrichtigt
-        await addRideLog(rideId, '📢', 'Admin-Benachrichtigung gesendet', isSofort ? 'SOFORT' : 'VORBESTELLUNG');
+        await addRideLog(rideId, '📢', 'Admin-Benachrichtigung gesendet (onRideCreated)', isSofort ? 'SOFORT' : 'VORBESTELLUNG');
 
         // 🔧 v6.38.40: Datenqualitäts-Check — Koordinaten + Duration prüfen
         const _hasPickup = ride.pickupLat && ride.pickupLon;

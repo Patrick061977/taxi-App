@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.37';
+const CLOUD_FUNCTIONS_VERSION = '6.38.41';
 const CLOUD_FUNCTIONS_BUILD = '31.03.2026 14:30';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1459,6 +1459,7 @@ async function addRideLog(rideId, icon, action, details = null) {
             t: Date.now(),
             icon,
             action,
+            source: '☁️ Cloud',
             ...(details ? { details: typeof details === 'string' ? details : JSON.stringify(details).substring(0, 800) } : {})
         };
         await db.ref(`rides/${rideId}/lifecycleLog`).push(entry);
@@ -15921,6 +15922,81 @@ exports.onRideCreated = onValueCreated(
 
         // 🆕 v6.38.31: Lifecycle-Log — Admins benachrichtigt
         await addRideLog(rideId, '📢', 'Admin-Benachrichtigung gesendet', isSofort ? 'SOFORT' : 'VORBESTELLUNG');
+
+        // 🔧 v6.38.40: Datenqualitäts-Check — Koordinaten + Duration prüfen
+        const _hasPickup = ride.pickupLat && ride.pickupLon;
+        const _hasDest = ride.destinationLat && ride.destinationLon;
+        const _hasDuration = ride.duration || ride.estimatedDuration;
+        const _hasDistance = ride.distance || ride.estimatedDistance;
+
+        if (!_hasPickup || !_hasDest) {
+            const _missing = [];
+            if (!_hasPickup) _missing.push('Abholort-Koordinaten');
+            if (!_hasDest) _missing.push('Zielort-Koordinaten');
+            const _warnMsg = `⚠️ <b>FEHLENDE DATEN</b>\n\n` +
+                `Fahrt: <b>${ride.customerName || '?'}</b>\n` +
+                `📍 ${ride.pickup || '?'} → ${ride.destination || '?'}\n` +
+                `🕐 ${pickupTimeFormatted}\n\n` +
+                `❌ <b>Fehlend:</b> ${_missing.join(', ')}\n\n` +
+                `⚠️ Route kann NICHT berechnet werden!\nBitte Koordinaten manuell prüfen.`;
+            await sendToAllAdmins(_warnMsg);
+            await addRideLog(rideId, '⚠️', `Fehlende Daten: ${_missing.join(', ')}`, 'Route nicht berechenbar');
+        } else if (!_hasDuration && _hasPickup && _hasDest) {
+            // Koordinaten da aber keine Duration → Route nachberechnen
+            try {
+                const _calcRoute = await calculateTelegramRoutePrice({
+                    pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                    destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+                });
+                if (_calcRoute && _calcRoute.duration) {
+                    await db.ref(`rides/${rideId}`).update({
+                        duration: _calcRoute.duration, estimatedDuration: _calcRoute.duration,
+                        distance: _calcRoute.distance, estimatedDistance: _calcRoute.distance,
+                        ...(!ride.price && _calcRoute.price ? { price: _calcRoute.price, estimatedPrice: _calcRoute.price } : {})
+                    });
+                    console.log(`✅ onRideCreated: Duration nachberechnet für ${rideId}: ${_calcRoute.duration} min, ${_calcRoute.distance} km`);
+                    await addRideLog(rideId, '🔧', `Route nachberechnet: ${_calcRoute.duration} Min, ${_calcRoute.distance} km`, 'Duration fehlte bei Erstellung');
+                    // ride-Objekt aktualisieren für spätere Verwendung
+                    ride.duration = _calcRoute.duration;
+                    ride.distance = _calcRoute.distance;
+                }
+            } catch(e) {
+                console.warn(`⚠️ onRideCreated: Route-Nachberechnung fehlgeschlagen für ${rideId}:`, e.message);
+            }
+        } else if (_hasDuration && _hasPickup && _hasDest) {
+            // Duration vorhanden — Plausibilitäts-Check: stimmt die Dauer zur Strecke?
+            try {
+                const _checkRoute = await calculateTelegramRoutePrice({
+                    pickupLat: ride.pickupLat, pickupLon: ride.pickupLon,
+                    destinationLat: ride.destinationLat, destinationLon: ride.destinationLon
+                });
+                if (_checkRoute && _checkRoute.duration) {
+                    const _storedDur = parseInt(ride.duration || ride.estimatedDuration);
+                    const _calcDur = parseInt(_checkRoute.duration);
+                    const _diff = Math.abs(_storedDur - _calcDur);
+                    // Diskrepanz > 10 Min UND > 30% Abweichung → Admin warnen
+                    if (_diff > 10 && _diff / _calcDur > 0.3) {
+                        const _discMsg = `⚠️ <b>DAUER-DISKREPANZ</b>\n\n` +
+                            `Fahrt: <b>${ride.customerName || '?'}</b>\n` +
+                            `📍 ${ride.pickup || '?'} → ${ride.destination || '?'}\n\n` +
+                            `⏱️ Gespeichert: <b>${_storedDur} Min</b>\n` +
+                            `🗺️ OSRM berechnet: <b>${_calcDur} Min</b> (${_checkRoute.distance} km)\n` +
+                            `📊 Abweichung: <b>${_diff} Min (${Math.round(_diff / _calcDur * 100)}%)</b>\n\n` +
+                            `🔧 Wird automatisch korrigiert!`;
+                        await sendToAllAdmins(_discMsg);
+                        // Korrigieren
+                        await db.ref(`rides/${rideId}`).update({
+                            duration: _calcDur, estimatedDuration: _calcDur,
+                            distance: _checkRoute.distance, estimatedDistance: _checkRoute.distance
+                        });
+                        await addRideLog(rideId, '🔧', `Dauer korrigiert: ${_storedDur} → ${_calcDur} Min`, `OSRM: ${_checkRoute.distance} km, ${_calcDur} Min`);
+                        ride.duration = _calcDur;
+                    }
+                }
+            } catch(e) {
+                console.warn(`⚠️ Plausibilitäts-Check fehlgeschlagen:`, e.message);
+            }
+        }
 
         // 🆕 v6.28.0: WhatsApp-Kunden-Benachrichtigung bei neuer Fahrt
         await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');

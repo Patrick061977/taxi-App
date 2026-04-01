@@ -777,7 +777,10 @@ async function autoAssignRide(rideId, rideData) {
             best = candidates[0];
             for (const cand of candidates) {
                 const prio = getVehiclePrio(cand.vehicleId);
-                const prioPenalty = (prio - 1) * priorityAdvantageMin;
+                // 🔧 v6.38.45: GPS AN → kein Prio-Aufschlag (echte Position, kürzeste Distanz zählt)
+                // GPS AUS → Prio-Aufschlag (Heimatadresse ist nur Schätzung, Priorität gleicht aus)
+                const hasRealGPS = cand.posSource === 'GPS';
+                const prioPenalty = hasRealGPS ? 0 : (prio - 1) * priorityAdvantageMin;
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
                 const score = estDrivingMin + prioPenalty;
 

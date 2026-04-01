@@ -2766,6 +2766,27 @@ async function searchNominatimForTelegram(query) {
     try {
         const ridesSnap = await db.ref('rides').once('value');
         const destCount = {};
+        // 🔧 v6.38.48: Normalisierung für Duplikat-Erkennung
+        const _normAddr = (a) => {
+            if (!a) return '';
+            let n = a.toLowerCase().trim();
+            n = n.replace(/\b\d{5}\b/g, '');
+            n = n.replace(/straße|str\.|str$/gi, 'str');
+            n = n.replace(/[,.\-\/]/g, ' ');
+            n = n.replace(/\s+/g, ' ').trim();
+            return n;
+        };
+        const _ckRound = (lat, lon) => `${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}`;
+        const _coordMap = {}; // coordKey → normKey
+        const _addAddr = (addr, lat, lon) => {
+            let key = _normAddr(addr);
+            const ck = _ckRound(lat, lon);
+            if (_coordMap[ck]) { key = _coordMap[ck]; } else { _coordMap[ck] = key; }
+            if (!destCount[key]) destCount[key] = { name: addr, lat, lon, count: 0 };
+            // Längsten Namen behalten
+            if (addr.length > destCount[key].name.length) destCount[key].name = addr;
+            destCount[key].count++;
+        };
         ridesSnap.forEach(child => {
             const ride = child.val();
             // Zielorte
@@ -2773,27 +2794,16 @@ async function searchNominatimForTelegram(query) {
             const lat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
             const lon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
             if (dest && lat && lon) {
-                // 🔧 v6.15.7: Koordinaten-Plausibilitätsprüfung — Usedom-Adresse muss Usedom-Koordinaten haben!
-                if (_looksLikeUsedom(dest) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) {
-                    // Falsche Koordinaten: Usedom-Adresse aber Koordinaten woanders → NICHT übernehmen
-                    return;
-                }
-                const key = dest.toLowerCase().trim();
-                if (!destCount[key]) destCount[key] = { name: dest, lat, lon, count: 0 };
-                destCount[key].count++;
+                if (_looksLikeUsedom(dest) && !isNearUsedom(parseFloat(lat), parseFloat(lon))) return;
+                _addAddr(dest, lat, lon);
             }
             // Abholorte
             const pickup = ride.pickup;
             const pLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
             const pLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
             if (pickup && pLat && pLon) {
-                // 🔧 v6.15.7: Gleiches für Abholorte
-                if (_looksLikeUsedom(pickup) && !isNearUsedom(parseFloat(pLat), parseFloat(pLon))) {
-                    return;
-                }
-                const key = pickup.toLowerCase().trim();
-                if (!destCount[key]) destCount[key] = { name: pickup, lat: pLat, lon: pLon, count: 0 };
-                destCount[key].count++;
+                if (_looksLikeUsedom(pickup) && !isNearUsedom(parseFloat(pLat), parseFloat(pLon))) return;
+                _addAddr(pickup, pLat, pLon);
             }
         });
         const frequent = Object.values(destCount).sort((a, b) => b.count - a.count);
@@ -6136,6 +6146,26 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
         const destCount = {};
         const destDetails = {};
         const _seenRides = new Set(); // 🔧 v6.38.27: Duplikate verhindern
+
+        // 🔧 v6.38.48: Adress-Normalisierung — gleiche Orte zusammenfassen
+        const _normalizeAddr = (addr) => {
+            if (!addr) return '';
+            let n = addr.toLowerCase().trim();
+            n = n.replace(/\b\d{5}\b/g, '');               // PLZ entfernen
+            n = n.replace(/straße|str\.|str$/gi, 'str');    // Straße vereinheitlichen
+            n = n.replace(/[,.\-\/]/g, ' ');                // Satzzeichen → Leerzeichen
+            n = n.replace(/\s+/g, ' ').trim();              // Mehrfach-Leerzeichen
+            return n;
+        };
+
+        // 🔧 v6.38.48: Koordinaten-Nähe prüfen — gleicher Ort wenn < 100m Abstand
+        const _coordKey = (lat, lon) => {
+            if (!lat || !lon) return null;
+            // Auf ~100m runden
+            return `${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}`;
+        };
+        const _coordToNormKey = {}; // coordKey → normKey Mapping für Zusammenführung
+
         const _processRide = (r, rideKey) => {
             if (!r.destination || r.status === 'cancelled' || r.status === 'storniert' || r.status === 'deleted') return;
             // Deduplizierung: gleiche Fahrt kann über Name + Telefon doppelt gefunden werden
@@ -6143,19 +6173,52 @@ async function getCustomerFavoriteDestinations(customerName, customerPhone, cust
             if (_seenRides.has(_rideFingerprint)) return;
             _seenRides.add(_rideFingerprint);
             const dest = r.destination.trim();
-            const key = dest.toLowerCase();
-            destCount[key] = (destCount[key] || 0) + 1;
-            if (!destDetails[key]) {
-                destDetails[key] = { name: dest, lat: r.destinationLat || null, lon: r.destinationLon || null };
+            const lat = r.destinationLat || null;
+            const lon = r.destinationLon || null;
+
+            // Normalisierter Key für Textvergleich
+            let normKey = _normalizeAddr(dest);
+
+            // Koordinaten-basierte Zusammenführung: gleiche Koordinaten = gleicher Ort
+            const ck = _coordKey(lat, lon);
+            if (ck && _coordToNormKey[ck]) {
+                normKey = _coordToNormKey[ck]; // Verwende den existierenden Key
+            } else if (ck) {
+                _coordToNormKey[ck] = normKey;
             }
-            if (!destDetails[key].lastPickup && r.pickup) {
-                destDetails[key].lastPickup = r.pickup;
-                destDetails[key].pickupLat = r.pickupLat || null;
-                destDetails[key].pickupLon = r.pickupLon || null;
+
+            destCount[normKey] = (destCount[normKey] || 0) + 1;
+            if (!destDetails[normKey]) {
+                destDetails[normKey] = { name: dest, lat, lon, names: [dest] };
+            } else {
+                // Längsten/vollständigsten Namen behalten
+                if (!destDetails[normKey].names.includes(dest)) destDetails[normKey].names.push(dest);
+                if (dest.length > destDetails[normKey].name.length) destDetails[normKey].name = dest;
+            }
+            if (!destDetails[normKey].lastPickup && r.pickup) {
+                destDetails[normKey].lastPickup = r.pickup;
+                destDetails[normKey].pickupLat = r.pickupLat || null;
+                destDetails[normKey].pickupLon = r.pickupLon || null;
             }
         };
         for (const snap of snaps) {
             if (snap.exists()) snap.forEach(child => _processRide(child.val(), child.key));
+        }
+
+        // 🔧 v6.38.48: Kundennamen aus Adressen entfernen (z.B. "Marion, Dorf Bansin 8d")
+        for (const key of Object.keys(destDetails)) {
+            const d = destDetails[key];
+            // Prüfe ob Adresse mit Kundenname beginnt (z.B. "Marion, ...")
+            const _commaMatch = d.name.match(/^([^,]+),\s*(.+)$/);
+            if (_commaMatch) {
+                const _firstPart = _commaMatch[1].trim();
+                const _rest = _commaMatch[2].trim();
+                // Wenn der erste Teil KEIN Straßen-/Orts-Keyword enthält → wahrscheinlich ein Name
+                const _isStreetOrPlace = /straße|str\.|weg\b|ring\b|allee|platz|gasse|damm|dorf|bahnhof|hotel|zum\b|zur\b|seebrücke|flughafen|\d/i.test(_firstPart);
+                if (!_isStreetOrPlace && _firstPart.length < 25) {
+                    d.name = _rest; // "Marion, Dorf Bansin 8d" → "Dorf Bansin 8d"
+                }
+            }
         }
 
         // Sortiere nach Häufigkeit, max 5 Ziele

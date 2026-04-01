@@ -1459,7 +1459,9 @@ async function addRideLog(rideId, icon, action, details = null) {
             t: Date.now(),
             icon,
             action,
-            source: '☁️ Cloud',
+            source: `☁️ Cloud v${CLOUD_FUNCTIONS_VERSION}`,
+            device: 'cloud',
+            version: CLOUD_FUNCTIONS_VERSION,
             ...(details ? { details: typeof details === 'string' ? details : JSON.stringify(details).substring(0, 800) } : {})
         };
         await db.ref(`rides/${rideId}/lifecycleLog`).push(entry);

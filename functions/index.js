@@ -4939,37 +4939,51 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 const _crmSnap = await db.ref('customers/' + _effectiveCrmId).once('value');
                 const _crm = _crmSnap.val();
                 if (_crm && _crm.address) {
-                    // Straßennamen extrahieren (ohne Hausnummer, PLZ, Ort)
+                    // 🔧 v6.38.53: Straße + Hausnummer extrahieren fuer exakten Vergleich
                     const _extractStreet = (addr) => {
                         if (!addr) return '';
-                        // Nimm nur den Teil vor dem Komma (Straße + Hausnr)
                         const parts = addr.split(',')[0].trim();
-                        // Entferne Hausnummer am Ende
                         return parts.replace(/\s*\d+[a-z]?\s*$/i, '').toLowerCase().trim();
                     };
+                    const _extractStreetWithNumber = (addr) => {
+                        if (!addr) return '';
+                        return addr.split(',')[0].trim().toLowerCase();
+                    };
                     const _crmStreet = _extractStreet(_crm.address);
+                    const _crmFull = _extractStreetWithNumber(_crm.address);
                     const _crmLat = _crm.lat || _crm.pickupLat;
                     const _crmLon = _crm.lon || _crm.pickupLon;
                     if (_crmLat && _crmLon && _crmStreet.length > 3) {
-                        // Pickup prüfen — nur bei EXAKTEM Straßennamen-Match
+                        // Pickup prüfen — Straße UND Hausnummer muessen passen!
                         if (booking.pickup && !booking.pickupLat) {
-                            const _pStreet = _extractStreet(booking.pickup);
-                            if (_pStreet === _crmStreet) {
+                            const _pFull = _extractStreetWithNumber(booking.pickup);
+                            if (_pFull === _crmFull) {
                                 booking.pickup = _crm.address;
                                 booking.pickupLat = _crmLat;
                                 booking.pickupLon = _crmLon;
-                                console.log('📍 CRM-Adresse erkannt für Pickup (exakt):', _crm.address, _crmLat, _crmLon);
+                                console.log('📍 CRM-Adresse erkannt für Pickup (exakt mit Hausnr):', _crm.address);
                                 await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Match (exakt): ${_crm.address}`);
+                            } else if (_extractStreet(booking.pickup) === _crmStreet) {
+                                // 🔧 v6.38.53: Nur Koordinaten uebernehmen, NICHT die Adresse (Hausnummer ist anders!)
+                                booking.pickupLat = _crmLat;
+                                booking.pickupLon = _crmLon;
+                                console.log('📍 CRM-Straße erkannt für Pickup (nur Koords, Hausnr anders):', booking.pickup, '≠', _crm.address);
+                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.pickup}" → CRM-Straße erkannt, Hausnr beibehalten`);
                             }
                         }
-                        // Destination prüfen — nur bei EXAKTEM Straßennamen-Match
+                        // Destination prüfen — Straße UND Hausnummer muessen passen!
                         if (booking.destination && !booking.destinationLat) {
-                            const _dStreet = _extractStreet(booking.destination);
-                            if (_dStreet === _crmStreet) {
+                            const _dFull = _extractStreetWithNumber(booking.destination);
+                            if (_dFull === _crmFull) {
                                 booking.destination = _crm.address;
                                 booking.destinationLat = _crmLat;
                                 booking.destinationLon = _crmLon;
-                                console.log('📍 CRM-Adresse erkannt für Destination (exakt):', _crm.address, _crmLat, _crmLon);
+                                console.log('📍 CRM-Adresse erkannt für Destination (exakt mit Hausnr):', _crm.address);
+                            } else if (_extractStreet(booking.destination) === _crmStreet) {
+                                // 🔧 v6.38.53: Nur Koordinaten als Naehe-Anhaltspunkt, Adresse NICHT ueberschreiben
+                                // Hausnummer 1 ≠ Hausnummer 6b → User-Eingabe beibehalten!
+                                console.log('📍 CRM-Straße erkannt für Dest (Hausnr anders):', booking.destination, '≠', _crm.address);
+                                await addTelegramLog('📍', chatId, `Adress-Check: "${booking.destination}" → CRM-Straße, aber Hausnr anders als CRM (${_crm.address})`);
                             }
                         }
                     }
@@ -5246,16 +5260,28 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
 
                     // 🔧 v6.38.37: Einzel-Treffer auto-select NUR bei verifizierten Quellen (nicht Nominatim!)
+                    // 🔧 v6.38.53: Bei CRM-Quelle pruefen ob Hausnummer auch stimmt!
                     if (_displaySugg2.length === 1 && _displaySugg2[0].lat && _displaySugg2[0].lon &&
                         _displaySugg2[0].source && _displaySugg2[0].source !== 'nominatim') {
                         const _solo2 = _displaySugg2[0];
-                        await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → verifiziert: ${_solo2.name} (${_solo2.source})`);
-                        if (needsPickupResolve) {
-                            booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
+                        // 🔧 v6.38.53: Wenn CRM-Treffer, pruefen ob die Hausnummer uebereinstimmt
+                        const _soloStreetFull = (_solo2.name || '').split(',')[0].trim().toLowerCase();
+                        const _inputStreetFull = (addressToResolve || '').split(',')[0].trim().toLowerCase();
+                        const _hausnrMatch = _soloStreetFull === _inputStreetFull;
+                        if (_solo2.source === 'customer' && !_hausnrMatch) {
+                            // CRM-Adresse hat andere Hausnummer → NICHT auto-select, Nominatim nutzen
+                            await addTelegramLog('⚠️', chatId, `${fieldLabel}: CRM-Treffer "${_solo2.name}" hat andere Hausnr als Eingabe "${addressToResolve}" → Nominatim statt CRM`);
+                            // Aus der Liste entfernen, Nominatim-Ergebnisse nutzen
+                            _displaySugg2.splice(0, 1);
                         } else {
-                            booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
+                            await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → verifiziert: ${_solo2.name} (${_solo2.source})`);
+                            if (needsPickupResolve) {
+                                booking.pickup = _solo2.name; booking.pickupLat = _solo2.lat; booking.pickupLon = _solo2.lon;
+                            } else {
+                                booking.destination = _solo2.name; booking.destinationLat = _solo2.lat; booking.destinationLon = _solo2.lon;
+                            }
+                            return await continueBookingFlow(chatId, booking, originalText);
                         }
-                        return await continueBookingFlow(chatId, booking, originalText);
                     }
 
                     // Multi-Treffer → Auswahlmenü zeigen
@@ -17120,7 +17146,13 @@ exports.onRideCreated = onValueCreated(
         } catch (e) { await logError('onRideCreated.cloudNotifSent', e, { rideId, severity: 'warning' }); }
 
         // 🔧 v6.38.46: Auto-Zuweisung für ALLE Fahrten (Sofort + Vorbestellung)
-        if (!ride.assignedVehicle) {
+        // 🔧 v6.38.53: Frische Daten aus Firebase lesen (Race-Condition: Telegram-Flow koennte schon zugewiesen haben!)
+        let _freshRide = ride;
+        try {
+            const _freshSnap = await db.ref('rides/' + rideId).once('value');
+            _freshRide = _freshSnap.val() || ride;
+        } catch(e) { /* Fallback auf Event-Daten */ }
+        if (!_freshRide.assignedVehicle && !_freshRide.vehicleId) {
             const _hasCoords = ride.pickupLat && ride.destinationLat;
             if (_hasCoords) {
                 try {

@@ -2725,10 +2725,15 @@ async function searchNominatimForTelegram(query) {
         const isExact = wordBoundaryRegex.test(key) || wordBoundaryRegex.test(placeName);
         const isIncludes = key.includes(searchKey) || placeName.includes(searchKey);
         const isWordMatch = searchWords.length > 0 && searchWords.every(w => key.includes(w) || placeName.includes(w));
+        // 🔧 v6.39.0: Auch umgekehrt prüfen — Key-Wörter im Suchtext?
+        // z.B. Key "bahnhof bansin" → Suchtext "Bahnhof Bansin Seebad, 17429 Heringsdorf" enthält BEIDE Key-Wörter
+        const keyWords = key.split(/\s+/).filter(w => w.length > 2);
+        const isReverseMatch = !isExact && !isIncludes && !isWordMatch && keyWords.length >= 2 &&
+            keyWords.every(kw => searchKey.includes(kw));
         // 🔧 v6.38.26: Fuzzy-Match für KNOWN_PLACES
-        const isFuzzy = !isExact && !isIncludes && !isWordMatch && _fuzzyWordMatch(searchWords, key + ' ' + placeName);
-        if (isExact || isIncludes || isWordMatch || isFuzzy) {
-            addIfNew({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known', priority: isExact ? 0 : (isFuzzy ? 2 : 1) });
+        const isFuzzy = !isExact && !isIncludes && !isWordMatch && !isReverseMatch && _fuzzyWordMatch(searchWords, key + ' ' + placeName);
+        if (isExact || isIncludes || isWordMatch || isReverseMatch || isFuzzy) {
+            addIfNew({ name: place.name || key, lat: place.lat, lon: place.lon, source: 'known', priority: isExact ? 0 : (isReverseMatch ? 0 : (isFuzzy ? 2 : 1)) });
         }
     }
 
@@ -3669,7 +3674,9 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 pendingState.pendingDestValidation = (needPickup && needDest);
                 await setPending(chatId, pendingState);
 
-                await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${suggestions.length} Vorschläge`);
+                // 🔧 v6.39.0: Vorschläge im Log mit anzeigen
+                const _suggNames1 = _displaySugg1.map(s => `${s.source === 'known' || s.source === 'poi' ? '⭐' : '📍'}${s.name}`).join(' | ');
+                await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${_displaySugg1.length} Vorschläge: ${_suggNames1}`);
                 await sendTelegramMessage(chatId,
                     `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
                     `Bitte wählen Sie die korrekte Adresse:`,
@@ -5325,7 +5332,9 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     pendingState.pendingDestValidation = (needsPickupResolve && needsDestResolve);
                     await setPending(chatId, pendingState);
 
-                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${suggestions.length} Vorschläge`);
+                    // 🔧 v6.39.0: Vorschläge im Log
+                    const _suggNames2 = _displaySugg2.map(s => `${s.source === 'known' || s.source === 'poi' ? '⭐' : '📍'}${s.name}`).join(' | ');
+                    await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${_displaySugg2.length} Vorschläge: ${_suggNames2}`);
                     await sendTelegramMessage(chatId,
                         `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
                         `Meinten Sie:`,

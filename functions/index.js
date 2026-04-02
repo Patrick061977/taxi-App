@@ -4828,6 +4828,13 @@ Nur gültiges JSON, kein Markdown:
             await addTelegramLog('📍', chatId, `Koordinaten aus Favoriten: Pickup(${booking.pickupLat?.toFixed?.(4) || '–'}, ${booking.pickupLon?.toFixed?.(4) || '–'}) → Dest(${booking.destinationLat?.toFixed?.(4) || '–'}, ${booking.destinationLon?.toFixed?.(4) || '–'})`);
         }
 
+        // 🔧 v6.38.55: Bereits gewählte Uhrzeit aus Favoriten-Flow übernehmen (verhindert doppelte Abfrage)
+        if (options.prefilledDatetime && !booking.datetime) {
+            booking.datetime = options.prefilledDatetime;
+            if (booking.missing) booking.missing = booking.missing.filter(m => m !== 'datetime');
+            await addTelegramLog('🕐', chatId, `Uhrzeit aus vorherigem Schritt übernommen: ${options.prefilledDatetime}`);
+        }
+
         // Defensive missing-Prüfung
         if (!booking.missing || !Array.isArray(booking.missing)) booking.missing = Array.isArray(booking.missing) ? booking.missing : (booking.missing ? Object.values(booking.missing) : []);
         if (!booking.pickup && !booking.missing.includes('pickup')) booking.missing.push('pickup');
@@ -8465,8 +8472,12 @@ async function handleMessage(message) {
                                 editedAt: Date.now(), editedBy: 'telegram-admin',
                                 updatedAt: Date.now()
                             });
-                            await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${hours}:${String(mins).padStart(2, '0')}`);
-                            await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} Uhr</b>`);
+                            const _oldTime = r.pickupTime || '?';
+                            const _newTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+                            await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${_newTime}`);
+                            // 🆕 v6.38.55: Lifecycle-Log für Zeitänderung
+                            await addRideLog(rideId, '🕐', `Zeit: ${_oldTime} → ${_newTime}`, { alt: _oldTime, neu: _newTime, quelle: 'telegram-admin' });
+                            await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${_newTime} Uhr</b>`);
                             await handleAdminRideDetail(chatId, rideId);
                         }
                     } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
@@ -9348,7 +9359,10 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
             saveToGeocache(addressText, geo.lat, geo.lon, 'admin-edit').catch(() => {});
         }
         const label = field === 'pickup' ? 'Abholort' : 'Zielort';
+        const _oldAddr = existingRide[field] || '?';
         await addTelegramLog('✏️', chatId, `Admin: ${label} geändert auf "${addressText}"${geoInfo}`);
+        // 🆕 v6.38.55: Änderung im Lifecycle-Log speichern (sichtbar im "Kompletter Ablauf")
+        await addRideLog(rideId, '✏️', `${label}: ${_oldAddr} → ${addressText}`, { field, alt: _oldAddr, neu: addressText, quelle: 'telegram-admin' });
         await sendTelegramMessage(chatId, `✅ ${label} geändert auf <b>${addressText}</b>${geoInfo}`);
         await handleAdminRideDetail(chatId, rideId);
     } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
@@ -11834,11 +11848,23 @@ async function handleCallback(callback) {
 
         await addTelegramLog('⭐', chatId, `Beliebtes Ziel gewählt: ${fav.destination} (${fav.count}x gebucht)`);
 
+        // 🔧 v6.38.55: Bereits gewählte Uhrzeit aus Pending retten (verhindert doppelte Datetime-Abfrage)
+        const _savedDatetime = pending.partial?.datetime || null;
+
         // Buchungstext mit dem gewählten Ziel + ggf. Abholadresse zusammenbauen
         const pickup = preselectedCustomer.address || fav.lastPickup || null;
         let enrichedText = originalText || '';
         if (pickup) enrichedText += ` von ${pickup}`;
         enrichedText += ` nach ${fav.destination}`;
+        // 🔧 v6.38.55: Bereits gewählte Uhrzeit in enrichedText einfügen damit KI sie erkennt
+        if (_savedDatetime) {
+            const _dtParts = _savedDatetime.split('T');
+            if (_dtParts.length === 2) {
+                const _dtDate = _dtParts[0]; // "2026-04-02"
+                const _dtTime = _dtParts[1]; // "18:50"
+                enrichedText += ` am ${_dtDate} um ${_dtTime}`;
+            }
+        }
 
         // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
         // Falls Koordinaten fehlen (alte Fahrten), per Geocoding nachladen
@@ -11880,7 +11906,8 @@ async function handleCallback(callback) {
 
         await deletePending(chatId);
         await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
-        await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords });
+        // 🔧 v6.38.55: prefilledDatetime übergeben damit die KI-Analyse die bereits gewählte Uhrzeit übernimmt
+        await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords, prefilledDatetime: _savedDatetime });
         return;
     }
 
@@ -12588,7 +12615,10 @@ async function handleCallback(callback) {
                 editedAt: Date.now(), editedBy: 'telegram-admin',
                 updatedAt: Date.now() // 🔧 v6.25.4: Für Google Calendar Sync
             });
+            const _oldTime2 = r.pickupTime || '?';
             await addTelegramLog('✏️', chatId, `Admin: Zeit geändert auf ${newTime} (${offset > 0 ? '+' : ''}${offset}min)`);
+            // 🆕 v6.38.55: Lifecycle-Log für Zeitänderung
+            await addRideLog(rideId, '🕐', `Zeit: ${_oldTime2} → ${newTime}`, { alt: _oldTime2, neu: newTime, quelle: 'telegram-admin' });
             await sendTelegramMessage(chatId, `✅ Zeit geändert auf <b>${newTime} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);
         } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
@@ -12645,7 +12675,10 @@ async function handleCallback(callback) {
             }
 
             await db.ref(`rides/${rideId}`).update(updateData);
+            const _oldDateFormatted = oldDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit' });
             await addTelegramLog('📅', chatId, `Admin: Datum geändert auf ${newDateFormatted}`);
+            // 🆕 v6.38.55: Lifecycle-Log für Datumsänderung
+            await addRideLog(rideId, '📅', `Datum: ${_oldDateFormatted} → ${newDateFormatted}`, { alt: _oldDateFormatted, neu: newDateFormatted, quelle: 'telegram-admin' });
             await sendTelegramMessage(chatId, `✅ Datum geändert auf <b>${newDateFormatted}</b>\n⏰ Uhrzeit bleibt: <b>${timeFormatted} Uhr</b>`);
             await handleAdminRideDetail(chatId, rideId);
         } catch (e) { await sendErrorWithMenu(chatId, '⚠️ ' + e.message); }
@@ -17266,6 +17299,28 @@ exports.onRideUpdated = onValueUpdated(
                     return;
                 }
             } catch(e) { await logError('onRideUpdated.schichtCheck', e, { rideId, severity: 'warning' }); }
+        }
+
+        // ─── 🆕 v6.38.55: FELD-ÄNDERUNGEN im Lifecycle-Log tracken ───
+        // Nur loggen wenn die Änderung NICHT schon von Telegram-Admin geloggt wurde (editedBy prüfen)
+        const _editSource = after.editedBy || 'browser';
+        const _skipFieldLog = (after.editedBy === 'telegram-admin' && after.editedAt && (Date.now() - after.editedAt) < 5000);
+        if (!_skipFieldLog) {
+            if (before.pickup && after.pickup && before.pickup !== after.pickup) {
+                await addRideLog(rideId, '✏️', `Abholort: ${before.pickup} → ${after.pickup}`, { field: 'pickup', alt: before.pickup, neu: after.pickup, quelle: _editSource });
+            }
+            if (before.destination && after.destination && before.destination !== after.destination) {
+                await addRideLog(rideId, '✏️', `Zielort: ${before.destination} → ${after.destination}`, { field: 'destination', alt: before.destination, neu: after.destination, quelle: _editSource });
+            }
+            if (before.pickupTime && after.pickupTime && before.pickupTime !== after.pickupTime) {
+                await addRideLog(rideId, '🕐', `Zeit: ${before.pickupTime} → ${after.pickupTime}`, { alt: before.pickupTime, neu: after.pickupTime, quelle: _editSource });
+            }
+            if (before.customerName && after.customerName && before.customerName !== after.customerName) {
+                await addRideLog(rideId, '👤', `Kunde: ${before.customerName} → ${after.customerName}`, { alt: before.customerName, neu: after.customerName, quelle: _editSource });
+            }
+            if (before.passengers && after.passengers && before.passengers !== after.passengers) {
+                await addRideLog(rideId, '👥', `Personen: ${before.passengers} → ${after.passengers}`, { alt: before.passengers, neu: after.passengers, quelle: _editSource });
+            }
         }
 
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───

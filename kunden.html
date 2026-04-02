@@ -1128,14 +1128,7 @@
                     return;
                 }
 
-                // Wenn PDF-URL vorhanden, direkt oeffnen
-                if (inv.pdfUrl) {
-                    window.open(inv.pdfUrl, '_blank');
-                    showToast('Rechnung wird geoeffnet...');
-                    return;
-                }
-
-                // Fallback: PDF lokal generieren
+                // 🔧 v6.38.54: PDF immer neu generieren (damit Kontoinhaber + aktuelle Bankdaten draufstehen)
                 const ride = customerRides.find(r => r.firebaseId === rideId);
                 generateInvoicePDF(inv, ride, invoiceNumber);
 

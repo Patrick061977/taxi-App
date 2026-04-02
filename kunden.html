@@ -239,6 +239,56 @@
             padding-top: 12px;
             border-top: 1px solid #f3f4f6;
         }
+        .invoice-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .invoice-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #eff6ff;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+        .invoice-badge .inv-number { font-weight: 700; }
+        .invoice-badge .inv-status { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+        .inv-status-paid { background: #d1fae5; color: #065f46; }
+        .inv-status-open { background: #fef3c7; color: #92400e; }
+        .btn-invoice-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-invoice-download:active { transform: scale(0.95); }
+        .btn-receipt-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-receipt-download:active { transform: scale(0.95); }
         .ride-actions button {
             flex: 1;
             padding: 10px;
@@ -443,6 +493,9 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <!-- jsPDF fuer Rechnungs-PDF-Generierung -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script>
         // ========================================
@@ -757,6 +810,37 @@
                 ? `<div class="note-badge">📝 ${escapeHtml(ride.customerNote)}</div>`
                 : '';
 
+            // Rechnungs-/Quittungs-Bereich fuer vergangene Fahrten
+            let invoiceHtml = '';
+            if (!isUpcoming && ride.invoiceNumber) {
+                invoiceHtml = `
+                    <div class="invoice-section">
+                        <div class="invoice-badge">
+                            <span>📄</span>
+                            <span class="inv-number">${escapeHtml(ride.invoiceNumber)}</span>
+                            <span class="inv-status" id="inv-status-${ride.firebaseId}">...</span>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn-invoice-download" onclick="downloadInvoice('${escapeHtml(ride.invoiceNumber)}', '${ride.firebaseId}')">
+                                📄 Rechnung herunterladen
+                            </button>
+                        </div>
+                    </div>`;
+            } else if (!isUpcoming && ride.receiptNumber) {
+                invoiceHtml = `
+                    <div class="invoice-section">
+                        <div class="invoice-badge" style="background:#fffbeb;color:#92400e;">
+                            <span>🧾</span>
+                            <span class="inv-number">${escapeHtml(ride.receiptNumber)}</span>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn-receipt-download" onclick="downloadReceipt('${escapeHtml(ride.receiptNumber)}')">
+                                🧾 Quittung herunterladen
+                            </button>
+                        </div>
+                    </div>`;
+            }
+
             const actionsHtml = isUpcoming ? `
                 <div class="ride-actions">
                     <button onclick="openEditModal('${ride.firebaseId}')" style="background:#eff6ff;color:#1e40af;">
@@ -775,8 +859,8 @@
                     </button>
                 </div>`;
 
-            return `
-                <div class="ride-card">
+            const html = `
+                <div class="ride-card" id="ride-card-${ride.firebaseId}">
                     <span class="ride-status ${statusClass}">${statusLabel}</span>
                     <div class="ride-route">
                         <div class="route-dots">
@@ -796,8 +880,16 @@
                         ${passStr ? `<span>👥 ${passStr}</span>` : ''}
                     </div>
                     ${noteHtml}
+                    ${invoiceHtml}
                     ${actionsHtml}
                 </div>`;
+
+            // Rechnungsstatus asynchron laden
+            if (!isUpcoming && ride.invoiceNumber) {
+                setTimeout(() => loadInvoiceStatus(ride.invoiceNumber, ride.firebaseId), 100);
+            }
+
+            return html;
         }
 
         // ========================================
@@ -981,6 +1073,211 @@
                 passengers: ride.passengers || '1'
             });
             window.location.href = 'index.html?' + params.toString();
+        }
+
+        // ========================================
+        // RECHNUNGEN & QUITTUNGEN
+        // ========================================
+
+        // Cache fuer Rechnungsdaten
+        const invoiceCache = {};
+
+        async function loadInvoiceStatus(invoiceNumber, rideId) {
+            try {
+                if (invoiceCache[invoiceNumber]) {
+                    updateInvoiceStatusBadge(invoiceCache[invoiceNumber], rideId);
+                    return;
+                }
+                const snap = await db.ref('invoices/' + invoiceNumber).once('value');
+                const inv = snap.val();
+                if (inv) {
+                    invoiceCache[invoiceNumber] = inv;
+                    updateInvoiceStatusBadge(inv, rideId);
+                }
+            } catch (e) {
+                console.error('Rechnungsstatus laden Fehler:', e);
+            }
+        }
+
+        function updateInvoiceStatusBadge(inv, rideId) {
+            const el = document.getElementById('inv-status-' + rideId);
+            if (!el) return;
+            if (inv.paid || inv.status === 'paid') {
+                el.textContent = 'Bezahlt';
+                el.className = 'inv-status inv-status-paid';
+            } else {
+                el.textContent = 'Offen';
+                el.className = 'inv-status inv-status-open';
+            }
+        }
+
+        async function downloadInvoice(invoiceNumber, rideId) {
+            try {
+                showToast('Rechnung wird geladen...');
+
+                // Lade Rechnungsdaten aus Firebase
+                let inv = invoiceCache[invoiceNumber];
+                if (!inv) {
+                    const snap = await db.ref('invoices/' + invoiceNumber).once('value');
+                    inv = snap.val();
+                    if (inv) invoiceCache[invoiceNumber] = inv;
+                }
+
+                if (!inv) {
+                    showToast('Rechnung nicht gefunden.');
+                    return;
+                }
+
+                // Wenn PDF-URL vorhanden, direkt oeffnen
+                if (inv.pdfUrl) {
+                    window.open(inv.pdfUrl, '_blank');
+                    showToast('Rechnung wird geoeffnet...');
+                    return;
+                }
+
+                // Fallback: PDF lokal generieren
+                const ride = customerRides.find(r => r.firebaseId === rideId);
+                generateInvoicePDF(inv, ride, invoiceNumber);
+
+            } catch (error) {
+                console.error('Rechnung Download Fehler:', error);
+                showToast('Fehler beim Laden der Rechnung.');
+            }
+        }
+
+        function generateInvoicePDF(inv, ride, invoiceNumber) {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Header
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Funk Taxi Usedom', 20, 25);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 32);
+                doc.text('Inh. Patrick Wydra', 20, 37);
+
+                // Rechnungsnummer + Datum
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('RECHNUNG', 20, 52);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Rechnungsnr.: ' + invoiceNumber, 20, 60);
+
+                const invDate = inv.createdAt ? new Date(inv.createdAt) : new Date();
+                doc.text('Datum: ' + invDate.toLocaleDateString('de-DE'), 20, 66);
+
+                // Kundenname
+                const custName = inv.customerName || ride?.customerName || ride?.name || '';
+                if (custName) {
+                    doc.text('Kunde: ' + custName, 20, 74);
+                }
+
+                // Trennlinie
+                doc.setDrawColor(200);
+                doc.line(20, 80, 190, 80);
+
+                // Fahrtdetails
+                let y = 90;
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Fahrtdetails', 20, y);
+                y += 8;
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+
+                const pickup = inv.pickup || ride?.pickup || '-';
+                const dest = inv.destination || ride?.destination || '-';
+                doc.text('Abholort: ' + pickup, 20, y); y += 6;
+                doc.text('Zielort: ' + dest, 20, y); y += 6;
+
+                if (inv.rideDate || ride?.pickupTimestamp) {
+                    const rideDate = new Date(inv.rideDate || ride.pickupTimestamp);
+                    doc.text('Datum/Zeit: ' + rideDate.toLocaleString('de-DE'), 20, y); y += 6;
+                }
+
+                if (inv.distance || ride?.distance) {
+                    doc.text('Strecke: ' + (inv.distance || ride.distance) + ' km', 20, y); y += 6;
+                }
+
+                // Trennlinie
+                y += 4;
+                doc.line(20, y, 190, y);
+                y += 10;
+
+                // Betrag
+                const amount = inv.amount || inv.totalAmount || ride?.price || 0;
+                const netAmount = (parseFloat(amount) / 1.07).toFixed(2);
+                const vatAmount = (parseFloat(amount) - parseFloat(netAmount)).toFixed(2);
+
+                doc.setFontSize(10);
+                doc.text('Nettobetrag:', 20, y);
+                doc.text(netAmount + ' EUR', 160, y, { align: 'right' }); y += 6;
+                doc.text('MwSt. (7%):', 20, y);
+                doc.text(vatAmount + ' EUR', 160, y, { align: 'right' }); y += 8;
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamtbetrag:', 20, y);
+                doc.text(parseFloat(amount).toFixed(2) + ' EUR', 160, y, { align: 'right' });
+                y += 6;
+
+                // Bezahlstatus
+                if (inv.paid || inv.status === 'paid') {
+                    doc.setTextColor(0, 128, 0);
+                    doc.text('BEZAHLT', 20, y + 6);
+                    if (inv.paidAt) {
+                        doc.setFontSize(9);
+                        doc.text('am ' + new Date(inv.paidAt).toLocaleDateString('de-DE'), 50, y + 6);
+                    }
+                    doc.setTextColor(0, 0, 0);
+                }
+
+                // Footer: Bankverbindung
+                y = 250;
+                doc.setDrawColor(200);
+                doc.line(20, y, 190, y);
+                y += 6;
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Kontoinhaber: Patrick Wydra | Volksbank Vorpommern', 20, y);
+                y += 4;
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90 | BIC: GENODEF1HST', 20, y);
+                y += 4;
+                doc.text('Steuernummer: 084 289/01178', 20, y);
+
+                // PDF speichern
+                doc.save('Rechnung_' + invoiceNumber + '.pdf');
+                showToast('Rechnung heruntergeladen!');
+
+            } catch (error) {
+                console.error('PDF Generierung Fehler:', error);
+                showToast('Fehler beim Erstellen der Rechnung.');
+            }
+        }
+
+        async function downloadReceipt(receiptNumber) {
+            try {
+                showToast('Quittung wird geladen...');
+
+                // Versuche PDF aus Firebase Storage zu laden
+                const storageRef = firebase.storage().ref('receipts/' + receiptNumber + '.pdf');
+                const url = await storageRef.getDownloadURL();
+                window.open(url, '_blank');
+                showToast('Quittung wird geoeffnet...');
+
+            } catch (error) {
+                console.error('Quittung Download Fehler:', error);
+                if (error.code === 'storage/object-not-found') {
+                    showToast('Quittung nicht verfuegbar.');
+                } else {
+                    showToast('Fehler beim Laden der Quittung.');
+                }
+            }
         }
 
         // ========================================

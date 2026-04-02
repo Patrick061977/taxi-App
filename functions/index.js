@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.52';
+const CLOUD_FUNCTIONS_VERSION = '6.38.53';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -714,8 +714,16 @@ async function autoAssignRide(rideId, rideData) {
                 });
                 if (hasTimeConflict) {
                     const _cTime = _conflictRide ? new Date(_conflictRide.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) : '?';
-                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit ${_conflictRide?.customerName || '?'} um ${_cTime} → übersprungen`);
-                    vehicleScores[vehicleId] = { status: 'overlap-hard', reason: `Zeitkonflikt: ${_conflictRide?.customerName || '?'} um ${_cTime}`, check: 'timeconflict', blockingRideCustomer: _conflictRide?.customerName, blockingRideTime: _cTime };
+                    // 🔧 v6.38.53: busyUntil berechnen — wann ist das Fahrzeug wieder frei?
+                    let _cBusyUntil = _cTime;
+                    if (_conflictRide) {
+                        const _cDur = (_conflictRide.duration || _conflictRide.estimatedDuration || 20) * 60000;
+                        const _cReturnMs = typeof calcReturnMs === 'function' ? calcReturnMs(_conflictRide) : 5 * 60000;
+                        const _cEndMs = _conflictRide.pickupTimestamp + _cDur + bufferMs + _cReturnMs;
+                        _cBusyUntil = new Date(_cEndMs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                    }
+                    console.log(`   ⚠️ ${info.name}: Zeitkonflikt mit ${_conflictRide?.customerName || '?'} um ${_cTime}, frei ab ${_cBusyUntil} → übersprungen`);
+                    vehicleScores[vehicleId] = { status: 'overlap-hard', reason: `Zeitkonflikt: ${_conflictRide?.customerName || '?'} um ${_cTime}`, check: 'timeconflict', blockingRideCustomer: _conflictRide?.customerName, blockingRideTime: _cTime, busyUntil: _cBusyUntil, blockingRideDest: _conflictRide?.destination || _conflictRide?.destinationAddress || '' };
                     continue;
                 }
             }
@@ -919,7 +927,9 @@ async function autoAssignRide(rideId, rideData) {
             if (_prevRides.length > 0) {
                 const _prevRide = _prevRides[0];
                 const _prevDurMs = (_prevRide.duration || _prevRide.estimatedDuration || 20) * 60000;
-                const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs;
+                // 🔧 v6.38.53: Rückfahrt-Puffer in prevEnd einrechnen (vorher fehlte der!)
+                const _prevReturnMs = typeof calcReturnMs === 'function' ? calcReturnMs(_prevRide) : 5 * 60000;
+                const _prevEndMs = _prevRide.pickupTimestamp + _prevDurMs + _bufferMs + _prevReturnMs;
 
                 // Leerfahrt vom Ziel der Vorfahrt zum neuen Abholort berechnen
                 let _leerfahrtToNewMs = drivingTimeMin * 60000; // Nutze bereits berechnete Leerfahrt
@@ -16734,7 +16744,9 @@ exports.scheduledAutoAssign = onSchedule(
                         const _sPrev = _sPrevRides[0];
                         // 🔧 v6.38.34: Kein Fallback! Ohne Duration → 60 Min als Sicherheits-Maximum
                         const _sPrevDurMs = (_sPrev.duration || _sPrev.estimatedDuration || 60) * 60000;
-                        const _sPrevEndMs = _sPrev.pickupTimestamp + _sPrevDurMs + bufferMs;
+                        // 🔧 v6.38.53: Rückfahrt-Puffer in prevEnd einrechnen (pauschal 5 Min — calcReturnMs nicht verfügbar hier)
+                        const _sPrevReturnMs = 5 * 60000;
+                        const _sPrevEndMs = _sPrev.pickupTimestamp + _sPrevDurMs + bufferMs + _sPrevReturnMs;
                         const _sLeerfahrtMs = (bestDrivingTime || 10) * 60000;
                         const _sEarliestMs = _sPrevEndMs + _sLeerfahrtMs + mindestAbstandMs;
                         const _sDelayMs = _sEarliestMs - ride.pickupTimestamp;

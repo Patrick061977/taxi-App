@@ -17476,6 +17476,124 @@ exports.onRideUpdated = onValueUpdated(
                 }
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 🔧 v6.38.53: vehicleScores für betroffene Fahrten neu berechnen
+        // Wenn sich Zeit, Fahrzeug, Dauer oder Status ändert, stimmen die
+        // Scores anderer Fahrten am selben Tag nicht mehr!
+        // ═══════════════════════════════════════════════════════════════
+        try {
+            const _scoreRelevantChange =
+                before.pickupTimestamp !== after.pickupTimestamp ||
+                before.duration !== after.duration ||
+                before.estimatedDuration !== after.estimatedDuration ||
+                (before.assignedVehicle || before.vehicleId) !== (after.assignedVehicle || after.vehicleId) ||
+                (before.status !== after.status && ['deleted','cancelled','storniert','completed','cancelled_pending_driver'].includes(after.status));
+
+            if (_scoreRelevantChange && after.pickupTimestamp) {
+                const _affectedVehicles = new Set();
+                if (oldVehicle) _affectedVehicles.add(oldVehicle);
+                if (newVehicle) _affectedVehicles.add(newVehicle);
+
+                if (_affectedVehicles.size > 0) {
+                    // Alle Fahrten am selben Tag laden
+                    const _pickupBerlin = new Date(new Date(after.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const _dayStart = new Date(_pickupBerlin);
+                    _dayStart.setHours(0, 0, 0, 0);
+                    const _dayEnd = new Date(_pickupBerlin);
+                    _dayEnd.setHours(23, 59, 59, 999);
+
+                    const _allRidesSnap = await db.ref('rides')
+                        .orderByChild('pickupTimestamp')
+                        .startAt(_dayStart.getTime())
+                        .endAt(_dayEnd.getTime())
+                        .once('value');
+                    const _allRidesData = _allRidesSnap.val() || {};
+
+                    const _dayRides = Object.entries(_allRidesData)
+                        .filter(([id, r]) => r && r.pickupTimestamp && !['deleted','cancelled','storniert','cancelled_pending_driver'].includes(r.status))
+                        .map(([id, r]) => ({ ...r, firebaseId: id }));
+
+                    const boardingTime = 2, alightingTime = 2;
+                    const _bufMs = (boardingTime + alightingTime) * 60000;
+                    const _returnBufferMs = 5 * 60000;
+
+                    // Für jede betroffene Fahrt die vehicleScores aktualisieren
+                    let _updatedCount = 0;
+                    for (const [otherRideId, otherRide] of Object.entries(_allRidesData)) {
+                        if (otherRideId === rideId) continue; // Eigene Fahrt überspringen
+                        if (!otherRide || !otherRide.pickupTimestamp) continue;
+                        if (['deleted','cancelled','storniert','cancelled_pending_driver'].includes(otherRide.status)) continue;
+                        if (!otherRide.vehicleScores) continue; // Nur Fahrten mit vorhandenen Scores
+
+                        let _needsUpdate = false;
+                        const _scores = { ...otherRide.vehicleScores };
+
+                        for (const vid of _affectedVehicles) {
+                            if (!_scores[vid]) continue; // Fahrzeug nicht in den Scores
+
+                            // Neu berechnen: Ist dieses Fahrzeug für die andere Fahrt besetzt?
+                            const _otherPickup = otherRide.pickupTimestamp;
+                            let _isBusy = false;
+                            let _latestEndMs = 0;
+                            let _blockingRideName = '';
+                            let _blockingRideDest = '';
+                            let _blockingRideTime = '';
+
+                            for (const dr of _dayRides) {
+                                if (dr.firebaseId === otherRideId) continue;
+                                if ((dr.vehicleId || dr.assignedVehicle) !== vid && (dr.assignedVehicle || dr.vehicleId) !== vid) continue;
+                                const _drDur = (dr.duration || dr.estimatedDuration || 20) * 60000;
+                                const _drEnd = dr.pickupTimestamp + _drDur + _bufMs + _returnBufferMs;
+                                const _drApproach = dr.pickupTimestamp - 10 * 60000;
+
+                                // Überlappung: Fahrt davor endet nach unserem Pickup ODER Fahrt danach startet bald
+                                if ((dr.pickupTimestamp <= _otherPickup && _drEnd > _otherPickup) ||
+                                    (dr.pickupTimestamp > _otherPickup && _drApproach <= _otherPickup)) {
+                                    _isBusy = true;
+                                    if (_drEnd > _latestEndMs) {
+                                        _latestEndMs = _drEnd;
+                                        _blockingRideName = dr.customerName || '';
+                                        _blockingRideDest = dr.destination || '';
+                                        _blockingRideTime = new Date(dr.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                    }
+                                }
+                            }
+
+                            const _oldStatus = _scores[vid].status;
+                            if (_isBusy && _oldStatus !== 'busy' && _oldStatus !== 'overlap-hard') {
+                                // Fahrzeug ist jetzt besetzt, war vorher frei
+                                const _busyUntilStr = new Date(_latestEndMs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                _scores[vid] = { ..._scores[vid], status: 'busy', busyUntil: _busyUntilStr, blockingRideCustomer: _blockingRideName, blockingRideDest: _blockingRideDest, blockingRideTime: _blockingRideTime };
+                                _needsUpdate = true;
+                            } else if (!_isBusy && (_oldStatus === 'busy' || _oldStatus === 'overlap-hard')) {
+                                // Fahrzeug ist jetzt frei, war vorher besetzt (z.B. Fahrt storniert)
+                                _scores[vid] = { ..._scores[vid], status: 'available', busyUntil: null, blockingRideCustomer: null, blockingRideDest: null, overlapMin: null };
+                                _needsUpdate = true;
+                            } else if (_isBusy && _latestEndMs > 0) {
+                                // War schon besetzt — busyUntil aktualisieren
+                                const _busyUntilStr = new Date(_latestEndMs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                if (_scores[vid].busyUntil !== _busyUntilStr) {
+                                    _scores[vid] = { ..._scores[vid], busyUntil: _busyUntilStr, blockingRideCustomer: _blockingRideName, blockingRideDest: _blockingRideDest, blockingRideTime: _blockingRideTime };
+                                    _needsUpdate = true;
+                                }
+                            }
+                        }
+
+                        if (_needsUpdate) {
+                            await db.ref('rides/' + otherRideId + '/vehicleScores').set(_scores);
+                            _updatedCount++;
+                        }
+                    }
+
+                    if (_updatedCount > 0) {
+                        console.log(`🔄 v6.38.53: vehicleScores für ${_updatedCount} betroffene Fahrt(en) aktualisiert`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ vehicleScores-Refresh Fehler:', e.message);
+        }
     }
 );
 

@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.51';
+const CLOUD_FUNCTIONS_VERSION = '6.38.52';
 const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1982,7 +1982,8 @@ function findAllCustomersForSecretary(allCustomers, searchName) {
             }
         }
     }
-    return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
+    // 🔧 v6.38.52: mobilePhone + anrede + customerKind mit zurückgeben (vorher fehlten diese Felder!)
+    return results.map(c => ({ name: c.name, phone: c.phone || c.mobile || '', mobilePhone: c.mobilePhone || '', anrede: c.anrede || '', customerKind: c.customerKind || '', address: c.address || '', defaultPickup: c.defaultPickup || '', customerId: c.id }));
 }
 
 // 🆕 v6.15.0: Auftraggeber-Erkennung — Hotels, Firmen, Kliniken die für Andere buchen
@@ -4432,8 +4433,9 @@ Nur gültiges JSON, kein Markdown:
                 if ((preselected.mobilePhone || preselected.phone) && booking.missing) booking.missing = booking.missing.filter(f => f !== 'phone');
                 // 🔧 v6.38.51: Wenn CRM-Telefon vorhanden → "Telefonnummer" aus question/summary entfernen
                 if ((preselected.mobilePhone || preselected.phone) && booking.question) {
-                    booking.question = booking.question.replace(/\s*(Und u|U)nter welcher Telefonnummer[^?]*\??/gi, '').replace(/\s*Telefonnummer noch erforderlich\.?/gi, '').trim();
-                    if (booking.summary) booking.summary = booking.summary.replace(/\s*(und )?Telefonnummer noch erforderlich\.?/gi, '').trim();
+                    // 🔧 v6.38.52: Breite Regex — jede Formulierung mit "Telefonnummer" entfernen
+                    booking.question = booking.question.replace(/\s*(Und\s+)?[^.?!]*[Tt]elefonnummer[^.?!]*[.?!]?/gi, '').trim();
+                    if (booking.summary) booking.summary = booking.summary.replace(/\s*(und\s+)?[^.?!]*[Tt]elefonnummer[^.?!]*[.?!]?/gi, '').trim();
                 }
                 const pickupDefault = preselected.defaultPickup || preselected.address;
                 const _isAuftraggeberKunde = isAuftraggeber(preselected.customerKind, preselected.type);
@@ -4615,9 +4617,9 @@ Nur gültiges JSON, kein Markdown:
             }
 
             // 🔧 v6.38.23: CRM-Suche — TELEFONNUMMER hat Vorrang vor Name!
-            // "Miehe" darf nicht "Miegel" matchen — stattdessen über Telefonnummer identifizieren
+            // 🔧 v6.38.52: Wenn Kunde bereits preselected → CRM-Suche komplett überspringen!
             const customerSearchName = (!preselected && !forCustomerName) ? (booking.forCustomer || null) : null;
-            const _searchPhone = booking.phone || '';
+            const _searchPhone = (!preselected && !forCustomerName) ? (booking.phone || '') : '';
             if (customerSearchName || _searchPhone) {
                 const allCust = await loadAllCustomers();
 
@@ -4815,13 +4817,16 @@ Nur gültiges JSON, kein Markdown:
         // 🆕 v6.38.20: Stammkunden Auto-Fill — wenn genau Pickup ODER Destination fehlt,
         // Kundenadresse automatisch für das fehlende Feld einsetzen.
         // Beispiel: Ostseeblick ruft an, sagt "Abholen am Bahnhof 16:25" → Ziel = Ostseeblick-Adresse
+        // 🔧 v6.38.52: NICHT wenn Pickup bereits = Kundenadresse (sonst Pickup = Ziel = gleich!)
         const _custAddr = booking._customerAddress;
         if (_custAddr && preselected) {
             const _hasPickup = !!booking.pickup;
             const _hasDest = !!booking.destination;
+            // Prüfe ob Pickup schon die Kundenadresse ist → dann KEIN Auto-Ziel setzen
+            const _pickupIsCustAddr = _hasPickup && booking._pickupConfirmedByCRM;
             // Kundenadresse als fehlendes Feld eintragen (nur wenn GENAU 1 fehlt)
-            if (_hasPickup && !_hasDest) {
-                // Pickup bekannt → Ziel = Kundenadresse ("Nach Hause")
+            if (_hasPickup && !_hasDest && !_pickupIsCustAddr) {
+                // Pickup ist NICHT die Kundenadresse → Ziel = Kundenadresse ("Nach Hause")
                 booking.destination = _custAddr;
                 booking.missing = booking.missing.filter(f => f !== 'destination');
                 // Koordinaten aus CRM übernehmen
@@ -5520,8 +5525,9 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         }
                     } catch(_e) { /* ignore */ }
                 }
-                // 🆕 v6.38.42: Top-POIs als Quick-Buttons (häufigste Ziele)
-                try {
+                // 🆕 v6.38.42: Top-POIs als Quick-Buttons — NUR wenn keine Favoriten vorhanden (v6.38.52)
+                const _hasFavButtons = _inlineButtons.flat().length > 0;
+                if (!_hasFavButtons) try {
                     const _poiSnap = await db.ref('pois').orderByChild('category').limitToFirst(50).once('value');
                     const _poiData = _poiSnap.val();
                     if (_poiData) {
@@ -9133,37 +9139,27 @@ async function handleMessage(message) {
                 // Weiter unten als normale Buchung ohne Kundenname behandeln
             } else if (matches.length === 1) {
                 const found = matches[0];
-                const confirmId = Date.now().toString(36);
-                await addTelegramLog('🔍', chatId, `CRM-Treffer: ${found.name} | phone="${found.phone || ''}" | mobilePhone="${found.mobilePhone || ''}" | address="${found.address || ''}"`);
-                await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmConfirm: { found, confirmId }, customerName: extractedCustomerName });
-                // 🔧 v6.38.51: Vollständige CRM-Info anzeigen bei Kundenbestätigung
-                const _dispPhone2 = found.mobilePhone || found.phone || '';
-                const _dispPhone2b = found.phone && found.phone !== _dispPhone2 ? found.phone : '';
-                const _custKindLabel = found.customerKind === 'stammkunde' ? '⭐ Stammkunde' : (found.customerKind === 'hotel' ? '🏨 Hotel' : (found.type === 'supplier' ? '🚚 Lieferant' : ''));
-                let confirmMsg = `🔍 <b>Kunde im CRM gefunden:</b>\n\n`;
-                if (found.anrede) confirmMsg += `${found.anrede} `;
-                confirmMsg += `<b>${found.name}</b>`;
-                if (_custKindLabel) confirmMsg += ` (${_custKindLabel})`;
-                confirmMsg += `\n`;
-                if (_dispPhone2) confirmMsg += `📱 ${_dispPhone2}\n`;
-                if (_dispPhone2b) confirmMsg += `📞 ${_dispPhone2b}\n`;
-                if (found.address) confirmMsg += `🏠 ${found.address}\n`;
-                // 🔧 v6.38.51: Fahrten live zählen (totalRides im CRM ist oft veraltet)
-                try {
-                    const _rSnap = await db.ref('rides').orderByChild('customerId').equalTo(found.id || found.customerId).once('value');
-                    const _rData = _rSnap.val();
-                    if (_rData) {
-                        const _rAll = Object.values(_rData);
-                        const _rDone = _rAll.filter(r => !['deleted', 'cancelled', 'storniert'].includes(r.status));
-                        if (_rDone.length > 0) confirmMsg += `🚕 ${_rDone.length} Fahrt${_rDone.length > 1 ? 'en' : ''}\n`;
-                    }
-                } catch(_re) {}
-                confirmMsg += `\n<b>Ist das der richtige Kunde?</b>`;
-                await sendTelegramMessage(chatId, confirmMsg, { reply_markup: { inline_keyboard: [
-                    [{ text: '✅ Ja, genau!', callback_data: `admin_cust_yes_${confirmId}` }, { text: '❌ Anderer Kunde', callback_data: `admin_cust_no_${confirmId}` }],
-                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-                ] } });
-                return;
+                await addTelegramLog('🔍', chatId, `CRM-Treffer: ${found.name} (${found.customerId}) | mobilePhone="${found.mobilePhone || ''}" | phone="${found.phone || ''}"`);
+
+                // 🔧 v6.38.52: Bei genau 1 CRM-Treffer → IMMER Bestätigung überspringen
+                // Admin hat den Namen explizit geschrieben ("für strömig") → direkt weiter
+                const _dp = found.mobilePhone || found.phone || '';
+                const _hasVonNach2 = /\bvon\s+.{3,}\s+(nach|zu[mr]?|in|an)\s+.{3,}/i.test(text.toLowerCase());
+                if (_hasVonNach2) {
+                    // Text enthält "von X nach Y" → komplett direkt zur KI-Analyse
+                    await addTelegramLog('🚀', chatId, `Eindeutiger CRM-Treffer "${found.name}" + "von...nach..." → direkt KI-Analyse`);
+                    await deletePending(chatId);
+                    await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>${_dp ? ' 📱 ' + _dp : ''}${found.address ? '\n🏠 ' + found.address : ''}\n🤖 <i>Analysiere Buchung...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer: found });
+                    return;
+                } else {
+                    // Nur Kundenname ohne Adressen → Kunde bestätigt, weiter zur KI-Analyse (fragt dann nach Adressen)
+                    await addTelegramLog('🚀', chatId, `Eindeutiger CRM-Treffer "${found.name}" → Bestätigung übersprungen, weiter zur KI-Analyse`);
+                    await deletePending(chatId);
+                    await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>${_dp ? ' 📱 ' + _dp : ''}${found.address ? '\n🏠 ' + found.address : ''}\n🤖 <i>Analysiere Buchung...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer: found });
+                    return;
+                }
             } else if (matches.length > 1) {
                 const confirmId = Date.now().toString(36);
                 await setPending(chatId, { awaitingAdminCrmConfirm: true, originalText: text, userName, crmMultiSelect: { matches, confirmId }, customerName: extractedCustomerName });

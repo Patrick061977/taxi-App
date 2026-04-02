@@ -36,6 +36,14 @@
       ".write": "auth != null",
       "calendarExport": {
         ".read": true
+      },
+      "telegram": {
+        "pending": {
+          ".read": true
+        },
+        "botlog": {
+          ".read": true
+        }
       }
     },
 

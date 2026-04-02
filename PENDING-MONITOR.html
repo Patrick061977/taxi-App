@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pending-State Monitor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
+h1 { color: #ffd700; margin-bottom: 5px; font-size: 1.5em; }
+.status-bar { color: #888; font-size: 0.85em; margin-bottom: 20px; }
+.status-bar .live { color: #4caf50; font-weight: bold; }
+.empty { text-align: center; padding: 60px; color: #666; font-size: 1.2em; }
+.empty .icon { font-size: 3em; margin-bottom: 10px; }
+
+.pending-card { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.pending-card.active { border-color: #ffd700; box-shadow: 0 0 20px rgba(255,215,0,0.1); }
+
+.section { margin: 12px 0; }
+.section-title { color: #ffd700; font-weight: bold; font-size: 0.9em; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+.field { display: flex; align-items: flex-start; margin: 4px 0; padding: 4px 8px; border-radius: 4px; }
+.field:hover { background: rgba(255,255,255,0.03); }
+.field .label { color: #888; min-width: 120px; font-size: 0.85em; }
+.field .value { color: #fff; font-size: 0.9em; }
+.field .value.good { color: #4caf50; }
+.field .value.bad { color: #f44336; }
+.field .value.warn { color: #ff9800; }
+.field .value.highlight { color: #ffd700; font-weight: bold; }
+
+.missing-box { background: #2d1b1b; border: 1px solid #f44336; border-radius: 8px; padding: 12px; margin: 10px 0; }
+.missing-box .title { color: #f44336; font-weight: bold; margin-bottom: 6px; }
+
+.complete-box { background: #1b2d1b; border: 1px solid #4caf50; border-radius: 8px; padding: 12px; margin: 10px 0; }
+.complete-box .title { color: #4caf50; font-weight: bold; }
+
+.question-box { background: #1b1b2d; border: 1px solid #2196f3; border-radius: 8px; padding: 12px; margin: 10px 0; }
+.question-box .title { color: #2196f3; font-weight: bold; margin-bottom: 4px; }
+.question-box .text { color: #90caf9; font-style: italic; }
+
+.favorites { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.fav-chip { background: #2a2a3e; border: 1px solid #555; border-radius: 20px; padding: 4px 12px; font-size: 0.8em; }
+.fav-chip .count { color: #ffd700; margin-left: 4px; }
+
+.poi-chip { background: #3e2a2a; border: 1px solid #855; border-radius: 20px; padding: 4px 12px; font-size: 0.8em; color: #f88; }
+
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.flag { background: #2a2a2a; border: 1px solid #666; border-radius: 4px; padding: 2px 8px; font-size: 0.75em; color: #aaa; font-family: monospace; }
+
+.timeline { border-left: 2px solid #333; padding-left: 15px; margin: 10px 0; }
+.timeline-item { position: relative; margin: 8px 0; padding: 4px 0; }
+.timeline-item::before { content: ''; position: absolute; left: -20px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: #555; }
+.timeline-item.done::before { background: #4caf50; }
+.timeline-item.current::before { background: #ffd700; box-shadow: 0 0 8px #ffd700; }
+.timeline-item.pending::before { background: #555; }
+</style>
+</head>
+<body>
+
+<h1>Pending-State Monitor</h1>
+<div class="status-bar">
+  <span class="live" id="liveStatus">LIVE</span> —
+  Aktualisiert alle 2 Sekunden |
+  <span id="lastUpdate">-</span>
+</div>
+
+<div id="content">
+  <div class="empty">
+    <div class="icon">Verbinde...</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+  authDomain: "taxi-heringsdorf.firebaseapp.com",
+  databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "taxi-heringsdorf",
+  storageBucket: "taxi-heringsdorf.firebasestorage.app",
+  messagingSenderId: "886448281276",
+  appId: "1:886448281276:web:1b54875801c5d89f8efcf9"
+});
+
+const db = firebase.database();
+const content = document.getElementById('content');
+const lastUpdateEl = document.getElementById('lastUpdate');
+
+// Live-Listener auf pending
+db.ref('settings/telegram/pending').on('value', snap => {
+  const data = snap.val();
+  lastUpdateEl.textContent = new Date().toLocaleTimeString('de-DE');
+  render(data);
+});
+
+function render(data) {
+  if (!data || Object.keys(data).length === 0) {
+    content.innerHTML = `
+      <div class="empty">
+        <div class="icon">&#128683;</div>
+        <div>Kein aktiver Pending-State</div>
+        <div style="color:#555;margin-top:10px">Schick eine Buchung an den Telegram-Bot...</div>
+      </div>`;
+    return;
+  }
+
+  // Sortiere nach _createdAt (neueste zuerst)
+  const sorted = Object.entries(data).sort((a, b) => (b[1]._createdAt || 0) - (a[1]._createdAt || 0));
+  let html = '';
+  for (const [chatId, p] of sorted) {
+    const ageS = p._createdAt ? Math.round((Date.now() - p._createdAt) / 1000) : null;
+    const age = ageS !== null ? (ageS < 60 ? ageS + 's' : ageS < 3600 ? Math.round(ageS/60) + ' Min' : ageS < 86400 ? Math.round(ageS/3600) + ' Std' : Math.round(ageS/86400) + ' Tage') : '?';
+    const created = p._createdAt ? new Date(p._createdAt).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '?';
+    const partial = p.partial || {};
+    const missing = partial.missing || [];
+    const hasMissing = missing.length > 0;
+
+    html += `<div class="pending-card active">`;
+
+    // Header
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">`;
+    html += `<div style="font-size:1.1em;font-weight:bold">Chat ${chatId} <span style="color:#888;font-size:0.8em">(${age} alt — ${created})</span></div>`;
+    html += `<div style="color:${hasMissing?'#f44336':'#4caf50'};font-weight:bold">${hasMissing?'UNVOLLSTÄNDIG':'KOMPLETT'}</div>`;
+    html += `</div>`;
+
+    // Original Text
+    if (p.originalText) {
+      html += `<div class="field"><span class="label">Original:</span><span class="value highlight">"${esc(p.originalText)}"</span></div>`;
+    }
+
+    // Workflow Timeline
+    html += `<div class="section"><div class="section-title">Workflow</div><div class="timeline">`;
+
+    // Phase 1: Kunde
+    const hasCustomer = !!(p.preselectedCustomer || partial.name);
+    const customerName = p.preselectedCustomer?.name || partial.name || '?';
+    html += `<div class="timeline-item ${hasCustomer?'done':'pending'}">
+      ${hasCustomer?'&#9989;':'&#10060;'} <b>Kunde:</b> ${hasCustomer ? esc(customerName) : 'FEHLT'}
+    </div>`;
+
+    // Phase 2: Telefon
+    const hasPhone = !!partial.phone;
+    html += `<div class="timeline-item ${hasPhone?'done':missing.includes('phone')?'current':'pending'}">
+      ${hasPhone?'&#9989;':missing.includes('phone')?'&#10060;':'&#9898;'} <b>Telefon:</b> ${hasPhone ? esc(partial.phone) : (missing.includes('phone') ? 'FEHLT' : 'nicht nötig')}
+    </div>`;
+
+    // Phase 3: Abholort
+    const hasPickup = !!partial.pickup;
+    html += `<div class="timeline-item ${hasPickup?'done':missing.includes('pickup')?'current':'pending'}">
+      ${hasPickup?'&#9989;':'&#10060;'} <b>Abholort:</b> ${hasPickup ? esc(partial.pickup) + (partial.pickupLat ? ' &#128205;' : ' <span style="color:#f44336">KEINE KOORDINATEN</span>') : (missing.includes('pickup') ? 'FEHLT' : '-')}
+    </div>`;
+
+    // Phase 4: Zielort
+    const hasDest = !!partial.destination;
+    html += `<div class="timeline-item ${hasDest?'done':missing.includes('destination')?'current':'pending'}">
+      ${hasDest?'&#9989;':'&#10060;'} <b>Zielort:</b> ${hasDest ? esc(partial.destination) + (partial.destinationLat ? ' &#128205;' : ' <span style="color:#f44336">KEINE KOORDINATEN</span>') : (missing.includes('destination') ? 'FEHLT' : '-')}
+    </div>`;
+
+    // Phase 5: Datum/Zeit
+    const hasDatetime = !!partial.datetime;
+    html += `<div class="timeline-item ${hasDatetime?'done':missing.includes('datetime')?'current':'pending'}">
+      ${hasDatetime?'&#9989;':'&#10060;'} <b>Datum/Zeit:</b> ${hasDatetime ? esc(partial.datetime) : (missing.includes('datetime') ? 'FEHLT' : '-')}
+    </div>`;
+
+    html += `</div></div>`; // end timeline
+
+    // Missing Box
+    if (hasMissing) {
+      html += `<div class="missing-box"><div class="title">&#10060; Fehlende Informationen</div>`;
+      html += missing.map(m => `<span style="margin-right:10px">&#8226; ${esc(m)}</span>`).join('');
+      html += `</div>`;
+    } else {
+      html += `<div class="complete-box"><div class="title">&#9989; Alle Daten vorhanden — bereit zur Buchung</div></div>`;
+    }
+
+    // Question
+    if (partial.question || p.lastQuestion) {
+      const q = partial.question || p.lastQuestion;
+      html += `<div class="question-box"><div class="title">&#128172; Bot-Frage an Kunden:</div><div class="text">"${esc(q)}"</div></div>`;
+    }
+
+    // Favoriten
+    if (p.favorites && p.favorites.length > 0) {
+      html += `<div class="section"><div class="section-title">Favoriten</div><div class="favorites">`;
+      p.favorites.forEach(f => {
+        html += `<div class="fav-chip">&#11088; ${esc(f.destination?.substring(0,40) || '?')}<span class="count">${f.count}x</span></div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // POI Options
+    if (p._poiDestOptions && p._poiDestOptions.length > 0) {
+      html += `<div class="section"><div class="section-title" style="color:#f44336">POI-Vorschläge (unnötig wenn Favoriten vorhanden!)</div><div class="favorites">`;
+      p._poiDestOptions.forEach(poi => {
+        html += `<div class="poi-chip">&#128205; ${esc(poi.name)}</div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // Flags
+    const flags = Object.keys(p).filter(k => k.startsWith('awaiting') || k.startsWith('_awaiting') || k.startsWith('_admin'));
+    if (flags.length > 0) {
+      html += `<div class="section"><div class="section-title">System-Flags</div><div class="flags">`;
+      flags.forEach(f => { html += `<div class="flag">${esc(f)}</div>`; });
+      html += `</div></div>`;
+    }
+
+    // Raw partial data
+    html += `<details style="margin-top:15px"><summary style="cursor:pointer;color:#666;font-size:0.8em">Raw JSON anzeigen</summary>`;
+    html += `<pre style="background:#111;padding:10px;border-radius:8px;overflow-x:auto;font-size:0.75em;margin-top:8px;max-height:400px;overflow-y:auto">${esc(JSON.stringify(p, null, 2))}</pre>`;
+    html += `</details>`;
+
+    html += `</div>`; // end card
+  }
+
+  content.innerHTML = html;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

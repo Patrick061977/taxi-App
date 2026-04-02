@@ -3556,6 +3556,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 if (_isVagueAddr1 && !_hasTrustedSugg1 && suggestions.length === 0) {
                     const _psVague1 = { partial: { ...booking, missing: [] }, originalText };
                     _psVague1.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
+                    _psVague1._resolvingField = fieldToResolve; // 🔧 v6.39.0: Merke welches Feld aufgelöst wird
                     if (hasPickupCoords) { _psVague1.partial.pickupLat = booking.pickupLat; _psVague1.partial.pickupLon = booking.pickupLon; }
                     if (hasDestCoords) { _psVague1.partial.destinationLat = booking.destinationLat; _psVague1.partial.destinationLon = booking.destinationLon; }
                     await setPending(chatId, _psVague1);
@@ -3661,6 +3662,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
 
                 const pendingState = { partial: { ...booking, missing: [] }, originalText };
                 pendingState.nominatimResults = _displaySugg1;
+                pendingState._resolvingField = fieldToResolve; // 🔧 v6.39.0: Merke welches Feld aufgelöst wird
                 if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
                 if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
                 // Wenn beide Adressen noch aufgelöst werden müssen, Destination nachher
@@ -3776,6 +3778,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                     };
                     const pendingState = { partial: { ...booking, missing: [] }, originalText };
                     pendingState.nominatimResults = simSuggestions;
+                    pendingState._resolvingField = fieldToResolve; // 🔧 v6.39.0
                     if (hasPickupCoords) { pendingState.partial.pickupLat = booking.pickupLat; pendingState.partial.pickupLon = booking.pickupLon; }
                     if (hasDestCoords) { pendingState.partial.destinationLat = booking.destinationLat; pendingState.partial.destinationLon = booking.destinationLon; }
                     pendingState.pendingDestValidation = (needPickup && needDest);
@@ -5063,6 +5066,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     if (_isVagueAddr2 && !_hasTrustedSugg2 && suggestions.length === 0) {
                         const _psVague2 = { partial: { ...booking, missing: booking.missing }, originalText };
                         _psVague2.nominatimResults = []; // damit Text-Eingabe als Adressklärung erkannt wird
+                        _psVague2._resolvingField = fieldToResolve; // 🔧 v6.39.0
                         await setPending(chatId, _psVague2);
                         await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" → keine Treffer, Rückfrage`);
                         await sendTelegramMessage(chatId,
@@ -5317,6 +5321,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
                     const pendingState = { partial: { ...booking, missing: booking.missing }, originalText };
                     pendingState.nominatimResults = _displaySugg2;
+                    pendingState._resolvingField = fieldToResolve; // 🔧 v6.39.0
                     pendingState.pendingDestValidation = (needsPickupResolve && needsDestResolve);
                     await setPending(chatId, pendingState);
 
@@ -8872,8 +8877,9 @@ async function handleMessage(message) {
     if (pending && pending.partial && !isPendingExpired(pending)) {
         const _mapsCoords = extractGoogleMapsCoords(text);
         if (_mapsCoords) {
-            const _needField = pending.partial.missing?.includes('pickup') ? 'pickup'
-                : pending.partial.missing?.includes('destination') ? 'destination' : null;
+            // 🔧 v6.39.0: _resolvingField hat Vorrang
+            const _needField = pending._resolvingField || (pending.partial.missing?.includes('pickup') ? 'pickup'
+                : pending.partial.missing?.includes('destination') ? 'destination' : null);
             if (_needField) {
                 await sendTelegramMessage(chatId, '🗺️ <i>Google Maps Link erkannt, löse Adresse auf...</i>');
                 const _geo = await reverseGeocode(_mapsCoords.lat, _mapsCoords.lon);
@@ -8900,7 +8906,8 @@ async function handleMessage(message) {
 
     // 🔧 v6.38.9: Wenn Adress-Vorschläge warten und User schreibt Text → direkte neue Adresssuche (kein KI-Follow-Up)
     if (pending && pending.partial && pending.nominatimResults && !isPendingExpired(pending)) {
-        const _needField = pending.partial.missing?.includes('pickup') ? 'pickup' : 'destination';
+        // 🔧 v6.39.0: _resolvingField hat Vorrang — missing ist in Phase 1 oft leer!
+        const _needField = pending._resolvingField || (pending.partial.missing?.includes('pickup') ? 'pickup' : 'destination');
         await addTelegramLog('🔍', chatId, `Adress-Klärung: "${text}" für ${_needField}`);
         if (_needField === 'pickup') {
             pending.partial.pickup = text;

@@ -636,6 +636,8 @@
                     .startAt(ts - 6 * 3600000).endAt(ts + 6 * 3600000).once('value');
                 const activeStatuses = ['new', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 let conflictCount = 0;
+                // 🔧 v6.38.57: Alle Endzeiten sammeln um früheste Verfügbarkeit zu berechnen
+                const rideEndTimes = [];
                 ridesSnap.forEach(child => {
                     const r = child.val();
                     if (!activeStatuses.includes(r.status)) return;
@@ -644,7 +646,10 @@
                     const rEnd = r.pickupTimestamp + rDur + buffer;
                     const newDur = (routeData ? parseInt(routeData.min) : 20) * 60000;
                     const newEnd = ts + newDur + buffer;
-                    if (ts < rEnd && r.pickupTimestamp < newEnd) conflictCount++;
+                    if (ts < rEnd && r.pickupTimestamp < newEnd) {
+                        conflictCount++;
+                        rideEndTimes.push(rEnd);
+                    }
                 });
 
                 if (conflictCount < activeCount) {
@@ -653,8 +658,24 @@
                     isAvailable = true;
                     document.getElementById('btn-book').disabled = false;
                 } else {
+                    // 🔧 v6.38.57: Früheste Verfügbarkeit berechnen und anzeigen
+                    let nextFreeMsg = '';
+                    if (rideEndTimes.length > 0) {
+                        // Sortiere aufsteigend — die früheste Endzeit = wann das erste Taxi wieder frei wird
+                        rideEndTimes.sort((a, b) => a - b);
+                        const earliestFree = new Date(rideEndTimes[0]);
+                        const freeH = earliestFree.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                        const diffMin = Math.round((rideEndTimes[0] - ts) / 60000);
+                        if (diffMin > 0 && diffMin < 120) {
+                            nextFreeMsg = `<br><br>🕐 <strong>Nächstes Taxi frei ab ca. ${freeH} Uhr</strong> (in ~${diffMin} Min)`;
+                        } else if (diffMin <= 0) {
+                            // Endzeit liegt in der Vergangenheit oder jetzt — eigentlich frei
+                            nextFreeMsg = '<br><br>🕐 Ein Taxi sollte gleich verfügbar sein.';
+                        }
+                    }
                     el.className = 'availability-card unavailable';
-                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>';
+                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.' + nextFreeMsg +
+                        '<br><span style="font-size:13px;opacity:0.8;">Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a></span>';
                     isAvailable = false;
                     document.getElementById('btn-book').disabled = true;
                 }

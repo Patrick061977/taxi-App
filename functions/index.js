@@ -1306,11 +1306,17 @@ async function sendTelegramMessage(chatId, text, extraParams = {}) {
     if (!token) { console.error('Kein Bot-Token!'); return null; }
     try {
         // 🆕 v6.38.55: Bot-Antwort im Log speichern (gekürzt auf 120 Zeichen)
+        // 🔧 v6.38.58: Button-TEXTE im Log anzeigen (nicht nur Anzahl)
         const _cleanText = (text || '').replace(/<[^>]+>/g, '').replace(/\n+/g, ' ').trim();
         const _shortText = _cleanText.length > 120 ? _cleanText.substring(0, 117) + '...' : _cleanText;
-        const _hasButtons = !!(extraParams.reply_markup?.inline_keyboard);
-        const _btnCount = _hasButtons ? extraParams.reply_markup.inline_keyboard.flat().length : 0;
-        const _btnInfo = _btnCount > 0 ? ` [${_btnCount} Buttons]` : '';
+        let _btnInfo = '';
+        if (extraParams.reply_markup?.inline_keyboard) {
+            const _allBtns = extraParams.reply_markup.inline_keyboard.flat();
+            if (_allBtns.length > 0) {
+                const _btnTexts = _allBtns.map(b => b.text).join(' | ');
+                _btnInfo = ` [${_btnTexts}]`;
+            }
+        }
         addTelegramLog('🤖', chatId, `Bot: ${_shortText}${_btnInfo}`).catch(() => {});
 
         const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -9356,7 +9362,9 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
 async function handleCallback(callback) {
     const chatId = callback.message.chat.id;
     const data = callback.data;
-    await addTelegramLog('🖱️', chatId, `Button: ${data.substring(0, 25)}`);
+    // 🔧 v6.38.58: Button-TEXT im Log anzeigen (nicht nur callback_data)
+    const _btnLabel = callback.message?.reply_markup?.inline_keyboard?.flat()?.find(b => b.callback_data === data)?.text || data;
+    await addTelegramLog('🖱️', chatId, `Button geklickt: ${_btnLabel}`);
     await answerCallbackQuery(callback.id);
 
     // 🆕 v6.38.0: Foto/Screenshot-Aktionen

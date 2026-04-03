@@ -2746,6 +2746,12 @@ async function searchNominatimForTelegram(query) {
             const _normalizeName = (s) => s.toLowerCase().replace(/[''`´]/g, '').replace(/[^a-zäöüß0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
             const _searchNorm = _normalizeName(query);
             const _searchWordsNorm = _searchNorm.split(/\s+/).filter(w => w.length > 1);
+            // 🔧 v6.38.59: Erkennung ob Query eine Adresse ist (Straße+Nr/PLZ)
+            const _queryIsAddress = /(?:straße|str\.|weg\b|allee|platz|ring|gasse|chaussee|damm|promenade)\b/i.test(query) ||
+                /\b\d{5}\b/.test(query) || /\b\d+[a-z]?\s*,/.test(query);
+            if (_queryIsAddress) {
+                console.log(`[CRM] Query "${query}" sieht nach Adresse aus → CRM-Fuzzy deaktiviert, nur exakte Matches`);
+            }
             custSnap.forEach(child => {
                 const c = child.val();
                 if (!c.name || !c.address) return;
@@ -2755,13 +2761,20 @@ async function searchNominatimForTelegram(query) {
                 // Exakter/Teilstring-Match
                 const isExactMatch = cName.includes(searchKey) || cAddr.includes(searchKey) ||
                     (searchWords.length > 0 && searchWords.every(w => cName.includes(w) || cAddr.includes(w)));
+                // 🔧 v6.38.59: Bei Adress-Queries NUR exakte Matches — kein Fuzzy/Norm!
+                if (_queryIsAddress) {
+                    if (!isExactMatch) return;
+                } else {
                 // 🔧 v6.38.37: Normalisierter Match (Apostrophe/Sonderzeichen entfernt)
                 // "marco polo" → Wörter ["marco", "polo"] — jedes muss irgendwo im normalisierten Namen vorkommen
                 const isNormMatch = !isExactMatch && (cNameNorm.includes(_searchNorm) || _searchNorm.includes(cNameNorm.split(' ')[0]) ||
                     (_searchWordsNorm.length > 0 && _searchWordsNorm.every(w => cNameNorm.includes(w) || cNameNorm.split(' ').some(nw => nw.includes(w) || w.includes(nw)))));
                 // 🔧 v6.38.37: Fuzzy-Match als letzter Fallback (Levenshtein)
                 const isFuzzyMatch = !isExactMatch && !isNormMatch && _fuzzyWordMatch(_searchWordsNorm, cNameNorm);
-                if (isExactMatch || isNormMatch || isFuzzyMatch) {
+                if (!isExactMatch && !isNormMatch && !isFuzzyMatch) return;
+                }
+                // Treffer gefunden:
+                if (true) {
                     let lat = c.lat || c.pickupLat;
                     let lon = c.lon || c.pickupLon;
                     if (lat && lon) {
@@ -3455,6 +3468,45 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         }
                     }
 
+                    // 🔧 v6.38.59: Schritt 1b: "Seebad X" → "X" Fallback (Nominatim kennt "Seebad" nicht)
+                    if (!_directGeoResult) {
+                        const _cleanedAddr = addressToResolve.replace(/\bSeebad\s+/gi, '').replace(/\bOstseebad\s+/gi, '').replace(/\bKaiserbad\s+/gi, '');
+                        if (_cleanedAddr !== addressToResolve) {
+                            const _cq = encodeURIComponent(_cleanedAddr);
+                            const _cUrl = `https://nominatim.openstreetmap.org/search?q=${_cq}&format=json&limit=5&countrycodes=de&addressdetails=1`;
+                            const _cResp = await fetch(_cUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                            const _cResults = await _cResp.json();
+                            if (_cResults && _cResults.length > 0) {
+                                const _cUsedom = _cResults.filter(r => {
+                                    const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                                    return lat >= 53.5 && lat <= 54.3 && lon >= 13.5 && lon <= 14.5;
+                                });
+                                if (_cUsedom.length > 0 && _addrLooksLikeStreet) {
+                                    const _qStreetLow = _cleanedAddr.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                                    const _qStreetCore = _qStreetLow.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                                    for (const r of _cUsedom) {
+                                        const rStreet = (r.address?.road || '').toLowerCase();
+                                        const rCore = rStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                                        if (rCore.includes(_qStreetCore) || _qStreetCore.includes(rCore)) {
+                                            const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+                                            const _displayName = `${r.address?.road || ''} ${r.address?.house_number || ''}, ${r.address?.postcode || ''} ${r.address?.city || r.address?.town || r.address?.village || ''}`.replace(/\s+/g, ' ').trim();
+                                            _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-seebad-fix' };
+                                            await addTelegramLog('✅', chatId, `Seebad-Fallback: "${addressToResolve}" → "${_cleanedAddr}" → ${_displayName}`);
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!_directGeoResult && _cUsedom.length > 0 && _hasHausnr && _addrLooksLikeStreet) {
+                                    const bestR = _cUsedom[0];
+                                    const lat = parseFloat(bestR.lat); const lon = parseFloat(bestR.lon);
+                                    const _displayName = `${bestR.address?.road || bestR.display_name.split(',')[0]} ${bestR.address?.house_number || ''}, ${bestR.address?.postcode || ''} ${bestR.address?.city || bestR.address?.town || bestR.address?.village || ''}`.replace(/\s+/g, ' ').trim();
+                                    _directGeoResult = { name: _displayName, lat, lon, source: 'nominatim-seebad-best' };
+                                    await addTelegramLog('✅', chatId, `Seebad-Fallback (bester Treffer): "${_cleanedAddr}" → ${_displayName}`);
+                                }
+                            }
+                        }
+                    }
+
                     // Schritt 2: Wenn nichts gefunden → strukturierte Suche (Straße + Ort getrennt)
                     if (!_directGeoResult && _addrLooksLikeStreet) {
                         // Adresse in Teile zerlegen: "Friedrichstraße 9, Ahlbeck" → street="Friedrichstraße 9", city="Ahlbeck"
@@ -3462,7 +3514,8 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         let _street = '', _city = '';
                         if (_parts.length >= 2) {
                             _street = _parts[0].trim();
-                            _city = _parts[_parts.length - 1].replace(/\b\d{5}\b/, '').trim();
+                            // 🔧 v6.38.59: "Seebad" aus Ort entfernen
+                            _city = _parts[_parts.length - 1].replace(/\b\d{5}\b/, '').replace(/\bSeebad\s*/gi, '').replace(/\bOstseebad\s*/gi, '').replace(/\bKaiserbad\s*/gi, '').trim();
                         } else {
                             // Kein Komma → Ort am Ende extrahieren
                             const _ortMatch = addressToResolve.match(new RegExp(`(${_addrOrtNames.join('|')})`, 'i'));

@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.55';
+const CLOUD_FUNCTIONS_VERSION = '6.38.61';
 const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2571,7 +2571,7 @@ async function searchNominatimForTelegram(query) {
     }
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
-    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2); // 🔧 v6.38.61: min 3 Zeichen (vorher >1) — "O", "am" etc. nicht matchen
 
     // Hilfsfunktion: Wort-Anfang-Match (höhere Priorität als includes)
     const wordBoundaryRegex = new RegExp('(^|\\s|,)' + searchKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -2611,7 +2611,7 @@ async function searchNominatimForTelegram(query) {
                 let matchScore = 0;
                 const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey ||
                     wordBoundaryRegex.test(label) || wordBoundaryRegex.test(labelNorm);
-                const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey) ||
+                const isIncludes = addr.includes(searchKey) || (normKey.length >= 4 && searchKey.includes(normKey)) ||  // 🔧 v6.38.61: normKey min 4 Zeichen (vorher kein Limit!)
                     label.includes(searchKey) || labelNorm.includes(searchKey);
                 const isAllWords = searchWords.length > 0 && searchWords.every(w => allText.includes(w));
 
@@ -8672,9 +8672,14 @@ async function handleMessage(message) {
             const custLon2 = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
             const partialB = {
                 intent: 'buchung',
+                name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
                 customerName: preselectedCustomer.name,
                 customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
                 customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+                _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+                _forCustomer: preselectedCustomer.name,
+                _adminBooked: true,
+                _adminChatId: chatId,
             };
             if (isPickupField) {
                 partialB.pickup = _addr2; partialB.pickupLat = _mapsCoords2.lat; partialB.pickupLon = _mapsCoords2.lon;
@@ -8697,9 +8702,14 @@ async function handleMessage(message) {
         const custLon = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
         const partialBooking = {
             intent: 'buchung',
+            name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
             customerName: preselectedCustomer.name,
             customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
             customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+            _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+            _forCustomer: preselectedCustomer.name,
+            _adminBooked: true,
+            _adminChatId: chatId,
             missing: [isPickupField ? 'pickup' : 'destination'],  // für nominatimResults-Handler (line ~7330)
         };
         if (isPickupField) {
@@ -8746,7 +8756,8 @@ async function handleMessage(message) {
         };
 
         // Stufe 1: Verifizierte Quellen → stilles Auto-Select
-        const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s));
+        // 🔧 v6.38.61: matchScore >= 60 erforderlich wenn kein Ortsname in Query — verhindert schwache Geocache-Matches (z.B. "O room" → Wolgast)
+        const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s) && (_explTown || !s.matchScore || s.matchScore >= 60));
         // Stufe 2: Lokale Quellen (booking, customer) → "Meinten Sie?" Bestätigung
         const _confirmHit = !_autoHit && _explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s));
         // Stufe 3: Nominatim → stilles Auto-Select nur mit Hausnr + Ort + streetOk
@@ -8759,7 +8770,7 @@ async function handleMessage(message) {
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
-            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}]`);
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}]`);
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);

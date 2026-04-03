@@ -2645,6 +2645,12 @@ async function searchNominatimForTelegram(query) {
                     // 🔧 v6.38.37: Bei Label-Match → "Label — Adresse" als Name anzeigen
                     const displayName = (label && matchScore >= 60 && searchWords.some(w => label.includes(w) || labelNorm.includes(w)))
                         ? `${entry.label} — ${entry.address}` : entry.address;
+                    // 🔧 v6.38.61: matchReason für Log-Debugging
+                    let matchReason = '';
+                    if (isExact) matchReason = 'exact';
+                    else if (isIncludes) matchReason = addr.includes(searchKey) ? 'addr⊇query' : (normKey.length >= 4 && searchKey.includes(normKey)) ? `query⊇normKey(${normKey})` : label.includes(searchKey) ? 'label⊇query' : 'labelNorm⊇query';
+                    else if (isAllWords) matchReason = 'allWords';
+                    else matchReason = 'fuzzy/partial';
                     cacheHits.push({
                         name: displayName,
                         lat: entry.lat,
@@ -2652,7 +2658,8 @@ async function searchNominatimForTelegram(query) {
                         source: entry.verified ? 'geocache-verified' : 'geocache',
                         priority: entry.verified ? -1 : 0,
                         usageCount: entry.usageCount || 1,
-                        matchScore
+                        matchScore,
+                        matchReason
                     });
                 }
             });
@@ -8770,7 +8777,7 @@ async function handleMessage(message) {
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
-            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}]`);
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}] suchw:[${searchWords.join(',')}]`);
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);

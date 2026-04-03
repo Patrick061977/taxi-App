@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.63';
+const CLOUD_FUNCTIONS_VERSION = '6.38.64';
 const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -5265,7 +5265,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                     // 🔧 v6.38.25: Straßenname-Filter — Vorschläge mit komplett falscher Straße rauswerfen!
                     // "Rathenaustraße 3" darf NICHT "Labahnstraße 18" als Vorschlag zeigen
-                    if (_hasHausnrInAddr2 && _displaySugg2.length > 0) {
+                    // 🔧 v6.38.64: Bei vollständiger Adresse mit PLZ (z.B. "Bergstraße 40, 17429 Bansin") keinen Straßen-Filter anwenden
+                    // → PLZ macht die Adresse eindeutig genug, Nominatim-Ergebnis direkt verwenden
+                    const _hasPLZInAddr2 = /\b\d{5}\b/.test(addressToResolve);
+                    if (_hasHausnrInAddr2 && !_hasPLZInAddr2 && _displaySugg2.length > 0) {
                         const _qStreetDisp = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                         if (_qStreetDisp && _qStreetDisp.length > 3) {
                             const _qStreetCore = _qStreetDisp.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');

@@ -1305,6 +1305,14 @@ async function sendTelegramMessage(chatId, text, extraParams = {}) {
     const token = await loadBotToken();
     if (!token) { console.error('Kein Bot-Token!'); return null; }
     try {
+        // 🆕 v6.38.55: Bot-Antwort im Log speichern (gekürzt auf 120 Zeichen)
+        const _cleanText = (text || '').replace(/<[^>]+>/g, '').replace(/\n+/g, ' ').trim();
+        const _shortText = _cleanText.length > 120 ? _cleanText.substring(0, 117) + '...' : _cleanText;
+        const _hasButtons = !!(extraParams.reply_markup?.inline_keyboard);
+        const _btnCount = _hasButtons ? extraParams.reply_markup.inline_keyboard.flat().length : 0;
+        const _btnInfo = _btnCount > 0 ? ` [${_btnCount} Buttons]` : '';
+        addTelegramLog('🤖', chatId, `Bot: ${_shortText}${_btnInfo}`).catch(() => {});
+
         const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2522,33 +2530,7 @@ function extractGoogleMapsCoords(text) {
     return null;
 }
 
-// 🆕 v6.38.42: Reverse Geocoding — Koordinaten → Adresse
-async function reverseGeocode(lat, lon) {
-    try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
-        const resp = await fetch(url, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        if (!data || data.error) return null;
-        const addr = data.address || {};
-        // Schöne Adresse formatieren
-        let street = addr.road || addr.pedestrian || addr.cycleway || '';
-        const houseNr = addr.house_number || '';
-        const plz = addr.postcode || '';
-        const city = addr.city || addr.town || addr.village || addr.municipality || '';
-        let formatted = '';
-        if (street) {
-            formatted = street + (houseNr ? ' ' + houseNr : '');
-            if (plz || city) formatted += ', ' + (plz ? plz + ' ' : '') + city;
-        } else {
-            formatted = data.display_name || `${lat}, ${lon}`;
-        }
-        return { address: formatted, lat: parseFloat(data.lat), lon: parseFloat(data.lon), raw: data };
-    } catch (e) {
-        console.warn('Reverse Geocoding Fehler:', e.message);
-        return null;
-    }
-}
+// 🔧 v6.38.55: Duplikat reverseGeocode entfernt — die Version ab Zeile ~2369 wird verwendet (mit residential/neighbourhood/hamlet Fallbacks)
 
 async function searchNominatimForTelegram(query) {
     if (!query) return [];
@@ -9857,10 +9839,22 @@ async function handleCallback(callback) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }]
                 ] }
             });
-            // Pending aktualisieren damit taxi_for_customer den Kunden findet
+            // 🔧 v6.38.56: Kundendaten im Pending speichern damit taxi_for_customer den Kunden DIREKT nutzen kann
+            const _custSnap2 = await db.ref('customers/' + customerId).once('value');
+            const _custFull = _custSnap2.val();
             await setPending(chatId, {
                 taxiChoice: { text: pending.taxiChoice?.text || '', userName: pending.taxiChoice?.userName || '' },
                 _callerPhone: phoneToAdd,
+                _knownCustomer: {
+                    name: name,
+                    id: customerId,
+                    customerId: customerId,
+                    address: _custFull?.address || null,
+                    phone: _custFull?.phone || null,
+                    mobilePhone: _custFull?.mobilePhone || null,
+                    customerKind: _custFull?.customerKind || null,
+                    type: _custFull?.type || null
+                },
                 awaitingCustomerName: false
             });
         } catch(e) {
@@ -9934,14 +9928,50 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '🤖 <i>Analysiere deine Nachricht...</i>');
             await analyzeTelegramBooking(chatId, text, userName, { forSelf: true });
         } else {
-            // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
-            await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null });
-            await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
-                reply_markup: { inline_keyboard: [
-                    [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
-                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
-                ] }
-            });
+            // 🔧 v6.38.56: Wenn Kunde schon bekannt (z.B. nach Nummern-Zuordnung) → direkt zur Adress-Rollen-Frage
+            if (pending._knownCustomer && pending._knownCustomer.name) {
+                const found = pending._knownCustomer;
+                await addTelegramLog('👤', chatId, `Kunde bereits bekannt: ${found.name} → überspringe Kundenfrage`);
+
+                // Gleiche Logik wie admin_cust_sel_ — Adress-Rollen-Frage oder direkt KI
+                const _origTextLower2 = (text || '').toLowerCase();
+                const _hasVonNach2 = /\bvon\s+.{3,}\s+(nach|zu[mr]?|in|an)\s+.{3,}/i.test(_origTextLower2);
+                if (_hasVonNach2) {
+                    await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer: found });
+                } else if (found.address) {
+                    const _roleId2 = Date.now().toString(36);
+                    const _shortAddr2 = found.address.length > 32 ? found.address.substring(0, 30) + '…' : found.address;
+                    await setPending(chatId, {
+                        _awaitingAddrRole: true,
+                        _addrRoleId: _roleId2,
+                        preselectedCustomer: found,
+                        originalText: text,
+                        userName: userName
+                    });
+                    await sendTelegramMessage(chatId,
+                        `👤 <b>${found.name}</b>\n🏠 <code>${_shortAddr2}</code>\n\n<b>Diese Adresse als…?</b>`, {
+                        reply_markup: { inline_keyboard: [
+                            [{ text: '🏠 Abholort', callback_data: `addr_role_pickup_${_roleId2}` },
+                             { text: '🎯 Zielort (Nach Hause)', callback_data: `addr_role_dest_${_roleId2}` }],
+                            [{ text: '📝 Nicht verwenden', callback_data: `addr_role_skip_${_roleId2}` }]
+                        ]}
+                    });
+                } else {
+                    // Keine Adresse hinterlegt → direkt KI-Analyse
+                    await sendTelegramMessage(chatId, `✅ <b>${found.name}</b>\n🤖 <i>Analysiere Buchung...</i>`);
+                    await analyzeTelegramBooking(chatId, text, userName, { isAdmin: true, preselectedCustomer: found });
+                }
+            } else {
+                // 🔧 v6.15.8: _callerPhone durchreichen damit Telefon-Schritt übersprungen wird
+                await setPending(chatId, { awaitingCustomerName: true, originalText: text, userName, _callerPhone: pending._callerPhone || null });
+                await sendTelegramMessage(chatId, '👤 <b>Für welchen Kunden?</b>\n\nBitte den Kundennamen eingeben:', {
+                    reply_markup: { inline_keyboard: [
+                        [{ text: '🆕 Neuen Kunden anlegen', callback_data: 'admin_new_customer' }],
+                        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                    ] }
+                });
+            }
         }
         return;
     }
@@ -11577,9 +11607,14 @@ async function handleCallback(callback) {
     // 🆕 v6.14.0: "Anderer Ort" → Standort oder Adresse eingeben
     if (data === 'pickup_other_location' || data === 'dest_other_location') {
         const _locPending = await getPending(chatId);
-        if (_locPending && _locPending.partial) {
+        // 🔧 v6.38.55: Auch booking (nicht nur partial) prüfen — nach continueBookingFlow heißt es booking
+        if (_locPending && (_locPending.partial || _locPending.booking)) {
             const isPickup = data === 'pickup_other_location';
             const label = isPickup ? 'Abholort' : 'Zielort';
+            // 🆕 v6.38.55: Freitext-Eingabe aktivieren statt nur Standort-Hinweis
+            const _booking = _locPending.partial || _locPending.booking;
+            await setPending(chatId, { ..._locPending, _awaitingNewBookingText: true, _awaitingField: isPickup ? 'pickup' : 'destination' });
+            await addTelegramLog('📍', chatId, `${label} ändern gewählt — warte auf Adresseingabe`);
             await sendTelegramMessage(chatId,
                 `📍 <b>${label} eingeben</b>\n\n` +
                 `1️⃣ <b>Standort senden:</b> Tippen Sie auf 📎 → Standort\n\n` +
@@ -11592,6 +11627,9 @@ async function handleCallback(callback) {
                     [{ text: '🏠 Menü', callback_data: 'back_to_menu' }, { text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
                 ] } }
             );
+        } else {
+            await addTelegramLog('⚠️', chatId, `pickup_other_location: kein pending.partial/booking gefunden`);
+            await sendTelegramMessage(chatId, '⚠️ Buchung nicht mehr aktiv. Bitte neu starten.');
         }
         return;
     }
@@ -14663,6 +14701,7 @@ async function handleLocation(message) {
     // Reverse-Geocoding: Koordinaten → Adresse
     let addressName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     const reversed = await reverseGeocode(lat, lon);
+    // 🔧 v6.38.56: reverseGeocode gibt .name zurück (Duplikat-Version entfernt)
     if (reversed && reversed.name) {
         addressName = reversed.name;
         await addTelegramLog('📍', chatId, `Reverse-Geocoding: ${addressName}`);

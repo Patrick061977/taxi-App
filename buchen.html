@@ -643,12 +643,13 @@
                     if (!activeStatuses.includes(r.status)) return;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const buffer = 15 * 60000;
-                    const rEnd = r.pickupTimestamp + rDur + buffer;
+                    const rEnd = r.pickupTimestamp + rDur + buffer; // Mit Puffer für Konflikterkennung
+                    const rEndReal = r.pickupTimestamp + rDur; // 🔧 v6.38.58: OHNE Puffer für Anzeige
                     const newDur = (routeData ? parseInt(routeData.min) : 20) * 60000;
                     const newEnd = ts + newDur + buffer;
                     if (ts < rEnd && r.pickupTimestamp < newEnd) {
                         conflictCount++;
-                        rideEndTimes.push(rEnd);
+                        rideEndTimes.push(rEndReal); // 🔧 v6.38.58: Echte Endzeit ohne Puffer anzeigen
                     }
                 });
 

@@ -5572,15 +5572,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                 }
                 // 🆕 v6.38.42: Top-POIs als Quick-Buttons — NUR wenn keine Favoriten vorhanden (v6.38.52)
                 const _hasFavButtons = _inlineButtons.flat().length > 0;
+                // 🔧 v6.38.58: POI-ID direkt im Button speichern (statt Index) — robust gegen Pending-Reset
                 if (!_hasFavButtons) try {
                     const _poiSnap = await db.ref('pois').orderByChild('category').limitToFirst(50).once('value');
                     const _poiData = _poiSnap.val();
                     if (_poiData) {
                         const _pickupNormPoi = booking.pickup ? normalizeAddressKey(booking.pickup) : '';
-                        // Beliebte Kategorien: klinik, bahnhof, flughafen, hotel
                         const _topCategories = ['klinik', 'krankenhaus', 'bahnhof', 'flughafen', 'airport', 'hafen'];
-                        const _allPois = Object.values(_poiData).filter(p => p && p.name && p.lat && p.lon);
-                        // Erst Top-Kategorien, dann alphabetisch
+                        // Object.entries statt Object.values → Firebase-Key behalten
+                        const _allPois = Object.entries(_poiData)
+                            .filter(([, p]) => p && p.name && p.lat && p.lon)
+                            .map(([key, p]) => ({ ...p, _fbKey: key }));
                         const _relevantPois = _allPois
                             .filter(p => {
                                 const _pn = normalizeAddressKey(p.address || p.name);
@@ -5594,24 +5596,15 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             })
                             .slice(0, 4);
                         if (_relevantPois.length > 0) {
-                            // Prüfe ob diese POIs nicht schon in den Favoriten sind
                             const _existingBtnTexts = _inlineButtons.flat().map(b => b.text.toLowerCase());
                             const _poiBtns = _relevantPois
                                 .filter(p => !_existingBtnTexts.some(t => t.includes(p.name.toLowerCase().substring(0, 10))))
                                 .slice(0, 3)
-                                .map((p, i) => ({
+                                .map(p => ({
                                     text: '📍 ' + (p.name.length > 28 ? p.name.substring(0, 26) + '…' : p.name),
-                                    callback_data: `poi_dest_${i}`
+                                    callback_data: `poi_d_${p._fbKey}`
                                 }));
                             if (_poiBtns.length > 0) {
-                                // POIs als Pending speichern für Callback-Handler
-                                if (!pending) pending = await getPending(chatId);
-                                if (pending) {
-                                    pending._poiDestOptions = _relevantPois.slice(0, 3).map(p => ({
-                                        name: p.name, address: p.address || p.name,
-                                        lat: p.lat, lon: p.lon
-                                    }));
-                                }
                                 _inlineButtons.push(_poiBtns);
                             }
                         }
@@ -11991,19 +11984,36 @@ async function handleCallback(callback) {
     }
 
     // 🆕 v6.38.42: POI-Ziel aus Quick-Buttons gewählt
-    if (data.startsWith('poi_dest_')) {
-        const _poiIdx = parseInt(data.replace('poi_dest_', ''));
+    // 🔧 v6.38.58: POI-Ziel — unterstützt neues Format (poi_d_{fbKey}) UND altes (poi_dest_{index})
+    if (data.startsWith('poi_d_') || data.startsWith('poi_dest_')) {
         const pending = await getPending(chatId);
         if (!pending || !pending.partial) {
             await sendTelegramMessage(chatId, '⚠️ Anfrage abgelaufen. Bitte nochmal starten.');
             return;
         }
-        const _poiOptions = pending._poiDestOptions;
-        if (!_poiOptions || !_poiOptions[_poiIdx]) {
+        let _selectedPoi = null;
+        if (data.startsWith('poi_d_')) {
+            // 🆕 v6.38.58: Neues Format — POI direkt aus Firebase laden (robust gegen Pending-Reset)
+            const _poiKey = data.replace('poi_d_', '');
+            try {
+                const _poiSnap = await db.ref(`pois/${_poiKey}`).once('value');
+                const _poiVal = _poiSnap.val();
+                if (_poiVal) {
+                    _selectedPoi = { name: _poiVal.name, address: _poiVal.address || _poiVal.name, lat: _poiVal.lat, lon: _poiVal.lon };
+                }
+            } catch(_e) { console.warn('POI-Lookup Fehler:', _e.message); }
+        } else {
+            // Altes Format (Fallback) — Index aus Pending
+            const _poiIdx = parseInt(data.replace('poi_dest_', ''));
+            const _poiOptions = pending._poiDestOptions;
+            if (_poiOptions && _poiOptions[_poiIdx]) {
+                _selectedPoi = _poiOptions[_poiIdx];
+            }
+        }
+        if (!_selectedPoi) {
             await sendTelegramMessage(chatId, '⚠️ POI nicht mehr verfügbar.');
             return;
         }
-        const _selectedPoi = _poiOptions[_poiIdx];
         pending.partial.destination = _selectedPoi.address || _selectedPoi.name;
         pending.partial.destinationLat = _selectedPoi.lat;
         pending.partial.destinationLon = _selectedPoi.lon;

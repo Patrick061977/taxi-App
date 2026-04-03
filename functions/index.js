@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.61';
+const CLOUD_FUNCTIONS_VERSION = '6.38.62';
 const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -1595,6 +1595,41 @@ async function addTelegramLog(emoji, chatId, msg, details = null) {
         }
     } catch (e) { /* Log-Fehler ignorieren */ }
     console.log(`${emoji} [${chatId}] ${msg}`);
+}
+
+// 🆕 v6.38.61: Entscheidungs-Log — schreibt ins ActivityLog (sichtbar im System-Monitor)
+// Gibt den Firebase-Key zurück damit outcome später aktualisiert werden kann
+async function logDecision(type, message, data = {}) {
+    try {
+        const ref = db.ref('activityLog').push();
+        await ref.set({
+            type: 'decision',
+            action: data.outcome || 'pending',
+            message,
+            timestamp: Date.now(),
+            data: {
+                query: data.query || null,
+                result: data.result || null,
+                source: data.source || null,
+                score: data.score != null ? data.score : null,
+                reason: data.reason || null,
+                searchWords: data.searchWords || null,
+                outcome: data.outcome || null,
+                correction: data.correction || null,
+                decisionType: type
+            }
+        });
+        return ref.key;
+    } catch (e) { return null; }
+}
+
+// Entscheidungs-Ergebnis nachträglich setzen (richtig/falsch/korrektur)
+async function updateDecisionOutcome(key, outcome, correction = null) {
+    if (!key) return;
+    try {
+        await db.ref(`activityLog/${key}/data`).update({ outcome, correction });
+        await db.ref(`activityLog/${key}`).update({ action: outcome });
+    } catch (e) { /* ignore */ }
 }
 
 // 🆕 v6.38.31: Lifecycle-Log pro Fahrt — dokumentiert jeden Schritt
@@ -8778,6 +8813,12 @@ async function handleMessage(message) {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
             await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}] suchw:[${searchWords.join(',')}]`);
+            // 🆕 v6.38.61: Entscheidung ins Activity Log (sichtbar im System-Monitor)
+            const _decKey = await logDecision('geocode', `📍 Adresse auto: "${text}" → ${_bestHit.name}`, {
+                query: text, result: _bestHit.name, source: _bestHit.source,
+                score: _bestHit.matchScore || null, reason: _bestHit.matchReason || null,
+                searchWords, outcome: 'correct'  // auto-selects gelten als korrekt (>= score 60)
+            });
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);
@@ -8787,11 +8828,17 @@ async function handleMessage(message) {
         // 🔧 v6.38.19: Stufe 2 — Booking/Customer Treffer → "Meinten Sie?" Bestätigung
         if (_confirmHit) {
             await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Bestätigung: ${_confirmHit.name} [${_confirmHit.source}]`);
+            const _decKeyConfirm = await logDecision('geocode', `❓ Adresse unklar: "${text}" → ${_confirmHit.name}?`, {
+                query: text, result: _confirmHit.name, source: _confirmHit.source,
+                score: _confirmHit.matchScore || null, reason: _confirmHit.matchReason || null,
+                searchWords, outcome: null
+            });
             await setPending(chatId, {
                 _awaitingPLZ: true,
                 _awaitingField,
                 _awaitingPLZAddr: text,
                 _awaitingPLZGuess: _confirmHit,
+                _decisionKey: _decKeyConfirm,
                 partialBooking,
                 preselectedCustomer,
                 userName: savedUserName
@@ -14005,11 +14052,13 @@ async function handleCallback(callback) {
     if (data === 'plzguess_yes') {
         const pending = await getPending(chatId);
         if (!pending || !pending._awaitingPLZ || !pending._awaitingPLZGuess) return;
-        const { _awaitingField, _awaitingPLZGuess: guess, partialBooking, preselectedCustomer } = pending;
+        const { _awaitingField, _awaitingPLZGuess: guess, _decisionKey, partialBooking, preselectedCustomer } = pending;
         const isPickupField = _awaitingField === 'pickup';
         if (isPickupField) { partialBooking.pickup = guess.name; partialBooking.pickupLat = guess.lat; partialBooking.pickupLon = guess.lon; }
         else { partialBooking.destination = guess.name; partialBooking.destinationLat = guess.lat; partialBooking.destinationLon = guess.lon; }
         await addTelegramLog('✅', chatId, `PLZ-Guess bestätigt: ${guess.name}`);
+        // 🆕 v6.38.61: Entscheidung als richtig markieren
+        if (_decisionKey) await updateDecisionOutcome(_decisionKey, 'correct');
         await deletePending(chatId);
         const routePrice = await calculateTelegramRoutePrice(partialBooking);
         await askPassengersOrConfirm(chatId, partialBooking, routePrice, guess.name);
@@ -14019,6 +14068,8 @@ async function handleCallback(callback) {
     if (data === 'plzguess_no') {
         const pending = await getPending(chatId);
         if (!pending || !pending._awaitingPLZ) return;
+        // 🆕 v6.38.61: Entscheidung als falsch markieren (Nutzer lehnte Vorschlag ab)
+        if (pending._decisionKey) await updateDecisionOutcome(pending._decisionKey, 'wrong', null);
         await setPending(chatId, pending); // State behalten
         await sendTelegramMessage(chatId,
             `🔢 Bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,

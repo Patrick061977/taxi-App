@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.53';
-const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
+const CLOUD_FUNCTIONS_VERSION = '6.38.64';
+const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -630,15 +630,13 @@ async function autoAssignRide(rideId, rideData) {
             const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
             const _verifyOk = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
 
-            // 🔧 v6.38.46: Sofortfahrt + Fahrer ONLINE → Schichtplan überschreiben!
-            // Wenn ein Fahrer sich aktiv per GPS anmeldet, ist er verfügbar — egal was der Schichtplan sagt
-            const _isDriverOnline = _vData.online === true || (_vData.shift && _vData.shift.status === 'active');
-            const _hasRecentGPS = _vData.lastUpdate && (Date.now() - _vData.lastUpdate < 10 * 60 * 1000); // GPS < 10 Min alt
-            const _driverActiveOverride = isSofort && (_isDriverOnline || _hasRecentGPS);
+            // 🔧 v6.38.63: Schichtplan ist Pflicht — kein Override über GPS-Ping
+            // Nur Fahrer die AKTIV ihre Schicht gestartet haben (shift.status='active') dürfen ohne Schichtplan
+            const _isShiftActive = _vData.shift && _vData.shift.status === 'active';
 
             if (!_shiftOk || !_verifyOk.ok) {
-                if (_driverActiveOverride) {
-                    console.log(`   ⚠️ ${info.name}: Kein Schichtplan, aber Fahrer ist ONLINE → Sofortfahrt erlaubt! (online=${_isDriverOnline}, GPS<10min=${_hasRecentGPS})`);
+                if (_isShiftActive) {
+                    console.log(`   ⚠️ ${info.name}: Kein Schichtplan, aber Fahrer hat Schicht aktiv gestartet → erlaubt`);
                 } else {
                     if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
                     console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
@@ -1595,6 +1593,41 @@ async function addTelegramLog(emoji, chatId, msg, details = null) {
         }
     } catch (e) { /* Log-Fehler ignorieren */ }
     console.log(`${emoji} [${chatId}] ${msg}`);
+}
+
+// 🆕 v6.38.61: Entscheidungs-Log — schreibt ins ActivityLog (sichtbar im System-Monitor)
+// Gibt den Firebase-Key zurück damit outcome später aktualisiert werden kann
+async function logDecision(type, message, data = {}) {
+    try {
+        const ref = db.ref('activityLog').push();
+        await ref.set({
+            type: 'decision',
+            action: data.outcome || 'pending',
+            message,
+            timestamp: Date.now(),
+            data: {
+                query: data.query || null,
+                result: data.result || null,
+                source: data.source || null,
+                score: data.score != null ? data.score : null,
+                reason: data.reason || null,
+                searchWords: data.searchWords || null,
+                outcome: data.outcome || null,
+                correction: data.correction || null,
+                decisionType: type
+            }
+        });
+        return ref.key;
+    } catch (e) { return null; }
+}
+
+// Entscheidungs-Ergebnis nachträglich setzen (richtig/falsch/korrektur)
+async function updateDecisionOutcome(key, outcome, correction = null) {
+    if (!key) return;
+    try {
+        await db.ref(`activityLog/${key}/data`).update({ outcome, correction });
+        await db.ref(`activityLog/${key}`).update({ action: outcome });
+    } catch (e) { /* ignore */ }
 }
 
 // 🆕 v6.38.31: Lifecycle-Log pro Fahrt — dokumentiert jeden Schritt
@@ -2571,7 +2604,7 @@ async function searchNominatimForTelegram(query) {
     }
     const searchKey = query.toLowerCase().trim();
     const fetchOpts = { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } };
-    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+    const searchWords = searchKey.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2); // 🔧 v6.38.61: min 3 Zeichen (vorher >1) — "O", "am" etc. nicht matchen
 
     // Hilfsfunktion: Wort-Anfang-Match (höhere Priorität als includes)
     const wordBoundaryRegex = new RegExp('(^|\\s|,)' + searchKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -2611,7 +2644,7 @@ async function searchNominatimForTelegram(query) {
                 let matchScore = 0;
                 const isExact = wordBoundaryRegex.test(addr) || normKey === searchKey ||
                     wordBoundaryRegex.test(label) || wordBoundaryRegex.test(labelNorm);
-                const isIncludes = addr.includes(searchKey) || searchKey.includes(normKey) ||
+                const isIncludes = addr.includes(searchKey) || (normKey.length >= 4 && searchKey.includes(normKey)) ||  // 🔧 v6.38.61: normKey min 4 Zeichen (vorher kein Limit!)
                     label.includes(searchKey) || labelNorm.includes(searchKey);
                 const isAllWords = searchWords.length > 0 && searchWords.every(w => allText.includes(w));
 
@@ -2645,6 +2678,12 @@ async function searchNominatimForTelegram(query) {
                     // 🔧 v6.38.37: Bei Label-Match → "Label — Adresse" als Name anzeigen
                     const displayName = (label && matchScore >= 60 && searchWords.some(w => label.includes(w) || labelNorm.includes(w)))
                         ? `${entry.label} — ${entry.address}` : entry.address;
+                    // 🔧 v6.38.61: matchReason für Log-Debugging
+                    let matchReason = '';
+                    if (isExact) matchReason = 'exact';
+                    else if (isIncludes) matchReason = addr.includes(searchKey) ? 'addr⊇query' : (normKey.length >= 4 && searchKey.includes(normKey)) ? `query⊇normKey(${normKey})` : label.includes(searchKey) ? 'label⊇query' : 'labelNorm⊇query';
+                    else if (isAllWords) matchReason = 'allWords';
+                    else matchReason = 'fuzzy/partial';
                     cacheHits.push({
                         name: displayName,
                         lat: entry.lat,
@@ -2652,7 +2691,8 @@ async function searchNominatimForTelegram(query) {
                         source: entry.verified ? 'geocache-verified' : 'geocache',
                         priority: entry.verified ? -1 : 0,
                         usageCount: entry.usageCount || 1,
-                        matchScore
+                        matchScore,
+                        matchReason
                     });
                 }
             });
@@ -5225,7 +5265,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     }
                     // 🔧 v6.38.25: Straßenname-Filter — Vorschläge mit komplett falscher Straße rauswerfen!
                     // "Rathenaustraße 3" darf NICHT "Labahnstraße 18" als Vorschlag zeigen
-                    if (_hasHausnrInAddr2 && _displaySugg2.length > 0) {
+                    // 🔧 v6.38.64: Bei vollständiger Adresse mit PLZ (z.B. "Bergstraße 40, 17429 Bansin") keinen Straßen-Filter anwenden
+                    // → PLZ macht die Adresse eindeutig genug, Nominatim-Ergebnis direkt verwenden
+                    const _hasPLZInAddr2 = /\b\d{5}\b/.test(addressToResolve);
+                    if (_hasHausnrInAddr2 && !_hasPLZInAddr2 && _displaySugg2.length > 0) {
                         const _qStreetDisp = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                         if (_qStreetDisp && _qStreetDisp.length > 3) {
                             const _qStreetCore = _qStreetDisp.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
@@ -8656,7 +8699,7 @@ async function handleMessage(message) {
 
     // 🔧 v6.38.17: "Anderes Ziel" / "Anderer Abholort" → Adresssuche statt KI-Analyse
     if (pending && pending._awaitingNewBookingText) {
-        const { preselectedCustomer, userName: savedUserName, _awaitingField } = pending;
+        const { preselectedCustomer = {}, userName: savedUserName, _awaitingField } = pending;
         const isPickupField = _awaitingField === 'pickup';
         const fieldLabel = isPickupField ? 'Abholort' : 'Zielort';
         const prefix = isPickupField ? 'np' : 'nd';
@@ -8672,9 +8715,14 @@ async function handleMessage(message) {
             const custLon2 = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
             const partialB = {
                 intent: 'buchung',
+                name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
                 customerName: preselectedCustomer.name,
                 customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
                 customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+                _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+                _forCustomer: preselectedCustomer.name,
+                _adminBooked: true,
+                _adminChatId: chatId,
             };
             if (isPickupField) {
                 partialB.pickup = _addr2; partialB.pickupLat = _mapsCoords2.lat; partialB.pickupLon = _mapsCoords2.lon;
@@ -8697,9 +8745,14 @@ async function handleMessage(message) {
         const custLon = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
         const partialBooking = {
             intent: 'buchung',
+            name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
             customerName: preselectedCustomer.name,
             customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
             customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+            _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+            _forCustomer: preselectedCustomer.name,
+            _adminBooked: true,
+            _adminChatId: chatId,
             missing: [isPickupField ? 'pickup' : 'destination'],  // für nominatimResults-Handler (line ~7330)
         };
         if (isPickupField) {
@@ -8746,7 +8799,8 @@ async function handleMessage(message) {
         };
 
         // Stufe 1: Verifizierte Quellen → stilles Auto-Select
-        const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s));
+        // 🔧 v6.38.61: matchScore >= 60 erforderlich wenn kein Ortsname in Query — verhindert schwache Geocache-Matches (z.B. "O room" → Wolgast)
+        const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s) && (_explTown || !s.matchScore || s.matchScore >= 60));
         // Stufe 2: Lokale Quellen (booking, customer) → "Meinten Sie?" Bestätigung
         const _confirmHit = !_autoHit && _explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s));
         // Stufe 3: Nominatim → stilles Auto-Select nur mit Hausnr + Ort + streetOk
@@ -8759,7 +8813,13 @@ async function handleMessage(message) {
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
-            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}]`);
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}] suchw:[${searchWords.join(',')}]`);
+            // 🆕 v6.38.61: Entscheidung ins Activity Log (sichtbar im System-Monitor)
+            const _decKey = await logDecision('geocode', `📍 Adresse auto: "${text}" → ${_bestHit.name}`, {
+                query: text, result: _bestHit.name, source: _bestHit.source,
+                score: _bestHit.matchScore || null, reason: _bestHit.matchReason || null,
+                searchWords, outcome: 'correct'  // auto-selects gelten als korrekt (>= score 60)
+            });
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
             await askPassengersOrConfirm(chatId, partialBooking, routePrice, text);
@@ -8769,11 +8829,17 @@ async function handleMessage(message) {
         // 🔧 v6.38.19: Stufe 2 — Booking/Customer Treffer → "Meinten Sie?" Bestätigung
         if (_confirmHit) {
             await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Bestätigung: ${_confirmHit.name} [${_confirmHit.source}]`);
+            const _decKeyConfirm = await logDecision('geocode', `❓ Adresse unklar: "${text}" → ${_confirmHit.name}?`, {
+                query: text, result: _confirmHit.name, source: _confirmHit.source,
+                score: _confirmHit.matchScore || null, reason: _confirmHit.matchReason || null,
+                searchWords, outcome: null
+            });
             await setPending(chatId, {
                 _awaitingPLZ: true,
                 _awaitingField,
                 _awaitingPLZAddr: text,
                 _awaitingPLZGuess: _confirmHit,
+                _decisionKey: _decKeyConfirm,
                 partialBooking,
                 preselectedCustomer,
                 userName: savedUserName
@@ -9877,11 +9943,19 @@ async function handleCallback(callback) {
             const existing = custData.additionalPhones || [];
             if (!existing.includes(phoneToAdd)) {
                 existing.push(phoneToAdd);
-                await db.ref('customers/' + customerId).update({
-                    additionalPhones: existing,
-                    updatedAt: Date.now()
-                });
             }
+            // 🔧 v6.38.54: Nummer auch in mobilePhone/phone eintragen wenn dort leer
+            const updatePayload = { additionalPhones: existing, updatedAt: Date.now() };
+            const _phoneDigits = (str) => (str || '').replace(/\D/g, '');
+            const existingPhone = _phoneDigits(custData.phone);
+            const existingMobile = _phoneDigits(custData.mobilePhone);
+            const newDigits = _phoneDigits(phoneToAdd);
+            if (!existingMobile && !existingPhone) {
+                updatePayload.mobilePhone = phoneToAdd;
+            } else if (!existingMobile && existingPhone !== newDigits) {
+                updatePayload.mobilePhone = phoneToAdd;
+            }
+            await db.ref('customers/' + customerId).update(updatePayload);
             await addTelegramLog('📞', chatId, `Nummer ${phoneToAdd} zu ${name} (${customerId}) hinzugefügt`);
             await sendTelegramMessage(chatId,
                 `✅ <b>Nummer hinzugefügt!</b>\n\n` +
@@ -13979,11 +14053,13 @@ async function handleCallback(callback) {
     if (data === 'plzguess_yes') {
         const pending = await getPending(chatId);
         if (!pending || !pending._awaitingPLZ || !pending._awaitingPLZGuess) return;
-        const { _awaitingField, _awaitingPLZGuess: guess, partialBooking, preselectedCustomer } = pending;
+        const { _awaitingField, _awaitingPLZGuess: guess, _decisionKey, partialBooking, preselectedCustomer } = pending;
         const isPickupField = _awaitingField === 'pickup';
         if (isPickupField) { partialBooking.pickup = guess.name; partialBooking.pickupLat = guess.lat; partialBooking.pickupLon = guess.lon; }
         else { partialBooking.destination = guess.name; partialBooking.destinationLat = guess.lat; partialBooking.destinationLon = guess.lon; }
         await addTelegramLog('✅', chatId, `PLZ-Guess bestätigt: ${guess.name}`);
+        // 🆕 v6.38.61: Entscheidung als richtig markieren
+        if (_decisionKey) await updateDecisionOutcome(_decisionKey, 'correct');
         await deletePending(chatId);
         const routePrice = await calculateTelegramRoutePrice(partialBooking);
         await askPassengersOrConfirm(chatId, partialBooking, routePrice, guess.name);
@@ -13993,6 +14069,8 @@ async function handleCallback(callback) {
     if (data === 'plzguess_no') {
         const pending = await getPending(chatId);
         if (!pending || !pending._awaitingPLZ) return;
+        // 🆕 v6.38.61: Entscheidung als falsch markieren (Nutzer lehnte Vorschlag ab)
+        if (pending._decisionKey) await updateDecisionOutcome(pending._decisionKey, 'wrong', null);
         await setPending(chatId, pending); // State behalten
         await sendTelegramMessage(chatId,
             `🔢 Bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,

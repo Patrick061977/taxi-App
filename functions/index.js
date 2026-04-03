@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.53';
-const CLOUD_FUNCTIONS_BUILD = '01.04.2026 16:00';
+const CLOUD_FUNCTIONS_VERSION = '6.38.55';
+const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -8656,7 +8656,7 @@ async function handleMessage(message) {
 
     // 🔧 v6.38.17: "Anderes Ziel" / "Anderer Abholort" → Adresssuche statt KI-Analyse
     if (pending && pending._awaitingNewBookingText) {
-        const { preselectedCustomer, userName: savedUserName, _awaitingField } = pending;
+        const { preselectedCustomer = {}, userName: savedUserName, _awaitingField } = pending;
         const isPickupField = _awaitingField === 'pickup';
         const fieldLabel = isPickupField ? 'Abholort' : 'Zielort';
         const prefix = isPickupField ? 'np' : 'nd';
@@ -9877,11 +9877,19 @@ async function handleCallback(callback) {
             const existing = custData.additionalPhones || [];
             if (!existing.includes(phoneToAdd)) {
                 existing.push(phoneToAdd);
-                await db.ref('customers/' + customerId).update({
-                    additionalPhones: existing,
-                    updatedAt: Date.now()
-                });
             }
+            // 🔧 v6.38.54: Nummer auch in mobilePhone/phone eintragen wenn dort leer
+            const updatePayload = { additionalPhones: existing, updatedAt: Date.now() };
+            const _phoneDigits = (str) => (str || '').replace(/\D/g, '');
+            const existingPhone = _phoneDigits(custData.phone);
+            const existingMobile = _phoneDigits(custData.mobilePhone);
+            const newDigits = _phoneDigits(phoneToAdd);
+            if (!existingMobile && !existingPhone) {
+                updatePayload.mobilePhone = phoneToAdd;
+            } else if (!existingMobile && existingPhone !== newDigits) {
+                updatePayload.mobilePhone = phoneToAdd;
+            }
+            await db.ref('customers/' + customerId).update(updatePayload);
             await addTelegramLog('📞', chatId, `Nummer ${phoneToAdd} zu ${name} (${customerId}) hinzugefügt`);
             await sendTelegramMessage(chatId,
                 `✅ <b>Nummer hinzugefügt!</b>\n\n` +

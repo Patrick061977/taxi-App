@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Monitor - Funk Taxi Heringsdorf</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; color: #e0e0e0; }
+.header { background: #111; border-bottom: 2px solid #ffd700; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+.header h1 { color: #ffd700; font-size: 1.2em; }
+.header .live { color: #4caf50; font-size: 0.85em; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.header .stats { display: flex; gap: 15px; font-size: 0.8em; }
+.header .stat { padding: 3px 10px; border-radius: 12px; background: #1a1a2e; }
+
+/* Layout: 3 columns top, full-width bottom */
+.main-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0; height: calc(100vh - 50px); }
+.panel { border: 1px solid #222; overflow-y: auto; position: relative; }
+.panel.span-full { grid-column: 1 / -1; }
+.panel-header { position: sticky; top: 0; z-index: 10; background: #111; padding: 8px 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+.panel-header h2 { font-size: 0.95em; color: #ffd700; }
+.panel-header .badge { background: #ffd700; color: #000; border-radius: 10px; padding: 1px 8px; font-size: 0.75em; font-weight: bold; }
+.panel-body { padding: 8px; }
+
+/* ===== CHANGE FEED ===== */
+.change-item { padding: 8px 10px; margin: 4px 0; border-radius: 8px; font-size: 0.82em; border-left: 4px solid #333; animation: slideIn 0.4s ease-out; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes flashBorder { 0% { box-shadow: 0 0 15px rgba(255,215,0,0.5); } 100% { box-shadow: none; } }
+.change-item.flash { animation: slideIn 0.4s ease-out, flashBorder 1.5s ease-out; }
+.change-item .change-time { color: #666; font-family: monospace; font-size: 0.8em; }
+.change-item .change-title { font-weight: 600; margin: 2px 0; }
+.change-item .change-diff { margin-top: 4px; }
+.change-item .diff-line { padding: 1px 6px; border-radius: 3px; margin: 1px 0; font-size: 0.85em; font-family: monospace; }
+.change-item .diff-old { background: #2d1b1b; color: #f88; }
+.change-item .diff-new { background: #1b2d1b; color: #8f8; }
+.change-item.score-change { border-left-color: #ff9800; background: #1a1508; }
+.change-item.status-change { border-left-color: #2196f3; background: #0d1520; }
+.change-item.vehicle-change { border-left-color: #9c27b0; background: #180d1f; }
+.change-item.time-change { border-left-color: #ffd700; background: #1a1a0d; }
+.change-item.new-ride { border-left-color: #4caf50; background: #0d1f0d; }
+.change-item.deleted-ride { border-left-color: #f44336; background: #1f0d0d; }
+
+/* ===== EVENT FEED ===== */
+.event { padding: 5px 8px; margin: 2px 0; border-radius: 5px; font-size: 0.78em; border-left: 3px solid #333; }
+.event .time { color: #666; font-size: 0.8em; margin-right: 5px; font-family: monospace; }
+.event.booking { border-left-color: #4caf50; background: #0d1f0d; }
+.event.status { border-left-color: #2196f3; background: #0d1520; }
+.event.assign { border-left-color: #ff9800; background: #1f170d; }
+.event.error { border-left-color: #f44336; background: #1f0d0d; }
+.event.button { border-left-color: #9c27b0; background: #180d1f; }
+.event.system { border-left-color: #607d8b; background: #0d1215; }
+.event.ki { border-left-color: #00bcd4; background: #0d1a1f; }
+
+/* ===== RIDES ===== */
+.ride-row { padding: 6px 8px; margin: 2px 0; border-radius: 6px; font-size: 0.8em; background: #111; cursor: pointer; transition: background 0.2s; }
+.ride-row:hover { background: #1a1a2e; }
+.ride-row.expanded { background: #1a1a2e; border: 1px solid #333; }
+.ride-header { display: flex; align-items: center; gap: 8px; }
+.ride-status { padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; min-width: 65px; text-align: center; }
+.ride-status.new, .ride-status.open { background: #1a3e1a; color: #4caf50; }
+.ride-status.assigned, .ride-status.vorbestellt, .ride-status.zugewiesen { background: #1a2e3e; color: #42a5f5; }
+.ride-status.accepted { background: #2e3e1a; color: #aed581; }
+.ride-status.on_way, .ride-status.picked_up, .ride-status.in_progress { background: #3e2e1a; color: #ffb74d; }
+.ride-status.completed { background: #1a1a1a; color: #888; }
+.ride-status.cancelled, .ride-status.storniert { background: #3e1a1a; color: #ef5350; }
+.ride-time { color: #aaa; font-family: monospace; min-width: 40px; }
+.ride-route { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ride-vehicle { color: #ffd700; font-size: 0.75em; min-width: 80px; text-align: right; }
+
+/* Score details (expandable) */
+.score-details { margin-top: 8px; padding: 8px; background: #0a0a15; border-radius: 6px; font-size: 0.85em; }
+.score-row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; margin: 2px 0; border-radius: 4px; }
+.score-row.available { background: #0d1f0d; }
+.score-row.busy { background: #1f0d0d; }
+.score-row.chosen { background: #0d1f1a; border: 1px solid #4caf50; }
+.score-row.overlap-hard, .score-row.overlap-soft { background: #1f170d; }
+.score-icon { font-size: 1em; min-width: 20px; }
+.score-name { min-width: 100px; font-weight: 600; }
+.score-info { flex: 1; color: #aaa; font-size: 0.9em; }
+.score-value { color: #ffd700; font-weight: bold; font-size: 0.9em; }
+
+/* ===== PENDING ===== */
+.pending-card { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 5px 0; }
+.pending-card.active { border-color: #ffd700; }
+.field { display: flex; margin: 2px 0; font-size: 0.78em; }
+.field .label { color: #888; min-width: 55px; }
+.field .value { color: #fff; }
+.field .good { color: #4caf50; }
+.field .bad { color: #f44336; }
+.missing-tag { display: inline-block; background: #3e1a1a; border: 1px solid #f44336; color: #f88; border-radius: 4px; padding: 1px 6px; font-size: 0.7em; margin: 1px; }
+.ok-tag { display: inline-block; background: #1a3e1a; border: 1px solid #4caf50; color: #8f8; border-radius: 4px; padding: 1px 6px; font-size: 0.7em; }
+
+.empty-msg { text-align: center; padding: 30px; color: #555; font-size: 0.9em; }
+.filter-bar { display: flex; gap: 4px; }
+.filter-btn { background: #1a1a2e; border: 1px solid #333; color: #888; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7em; }
+.filter-btn.active { border-color: #ffd700; color: #ffd700; }
+
+/* Sound toggle */
+.sound-btn { background: none; border: 1px solid #555; color: #888; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; }
+.sound-btn.on { border-color: #4caf50; color: #4caf50; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>System Monitor</h1>
+    <div class="stats">
+        <div class="stat" id="statRides">Fahrten: -</div>
+        <div class="stat" id="statChanges">Aenderungen: 0</div>
+        <div class="stat" id="statPending">Pending: -</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+        <button class="sound-btn" id="soundBtn" onclick="toggleSound()">Sound: Aus</button>
+        <div class="live" id="liveIndicator">LIVE <span id="lastUpdate">-</span></div>
+    </div>
+</div>
+
+<div class="main-grid">
+    <!-- Panel 1: Live Aenderungen (HAUPTPANEL) -->
+    <div class="panel" id="panelChanges">
+        <div class="panel-header">
+            <h2>Live Aenderungen</h2> <button onclick="copyChanges()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button class="filter-btn active" onclick="setChangeFilter(this,'all')">Alle</button>
+                <button class="filter-btn" onclick="setChangeFilter(this,'score')">Scores</button>
+                <button class="filter-btn" onclick="setChangeFilter(this,'status')">Status</button>
+                <button class="filter-btn" onclick="setChangeFilter(this,'vehicle')">Fahrzeug</button>
+                <div class="badge" id="changeCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="changeFeed"></div>
+    </div>
+
+    <!-- Panel 2: Heutige Fahrten (klickbar fuer Scores) -->
+    <div class="panel" id="panelRides">
+        <div class="panel-header">
+            <h2>Fahrten (heute + Zukunft)</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button onclick="copyRidesList()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+                <div class="badge" id="rideCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="rideFeed"></div>
+    </div>
+
+    <!-- Panel 3: Bot-Log Events -->
+    <div class="panel" id="panelEvents">
+        <div class="panel-header">
+            <h2>Bot-Log</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button class="filter-btn active" onclick="toggleFilter(this,'all')">Alle</button>
+                <button class="filter-btn" onclick="toggleFilter(this,'booking')">Buchung</button>
+                <button class="filter-btn" onclick="toggleFilter(this,'ki')">KI</button>
+                <button class="filter-btn" onclick="toggleFilter(this,'error')">Fehler</button>
+                <button onclick="copyBotLog()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+            </div>
+        </div>
+        <div class="panel-body" id="eventFeed"></div>
+    </div>
+
+    <!-- Panel 4: Pending States -->
+    <div class="panel" id="panelPending">
+        <div class="panel-header">
+            <h2>Pending</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button onclick="copyPending()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+                <div class="badge" id="pendingCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="pendingFeed"></div>
+    </div>
+
+    <!-- Panel 5: Fahrten-Detail / VehicleScores (volle Breite unten) -->
+    <div class="panel span-full" id="panelDetail">
+        <div class="panel-header">
+            <h2>Fahrt-Detail &amp; VehicleScores</h2>
+            <span style="color:#888;font-size:0.75em" id="detailHint">Klick auf eine Fahrt oben um Details zu sehen</span>
+        </div>
+        <div class="panel-body" id="detailFeed">
+            <div class="empty-msg">Waehle eine Fahrt aus der Liste oben</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+firebase.initializeApp({
+    apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app",
+    messagingSenderId: "886448281276",
+    appId: "1:886448281276:web:1b54875801c5d89f8efcf9"
+});
+
+const db = firebase.database();
+
+// ===== STATE =====
+let allRides = {};        // Aktueller Stand aller Fahrten
+let prevRides = {};       // Vorheriger Stand (fuer Diff)
+let changes = [];         // Aenderungs-Log
+let changeFilter = 'all';
+let eventFilter = 'all';
+let events = [];
+let selectedRideId = null;
+let soundOn = false;
+let changeCount = 0;
+let isFirstLoad = true;
+let lastTimelineItems = []; // Fuer Copy-Funktion
+
+// ===== HELPERS =====
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function timeStr(ts) { return new Date(ts).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function shortTime(ts) { return new Date(ts).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}); }
+function age(ts) {
+    const s = Math.round((Date.now() - ts) / 1000);
+    if (s < 60) return s + 's';
+    if (s < 3600) return Math.round(s/60) + 'min';
+    return Math.round(s/3600) + 'h';
+}
+
+function playSound() {
+    if (!soundOn) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; osc.type = 'sine';
+        gain.gain.value = 0.1;
+        osc.start(); osc.stop(ctx.currentTime + 0.15);
+    } catch(e) {}
+}
+
+function toggleSound() {
+    soundOn = !soundOn;
+    const btn = document.getElementById('soundBtn');
+    btn.textContent = soundOn ? 'Sound: An' : 'Sound: Aus';
+    btn.classList.toggle('on', soundOn);
+}
+
+// ===== CHANGE DETECTION =====
+function addChange(type, title, diffs, rideId) {
+    const change = {
+        time: Date.now(),
+        type, // score-change, status-change, vehicle-change, time-change, new-ride, deleted-ride
+        title,
+        diffs: diffs || [],
+        rideId
+    };
+    changes.unshift(change);
+    if (changes.length > 200) changes.pop();
+    changeCount++;
+    document.getElementById('changeCount').textContent = changeCount;
+    document.getElementById('statChanges').textContent = 'Aenderungen: ' + changeCount;
+    playSound();
+    renderChanges();
+}
+
+function detectRideChanges(oldRide, newRide, rideId) {
+    if (!oldRide || !newRide) return;
+    const customer = newRide.customerName || newRide.name || rideId.substring(0, 8);
+    const time = newRide.pickupTimestamp ? shortTime(newRide.pickupTimestamp) : '?';
+    const label = `${time} ${customer}`;
+
+    // Status-Aenderung
+    if (oldRide.status !== newRide.status) {
+        addChange('status-change', `Status: ${label}`, [
+            { old: oldRide.status || '?', new: newRide.status || '?' }
+        ], rideId);
+    }
+
+    // Fahrzeug-Aenderung
+    const oldV = oldRide.assignedVehicle || oldRide.vehicleId || '';
+    const newV = newRide.assignedVehicle || newRide.vehicleId || '';
+    if (oldV !== newV) {
+        addChange('vehicle-change', `Fahrzeug: ${label}`, [
+            { old: oldRide.assignedVehicleName || oldV || 'keins', new: newRide.assignedVehicleName || newV || 'keins' }
+        ], rideId);
+    }
+
+    // Zeit-Aenderung
+    if (oldRide.pickupTimestamp !== newRide.pickupTimestamp && oldRide.pickupTimestamp && newRide.pickupTimestamp) {
+        addChange('time-change', `Abholzeit: ${customer}`, [
+            { old: shortTime(oldRide.pickupTimestamp), new: shortTime(newRide.pickupTimestamp) }
+        ], rideId);
+    }
+
+    // VehicleScores-Aenderung
+    const oldScores = oldRide.vehicleScores || {};
+    const newScores = newRide.vehicleScores || {};
+    const allVids = new Set([...Object.keys(oldScores), ...Object.keys(newScores)]);
+    const scoreDiffs = [];
+
+    for (const vid of allVids) {
+        const os = oldScores[vid] || {};
+        const ns = newScores[vid] || {};
+
+        // Status geaendert
+        if (os.status !== ns.status) {
+            scoreDiffs.push({
+                old: `${vid}: ${os.status || 'n/a'}${os.busyUntil ? ' bis ' + os.busyUntil : ''}`,
+                new: `${vid}: ${ns.status || 'n/a'}${ns.busyUntil ? ' bis ' + ns.busyUntil : ''}`
+            });
+        }
+        // busyUntil geaendert (gleicher Status)
+        else if (os.busyUntil !== ns.busyUntil && (os.busyUntil || ns.busyUntil)) {
+            scoreDiffs.push({
+                old: `${vid}: besetzt bis ${os.busyUntil || '?'}`,
+                new: `${vid}: besetzt bis ${ns.busyUntil || '?'}`
+            });
+        }
+        // totalScore geaendert
+        else if (os.totalScore !== ns.totalScore && ns.totalScore !== undefined) {
+            scoreDiffs.push({
+                old: `${vid}: Score ${os.totalScore !== undefined ? os.totalScore : 'n/a'}`,
+                new: `${vid}: Score ${ns.totalScore}`
+            });
+        }
+    }
+
+    if (scoreDiffs.length > 0) {
+        addChange('score-change', `VehicleScores: ${label}`, scoreDiffs, rideId);
+    }
+}
+
+function setChangeFilter(btn, filter) {
+    changeFilter = filter;
+    document.querySelectorAll('#panelChanges .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderChanges();
+}
+
+function renderChanges() {
+    const feed = document.getElementById('changeFeed');
+    let filtered = changes;
+    if (changeFilter === 'score') filtered = changes.filter(c => c.type === 'score-change');
+    else if (changeFilter === 'status') filtered = changes.filter(c => c.type === 'status-change');
+    else if (changeFilter === 'vehicle') filtered = changes.filter(c => c.type === 'vehicle-change');
+
+    feed.innerHTML = filtered.slice(0, 80).map((c, i) => {
+        const typeMap = {
+            'score-change': 'score-change',
+            'status-change': 'status-change',
+            'vehicle-change': 'vehicle-change',
+            'time-change': 'time-change',
+            'new-ride': 'new-ride',
+            'deleted-ride': 'deleted-ride'
+        };
+        const iconMap = {
+            'score-change': '📊',
+            'status-change': '🔄',
+            'vehicle-change': '🚗',
+            'time-change': '🕐',
+            'new-ride': '🆕',
+            'deleted-ride': '🗑️'
+        };
+        const cls = typeMap[c.type] || '';
+        const icon = iconMap[c.type] || '📋';
+
+        let diffsHtml = '';
+        if (c.diffs && c.diffs.length > 0) {
+            diffsHtml = '<div class="change-diff">' + c.diffs.map(d =>
+                `<div class="diff-line diff-old">- ${esc(d.old)}</div>` +
+                `<div class="diff-line diff-new">+ ${esc(d.new)}</div>`
+            ).join('') + '</div>';
+        }
+
+        return `<div class="change-item ${cls} ${i === 0 ? 'flash' : ''}" ${c.rideId ? `onclick="selectRide('${c.rideId}')" style="cursor:pointer"` : ''}>
+            <span class="change-time">${timeStr(c.time)}</span>
+            <div class="change-title">${icon} ${esc(c.title)}</div>
+            ${diffsHtml}
+        </div>`;
+    }).join('') || '<div class="empty-msg">Noch keine Aenderungen erkannt...<br>Bearbeite eine Fahrt in der App!</div>';
+
+    document.getElementById('lastUpdate').textContent = timeStr(Date.now());
+}
+
+// ===== PANEL: RIDES =====
+function renderRides() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayMs = today.getTime();
+
+    const rides = Object.entries(allRides)
+        .map(([id, r]) => ({ id, ...r }))
+        .filter(r => r.pickupTimestamp && r.pickupTimestamp >= todayMs && !['deleted'].includes(r.status))
+        .sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
+
+    const activeCount = rides.filter(r => !['completed','cancelled','storniert','deleted'].includes(r.status)).length;
+    document.getElementById('rideCount').textContent = rides.length;
+    document.getElementById('statRides').textContent = 'Fahrten: ' + activeCount + '/' + rides.length;
+
+    const feed = document.getElementById('rideFeed');
+    feed.innerHTML = rides.map(r => {
+        const statusCls = (r.status || 'new').replace(/ /g, '_');
+        const pickup = (r.pickup || '?').substring(0, 22);
+        const dest = (r.destination || '?').substring(0, 22);
+        const vehicle = r.assignedVehicleName || r.vehicle || '';
+        const customer = (r.customerName || r.name || '').substring(0, 18);
+        const rideDate = new Date(r.pickupTimestamp);
+        const isToday = rideDate.toDateString() === new Date().toDateString();
+        const time = r.pickupTimestamp ? (isToday ? shortTime(r.pickupTimestamp) : rideDate.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' ' + shortTime(r.pickupTimestamp)) : '?';
+        const hasScores = r.vehicleScores && Object.keys(r.vehicleScores).length > 0;
+        const sel = r.id === selectedRideId ? ' expanded' : '';
+        const dayLabel = isToday ? '' : ' style="color:#ff9800"';
+
+        return `<div class="ride-row${sel}" onclick="selectRide('${r.id}')">
+            <div class="ride-header">
+                <span class="ride-time"${dayLabel}>${time}</span>
+                <span class="ride-status ${statusCls}">${esc(r.status || 'new')}</span>
+                <span class="ride-route">${esc(customer)} | ${esc(pickup)} &rarr; ${esc(dest)}</span>
+                <span class="ride-vehicle">${esc(vehicle)}</span>
+                ${hasScores ? '<span style="color:#ff9800;font-size:0.7em" title="VehicleScores vorhanden">📊</span>' : ''}
+            </div>
+        </div>`;
+    }).join('') || '<div class="empty-msg">Keine Fahrten heute</div>';
+}
+
+function selectRide(rideId) {
+    selectedRideId = rideId;
+    renderRides();
+    renderDetail();
+}
+
+function renderDetail() {
+    const feed = document.getElementById('detailFeed');
+    const hint = document.getElementById('detailHint');
+    if (!selectedRideId || !allRides[selectedRideId]) {
+        feed.innerHTML = '<div class="empty-msg">Waehle eine Fahrt aus der Liste oben</div>';
+        hint.textContent = '';
+        return;
+    }
+
+    const r = allRides[selectedRideId];
+    const time = r.pickupTimestamp ? shortTime(r.pickupTimestamp) : '?';
+    const customer = r.customerName || r.name || '?';
+    hint.textContent = `${time} ${customer} (${selectedRideId.substring(0, 10)}...)`;
+
+    // Quelle erkennen — 🔧 v6.39.0: Detailliertere Anzeige
+    const _rawSource = r.source || r.bookingSource || '';
+    const _sourceMap = {
+        'telegram': '🤖 Telegram-Bot', 'telegram-admin': '🤖 Telegram (Admin)',
+        'ai-assistant': '🧠 KI-Assistent', 'admin': '👤 Admin-App', 'manual': '👤 Manuell',
+        'cloud': '☁️ Cloud', 'kunden-portal': '📱 Kunden-Portal', 'booking-page': '📱 Buchungsseite'
+    };
+    const source = _sourceMap[_rawSource.toLowerCase()] || _rawSource || (r.telegramChatId ? '🤖 Telegram' : (r.assignedBy === 'admin' ? '👤 Admin' : r.assignedBy || '?'));
+    const sourceIcon = /🤖/.test(source) ? '🤖' : /🧠/.test(source) ? '🧠' : /👤/.test(source) ? '👤' : /☁️/.test(source) ? '☁️' : /📱/.test(source) ? '📱' : '📋';
+
+    let html = '<div style="display:grid;grid-template-columns:280px 1fr 300px;gap:15px;min-height:200px">';
+
+    // ========== LINKS: Fahrt-Info + Herkunft ==========
+    html += '<div>';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    html += `<span style="font-weight:bold;color:#ffd700;font-size:1.05em">${sourceIcon} ${esc(customer)}</span>`;
+    html += `<button onclick="copyRideInfo()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>`;
+    html += `</div>`;
+    html += `<div class="field"><span class="label">Von:</span><span class="value">${esc(r.pickup || '?')}</span></div>`;
+    // 🆕 v6.39.0: Zwischenstopps anzeigen
+    if (r.waypoints && Array.isArray(r.waypoints) && r.waypoints.length > 0) {
+        r.waypoints.forEach((wp, i) => {
+            const wpAddr = wp.address || wp.name || wp;
+            const wpShort = typeof wpAddr === 'string' ? wpAddr.split(',').slice(0, 2).join(',') : '?';
+            html += `<div class="field"><span class="label" style="color:#ff9800">⏹ Stopp ${i+1}:</span><span class="value" style="color:#ff9800">${esc(wpShort)}</span></div>`;
+        });
+    }
+    html += `<div class="field"><span class="label">Nach:</span><span class="value">${esc(r.destination || '?')}</span></div>`;
+    html += `<div class="field"><span class="label">Zeit:</span><span class="value">${time}</span></div>`;
+    html += `<div class="field"><span class="label">Status:</span><span class="value">${esc(r.status || '?')}</span></div>`;
+    html += `<div class="field"><span class="label">Fahrzeug:</span><span class="value">${esc(r.assignedVehicleName || r.vehicle || 'keins')}</span></div>`;
+    html += `<div class="field"><span class="label">Dauer:</span><span class="value">${r.duration || r.estimatedDuration || '?'} Min</span></div>`;
+    html += `<div class="field"><span class="label">Preis:</span><span class="value">${r.price || '?'} EUR</span></div>`;
+    html += `<div style="margin-top:10px;border-top:1px solid #222;padding-top:8px">`;
+    html += `<div class="field"><span class="label">Quelle:</span><span class="value">${sourceIcon} ${esc(source)}</span></div>`;
+    if (r.assignedBy) html += `<div class="field"><span class="label">Zugewiesen:</span><span class="value">${esc(r.assignedBy)}</span></div>`;
+    if (r.createdAt) html += `<div class="field"><span class="label">Erstellt:</span><span class="value">${timeStr(r.createdAt)}</span></div>`;
+    if (r.telegramChatId) html += `<div class="field"><span class="label">Telegram:</span><span class="value">Chat ${esc(String(r.telegramChatId))}</span></div>`;
+    if (r.telegramBookedBy) html += `<div class="field"><span class="label">Gebucht von:</span><span class="value">${esc(r.telegramBookedBy)}</span></div>`;
+    if (r.customerId) html += `<div class="field"><span class="label">CRM-ID:</span><span class="value" style="font-family:monospace;font-size:0.75em">${esc(r.customerId)}</span></div>`;
+    if (r.pickupTimeShifted) html += `<div class="field"><span class="label">Verschoben:</span><span class="value bad">${esc(r.pickupShiftReason || 'Ja')}</span></div>`;
+    html += '</div></div>';
+
+    // ========== MITTE: Kompletter Ablauf (Timeline) ==========
+    html += '<div style="border-left:1px solid #333;border-right:1px solid #333;padding:0 15px">';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    html += `<span style="font-weight:bold;color:#ffd700">Kompletter Ablauf</span>`;
+    html += `<button onclick="copyTimeline()" style="background:#1a1a2e;border:1px solid #ffd700;color:#ffd700;padding:3px 12px;border-radius:4px;cursor:pointer;font-size:0.78em">📋 Log kopieren</button>`;
+    html += `</div>`;
+    html += `<div id="fullTimelineContainer" style="font-size:0.82em;max-height:350px;overflow-y:auto">Lade Ablauf...</div>`;
+    html += '</div>';
+
+    // ========== RECHTS: VehicleScores ==========
+    const scores = r.vehicleScores || {};
+    const scoreEntries = Object.entries(scores).sort((a, b) => {
+        const order = { available: 0, 'overlap-soft': 1, 'overlap-hard': 2, busy: 3, 'shift-end': 4 };
+        return (order[a[1].status] || 5) - (order[b[1].status] || 5);
+    });
+
+    html += '<div>';
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    html += `<span style="font-weight:bold;color:#ffd700">Fahrzeug-Scoring</span>`;
+    html += `<button onclick="copyScores()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>`;
+    html += `</div>`;
+
+    if (scoreEntries.length === 0) {
+        html += '<div style="color:#666;font-size:0.85em">Keine Scores</div>';
+    } else {
+        const assignedV = r.assignedVehicle || r.vehicleId || '';
+        scoreEntries.forEach(([vid, sc]) => {
+            const isChosen = vid === assignedV;
+            const statusIcons = { 'available': '✅', 'busy': '⏳', 'overlap-hard': '🔴', 'overlap-soft': '🟡', 'shift-end': '🕐' };
+            const icon = isChosen ? '✅' : (statusIcons[sc.status] || '❓');
+            const cls = isChosen ? 'chosen' : (sc.status || '');
+
+            let info = '';
+            if (isChosen) {
+                info = `<b>GEWAEHLT</b>`;
+                if (sc.totalScore !== undefined) info += ` Score: ${sc.totalScore}`;
+                if (sc.leerfahrtMin !== undefined) info += ` | ${sc.leerfahrtMin} Min Leerfahrt`;
+            } else if (sc.status === 'busy') {
+                info = `Besetzt${sc.busyUntil ? ' bis ' + sc.busyUntil : ''}`;
+                if (sc.overlapMin) info += ` (${sc.overlapMin} Min)`;
+                if (sc.blockingRideCustomer) info += `<br><span style="color:#888;font-size:0.85em">⛔ ${esc(sc.blockingRideCustomer)}${sc.blockingRideDest ? ' → ' + esc(sc.blockingRideDest).substring(0,25) : ''}</span>`;
+            } else if (sc.status === 'overlap-hard' || sc.status === 'overlap-soft') {
+                info = `Zeitkonflikt${sc.busyUntil ? ' bis ' + sc.busyUntil : ''}`;
+                if (sc.blockingRideCustomer) info += ` | ${esc(sc.blockingRideCustomer)}`;
+            } else if (sc.check === 'shift' || sc.check === 'capacity') {
+                info = sc.reason || (sc.check === 'shift' ? 'Kein Dienst' : 'Zu klein');
+            } else if (sc.status === 'available') {
+                info = 'Verfuegbar';
+                if (sc.totalScore !== undefined) info += ` | Score: ${sc.totalScore}`;
+                if (sc.leerfahrtMin !== undefined) info += ` | ${sc.leerfahrtMin} Min`;
+            } else {
+                info = sc.reason || sc.status || '?';
+            }
+
+            const lockBtn = `<button onclick="forceAssignVehicle('${esc(vid)}')" title="Fahrzeug manuell zuweisen" style="background:#7c3aed;border:none;color:white;padding:1px 6px;border-radius:4px;cursor:pointer;font-size:0.8em;margin-left:4px;flex-shrink:0;" >🔒</button>`;
+            html += `<div class="score-row ${cls}" style="font-size:0.85em">
+                <span>${icon}</span>
+                <span style="min-width:80px;font-weight:600;font-size:0.9em">${esc(vid).substring(0, 14)}</span>
+                <span style="flex:1;color:#aaa">${info}</span>
+                ${lockBtn}
+            </div>`;
+        });
+    }
+    html += '</div></div>';
+
+    feed.innerHTML = html;
+
+    // Kompletten Ablauf laden (Lifecycle + Telegram merged)
+    loadFullTimeline(selectedRideId, r);
+}
+
+function loadFullTimeline(rideId, ride) {
+    const container = document.getElementById('fullTimelineContainer');
+    if (!container) return;
+
+    // 1) Lifecycle-Log aus der Fahrt sammeln
+    const timelineItems = [];
+    const logData = ride?.lifecycleLog;
+    if (logData) {
+        Object.entries(logData).forEach(([k, v]) => {
+            let detailText = '';
+            if (v.details) {
+                try {
+                    const d = typeof v.details === 'string' ? JSON.parse(v.details) : v.details;
+                    const parts = [];
+                    if (d.fahrzeug) parts.push('🚗 ' + d.fahrzeug);
+                    if (d.score !== undefined) parts.push('Score: ' + d.score);
+                    if (d.leerfahrt) parts.push('Leerfahrt: ' + d.leerfahrt);
+                    if (d.methode) parts.push(d.methode);
+                    if (d.quelle) parts.push(d.quelle);
+                    if (d.pickup || d.abholort) parts.push('📍 ' + (d.pickup || d.abholort));
+                    if (d.destination || d.zielort) parts.push('🎯 ' + (d.destination || d.zielort));
+                    if (d.abholKoords) parts.push('Koords: ' + d.abholKoords);
+                    if (d.zielKoords) parts.push('Koords: ' + d.zielKoords);
+                    if (d.abholQuelle) parts.push('Quelle: ' + d.abholQuelle);
+                    if (d.altFahrzeug && d.neuFahrzeug) parts.push(d.altFahrzeug + ' → ' + d.neuFahrzeug);
+                    if (d.altStatus && d.neuStatus) parts.push(d.altStatus + ' → ' + d.neuStatus);
+                    if (d.modus) parts.push('Modus: ' + d.modus);
+                    if (d.gewählt) parts.push('✅ ' + d.gewählt);
+                    if (d.geprüft) parts.push(d.geprüft + ' geprüft');
+                    if (d.abgelehnt) parts.push(d.abgelehnt + ' abgelehnt');
+                    if (d.ablehnungen) parts.push('❌ ' + String(d.ablehnungen).substring(0, 100));
+                    if (d.typ) parts.push(d.typ);
+                    if (d.ergebnis) parts.push(d.ergebnis);
+                    if (d.kunde) parts.push('👤 ' + d.kunde);
+                    if (d.chatId) parts.push('Chat: ' + d.chatId);
+                    detailText = parts.length > 0 ? parts.join(' | ') : JSON.stringify(d).substring(0, 200);
+                } catch(e) { detailText = String(v.details).substring(0, 150); }
+            }
+            timelineItems.push({
+                time: v.t || 0,
+                icon: v.icon || '📋',
+                text: v.action || '?',
+                detail: detailText,
+                source: 'cloud',
+                color: '#1a2e3e',
+                border: '#2196f3'
+            });
+        });
+    }
+
+    // 2) Telegram Bot-Log laden (wenn Chat-ID vorhanden)
+    const chatId = String(ride.telegramChatId || '');
+    if (chatId) {
+        const createdDate = new Date(ride.createdAt || ride.pickupTimestamp || Date.now());
+        const dateKey = createdDate.getFullYear() + '-' + String(createdDate.getMonth()+1).padStart(2,'0') + '-' + String(createdDate.getDate()).padStart(2,'0');
+
+        db.ref('settings/telegram/botlog/' + dateKey).orderByKey().limitToLast(500).once('value', snap => {
+            const data = snap.val();
+            if (data) {
+                const createdTs = ride.createdAt || 0;
+                const windowStart = createdTs ? createdTs - 10 * 60000 : 0;
+                const windowEnd = createdTs ? createdTs + 5 * 60000 : Date.now();
+
+                Object.entries(data).forEach(([k, v]) => {
+                    if (String(v.chatId) !== chatId) return;
+                    if (createdTs && (v.time < windowStart || v.time > windowEnd)) return;
+
+                    // Kategorie bestimmen
+                    let color = '#111', border = '#555';
+                    const msg = v.msg || '';
+                    if (/Nachricht von|eingehend/i.test(msg)) { color = '#0d1520'; border = '#2196f3'; }
+                    else if (/Bot antwortet|gesendet/i.test(msg)) { color = '#0d1f0d'; border = '#4caf50'; }
+                    else if (/KI-Analyse|Analysiere|Anthropic/i.test(msg)) { color = '#0d1a1f'; border = '#00bcd4'; }
+                    else if (/Button:|Callback|geklickt/i.test(msg)) { color = '#180d1f'; border = '#9c27b0'; }
+                    else if (/CRM|Kunde|Treffer/i.test(msg)) { color = '#1a1a0d'; border = '#ffd700'; }
+                    else if (/Fehler|Error/i.test(msg)) { color = '#1f0d0d'; border = '#f44336'; }
+                    else if (/Buchung erstellt|erstellt/i.test(msg)) { color = '#0d1f0d'; border = '#4caf50'; }
+                    else if (/Pending|pending|Favorit/i.test(msg)) { color = '#1a1508'; border = '#ff9800'; }
+                    else if (/Geocod|Adresse|Nominatim|Koordinat/i.test(msg)) { color = '#0d1a15'; border = '#009688'; }
+
+                    let detailText = '';
+                    if (v.details) {
+                        try {
+                            const d = typeof v.details === 'string' ? JSON.parse(v.details) : v.details;
+                            detailText = JSON.stringify(d, null, 1).substring(0, 250);
+                        } catch(_) { detailText = String(v.details).substring(0, 200); }
+                    }
+
+                    timelineItems.push({
+                        time: v.time || 0,
+                        icon: v.emoji || '💬',
+                        text: msg,
+                        detail: detailText,
+                        source: 'telegram',
+                        color, border
+                    });
+                });
+            }
+
+            // Sortieren und rendern
+            renderTimeline(container, timelineItems);
+        });
+    } else {
+        // Kein Telegram — nur Lifecycle
+        renderTimeline(container, timelineItems);
+    }
+}
+
+function renderTimeline(container, items) {
+    items.sort((a, b) => (a.time || 0) - (b.time || 0));
+    lastTimelineItems = items; // Global speichern fuer Copy
+
+    if (items.length === 0) {
+        container.innerHTML = '<div style="color:#555">Kein Ablauf vorhanden</div>';
+        return;
+    }
+
+    // Schritte nummerieren
+    container.innerHTML = items.map((item, i) => {
+        const tStr = item.time ? timeStr(item.time) : '';
+        const srcBadge = item.source === 'telegram'
+            ? '<span style="background:#00bcd4;color:#000;border-radius:3px;padding:0 4px;font-size:0.7em;margin-left:4px">TG</span>'
+            : '<span style="background:#2196f3;color:#fff;border-radius:3px;padding:0 4px;font-size:0.7em;margin-left:4px">Cloud</span>';
+
+        let detailHtml = '';
+        if (item.detail) {
+            detailHtml = `<div style="color:#777;font-size:0.85em;margin-top:2px;padding-left:20px;font-family:monospace;white-space:pre-wrap;max-height:60px;overflow:hidden">${esc(item.detail)}</div>`;
+        }
+
+        return `<div style="padding:5px 8px;margin:2px 0;border-radius:6px;background:${item.color};border-left:3px solid ${item.border};position:relative">
+            <span style="color:#555;font-size:0.75em;font-weight:bold;margin-right:4px">${i + 1}.</span>
+            <span style="color:#666;font-family:monospace;font-size:0.82em">${tStr}</span>
+            ${srcBadge}
+            <span style="margin-left:4px">${item.icon}</span> ${esc(item.text)}
+            ${detailHtml}
+        </div>`;
+    }).join('');
+
+    // Zum Ende scrollen
+    container.scrollTop = 0;
+}
+
+function flashCopyBtn(btn) {
+    if (!btn) return;
+    const orig = btn.textContent; btn.textContent = '✅'; btn.style.color = '#4caf50';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = '#888'; }, 1500);
+}
+
+function copyRideInfo() {
+    if (!selectedRideId || !allRides[selectedRideId]) return;
+    const r = allRides[selectedRideId];
+    const source = r.source || r.bookingSource || (r.telegramChatId ? 'Telegram' : r.assignedBy || '?');
+    let text = `FAHRT-INFO\n`;
+    text += `Kunde: ${r.customerName || r.name || '?'}\n`;
+    text += `Von: ${r.pickup || '?'}\n`;
+    if (r.waypoints && Array.isArray(r.waypoints) && r.waypoints.length > 0) {
+        r.waypoints.forEach((wp, i) => {
+            const wpAddr = wp.address || wp.name || wp;
+            const wpShort = typeof wpAddr === 'string' ? wpAddr.split(',').slice(0, 2).join(',') : '?';
+            text += `Zwischenstopp ${i+1}: ${wpShort}\n`;
+        });
+    }
+    text += `Nach: ${r.destination || '?'}\n`;
+    text += `Zeit: ${r.pickupTimestamp ? shortTime(r.pickupTimestamp) : '?'}\n`;
+    text += `Status: ${r.status || '?'}\n`;
+    text += `Fahrzeug: ${r.assignedVehicleName || r.vehicle || 'keins'}\n`;
+    text += `Dauer: ${r.duration || r.estimatedDuration || '?'} Min\n`;
+    text += `Preis: ${r.price || '?'} EUR\n`;
+    text += `Quelle: ${source}\n`;
+    if (r.assignedBy) text += `Zugewiesen von: ${r.assignedBy}\n`;
+    if (r.createdAt) text += `Erstellt: ${timeStr(r.createdAt)}\n`;
+    if (r.telegramChatId) text += `Telegram-Chat: ${r.telegramChatId}\n`;
+    if (r.telegramBookedBy) text += `Gebucht von: ${r.telegramBookedBy}\n`;
+    if (r.customerId) text += `CRM-ID: ${r.customerId}\n`;
+    if (r.pickupTimeShifted) text += `Verschoben: ${r.pickupShiftReason || 'Ja'}\n`;
+    text += `Ride-ID: ${selectedRideId}\n`;
+    navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+}
+
+function copyScores() {
+    if (!selectedRideId || !allRides[selectedRideId]) return;
+    const r = allRides[selectedRideId];
+    const scores = r.vehicleScores || {};
+    const assignedV = r.assignedVehicle || r.vehicleId || '';
+    let text = `VEHICLE SCORES — ${r.customerName || '?'} ${r.pickupTimestamp ? shortTime(r.pickupTimestamp) : ''}\n\n`;
+    Object.entries(scores).forEach(([vid, sc]) => {
+        const chosen = vid === assignedV ? ' ← GEWAEHLT' : '';
+        let info = sc.status || '?';
+        if (sc.busyUntil) info += ` bis ${sc.busyUntil}`;
+        if (sc.totalScore !== undefined) info += ` Score:${sc.totalScore}`;
+        if (sc.leerfahrtMin !== undefined) info += ` Leerfahrt:${sc.leerfahrtMin}Min`;
+        if (sc.overlapMin) info += ` Overlap:${sc.overlapMin}Min`;
+        if (sc.reason) info += ` (${sc.reason})`;
+        if (sc.blockingRideCustomer) info += ` Block:${sc.blockingRideCustomer}`;
+        if (sc.blockingRideDest) info += ` → ${sc.blockingRideDest}`;
+        text += `${vid}: ${info}${chosen}\n`;
+    });
+    navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+}
+
+function copyChanges() {
+    let text = `LIVE AENDERUNGEN (${changes.length})\n\n`;
+    changes.slice(0, 50).forEach((c, i) => {
+        text += `${timeStr(c.time)} ${c.type} — ${c.title}\n`;
+        if (c.diffs) c.diffs.forEach(d => {
+            text += `  - ${d.old}\n  + ${d.new}\n`;
+        });
+        text += `\n`;
+    });
+    navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+}
+
+function copyTimeline() {
+    if (!selectedRideId || !allRides[selectedRideId]) return;
+    const r = allRides[selectedRideId];
+    const customer = r.customerName || r.name || '?';
+    const time = r.pickupTimestamp ? shortTime(r.pickupTimestamp) : '?';
+    const source = r.source || r.bookingSource || (r.telegramChatId ? 'Telegram' : r.assignedBy || '?');
+
+    let text = `=== FAHRT-LOG ===\n`;
+    text += `Kunde: ${customer}\n`;
+    text += `Von: ${r.pickup || '?'}\n`;
+    if (r.waypoints && Array.isArray(r.waypoints) && r.waypoints.length > 0) {
+        r.waypoints.forEach((wp, i) => {
+            const wpAddr = wp.address || wp.name || wp;
+            const wpShort = typeof wpAddr === 'string' ? wpAddr.split(',').slice(0, 2).join(',') : '?';
+            text += `Zwischenstopp ${i+1}: ${wpShort}\n`;
+        });
+    }
+    text += `Nach: ${r.destination || '?'}\n`;
+    text += `Zeit: ${time}\n`;
+    text += `Status: ${r.status || '?'}\n`;
+    text += `Fahrzeug: ${r.assignedVehicleName || r.vehicle || 'keins'}\n`;
+    text += `Quelle: ${source}\n`;
+    text += `Ride-ID: ${selectedRideId}\n`;
+    if (r.telegramChatId) text += `Telegram-Chat: ${r.telegramChatId}\n`;
+    if (r.customerId) text += `CRM-ID: ${r.customerId}\n`;
+    if (r.duration) text += `Dauer: ${r.duration} Min\n`;
+    if (r.price) text += `Preis: ${r.price} EUR\n`;
+    text += `\n=== ABLAUF (${lastTimelineItems.length} Schritte) ===\n\n`;
+
+    lastTimelineItems.forEach((item, i) => {
+        const tStr = item.time ? timeStr(item.time) : '??:??:??';
+        const src = item.source === 'telegram' ? '[TG]' : '[Cloud]';
+        text += `${i + 1}. ${tStr} ${src} ${item.icon} ${item.text}\n`;
+        if (item.detail) text += `   → ${item.detail}\n`;
+        text += `\n`;
+    });
+
+    // VehicleScores
+    const scores = r.vehicleScores || {};
+    const scoreEntries = Object.entries(scores);
+    if (scoreEntries.length > 0) {
+        text += `=== VEHICLE SCORES ===\n`;
+        const assignedV = r.assignedVehicle || r.vehicleId || '';
+        scoreEntries.forEach(([vid, sc]) => {
+            const chosen = vid === assignedV ? ' ← GEWAEHLT' : '';
+            let info = sc.status || '?';
+            if (sc.busyUntil) info += ` bis ${sc.busyUntil}`;
+            if (sc.totalScore !== undefined) info += ` Score:${sc.totalScore}`;
+            if (sc.leerfahrtMin !== undefined) info += ` Leerfahrt:${sc.leerfahrtMin}Min`;
+            if (sc.overlapMin) info += ` Overlap:${sc.overlapMin}Min`;
+            if (sc.reason) info += ` (${sc.reason})`;
+            if (sc.blockingRideCustomer) info += ` Block:${sc.blockingRideCustomer}`;
+            text += `  ${vid}: ${info}${chosen}\n`;
+        });
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('#fullTimelineContainer')?.closest('div')?.querySelector('button');
+        if (btn) { const orig = btn.textContent; btn.textContent = '✅ Kopiert!'; btn.style.borderColor = '#4caf50'; btn.style.color = '#4caf50'; setTimeout(() => { btn.textContent = orig; btn.style.borderColor = '#ffd700'; btn.style.color = '#ffd700'; }, 2000); }
+    }).catch(e => { alert('Kopieren fehlgeschlagen — bitte manuell kopieren'); });
+}
+
+function copyRidesList() {
+    const rides = Object.entries(allRides).sort((a,b) => (a[1].pickupTimestamp||0) - (b[1].pickupTimestamp||0));
+    let text = `FAHRTEN HEUTE + ZUKUNFT (${rides.length})\n\n`;
+    rides.forEach(([id, r]) => {
+        const time = r.pickupTimestamp ? shortTime(r.pickupTimestamp) : '?';
+        const customer = r.customerName || r.name || '?';
+        const vehicle = r.assignedVehicleName || r.vehicle || '-';
+        text += `${time} | ${r.status || '?'} | ${customer} | ${r.pickup || '?'} → ${r.destination || '?'} | ${vehicle}\n`;
+    });
+    navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+}
+
+function copyBotLog() {
+    let text = `BOT-LOG (${events.length} Eintraege)\n\n`;
+    const filtered = eventFilter === 'all' ? events : events.filter(e => e.cls === eventFilter);
+    filtered.slice(-50).reverse().forEach(e => {
+        const t = typeof e.time === 'number' ? timeStr(e.time) : '??:??';
+        text += `${t} ${e.emoji} ${e.msg}\n`;
+        if (e.chatId) text += `  Chat: ${e.chatId}\n`;
+    });
+    navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+}
+
+function copyPending() {
+    const feed = document.getElementById('pendingFeed');
+    if (!feed) return;
+    // Hole aktuelle Pending-Daten direkt aus Firebase
+    db.ref('settings/telegram/pending').once('value', snap => {
+        const data = snap.val();
+        if (!data || Object.keys(data).length === 0) {
+            navigator.clipboard.writeText('PENDING: Keine aktiven Pendings');
+            flashCopyBtn(event?.target);
+            return;
+        }
+        let text = `PENDING STATES (${Object.keys(data).length})\n\n`;
+        Object.entries(data).forEach(([chatId, p]) => {
+            const partial = p.partial || {};
+            const missing = partial.missing || [];
+            text += `=== ${partial.name || p.userName || chatId} ===\n`;
+            if (p.originalText) text += `Original: "${p.originalText}"\n`;
+            if (partial.pickup) text += `Von: ${partial.pickup}\n`;
+            else if (missing.includes('pickup')) text += `Von: FEHLT\n`;
+            if (partial.destination) text += `Nach: ${partial.destination}\n`;
+            else if (missing.includes('destination')) text += `Nach: FEHLT\n`;
+            if (partial.datetime) text += `Wann: ${partial.datetime}\n`;
+            else if (missing.includes('datetime')) text += `Wann: FEHLT\n`;
+            if (partial.phone) text += `Tel: ${partial.phone}\n`;
+            else if (missing.includes('phone')) text += `Tel: FEHLT\n`;
+            if (missing.length > 0) text += `Fehlend: ${missing.join(', ')}\n`;
+            else text += `Status: KOMPLETT\n`;
+            if (partial.question || p.lastQuestion) text += `Bot-Frage: "${partial.question || p.lastQuestion}"\n`;
+            if (p._createdAt) text += `Erstellt: ${new Date(p._createdAt).toLocaleString('de-DE')}\n`;
+            text += `Chat-ID: ${chatId}\n\n`;
+        });
+        navigator.clipboard.writeText(text).then(() => flashCopyBtn(event?.target));
+    });
+}
+
+// ===== MANUELLES FAHRZEUG-LOCKING =====
+function forceAssignVehicle(vehicleId) {
+    if (!selectedRideId) { alert('Keine Fahrt ausgewählt'); return; }
+    const rideRef = db.ref('rides/' + selectedRideId);
+    rideRef.once('value', snap => {
+        const ride = snap.val();
+        if (!ride) { alert('Fahrt nicht gefunden'); return; }
+        const customerName = ride.customerName || '?';
+        const currentVehicle = ride.assignedVehicle || '(keins)';
+        if (!confirm(`🔒 Fahrzeug zuweisen?\n\nFahrt: ${customerName}\nVon: ${currentVehicle} → ${vehicleId}\n\nOK = Jetzt zuweisen`)) return;
+        rideRef.update({
+            assignedVehicle: vehicleId,
+            status: ride.status === 'pending' ? 'assigned' : ride.status,
+            assignedBy: 'manual-monitor',
+            updatedAt: Date.now()
+        }).then(() => {
+            console.log('✅ Fahrzeug manuell zugewiesen:', vehicleId);
+        }).catch(err => alert('Fehler: ' + err.message));
+    });
+}
+
+// ===== RIDE LISTENER (Change Detection!) =====
+db.ref('rides').orderByChild('pickupTimestamp').limitToLast(50).on('value', snap => {
+    const data = snap.val() || {};
+
+    if (!isFirstLoad) {
+        // Aenderungen erkennen
+        for (const [rideId, newRide] of Object.entries(data)) {
+            const oldRide = prevRides[rideId];
+            if (!oldRide) {
+                // Neue Fahrt
+                if (newRide.pickupTimestamp) {
+                    addChange('new-ride', `Neue Fahrt: ${shortTime(newRide.pickupTimestamp)} ${newRide.customerName || '?'}`, [
+                        { old: '', new: `${newRide.pickup || '?'} → ${newRide.destination || '?'}` }
+                    ], rideId);
+                }
+            } else {
+                // Bestehende Fahrt geaendert
+                detectRideChanges(oldRide, newRide, rideId);
+            }
+        }
+        // Geloeschte Fahrten
+        for (const [rideId, oldRide] of Object.entries(prevRides)) {
+            if (!data[rideId] && oldRide.pickupTimestamp) {
+                addChange('deleted-ride', `Geloescht: ${shortTime(oldRide.pickupTimestamp)} ${oldRide.customerName || '?'}`, [], rideId);
+            }
+        }
+    }
+
+    isFirstLoad = false;
+    prevRides = JSON.parse(JSON.stringify(data));
+    allRides = data;
+
+    renderRides();
+    if (selectedRideId) renderDetail();
+});
+
+// ===== PANEL: BOT-LOG =====
+function getTodayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function classifyEvent(emoji, msg) {
+    if (/Nachricht von|Neue Buchungs|Buchung erstellt/.test(msg)) return 'booking';
+    if (/Button:|Callback/.test(msg)) return 'button';
+    if (/KI-Analyse|Analysiere|Anthropic|Claude/.test(msg)) return 'ki';
+    if (/Fehler|Error|error|WARNUNG|failed/.test(msg)) return 'error';
+    if (/zugewiesen|Fahrzeug|Score|Kandidat/.test(msg)) return 'assign';
+    if (/Status|status|geaendert|completed|cancelled/.test(msg)) return 'status';
+    return 'system';
+}
+
+db.ref('settings/telegram/botlog/' + getTodayKey()).orderByKey().limitToLast(1).on('child_added', snap => {
+    const v = snap.val();
+    if (!v) return;
+    const evt = {
+        id: snap.key, time: v.time, emoji: v.emoji || '', msg: v.msg || '',
+        chatId: v.chatId, cls: classifyEvent(v.emoji, v.msg)
+    };
+    if (!events.find(e => e.id === evt.id)) {
+        events.push(evt);
+        if (events.length > 150) events.shift();
+        renderEvents();
+    }
+});
+
+// Initial load
+db.ref('settings/telegram/botlog/' + getTodayKey()).orderByKey().limitToLast(50).once('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    events = Object.entries(data).map(([k, v]) => ({
+        id: k, time: v.time, emoji: v.emoji || '', msg: v.msg || '',
+        chatId: v.chatId, cls: classifyEvent(v.emoji, v.msg)
+    })).sort((a, b) => (a.time || 0) - (b.time || 0));
+    renderEvents();
+});
+
+function renderEvents() {
+    const feed = document.getElementById('eventFeed');
+    const filtered = eventFilter === 'all' ? events : events.filter(e => e.cls === eventFilter);
+    feed.innerHTML = filtered.slice(-40).reverse().map(e => {
+        const t = typeof e.time === 'number' ? timeStr(e.time) : '';
+        return `<div class="event ${e.cls}"><span class="time">${t}</span><span>${e.emoji}</span> ${esc(e.msg)}</div>`;
+    }).join('') || '<div class="empty-msg">Keine Events</div>';
+}
+
+function toggleFilter(btn, filter) {
+    eventFilter = filter;
+    document.querySelectorAll('#panelEvents .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderEvents();
+}
+
+// ===== PANEL: PENDING =====
+db.ref('settings/telegram/pending').on('value', snap => {
+    const data = snap.val();
+    const feed = document.getElementById('pendingFeed');
+    const entries = data ? Object.entries(data) : [];
+    document.getElementById('pendingCount').textContent = entries.length;
+    document.getElementById('statPending').textContent = 'Pending: ' + entries.length;
+
+    if (entries.length === 0) {
+        feed.innerHTML = '<div class="empty-msg">Kein Pending</div>';
+        return;
+    }
+
+    feed.innerHTML = entries.sort((a, b) => (b[1]._createdAt || 0) - (a[1]._createdAt || 0)).map(([chatId, p]) => {
+        const partial = p.partial || {};
+        const missing = partial.missing || [];
+        let html = `<div class="pending-card ${missing.length > 0 ? 'active' : ''}">`;
+        html += `<div style="display:flex;justify-content:space-between"><b>${esc(partial.name || p.userName || chatId)}</b><span style="color:#888;font-size:0.75em">${p._createdAt ? age(p._createdAt) : ''}</span></div>`;
+        if (p.originalText) html += `<div style="color:#ffd700;font-size:0.78em;margin:4px 0">"${esc(p.originalText)}"</div>`;
+
+        [['Von', partial.pickup, 'pickup'], ['Nach', partial.destination, 'destination'], ['Wann', partial.datetime, 'datetime'], ['Tel', partial.phone, 'phone']].forEach(([l, v, k]) => {
+            const ok = !!v;
+            const needed = missing.includes(k);
+            if (ok || needed) html += `<div class="field"><span class="label">${l}:</span><span class="value ${ok ? 'good' : 'bad'}">${ok ? esc(String(v).substring(0, 30)) : 'FEHLT'}</span></div>`;
+        });
+
+        if (missing.length > 0) html += `<div style="margin-top:4px">${missing.map(m => `<span class="missing-tag">${esc(m)}</span>`).join(' ')}</div>`;
+        else html += `<div style="margin-top:4px"><span class="ok-tag">KOMPLETT</span></div>`;
+
+        if (partial.question || p.lastQuestion) {
+            html += `<div style="margin-top:4px;padding:4px;background:#0d1520;border-radius:4px;font-size:0.72em;color:#90caf9">"${esc((partial.question || p.lastQuestion).substring(0, 100))}"</div>`;
+        }
+        return html + '</div>';
+    }).join('');
+});
+
+// Initial render
+renderChanges();
+</script>
+</body>
+</html>

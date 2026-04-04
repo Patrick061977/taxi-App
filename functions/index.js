@@ -5671,11 +5671,13 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         if (favDests && favDests.length > 0) {
                             _favDestsForPending = favDests.slice(0, 3);
                             const _favBtnId = (pending && pending.bookingId) || String(Date.now()).slice(-8);
-                            const destBtns = _favDestsForPending.map((d, i) => ({
-                                text: '⭐ ' + (d.name || d.destination || '').substring(0, 30),
-                                callback_data: `fav_dest_${i}_${_favBtnId}`
-                            }));
-                            _inlineButtons.push(destBtns);
+                            // 🔧 v6.38.95: Jeder Favorit in EIGENER Zeile (vorher nebeneinander → abgeschnitten!)
+                            _favDestsForPending.forEach((d, i) => {
+                                _inlineButtons.push([{
+                                    text: '⭐ ' + (d.name || d.destination || '').substring(0, 40),
+                                    callback_data: `fav_dest_${i}_${_favBtnId}`
+                                }]);
+                            });
                         }
                     } catch(_e) { /* ignore */ }
                 }
@@ -5713,9 +5715,8 @@ async function continueBookingFlow(chatId, booking, originalText) {
                                     text: '📍 ' + (p.name.length > 28 ? p.name.substring(0, 26) + '…' : p.name),
                                     callback_data: `poi_d_${p._fbKey}`
                                 }));
-                            if (_poiBtns.length > 0) {
-                                _inlineButtons.push(_poiBtns);
-                            }
+                            // 🔧 v6.38.95: Jeder POI in eigener Zeile (nicht nebeneinander!)
+                            _poiBtns.forEach(btn => _inlineButtons.push([btn]));
                         }
                     }
                 } catch(_poiErr) { console.warn('POI-Buttons Fehler:', _poiErr.message); }

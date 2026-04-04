@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🚕 Taxi buchen — Umwelt Taxi Usedom</title>
+    <title>🚕 Taxi buchen — Funk Taxi Heringsdorf</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -309,7 +309,7 @@
 <body>
     <!-- Header -->
     <div class="header">
-        <div class="header-logo">🚕 Umwelt Taxi Usedom</div>
+        <div class="header-logo">🚕 Funk Taxi Heringsdorf</div>
         <a href="kunden.html" class="header-login">👤 Kunden-Login</a>
     </div>
 
@@ -336,6 +336,13 @@
                 <span class="input-icon">🎯</span>
                 <input type="text" id="b-destination" placeholder="Wohin möchten Sie fahren?" autocomplete="off">
                 <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+            </div>
+
+            <!-- Name -->
+            <div class="input-group">
+                <label>👤 Ihr Name</label>
+                <span class="input-icon">👤</span>
+                <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
             </div>
 
             <!-- Personen -->
@@ -435,7 +442,7 @@
         <div class="info-footer">
             📞 <a href="tel:03837822022">038378 22022</a> ·
             🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
-            Funk Taxi Heringsdorf · Usedom
+            Funk Taxi Heringsdorf · Usedom · Bansin · Ahlbeck
         </div>
     </div>
 
@@ -1024,6 +1031,13 @@
 
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
+            // 🆕 v6.38.74: Namens-Check
+            const nameVal = (document.getElementById('b-name')?.value || '').trim();
+            if (!nameVal || nameVal.length < 2) {
+                showToast('⚠️ Bitte Ihren Namen eingeben');
+                document.getElementById('b-name')?.focus();
+                return;
+            }
             document.getElementById('booking-card').style.display = 'none';
             document.getElementById('phone-card').style.display = 'block';
             document.getElementById('b-phone').focus();
@@ -1113,7 +1127,7 @@
                 destinationLat: destCoords.lat,
                 destinationLon: destCoords.lon,
                 destCoords: { lat: destCoords.lat, lon: destCoords.lon },
-                customerName: 'Web-Kunde',
+                customerName: (document.getElementById('b-name')?.value || '').trim() || 'Web-Kunde',
                 customerPhone: customerPhone,
                 passengers,
                 status: isVorbestellt ? 'vorbestellt' : 'new',

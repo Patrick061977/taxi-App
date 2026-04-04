@@ -4926,8 +4926,11 @@ Nur gültiges JSON, kein Markdown:
         // Kundenadresse automatisch für das fehlende Feld einsetzen.
         // Beispiel: Ostseeblick ruft an, sagt "Abholen am Bahnhof 16:25" → Ziel = Ostseeblick-Adresse
         // 🔧 v6.38.52: NICHT wenn Pickup bereits = Kundenadresse (sonst Pickup = Ziel = gleich!)
+        // 🔧 v6.39.1: NICHT wenn Auftraggeber (Hotel/Firma) — deren Adresse wird vom Auftraggeber-Flow
+        //             per Frage "Abholort oder Zielort?" eingesetzt. Auto-Fill würde immer doppelte
+        //             Adresse erzeugen (Hotel Residenz Bug: Kanalstraße = Pickup UND Destination)
         const _custAddr = booking._customerAddress;
-        if (_custAddr && preselected) {
+        if (_custAddr && preselected && !booking._auftraggeberAddress) {
             const _hasPickup = !!booking.pickup;
             const _hasDest = !!booking.destination;
             // Prüfe ob Pickup schon die Kundenadresse ist → dann KEIN Auto-Ziel setzen
@@ -4949,6 +4952,8 @@ Nur gültiges JSON, kein Markdown:
                 else if (preselected.lat) { booking.pickupLat = preselected.lat; booking.pickupLon = preselected.lon; }
                 await addTelegramLog('🏠', chatId, `Stammkunde ${preselected.name}: Abholort auto → ${_custAddr}`);
             }
+        } else if (_custAddr && preselected && booking._auftraggeberAddress) {
+            await addTelegramLog('⏭️', chatId, `Stammkunde Auto-Fill übersprungen: ${preselected.name} ist Auftraggeber → Auftraggeber-Flow übernimmt Adresse`);
         }
 
         // 🆕 v6.20.1: Erkannte Daten als Übersicht anzeigen

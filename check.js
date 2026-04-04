@@ -8,24 +8,17 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// Key aus .env.local oder check.key Datei lesen
-let KEY = '';
+// Standard-Key (kann in Firebase unter settings/healthCheckKey überschrieben werden)
+const DEFAULT_KEY = 'funk-taxi-heringsdorf-2026';
+
+// Optionaler Custom-Key aus .check.key Datei
+let KEY = DEFAULT_KEY;
 const keyFile = path.join(__dirname, '.check.key');
 if (fs.existsSync(keyFile)) {
     KEY = fs.readFileSync(keyFile, 'utf8').trim();
-} else {
-    // Aus Umgebungsvariable
-    KEY = process.env.CHECK_KEY || '';
 }
 
-if (!KEY) {
-    console.log('❌ Kein Key! Erstelle .check.key Datei mit dem Webhook Secret:');
-    console.log('   echo "DEIN_WEBHOOK_SECRET" > .check.key');
-    console.log('   (Key findest du in Firebase: settings/telegram/webhookSecret)');
-    process.exit(1);
-}
-
-const URL = `https://healthcheck-jdesb7r5ua-ew.a.run.app?key=${encodeURIComponent(KEY)}`;
+const URL = `https://europe-west1-taxi-heringsdorf.cloudfunctions.net/healthCheck?key=${encodeURIComponent(KEY)}`;
 
 console.log('🔍 Frage Live-Status ab...\n');
 

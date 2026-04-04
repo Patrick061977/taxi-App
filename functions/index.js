@@ -19383,12 +19383,15 @@ exports.healthCheck = onRequest(
         res.set('Access-Control-Allow-Origin', '*');
         if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
 
-        // Key-Check (gleicher Key wie errorDashboard)
+        // Key-Check: statischer Health-Check Key (in Firebase settings/healthCheckKey speicherbar)
         const key = req.query.key;
-        const secretSnap = await db.ref('settings/telegram/webhookSecret').once('value');
-        const secret = secretSnap.val();
-        if (!key || key !== secret) {
-            res.status(403).json({ error: 'Kein Zugriff. ?key=WEBHOOK_SECRET Parameter nötig.' });
+        // Primär: Firebase Datenbank Key; Fallback: statischer Key
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const savedKey = keySnap.val();
+        const STATIC_KEY = 'funk-taxi-heringsdorf-2026';
+        const validKey = savedKey || STATIC_KEY;
+        if (!key || key !== validKey) {
+            res.status(403).json({ error: 'Kein Zugriff. ?key= Parameter fehlt. Standard: funk-taxi-heringsdorf-2026' });
             return;
         }
 

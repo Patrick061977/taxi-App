@@ -18,7 +18,7 @@ if (fs.existsSync(keyFile)) {
     KEY = fs.readFileSync(keyFile, 'utf8').trim();
 }
 
-const URL = `https://europe-west1-taxi-heringsdorf.cloudfunctions.net/healthCheck?key=${encodeURIComponent(KEY)}`;
+const URL = `https://healthcheck-jdesb7r5ua-ew.a.run.app?key=${encodeURIComponent(KEY)}`;
 
 console.log('🔍 Frage Live-Status ab...\n');
 

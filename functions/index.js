@@ -14036,6 +14036,12 @@ async function handleCallback(callback) {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {
             const booking = pending.partial;
+            // 🔧 v6.38.95: Alte Nachricht editieren → Buttons entfernen (verhindert Doppelklick!)
+            const _msgId = callback.message?.message_id;
+            if (_msgId) {
+                const _shortAddr = (booking._auftraggeberAddress || '').substring(0, 40);
+                await editTelegramMessage(chatId, _msgId, `✅ <b>${_shortAddr}</b> → Abholort`);
+            }
             booking.pickup = booking._auftraggeberAddress;
             booking.missing = (booking.missing || []).filter(f => f !== 'pickup');
             if (booking._auftraggeberLat && booking._auftraggeberLon) {
@@ -14075,6 +14081,12 @@ async function handleCallback(callback) {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {
             const booking = pending.partial;
+            // 🔧 v6.38.95: Alte Nachricht editieren → Buttons entfernen (verhindert Doppelklick!)
+            const _msgId = callback.message?.message_id;
+            if (_msgId) {
+                const _shortAddr = (booking._auftraggeberAddress || '').substring(0, 40);
+                await editTelegramMessage(chatId, _msgId, `✅ <b>${_shortAddr}</b> → Zielort`);
+            }
             booking.destination = booking._auftraggeberAddress;
             booking.missing = (booking.missing || []).filter(f => f !== 'destination');
             if (booking._auftraggeberLat && booking._auftraggeberLon) {
@@ -14093,6 +14105,9 @@ async function handleCallback(callback) {
         const pending = await getPending(chatId);
         if (pending && pending.partial) {
             const booking = pending.partial;
+            // 🔧 v6.38.95: Alte Nachricht editieren → Buttons entfernen (verhindert Doppelklick!)
+            const _msgId = callback.message?.message_id;
+            if (_msgId) await editTelegramMessage(chatId, _msgId, `⏭️ Auftraggeber-Adresse übersprungen`);
             booking._auftraggeberResolved = true;
             // 🔧 v6.38.98: Gleicher Duplikat-Check wie in auftr_pickup_ — Zielort löschen wenn = Auftraggeber-Adresse
             // Verhindert: Abholort = Zielort nach "Weder noch"
@@ -17894,7 +17909,10 @@ exports.onRideUpdated = onValueUpdated(
             }
 
             // Kunden-Buchungsbestätigung bei neuer Zuweisung (nicht bei Stornierung)
-            if (!after.customerTelegramSent) {
+            // 🔧 v6.38.95: Wenn Fahrt gerade erst erstellt (<15s), NICHT senden — onRideCreated macht das!
+            // Race Condition: autoAssignRide() updatet sofort → onRideUpdated feuert BEVOR onRideCreated fertig
+            const _rideAgeMs = after.createdAt ? Date.now() - after.createdAt : Infinity;
+            if (!after.customerTelegramSent && _rideAgeMs > 15000) {
                 const customerChatId = await getCustomerChatId(after);
                 if (customerChatId) {
                     // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name

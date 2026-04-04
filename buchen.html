@@ -622,8 +622,9 @@
                     if (!vInfo.lat || !vInfo.lon) continue;
                     if (!isVehicleInShift(vid, nowDateStr, nowTimeStr)) continue;
                     const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
-                    if (gpsAgeMin > 60) continue;
-                    const isFresh = gpsAgeMin < 30;
+                    // 🔧 v6.38.89: War 60 Min → 10 Min — veraltetes GPS erzeugt keine falschen ETAs mehr
+                    if (gpsAgeMin > 10) continue;
+                    const isFresh = gpsAgeMin < 5; // 🔧 v6.38.89: War 30 → 5 Min
                     const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
                     const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
                     const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(pickupCoords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
@@ -634,11 +635,21 @@
                         closestFresh = isFresh;
                     }
                 }
-                const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
                 if (closestEtaMin !== null) {
+                    const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
                     bar.textContent = `${base} — 🚕 ca. ${closestEtaMin} Min bis zu dir`;
+                } else {
+                    // 🔧 v6.38.89: Kein aktuelles GPS (> 10 Min alt oder kein GPS) → Sofortbuchung unsicher
+                    // → auf Anrufen umschalten statt falschen grünen Button zu zeigen
+                    isAvailable = false;
+                    bar.className = 'status-bar';
+                    bar.style.background = '#fef3c7';
+                    bar.style.color = '#92400e';
+                    bar.textContent = `⚠️ Kein GPS verfügbar — bitte direkt anrufen: 038378 22022`;
+                    const callBox = document.getElementById('offline-call-box');
+                    if (callBox) callBox.classList.add('visible');
+                    updateBookButton();
                 }
-                // Kein Fallback "5-15 Min" mehr — lieber gar keine Zeit als falsche Zeit
             } catch(e) { /* ETA nicht verfügbar */ }
         }
 

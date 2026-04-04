@@ -1,5 +1,39 @@
 # Taxi-App Entwicklungshinweise
 
+---
+
+## 🔍 PFLICHT: Bugs sofort melden (WICHTIG!)
+
+**Claude MUSS bei jeder Code-Analyse potenzielle Bugs und Schwachstellen sofort ansprechen — BEVOR sie Probleme verursachen!**
+
+### Regel:
+- Wenn Claude beim Lesen von Code eine Stelle findet, die Fehler verursachen KÖNNTE (nicht nur die aktuell bearbeitete Stelle), MUSS Claude das sofort ansprechen
+- Nicht stillschweigend übergehen — immer aktiv kommunizieren
+- Bugklassen die IMMER gemeldet werden müssen:
+  - Funktionen die Parameter erwarten die sie nicht bekommen (oder ignorieren)
+  - String-Vergleiche wo Koordinaten-Vergleich robuster wäre
+  - Variablen die in einem Scope definiert sind aber woanders benutzt werden (`ReferenceError`)
+  - Fehlende `try/catch` bei async-Operationen die den Bot stummschalten könnten
+  - Fehlende Null-Checks bei Firebase-Daten
+  - Duplikat-Checks die durch leicht unterschiedliche Strings fehlschlagen
+  - Pending-State der bei Fehler nicht aufgeräumt wird → Bot hängt
+
+### Format für Bug-Meldungen:
+```
+⚠️ POTENZIELLER BUG GEFUNDEN (Zeile X):
+Problem: [kurze Beschreibung]
+Auswirkung: [was passiert wenn es crasht]
+Fix: [wie es behoben werden sollte]
+Jetzt fixen? Ja/Nein
+```
+
+### Beispiele aus der Praxis:
+- `setVehicle()` nimmt keinen Parameter → wird mit Argument aufgerufen, Argument wird ignoriert
+- `searchWords` in `searchNominatimForTelegram()` definiert → im Handler-Scope benutzt → `ReferenceError`
+- `booking.destination === booking._auftraggeberAddress` → schlägt fehl wenn Geocache Hotelname voranstellt
+
+---
+
 ## Aktueller Stand (2026-03-26)
 
 **Version:** v6.38.34 | **Branch:** `main`

@@ -8771,30 +8771,43 @@ async function handleMessage(message) {
             return;
         }
 
-        // Partial-Buchung aufbauen: Kunden-Adresse ist das ANDERE Feld (bereits bekannt)
-        const custAddr = preselectedCustomer.address || '';
-        const custLat = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
-        const custLon = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
-        const partialBooking = {
-            intent: 'buchung',
-            name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
-            customerName: preselectedCustomer.name,
-            customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
-            customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
-            _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
-            _forCustomer: preselectedCustomer.name,
-            _adminBooked: true,
-            _adminChatId: chatId,
-            missing: [isPickupField ? 'pickup' : 'destination'],  // für nominatimResults-Handler (line ~7330)
-        };
-        if (isPickupField) {
-            // Kunde Nach-Hause = Zielort bereits gesetzt
-            partialBooking.destination = custAddr;
-            if (custLat) { partialBooking.destinationLat = custLat; partialBooking.destinationLon = custLon; }
+        // 🔧 v6.38.94: Bestehende Buchung aus Pending nutzen (wenn vorhanden)
+        // Vorher wurde die Buchung bei jedem Adress-Wechsel neu aufgebaut → Datum/Uhrzeit/Personen verloren!
+        const _existingBooking = pending.partial || pending.booking || null;
+        let partialBooking;
+        if (_existingBooking) {
+            // Existierende Buchung klonen — nur das zu ändernde Feld leeren
+            partialBooking = { ..._existingBooking };
+            if (isPickupField) {
+                partialBooking.pickup = null; partialBooking.pickupLat = null; partialBooking.pickupLon = null;
+            } else {
+                partialBooking.destination = null; partialBooking.destinationLat = null; partialBooking.destinationLon = null;
+            }
+            await addTelegramLog('♻️', chatId, `${fieldLabel} ändern: bestehende Buchung übernommen (Datum/Uhrzeit/Personen behalten)`);
         } else {
-            // Kunden-Adresse = Abholort bereits gesetzt
-            partialBooking.pickup = custAddr;
-            if (custLat) { partialBooking.pickupLat = custLat; partialBooking.pickupLon = custLon; }
+            // Fallback: Neue Buchung aus preselectedCustomer aufbauen (ursprünglicher Pfad)
+            const custAddr = preselectedCustomer.address || '';
+            const custLat = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
+            const custLon = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
+            partialBooking = {
+                intent: 'buchung',
+                name: preselectedCustomer.name,
+                customerName: preselectedCustomer.name,
+                customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
+                customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+                _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+                _forCustomer: preselectedCustomer.name,
+                _adminBooked: true,
+                _adminChatId: chatId,
+                missing: [isPickupField ? 'pickup' : 'destination'],
+            };
+            if (isPickupField) {
+                partialBooking.destination = custAddr;
+                if (custLat) { partialBooking.destinationLat = custLat; partialBooking.destinationLon = custLon; }
+            } else {
+                partialBooking.pickup = custAddr;
+                if (custLat) { partialBooking.pickupLat = custLat; partialBooking.pickupLon = custLon; }
+            }
         }
 
         await sendTelegramMessage(chatId, `🔍 <i>Suche "${text}"...</i>`);
@@ -8834,7 +8847,14 @@ async function handleMessage(message) {
         // 🔧 v6.38.61: matchScore >= 60 erforderlich wenn kein Ortsname in Query — verhindert schwache Geocache-Matches (z.B. "O room" → Wolgast)
         const _autoHit = suggestions.find(s => _TRUSTED.includes(s.source) && s.lat && s.lon && _townOk(s) && (_explTown || !s.matchScore || s.matchScore >= 60));
         // Stufe 2: Lokale Quellen (booking, customer) → "Meinten Sie?" Bestätigung
-        const _confirmHit = !_autoHit && _explTown && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk(s));
+        // 🔧 v6.38.88: _explTown-Pflicht entfernt — CRM-Treffer wie "Bauernstube" auch ohne Ortsname in Query anzeigen
+        // customer-nocoords (lat=0) werden akzeptiert — Geocodierung erfolgt bei Bestätigung
+        const _confirmHit = !_autoHit && suggestions.find(s => {
+            if (s.source === 'nominatim') return false;
+            if (s.source === 'customer-nocoords') return true; // CRM-Eintrag ohne Koordinaten → immer anzeigen
+            if (!s.lat || !s.lon) return false;
+            return isNearUsedom(parseFloat(s.lat), parseFloat(s.lon)) || _townOk(s);
+        });
         // Stufe 3: Nominatim → stilles Auto-Select nur mit Hausnr + Ort + streetOk
         const _bestHit = _autoHit ||
             (!_confirmHit && _hasHausnr && _explTown && suggestions.find(s => s.lat && s.lon && _streetOk(s) && _townOk(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
@@ -8888,7 +8908,9 @@ async function handleMessage(message) {
 
         // 🔧 v6.38.21: Kein Auto-Select → "Meinten Sie?" mit bestem Vorschlag + PLZ-Fallback
         // KEIN Fallback ohne _townOk! Sonst kommt Wolgast als Vorschlag bei "Ahlbeck Bahnhof"
-        const _bestGuess = suggestions.find(s => s.lat && s.lon && _townOk(s)) || (!_explTown && suggestions.find(s => s.lat && s.lon));
+        // 🔧 v6.38.88: customer-nocoords auch als _bestGuess akzeptieren (lat=0 ist falsy — würde sonst nie angezeigt)
+        const _bestGuess = suggestions.find(s => (s.lat && s.lon && _townOk(s)) || s.source === 'customer-nocoords') ||
+            (!_explTown && suggestions.find(s => s.lat && s.lon));
         await setPending(chatId, {
             _awaitingPLZ: true,
             _awaitingField,
@@ -13975,6 +13997,15 @@ async function handleCallback(callback) {
             }
             booking._auftraggeberResolved = true;
             await addTelegramLog('📍', chatId, `Auftraggeber-Adresse als ABHOLORT: ${booking._auftraggeberAddress}`);
+            // 🔧 v6.38.94: Wenn Destination = Auftraggeber-Adresse (von Stammkunde auto-gesetzt),
+            // dann löschen — sonst sind Abholort UND Zielort identisch!
+            if (booking.destination && booking.destination === booking._auftraggeberAddress) {
+                booking.destination = null;
+                booking.destinationLat = null;
+                booking.destinationLon = null;
+                if (!booking.missing.includes('destination')) booking.missing.push('destination');
+                await addTelegramLog('🔄', chatId, `Zielort = Auftraggeber-Adresse → gelöscht (war auto-gesetzt durch Stammkunde-Logik)`);
+            }
             await continueBookingFlow(chatId, booking, pending.originalText || '');
         }
         return;
@@ -14087,8 +14118,18 @@ async function handleCallback(callback) {
         if (!pending || !pending._awaitingPLZ || !pending._awaitingPLZGuess) return;
         const { _awaitingField, _awaitingPLZGuess: guess, _decisionKey, partialBooking, preselectedCustomer } = pending;
         const isPickupField = _awaitingField === 'pickup';
-        if (isPickupField) { partialBooking.pickup = guess.name; partialBooking.pickupLat = guess.lat; partialBooking.pickupLon = guess.lon; }
-        else { partialBooking.destination = guess.name; partialBooking.destinationLat = guess.lat; partialBooking.destinationLon = guess.lon; }
+        // 🔧 v6.38.88: customer-nocoords → Koordinaten jetzt per Geocoding nachladen
+        let finalLat = guess.lat, finalLon = guess.lon;
+        if ((!finalLat || !finalLon || parseFloat(finalLat) === 0) && guess.name) {
+            await addTelegramLog('🔍', chatId, `Geocodiere CRM-Adresse ohne Koordinaten: "${guess.name}"`);
+            try {
+                const geocoded = await searchNominatimForTelegram(guess.name);
+                const geoHit = geocoded.find(g => g.lat && g.lon && isNearUsedom(parseFloat(g.lat), parseFloat(g.lon)));
+                if (geoHit) { finalLat = geoHit.lat; finalLon = geoHit.lon; }
+            } catch (e) { console.warn('Geocoding-Fallback Fehler:', e.message); }
+        }
+        if (isPickupField) { partialBooking.pickup = guess.name; partialBooking.pickupLat = finalLat; partialBooking.pickupLon = finalLon; }
+        else { partialBooking.destination = guess.name; partialBooking.destinationLat = finalLat; partialBooking.destinationLon = finalLon; }
         await addTelegramLog('✅', chatId, `PLZ-Guess bestätigt: ${guess.name}`);
         // 🆕 v6.38.61: Entscheidung als richtig markieren
         if (_decisionKey) await updateDecisionOutcome(_decisionKey, 'correct');

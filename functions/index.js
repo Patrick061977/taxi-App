@@ -11739,10 +11739,10 @@ async function handleCallback(callback) {
             }
             if (_arIsDest) {
                 // Zielort = Zuhause → Favoriten als ABHOLORT-Vorschläge zeigen
+                // 🔧 v6.38.95: Gesamten Pending-Kontext bewahren (partial falls vorhanden)
                 await setPending(chatId, {
+                    ..._arPending,
                     awaitingFavPickup: true,
-                    originalText: _arPending.originalText,
-                    userName: _arPending.userName,
                     preselectedCustomer: _arCustomer,
                     favorites: _arFavs,
                     favId: _arFavId
@@ -11757,10 +11757,10 @@ async function handleCallback(callback) {
                 await sendTelegramMessage(chatId, _arFavMsg, { reply_markup: { inline_keyboard: _arBtns } });
             } else {
                 // Abholort = Zuhause → Favoriten als ZIELORT-Vorschläge zeigen
+                // 🔧 v6.38.95: Gesamten Pending-Kontext bewahren (partial falls vorhanden)
                 await setPending(chatId, {
+                    ..._arPending,
                     awaitingFavDestination: true,
-                    originalText: _arPending.originalText,
-                    userName: _arPending.userName,
                     preselectedCustomer: _arCustomer,
                     favorites: _arFavs,
                     favId: _arFavId
@@ -11813,7 +11813,8 @@ async function handleCallback(callback) {
 
         if (data.startsWith('fav_pickup_other_')) {
             // 🔧 v6.38.17: Direkte Abholort-Adresssuche
-            await setPending(chatId, { _awaitingNewBookingText: true, _awaitingField: 'pickup', preselectedCustomer, userName });
+            // 🔧 v6.38.95: Vollständigen Pending-Kontext bewahren (partial, originalText, guestName etc.)
+            await setPending(chatId, { ..._fpPending, _awaitingNewBookingText: true, _awaitingField: 'pickup' });
             await sendTelegramMessage(chatId, `📍 <b>Abholort für ${preselectedCustomer.name}</b>\n\nBitte Abholadresse eingeben:\n<i>Beispiel: Bahnhof Heringsdorf</i>`);
             return;
         }
@@ -11823,11 +11824,27 @@ async function handleCallback(callback) {
         if (!_fpFav) { await sendTelegramMessage(chatId, '⚠️ Ungültige Auswahl.'); return; }
 
         await addTelegramLog('🚖', chatId, `Abholort aus Favoriten: ${_fpFav.destination} → Nach Hause (${preselectedCustomer.address})`);
-        // Buchungstext aufbauen: von [Favorit] nach Hause
-        const _fpText = (originalText || '') + ` von ${_fpFav.destination} nach Hause`;
-        await deletePending(chatId);
-        await sendTelegramMessage(chatId, `✅ <b>${preselectedCustomer.name}</b>\n🚖 Von: ${_fpFav.destination}\n🏠 Nach: ${preselectedCustomer.address}\n🤖 <i>Analysiere...</i>`);
-        await analyzeTelegramBooking(chatId, _fpText, userName, { isAdmin: true, preselectedCustomer });
+
+        // 🔧 v6.38.95: Buchungskontext bewahren statt neu analysieren!
+        const _fpBooking = _fpPending.partial;
+        if (_fpBooking) {
+            _fpBooking.pickup = _fpFav.destination;
+            _fpBooking.missing = (_fpBooking.missing || []).filter(f => f !== 'pickup');
+            if (_fpFav.destinationLat && _fpFav.destinationLon) {
+                _fpBooking.pickupLat = _fpFav.destinationLat;
+                _fpBooking.pickupLon = _fpFav.destinationLon;
+            } else {
+                try { const g = await geocode(_fpFav.destination); if (g) { _fpBooking.pickupLat = g.lat; _fpBooking.pickupLon = g.lon; } } catch(e) {}
+            }
+            await sendTelegramMessage(chatId, `✅ 🚖 Von: ${_fpFav.destination}\n🏠 Nach: ${preselectedCustomer.address}`);
+            await continueBookingFlow(chatId, _fpBooking, _fpPending.originalText || '');
+        } else {
+            // Fallback: kein partial → alte Logik
+            const _fpText = (originalText || '') + ` von ${_fpFav.destination} nach Hause`;
+            await deletePending(chatId);
+            await sendTelegramMessage(chatId, `✅ <b>${preselectedCustomer.name}</b>\n🤖 <i>Analysiere...</i>`);
+            await analyzeTelegramBooking(chatId, _fpText, userName, { isAdmin: true, preselectedCustomer });
+        }
         return;
     }
 
@@ -12095,12 +12112,8 @@ async function handleCallback(callback) {
 
         if (data.startsWith('fav_dest_other_')) {
             // 🔧 v6.38.17: Direkte Zieladresssuche statt KI-Analyse
-            await setPending(chatId, {
-                _awaitingNewBookingText: true,
-                _awaitingField: 'destination',
-                preselectedCustomer,
-                userName
-            });
+            // 🔧 v6.38.95: Vollständigen Pending-Kontext bewahren (partial, originalText, guestName etc.)
+            await setPending(chatId, { ...pending, _awaitingNewBookingText: true, _awaitingField: 'destination' });
             await sendTelegramMessage(chatId, `📍 <b>Zielort für ${preselectedCustomer.name}</b>\n\nBitte Zieladresse eingeben:\n<i>Beispiel: Maxim-Gorki-Straße 37, Heringsdorf</i>`);
             return;
         }

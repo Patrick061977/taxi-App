@@ -96,6 +96,21 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
 .filter-btn { background: #1a1a2e; border: 1px solid #333; color: #888; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7em; }
 .filter-btn.active { border-color: #ffd700; color: #ffd700; }
 
+/* ===== VEHICLES & DISPATCH ===== */
+.vehicle-card { padding: 6px 8px; margin: 3px 0; border-radius: 6px; font-size: 0.8em; background: #111; display: flex; align-items: center; gap: 8px; }
+.vehicle-card.online { border-left: 3px solid #4caf50; }
+.vehicle-card.offline { border-left: 3px solid #555; opacity: 0.6; }
+.vehicle-card.busy { border-left: 3px solid #ff9800; }
+.vehicle-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.vehicle-dot.on { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+.vehicle-dot.off { background: #555; }
+.vehicle-dot.busy { background: #ff9800; box-shadow: 0 0 6px #ff9800; }
+.vehicle-name { font-weight: 700; min-width: 90px; }
+.vehicle-gps { color: #888; font-family: monospace; font-size: 0.85em; }
+.vehicle-dist { color: #ffd700; font-weight: 600; font-size: 0.85em; min-width: 60px; text-align: right; }
+.vehicle-ride { color: #42a5f5; font-size: 0.8em; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dispatch-event { padding: 4px 8px; margin: 2px 0; border-radius: 4px; font-size: 0.78em; border-left: 3px solid #ff9800; background: #1f170d; animation: slideIn 0.4s ease-out; }
+
 /* Sound toggle */
 .sound-btn { background: none; border: 1px solid #555; color: #888; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; }
 .sound-btn.on { border-color: #4caf50; color: #4caf50; }
@@ -169,6 +184,20 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
             </div>
         </div>
         <div class="panel-body" id="pendingFeed"></div>
+    </div>
+
+    <!-- Panel 4b: FAHRZEUGE & DISPATCH (NEU v6.38.95) -->
+    <div class="panel" id="panelVehicles" style="grid-column: span 2;">
+        <div class="panel-header">
+            <h2>🚗 Fahrzeuge & Dispatch</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <span style="color:#888;font-size:0.7em" id="vehicleRefresh">-</span>
+                <div class="badge" id="vehicleOnlineCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="vehicleFeed">
+            <div class="empty-msg">Lade Fahrzeuge...</div>
+        </div>
     </div>
 
     <!-- Panel 5: Fahrten-Detail / VehicleScores (volle Breite unten) -->
@@ -1037,6 +1066,211 @@ db.ref('settings/telegram/pending').on('value', snap => {
 
 // Initial render
 renderChanges();
+
+// ===== PANEL: FAHRZEUGE & DISPATCH (v6.38.95) =====
+let vehicleData = {};
+let dispatchEvents = [];
+
+// Haversine-Distanz in km
+function distKm(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatDist(km) {
+    if (km === null || isNaN(km)) return '-';
+    return km < 1 ? (km * 1000).toFixed(0) + 'm' : km.toFixed(1) + 'km';
+}
+
+// Offizielle Fahrzeuge (IDs die wir tracken)
+const OFFICIAL_VEHICLES = ['pw-ik-222', 'pw-my-222-e', 'pw-ki-222', 'pw-sk-222', 'vg-lk-111', 'pw-ym-222-e'];
+
+// Firebase Listener fuer /vehicles
+db.ref('vehicles').on('value', snap => {
+    vehicleData = snap.val() || {};
+    renderVehicles();
+});
+
+function renderVehicles() {
+    const feed = document.getElementById('vehicleFeed');
+    if (!feed) return;
+
+    // Naechste aktive Fahrt fuer Entfernungsberechnung finden
+    const activeRides = Object.values(allRides).filter(r =>
+        r && ['new', 'vorbestellt', 'assigned', 'accepted', 'on_way'].includes(r.status)
+    ).sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
+
+    // Naechster Pickup (fuer Entfernung)
+    const nextPickup = activeRides.find(r => r.pickupLat && r.pickupLon && ['new', 'assigned'].includes(r.status));
+
+    let onlineCount = 0;
+    let html = '';
+
+    // Alle offiziellen Fahrzeuge durchgehen
+    for (const vid of OFFICIAL_VEHICLES) {
+        const v = vehicleData[vid];
+        const hasGPS = v && v.lat && v.lon;
+        const isOnline = v && v.online !== false && hasGPS;
+        const gpsAge = v && v.timestamp ? Math.round((Date.now() - v.timestamp) / 1000) : null;
+        const isFresh = gpsAge !== null && gpsAge < 120;
+
+        // Aktuelle Fahrt fuer dieses Fahrzeug
+        const currentRide = activeRides.find(r => r.assignedVehicle === vid || r.vehicleId === vid);
+        const isBusy = currentRide && ['on_way', 'picked_up', 'accepted'].includes(currentRide.status);
+
+        if (isOnline && isFresh) onlineCount++;
+
+        // Entfernung zum naechsten Pickup
+        let distStr = '-';
+        if (hasGPS && nextPickup) {
+            const d = distKm(v.lat, v.lon, nextPickup.pickupLat, nextPickup.pickupLon);
+            distStr = formatDist(d);
+        }
+
+        // Entfernung zum eigenen Ride-Pickup
+        let ownDistStr = '';
+        if (hasGPS && currentRide && currentRide.pickupLat) {
+            const d = distKm(v.lat, v.lon, currentRide.pickupLat, currentRide.pickupLon);
+            ownDistStr = ' → ' + formatDist(d);
+        }
+
+        const statusClass = isBusy ? 'busy' : (isOnline && isFresh ? 'online' : 'offline');
+        const dotClass = isBusy ? 'busy' : (isOnline && isFresh ? 'on' : 'off');
+
+        // Fahrzeug-Name aus v.name oder vid
+        const name = v && v.name ? v.name : vid.replace(/-/g, ' ').toUpperCase();
+        const plate = v && v.plate ? v.plate : '';
+
+        html += `<div class="vehicle-card ${statusClass}">`;
+        html += `<div class="vehicle-dot ${dotClass}"></div>`;
+        html += `<div class="vehicle-name">${esc(plate || name)}</div>`;
+
+        if (hasGPS) {
+            const ageStr = gpsAge !== null ? (gpsAge < 60 ? gpsAge + 's' : Math.round(gpsAge/60) + 'min') : '?';
+            const ageColor = gpsAge < 30 ? '#4caf50' : gpsAge < 120 ? '#ff9800' : '#f44336';
+            html += `<div class="vehicle-gps">${v.lat.toFixed(4)},${v.lon.toFixed(4)} <span style="color:${ageColor}">${ageStr}</span></div>`;
+        } else {
+            html += `<div class="vehicle-gps" style="color:#555">Kein GPS</div>`;
+        }
+
+        if (currentRide) {
+            const st = currentRide.status;
+            const stColor = st === 'accepted' ? '#aed581' : st === 'on_way' ? '#ffb74d' : st === 'assigned' ? '#42a5f5' : '#888';
+            const customer = currentRide.customerName || '?';
+            html += `<div class="vehicle-ride"><span style="color:${stColor};font-weight:700">${st.toUpperCase()}</span> ${esc(customer)}${ownDistStr}</div>`;
+        } else if (nextPickup && hasGPS) {
+            html += `<div class="vehicle-dist">${distStr}</div>`;
+        }
+
+        html += `</div>`;
+    }
+
+    // Dispatch-Events (letzte 10)
+    if (dispatchEvents.length > 0) {
+        html += `<div style="margin-top:8px;border-top:1px solid #222;padding-top:6px">`;
+        html += `<div style="font-size:0.7em;color:#888;font-weight:700;margin-bottom:4px">DISPATCH LOG</div>`;
+        for (const evt of dispatchEvents.slice(0, 15)) {
+            html += `<div class="dispatch-event"><span class="time">${timeStr(evt.time)}</span> ${evt.emoji} ${esc(evt.msg)}</div>`;
+        }
+        html += `</div>`;
+    }
+
+    feed.innerHTML = html || '<div class="empty-msg">Keine Fahrzeuge</div>';
+    document.getElementById('vehicleOnlineCount').textContent = onlineCount + ' online';
+    document.getElementById('vehicleRefresh').textContent = timeStr(Date.now());
+}
+
+// Dispatch-Events tracken: Status-Wechsel in Rides
+function trackDispatch(rideId, oldRide, newRide) {
+    if (!newRide) return;
+    const customer = newRide.customerName || newRide.guestName || '?';
+    const vehicle = newRide.assignedVehicle || '';
+    const vehicleName = vehicleData[vehicle]?.name || vehicleData[vehicle]?.plate || vehicle || '?';
+
+    // Neue Fahrt
+    if (!oldRide && newRide.status) {
+        const src = newRide.source || '?';
+        const isBuchen = src.includes('buchen') || src.includes('web');
+        dispatchEvents.unshift({
+            time: Date.now(),
+            emoji: isBuchen ? '🌐' : '📱',
+            msg: `NEUE FAHRT: ${customer} | ${newRide.pickup || '?'} → ${newRide.destination || '?'} | Quelle: ${src}`
+        });
+    }
+
+    // Status-Wechsel
+    if (oldRide && oldRide.status !== newRide.status) {
+        const emojis = { assigned: '🔵', accepted: '🟢', on_way: '🟠', picked_up: '🟣', completed: '✅', cancelled: '❌', storniert: '❌' };
+        const emoji = emojis[newRide.status] || '🔄';
+
+        let distInfo = '';
+        if (newRide.status === 'assigned' && vehicle && vehicleData[vehicle]) {
+            const vd = vehicleData[vehicle];
+            if (vd.lat && newRide.pickupLat) {
+                const d = distKm(vd.lat, vd.lon, newRide.pickupLat, newRide.pickupLon);
+                distInfo = ` | Entfernung: ${formatDist(d)}`;
+            }
+        }
+
+        dispatchEvents.unshift({
+            time: Date.now(),
+            emoji,
+            msg: `${customer}: ${oldRide.status} → ${newRide.status}${vehicle ? ' | ' + vehicleName : ''}${distInfo}`
+        });
+    }
+
+    // Fahrzeug-Wechsel
+    if (oldRide && oldRide.assignedVehicle !== newRide.assignedVehicle && newRide.assignedVehicle) {
+        const newV = vehicleData[newRide.assignedVehicle]?.name || newRide.assignedVehicle;
+        let distInfo = '';
+        if (vehicleData[newRide.assignedVehicle]) {
+            const vd = vehicleData[newRide.assignedVehicle];
+            if (vd.lat && newRide.pickupLat) {
+                const d = distKm(vd.lat, vd.lon, newRide.pickupLat, newRide.pickupLon);
+                distInfo = ` | Entfernung: ${formatDist(d)}`;
+            }
+        }
+        dispatchEvents.unshift({
+            time: Date.now(),
+            emoji: '🚗',
+            msg: `${customer}: Zugewiesen → ${newV}${distInfo}`
+        });
+    }
+
+    // Max 50 Events
+    if (dispatchEvents.length > 50) dispatchEvents.length = 50;
+}
+
+// In den bestehenden Rides-Listener einklinken
+const _origRidesHandler = db.ref('rides').orderByChild('pickupTimestamp').limitToLast(50);
+// Wir muessen den Dispatch-Tracker in den Change-Detection-Code integrieren
+// Das passiert bereits in der on('value') Listener ab Zeile 910
+// Wir patchen den Diff-Loop:
+const _origAddChange = addChange;
+// Override: Bei jeder Aenderung auch Dispatch tracken
+(function patchRidesListener() {
+    // Der bestehende Listener speichert prevRides/allRides.
+    // Wir fuegen einen zweiten Listener hinzu der NUR Dispatch trackt:
+    db.ref('rides').orderByChild('pickupTimestamp').limitToLast(50).on('value', snap => {
+        const data = snap.val() || {};
+        // Dispatch-Events nur nach erstem Load
+        if (!isFirstLoad) {
+            for (const [rideId, newRide] of Object.entries(data)) {
+                const oldRide = prevRides[rideId] || null;
+                if (!oldRide) {
+                    trackDispatch(rideId, null, newRide);
+                } else if (oldRide.status !== newRide.status || oldRide.assignedVehicle !== newRide.assignedVehicle) {
+                    trackDispatch(rideId, oldRide, newRide);
+                }
+            }
+        }
+        renderVehicles(); // Fahrzeug-Panel aktualisieren mit neuen Ride-Daten
+    });
+})();
 </script>
 </body>
 </html>

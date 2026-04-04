@@ -360,19 +360,25 @@
 
             <!-- Abholort -->
             <div class="input-group">
-                <label>📍 Abholort</label>
+                <label>📍 Abholort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
                 <span class="input-icon">📍</span>
-                <input type="text" id="b-pickup" placeholder="Wo sollen wir Sie abholen?" autocomplete="off">
+                <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off">
                 <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
                 <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
+                <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                </div>
             </div>
 
             <!-- Zielort -->
             <div class="input-group">
-                <label>🎯 Zielort</label>
+                <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
                 <span class="input-icon">🎯</span>
-                <input type="text" id="b-destination" placeholder="Wohin möchten Sie fahren?" autocomplete="off">
+                <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
                 <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+                <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                </div>
             </div>
 
             <!-- Name -->
@@ -434,7 +440,10 @@
             <button class="btn-book" id="btn-book" onclick="startBooking()" disabled>
                 🚕 Jetzt Taxi buchen
             </button>
-            <div style="text-align:center;margin-top:8px;font-size:12px;color:#94a3b8;">
+            <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
+                ⚠️ Bitte Abholort und Zielort aus der Liste wählen
+            </div>
+            <div style="text-align:center;margin-top:6px;font-size:12px;color:#94a3b8;">
                 Kostenlose Stornierung möglich
             </div>
         </div>
@@ -638,7 +647,8 @@
                 const snap = await db.ref('vehicleShifts').once('value');
                 shiftsData = snap.val() || {};
                 const now = berlinNow();
-                const count = getActiveVehicleCount(berlinDateStr(now), berlinTimeStr(now), 1);
+                // 🔧 v6.38.83: Kapazität nach Personenzahl prüfen
+                const count = getActiveVehicleCount(berlinDateStr(now), berlinTimeStr(now), passengers);
                 const bar = document.getElementById('status-bar');
                 const callBox = document.getElementById('offline-call-box');
                 if (count > 0) {
@@ -742,11 +752,14 @@
             const dateStr = berlinDateStr(dt);
             const timeStr = berlinTimeStr(dt);
 
-            // Schichtplan-Check
-            const activeCount = getActiveVehicleCount(dateStr, timeStr, passengers >= 5 ? 5 : 1);
+            // Schichtplan-Check mit korrekter Kapazität für gewählte Personenzahl
+            const activeCount = getActiveVehicleCount(dateStr, timeStr, passengers);
             if (activeCount === 0) {
                 el.className = 'availability-card unavailable';
-                el.innerHTML = '⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>';
+                // 🔧 v6.38.83: Klare Meldung je nach Personenzahl
+                el.innerHTML = passengers >= 5
+                    ? `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen im Dienst</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:03837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`
+                    : `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>`;
                 isAvailable = false;
                 updateBookButton();
                 return;
@@ -951,6 +964,9 @@
             document.querySelectorAll('.pax-btn').forEach((btn, i) => {
                 btn.classList.toggle('active', i + 1 === n);
             });
+            // 🔧 v6.38.83: Verfügbarkeit sofort neu prüfen bei Personenänderung
+            updateStatusBar();
+            if (pickupCoords && destCoords) checkAvailability();
         }
 
         // ═══════════════════════════════════════════════
@@ -1098,7 +1114,20 @@
 
             const shown = results.slice(0, 6);
             if (shown.length === 0) {
-                dropdown.style.display = 'none';
+                if (searchKey.length >= 3) {
+                    // 🔧 v6.38.83: Klar anzeigen dass keine Adresse gefunden wurde
+                    dropdown.innerHTML = `
+                        <div style="padding:14px 16px;color:#ef4444;font-size:13px;display:flex;align-items:center;gap:8px;">
+                            <span>❌</span>
+                            <div>
+                                <div style="font-weight:700;">Keine Adresse gefunden</div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:2px;">Bitte vollständige Adresse eingeben, z.B. "Seestraße 12, Heringsdorf"</div>
+                            </div>
+                        </div>`;
+                    dropdown.style.display = 'block';
+                } else {
+                    dropdown.style.display = 'none';
+                }
                 return;
             }
             dropdown.innerHTML = shown.map((r, i) => `
@@ -1108,7 +1137,7 @@
                 </div>
             `).join('');
             dropdown.style.display = 'block';
-            window._addrResults = { [inputId]: shown };
+            window._addrResults = { ...(window._addrResults || {}), [inputId]: shown };
         }
 
         function selectAddr(inputId, index) {
@@ -1120,7 +1149,7 @@
                 pickupCoords = { lat: r.lat, lon: r.lon };
                 // 🔧 v6.38.82: ETA in Status-Bar sofort aktualisieren nach Adresseingabe
                 const bar = document.getElementById('status-bar');
-                const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), 1);
+                const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), passengers);
                 if (cnt > 0 && wannModus === 'sofort') calcStatusBarEta(bar, cnt);
             }
             if (inputId === 'b-destination') destCoords = { lat: r.lat, lon: r.lon };

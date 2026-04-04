@@ -826,7 +826,7 @@
                     isAvailable = true;
 
                     // 🆕 v6.38.74: ETA für Sofort-Fahrten — GPS-Distanz des nächsten Fahrzeugs
-                    // 🔧 v6.38.78: Auch offline-Fahrzeuge mit letzter GPS-Position nutzen; Fallback wenn kein GPS
+                    // 🔧 v6.38.89: GPS-Altersfilter 10 Min, isFresh 5 Min, kein GPS → Anrufen statt Fallback
                     if (wannModus === 'sofort' && pickupCoords) {
                         el.className = 'availability-card available';
                         el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst. <span style="font-size:12px;opacity:0.7;">⏳ ETA wird berechnet...</span>`;
@@ -836,14 +836,15 @@
                             const dt2 = berlinNow();
                             const nowTs = Date.now();
                             let closestEtaMin = null;
-                            let closestEtaFresh = false; // true = GPS < 30 Min alt
+                            let closestEtaFresh = false;
                             for (const [vid, vInfo] of Object.entries(vData)) {
                                 if (!vInfo.lat || !vInfo.lon) continue;
                                 // Nur Fahrzeuge im Schichtplan
                                 if (!isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2))) continue;
-                                // GPS-Frische prüfen (lastUpdate in Firebase)
+                                // 🔧 v6.38.89: GPS älter als 10 Min ignorieren (war: kein Filter)
                                 const gpsAge = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
-                                const isFresh = gpsAge < 30; // < 30 Minuten → vertrauenswürdig
+                                if (gpsAge > 10) continue;
+                                const isFresh = gpsAge < 5; // 🔧 v6.38.89: War 30 → 5 Min
                                 // Distanz in km (Haversine)
                                 const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
                                 const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
@@ -861,11 +862,22 @@
                                 const freshNote = closestEtaFresh ? '' : ' <span style="font-size:11px;opacity:0.6;">(ca.)</span>';
                                 el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. ${closestEtaMin} Minuten</strong>${freshNote}`;
                             } else {
-                                // Kein GPS verfügbar → Fallback-Schätzung für Usedom Kaiserbäder
-                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. 5–15 Minuten</strong>`;
+                                // 🔧 v6.38.89: Kein aktuelles GPS → Anrufen statt falscher "5-15 Min" Schätzung
+                                isAvailable = false;
+                                el.className = 'availability-card warning';
+                                el.innerHTML = `⚠️ <strong>Kein GPS verfügbar</strong> — Fahrzeuge im Dienst, aber Position unbekannt.<br>📞 Bitte direkt anrufen: <strong>038378 22022</strong>`;
+                                const callBox = document.getElementById('offline-call-box');
+                                if (callBox) callBox.classList.add('visible');
+                                updateBookButton();
                             }
                         } catch(_) {
-                            el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. 5–15 Minuten</strong>`;
+                            // Bei Fehler: kein GPS → Anrufen
+                            isAvailable = false;
+                            el.className = 'availability-card warning';
+                            el.innerHTML = `⚠️ <strong>GPS-Abfrage fehlgeschlagen</strong> — bitte anrufen: <strong>038378 22022</strong>`;
+                            const callBox = document.getElementById('offline-call-box');
+                            if (callBox) callBox.classList.add('visible');
+                            updateBookButton();
                         }
                     } else {
                         el.className = 'availability-card available';

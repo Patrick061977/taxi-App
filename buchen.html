@@ -661,10 +661,45 @@
                 });
 
                 if (conflictCount < activeCount) {
-                    el.className = 'availability-card available';
-                    el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
                     isAvailable = true;
                     document.getElementById('btn-book').disabled = false;
+
+                    // 🆕 v6.38.74: ETA für Sofort-Fahrten — GPS-Distanz des nächsten Fahrzeugs
+                    if (wannModus === 'sofort' && pickupCoords) {
+                        el.className = 'availability-card available';
+                        el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst. <span style="font-size:12px;opacity:0.7;">⏳ ETA wird berechnet...</span>`;
+                        // Live GPS aus /vehicles laden → nächstes Online-Fahrzeug finden
+                        try {
+                            const vSnap = await db.ref('vehicles').once('value');
+                            const vData = vSnap.val() || {};
+                            let closestEtaMin = null;
+                            for (const [vid, vInfo] of Object.entries(vData)) {
+                                if (!vInfo.online) continue;
+                                if (!vInfo.lat || !vInfo.lon) continue;
+                                // Nur Fahrzeuge die auch im Schichtplan aktiv sind
+                                const dt2 = berlinNow();
+                                if (!isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2))) continue;
+                                // Distanz in km (Haversine)
+                                const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
+                                const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
+                                const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180) * Math.cos(pickupCoords.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+                                const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                // ETA: ~1.5 min/km auf Usedom (Straßen, nicht Luftlinie)
+                                const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
+                                if (closestEtaMin === null || etaMin < closestEtaMin) closestEtaMin = etaMin;
+                            }
+                            if (closestEtaMin !== null) {
+                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. ${closestEtaMin} Minuten</strong>`;
+                            } else {
+                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                            }
+                        } catch(_) {
+                            el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                        }
+                    } else {
+                        el.className = 'availability-card available';
+                        el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                    }
                 } else {
                     // 🔧 v6.38.57: Früheste Verfügbarkeit berechnen und anzeigen
                     let nextFreeMsg = '';

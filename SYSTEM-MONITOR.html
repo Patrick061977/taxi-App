@@ -186,6 +186,20 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         <div class="panel-body" id="pendingFeed"></div>
     </div>
 
+    <!-- Panel 4c: buchen.html Live-Log (NEU v6.38.95) -->
+    <div class="panel" id="panelBuchenLog">
+        <div class="panel-header">
+            <h2>🌐 buchen.html</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button onclick="db.ref('settings/buchenLog').remove()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">🗑️ Clear</button>
+                <div class="badge" id="buchenLogCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="buchenLogFeed">
+            <div class="empty-msg">Keine buchen.html Aktivitaet</div>
+        </div>
+    </div>
+
     <!-- Panel 4b: FAHRZEUGE & DISPATCH (NEU v6.38.95) -->
     <div class="panel" id="panelVehicles" style="grid-column: span 2;">
         <div class="panel-header">
@@ -1066,6 +1080,42 @@ db.ref('settings/telegram/pending').on('value', snap => {
 
 // Initial render
 renderChanges();
+
+// ===== PANEL: BUCHEN.HTML LIVE-LOG (v6.38.95) =====
+db.ref('settings/buchenLog').orderByChild('time').limitToLast(50).on('value', snap => {
+    const data = snap.val();
+    const feed = document.getElementById('buchenLogFeed');
+    if (!data) {
+        feed.innerHTML = '<div class="empty-msg">Keine buchen.html Aktivitaet</div>';
+        document.getElementById('buchenLogCount').textContent = '0';
+        return;
+    }
+    const entries = Object.values(data).sort((a, b) => (b.time || 0) - (a.time || 0));
+    document.getElementById('buchenLogCount').textContent = entries.length;
+
+    // Sessions gruppieren
+    const sessions = {};
+    entries.forEach(e => {
+        const sid = e.session || 'unknown';
+        if (!sessions[sid]) sessions[sid] = [];
+        sessions[sid].push(e);
+    });
+
+    let html = '';
+    for (const [sid, evts] of Object.entries(sessions)) {
+        const first = evts[evts.length - 1];
+        const sessionAge = first.time ? age(first.time) : '?';
+        html += `<div style="margin-bottom:6px;padding:4px 6px;background:#0d1f0d;border:1px solid #1a3e1a;border-radius:6px;">`;
+        html += `<div style="font-size:0.7em;color:#4caf50;font-weight:700;margin-bottom:3px;">Session ${sid} (${sessionAge})</div>`;
+        for (const e of evts) {
+            const t = e.time ? timeStr(e.time) : '?';
+            const cls = e.msg && e.msg.includes('FEHLER') ? 'error' : (e.msg && e.msg.includes('ERGEBNIS') ? 'booking' : 'system');
+            html += `<div class="event ${cls}"><span class="time">${t}</span> ${esc(e.emoji || '')} ${esc(e.msg || '')}</div>`;
+        }
+        html += `</div>`;
+    }
+    feed.innerHTML = html;
+});
 
 // ===== PANEL: FAHRZEUGE & DISPATCH (v6.38.95) =====
 let vehicleData = {};

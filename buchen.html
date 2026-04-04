@@ -514,6 +514,36 @@
         });
         const db = firebase.database();
 
+        // 🆕 v6.38.95: Live-Logging fuer System Monitor
+        // Schreibt Events nach /settings/buchenLog damit der System Monitor sieht was passiert
+        const _buchenSessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        function logBuchen(emoji, msg, data) {
+            try {
+                const entry = {
+                    time: Date.now(),
+                    emoji: emoji || '📋',
+                    msg: String(msg || '').substring(0, 200),
+                    session: _buchenSessionId
+                };
+                if (data) entry.data = data;
+                db.ref('settings/buchenLog').push(entry);
+                // Max 100 Eintraege halten (alte loeschen)
+                db.ref('settings/buchenLog').orderByChild('time').limitToFirst(1).once('value', snap => {
+                    const count = snap.numChildren();
+                    if (count > 0) {
+                        db.ref('settings/buchenLog').once('value', s => {
+                            const all = s.val();
+                            if (all && Object.keys(all).length > 100) {
+                                const oldest = Object.entries(all).sort((a,b) => a[1].time - b[1].time).slice(0, 20);
+                                oldest.forEach(([k]) => db.ref('settings/buchenLog/' + k).remove());
+                            }
+                        });
+                    }
+                });
+            } catch(e) { /* non-critical */ }
+        }
+        logBuchen('🌐', 'buchen.html geoeffnet', { userAgent: navigator.userAgent.substring(0, 60) });
+
         // State
         let pickupCoords = null;
         let destCoords = null;
@@ -736,6 +766,7 @@
         // ═══════════════════════════════════════════════
         function setWann(mode) {
             wannModus = mode;
+            logBuchen(mode === 'sofort' ? '⚡' : '📅', `Modus: ${mode.toUpperCase()}`);
             document.querySelectorAll('.wann-btn').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
             const felder = document.getElementById('vorbestellen-felder');
@@ -804,6 +835,7 @@
 
             // 🔧 v6.38.87: Zweistufiger Kapazitäts-Check
             const anyCount = getActiveVehicleCount(dateStr, timeStr, 1);
+            logBuchen('🔍', `Verfuegbarkeits-Check: ${dateStr} ${timeStr} | ${anyCount} Fahrzeuge | ${passengers} Pers. | Modus: ${wannModus}`);
             const fitCount = getActiveVehicleCount(dateStr, timeStr, passengers);
 
             if (anyCount === 0) {
@@ -811,6 +843,7 @@
                 el.className = 'availability-card unavailable';
                 el.innerHTML = `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>`;
                 isAvailable = false;
+                logBuchen('❌', `ERGEBNIS: Kein Fahrzeug im Dienst (${dateStr} ${timeStr})`);
                 updateBookButton();
                 return;
             }
@@ -819,6 +852,7 @@
                 el.className = 'availability-card unavailable';
                 el.innerHTML = `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen geplant</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:03837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`;
                 isAvailable = false;
+                logBuchen('⚠️', `ERGEBNIS: Kein Grossraumtaxi fuer ${passengers} Pers.`);
                 updateBookButton();
                 return;
             }
@@ -890,8 +924,10 @@
                             if (closestEtaMin !== null) {
                                 const freshNote = closestEtaFresh ? '' : ' <span style="font-size:11px;opacity:0.6;">(ca.)</span>';
                                 el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. ${closestEtaMin} Minuten</strong>${freshNote}`;
+                                logBuchen('✅', `ERGEBNIS: Taxi verfuegbar! ${activeCount} Fzg, ETA ${closestEtaMin} Min${closestEtaFresh ? ' (GPS frisch)' : ' (ca.)'}`);
                             } else {
                                 // 🔧 v6.38.89: Kein aktuelles GPS → Anrufen statt falscher "5-15 Min" Schätzung
+                                logBuchen('⚠️', `ERGEBNIS: ${activeCount} Fzg im Dienst aber kein GPS verfuegbar`);
                                 isAvailable = false;
                                 el.className = 'availability-card warning';
                                 el.innerHTML = `⚠️ <strong>Kein GPS verfügbar</strong> — Fahrzeuge im Dienst, aber Position unbekannt.<br>📞 Bitte direkt anrufen: <strong>038378 22022</strong>`;
@@ -1252,6 +1288,7 @@
                     const pricing = calculatePrice(parseFloat(km), pricingTimestamp);
 
                     routeData = { km, min, price: pricing.total, geometry: route.geometry };
+                    logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
 
                     document.getElementById('r-price').textContent = pricing.total + '€';
                     document.getElementById('r-distance').textContent = km;
@@ -1434,8 +1471,10 @@
                 `;
 
                 showToast('🎉 Buchung erfolgreich!');
+                logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup} → ${destination} | ${passengers} Pers. | ${wannModus}`);
             } catch(e) {
                 showToast('Fehler bei der Buchung — bitte rufen Sie uns an');
+                logBuchen('❌', `BUCHUNG FEHLER: ${e.message}`);
                 console.error(e);
             }
         }

@@ -653,8 +653,10 @@
         async function calcStatusBarEta(bar, count) {
             if (!pickupCoords) return; // Keine Adresse → keine ETA
             try {
-                const vSnap = await db.ref('vehicles').once('value');
-                const vData = vSnap.val() || {};
+                // 🔧 v6.38.95: Live-Daten nutzen statt once()
+                const vData = _gpsOnlineVehicles && Object.keys(_gpsOnlineVehicles).length > 0
+                    ? _gpsOnlineVehicles
+                    : (await db.ref('vehicles').once('value')).val() || {};
                 const nowTs = Date.now();
                 const nowDateStr = berlinDateStr(berlinNow());
                 const nowTimeStr = berlinTimeStr(berlinNow());
@@ -890,31 +892,42 @@
                         el.className = 'availability-card available';
                         el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst. <span style="font-size:12px;opacity:0.7;">⏳ ETA wird berechnet...</span>`;
                         try {
-                            const vSnap = await db.ref('vehicles').once('value');
-                            const vData = vSnap.val() || {};
+                            // 🔧 v6.38.95: _gpsOnlineVehicles nutzen (Live-Listener) statt once()
+                            // once() kann veraltete Daten liefern wenn GPS-Update gerade kommt
+                            const vData = _gpsOnlineVehicles && Object.keys(_gpsOnlineVehicles).length > 0
+                                ? _gpsOnlineVehicles
+                                : (await db.ref('vehicles').once('value')).val() || {};
                             const dt2 = berlinNow();
                             const nowTs = Date.now();
                             let closestEtaMin = null;
                             let closestEtaFresh = false;
+                            // 🆕 v6.38.95: Detailliertes Logging fuer System Monitor
+                            const _vKeys = Object.keys(vData);
+                            logBuchen('🔎', `ETA-Check: ${_vKeys.length} Fahrzeuge in /vehicles gefunden`);
                             for (const [vid, vInfo] of Object.entries(vData)) {
-                                if (!vInfo.lat || !vInfo.lon) continue;
-                                // 🔧 v6.38.95: GPS-online Fahrzeuge IMMER beruecksichtigen — nicht nur Schichtplan!
-                                // Fahrzeug muss entweder im Schichtplan ODER GPS-online sein
+                                if (!vInfo.lat || !vInfo.lon) {
+                                    logBuchen('⏭️', `${vid}: uebersprungen (kein lat/lon)`);
+                                    continue;
+                                }
                                 const inShift = isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2));
                                 const isGpsOnline = vInfo.online !== false && vInfo.timestamp && (nowTs - vInfo.timestamp) < 5 * 60000;
-                                if (!inShift && !isGpsOnline) continue;
-                                // 🔧 v6.38.89: GPS älter als 10 Min ignorieren (war: kein Filter)
+                                if (!inShift && !isGpsOnline) {
+                                    logBuchen('⏭️', `${vid}: uebersprungen (Schicht: ${inShift}, GPS-online: ${isGpsOnline})`);
+                                    continue;
+                                }
                                 const gpsAge = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 :
                                                (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
-                                if (gpsAge > 10) continue;
-                                const isFresh = gpsAge < 5; // 🔧 v6.38.89: War 30 → 5 Min
-                                // Distanz in km (Haversine)
+                                if (gpsAge > 10) {
+                                    logBuchen('⏭️', `${vid}: uebersprungen (GPS ${Math.round(gpsAge)} Min alt)`);
+                                    continue;
+                                }
+                                const isFresh = gpsAge < 5;
                                 const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
                                 const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
                                 const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180) * Math.cos(pickupCoords.lat*Math.PI/180) * Math.sin(dLon/2)**2;
                                 const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                // ETA: ~1.5 min/km auf Usedom (Straßen, nicht Luftlinie)
                                 const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
+                                logBuchen('🚗', `${vid}: ${distKm.toFixed(1)}km, ETA ${etaMin}min | GPS: ${gpsAge.toFixed(0)}min alt${isFresh ? ' (frisch)' : ''} | Schicht: ${inShift} | online: ${vInfo.online}`);
                                 // Frisches GPS bevorzugen
                                 if (closestEtaMin === null || (isFresh && !closestEtaFresh) || (isFresh === closestEtaFresh && etaMin < closestEtaMin)) {
                                     closestEtaMin = etaMin;

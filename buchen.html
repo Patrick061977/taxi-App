@@ -596,6 +596,55 @@
             return count;
         }
 
+        // 🔧 v6.38.81: ETA für Status-Bar berechnen (GPS oder eingegebener Abholort)
+        async function calcStatusBarEta(bar, count) {
+            try {
+                // Abholort: eingegebene Adresse oder GPS-Standort
+                let coords = pickupCoords;
+                if (!coords) {
+                    coords = await new Promise(resolve => {
+                        navigator.geolocation.getCurrentPosition(
+                            pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+                            () => resolve(null),
+                            { timeout: 3000, maximumAge: 60000 }
+                        );
+                    });
+                }
+                if (!coords) return; // Kein Standort → ETA nicht möglich
+
+                const vSnap = await db.ref('vehicles').once('value');
+                const vData = vSnap.val() || {};
+                const nowTs = Date.now();
+                const nowDateStr = berlinDateStr(berlinNow());
+                const nowTimeStr = berlinTimeStr(berlinNow());
+                let closestEtaMin = null;
+                let closestFresh = false;
+
+                for (const [vid, vInfo] of Object.entries(vData)) {
+                    if (!vInfo.lat || !vInfo.lon) continue;
+                    if (!isVehicleInShift(vid, nowDateStr, nowTimeStr)) continue;
+                    const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
+                    if (gpsAgeMin > 60) continue; // GPS älter als 1 Std → ignorieren
+                    const isFresh = gpsAgeMin < 30;
+                    const dLat = (coords.lat - vInfo.lat) * Math.PI / 180;
+                    const dLon = (coords.lon - vInfo.lon) * Math.PI / 180;
+                    const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(coords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+                    const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
+                    if (closestEtaMin === null || (isFresh && !closestFresh) || (isFresh === closestFresh && etaMin < closestEtaMin)) {
+                        closestEtaMin = etaMin;
+                        closestFresh = isFresh;
+                    }
+                }
+                const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                if (closestEtaMin !== null) {
+                    bar.textContent = `${base} — 🚕 ca. ${closestEtaMin} Min`;
+                } else {
+                    bar.textContent = `${base} — 🚕 ca. 5–15 Min`;
+                }
+            } catch(e) { /* ETA nicht verfügbar – kein Problem */ }
+        }
+
         async function updateStatusBar() {
             try {
                 const snap = await db.ref('vehicleShifts').once('value');
@@ -605,15 +654,26 @@
                 const bar = document.getElementById('status-bar');
                 const callBox = document.getElementById('offline-call-box');
                 if (count > 0) {
-                    bar.className = 'status-bar online';
-                    bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                    // 🔧 v6.38.81: isAvailable setzen + Button aktualisieren + ETA berechnen
+                    if (wannModus === 'sofort') {
+                        isAvailable = true;
+                        bar.className = 'status-bar online';
+                        bar.textContent = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                        calcStatusBarEta(bar, count); // async — aktualisiert bar wenn fertig
+                    } else {
+                        // Vorbestellen: isAvailable kommt aus checkAvailability (Zeitkonflikt-Prüfung)
+                        bar.className = 'status-bar online';
+                        bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                    }
                     if (callBox) callBox.classList.remove('visible');
                 } else {
+                    isAvailable = false;
                     bar.className = 'status-bar offline';
                     bar.textContent = '🔴 Aktuell kein Taxi im Dienst';
-                    // 🆕 v6.38.74: Rote Anruf-Box zeigen
                     if (callBox) callBox.classList.add('visible');
                 }
+                // 🔧 v6.38.81: Button-Status immer aktualisieren nach Status-Check
+                updateBookButton();
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';
                 document.getElementById('status-bar').textContent = '⚠️ Verbindungsfehler';

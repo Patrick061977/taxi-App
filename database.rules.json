@@ -27,7 +27,7 @@
     },
 
     "vehicles": {
-      ".read": "auth != null",
+      ".read": true,
       ".write": "auth != null"
     },
 
@@ -44,6 +44,10 @@
         "botlog": {
           ".read": true
         }
+      },
+      "buchenLog": {
+        ".read": true,
+        ".write": true
       }
     },
 

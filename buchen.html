@@ -596,22 +596,11 @@
             return count;
         }
 
-        // 🔧 v6.38.81: ETA für Status-Bar berechnen (GPS oder eingegebener Abholort)
+        // 🔧 v6.38.82: ETA nur berechnen wenn Abholort bekannt (pickupCoords gesetzt)
+        // Kein GPS-Fallback — ohne Adresse wäre die Zeit irreführend (z.B. 2 Min statt 30 Min)
         async function calcStatusBarEta(bar, count) {
+            if (!pickupCoords) return; // Keine Adresse → keine ETA
             try {
-                // Abholort: eingegebene Adresse oder GPS-Standort
-                let coords = pickupCoords;
-                if (!coords) {
-                    coords = await new Promise(resolve => {
-                        navigator.geolocation.getCurrentPosition(
-                            pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-                            () => resolve(null),
-                            { timeout: 3000, maximumAge: 60000 }
-                        );
-                    });
-                }
-                if (!coords) return; // Kein Standort → ETA nicht möglich
-
                 const vSnap = await db.ref('vehicles').once('value');
                 const vData = vSnap.val() || {};
                 const nowTs = Date.now();
@@ -624,11 +613,11 @@
                     if (!vInfo.lat || !vInfo.lon) continue;
                     if (!isVehicleInShift(vid, nowDateStr, nowTimeStr)) continue;
                     const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
-                    if (gpsAgeMin > 60) continue; // GPS älter als 1 Std → ignorieren
+                    if (gpsAgeMin > 60) continue;
                     const isFresh = gpsAgeMin < 30;
-                    const dLat = (coords.lat - vInfo.lat) * Math.PI / 180;
-                    const dLon = (coords.lon - vInfo.lon) * Math.PI / 180;
-                    const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(coords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+                    const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
+                    const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
+                    const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(pickupCoords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
                     const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                     const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
                     if (closestEtaMin === null || (isFresh && !closestFresh) || (isFresh === closestFresh && etaMin < closestEtaMin)) {
@@ -638,11 +627,10 @@
                 }
                 const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
                 if (closestEtaMin !== null) {
-                    bar.textContent = `${base} — 🚕 ca. ${closestEtaMin} Min`;
-                } else {
-                    bar.textContent = `${base} — 🚕 ca. 5–15 Min`;
+                    bar.textContent = `${base} — 🚕 ca. ${closestEtaMin} Min bis zu dir`;
                 }
-            } catch(e) { /* ETA nicht verfügbar – kein Problem */ }
+                // Kein Fallback "5-15 Min" mehr — lieber gar keine Zeit als falsche Zeit
+            } catch(e) { /* ETA nicht verfügbar */ }
         }
 
         async function updateStatusBar() {
@@ -654,14 +642,14 @@
                 const bar = document.getElementById('status-bar');
                 const callBox = document.getElementById('offline-call-box');
                 if (count > 0) {
-                    // 🔧 v6.38.81: isAvailable setzen + Button aktualisieren + ETA berechnen
                     if (wannModus === 'sofort') {
                         isAvailable = true;
                         bar.className = 'status-bar online';
+                        // Ohne Abholort: nur "verfügbar" anzeigen — keine ETA
                         bar.textContent = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
-                        calcStatusBarEta(bar, count); // async — aktualisiert bar wenn fertig
+                        // ETA nur wenn Abholort bekannt (aktualisiert bar wenn bereit)
+                        if (pickupCoords) calcStatusBarEta(bar, count);
                     } else {
-                        // Vorbestellen: isAvailable kommt aus checkAvailability (Zeitkonflikt-Prüfung)
                         bar.className = 'status-bar online';
                         bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
                     }
@@ -672,7 +660,6 @@
                     bar.textContent = '🔴 Aktuell kein Taxi im Dienst';
                     if (callBox) callBox.classList.add('visible');
                 }
-                // 🔧 v6.38.81: Button-Status immer aktualisieren nach Status-Check
                 updateBookButton();
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';
@@ -1129,7 +1116,13 @@
             if (!r) return;
             document.getElementById(inputId).value = r.name;
             document.getElementById(inputId + '-dropdown').style.display = 'none';
-            if (inputId === 'b-pickup') pickupCoords = { lat: r.lat, lon: r.lon };
+            if (inputId === 'b-pickup') {
+                pickupCoords = { lat: r.lat, lon: r.lon };
+                // 🔧 v6.38.82: ETA in Status-Bar sofort aktualisieren nach Adresseingabe
+                const bar = document.getElementById('status-bar');
+                const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), 1);
+                if (cnt > 0 && wannModus === 'sofort') calcStatusBarEta(bar, cnt);
+            }
             if (inputId === 'b-destination') destCoords = { lat: r.lat, lon: r.lon };
             checkRoute();
         }

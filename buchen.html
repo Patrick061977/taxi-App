@@ -525,6 +525,7 @@
         let wannModus = 'sofort'; // 'sofort' oder 'vorbestellen'
         let shiftsData = {};
         let isAvailable = false;
+        let _gpsOnlineVehicles = {}; // 🆕 v6.38.95: GPS-online Fahrzeuge (live via Firebase)
 
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
         function updateBookButton() {
@@ -602,6 +603,18 @@
                 if (info.capacity < (minCapacity || 1)) continue;
                 if (isVehicleInShift(vid, dateStr, timeStr)) count++;
             }
+            // 🔧 v6.38.95: GPS-online Fahrzeuge ZUSAETZLICH zaehlen!
+            // Wenn ein Fahrer GPS-online ist aber nicht im Schichtplan → trotzdem verfuegbar
+            if (_gpsOnlineVehicles) {
+                for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {
+                    if (!OFFICIAL_VEHICLES[vid]) continue; // Nur offizielle Fahrzeuge
+                    if (OFFICIAL_VEHICLES[vid].capacity < (minCapacity || 1)) continue;
+                    if (isVehicleInShift(vid, dateStr, timeStr)) continue; // Bereits gezaehlt
+                    // GPS-online + frisches GPS (< 5 Min) → zaehlen
+                    const gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                    if (vInfo.online !== false && vInfo.lat && gpsAge < 5) count++;
+                }
+            }
             return count;
         }
 
@@ -620,8 +633,12 @@
 
                 for (const [vid, vInfo] of Object.entries(vData)) {
                     if (!vInfo.lat || !vInfo.lon) continue;
-                    if (!isVehicleInShift(vid, nowDateStr, nowTimeStr)) continue;
-                    const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
+                    // 🔧 v6.38.95: GPS-online Fahrzeuge IMMER beruecksichtigen
+                    const inShift = isVehicleInShift(vid, nowDateStr, nowTimeStr);
+                    const isGpsOnline = vInfo.online !== false && vInfo.timestamp && (nowTs - vInfo.timestamp) < 5 * 60000;
+                    if (!inShift && !isGpsOnline) continue;
+                    const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 :
+                                      (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
                     // 🔧 v6.38.89: War 60 Min → 10 Min — veraltetes GPS erzeugt keine falschen ETAs mehr
                     if (gpsAgeMin > 10) continue;
                     const isFresh = gpsAgeMin < 5; // 🔧 v6.38.89: War 30 → 5 Min
@@ -705,6 +722,14 @@
         // Status alle 30s aktualisieren
         updateStatusBar();
         setInterval(updateStatusBar, 30000);
+
+        // 🆕 v6.38.95: GPS-online Fahrzeuge live tracken
+        // Wenn Fahrer GPS-online sind aber nicht im Schichtplan → trotzdem als verfuegbar zaehlen
+        db.ref('vehicles').on('value', snap => {
+            _gpsOnlineVehicles = snap.val() || {};
+            // Status-Bar sofort aktualisieren wenn sich GPS-Status aendert
+            updateStatusBar();
+        });
 
         // ═══════════════════════════════════════════════
         // Wann-Toggle (Sofort / Vorbestellen)
@@ -839,10 +864,14 @@
                             let closestEtaFresh = false;
                             for (const [vid, vInfo] of Object.entries(vData)) {
                                 if (!vInfo.lat || !vInfo.lon) continue;
-                                // Nur Fahrzeuge im Schichtplan
-                                if (!isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2))) continue;
+                                // 🔧 v6.38.95: GPS-online Fahrzeuge IMMER beruecksichtigen — nicht nur Schichtplan!
+                                // Fahrzeug muss entweder im Schichtplan ODER GPS-online sein
+                                const inShift = isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2));
+                                const isGpsOnline = vInfo.online !== false && vInfo.timestamp && (nowTs - vInfo.timestamp) < 5 * 60000;
+                                if (!inShift && !isGpsOnline) continue;
                                 // 🔧 v6.38.89: GPS älter als 10 Min ignorieren (war: kein Filter)
-                                const gpsAge = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
+                                const gpsAge = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 :
+                                               (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
                                 if (gpsAge > 10) continue;
                                 const isFresh = gpsAge < 5; // 🔧 v6.38.89: War 30 → 5 Min
                                 // Distanz in km (Haversine)

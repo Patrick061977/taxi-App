@@ -7066,7 +7066,9 @@ async function handleMessage(message) {
 
     // === COMMANDS ===
     if (textCmd === '/start') {
-        await addTelegramLog('🚀', chatId, '/start Kommando');
+        // 🔧 v6.38.96: /start setzt immer Pending zurück — Notfall-Reset wenn Bot steckt
+        await deletePending(chatId);
+        await addTelegramLog('🚀', chatId, '/start Kommando (Pending gelöscht)');
         // Bot-Menü bei Telegram registrieren (≡ Menü Button unten links)
         const token = await loadBotToken();
         if (token) {
@@ -7124,6 +7126,19 @@ async function handleMessage(message) {
                 reply_markup: { keyboard: [[{ text: '📱 Telefonnummer teilen', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
             });
         }
+        return;
+    }
+
+    // 🔧 v6.38.96: /abbrechen — Buchung abbrechen + Menü zeigen (war registriert aber nicht implementiert!)
+    if (textCmd === '/abbrechen' || textCmd === '/cancel' || textCmd === '/stop') {
+        await deletePending(chatId);
+        await addTelegramLog('❌', chatId, `${textCmd} → Buchung abgebrochen, Pending gelöscht`);
+        const keyboard = { inline_keyboard: [
+            [{ text: '🚕 Fahrt buchen', callback_data: 'menu_buchen' }],
+            [{ text: '📊 Meine Fahrten', callback_data: 'menu_status' }],
+            [{ text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
+        ]};
+        await sendTelegramMessage(chatId, '✅ <b>Buchung abgebrochen.</b>\n\n💡 Tippen Sie /start für das Hauptmenü.', { reply_markup: keyboard });
         return;
     }
 
@@ -8865,12 +8880,13 @@ async function handleMessage(message) {
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
             }
-            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}] suchw:[${searchWords.join(',')}]`);
+            // 🔧 v6.38.96: searchWords ist im Handler-Scope nicht definiert (nur in searchNominatimForTelegram) → entfernt
+            await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}]`);
             // 🆕 v6.38.61: Entscheidung ins Activity Log (sichtbar im System-Monitor)
             const _decKey = await logDecision('geocode', `📍 Adresse auto: "${text}" → ${_bestHit.name}`, {
                 query: text, result: _bestHit.name, source: _bestHit.source,
                 score: _bestHit.matchScore || null, reason: _bestHit.matchReason || null,
-                searchWords, outcome: 'correct'  // auto-selects gelten als korrekt (>= score 60)
+                outcome: 'correct'
             });
             await deletePending(chatId);
             const routePrice = await calculateTelegramRoutePrice(partialBooking);
@@ -8881,10 +8897,11 @@ async function handleMessage(message) {
         // 🔧 v6.38.19: Stufe 2 — Booking/Customer Treffer → "Meinten Sie?" Bestätigung
         if (_confirmHit) {
             await addTelegramLog('❓', chatId, `${fieldLabel} "${text}" → Bestätigung: ${_confirmHit.name} [${_confirmHit.source}]`);
+            // 🔧 v6.38.96: searchWords entfernt (nicht im Handler-Scope definiert)
             const _decKeyConfirm = await logDecision('geocode', `❓ Adresse unklar: "${text}" → ${_confirmHit.name}?`, {
                 query: text, result: _confirmHit.name, source: _confirmHit.source,
                 score: _confirmHit.matchScore || null, reason: _confirmHit.matchReason || null,
-                searchWords, outcome: null
+                outcome: null
             });
             await setPending(chatId, {
                 _awaitingPLZ: true,

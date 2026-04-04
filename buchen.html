@@ -230,14 +230,27 @@
         /* 🆕 v6.38.74: Rote Telefon-Box wenn offline */
         .offline-call-box {
             display: none;
+            background: #fee2e2;
+            padding: 12px 20px;
+            text-align: center;
+        }
+        .offline-call-box a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             background: linear-gradient(135deg, #ef4444, #dc2626);
             color: white;
-            padding: 14px 20px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 16px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 800;
+            padding: 14px 28px;
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(220,38,38,0.4);
+            letter-spacing: 0.5px;
+            width: 100%;
+            max-width: 360px;
         }
-        .offline-call-box a { color: white; text-decoration: none; font-size: 20px; font-weight: 800; }
         .offline-call-box.visible { display: block; }
         /* Wann-Auswahl */
         .wann-toggle {
@@ -329,7 +342,7 @@
     <div class="status-bar loading" id="status-bar">⏳ Verfügbarkeit wird geprüft...</div>
     <!-- 🆕 v6.38.74: Rote Anruf-Box wenn kein Taxi verfügbar -->
     <div class="offline-call-box" id="offline-call-box">
-        📞 Jetzt direkt anrufen: <a href="tel:03837822022">038378 22022</a>
+        <a href="tel:03837822022">📞 038378 22022 — Jetzt anrufen</a>
     </div>
 
     <!-- Buchungsformular -->

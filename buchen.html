@@ -225,8 +225,20 @@
             transition: background 0.3s;
         }
         .status-bar.online { background: #d1fae5; color: #065f46; }
-        .status-bar.offline { background: #fecaca; color: #991b1b; }
+        .status-bar.offline { background: #fee2e2; color: #991b1b; border-bottom: 2px solid #fca5a5; }
         .status-bar.loading { background: #e2e8f0; color: #64748b; }
+        /* 🆕 v6.38.74: Rote Telefon-Box wenn offline */
+        .offline-call-box {
+            display: none;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 14px 20px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .offline-call-box a { color: white; text-decoration: none; font-size: 20px; font-weight: 800; }
+        .offline-call-box.visible { display: block; }
         /* Wann-Auswahl */
         .wann-toggle {
             display: flex;
@@ -315,6 +327,10 @@
 
     <!-- Status Bar -->
     <div class="status-bar loading" id="status-bar">⏳ Verfügbarkeit wird geprüft...</div>
+    <!-- 🆕 v6.38.74: Rote Anruf-Box wenn kein Taxi verfügbar -->
+    <div class="offline-call-box" id="offline-call-box">
+        📞 Jetzt direkt anrufen: <a href="tel:03837822022">038378 22022</a>
+    </div>
 
     <!-- Buchungsformular -->
     <div class="main">
@@ -541,12 +557,16 @@
                 const now = berlinNow();
                 const count = getActiveVehicleCount(berlinDateStr(now), berlinTimeStr(now), 1);
                 const bar = document.getElementById('status-bar');
+                const callBox = document.getElementById('offline-call-box');
                 if (count > 0) {
                     bar.className = 'status-bar online';
                     bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                    if (callBox) callBox.classList.remove('visible');
                 } else {
                     bar.className = 'status-bar offline';
-                    bar.textContent = '🔴 Aktuell kein Taxi verfügbar — ☎ 038378 22022';
+                    bar.textContent = '🔴 Aktuell kein Taxi im Dienst';
+                    // 🆕 v6.38.74: Rote Anruf-Box zeigen
+                    if (callBox) callBox.classList.add('visible');
                 }
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';

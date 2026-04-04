@@ -647,25 +647,39 @@
                 const snap = await db.ref('vehicleShifts').once('value');
                 shiftsData = snap.val() || {};
                 const now = berlinNow();
-                // 🔧 v6.38.83: Kapazität nach Personenzahl prüfen
-                const count = getActiveVehicleCount(berlinDateStr(now), berlinTimeStr(now), passengers);
+                const dateStr0 = berlinDateStr(now), timeStr0 = berlinTimeStr(now);
+                // Prüfe: Ist überhaupt IRGENDEIN Fahrzeug im Dienst?
+                const anyCount = getActiveVehicleCount(dateStr0, timeStr0, 1);
+                // Prüfe: Gibt es ein passendes Fahrzeug für die Personenzahl?
+                const fitCount = getActiveVehicleCount(dateStr0, timeStr0, passengers);
                 const bar = document.getElementById('status-bar');
                 const callBox = document.getElementById('offline-call-box');
-                if (count > 0) {
+
+                if (anyCount > 0 && !(passengers >= 5 && fitCount === 0)) {
+                    // Taxi verfügbar UND passende Kapazität → grüner Buchen-Button
+                    isAvailable = true;
+                    bar.className = 'status-bar online';
+                    bar.style.background = '';
                     if (wannModus === 'sofort') {
-                        isAvailable = true;
-                        bar.className = 'status-bar online';
-                        // Ohne Abholort: nur "verfügbar" anzeigen — keine ETA
-                        bar.textContent = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
-                        // ETA nur wenn Abholort bekannt (aktualisiert bar wenn bereit)
-                        if (pickupCoords) calcStatusBarEta(bar, count);
+                        bar.textContent = `🟢 Taxi verfügbar! ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
+                        if (pickupCoords) calcStatusBarEta(bar, anyCount);
                     } else {
-                        bar.className = 'status-bar online';
-                        bar.textContent = `🟢 ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                        bar.textContent = `🟢 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
                     }
                     if (callBox) callBox.classList.remove('visible');
-                } else {
+                } else if (anyCount > 0 && passengers >= 5 && fitCount === 0) {
+                    // 🔧 v6.38.87: Taxis da, aber kein Großraumtaxi für 5+ Personen → Anrufen!
                     isAvailable = false;
+                    bar.style.background = '#fef3c7';
+                    bar.className = 'status-bar';
+                    bar.style.color = '#92400e';
+                    bar.textContent = `⚠️ Für ${passengers} Personen: Großraumtaxi anfragen — 038378 22022`;
+                    if (callBox) callBox.classList.add('visible');
+                } else {
+                    // Kein Taxi im Dienst → Anrufen
+                    isAvailable = false;
+                    bar.style.background = '';
+                    bar.style.color = '';
                     bar.className = 'status-bar offline';
                     bar.textContent = '🔴 Aktuell kein Taxi im Dienst';
                     if (callBox) callBox.classList.add('visible');
@@ -752,18 +766,27 @@
             const dateStr = berlinDateStr(dt);
             const timeStr = berlinTimeStr(dt);
 
-            // Schichtplan-Check mit korrekter Kapazität für gewählte Personenzahl
-            const activeCount = getActiveVehicleCount(dateStr, timeStr, passengers);
-            if (activeCount === 0) {
+            // 🔧 v6.38.87: Zweistufiger Kapazitäts-Check
+            const anyCount = getActiveVehicleCount(dateStr, timeStr, 1);
+            const fitCount = getActiveVehicleCount(dateStr, timeStr, passengers);
+
+            if (anyCount === 0) {
+                // Überhaupt kein Fahrzeug im Dienst
                 el.className = 'availability-card unavailable';
-                // 🔧 v6.38.83: Klare Meldung je nach Personenzahl
-                el.innerHTML = passengers >= 5
-                    ? `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen im Dienst</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:03837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`
-                    : `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>`;
+                el.innerHTML = `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>`;
                 isAvailable = false;
                 updateBookButton();
                 return;
             }
+            if (passengers >= 5 && fitCount === 0) {
+                // Taxis da, aber kein Großraumtaxi → Anrufen erforderlich
+                el.className = 'availability-card unavailable';
+                el.innerHTML = `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen geplant</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:03837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`;
+                isAvailable = false;
+                updateBookButton();
+                return;
+            }
+            const activeCount = fitCount; // Weiterrechnen mit passenden Fahrzeugen
 
             // Konflikt-Check: Bestehende Fahrten laden
             try {

@@ -14152,19 +14152,18 @@ async function handleCallback(callback) {
         const _VERIFIED_SOURCES = ['geocache-verified', 'crm-verified', 'known', 'poi'];
         const _isVerifiedSource = _VERIFIED_SOURCES.includes(selected.source);
 
+        // 🆕 v6.38.77: Originalen Suchbegriff merken → als Alias mitspeichern (z.B. "Reha Ahlbeck" → "Rehabilitationsklinik...")
+        const _originalSearchTerm = (isPickup
+            ? (pending.partial.pickup || '')
+            : (pending.partial.destination || '')).trim();
+        const _hasMeaningfulAlias = _originalSearchTerm &&
+            _originalSearchTerm.toLowerCase() !== selected.name.toLowerCase().trim() &&
+            _originalSearchTerm.length >= 3;
+
         if (!_isVerifiedSource && selLat && selLon) {
             // Adresse wurde per Button bestätigt → jetzt fragen ob speichern
             const _shortAddr = selected.name.length > 40 ? selected.name.substring(0, 38) + '…' : selected.name;
             const _fieldType = isPickup ? 'pickup' : 'dest';
-            await setPending(chatId, {
-                ...pending,
-                _awaitingGeocacheSave: true,
-                _geocacheSaveAddr: selected.name,
-                _geocacheSaveLat: selLat,
-                _geocacheSaveLon: selLon,
-                _geocacheSaveField: _fieldType,
-                _geocacheSaveSource: selected.source || 'nominatim'
-            });
             // Adresse direkt in partial setzen (wird unabhängig von Speicher-Antwort verwendet)
             if (isPickup) {
                 pending.partial.pickup = selected.name;
@@ -14182,9 +14181,10 @@ async function handleCallback(callback) {
                 _geocacheSaveLat: selLat,
                 _geocacheSaveLon: selLon,
                 _geocacheSaveField: _fieldType,
-                _geocacheSaveSource: selected.source || 'nominatim'
+                _geocacheSaveSource: selected.source || 'nominatim',
+                _geocacheSaveAlias: _hasMeaningfulAlias ? _originalSearchTerm : null
             });
-            await addTelegramLog('📍', chatId, `Adresse bestätigt (${selected.source || 'nominatim'}): ${selected.name} — frage Geocache-Speicherung`);
+            await addTelegramLog('📍', chatId, `Adresse bestätigt (${selected.source || 'nominatim'}): ${selected.name} — frage Geocache-Speicherung${_hasMeaningfulAlias ? ` (Alias: "${_originalSearchTerm}")` : ''}`);
             await sendTelegramMessage(chatId,
                 `✅ <b>${_shortAddr}</b>\n\n` +
                 `📍 Quelle: ${selected.source || 'Nominatim'}\n\n` +
@@ -14233,7 +14233,13 @@ async function handleCallback(callback) {
             // Als verifiziert speichern (User hat bestätigt)
             await saveToGeocache(pending._geocacheSaveAddr, pending._geocacheSaveLat, pending._geocacheSaveLon, 'user-verified');
             await addTelegramLog('💾', chatId, `Adresse gespeichert: ${pending._geocacheSaveAddr} (verifiziert)`);
-            await sendTelegramMessage(chatId, `💾 <b>Gespeichert!</b> ✅`);
+            // 🆕 v6.38.77: Alias mitspeichern (z.B. "Reha Ahlbeck" → gleiche Koordinaten wie Rehabilitationsklinik)
+            if (pending._geocacheSaveAlias) {
+                await saveToGeocache(pending._geocacheSaveAlias, pending._geocacheSaveLat, pending._geocacheSaveLon, 'user-verified');
+                await addTelegramLog('🔗', chatId, `Alias gespeichert: "${pending._geocacheSaveAlias}" → "${pending._geocacheSaveAddr}"`);
+            }
+            const _aliasInfo = pending._geocacheSaveAlias ? `\n🔗 <i>Alias "${pending._geocacheSaveAlias}" ebenfalls gespeichert</i>` : '';
+            await sendTelegramMessage(chatId, `💾 <b>Gespeichert!</b> ✅${_aliasInfo}`);
         } else {
             await addTelegramLog('⏭️', chatId, `Adresse NICHT gespeichert: ${pending._geocacheSaveAddr}`);
         }
@@ -14245,6 +14251,7 @@ async function handleCallback(callback) {
         delete pending._geocacheSaveLon;
         delete pending._geocacheSaveField;
         delete pending._geocacheSaveSource;
+        delete pending._geocacheSaveAlias;
         delete pending.nominatimResults;
 
         // Prüfe ob noch die andere Adresse fehlt
@@ -19365,3 +19372,117 @@ async function validateRideConsistency(rideId, ride) {
 
     return issues;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// HEALTH CHECK — Live-Status für Terminal-Diagnose
+// Aufruf: node check.js  ODER  curl "URL?key=SECRET"
+// ═══════════════════════════════════════════════════════════════
+exports.healthCheck = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        // Key-Check (gleicher Key wie errorDashboard)
+        const key = req.query.key;
+        const secretSnap = await db.ref('settings/telegram/webhookSecret').once('value');
+        const secret = secretSnap.val();
+        if (!key || key !== secret) {
+            res.status(403).json({ error: 'Kein Zugriff. ?key=WEBHOOK_SECRET Parameter nötig.' });
+            return;
+        }
+
+        try {
+            const now = Date.now();
+            const berlinNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+
+            // 1. Fahrzeuge
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+            const vehicleStatus = {};
+            let onlineCount = 0;
+            for (const [id, v] of Object.entries(vehicles)) {
+                const isOnline = v.online === true;
+                const gpsAge = v.lastUpdate ? Math.round((now - v.lastUpdate) / 60000) : null;
+                if (isOnline) onlineCount++;
+                vehicleStatus[id] = {
+                    name: v.name || id,
+                    online: isOnline,
+                    gpsAgeMin: gpsAge,
+                    gpsStale: gpsAge !== null && gpsAge > 30,
+                };
+            }
+
+            // 2. Aktive Fahrten
+            const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(now - 2 * 3600000).endAt(now + 24 * 3600000).once('value');
+            const activeStatuses = ['new', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+            const rides = { new: [], assigned: [], vorbestellt: [], accepted: [], running: [] };
+            ridesSnap.forEach(child => {
+                const r = child.val();
+                if (r.status === 'new') rides.new.push({ id: child.key, name: r.customerName, pickup: r.pickup });
+                else if (r.status === 'assigned') rides.assigned.push({ id: child.key, name: r.customerName });
+                else if (r.status === 'vorbestellt') rides.vorbestellt.push({ id: child.key, name: r.customerName, time: r.pickupTime });
+                else if (r.status === 'accepted') rides.accepted.push({ id: child.key, name: r.customerName });
+                else if (['picked_up', 'on_way'].includes(r.status)) rides.running.push({ id: child.key, name: r.customerName, status: r.status });
+            });
+
+            // 3. Telegram Bot
+            const webhookActiveSnap = await db.ref('settings/telegram/webhookActive').once('value');
+            const pendingSnap = await db.ref('settings/telegram/pending').once('value');
+            const pendingCount = Object.keys(pendingSnap.val() || {}).length;
+
+            // 4. Buchungssystem Online?
+            const bookingOnlineSnap = await db.ref('settings/bookingSystemOnline').once('value');
+
+            // 5. Schichtplan heute
+            const dateStr = berlinNow.toISOString().slice(0, 10);
+            const shiftsSnap = await db.ref('vehicleShifts').once('value');
+            const shifts = shiftsSnap.val() || {};
+            const inShiftToday = [];
+            const CAPACITY = { 'pw-ik-222': 4, 'pw-my-222-e': 4, 'pw-ki-222': 4, 'pw-sk-222': 8, 'vg-lk-111': 8, 'pw-ym-222-e': 4 };
+            for (const [vid, vShifts] of Object.entries(shifts)) {
+                const dayEntry = vShifts[dateStr];
+                if (dayEntry && dayEntry.active !== false) inShiftToday.push(vid);
+            }
+
+            const status = {
+                timestamp: new Date().toISOString(),
+                version: CLOUD_FUNCTIONS_VERSION,
+                ok: true,
+                vehicles: { online: onlineCount, total: Object.keys(vehicles).length, details: vehicleStatus },
+                rides: {
+                    new: rides.new.length,
+                    assigned: rides.assigned.length,
+                    vorbestellt: rides.vorbestellt.length,
+                    accepted: rides.accepted.length,
+                    running: rides.running.length,
+                    details: rides
+                },
+                telegram: {
+                    webhookActive: webhookActiveSnap.val(),
+                    pendingConversations: pendingCount,
+                },
+                bookingSystemOnline: bookingOnlineSnap.val(),
+                shiftToday: { vehiclesPlanned: inShiftToday.length, vehicleIds: inShiftToday },
+                warnings: []
+            };
+
+            // Warnungen generieren
+            if (onlineCount === 0) status.warnings.push('⚠️ Kein Fahrzeug online!');
+            if (rides.new.length > 0) status.warnings.push(`🆕 ${rides.new.length} unbearbeitete Sofortfahrt(en)!`);
+            for (const [id, v] of Object.entries(vehicleStatus)) {
+                if (v.online && v.gpsStale) status.warnings.push(`📍 ${v.name}: GPS veraltet (${v.gpsAgeMin} Min)`);
+            }
+            if (!webhookActiveSnap.val()) status.warnings.push('⚠️ Telegram Webhook NICHT aktiv!');
+            if (bookingOnlineSnap.val() === false) status.warnings.push('🔴 Buchungssystem ist OFFLINE!');
+
+            if (status.warnings.length === 0) status.warnings.push('✅ Alles OK');
+            status.ok = !status.warnings.some(w => w.startsWith('⚠️') || w.startsWith('🆕'));
+
+            res.status(200).json(status);
+        } catch (e) {
+            res.status(500).json({ error: e.message, ok: false });
+        }
+    }
+);

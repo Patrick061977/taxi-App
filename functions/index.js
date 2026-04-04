@@ -4577,6 +4577,8 @@ Nur gültiges JSON, kein Markdown:
                         // KI hat Pickup + Ziel erkannt, eins davon = Auftraggeber-Adresse → übernehmen!
                         const _matchedField = _pickupMatchesAuftraggeber ? 'Pickup' : 'Destination';
                         await addTelegramLog('🤖', chatId, `KI hat ${_matchedField} als Auftraggeber-Adresse erkannt → übernehme ohne Rückfrage`);
+                        // 🔧 v6.38.95: Flag setzen damit continueBookingFlow nicht nochmal fragt!
+                        booking._auftraggeberResolved = true;
                         // Koordinaten für das gematchte Feld setzen wenn fehlend
                         if (_pickupMatchesAuftraggeber && !booking.pickupLat && preselected.addressLat) {
                             booking.pickup = pickupDefault; // vollständige Adresse
@@ -12110,65 +12112,67 @@ async function handleCallback(callback) {
 
         await addTelegramLog('⭐', chatId, `Beliebtes Ziel gewählt: ${fav.destination} (${fav.count}x gebucht)`);
 
-        // 🔧 v6.38.55: Bereits gewählte Uhrzeit aus Pending retten (verhindert doppelte Datetime-Abfrage)
-        const _savedDatetime = pending.partial?.datetime || null;
+        // 🔧 v6.38.95: Buchungskontext BEWAHREN statt komplett neu analysieren!
+        // Die alte Logik löschte pending + re-analysierte → Auftraggeber-Kontext ging verloren
+        // (guestName, _isAuftraggeberBooking, _auftraggeberResolved, etc.)
+        const booking = pending.partial;
+        if (booking) {
+            // Ziel setzen aus Favoriten
+            booking.destination = fav.destination;
+            booking.missing = (booking.missing || []).filter(f => f !== 'destination');
 
-        // Buchungstext mit dem gewählten Ziel + ggf. Abholadresse zusammenbauen
+            // PLZ-Distanz-Check für Favoriten-Koordinaten
+            const _validateFavCoords = (addr, lat, lon) => {
+                if (!addr || !lat || !lon) return false;
+                const plzM = addr.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+                if (!plzM) return true;
+                const center = PLZ_CENTERS[plzM[1]];
+                if (!center) return true;
+                return distanceKm(parseFloat(lat), parseFloat(lon), center.lat, center.lon) <= PLZ_MAX_RADIUS_KM;
+            };
+
+            // Koordinaten aus Favoriten übernehmen oder geocoden
+            if (fav.destinationLat && fav.destinationLon && _validateFavCoords(fav.destination, fav.destinationLat, fav.destinationLon)) {
+                booking.destinationLat = fav.destinationLat;
+                booking.destinationLon = fav.destinationLon;
+            } else if (fav.destination) {
+                const destGeo = await geocode(fav.destination);
+                if (destGeo) {
+                    booking.destinationLat = destGeo.lat;
+                    booking.destinationLon = destGeo.lon;
+                }
+            }
+
+            // Koordinaten loggen
+            await addTelegramLog('📍', chatId, `Koordinaten aus Favoriten: Pickup(${booking.pickupLat || '?'}, ${booking.pickupLon || '?'}) → Dest(${booking.destinationLat || '?'}, ${booking.destinationLon || '?'})`);
+
+            await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>`);
+            await continueBookingFlow(chatId, booking, pending.originalText || '');
+            return;
+        }
+
+        // Fallback: Kein partial vorhanden → alte Logik (Neu-Analyse)
+        const _savedDatetime = pending.partial?.datetime || null;
         const pickup = preselectedCustomer.address || fav.lastPickup || null;
         let enrichedText = originalText || '';
         if (pickup) enrichedText += ` von ${pickup}`;
         enrichedText += ` nach ${fav.destination}`;
-        // 🔧 v6.38.55: Bereits gewählte Uhrzeit in enrichedText einfügen damit KI sie erkennt
         if (_savedDatetime) {
             const _dtParts = _savedDatetime.split('T');
             if (_dtParts.length === 2) {
-                const _dtDate = _dtParts[0]; // "2026-04-02"
-                const _dtTime = _dtParts[1]; // "18:50"
-                enrichedText += ` am ${_dtDate} um ${_dtTime}`;
+                enrichedText += ` am ${_dtParts[0]} um ${_dtParts[1]}`;
             }
         }
-
-        // 🆕 Koordinaten aus Favoriten übernehmen → überspringt Adress-Bestätigung
-        // Falls Koordinaten fehlen (alte Fahrten), per Geocoding nachladen
         const prefilledCoords = {};
-        // 🔧 v6.25.4: PLZ-Distanz-Check für Favoriten-Koordinaten — bei Mismatch neu geocodieren
-        const _validateFavCoords = (addr, lat, lon) => {
-            if (!addr || !lat || !lon) return false;
-            const plzM = addr.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
-            if (!plzM) return true; // Ohne PLZ kein Check möglich
-            const center = PLZ_CENTERS[plzM[1]];
-            if (!center) return true;
-            const dist = distanceKm(parseFloat(lat), parseFloat(lon), center.lat, center.lon);
-            if (dist > PLZ_MAX_RADIUS_KM) {
-                console.log(`[PLZ-Filter] Favoriten-Koordinaten ${lat},${lon} sind ${dist.toFixed(1)}km von PLZ ${plzM[1]} entfernt → neu geocodieren`);
-                return false;
-            }
-            return true;
-        };
-        if (fav.destinationLat && fav.destinationLon && _validateFavCoords(fav.destination, fav.destinationLat, fav.destinationLon)) {
+        if (fav.destinationLat && fav.destinationLon) {
             prefilledCoords.destinationLat = fav.destinationLat;
             prefilledCoords.destinationLon = fav.destinationLon;
         } else if (fav.destination) {
             const destGeo = await geocode(fav.destination);
-            if (destGeo) {
-                prefilledCoords.destinationLat = destGeo.lat;
-                prefilledCoords.destinationLon = destGeo.lon;
-            }
+            if (destGeo) { prefilledCoords.destinationLat = destGeo.lat; prefilledCoords.destinationLon = destGeo.lon; }
         }
-        if (pickup && fav.pickupLat && fav.pickupLon && _validateFavCoords(pickup, fav.pickupLat, fav.pickupLon)) {
-            prefilledCoords.pickupLat = fav.pickupLat;
-            prefilledCoords.pickupLon = fav.pickupLon;
-        } else if (pickup) {
-            const pickGeo = await geocode(pickup);
-            if (pickGeo) {
-                prefilledCoords.pickupLat = pickGeo.lat;
-                prefilledCoords.pickupLon = pickGeo.lon;
-            }
-        }
-
         await deletePending(chatId);
         await sendTelegramMessage(chatId, `⭐ <b>${fav.destination}</b>\n🤖 <i>Analysiere Buchung...</i>`);
-        // 🔧 v6.38.55: prefilledDatetime übergeben damit die KI-Analyse die bereits gewählte Uhrzeit übernimmt
         await analyzeTelegramBooking(chatId, enrichedText, userName, { isAdmin: true, preselectedCustomer, prefilledCoords, prefilledDatetime: _savedDatetime });
         return;
     }

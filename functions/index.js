@@ -4954,8 +4954,14 @@ Nur gültiges JSON, kein Markdown:
         // 🆕 v6.20.1: Erkannte Daten als Übersicht anzeigen
         const _recognized = [];
         if (booking.datetime) {
-            const _dt = new Date(booking.datetime.includes('T') ? booking.datetime : booking.datetime + 'T00:00');
-            _recognized.push(`📅 ${_dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'short', day: '2-digit', month: '2-digit' })} um ${_dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' })} Uhr`);
+            // 🔧 v6.38.76: Zeitzone-Bug-Fix: "2026-04-04T08:45" als UTC interpretiert → +2h Versatz in Berlin
+            // Fix: Datum und Zeit direkt aus dem String extrahieren, kein Date-Objekt
+            const [_datePart, _timePart] = booking.datetime.split('T');
+            const _timeDisplay = _timePart ? _timePart.substring(0, 5) : '00:00'; // "08:45"
+            // Wochentag: Datumsteil + T12:00Z vermeidet Timezone-Datumsrollover
+            const _dateForDow = new Date(_datePart + 'T12:00:00Z');
+            const _dowStr = _dateForDow.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+            _recognized.push(`📅 ${_dowStr} um ${_timeDisplay} Uhr`);
         }
         if (booking.pickup) _recognized.push(`📍 Von: ${booking.pickup}`);
         if (booking.destination) _recognized.push(`🎯 Nach: ${booking.destination}`);
@@ -7992,10 +7998,36 @@ async function handleMessage(message) {
                 suggestions = [];
             }
 
-            if (suggestions.length > 0) {
+            // 🔧 v6.38.76: Direkt-Geocoding versuchen wenn Nominatim keine gute Hausnummer findet
+            // Problem: "Maxim Gorki Str 50 b" → Nominatim liefert nur 13, 21, 8, 53, 42 (nicht 50b)
+            // Fix: Direkt-Geocoding mit exakter Adresse + Usedom-Kontext als ersten Vorschlag einbauen
+            let directGeoResult = null;
+            try {
+                const _geoUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(rawAddress + ', Usedom')}&format=json&addressdetails=1&limit=1`;
+                const _geoResp = await fetch(_geoUrl, { headers: { 'User-Agent': 'taxi-heringsdorf/1.0' } });
+                const _geoData = await _geoResp.json();
+                if (_geoData && _geoData.length > 0 && _geoData[0].lat) {
+                    const _g = _geoData[0];
+                    const _gName = _g.display_name.split(',').slice(0, 3).join(',');
+                    // Nur verwenden wenn Straßenname plausibel passt
+                    const _rawLower = rawAddress.toLowerCase().replace(/str\.|straße|strasse/gi, '');
+                    const _gLower = (_g.display_name || '').toLowerCase();
+                    if (_rawLower.split(' ').some(w => w.length > 3 && _gLower.includes(w))) {
+                        directGeoResult = { name: _gName, lat: parseFloat(_g.lat), lon: parseFloat(_g.lon), source: 'nominatim-direct' };
+                    }
+                }
+            } catch (e) { /* nicht kritisch */ }
+
+            if (suggestions.length > 0 || directGeoResult) {
                 // Vorschläge als Buttons zeigen (max 5)
                 const confirmId = Date.now().toString(36);
-                const keyboard = suggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
+                // 🔧 v6.38.76: Direkt-Geocoding-Treffer als ersten Vorschlag voranstellen
+                let allSuggestions = [...suggestions];
+                if (directGeoResult && !allSuggestions.some(s => s.name === directGeoResult.name)) {
+                    allSuggestions.unshift(directGeoResult);
+                }
+                allSuggestions = allSuggestions.slice(0, 6);
+                const keyboard = allSuggestions.map((s, i) => [{ text: `${s.source === 'poi' || s.source === 'known' ? '⭐' : s.source === 'customer' ? '👤' : s.source === 'booking' ? '🔁' : s.source === 'nominatim-direct' ? '🎯' : '📍'} ${s.name}`, callback_data: `admin_newcust_adr_${i}_${confirmId}` }]);
                 keyboard.push([{ text: '📝 Original verwenden: ' + (rawAddress.length > 25 ? rawAddress.slice(0, 23) + '…' : rawAddress), callback_data: `admin_newcust_addr_raw_${confirmId}` }]);
                 keyboard.push([{ text: '✏️ Andere Adresse eingeben', callback_data: `admin_newcust_addr_retry_${confirmId}` }]);
                 keyboard.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
@@ -8004,7 +8036,7 @@ async function handleMessage(message) {
                     ...pending,
                     _adminNewCustStep: 'address_select',
                     _adminNewCustAddr: rawAddress,
-                    _adminNewCustSuggestions: suggestions,
+                    _adminNewCustSuggestions: allSuggestions,
                     _addrConfirmId: confirmId
                 });
                 await sendTelegramMessage(chatId,
@@ -17366,6 +17398,9 @@ exports.onRideCreated = onValueCreated(
                 `\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
                 `✅ Sie erhalten Updates sobald der Fahrer losfährt!\n` +
                 `📞 Bei Fragen: 038378/22022`;
+            // 🔧 v6.38.76: Flag VOR dem Senden setzen — verhindert Race-Condition mit onRideUpdated
+            // Vorher: Flag nach dem Senden → onRideUpdated feuerte so schnell dass Flag noch nicht da war → Duplikat
+            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) { await logError('onRideCreated.customerTgSent', e, { rideId, severity: 'warning' }); }
             const _custMsgResult = await sendTelegramMessage(customerChatId, customerMsg);
             console.log('📱 Kunden-Bestätigung bei Erstellung gesendet:', customerChatId);
             // 🆕 v6.38.45: Kunden-Benachrichtigung detailliert loggen
@@ -17374,7 +17409,6 @@ exports.onRideCreated = onValueCreated(
                 ergebnis: _custMsgResult ? 'gesendet' : 'FEHLGESCHLAGEN',
                 kunde: ride.customerName || '?'
             });
-            try { await db.ref('rides/' + rideId + '/customerTelegramSent').set(true); } catch(e) { await logError('onRideCreated.customerTgSent', e, { rideId, severity: 'warning' }); }
         }
 
         // Flag setzen damit Browser nicht nochmal sendet

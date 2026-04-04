@@ -84,6 +84,32 @@ partialB[isPickupField ? 'pickup' : 'destination'] = null; // nur dieses Feld le
 ```
 Dies gilt für ALLE Pfade wo eine Adresse geändert wird: normaler Text, Google Maps Link, PLZ-Fallback.
 
+### Präventionsregel — NIEMALS `deletePending` + `analyzeTelegramBooking` wenn `pending.partial` existiert:
+```js
+// ❌ FALSCH — Pending löschen und KI-Analyse neu starten:
+await deletePending(chatId);
+await analyzeTelegramBooking(chatId, enrichedText, userName, { preselectedCustomer });
+// → Auftraggeber-Kontext verloren: guestName, _isAuftraggeberBooking, _auftraggeberResolved!
+
+// ✅ RICHTIG — Bestehende Buchung aus pending.partial weiterverwenden:
+const booking = pending.partial;
+booking.destination = newDestination;  // nur das geänderte Feld setzen
+booking.missing = booking.missing.filter(f => f !== 'destination');
+await continueBookingFlow(chatId, booking, pending.originalText || '');
+```
+**Wichtig:** Jeder Callback-Handler (Favoriten, Google Maps, Adress-Bestätigung, etc.) der ein Feld
+der Buchung ändert MUSS `pending.partial` weiterverwenden. `analyzeTelegramBooking` darf NUR
+beim allerersten Buchungsstart aufgerufen werden — NIE mitten im Flow!
+
+### Präventionsregel — `_auftraggeberResolved` IMMER setzen wenn Auftraggeber-Frage beantwortet:
+Jeder Code-Pfad der die Auftraggeber-Adresse einem Feld zuordnet (Abholort/Zielort) MUSS
+`booking._auftraggeberResolved = true` setzen — sonst fragt `continueBookingFlow` endlos nach.
+Dies betrifft:
+- `auftr_pickup_` Handler ✅
+- `auftr_dest_` Handler ✅
+- `auftr_skip_` Handler ✅
+- `analyzeTelegramBooking` wenn KI beide Felder erkennt ✅ (v6.38.95)
+
 ---
 
 ## Aktueller Stand (2026-03-26)

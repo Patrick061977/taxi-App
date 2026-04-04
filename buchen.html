@@ -163,6 +163,14 @@
             cursor: not-allowed;
             transform: none;
         }
+        /* 🆕 v6.38.78: Anruf-Button wenn kein Sofort-Taxi verfügbar */
+        .btn-book.btn-call {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            box-shadow: 0 4px 16px rgba(220,38,38,0.4) !important;
+            cursor: pointer !important;
+            opacity: 1 !important;
+        }
+        .btn-book.btn-call:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(220,38,38,0.5) !important; }
         /* SMS Verification Modal */
         .sms-modal {
             display: none;
@@ -509,6 +517,31 @@
         let shiftsData = {};
         let isAvailable = false;
 
+        // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
+        function updateBookButton() {
+            const btn = document.getElementById('btn-book');
+            if (!btn) return;
+            if (isAvailable) {
+                // Normal buchen
+                btn.disabled = false;
+                btn.className = 'btn-book';
+                btn.innerHTML = '🚕 Jetzt Taxi buchen';
+                btn.onclick = startBooking;
+            } else if (wannModus === 'sofort') {
+                // Kein Sofort-Taxi → roter Anruf-Button
+                btn.disabled = false;
+                btn.className = 'btn-book btn-call';
+                btn.innerHTML = '📞 038378 22022 — Jetzt anrufen';
+                btn.onclick = () => { window.location.href = 'tel:03837822022'; };
+            } else {
+                // Vorbestellen nicht verfügbar → grau
+                btn.disabled = true;
+                btn.className = 'btn-book';
+                btn.innerHTML = '🚕 Jetzt Taxi buchen';
+                btn.onclick = startBooking;
+            }
+        }
+
         // Offizielle Fahrzeuge (gleich wie index.html)
         const OFFICIAL_VEHICLES = {
             'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4 },
@@ -605,6 +638,8 @@
             } else {
                 felder.classList.remove('active');
             }
+            // 🆕 v6.38.78: Button-Status neu berechnen wenn Modus wechselt
+            updateBookButton();
             checkRoute();
         }
 
@@ -666,7 +701,7 @@
                 el.className = 'availability-card unavailable';
                 el.innerHTML = '⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>';
                 isAvailable = false;
-                document.getElementById('btn-book').disabled = true;
+                updateBookButton();
                 return;
             }
 
@@ -695,7 +730,6 @@
 
                 if (conflictCount < activeCount) {
                     isAvailable = true;
-                    document.getElementById('btn-book').disabled = false;
 
                     // 🆕 v6.38.74: ETA für Sofort-Fahrten — GPS-Distanz des nächsten Fahrzeugs
                     // 🔧 v6.38.78: Auch offline-Fahrzeuge mit letzter GPS-Position nutzen; Fallback wenn kein GPS
@@ -743,6 +777,7 @@
                         el.className = 'availability-card available';
                         el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
                     }
+                    updateBookButton();
                 } else {
                     // 🔧 v6.38.57: Früheste Verfügbarkeit berechnen und anzeigen
                     let nextFreeMsg = '';
@@ -760,16 +795,15 @@
                         }
                     }
                     el.className = 'availability-card unavailable';
-                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.' + nextFreeMsg +
-                        '<br><span style="font-size:13px;opacity:0.8;">Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a></span>';
+                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.' + nextFreeMsg;
                     isAvailable = false;
-                    document.getElementById('btn-book').disabled = true;
+                    updateBookButton();
                 }
             } catch(e) {
                 el.className = 'availability-card available';
                 el.innerHTML = '✅ Taxi verfügbar';
                 isAvailable = true;
-                document.getElementById('btn-book').disabled = false;
+                updateBookButton();
             }
         }
 

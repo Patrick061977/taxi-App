@@ -698,20 +698,24 @@
                     document.getElementById('btn-book').disabled = false;
 
                     // 🆕 v6.38.74: ETA für Sofort-Fahrten — GPS-Distanz des nächsten Fahrzeugs
+                    // 🔧 v6.38.78: Auch offline-Fahrzeuge mit letzter GPS-Position nutzen; Fallback wenn kein GPS
                     if (wannModus === 'sofort' && pickupCoords) {
                         el.className = 'availability-card available';
                         el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst. <span style="font-size:12px;opacity:0.7;">⏳ ETA wird berechnet...</span>`;
-                        // Live GPS aus /vehicles laden → nächstes Online-Fahrzeug finden
                         try {
                             const vSnap = await db.ref('vehicles').once('value');
                             const vData = vSnap.val() || {};
+                            const dt2 = berlinNow();
+                            const nowTs = Date.now();
                             let closestEtaMin = null;
+                            let closestEtaFresh = false; // true = GPS < 30 Min alt
                             for (const [vid, vInfo] of Object.entries(vData)) {
-                                if (!vInfo.online) continue;
                                 if (!vInfo.lat || !vInfo.lon) continue;
-                                // Nur Fahrzeuge die auch im Schichtplan aktiv sind
-                                const dt2 = berlinNow();
+                                // Nur Fahrzeuge im Schichtplan
                                 if (!isVehicleInShift(vid, berlinDateStr(dt2), berlinTimeStr(dt2))) continue;
+                                // GPS-Frische prüfen (lastUpdate in Firebase)
+                                const gpsAge = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 : 999;
+                                const isFresh = gpsAge < 30; // < 30 Minuten → vertrauenswürdig
                                 // Distanz in km (Haversine)
                                 const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
                                 const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
@@ -719,15 +723,21 @@
                                 const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                                 // ETA: ~1.5 min/km auf Usedom (Straßen, nicht Luftlinie)
                                 const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
-                                if (closestEtaMin === null || etaMin < closestEtaMin) closestEtaMin = etaMin;
+                                // Frisches GPS bevorzugen
+                                if (closestEtaMin === null || (isFresh && !closestEtaFresh) || (isFresh === closestEtaFresh && etaMin < closestEtaMin)) {
+                                    closestEtaMin = etaMin;
+                                    closestEtaFresh = isFresh;
+                                }
                             }
                             if (closestEtaMin !== null) {
-                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. ${closestEtaMin} Minuten</strong>`;
+                                const freshNote = closestEtaFresh ? '' : ' <span style="font-size:11px;opacity:0.6;">(ca.)</span>';
+                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. ${closestEtaMin} Minuten</strong>${freshNote}`;
                             } else {
-                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                                // Kein GPS verfügbar → Fallback-Schätzung für Usedom Kaiserbäder
+                                el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. 5–15 Minuten</strong>`;
                             }
                         } catch(_) {
-                            el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.`;
+                            el.innerHTML = `✅ <strong>Taxi verfügbar!</strong> ${activeCount} Fahrzeug${activeCount > 1 ? 'e' : ''} im Dienst.<br>🚕 <strong>Taxi kommt in ca. 5–15 Minuten</strong>`;
                         }
                     } else {
                         el.className = 'availability-card available';

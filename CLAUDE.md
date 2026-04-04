@@ -31,6 +31,58 @@ Jetzt fixen? Ja/Nein
 - `setVehicle()` nimmt keinen Parameter → wird mit Argument aufgerufen, Argument wird ignoriert
 - `searchWords` in `searchNominatimForTelegram()` definiert → im Handler-Scope benutzt → `ReferenceError`
 - `booking.destination === booking._auftraggeberAddress` → schlägt fehl wenn Geocache Hotelname voranstellt
+- Google Maps Pfad in `_awaitingNewBookingText` baute Buchung neu auf → Datum/Uhrzeit verloren
+- `auftr_skip_` hatte keinen Duplikat-Check → Abholort = Zielort blieb nach "Weder noch"
+
+---
+
+## 🏨 Hotel Residenz Bug — Ursache & Prävention
+
+### Was ist passiert:
+1. **Stammkunde-Logik** setzt `booking.destination = customer.address` aus CRM → `"Kanalstraße 1, 17424 Heringsdorf"`
+2. **Geocache** speichert dieselbe Adresse als POI-Name → `"Hotel Residenz, Kanalstraße 1, 17424 Heringsdorf"`
+3. Buchungsflow nutzt Geocache-String → `booking.destination = "Hotel Residenz, Kanalstraße 1..."`
+4. **Duplikat-Check** prüft `booking.destination === booking._auftraggeberAddress` → String-Vergleich schlägt fehl
+5. → Abholort UND Zielort = Hotel Residenz (selbe Adresse, unterschiedlicher String)
+
+### Warum trat der Bug dreifach auf:
+- `auftr_pickup_` Handler: kein robuster Check (gefixt v6.38.94/97)
+- `auftr_skip_` Handler: gar kein Check (gefixt v6.38.98)
+- `_awaitingNewBookingText` Google Maps Pfad: Buchung neu aufgebaut ohne Duplikat-Check (gefixt v6.38.98)
+
+### Präventionsregel — NIEMALS Adressen per String-Gleichheit vergleichen:
+```js
+// ❌ FALSCH — bricht wenn Geocache Hotelname voranstellt:
+if (booking.destination === booking._auftraggeberAddress) { ... }
+
+// ✅ RICHTIG — Koordinaten-Vergleich + String-Enthält-Check als Fallback:
+const sameByCoords = booking.destinationLat && booking._auftraggeberLat &&
+    Math.abs(parseFloat(booking.destinationLat) - parseFloat(booking._auftraggeberLat)) < 0.0002 &&
+    Math.abs(parseFloat(booking.destinationLon) - parseFloat(booking._auftraggeberLon)) < 0.0002;
+const sameByString = booking.destination && booking._auftraggeberAddress && (
+    booking.destination === booking._auftraggeberAddress ||
+    booking.destination.includes(booking._auftraggeberAddress) ||
+    booking._auftraggeberAddress.includes(booking.destination)
+);
+if (booking.destination && (sameByCoords || sameByString)) { ... }
+```
+
+### Regel für ALLE Adress-Vergleiche im Booking-Flow:
+- **Niemals `===` für Adressen** — immer Koordinaten zuerst, dann `.includes()` als Fallback
+- **Geocache** fügt POI-Namen voran → CRM-Adresse ≠ Geocache-Adresse obwohl gleicher Ort
+- **Jeder Handler** der Pickup oder Destination setzt muss prüfen ob das ANDERE Feld danach identisch ist
+- Der Duplikat-Check muss in ALLEN drei Pfaden vorhanden sein: `auftr_pickup_`, `auftr_dest_`, `auftr_skip_`
+
+### Präventionsregel — Buchungs-Kontext NIEMALS wegwerfen:
+```js
+// ❌ FALSCH — Buchung neu aufbauen wenn Adresse geändert wird:
+const partialB = { intent: 'buchung', name: preselectedCustomer.name, ... }; // Datum/Zeit verloren!
+
+// ✅ RICHTIG — Bestehende Buchung klonen, nur geändertes Feld leeren:
+const partialB = pending.partial ? { ...pending.partial } : { /* Fallback */ };
+partialB[isPickupField ? 'pickup' : 'destination'] = null; // nur dieses Feld leeren
+```
+Dies gilt für ALLE Pfade wo eine Adresse geändert wird: normaler Text, Google Maps Link, PLZ-Fallback.
 
 ---
 

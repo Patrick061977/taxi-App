@@ -8757,28 +8757,48 @@ async function handleMessage(message) {
             await sendTelegramMessage(chatId, '🗺️ <i>Google Maps Link erkannt...</i>');
             const _geo2 = await reverseGeocode(_mapsCoords2.lat, _mapsCoords2.lon);
             const _addr2 = _geo2 ? _geo2.address : `${_mapsCoords2.lat.toFixed(5)}, ${_mapsCoords2.lon.toFixed(5)}`;
-            const custAddr2 = preselectedCustomer.address || '';
-            const custLat2 = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
-            const custLon2 = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
-            const partialB = {
-                intent: 'buchung',
-                name: preselectedCustomer.name,  // 🔧 v6.38.61: booking.name für Ride-Create
-                customerName: preselectedCustomer.name,
-                customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
-                customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
-                _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
-                _forCustomer: preselectedCustomer.name,
-                _adminBooked: true,
-                _adminChatId: chatId,
-            };
+            // 🔧 v6.38.98: Bestehende Buchung als Basis — gleiche Logik wie normaler Adress-Pfad
+            // Vorher: Buchung neu aufgebaut → Datum/Uhrzeit/Personen verloren!
+            const _existingB = pending.partial || pending.booking || null;
+            let partialB;
+            if (_existingB) {
+                partialB = { ..._existingB };
+                if (isPickupField) {
+                    partialB.pickup = null; partialB.pickupLat = null; partialB.pickupLon = null;
+                } else {
+                    partialB.destination = null; partialB.destinationLat = null; partialB.destinationLon = null;
+                }
+                await addTelegramLog('♻️', chatId, `Google Maps ${fieldLabel}: bestehende Buchung übernommen`);
+            } else {
+                // Fallback: Neue Buchung aufbauen (kein Pending vorhanden)
+                const custAddr2 = preselectedCustomer.address || '';
+                const custLat2 = preselectedCustomer.addressLat || preselectedCustomer.lat || null;
+                const custLon2 = preselectedCustomer.addressLon || preselectedCustomer.lon || null;
+                partialB = {
+                    intent: 'buchung',
+                    name: preselectedCustomer.name,
+                    customerName: preselectedCustomer.name,
+                    customerPhone: preselectedCustomer.phone || preselectedCustomer.mobilePhone || '',
+                    customerId: preselectedCustomer.id || preselectedCustomer.customerId || null,
+                    _crmCustomerId: preselectedCustomer.customerId || preselectedCustomer.id || null,
+                    _forCustomer: preselectedCustomer.name,
+                    _adminBooked: true,
+                    _adminChatId: chatId,
+                };
+                if (isPickupField) {
+                    partialB.destination = custAddr2; if (custLat2) { partialB.destinationLat = custLat2; partialB.destinationLon = custLon2; }
+                } else {
+                    partialB.pickup = custAddr2; if (custLat2) { partialB.pickupLat = custLat2; partialB.pickupLon = custLon2; }
+                }
+                partialB.missing = [isPickupField ? 'pickup' : 'destination'];
+            }
             if (isPickupField) {
                 partialB.pickup = _addr2; partialB.pickupLat = _mapsCoords2.lat; partialB.pickupLon = _mapsCoords2.lon;
-                partialB.destination = custAddr2; if (custLat2) { partialB.destinationLat = custLat2; partialB.destinationLon = custLon2; }
+                partialB.missing = (partialB.missing || []).filter(f => f !== 'pickup');
             } else {
                 partialB.destination = _addr2; partialB.destinationLat = _mapsCoords2.lat; partialB.destinationLon = _mapsCoords2.lon;
-                partialB.pickup = custAddr2; if (custLat2) { partialB.pickupLat = custLat2; partialB.pickupLon = custLon2; }
+                partialB.missing = (partialB.missing || []).filter(f => f !== 'destination');
             }
-            partialB.missing = ['datetime'];
             await addTelegramLog('🗺️', chatId, `Google Maps → ${fieldLabel}: ${_addr2}`);
             await deletePending(chatId);
             const routePrice2 = await calculateTelegramRoutePrice(partialB);
@@ -14064,6 +14084,27 @@ async function handleCallback(callback) {
         if (pending && pending.partial) {
             const booking = pending.partial;
             booking._auftraggeberResolved = true;
+            // 🔧 v6.38.98: Gleicher Duplikat-Check wie in auftr_pickup_ — Zielort löschen wenn = Auftraggeber-Adresse
+            // Verhindert: Abholort = Zielort nach "Weder noch"
+            const _dLat = parseFloat(booking.destinationLat);
+            const _dLon = parseFloat(booking.destinationLon);
+            const _aLat = parseFloat(booking._auftraggeberLat);
+            const _aLon = parseFloat(booking._auftraggeberLon);
+            const _skipSameByCoords = booking.destinationLat && booking._auftraggeberLat &&
+                Math.abs(_dLat - _aLat) < 0.0002 && Math.abs(_dLon - _aLon) < 0.0002;
+            const _skipSameByString = booking.destination && booking._auftraggeberAddress && (
+                booking.destination === booking._auftraggeberAddress ||
+                booking.destination.includes(booking._auftraggeberAddress) ||
+                booking._auftraggeberAddress.includes(booking.destination)
+            );
+            if (booking.destination && (_skipSameByCoords || _skipSameByString)) {
+                booking.destination = null;
+                booking.destinationLat = null;
+                booking.destinationLon = null;
+                if (!booking.missing) booking.missing = [];
+                if (!booking.missing.includes('destination')) booking.missing.push('destination');
+                await addTelegramLog('🔄', chatId, `auftr_skip: Zielort = Auftraggeber-Adresse → gelöscht`);
+            }
             await addTelegramLog('⏭️', chatId, `Auftraggeber-Adresse übersprungen`);
             await continueBookingFlow(chatId, booking, pending.originalText || '');
         }

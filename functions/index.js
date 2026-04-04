@@ -14014,14 +14014,26 @@ async function handleCallback(callback) {
             }
             booking._auftraggeberResolved = true;
             await addTelegramLog('📍', chatId, `Auftraggeber-Adresse als ABHOLORT: ${booking._auftraggeberAddress}`);
-            // 🔧 v6.38.94: Wenn Destination = Auftraggeber-Adresse (von Stammkunde auto-gesetzt),
+            // 🔧 v6.38.97: Wenn Destination dieselbe Adresse ist wie Abholort (Auftraggeber-Adresse),
             // dann löschen — sonst sind Abholort UND Zielort identisch!
-            if (booking.destination && booking.destination === booking._auftraggeberAddress) {
+            // Prüfe per Koordinaten (genauer als String-Vergleich — z.B. "Hotel Residenz, Kanalstraße 1" ≠ "Kanalstraße 1")
+            const _destLat = parseFloat(booking.destinationLat);
+            const _destLon = parseFloat(booking.destinationLon);
+            const _auftrLat = parseFloat(booking._auftraggeberLat);
+            const _auftrLon = parseFloat(booking._auftraggeberLon);
+            const _sameByCoords = booking.destinationLat && booking._auftraggeberLat &&
+                Math.abs(_destLat - _auftrLat) < 0.0002 && Math.abs(_destLon - _auftrLon) < 0.0002;
+            const _sameByString = booking.destination && booking._auftraggeberAddress && (
+                booking.destination === booking._auftraggeberAddress ||
+                booking.destination.includes(booking._auftraggeberAddress) ||
+                booking._auftraggeberAddress.includes(booking.destination)
+            );
+            if (booking.destination && (_sameByCoords || _sameByString)) {
                 booking.destination = null;
                 booking.destinationLat = null;
                 booking.destinationLon = null;
                 if (!booking.missing.includes('destination')) booking.missing.push('destination');
-                await addTelegramLog('🔄', chatId, `Zielort = Auftraggeber-Adresse → gelöscht (war auto-gesetzt durch Stammkunde-Logik)`);
+                await addTelegramLog('🔄', chatId, `Zielort = Auftraggeber-Adresse (coords: ${_sameByCoords}, string: ${_sameByString}) → gelöscht`);
             }
             await continueBookingFlow(chatId, booking, pending.originalText || '');
         }

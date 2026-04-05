@@ -668,11 +668,8 @@
                 ridesListener = null;
             }
             verifiedPhone = '';
-            document.getElementById('login-screen').style.display = 'flex';
-            document.getElementById('rides-screen').style.display = 'none';
-            document.getElementById('phone-input').value = '';
-            document.getElementById('code-input').value = '';
-            backToPhone();
+            // 🔧 v6.38.95: Nach Abmeldung zurück zu buchen.html
+            window.location.href = 'buchen.html';
         }
 
         // ========================================

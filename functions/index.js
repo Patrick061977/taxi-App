@@ -17880,6 +17880,69 @@ exports.onRideUpdated = onValueUpdated(
                 await sendToAllAdmins(message, 'status_change');
                 await sendToSystemChannel(message, 'status_change');
                 await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
+                // 🆕 v6.38.95: Status-Wechsel ins buchenLog (System Monitor Dispatch)
+                const _stEmoji = { assigned: '🔵', accepted: '🟢', on_way: '🟠', picked_up: '🟣', completed: '✅', cancelled: '❌', storniert: '❌' };
+                db.ref('settings/buchenLog').push({
+                    time: Date.now(), emoji: _stEmoji[newStatus] || '🔄',
+                    msg: `FAHRER: ${oldStatus} → ${newStatus} | ${after.customerName || '?'} | ${after.vehicle || after.assignedVehicle || '?'}`,
+                    session: 'cloud'
+                }).catch(() => {});
+            }
+
+            // 🆕 v6.38.95: KUNDEN-BENACHRICHTIGUNG BEI STATUS-WECHSEL
+            // Web-Kunden (buchen.html) und Telegram-Kunden bekommen Updates
+            if (newStatus === 'on_way' || newStatus === 'picked_up' || newStatus === 'completed') {
+                try {
+                    const customerChatId = await getCustomerChatId(after);
+                    if (customerChatId) {
+                        const _custName = after.guestName || after.customerName || '';
+                        const _greeting = _custName ? `Hallo ${_custName},\n\n` : '';
+                        const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}` : '';
+                        const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                        let custMsg = '';
+
+                        if (newStatus === 'on_way') {
+                            custMsg = `🚗 <b>Ihr Fahrer ist unterwegs!</b>\n\n` +
+                                _greeting +
+                                `📍 Abholung: ${after.pickup || '?'}` +
+                                vehicleInfo +
+                                `\n\n📲 <a href="${trackingLink}">🗺️ Live-Tracking öffnen</a>\n\n` +
+                                `✅ <i>Bitte halten Sie sich bereit!</i>`;
+                        } else if (newStatus === 'picked_up') {
+                            custMsg = `✅ <b>Sie wurden abgeholt!</b>\n\n` +
+                                `🎯 Ziel: ${after.destination || '?'}` +
+                                vehicleInfo +
+                                `\n\nGute Fahrt! 🚕`;
+                        } else if (newStatus === 'completed') {
+                            const price = after.finalPrice || after.price || 0;
+                            custMsg = `🏁 <b>Fahrt abgeschlossen!</b>\n\n` +
+                                _greeting +
+                                `📍 ${after.pickup || '?'} → ${after.destination || '?'}\n` +
+                                (price ? `💰 <b>Preis:</b> ${price}€\n` : '') +
+                                `\n⭐ <i>Vielen Dank für Ihre Fahrt!</i>\n📞 038378 22022`;
+                        }
+
+                        if (custMsg) {
+                            // Duplikat-Check: nicht doppelt senden
+                            const _statusFlag = `customer_${newStatus}_sent`;
+                            if (!after[_statusFlag]) {
+                                await db.ref('rides/' + rideId + '/' + _statusFlag).set(true);
+                                await sendTelegramMessage(customerChatId, custMsg);
+                                console.log(`📱 Kunden-Status-Update: ${newStatus} → ${customerChatId}`);
+                                await addTelegramLog('📱', 'cloud', `Kunde informiert: ${newStatus} (${after.customerName || '?'})`, { rideId });
+                                // 🆕 v6.38.95: Auch ins buchenLog schreiben (System Monitor)
+                                const _statusEmoji = { on_way: '🚗', picked_up: '✅', completed: '🏁' };
+                                db.ref('settings/buchenLog').push({
+                                    time: Date.now(), emoji: _statusEmoji[newStatus] || '📱',
+                                    msg: `KUNDE INFORMIERT: ${newStatus} → ${after.customerName || '?'}`,
+                                    session: 'cloud'
+                                }).catch(() => {});
+                            }
+                        }
+                    }
+                } catch (custErr) {
+                    console.warn('⚠️ Kunden-Status-Benachrichtigung Fehler:', custErr.message);
+                }
             }
         }
 

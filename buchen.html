@@ -1232,10 +1232,9 @@
                 }
             });
 
-            // Nominatim wenn wenig POI-Treffer und User tippt
-            // 🔧 v6.38.95: Suche mit ", Usedom" statt ", Heringsdorf" → findet auch Ückeritz, Zinnowitz etc.
-            // Bei 0 Treffern: nochmal ohne Zusatz suchen (bounded auf Usedom-Viewbox)
-            if (searchKey.length >= 3 && results.length < 3) {
+            // Nominatim nur wenn Google Places NICHT verfuegbar ist
+            // 🔧 v6.38.95: Google Places ersetzt Nominatim als Haupt-Fallback
+            if (searchKey.length >= 3 && results.length < 3 && !_gPlacesReady) {
                 try {
                     // Schritt 1: Mit ", Usedom" suchen
                     let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });

@@ -77,7 +77,7 @@
 
     "geocache": {
       ".read": true,
-      ".write": "auth != null"
+      ".write": true
     },
 
     "vehicleShifts": {

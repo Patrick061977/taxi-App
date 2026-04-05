@@ -880,6 +880,7 @@
         <nav class="header-nav">
             <a href="#leistungen">Leistungen</a>
             <a href="#preise">Preise</a>
+            <a href="#anfrage">Anfrage</a>
             <a href="#faq">FAQ</a>
             <a href="#kontakt">Kontakt</a>
         </nav>
@@ -1043,16 +1044,231 @@
     </div>
 </section>
 
-<!-- ==================== CTA BANNER ==================== -->
-<section class="cta-banner">
-    <h2>Bereit f&uuml;r Ihre Fahrt?</h2>
-    <p class="cta-banner-sub">Rufen Sie an, schreiben Sie uns oder senden Sie eine Anfrage!</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
-        <a href="tel:03837822022" class="btn-primary">📞 Anrufen</a>
-        <a href="https://wa.me/4915127585179?text=Hallo%2C%20ich%20brauche%20ein%20Taxi" target="_blank" class="btn-primary" style="background:#25D366;">💬 WhatsApp</a>
-        <a href="https://www.funk-taxi-heringsdorf.de/transfer-anfrage/" target="_blank" class="btn-primary" style="background:#3b82f6;">✉️ Anfrage</a>
+<!-- ==================== ANFRAGE-FORMULAR ==================== -->
+<section class="section" id="anfrage" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);">
+    <h2 class="section-title">Taxi anfragen</h2>
+    <p class="section-subtitle">F&uuml;llen Sie das Formular aus — wir melden uns sofort bei Ihnen!</p>
+    <div style="max-width:500px;margin:0 auto;">
+        <div style="background:white;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,0.08);padding:24px;">
+            <!-- Abholort -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📍 Abholort</label>
+                <input type="text" id="anf-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
+                <div id="anf-pickup-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+            </div>
+            <!-- Zielort -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🎯 Zielort</label>
+                <input type="text" id="anf-dest" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
+                <div id="anf-dest-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+            </div>
+            <!-- Datum + Uhrzeit -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <div style="flex:1;">
+                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📅 Datum</label>
+                    <input type="date" id="anf-date" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🕐 Uhrzeit</label>
+                    <input type="time" id="anf-time" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                </div>
+            </div>
+            <!-- Personen -->
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👥 Personen</label>
+                <div style="display:flex;gap:6px;" id="anf-pax-btns">
+                    <button onclick="setAnfPax(1)" class="anf-pax active" style="flex:1;padding:10px;border:2px solid #059669;background:#ecfdf5;color:#059669;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">1</button>
+                    <button onclick="setAnfPax(2)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">2</button>
+                    <button onclick="setAnfPax(3)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">3</button>
+                    <button onclick="setAnfPax(4)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">4</button>
+                    <button onclick="setAnfPax(5)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">5+</button>
+                </div>
+            </div>
+            <!-- Name + Telefon -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <div style="flex:1;">
+                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
+                    <input type="text" id="anf-name" placeholder="Vor- und Nachname" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
+                    <input type="tel" id="anf-phone" placeholder="0176 12345678" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                </div>
+            </div>
+            <!-- Preis-Anzeige -->
+            <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">
+                <div style="font-size:12px;color:#64748b;">Geschätzter Preis</div>
+                <div style="font-size:28px;font-weight:800;color:#059669;" id="anf-price">—</div>
+                <div style="font-size:12px;color:#64748b;" id="anf-route-info"></div>
+            </div>
+            <!-- Buttons -->
+            <div style="display:flex;gap:8px;">
+                <button onclick="sendAnfrageWhatsApp()" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,0.3);">
+                    💬 WhatsApp
+                </button>
+                <button onclick="sendAnfrageEmail()" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
+                    ✉️ Email
+                </button>
+            </div>
+            <div style="text-align:center;margin-top:8px;font-size:12px;color:#94a3b8;">
+                oder anrufen: <a href="tel:03837822022" style="color:#059669;font-weight:600;">038378 22022</a>
+            </div>
+        </div>
     </div>
 </section>
+
+<script>
+// ===== ANFRAGE-FORMULAR (kein Firebase!) =====
+let anfPax = 1;
+let anfPickupCoords = null;
+let anfDestCoords = null;
+
+// Datum/Uhrzeit Defaults
+(function() {
+    const now = new Date();
+    const d = document.getElementById('anf-date');
+    const t = document.getElementById('anf-time');
+    if (d) { d.value = now.toISOString().split('T')[0]; d.min = d.value; }
+    if (t) { const h = String(now.getHours()).padStart(2,'0'); const m = String(Math.ceil(now.getMinutes()/5)*5).padStart(2,'0'); t.value = h+':'+m; }
+})();
+
+function setAnfPax(n) {
+    anfPax = n;
+    document.querySelectorAll('.anf-pax').forEach((b,i) => {
+        b.style.borderColor = (i+1)===n ? '#059669' : '#e2e8f0';
+        b.style.background = (i+1)===n ? '#ecfdf5' : 'white';
+        b.style.color = (i+1)===n ? '#059669' : '#1e293b';
+        b.style.fontWeight = (i+1)===n ? '700' : '400';
+    });
+    calcAnfPrice();
+}
+
+// Google Places Autocomplete
+let _anfPlacesReady = false;
+let _anfSuggestion = null;
+let _anfToken = null;
+let _anfPlace = null;
+
+window.addEventListener('load', async () => {
+    try {
+        const lib = await google.maps.importLibrary('places');
+        _anfSuggestion = lib.AutocompleteSuggestion;
+        _anfToken = lib.AutocompleteSessionToken;
+        _anfPlace = lib.Place;
+        _anfPlacesReady = true;
+    } catch(e) {}
+});
+
+let _anfDebounce = {};
+['anf-pickup','anf-dest'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('input', () => {
+        clearTimeout(_anfDebounce[id]);
+        _anfDebounce[id] = setTimeout(() => anfSearch(input.value, id), 300);
+    });
+});
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('#anf-pickup-dropdown') && !e.target.closest('#anf-pickup')) document.getElementById('anf-pickup-dropdown').style.display='none';
+    if (!e.target.closest('#anf-dest-dropdown') && !e.target.closest('#anf-dest')) document.getElementById('anf-dest-dropdown').style.display='none';
+});
+
+async function anfSearch(query, inputId) {
+    const dd = document.getElementById(inputId + '-dropdown');
+    if (!query || query.length < 2 || !_anfPlacesReady) { dd.style.display='none'; return; }
+    try {
+        const token = new _anfToken();
+        const { suggestions } = await _anfSuggestion.fetchAutocompleteSuggestions({
+            input: query, locationBias: { center: {lat:53.95,lng:14.10}, radius:25000 },
+            language:'de', region:'de', sessionToken: token
+        });
+        if (!suggestions.length) { dd.style.display='none'; return; }
+        dd.innerHTML = suggestions.map((s,i) => {
+            const p = s.placePrediction;
+            const main = p?.mainText?.text || '?';
+            const sec = p?.secondaryText?.text || '';
+            return `<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;" onmouseover="this.style.background='#ecfdf5'" onmouseout="this.style.background='white'" onclick="anfSelect('${inputId}','${p.placeId}','${main.replace(/'/g,"\\'")}','${sec.replace(/'/g,"\\'")}')">
+                <div style="font-weight:600;">${main}</div>
+                <div style="font-size:12px;color:#64748b;">${sec}</div>
+            </div>`;
+        }).join('');
+        dd.style.display='block';
+    } catch(e) { dd.style.display='none'; }
+}
+
+async function anfSelect(inputId, placeId, mainText, secText) {
+    document.getElementById(inputId).value = mainText + (secText ? ', ' + secText : '');
+    document.getElementById(inputId + '-dropdown').style.display='none';
+    if (_anfPlace && placeId) {
+        try {
+            const place = new _anfPlace({id:placeId});
+            await place.fetchFields({fields:['location','formattedAddress']});
+            const lat = place.location?.lat();
+            const lng = place.location?.lng();
+            if (inputId === 'anf-pickup') anfPickupCoords = {lat,lon:lng};
+            else anfDestCoords = {lat,lon:lng};
+            document.getElementById(inputId).value = place.formattedAddress || mainText;
+            calcAnfPrice();
+        } catch(e) {}
+    }
+}
+
+async function calcAnfPrice() {
+    if (!anfPickupCoords || !anfDestCoords) return;
+    try {
+        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${anfPickupCoords.lon},${anfPickupCoords.lat};${anfDestCoords.lon},${anfDestCoords.lat}?overview=false`);
+        const data = await resp.json();
+        if (!data.routes || !data.routes[0]) return;
+        const km = data.routes[0].distance / 1000;
+        const min = Math.ceil(data.routes[0].duration / 60);
+        // Tarif
+        const now = new Date();
+        const h = now.getHours();
+        const isNight = h >= 22 || h < 6 || now.getDay() === 0;
+        let price = isNight ? 5.50 : 4.00;
+        let remaining = km;
+        if (remaining > 0) { const s = Math.min(remaining,2); price += s * 3.30; remaining -= s; }
+        if (remaining > 0) { const s = Math.min(remaining,2); price += s * 2.80; remaining -= s; }
+        if (remaining > 0) { price += remaining * (isNight ? 2.40 : 2.20); }
+        if (anfPax >= 5) price += 10;
+        price = Math.round(price * 100) / 100;
+        document.getElementById('anf-price').textContent = price.toFixed(2) + '€';
+        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km · ~' + min + ' Min' + (isNight ? ' · Nachttarif' : '');
+        document.getElementById('anf-price-box').style.display = 'block';
+    } catch(e) {}
+}
+
+function getAnfrageText() {
+    const pickup = document.getElementById('anf-pickup').value || '?';
+    const dest = document.getElementById('anf-dest').value || '?';
+    const date = document.getElementById('anf-date').value || '?';
+    const time = document.getElementById('anf-time').value || '?';
+    const name = document.getElementById('anf-name').value || '?';
+    const phone = document.getElementById('anf-phone').value || '?';
+    const price = document.getElementById('anf-price').textContent || '?';
+    return `Taxi-Anfrage:\n📍 Von: ${pickup}\n🎯 Nach: ${dest}\n📅 ${date} um ${time} Uhr\n👥 ${anfPax} Person(en)\n👤 ${name}\n📱 ${phone}\n💰 ca. ${price}`;
+}
+
+function sendAnfrageWhatsApp() {
+    const pickup = document.getElementById('anf-pickup').value;
+    const phone = document.getElementById('anf-phone').value;
+    if (!pickup) { alert('Bitte Abholort eingeben'); return; }
+    if (!phone) { alert('Bitte Telefonnummer eingeben'); return; }
+    const text = encodeURIComponent(getAnfrageText());
+    window.open('https://wa.me/4915127585179?text=' + text, '_blank');
+}
+
+function sendAnfrageEmail() {
+    const pickup = document.getElementById('anf-pickup').value;
+    const phone = document.getElementById('anf-phone').value;
+    if (!pickup) { alert('Bitte Abholort eingeben'); return; }
+    if (!phone) { alert('Bitte Telefonnummer eingeben'); return; }
+    const subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
+    const body = encodeURIComponent(getAnfrageText());
+    window.location.href = 'mailto:info@funk-taxi-heringsdorf.de?subject=' + subject + '&body=' + body;
+}
+</script>
 
 <!-- ==================== UEBER UNS ==================== -->
 <section class="section section-alt">

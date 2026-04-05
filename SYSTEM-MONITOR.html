@@ -126,6 +126,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         <div class="stat" id="statPending">Pending: -</div>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
+        <div class="stat" id="statVisitors" style="background:#0d1f0d;border:1px solid #4caf50;color:#4caf50;cursor:pointer;" onclick="document.getElementById('panelBuchenLog').scrollIntoView({behavior:'smooth'})" title="Aktive Besucher auf buchen.html">👁️ 0 Besucher</div>
         <button class="sound-btn" onclick="cleanupStaleRides()" title="Alte Fahrten (Status new, >24h) stornieren">🧹 Aufräumen</button>
         <button class="sound-btn" id="soundBtn" onclick="toggleSound()">Sound: Aus</button>
         <div class="live" id="liveIndicator">LIVE <span id="lastUpdate">-</span></div>
@@ -1186,6 +1187,23 @@ db.ref('settings/buchenLog').orderByChild('time').limitToLast(80).on('value', sn
 
     document.getElementById('buchenLogCount').textContent = kundenEntries.length;
     document.getElementById('driverLogCount').textContent = fahrerEntries.length;
+
+    // 🆕 v6.38.95: Live-Besucher zaehlen (Sessions mit Aktivitaet < 5 Min)
+    const _now = Date.now();
+    const _activeSessions = new Set();
+    kundenEntries.forEach(e => {
+        if (e.session && e.time && (_now - e.time) < 5 * 60000) _activeSessions.add(e.session);
+    });
+    const _visCount = _activeSessions.size;
+    const _visEl = document.getElementById('statVisitors');
+    if (_visEl) {
+        _visEl.textContent = `👁️ ${_visCount} Besucher`;
+        _visEl.style.borderColor = _visCount > 0 ? '#4caf50' : '#333';
+        _visEl.style.color = _visCount > 0 ? '#4caf50' : '#666';
+        _visEl.style.background = _visCount > 0 ? '#0d1f0d' : '#1a1a2e';
+        if (_visCount > 0 && !_visEl._lastCount) playSound(); // Sound bei neuem Besucher
+        _visEl._lastCount = _visCount;
+    }
 
     // Kunden-Panel rendern (gruppiert nach Session)
     const kundenSessions = {};

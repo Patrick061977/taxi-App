@@ -1213,10 +1213,18 @@
             });
 
             // Nominatim wenn wenig POI-Treffer und User tippt
+            // 🔧 v6.38.95: Suche mit ", Usedom" statt ", Heringsdorf" → findet auch Ückeritz, Zinnowitz etc.
+            // Bei 0 Treffern: nochmal ohne Zusatz suchen (bounded auf Usedom-Viewbox)
             if (searchKey.length >= 3 && results.length < 3) {
                 try {
-                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Heringsdorf')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
-                    const data = await resp.json();
+                    // Schritt 1: Mit ", Usedom" suchen
+                    let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                    let data = await resp.json();
+                    // Schritt 2: Bei 0 Treffern → ohne Zusatz, aber Viewbox strikt auf Usedom
+                    if (data.length === 0) {
+                        resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                        data = await resp.json();
+                    }
                     data.forEach(item => {
                         const a = item.address || {};
                         const road = a.road || a.residential || '';

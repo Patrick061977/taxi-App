@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Places API Test — Taxi Usedom</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f4f8; padding: 20px; }
+        h1 { font-size: 20px; margin-bottom: 16px; color: #1e293b; }
+        .test-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; max-width: 600px; }
+        .test-card h2 { font-size: 16px; color: #059669; margin-bottom: 12px; }
+        input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; margin-bottom: 8px; }
+        input:focus { border-color: #059669; outline: none; }
+        .results { max-height: 400px; overflow-y: auto; }
+        .result-item { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; display: flex; align-items: flex-start; gap: 8px; }
+        .result-item:hover { background: #ecfdf5; }
+        .result-name { font-weight: 600; color: #1e293b; }
+        .result-addr { font-size: 12px; color: #64748b; }
+        .result-type { font-size: 11px; color: #059669; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; }
+        .status { padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+        .status.ok { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fecaca; color: #991b1b; }
+        .status.loading { background: #e2e8f0; color: #64748b; }
+        .log { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Google Places API Test</h1>
+
+    <div class="test-card">
+        <h2>1. API Key Status</h2>
+        <div class="status loading" id="api-status">⏳ Teste API Key...</div>
+    </div>
+
+    <div class="test-card">
+        <h2>2. Autocomplete Test (Usedom-Region)</h2>
+        <input type="text" id="search-input" placeholder="z.B. Kaffee Knatter, Stadtbäckerei, Reha Klinik..." autofocus>
+        <div class="results" id="results"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>3. Vergleich: Nominatim vs Google Places</h2>
+        <input type="text" id="compare-input" placeholder="Suchbegriff eingeben...">
+        <div style="display:flex;gap:12px;margin-top:8px;">
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:13px;color:#3b82f6;margin-bottom:4px;">Google Places</div>
+                <div id="google-results" style="font-size:12px;"></div>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:13px;color:#f59e0b;margin-bottom:4px;">Nominatim</div>
+                <div id="nominatim-results" style="font-size:12px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-card">
+        <h2>4. Debug Log</h2>
+        <div class="log" id="debug-log">Warte auf Eingabe...</div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
+
+        // Usedom center + radius
+        const USEDOM_LAT = 53.95;
+        const USEDOM_LON = 14.10;
+        const USEDOM_RADIUS = 25000; // 25km
+
+        const logEl = document.getElementById('debug-log');
+        function log(msg) {
+            const time = new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            logEl.textContent = `[${time}] ${msg}\n` + logEl.textContent;
+        }
+
+        // ===== TEST 1: API Key prüfen =====
+        async function testApiKey() {
+            const statusEl = document.getElementById('api-status');
+            try {
+                const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Heringsdorf&key=${API_KEY}&language=de&components=country:de`;
+                // Direct API call won't work from browser (CORS) — use Places JS Library instead
+                statusEl.className = 'status ok';
+                statusEl.textContent = '✅ API Key geladen — teste mit Eingabe unten';
+                log('API Key geladen: ' + API_KEY.substring(0, 10) + '...');
+            } catch(e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '❌ Fehler: ' + e.message;
+                log('API Key Fehler: ' + e.message);
+            }
+        }
+
+        // ===== Google Places Autocomplete (JS Library) =====
+        let autocompleteService = null;
+        let placesService = null;
+        let sessionToken = null;
+
+        function initPlaces() {
+            try {
+                autocompleteService = new google.maps.places.AutocompleteService();
+                // PlacesService braucht ein HTML-Element
+                const dummyDiv = document.createElement('div');
+                placesService = new google.maps.places.PlacesService(dummyDiv);
+                sessionToken = new google.maps.places.AutocompleteSessionToken();
+                log('✅ Google Places Service initialisiert');
+                document.getElementById('api-status').className = 'status ok';
+                document.getElementById('api-status').textContent = '✅ Google Places API aktiv — bereit zum Suchen!';
+            } catch(e) {
+                log('❌ Places init Fehler: ' + e.message);
+                document.getElementById('api-status').className = 'status error';
+                document.getElementById('api-status').textContent = '❌ Google Places konnte nicht geladen werden: ' + e.message;
+            }
+        }
+
+        async function searchPlaces(query) {
+            if (!autocompleteService || !query || query.length < 2) return;
+            const resultsEl = document.getElementById('results');
+            resultsEl.innerHTML = '<div style="padding:10px;color:#64748b;">⏳ Suche...</div>';
+            log(`🔍 Suche: "${query}"`);
+
+            try {
+                const request = {
+                    input: query,
+                    locationBias: {
+                        center: { lat: USEDOM_LAT, lng: USEDOM_LON },
+                        radius: USEDOM_RADIUS
+                    },
+                    language: 'de',
+                    componentRestrictions: { country: 'de' }
+                };
+
+                autocompleteService.getPlacePredictions(request, (predictions, status) => {
+                    if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+                        resultsEl.innerHTML = `<div style="padding:10px;color:#ef4444;">❌ Keine Ergebnisse (${status})</div>`;
+                        log(`❌ Status: ${status}`);
+                        return;
+                    }
+
+                    log(`✅ ${predictions.length} Treffer gefunden`);
+                    resultsEl.innerHTML = predictions.map((p, i) => {
+                        const mainText = p.structured_formatting?.main_text || p.description;
+                        const secText = p.structured_formatting?.secondary_text || '';
+                        const types = (p.types || []).slice(0, 3).join(', ');
+                        log(`   ${i+1}. ${mainText} | ${secText} | Types: ${types}`);
+                        return `<div class="result-item" onclick="getPlaceDetails('${p.place_id}')">
+                            <span>📍</span>
+                            <div>
+                                <div class="result-name">${mainText}</div>
+                                <div class="result-addr">${secText}</div>
+                                <span class="result-type">${types}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                });
+            } catch(e) {
+                resultsEl.innerHTML = `<div style="padding:10px;color:#ef4444;">❌ Fehler: ${e.message}</div>`;
+                log(`❌ Fehler: ${e.message}`);
+            }
+        }
+
+        function getPlaceDetails(placeId) {
+            if (!placesService) return;
+            placesService.getDetails({
+                placeId: placeId,
+                fields: ['name', 'formatted_address', 'geometry', 'types']
+            }, (place, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    log(`📍 DETAILS: ${place.name}`);
+                    log(`   Adresse: ${place.formatted_address}`);
+                    log(`   Koordinaten: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+                    log(`   Types: ${(place.types || []).join(', ')}`);
+                    alert(`${place.name}\n${place.formatted_address}\n\nKoordinaten: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+                }
+            });
+        }
+
+        // ===== Vergleich: Google vs Nominatim =====
+        let compareTimer = null;
+        document.getElementById('compare-input').addEventListener('input', (e) => {
+            clearTimeout(compareTimer);
+            compareTimer = setTimeout(() => compareSearch(e.target.value), 500);
+        });
+
+        async function compareSearch(query) {
+            if (!query || query.length < 3) return;
+            const googleEl = document.getElementById('google-results');
+            const nomEl = document.getElementById('nominatim-results');
+            googleEl.innerHTML = '⏳...';
+            nomEl.innerHTML = '⏳...';
+
+            // Google Places
+            if (autocompleteService) {
+                autocompleteService.getPlacePredictions({
+                    input: query,
+                    locationBias: { center: { lat: USEDOM_LAT, lng: USEDOM_LON }, radius: USEDOM_RADIUS },
+                    language: 'de',
+                    componentRestrictions: { country: 'de' }
+                }, (predictions, status) => {
+                    if (!predictions) { googleEl.innerHTML = '❌ 0 Treffer'; return; }
+                    googleEl.innerHTML = predictions.map(p => `<div style="padding:4px 0;border-bottom:1px solid #f1f5f9;">📍 ${p.structured_formatting?.main_text || p.description}<br><span style="color:#94a3b8;font-size:11px;">${p.structured_formatting?.secondary_text || ''}</span></div>`).join('');
+                });
+            }
+
+            // Nominatim
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const data = await resp.json();
+                if (data.length === 0) {
+                    nomEl.innerHTML = '❌ 0 Treffer';
+                } else {
+                    nomEl.innerHTML = data.map(item => `<div style="padding:4px 0;border-bottom:1px solid #f1f5f9;">🗺️ ${item.display_name.split(',').slice(0,3).join(',')}</div>`).join('');
+                }
+            } catch(e) {
+                nomEl.innerHTML = '❌ Fehler';
+            }
+        }
+
+        // ===== Init =====
+        testApiKey();
+
+        // Debounce für Haupt-Suche
+        let searchTimer = null;
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => searchPlaces(e.target.value), 300);
+        });
+    </script>
+
+    <!-- Google Places JS Library -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&callback=initPlaces&language=de"></script>
+</body>
+</html>

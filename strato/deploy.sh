@@ -46,6 +46,8 @@ APP_FILES=(
     "icon-192.png"
     "advanced-logger.js"
     "firebase-remote-logger.js"
+    "robots.txt"
+    "sitemap.xml"
 )
 
 for file in "${APP_FILES[@]}"; do

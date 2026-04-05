@@ -469,8 +469,8 @@
 
             <!-- Neue Fahrt buchen -->
             <div style="margin-top:16px;text-align:center;">
-                <a href="index.html" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
-                    Neue Fahrt buchen
+                <a href="buchen.html" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
+                    🚕 Neue Fahrt buchen
                 </a>
             </div>
         </div>
@@ -492,6 +492,7 @@
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- jsPDF fuer Rechnungs-PDF-Generierung -->
@@ -503,9 +504,8 @@
         // v1.0.0 - 13.03.2026
         // ========================================
 
-        const SMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxfpDB-2HgzQfc-LhFIGZ8Szz26kNTl5zVsWxrYOwhLZ978I15pXreEWIWI8w_By7Aa/exec';
-        const SMS_SENDER = 'FunkTaxi';
         const TAXI_PHONE = '038378/22022';
+        let confirmationResult = null; // Firebase Phone Auth
 
         // Firebase Init
         firebase.initializeApp({
@@ -532,6 +532,7 @@
         // SMS VERIFICATION
         // ========================================
 
+        // 🔧 v6.38.95: Firebase Phone Auth (gleich wie buchen.html)
         async function sendVerificationCode() {
             const phoneRaw = document.getElementById('phone-input').value.trim();
             const errorEl = document.getElementById('phone-error');
@@ -539,75 +540,52 @@
 
             // Formatiere Nummer
             let phone = phoneRaw.replace(/[\s\-\/\(\)]/g, '');
-            if (phone.startsWith('0')) {
-                phone = '49' + phone.substring(1);
-            } else if (phone.startsWith('+49')) {
-                phone = phone.substring(1);
-            } else if (phone.startsWith('49')) {
-                // OK
-            } else if (phone.startsWith('+')) {
-                phone = phone.substring(1);
-            } else {
-                phone = '49' + phone;
-            }
+            if (phone.startsWith('00')) phone = '+' + phone.substring(2);
+            else if (phone.startsWith('0')) phone = '+49' + phone.substring(1);
+            else if (!phone.startsWith('+')) phone = '+49' + phone;
 
-            // Validiere
-            if (!phone.match(/^49(15|16|17|1)/)) {
-                errorEl.textContent = 'Bitte eine gueltige deutsche Handynummer eingeben.';
+            if (phone.length < 10) {
+                errorEl.textContent = 'Bitte eine gueltige Handynummer eingeben.';
                 errorEl.style.display = 'block';
                 return;
             }
 
-            // Button deaktivieren
+            verifiedPhone = phone.replace('+', '');
+
             const btn = document.getElementById('btn-send-code');
             btn.disabled = true;
             btn.innerHTML = '<span class="loading-spinner"></span>';
 
-            // Code generieren (6-stellig)
-            verificationCode = String(Math.floor(100000 + Math.random() * 900000));
-            codeExpiry = Date.now() + 5 * 60 * 1000; // 5 Minuten
-            verifiedPhone = phone;
-
-            // Code in Firebase speichern (fuer Audit)
             try {
-                await db.ref('kundenportal/codes/' + phone).set({
-                    code: verificationCode,
-                    createdAt: Date.now(),
-                    expiresAt: codeExpiry
-                });
-            } catch (e) {
-                console.log('Code-Speicher Fehler (nicht kritisch):', e);
-            }
-
-            // SMS senden
-            const smsText = `Ihr Taxi-Code: ${verificationCode}\n\nGueltig fuer 5 Min.\nFunk Taxi Usedom`;
-
-            try {
-                const response = await fetch(SMS_PROXY_URL, {
-                    method: 'POST',
-                    redirect: 'follow',
-                    body: JSON.stringify({
-                        to: phone,
-                        text: smsText,
-                        from: SMS_SENDER
-                    })
-                });
-
-                if (response.ok) {
-                    // Zeige Code-Eingabe
-                    document.getElementById('step-phone').style.display = 'none';
-                    document.getElementById('step-code').style.display = 'block';
-                    document.getElementById('code-sent-info').textContent =
-                        'Code wurde an +' + phone.substring(0,4) + '****' + phone.substring(phone.length-3) + ' gesendet.';
-                    document.getElementById('code-input').focus();
-                    startResendTimer();
-                } else {
-                    throw new Error('SMS konnte nicht gesendet werden');
+                // reCAPTCHA (unsichtbar)
+                if (!window.recaptchaVerifier) {
+                    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('btn-send-code', {
+                        size: 'invisible',
+                        callback: () => {}
+                    });
                 }
+
+                confirmationResult = await firebase.auth().signInWithPhoneNumber(phone, window.recaptchaVerifier);
+
+                // Zeige Code-Eingabe
+                document.getElementById('step-phone').style.display = 'none';
+                document.getElementById('step-code').style.display = 'block';
+                document.getElementById('code-sent-info').textContent =
+                    'Code wurde an ' + phone.substring(0,6) + '****' + phone.substring(phone.length-2) + ' gesendet.';
+                document.getElementById('code-input').focus();
+                startResendTimer();
             } catch (error) {
-                errorEl.textContent = 'SMS konnte nicht gesendet werden. Bitte versuchen Sie es erneut.';
+                console.error('Firebase Phone Auth Fehler:', error);
+                if (error.code === 'auth/invalid-phone-number') {
+                    errorEl.textContent = 'Ungueltige Telefonnummer. Bitte pruefen.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorEl.textContent = 'Zu viele Versuche. Bitte spaeter erneut versuchen.';
+                } else {
+                    errorEl.textContent = 'SMS konnte nicht gesendet werden. Bitte erneut versuchen.';
+                }
                 errorEl.style.display = 'block';
-                console.error('SMS Fehler:', error);
+                // reCAPTCHA zuruecksetzen
+                window.recaptchaVerifier = null;
             }
 
             btn.disabled = false;
@@ -628,6 +606,7 @@
             }, 1000);
         }
 
+        // 🔧 v6.38.95: Firebase Phone Auth Verification
         async function verifyCode() {
             const code = document.getElementById('code-input').value.trim();
             const errorEl = document.getElementById('code-error');
@@ -639,29 +618,39 @@
                 return;
             }
 
-            if (Date.now() > codeExpiry) {
-                errorEl.textContent = 'Code abgelaufen. Bitte neuen Code anfordern.';
+            if (!confirmationResult) {
+                errorEl.textContent = 'Bitte zuerst einen Code anfordern.';
                 errorEl.style.display = 'block';
                 return;
             }
 
-            if (code !== verificationCode) {
-                errorEl.textContent = 'Falscher Code. Bitte erneut versuchen.';
-                errorEl.style.display = 'block';
-                return;
-            }
+            const btn = document.getElementById('btn-verify-code');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span>';
 
-            // Verifiziert! Code in Firebase loeschen
             try {
-                await db.ref('kundenportal/codes/' + verifiedPhone).remove();
-            } catch (e) { /* ignore */ }
+                await confirmationResult.confirm(code);
 
-            // Session speichern
-            sessionStorage.setItem('kundenPortalPhone', verifiedPhone);
-            sessionStorage.setItem('kundenPortalExpiry', String(Date.now() + 24 * 60 * 60 * 1000)); // 24h
+                // Session speichern
+                sessionStorage.setItem('kundenPortalPhone', verifiedPhone);
+                sessionStorage.setItem('kundenPortalExpiry', String(Date.now() + 24 * 60 * 60 * 1000));
 
-            showToast('Erfolgreich angemeldet!');
-            await loadCustomerData();
+                showToast('Erfolgreich angemeldet!');
+                await loadCustomerData();
+            } catch (error) {
+                console.error('Code-Verifizierung Fehler:', error);
+                if (error.code === 'auth/invalid-verification-code') {
+                    errorEl.textContent = 'Falscher Code. Bitte erneut versuchen.';
+                } else if (error.code === 'auth/code-expired') {
+                    errorEl.textContent = 'Code abgelaufen. Bitte neuen Code anfordern.';
+                } else {
+                    errorEl.textContent = 'Verifizierung fehlgeschlagen. Bitte erneut versuchen.';
+                }
+                errorEl.style.display = 'block';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Bestätigen';
         }
 
         function backToPhone() {

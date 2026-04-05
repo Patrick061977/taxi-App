@@ -1473,6 +1473,7 @@
                 await ref.set(rideData);
 
                 // Erfolg anzeigen
+                const trackingUrl = `https://patrick061977.github.io/taxi-App/?ride=${ref.key}`;
                 document.getElementById('sms-card').style.display = 'none';
                 document.getElementById('success-card').style.display = 'block';
                 document.getElementById('success-details').innerHTML = `
@@ -1480,8 +1481,50 @@
                     <div style="margin-bottom:8px;">🎯 <strong>Nach:</strong> ${destination}</div>
                     <div style="margin-bottom:8px;">👥 <strong>Personen:</strong> ${passengers}</div>
                     ${routeData ? `<div style="margin-bottom:8px;">💰 <strong>Preis:</strong> ca. ${routeData.price}€ · ${routeData.km} km · ~${routeData.min} Min</div>` : ''}
-                    <div>📱 <strong>Telefon:</strong> ${customerPhone}</div>
+                    <div style="margin-bottom:12px;">📱 <strong>Telefon:</strong> ${customerPhone}</div>
+                    <div id="live-status-box" style="background:#f0fdf4;border:2px solid #10b981;border-radius:12px;padding:12px;text-align:center;">
+                        <div style="font-size:18px;margin-bottom:4px;">⏳</div>
+                        <div id="live-status-text" style="font-weight:700;color:#059669;">Warte auf Fahrer...</div>
+                        <div id="live-status-detail" style="font-size:12px;color:#6b7280;margin-top:4px;"></div>
+                    </div>
+                    <a href="${trackingUrl}" target="_blank" style="display:block;margin-top:12px;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:700;">
+                        🗺️ Live-Tracking öffnen
+                    </a>
                 `;
+
+                // 🆕 v6.38.95: Live-Status Updates direkt auf der Seite
+                db.ref('rides/' + ref.key).on('value', snap => {
+                    const r = snap.val();
+                    if (!r) return;
+                    const box = document.getElementById('live-status-box');
+                    const text = document.getElementById('live-status-text');
+                    const detail = document.getElementById('live-status-detail');
+                    if (!box || !text) return;
+
+                    const statusMap = {
+                        'new':         { emoji: '⏳', text: 'Warte auf Fahrer...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                        'vorbestellt': { emoji: '📅', text: 'Vorbestellung bestätigt', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                        'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen!', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                        'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+                        'on_way':      { emoji: '🚗', text: 'Fahrer ist unterwegs zu Ihnen!', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                        'picked_up':   { emoji: '🎉', text: 'Sie wurden abgeholt!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+                        'completed':   { emoji: '🏁', text: 'Fahrt abgeschlossen!', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+                        'cancelled':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                        'storniert':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+                    };
+                    const s = statusMap[r.status] || { emoji: '❓', text: r.status, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+                    box.style.background = s.bg;
+                    box.style.borderColor = s.border;
+                    box.querySelector('div').textContent = s.emoji;
+                    text.textContent = s.text;
+                    text.style.color = s.color;
+
+                    let detailText = '';
+                    if (r.vehicle) detailText += '🚕 ' + r.vehicle;
+                    if (r.status === 'on_way') detailText += ' — Bitte bereithalten!';
+                    if (r.status === 'completed' && (r.finalPrice || r.price)) detailText += ' — ' + (r.finalPrice || r.price) + '€';
+                    if (detail) detail.textContent = detailText;
+                });
 
                 showToast('🎉 Buchung erfolgreich!');
                 logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup} → ${destination} | ${passengers} Pers. | ${wannModus}`);

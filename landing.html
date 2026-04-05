@@ -1266,7 +1266,7 @@ function sendAnfrageEmail() {
     if (!phone) { alert('Bitte Telefonnummer eingeben'); return; }
     const subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
     const body = encodeURIComponent(getAnfrageText());
-    window.location.href = 'mailto:info@funk-taxi-heringsdorf.de?subject=' + subject + '&body=' + body;
+    window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + body;
 }
 </script>
 

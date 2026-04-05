@@ -1534,7 +1534,28 @@
                     </div>
                 `;
 
-                // 🆕 v6.38.95: Live-Status Updates direkt auf der Seite
+                // 🆕 v6.38.95: Tracking-Link Klick loggen
+                document.querySelectorAll('a[href*="?ride="]').forEach(a => {
+                    a.addEventListener('click', () => logBuchen('🗺️', `KUNDE OEFFNET TRACKING-LINK`));
+                });
+
+                // 🆕 v6.38.95: Seite verlassen erkennen (bei Sofortfahrt warnen)
+                if (!isVorbestellt) {
+                    window.addEventListener('beforeunload', (e) => {
+                        logBuchen('🚪', `KUNDE VERLAESST SEITE (Status: ${document.getElementById('live-status-text')?.textContent || '?'})`);
+                    });
+                    // Seite wieder sichtbar = Kunde kommt zurück
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) {
+                            logBuchen('👀', `KUNDE KOMMT ZURUECK`);
+                        } else {
+                            logBuchen('📱', `KUNDE WECHSELT APP/TAB`);
+                        }
+                    });
+                }
+
+                // 🆕 v6.38.95: Live-Status Updates + Logging was Kunde sieht
+                let _lastLoggedStatus = '';
                 db.ref('rides/' + ref.key).on('value', snap => {
                     const r = snap.val();
                     if (!r) return;
@@ -1542,6 +1563,12 @@
                     const text = document.getElementById('live-status-text');
                     const detail = document.getElementById('live-status-detail');
                     if (!box || !text) return;
+
+                    // Status-Wechsel loggen (was der Kunde auf dem Bildschirm sieht)
+                    if (r.status !== _lastLoggedStatus) {
+                        _lastLoggedStatus = r.status;
+                        logBuchen('👁️', `KUNDE SIEHT: ${r.status.toUpperCase()}${r.vehicle ? ' | Fahrzeug: ' + r.vehicle : ''}`);
+                    }
 
                     const statusMap = {
                         'new':         { emoji: '⏳', text: 'Warte auf Fahrer...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },

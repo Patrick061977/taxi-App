@@ -126,6 +126,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         <div class="stat" id="statPending">Pending: -</div>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
+        <button class="sound-btn" onclick="cleanupStaleRides()" title="Alte Fahrten (Status new, >24h) stornieren">🧹 Aufräumen</button>
         <button class="sound-btn" id="soundBtn" onclick="toggleSound()">Sound: Aus</button>
         <div class="live" id="liveIndicator">LIVE <span id="lastUpdate">-</span></div>
     </div>
@@ -450,6 +451,7 @@ function renderRides() {
         const sel = r.id === selectedRideId ? ' expanded' : '';
         const dayLabel = isToday ? '' : ' style="color:#ff9800"';
 
+        const canCancel = !['completed','cancelled','storniert','deleted','abgeschlossen'].includes(r.status);
         return `<div class="ride-row${sel}" onclick="selectRide('${r.id}')">
             <div class="ride-header">
                 <span class="ride-time"${dayLabel}>${time}</span>
@@ -457,6 +459,7 @@ function renderRides() {
                 <span class="ride-route">${esc(customer)} | ${esc(pickup)} &rarr; ${esc(dest)}</span>
                 <span class="ride-vehicle">${esc(vehicle)}</span>
                 ${hasScores ? '<span style="color:#ff9800;font-size:0.7em" title="VehicleScores vorhanden">📊</span>' : ''}
+                ${canCancel ? `<span onclick="event.stopPropagation();cancelSingleRide('${r.id}')" style="cursor:pointer;font-size:0.8em;padding:2px 4px;color:#f44336;" title="Stornieren">🗑️</span>` : ''}
             </div>
         </div>`;
     }).join('') || '<div class="empty-msg">Keine Fahrten heute</div>';
@@ -1077,6 +1080,54 @@ db.ref('settings/telegram/pending').on('value', snap => {
         return html + '</div>';
     }).join('');
 });
+
+// ===== ALTE FAHRTEN AUFRÄUMEN (v6.38.95) =====
+async function cleanupStaleRides() {
+    const now = Date.now();
+    const staleRides = [];
+    for (const [rideId, ride] of Object.entries(allRides)) {
+        if (!ride || !ride.pickupTimestamp) continue;
+        const ageHours = (now - ride.pickupTimestamp) / 3600000;
+        if (ageHours > 24 && ['new', 'assigned', 'vorbestellt'].includes(ride.status)) {
+            staleRides.push({ rideId, ride, ageHours: Math.round(ageHours) });
+        }
+    }
+    if (staleRides.length === 0) {
+        alert('✅ Keine alten Fahrten gefunden!');
+        return;
+    }
+    const list = staleRides.map(s => `• ${s.ride.customerName || '?'} (${s.ride.status}, vor ${s.ageHours}h)`).join('\n');
+    if (!confirm(`🧹 ${staleRides.length} alte Fahrt(en) stornieren?\n\n${list}\n\nAlle auf "storniert" setzen?`)) return;
+    let count = 0;
+    for (const s of staleRides) {
+        try {
+            await db.ref('rides/' + s.rideId).update({
+                status: 'storniert',
+                deletedBy: 'system-monitor-cleanup',
+                deletedAt: now,
+                updatedAt: now
+            });
+            count++;
+        } catch(e) { console.error('Cleanup Fehler:', s.rideId, e); }
+    }
+    alert(`✅ ${count} Fahrt(en) storniert!`);
+}
+
+// Einzelne Fahrt stornieren (aus Fahrten-Liste)
+async function cancelSingleRide(rideId) {
+    const ride = allRides[rideId];
+    if (!ride) { alert('Fahrt nicht gefunden'); return; }
+    if (!confirm(`🗑️ Fahrt stornieren?\n\n${ride.customerName || '?'}\n${ride.pickup || '?'} → ${ride.destination || '?'}\nStatus: ${ride.status}`)) return;
+    try {
+        await db.ref('rides/' + rideId).update({
+            status: 'storniert',
+            deletedBy: 'system-monitor-manual',
+            deletedAt: Date.now(),
+            updatedAt: Date.now()
+        });
+        alert('✅ Fahrt storniert!');
+    } catch(e) { alert('❌ Fehler: ' + e.message); }
+}
 
 // Initial render
 renderChanges();

@@ -1479,7 +1479,7 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const passengerName = ride.guestName || ride.customerName;
     const greeting = passengerName ? `Hallo ${passengerName},\n\n` : '';
 
-    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
     let message = '';
 
     if (type === 'booking_confirmed') {
@@ -17543,7 +17543,7 @@ exports.onRideCreated = onValueCreated(
             const _passengerName = ride.guestName || ride.customerName;
             const _greeting = _passengerName ? `Hallo ${_passengerName},\n\n` : '';
             const vehicleInfo = ride.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
-            const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+            const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
             const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
                 _greeting +
                 `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
@@ -17727,7 +17727,7 @@ exports.onRideUpdated = onValueUpdated(
                     const _greeting2 = _passengerName2 ? `Hallo ${_passengerName2},\n\n` : '';
                     const driverInfo = after.driverName ? `\n👤 <b>Fahrer:</b> ${after.driverName}` : '';
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
-                    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
                     const customerMsg = `🚕 <b>IHR TAXI IST UNTERWEGS!</b> 🚕\n\n` +
                         _greeting2 +
                         `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
@@ -17898,7 +17898,7 @@ exports.onRideUpdated = onValueUpdated(
                         const _custName = after.guestName || after.customerName || '';
                         const _greeting = _custName ? `Hallo ${_custName},\n\n` : '';
                         const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}` : '';
-                        const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                        const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
                         let custMsg = '';
 
                         if (newStatus === 'on_way') {
@@ -17994,7 +17994,7 @@ exports.onRideUpdated = onValueUpdated(
                     // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
                     const _passengerName3 = after.guestName || after.customerName;
                     const _greeting3 = _passengerName3 ? `Hallo ${_passengerName3},\n\n` : '';
-                    const trackingLink = `https://patrick061977.github.io/taxi-App/?ride=${rideId}`;
+                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
                         _greeting3 +

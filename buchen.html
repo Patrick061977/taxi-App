@@ -503,6 +503,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <!-- Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Places API (New) -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
         // Firebase Init
@@ -1144,7 +1146,7 @@
         }
 
         // ═══════════════════════════════════════════════
-        // Autocomplete — POIs + Nominatim
+        // Autocomplete — POIs + Geocache + Google Places
         // ═══════════════════════════════════════════════
         let allPOIs = {};
         db.ref('pois').once('value', snap => { allPOIs = snap.val() || {}; });
@@ -1152,6 +1154,24 @@
         // 🆕 v6.34.0: Geocache-Einträge (beliebte Ziele, POIs, private Adressen) laden
         let geocacheEntries = {};
         db.ref('geocache').once('value', snap => { geocacheEntries = snap.val() || {}; });
+
+        // 🆕 v6.38.95: Google Places API (New) — Premium-Fallback
+        let _gPlacesReady = false;
+        let _gAutocompleteSuggestion = null;
+        let _gSessionToken = null;
+        let _gPlace = null;
+        window.initGooglePlaces = async function() {
+            try {
+                const { AutocompleteSuggestion, AutocompleteSessionToken, Place } = await google.maps.importLibrary('places');
+                _gAutocompleteSuggestion = AutocompleteSuggestion;
+                _gSessionToken = AutocompleteSessionToken;
+                _gPlace = Place;
+                _gPlacesReady = true;
+                console.log('✅ Google Places API (New) bereit');
+            } catch(e) {
+                console.warn('⚠️ Google Places nicht verfuegbar:', e.message);
+            }
+        };
 
         let debounceTimer = null;
         ['b-pickup', 'b-destination'].forEach(id => {
@@ -1247,10 +1267,31 @@
                 } catch(e) {}
             }
 
-            const shown = results.slice(0, 6);
+            // 🆕 v6.38.95: Google Places als Premium-Fallback (wenn < 3 Treffer und API bereit)
+            if (searchKey.length >= 3 && results.length < 3 && _gPlacesReady) {
+                try {
+                    const token = new _gSessionToken();
+                    const { suggestions } = await _gAutocompleteSuggestion.fetchAutocompleteSuggestions({
+                        input: query,
+                        locationBias: { center: { lat: 53.95, lng: 14.10 }, radius: 25000 },
+                        language: 'de', region: 'de', sessionToken: token
+                    });
+                    for (const s of suggestions) {
+                        const p = s.placePrediction;
+                        if (!p) continue;
+                        const mainText = p.mainText?.text || p.text?.text || '';
+                        const secText = p.secondaryText?.text || '';
+                        const displayName = secText ? `${mainText}, ${secText}` : mainText;
+                        // Duplikat-Check
+                        if (results.some(r => r.name.toLowerCase().includes(mainText.toLowerCase()))) continue;
+                        results.push({ name: displayName, placeId: p.placeId, icon: '🔍', source: 'google' });
+                    }
+                } catch(e) { console.warn('Google Places Fehler:', e.message); }
+            }
+
+            const shown = results.slice(0, 8);
             if (shown.length === 0) {
                 if (searchKey.length >= 3) {
-                    // 🔧 v6.38.83: Klar anzeigen dass keine Adresse gefunden wurde
                     dropdown.innerHTML = `
                         <div style="padding:14px 16px;color:#ef4444;font-size:13px;display:flex;align-items:center;gap:8px;">
                             <span>❌</span>
@@ -1275,19 +1316,48 @@
             window._addrResults = { ...(window._addrResults || {}), [inputId]: shown };
         }
 
-        function selectAddr(inputId, index) {
+        async function selectAddr(inputId, index) {
             const r = (window._addrResults || {})[inputId]?.[index];
             if (!r) return;
             document.getElementById(inputId).value = r.name;
             document.getElementById(inputId + '-dropdown').style.display = 'none';
+
+            // 🆕 v6.38.95: Google Places Ergebnis → Koordinaten nachladen + im Geocache speichern
+            if (r.source === 'google' && r.placeId && _gPlace) {
+                try {
+                    const place = new _gPlace({ id: r.placeId });
+                    await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
+                    const lat = place.location?.lat();
+                    const lng = place.location?.lng();
+                    if (lat && lng) {
+                        r.lat = lat;
+                        r.lon = lng;
+                        // Im Geocache speichern (kostenlos beim nächsten Mal!)
+                        const cacheKey = (place.formattedAddress || r.name).replace(/[.#$\/\[\]]/g, '_').substring(0, 80);
+                        db.ref('geocache/' + cacheKey).set({
+                            address: place.formattedAddress || r.name,
+                            label: place.displayName || '',
+                            lat: lat, lon: lng,
+                            type: 'google-places',
+                            createdAt: Date.now()
+                        }).catch(() => {});
+                        // Anzeigename aktualisieren
+                        document.getElementById(inputId).value = place.formattedAddress || r.name;
+                        console.log('✅ Google Places → Geocache:', place.displayName, lat, lng);
+                    }
+                } catch(e) {
+                    console.warn('Google Place Details Fehler:', e.message);
+                }
+            }
+
             if (inputId === 'b-pickup') {
-                pickupCoords = { lat: r.lat, lon: r.lon };
+                pickupCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
                 // 🔧 v6.38.82: ETA in Status-Bar sofort aktualisieren nach Adresseingabe
                 const bar = document.getElementById('status-bar');
                 const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), passengers);
                 if (cnt > 0 && wannModus === 'sofort') calcStatusBarEta(bar, cnt);
             }
-            if (inputId === 'b-destination') destCoords = { lat: r.lat, lon: r.lon };
+            if (inputId === 'b-destination') destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
             checkRoute();
         }
 

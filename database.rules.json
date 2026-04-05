@@ -47,7 +47,11 @@
       },
       "buchenLog": {
         ".read": true,
-        ".write": true
+        ".write": true,
+        ".indexOn": ["time"]
+      },
+      "tarif": {
+        ".read": true
       }
     },
 
@@ -67,7 +71,17 @@
     },
 
     "pois": {
-      ".read": "auth != null",
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "geocache": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+
+    "vehicleShifts": {
+      ".read": true,
       ".write": "auth != null"
     },
 

@@ -1472,24 +1472,54 @@
                 rideData.id = ref.key;
                 await ref.set(rideData);
 
-                // Erfolg anzeigen
+                // Erfolg anzeigen — unterschiedlich für Sofort vs. Vorbestellung
                 const trackingUrl = `https://umwelt-taxi-insel-usedom.de/?ride=${ref.key}`;
+                const _rideId = ref.key;
+                const _pickupDate = new Date(new Date(pickupTs).toLocaleString('en-US',{timeZone:'Europe/Berlin'}));
+                const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+                const _pickupTimeStr2 = _pickupDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+
                 document.getElementById('sms-card').style.display = 'none';
                 document.getElementById('success-card').style.display = 'block';
+
+                // Erfolgs-Icon + Titel je nach Modus
+                const _successIcon = document.querySelector('#success-card .icon');
+                const _successTitle = document.querySelector('#success-card h2');
+                const _successSubtitle = document.querySelector('#success-card p');
+                if (isVorbestellt) {
+                    if (_successIcon) _successIcon.textContent = '📅';
+                    if (_successTitle) { _successTitle.textContent = 'Vorbestellung bestätigt!'; _successTitle.style.color = '#3b82f6'; }
+                    if (_successSubtitle) _successSubtitle.textContent = `Ihr Taxi ist für ${_pickupDateStr} um ${_pickupTimeStr2} Uhr vorgemerkt.`;
+                } else {
+                    if (_successIcon) _successIcon.textContent = '🎉';
+                    if (_successTitle) { _successTitle.textContent = 'Taxi ist gebucht!'; _successTitle.style.color = '#059669'; }
+                    if (_successSubtitle) _successSubtitle.textContent = 'Ihr Taxi kommt in wenigen Minuten.';
+                }
+
                 document.getElementById('success-details').innerHTML = `
-                    <div style="margin-bottom:8px;">📍 <strong>Von:</strong> ${pickup}</div>
-                    <div style="margin-bottom:8px;">🎯 <strong>Nach:</strong> ${destination}</div>
-                    <div style="margin-bottom:8px;">👥 <strong>Personen:</strong> ${passengers}</div>
-                    ${routeData ? `<div style="margin-bottom:8px;">💰 <strong>Preis:</strong> ca. ${routeData.price}€ · ${routeData.km} km · ~${routeData.min} Min</div>` : ''}
+                    ${isVorbestellt ? `<div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:12px;text-align:center;margin-bottom:12px;">
+                        <div style="font-size:28px;margin-bottom:4px;">📅</div>
+                        <div style="font-weight:700;color:#1d4ed8;font-size:18px;">${_pickupDateStr}</div>
+                        <div style="font-weight:700;color:#3b82f6;font-size:24px;">${_pickupTimeStr2} Uhr</div>
+                    </div>` : ''}
+                    <div style="margin-bottom:6px;">📍 <strong>Von:</strong> ${pickup}</div>
+                    <div style="margin-bottom:6px;">🎯 <strong>Nach:</strong> ${destination}</div>
+                    <div style="margin-bottom:6px;">👥 <strong>Personen:</strong> ${passengers}</div>
+                    ${routeData ? `<div style="margin-bottom:6px;">💰 <strong>Preis:</strong> ca. ${routeData.price}€ · ${routeData.km} km · ~${routeData.min} Min</div>` : ''}
                     <div style="margin-bottom:12px;">📱 <strong>Telefon:</strong> ${customerPhone}</div>
-                    <div id="live-status-box" style="background:#f0fdf4;border:2px solid #10b981;border-radius:12px;padding:12px;text-align:center;">
-                        <div style="font-size:18px;margin-bottom:4px;">⏳</div>
-                        <div id="live-status-text" style="font-weight:700;color:#059669;">Warte auf Fahrer...</div>
-                        <div id="live-status-detail" style="font-size:12px;color:#6b7280;margin-top:4px;"></div>
+                    <div id="live-status-box" style="background:${isVorbestellt ? '#eff6ff' : '#f0fdf4'};border:2px solid ${isVorbestellt ? '#93c5fd' : '#10b981'};border-radius:12px;padding:12px;text-align:center;">
+                        <div style="font-size:18px;margin-bottom:4px;">${isVorbestellt ? '📅' : '⏳'}</div>
+                        <div id="live-status-text" style="font-weight:700;color:${isVorbestellt ? '#3b82f6' : '#059669'};">${isVorbestellt ? 'Vorbestellung vorgemerkt' : 'Warte auf Fahrer...'}</div>
+                        <div id="live-status-detail" style="font-size:12px;color:#6b7280;margin-top:4px;">${isVorbestellt ? 'Sie werden benachrichtigt wenn der Fahrer losfährt.' : ''}</div>
                     </div>
-                    <a href="${trackingUrl}" target="_blank" style="display:block;margin-top:12px;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:700;">
-                        🗺️ Live-Tracking öffnen
-                    </a>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <a href="${trackingUrl}" target="_blank" style="flex:1;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+                            🗺️ Live-Tracking
+                        </a>
+                        <button onclick="cancelWebBooking('${_rideId}')" style="flex:1;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">
+                            ❌ Stornieren
+                        </button>
+                    </div>
                 `;
 
                 // 🆕 v6.38.95: Live-Status Updates direkt auf der Seite
@@ -1538,6 +1568,36 @@
         // ═══════════════════════════════════════════════
         // Helpers
         // ═══════════════════════════════════════════════
+        // 🆕 v6.38.95: Kunde kann Web-Buchung stornieren
+        async function cancelWebBooking(rideId) {
+            if (!confirm('Möchten Sie diese Fahrt wirklich stornieren?')) return;
+            try {
+                await db.ref('rides/' + rideId).update({
+                    status: 'storniert',
+                    deletedBy: 'web-customer',
+                    deletedAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+                logBuchen('❌', `STORNIERT vom Kunden: ${rideId}`);
+                const box = document.getElementById('live-status-box');
+                if (box) {
+                    box.style.background = '#fef2f2';
+                    box.style.borderColor = '#fecaca';
+                    box.innerHTML = `
+                        <div style="font-size:24px;margin-bottom:4px;">❌</div>
+                        <div style="font-weight:700;color:#ef4444;">Fahrt storniert</div>
+                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">Sie können jederzeit eine neue Fahrt buchen.</div>
+                    `;
+                }
+                // Stornieren-Button ausblenden
+                const btns = document.querySelectorAll('button[onclick*="cancelWebBooking"]');
+                btns.forEach(b => b.style.display = 'none');
+                showToast('✅ Fahrt storniert');
+            } catch(e) {
+                alert('Fehler beim Stornieren — bitte anrufen: 038378/22022');
+            }
+        }
+
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.textContent = msg;

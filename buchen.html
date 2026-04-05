@@ -477,9 +477,17 @@
         <div class="card success-card" id="success-card">
             <div class="icon">🎉</div>
             <h2 style="color:#059669;margin-bottom:8px;">Taxi ist gebucht!</h2>
-            <p style="color:#64748b;margin-bottom:20px;">Sie erhalten eine SMS mit dem Tracking-Link sobald ein Fahrer zugewiesen ist.</p>
-            <div id="success-details" style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:left;font-size:14px;margin-bottom:16px;"></div>
-            <div style="font-size:14px;color:#64748b;">
+            <p style="color:#64748b;margin-bottom:12px;">Sie erhalten Updates sobald ein Fahrer zugewiesen ist.</p>
+            <div id="success-details" style="background:#f0fdf4;padding:16px;border-radius:12px;text-align:left;font-size:14px;margin-bottom:12px;"></div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                <a href="kunden.html" style="display:block;padding:12px;background:linear-gradient(135deg,#059669,#047857);color:white;text-align:center;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+                    📋 Meine Buchungen anzeigen
+                </a>
+                <button onclick="document.getElementById('success-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="padding:10px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;">
+                    🚕 Neue Fahrt buchen
+                </button>
+            </div>
+            <div style="font-size:13px;color:#94a3b8;text-align:center;">
                 📞 Fragen? <a href="tel:03837822022" style="color:#059669;font-weight:600;">038378 22022</a>
             </div>
         </div>

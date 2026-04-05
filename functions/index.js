@@ -10562,18 +10562,12 @@ async function handleCallback(callback) {
             ]};
             const _isJetztFahrt = booking._isJetzt;
 
-            // 🆕 v6.38.35: Vorbestellungen SOFORT zuweisen + Fahrzeug in Bestätigung anzeigen
+            // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen!
+            // Erst 15 Min vorher weiß man welcher Fahrer am nächsten dran ist.
+            // scheduledAutoAssign (Cloud Function, alle 10 Min) übernimmt die Zuweisung.
             let _assignedVehicleName = null;
-            if (isVorbestellung && rideData.pickupLat && rideData.destinationLat) {
-                try {
-                    const _preAssign = await autoAssignRide(rideData.id, rideData);
-                    if (_preAssign && _preAssign.name) {
-                        _assignedVehicleName = _preAssign.name;
-                        await addTelegramLog('🚕', chatId, `Vorbestellung: Sofort zugewiesen → ${_preAssign.name}`, { rideId: rideData.id });
-                    }
-                } catch (e) {
-                    console.warn('⚠️ Vorbestellung Auto-Assign fehlgeschlagen:', e.message);
-                }
+            if (isVorbestellung) {
+                await addTelegramLog('📅', chatId, `Vorbestellung: Zuweisung erfolgt automatisch 15 Min vor Abholung`, { rideId: rideData.id });
             }
 
             await sendTelegramMessage(chatId,
@@ -17581,9 +17575,11 @@ exports.onRideCreated = onValueCreated(
         } catch(e) { /* Fallback auf Event-Daten */ }
         if (!_freshRide.assignedVehicle && !_freshRide.vehicleId) {
             const _hasCoords = ride.pickupLat && ride.destinationLat;
-            if (_hasCoords) {
+            // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen — erst 15 Min vorher (scheduledAutoAssign)
+            const _isVorbestellung = !isSofort;
+            if (_hasCoords && !_isVorbestellung) {
                 try {
-                    const _zuweisTyp = isSofort ? 'Sofortfahrt' : 'Vorbestellung';
+                    const _zuweisTyp = 'Sofortfahrt';
                     console.log(`🚕 Cloud: Auto-Zuweisung für ${_zuweisTyp} ${rideId}...`);
                     await addRideLog(rideId, '🔍', `Cloud: Suche Fahrzeug (onRideCreated)`, { typ: _zuweisTyp });
                     const assignResult = await autoAssignRide(rideId, ride);

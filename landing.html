@@ -1118,7 +1118,15 @@
 </section>
 
 <script>
-// ===== ANFRAGE-FORMULAR (kein Firebase!) =====
+// ===== GOOGLE PLACES API LADEN =====
+(async function loadGoogleMaps() {
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly';
+    script.async = true;
+    document.head.appendChild(script);
+})();
+
+// ===== ANFRAGE-FORMULAR =====
 let anfPax = 1;
 let anfPickupCoords = null;
 let anfDestCoords = null;

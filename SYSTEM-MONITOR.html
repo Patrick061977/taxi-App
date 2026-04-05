@@ -451,7 +451,6 @@ function renderRides() {
         const sel = r.id === selectedRideId ? ' expanded' : '';
         const dayLabel = isToday ? '' : ' style="color:#ff9800"';
 
-        const canCancel = !['completed','cancelled','storniert','deleted','abgeschlossen'].includes(r.status);
         return `<div class="ride-row${sel}" onclick="selectRide('${r.id}')">
             <div class="ride-header">
                 <span class="ride-time"${dayLabel}>${time}</span>
@@ -459,7 +458,6 @@ function renderRides() {
                 <span class="ride-route">${esc(customer)} | ${esc(pickup)} &rarr; ${esc(dest)}</span>
                 <span class="ride-vehicle">${esc(vehicle)}</span>
                 ${hasScores ? '<span style="color:#ff9800;font-size:0.7em" title="VehicleScores vorhanden">📊</span>' : ''}
-                ${canCancel ? `<span onclick="event.stopPropagation();cancelSingleRide('${r.id}')" style="cursor:pointer;font-size:0.8em;padding:2px 4px;color:#f44336;" title="Stornieren">🗑️</span>` : ''}
             </div>
         </div>`;
     }).join('') || '<div class="empty-msg">Keine Fahrten heute</div>';
@@ -1160,8 +1158,9 @@ db.ref('settings/buchenLog').orderByChild('time').limitToLast(50).on('value', sn
         html += `<div style="font-size:0.7em;color:#4caf50;font-weight:700;margin-bottom:3px;">Session ${sid} (${sessionAge})</div>`;
         for (const e of evts) {
             const t = e.time ? timeStr(e.time) : '?';
-            const cls = e.msg && e.msg.includes('FEHLER') ? 'error' : (e.msg && e.msg.includes('ERGEBNIS') ? 'booking' : 'system');
-            html += `<div class="event ${cls}"><span class="time">${t}</span> ${esc(e.emoji || '')} ${esc(e.msg || '')}</div>`;
+            const cls = e.msg && e.msg.includes('FEHLER') ? 'error' : (e.msg && e.msg.includes('ERGEBNIS') ? 'booking' : (e.msg && e.msg.includes('ALTE FAHRT') ? 'error' : 'system'));
+            const _delBtn = e.rideId ? ` <span onclick="event.stopPropagation();cancelSingleRide('${esc(e.rideId)}')" style="cursor:pointer;color:#f44336;font-size:1.1em;" title="Fahrt stornieren">🗑️</span>` : '';
+            html += `<div class="event ${cls}"><span class="time">${t}</span> ${esc(e.emoji || '')} ${esc(e.msg || '')}${_delBtn}</div>`;
         }
         html += `</div>`;
     }

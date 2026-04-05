@@ -187,17 +187,32 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         <div class="panel-body" id="pendingFeed"></div>
     </div>
 
-    <!-- Panel 4c: buchen.html Live-Log (NEU v6.38.95) -->
+    <!-- Panel 4c: Kunden-Session (buchen.html) -->
     <div class="panel" id="panelBuchenLog">
         <div class="panel-header">
-            <h2>🌐 buchen.html</h2>
+            <h2>🌐 Kunden</h2>
             <div style="display:flex;gap:6px;align-items:center">
-                <button onclick="db.ref('settings/buchenLog').remove()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">🗑️ Clear</button>
+                <button onclick="copyPanelText('buchenLogFeed')" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+                <button onclick="db.ref('settings/buchenLog').remove()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">🗑️</button>
                 <div class="badge" id="buchenLogCount">0</div>
             </div>
         </div>
         <div class="panel-body" id="buchenLogFeed">
-            <div class="empty-msg">Keine buchen.html Aktivitaet</div>
+            <div class="empty-msg">Keine Kunden-Aktivitaet</div>
+        </div>
+    </div>
+
+    <!-- Panel 4d: Fahrer-Session (Fahrer-Handy) -->
+    <div class="panel" id="panelDriverLog">
+        <div class="panel-header">
+            <h2>🚕 Fahrer</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button onclick="copyPanelText('driverLogFeed')" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">📋</button>
+                <div class="badge" id="driverLogCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="driverLogFeed">
+            <div class="empty-msg">Keine Fahrer-Aktivitaet</div>
         </div>
     </div>
 
@@ -1130,41 +1145,75 @@ async function cancelSingleRide(rideId) {
 // Initial render
 renderChanges();
 
-// ===== PANEL: BUCHEN.HTML LIVE-LOG (v6.38.95) =====
-db.ref('settings/buchenLog').orderByChild('time').limitToLast(50).on('value', snap => {
+// ===== PANEL: KUNDEN + FAHRER + CLOUD LOGS (v6.38.95) =====
+// Copy-Funktion fuer alle Panels
+function copyPanelText(panelId) {
+    const el = document.getElementById(panelId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✅';
+        setTimeout(() => btn.textContent = orig, 1500);
+    }).catch(() => {});
+}
+
+function renderLogEntries(evts) {
+    return evts.map(e => {
+        const t = e.time ? timeStr(e.time) : '?';
+        const cls = e.msg && e.msg.includes('FEHLER') ? 'error' : (e.msg && e.msg.includes('ERGEBNIS') ? 'booking' : (e.msg && e.msg.includes('ALTE FAHRT') ? 'error' : 'system'));
+        const _delBtn = e.rideId ? ` <span onclick="event.stopPropagation();cancelSingleRide('${esc(e.rideId)}')" style="cursor:pointer;color:#f44336;font-size:1.1em;" title="Fahrt stornieren">🗑️</span>` : '';
+        return `<div class="event ${cls}"><span class="time">${t}</span> ${esc(e.emoji || '')} ${esc(e.msg || '')}${_delBtn}</div>`;
+    }).join('');
+}
+
+db.ref('settings/buchenLog').orderByChild('time').limitToLast(80).on('value', snap => {
     const data = snap.val();
-    const feed = document.getElementById('buchenLogFeed');
+    const kundenFeed = document.getElementById('buchenLogFeed');
+    const fahrerFeed = document.getElementById('driverLogFeed');
     if (!data) {
-        feed.innerHTML = '<div class="empty-msg">Keine buchen.html Aktivitaet</div>';
+        kundenFeed.innerHTML = '<div class="empty-msg">Keine Kunden-Aktivitaet</div>';
+        fahrerFeed.innerHTML = '<div class="empty-msg">Keine Fahrer-Aktivitaet</div>';
         document.getElementById('buchenLogCount').textContent = '0';
+        document.getElementById('driverLogCount').textContent = '0';
         return;
     }
     const entries = Object.values(data).sort((a, b) => (b.time || 0) - (a.time || 0));
-    document.getElementById('buchenLogCount').textContent = entries.length;
 
-    // Sessions gruppieren
-    const sessions = {};
-    entries.forEach(e => {
-        const sid = e.session || 'unknown';
-        if (!sessions[sid]) sessions[sid] = [];
-        sessions[sid].push(e);
-    });
+    // Trennen: Kunden vs Fahrer vs Cloud
+    const kundenEntries = entries.filter(e => e.session && !e.session.startsWith('fahrer-') && e.session !== 'cloud');
+    const fahrerEntries = entries.filter(e => e.session && (e.session.startsWith('fahrer-') || e.session === 'cloud'));
 
-    let html = '';
-    for (const [sid, evts] of Object.entries(sessions)) {
+    document.getElementById('buchenLogCount').textContent = kundenEntries.length;
+    document.getElementById('driverLogCount').textContent = fahrerEntries.length;
+
+    // Kunden-Panel rendern (gruppiert nach Session)
+    const kundenSessions = {};
+    kundenEntries.forEach(e => { const s = e.session || '?'; if (!kundenSessions[s]) kundenSessions[s] = []; kundenSessions[s].push(e); });
+    let kHtml = '';
+    for (const [sid, evts] of Object.entries(kundenSessions)) {
         const first = evts[evts.length - 1];
-        const sessionAge = first.time ? age(first.time) : '?';
-        html += `<div style="margin-bottom:6px;padding:4px 6px;background:#0d1f0d;border:1px solid #1a3e1a;border-radius:6px;">`;
-        html += `<div style="font-size:0.7em;color:#4caf50;font-weight:700;margin-bottom:3px;">Session ${sid} (${sessionAge})</div>`;
-        for (const e of evts) {
-            const t = e.time ? timeStr(e.time) : '?';
-            const cls = e.msg && e.msg.includes('FEHLER') ? 'error' : (e.msg && e.msg.includes('ERGEBNIS') ? 'booking' : (e.msg && e.msg.includes('ALTE FAHRT') ? 'error' : 'system'));
-            const _delBtn = e.rideId ? ` <span onclick="event.stopPropagation();cancelSingleRide('${esc(e.rideId)}')" style="cursor:pointer;color:#f44336;font-size:1.1em;" title="Fahrt stornieren">🗑️</span>` : '';
-            html += `<div class="event ${cls}"><span class="time">${t}</span> ${esc(e.emoji || '')} ${esc(e.msg || '')}${_delBtn}</div>`;
-        }
-        html += `</div>`;
+        kHtml += `<div style="margin-bottom:6px;padding:4px 6px;background:#0d1f0d;border:1px solid #1a3e1a;border-radius:6px;">`;
+        kHtml += `<div style="font-size:0.7em;color:#4caf50;font-weight:700;margin-bottom:3px;">Session ${sid.substring(0,12)} (${first.time ? age(first.time) : '?'})</div>`;
+        kHtml += renderLogEntries(evts);
+        kHtml += `</div>`;
     }
-    feed.innerHTML = html;
+    kundenFeed.innerHTML = kHtml || '<div class="empty-msg">Keine Kunden-Aktivitaet</div>';
+
+    // Fahrer-Panel rendern (gruppiert nach Session)
+    const fahrerSessions = {};
+    fahrerEntries.forEach(e => { const s = e.session || '?'; if (!fahrerSessions[s]) fahrerSessions[s] = []; fahrerSessions[s].push(e); });
+    let fHtml = '';
+    for (const [sid, evts] of Object.entries(fahrerSessions)) {
+        const first = evts[evts.length - 1];
+        const color = sid === 'cloud' ? '#42a5f5' : '#ff9800';
+        const label = sid === 'cloud' ? '☁️ Cloud' : `🚕 ${sid.replace('fahrer-','')}`;
+        fHtml += `<div style="margin-bottom:6px;padding:4px 6px;background:${sid === 'cloud' ? '#0d1520' : '#1f170d'};border:1px solid ${sid === 'cloud' ? '#1a2e3e' : '#3e2e1a'};border-radius:6px;">`;
+        fHtml += `<div style="font-size:0.7em;color:${color};font-weight:700;margin-bottom:3px;">${label} (${first.time ? age(first.time) : '?'})</div>`;
+        fHtml += renderLogEntries(evts);
+        fHtml += `</div>`;
+    }
+    fahrerFeed.innerHTML = fHtml || '<div class="empty-msg">Keine Fahrer-Aktivitaet</div>';
 });
 
 // ===== PANEL: FAHRZEUGE & DISPATCH (v6.38.95) =====

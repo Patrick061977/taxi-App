@@ -129,6 +129,11 @@
     "cancellations": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+
+    "smsQueue": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }

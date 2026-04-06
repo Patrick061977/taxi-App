@@ -17423,11 +17423,51 @@ exports.onRideCreated = onValueCreated(
         }
         await sendToSystemChannel(message, 'new_ride');
 
+        // 🆕 v6.38.96: WhatsApp-Bestätigung an Web-Kunden
+        if (ride.source === 'web-booking' && ride.customerPhone) {
+            try {
+                await sendCustomerWhatsAppNotification(ride, rideId, 'booking_new');
+                console.log(`📱 WhatsApp-Bestätigung an Web-Kunden gesendet: ${ride.customerPhone}`);
+            } catch (_waErr) {
+                console.warn('⚠️ WhatsApp Web-Kunden-Bestätigung Fehler:', _waErr.message);
+            }
+        }
+
         // 🔧 v6.38.45: Detailliertes Benachrichtigungs-Log
         await addRideLog(rideId, '📢', `Admin-Benachrichtigung (onRideCreated)`, {
             typ: isSofort ? 'SOFORT' : 'VORBESTELLUNG',
             ergebnis: _adminNotifResult
         });
+
+        // 🆕 v6.38.96: SMS-Queue — Buchungsbestätigung an Kunden senden (via Macrodroid auf Admin-Handy)
+        if (ride.customerPhone) {
+            try {
+                const _smsFeatureSnap = await db.ref('settings/features/smsConfirmation').once('value');
+                const _smsEnabled = _smsFeatureSnap.val();
+                if (_smsEnabled) {
+                    const _pickupBerlin = new Date(new Date(pickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const _smsDateStr = _pickupBerlin.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                    const _smsTimeStr = _pickupBerlin.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const _smsPrice = ride.price ? `, ca. ${ride.price}€` : '';
+                    const _smsText = isSofort
+                        ? `Funk Taxi Heringsdorf: Ihr Taxi kommt! ${ride.pickup || '?'} → ${ride.destination || '?'}${_smsPrice}. Tel: 038378/22022`
+                        : `Funk Taxi Heringsdorf: Vorbestellung bestätigt! ${_smsDateStr} ${_smsTimeStr} Uhr, ${ride.pickup || '?'} → ${ride.destination || '?'}${_smsPrice}. Tel: 038378/22022`;
+
+                    await db.ref('smsQueue').push({
+                        phone: ride.customerPhone,
+                        text: _smsText,
+                        rideId: rideId,
+                        type: isSofort ? 'sofort_confirmation' : 'vorbestellung_confirmation',
+                        status: 'pending',
+                        createdAt: Date.now()
+                    });
+                    console.log(`📲 SMS-Queue: Bestätigung für ${ride.customerPhone} eingetragen`);
+                    await addRideLog(rideId, '📲', 'SMS-Bestätigung in Queue', { phone: ride.customerPhone, typ: isSofort ? 'Sofort' : 'Vorbestellung' });
+                }
+            } catch (_smsErr) {
+                console.warn('⚠️ SMS-Queue Fehler:', _smsErr.message);
+            }
+        }
 
         // 🔧 v6.38.46: Koordinaten aus pickupCoords/destCoords extrahieren (Browser speichert dort!)
         if (!ride.pickupLat && ride.pickupCoords && ride.pickupCoords.lat) {
@@ -19698,6 +19738,78 @@ exports.healthCheck = onRequest(
             res.status(200).json(status);
         } catch (e) {
             res.status(500).json({ error: e.message, ok: false });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.96: SMS-QUEUE — Sendet FCM Push an Admin-Handy
+// Macrodroid auf dem Handy fängt den Push ab und sendet SMS über SIM
+// ═══════════════════════════════════════════════════════════════
+exports.onSmsQueued = onValueCreated(
+    {
+        ref: '/smsQueue/{smsId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const smsId = event.params.smsId;
+        const smsData = event.data.val();
+        if (!smsData || !smsData.phone || !smsData.text) return;
+        if (smsData.status !== 'pending') return;
+
+        console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
+
+        try {
+            // FCM Token des Admin-Handys aus Firebase laden
+            const fcmTokenSnap = await db.ref('settings/sms/fcmToken').once('value');
+            const fcmToken = fcmTokenSnap.val();
+
+            if (!fcmToken) {
+                console.warn('⚠️ onSmsQueued: Kein FCM-Token konfiguriert — SMS kann nicht gesendet werden');
+                await db.ref(`smsQueue/${smsId}`).update({
+                    status: 'failed',
+                    error: 'Kein FCM-Token konfiguriert',
+                    processedAt: Date.now()
+                });
+                return;
+            }
+
+            // FCM Push senden — Macrodroid fängt diesen ab
+            const fcmMessage = {
+                token: fcmToken,
+                data: {
+                    type: 'sms_send',
+                    phone: smsData.phone,
+                    text: smsData.text,
+                    smsId: smsId,
+                    rideId: smsData.rideId || ''
+                },
+                notification: {
+                    title: '📲 SMS senden',
+                    body: `An ${smsData.phone}: ${smsData.text.substring(0, 80)}...`
+                },
+                android: {
+                    priority: 'high'
+                }
+            };
+
+            await admin.messaging().send(fcmMessage);
+            console.log(`✅ FCM Push gesendet für SMS an ${smsData.phone}`);
+
+            // Status aktualisieren
+            await db.ref(`smsQueue/${smsId}`).update({
+                status: 'fcm_sent',
+                fcmSentAt: Date.now()
+            });
+
+        } catch (err) {
+            console.error('❌ onSmsQueued FCM Fehler:', err.message);
+            await db.ref(`smsQueue/${smsId}`).update({
+                status: 'failed',
+                error: err.message,
+                processedAt: Date.now()
+            });
         }
     }
 );

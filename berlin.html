@@ -283,12 +283,12 @@
                 Kein Umsteigen, kein Stress
             </div>
             <div class="feature">
-                <div class="feature-icon">🏠</div>
-                Haust&uuml;r zu Haust&uuml;r in Berlin
+                <div class="feature-icon">🏙️</div>
+                Berlin-Transfer
             </div>
             <div class="feature">
-                <div class="feature-icon">💼</div>
-                Arzt, Klinik, Beh&ouml;rde, Shopping
+                <div class="feature-icon">📍</div>
+                Abholung an der Haust&uuml;r in Berlin
             </div>
         </div>
 
@@ -340,7 +340,7 @@
 
             <div class="field-group">
                 <label>📍 Abholadresse</label>
-                <input type="text" id="b-pickup" placeholder="Adresse oder Hotel eingeben...">
+                <input type="text" id="b-pickup" placeholder="Adresse oder Hotel eingeben..." autocomplete="off">
                 <div id="b-pickup-dd"></div>
                 <div class="hotel-chips" id="pickup-hotels"></div>
             </div>
@@ -351,7 +351,7 @@
 
             <div class="field-group">
                 <label>🎯 Zieladresse</label>
-                <input type="text" id="b-destination" placeholder="Adresse oder Klinik eingeben...">
+                <input type="text" id="b-destination" placeholder="Adresse in Berlin eingeben..." autocomplete="off">
                 <div id="b-destination-dd"></div>
                 <div class="hotel-chips" id="dest-hotels"></div>
             </div>
@@ -412,10 +412,10 @@
         <div class="card" style="font-size:13px;color:#64748b;line-height:1.6;">
             <strong>So funktioniert der Berlin-Shuttle:</strong><br>
             ✅ Jeden <strong>Donnerstag</strong> fahren wir von Usedom nach Berlin und zur&uuml;ck<br>
-            ✅ Abholung direkt an Ihrer Haust&uuml;r auf Usedom<br>
+            ✅ Abholung direkt an Ihrer Haust&uuml;r<br>
             ✅ Komfortabler Minibus f&uuml;r bis zu 6 Personen<br>
             ✅ <strong>299&euro; Festpreis</strong> f&uuml;r Hin- und R&uuml;ckfahrt<br>
-            ✅ Ideal f&uuml;r Arzttermine, Beh&ouml;rdeng&auml;nge, Shopping<br>
+            ✅ Abholung auch in Berlin direkt an der Haust&uuml;r<br>
             ✅ Flexible Abholzeiten nach Absprache
         </div>
 
@@ -619,7 +619,17 @@
         // ═══════════════════════════════════════
         // HOTEL-SCHNELLAUSWAHL
         // ═══════════════════════════════════════
-        let CRM_HOTELS = [];
+        // Fallback-Hotels falls Firebase keine liefert
+        let CRM_HOTELS = [
+            { name: 'SEETELHOTEL Kaiserhof', address: 'Strandpromenade, Heringsdorf' },
+            { name: 'SEETELHOTEL Ahlbecker Hof', address: 'D\u00fcnenstr. 47, Ahlbeck' },
+            { name: 'Maritim Hotel', address: 'Strandpromenade, Heringsdorf' },
+            { name: 'Hotel Residenz', address: 'Kanalstra\u00dfe 1, Heringsdorf' },
+            { name: 'Strandhotel Ostseeblick', address: 'Kulmstra\u00dfe 28, Heringsdorf' },
+            { name: 'Travel Charme Strandhotel', address: 'Strandpromenade 1, Bansin' },
+            { name: 'Romantik Hotel Esplanade', address: 'D\u00fcnenstr. 37, Heringsdorf' },
+            { name: 'Steigenberger Grandhotel', address: 'Liehrstra\u00dfe 11, Heringsdorf' }
+        ];
 
         function fillAddress(fieldId, address) {
             document.getElementById(fieldId).value = address;
@@ -785,7 +795,8 @@
         // ═══════════════════════════════════════
         populateThursdays();
         updateDayIndicator();
-        loadHotelsFromCRM();
+        renderHotelChips(); // Zeige sofort Fallback-Hotels
+        loadHotelsFromCRM(); // Dann Firebase-Hotels nachladen
     </script>
 </body>
 </html>

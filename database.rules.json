@@ -134,6 +134,11 @@
     "smsQueue": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+
+    "publicData": {
+      ".read": true,
+      ".write": "auth != null"
     }
   }
 }

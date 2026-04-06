@@ -17442,8 +17442,10 @@ exports.onRideCreated = onValueCreated(
         // 🆕 v6.38.96: SMS-Queue — Buchungsbestätigung an Kunden senden (via Macrodroid auf Admin-Handy)
         if (ride.customerPhone) {
             try {
-                const _smsFeatureSnap = await db.ref('settings/features/smsConfirmation').once('value');
-                const _smsEnabled = _smsFeatureSnap.val();
+                // Nutzt den bestehenden SMS-Toggle aus Admin → Einstellungen → SMS
+                const _smsSettingsSnap = await db.ref('settings/sms').once('value');
+                const _smsSettings = _smsSettingsSnap.val() || {};
+                const _smsEnabled = _smsSettings.bookingEnabled === true;
                 if (_smsEnabled) {
                     const _pickupBerlin = new Date(new Date(pickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                     const _smsDateStr = _pickupBerlin.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });

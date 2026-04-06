@@ -5,7 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Berlin-Shuttle — Funk Taxi Heringsdorf</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initPlaces"></script>
+    <script>
+        // Google Places dynamisch laden (wie landing.html)
+        function loadGooglePlaces() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly';
+            script.async = true;
+            script.onload = function() { initPlaces(); };
+            document.head.appendChild(script);
+        }
+        loadGooglePlaces();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {

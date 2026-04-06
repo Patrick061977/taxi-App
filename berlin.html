@@ -467,50 +467,109 @@
         }
 
         // ═══════════════════════════════════════
-        // GOOGLE PLACES AUTOCOMPLETE
+        // GOOGLE PLACES AUTOCOMPLETE (New API)
         // ═══════════════════════════════════════
-        // Nur EIN Autocomplete aktiv — wechselt je nach fokussiertem Feld
-        let activeAutocomplete = null;
-        let activeField = null;
+        let _gPlacesReady = false;
+        let _gAutocompleteSuggestion = null;
+        let _gSessionToken = null;
 
-        function initPlaces() {
-            const usedomBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(53.8, 13.8),
-                new google.maps.LatLng(54.1, 14.3)
-            );
-            const berlinBounds = new google.maps.LatLngBounds(
-                new google.maps.LatLng(52.3, 13.0),
-                new google.maps.LatLng(52.7, 13.8)
-            );
+        async function initPlaces() {
+            try {
+                const { AutocompleteSuggestion, AutocompleteSessionToken } = await google.maps.importLibrary('places');
+                _gAutocompleteSuggestion = AutocompleteSuggestion;
+                _gSessionToken = AutocompleteSessionToken;
+                _gPlacesReady = true;
+                console.log('✅ Google Places API (New) bereit');
+            } catch(e) {
+                console.warn('⚠️ Google Places nicht verfuegbar:', e.message);
+            }
 
+            // Autocomplete fuer Hinfahrt-Felder
             const fields = [
-                { id: 'b-pickup', bounds: usedomBounds, sync: 'b-return-dest' },
-                { id: 'b-destination', bounds: berlinBounds, sync: 'b-return-pickup' }
+                { id: 'b-pickup', sync: 'b-return-dest' },
+                { id: 'b-destination', sync: 'b-return-pickup' }
             ];
 
             fields.forEach(function(cfg) {
-                document.getElementById(cfg.id).addEventListener('focus', function() {
-                    // Altes Autocomplete entfernen
-                    if (activeAutocomplete) {
-                        google.maps.event.clearInstanceListeners(activeAutocomplete);
-                        const pacContainers = document.querySelectorAll('.pac-container');
-                        pacContainers.forEach(function(el) { el.remove(); });
-                    }
+                const input = document.getElementById(cfg.id);
+                const dropdownId = cfg.id + '-dd';
 
-                    // Neues Autocomplete NUR fuer dieses Feld
-                    activeField = cfg;
-                    activeAutocomplete = new google.maps.places.Autocomplete(
-                        document.getElementById(cfg.id),
-                        { componentRestrictions: { country: 'de' }, bounds: cfg.bounds, strictBounds: false }
-                    );
+                // Dropdown erstellen
+                const dd = document.createElement('div');
+                dd.id = dropdownId;
+                dd.style.cssText = 'display:none;position:absolute;left:0;right:0;top:100%;background:white;border:2px solid #3b82f6;border-top:none;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.15);';
+                input.parentElement.style.position = 'relative';
+                input.parentElement.appendChild(dd);
 
-                    activeAutocomplete.addListener('place_changed', function() {
-                        const place = activeAutocomplete.getPlace();
-                        if (place && place.formatted_address && cfg.sync) {
-                            document.getElementById(cfg.sync).value = place.formatted_address;
-                        }
-                        syncAddresses();
+                let debounce = null;
+                input.addEventListener('input', function() {
+                    clearTimeout(debounce);
+                    debounce = setTimeout(function() { searchPlaces(input.value, dropdownId, cfg); }, 300);
+                });
+                input.addEventListener('focus', function() {
+                    if (input.value.length >= 2) searchPlaces(input.value, dropdownId, cfg);
+                });
+            });
+
+            // Klick ausserhalb schliesst Dropdown
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.field-group')) {
+                    document.querySelectorAll('[id$="-dd"]').forEach(function(d) { d.style.display = 'none'; });
+                }
+            });
+        }
+
+        async function searchPlaces(query, dropdownId, cfg) {
+            const dd = document.getElementById(dropdownId);
+            if (!dd || !query || query.length < 2) { if (dd) dd.style.display = 'none'; return; }
+
+            const results = [];
+
+            // Google Places (New API)
+            if (_gPlacesReady && _gAutocompleteSuggestion) {
+                try {
+                    const token = new _gSessionToken();
+                    const resp = await _gAutocompleteSuggestion.fetchAutocompleteSuggestions({
+                        input: query,
+                        sessionToken: token,
+                        language: 'de',
+                        regionCode: 'de'
                     });
+                    if (resp && resp.suggestions) {
+                        resp.suggestions.forEach(function(s) {
+                            if (s.placePrediction) {
+                                results.push({
+                                    text: s.placePrediction.text.text || s.placePrediction.mainText?.text || query,
+                                    sub: s.placePrediction.secondaryText?.text || ''
+                                });
+                            }
+                        });
+                    }
+                } catch(e) {
+                    console.warn('Places Fehler:', e.message);
+                }
+            }
+
+            if (results.length === 0) { dd.style.display = 'none'; return; }
+
+            dd.innerHTML = results.map(function(r) {
+                return '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'white\'">'
+                    + '<div style="font-weight:600;color:#1e293b;">' + r.text + '</div>'
+                    + (r.sub ? '<div style="font-size:11px;color:#94a3b8;">' + r.sub + '</div>' : '')
+                    + '</div>';
+            }).join('');
+            dd.style.display = 'block';
+
+            // Klick auf Vorschlag
+            dd.querySelectorAll('div[onmouseover]').forEach(function(el, idx) {
+                el.addEventListener('click', function() {
+                    const input = document.getElementById(cfg.id);
+                    input.value = results[idx].text;
+                    dd.style.display = 'none';
+                    // Sync: Rueckfahrt befuellen
+                    if (cfg.sync) {
+                        document.getElementById(cfg.sync).value = results[idx].text;
+                    }
                 });
             });
         }

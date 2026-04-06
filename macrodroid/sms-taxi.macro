@@ -1,60 +1,79 @@
 {
-  "exportedMacros": [
+  "MacroDroidVersion": 524,
+  "m_export_list": [
     {
-      "name": "SMS Taxi",
-      "isActivated": true,
-      "localVariables": [
+      "m_GUID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "m_name": "SMS Taxi",
+      "m_enabled": true,
+      "m_description": "Sendet SMS Buchungsbestaetigung wenn Telegram Notification mit SMS-Trigger kommt",
+      "m_triggerList": [
         {
-          "name": "sms_phone",
-          "type": 0,
-          "stringValue": ""
-        },
-        {
-          "name": "sms_text",
-          "type": 0,
-          "stringValue": ""
+          "m_classType": "NotificationTrigger",
+          "m_GUID": "t1000001-0001-0001-0001-000000000001",
+          "m_textContent": "\ud83d\udcf2SMS|",
+          "m_textContentMatchOption": 2,
+          "m_selectedApplications": [
+            {
+              "m_appName": "Telegram",
+              "m_packageName": "org.telegram.messenger"
+            }
+          ],
+          "m_excludeOngoing": false,
+          "m_preventRefires": true,
+          "m_ignoreCase": true,
+          "m_isRegex": false,
+          "m_option": 0
         }
       ],
-      "triggerList": [
+      "m_actionList": [
         {
-          "classType": "NotificationTrigger",
-          "state": 0,
-          "option": 2,
-          "appPackages": ["org.telegram.messenger"],
-          "textContent": "\ud83d\udcf2SMS|",
-          "isRegex": false,
-          "ignoreCase": true,
-          "excludeOngoing": false,
-          "preventMultipleFiring": true,
-          "triggerOccurrenceCount": 0
-        }
-      ],
-      "actionList": [
-        {
-          "classType": "SetVariableStringAction",
-          "variableName": "sms_phone",
-          "useRegex": true,
-          "inputText": "{notification_text}",
-          "regexFind": ".*\\ud83d\\udcf2SMS\\|([^|]+)\\|.*",
-          "regexReplace": "$1"
+          "m_classType": "SetVariableStringAction",
+          "m_GUID": "a1000001-0001-0001-0001-000000000001",
+          "m_variableName": "sms_phone",
+          "m_useNotificationText": true,
+          "m_regexEnabled": true,
+          "m_regexFind": ".*\ud83d\udcf2SMS\\|([^|]+)\\|.*",
+          "m_regexReplace": "$1"
         },
         {
-          "classType": "SetVariableStringAction",
-          "variableName": "sms_text",
-          "useRegex": true,
-          "inputText": "{notification_text}",
-          "regexFind": ".*\\ud83d\\udcf2SMS\\|[^|]+\\|(.*)",
-          "regexReplace": "$1"
+          "m_classType": "SetVariableStringAction",
+          "m_GUID": "a1000002-0001-0001-0001-000000000002",
+          "m_variableName": "sms_text",
+          "m_useNotificationText": true,
+          "m_regexEnabled": true,
+          "m_regexFind": ".*\ud83d\udcf2SMS\\|[^|]+\\|(.*)",
+          "m_regexReplace": "$1"
         },
         {
-          "classType": "SendSMSAction",
-          "phoneNumber": "{sms_phone}",
-          "messageContent": "{sms_text}",
-          "simSlot": 0
+          "m_classType": "SendSMSAction",
+          "m_GUID": "a1000003-0001-0001-0001-000000000003",
+          "m_phoneNumber": "{lv=sms_phone}",
+          "m_messageBody": "{lv=sms_text}",
+          "m_simSlot": 0,
+          "m_draft": false
         }
       ],
-      "constraintList": [],
-      "category": "Nicht kategorisiert"
+      "m_constraintList": [],
+      "m_headingColor": 0,
+      "m_category": "Nicht kategorisiert",
+      "m_localVariables": [
+        {
+          "m_name": "sms_phone",
+          "m_type": 0,
+          "m_stringValue": "",
+          "m_booleanValue": false,
+          "m_decimalValue": 0.0,
+          "m_intValue": 0
+        },
+        {
+          "m_name": "sms_text",
+          "m_type": 0,
+          "m_stringValue": "",
+          "m_booleanValue": false,
+          "m_decimalValue": 0.0,
+          "m_intValue": 0
+        }
+      ]
     }
   ]
 }

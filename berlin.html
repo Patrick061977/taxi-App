@@ -619,22 +619,10 @@
         // ═══════════════════════════════════════
         // HOTEL-SCHNELLAUSWAHL
         // ═══════════════════════════════════════
-        const USEDOM_HOTELS = [
-            'Hotel Kaiserhof, Strandpromenade, Heringsdorf',
-            'SEETELHOTEL Ahlbecker Hof, Dünenstr. 47, Ahlbeck',
-            'Maritim Hotel, Strandpromenade, Heringsdorf',
-            'Hotel & Restaurant & SPA & Entertainment Koserower Seebrücke, Koserower Seebrücke, Koserow',
-            'Hotel & Restaurant & SPA & Entertainment Strandidyll, Strandpromenade 33, Heringsdorf',
-            'Hotel Residenz, Kanalstraße 1, Heringsdorf',
-            'Strandhotel Ostseeblick, Kulmstraße 28, Heringsdorf',
-            'Hotel & Restaurant & SPA & Entertainment Bansin, Seestraße 12, Bansin',
-            'Travel Charme Strandhotel, Strandpromenade 1, Bansin',
-            'Romantik Hotel Esplanade, Dünenstr. 37, Heringsdorf'
-        ];
+        let CRM_HOTELS = [];
 
         function fillAddress(fieldId, address) {
             document.getElementById(fieldId).value = address;
-            // Sync Rückfahrt
             if (fieldId === 'b-pickup') {
                 document.getElementById('b-return-dest').value = address;
             } else if (fieldId === 'b-destination') {
@@ -642,15 +630,43 @@
             }
         }
 
+        // Hotels aus Firebase POIs laden (öffentlich lesbar)
+        async function loadHotelsFromCRM() {
+            try {
+                const resp = await fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/pois.json');
+                const data = await resp.json();
+                if (!data) return;
+                CRM_HOTELS = Object.values(data)
+                    .filter(function(p) { return p.category === 'hotel' && p.address; })
+                    .map(function(p) { return { name: p.name || 'Hotel', address: p.address }; })
+                    .sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+                // Fallback: Auch CRM-Kunden mit customerKind=hotel versuchen
+                if (CRM_HOTELS.length === 0) {
+                    const crmResp = await fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/customers.json');
+                    const crmData = crmResp.ok ? await crmResp.json() : null;
+                    if (crmData) {
+                        CRM_HOTELS = Object.values(crmData)
+                            .filter(function(c) { return c.customerKind === 'hotel' && c.address; })
+                            .map(function(c) { return { name: c.name || 'Hotel', address: c.address }; })
+                            .sort(function(a, b) { return a.name.localeCompare(b.name); });
+                    }
+                }
+
+                console.log('🏨 ' + CRM_HOTELS.length + ' Hotels geladen');
+                renderHotelChips();
+            } catch(e) {
+                console.warn('Hotels laden fehlgeschlagen:', e.message);
+            }
+        }
+
         function renderHotelChips() {
             const pickupChips = document.getElementById('pickup-hotels');
-            const destChips = document.getElementById('dest-hotels');
-            if (pickupChips) {
-                pickupChips.innerHTML = USEDOM_HOTELS.slice(0, 5).map(function(h) {
-                    const short = h.split(',')[0];
-                    return '<span class="hotel-chip" onclick="fillAddress(\'b-pickup\',\'' + h.replace(/'/g, "\\'") + '\')">' + short + '</span>';
-                }).join('');
-            }
+            if (!pickupChips || CRM_HOTELS.length === 0) return;
+            pickupChips.innerHTML = CRM_HOTELS.map(function(h) {
+                const fullAddr = h.name + ', ' + h.address;
+                return '<span class="hotel-chip" onclick="fillAddress(\'b-pickup\',\'' + fullAddr.replace(/'/g, "\\'") + '\')">' + h.name + '</span>';
+            }).join('');
         }
 
         // ═══════════════════════════════════════
@@ -769,7 +785,7 @@
         // ═══════════════════════════════════════
         populateThursdays();
         updateDayIndicator();
-        renderHotelChips();
+        loadHotelsFromCRM();
     </script>
 </body>
 </html>

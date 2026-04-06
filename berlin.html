@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Berlin-Shuttle — Funk Taxi Heringsdorf</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f0f4f8;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header-logo { font-size: 20px; font-weight: 700; }
+        .header-sub { font-size: 12px; opacity: 0.8; }
+        .header-phone {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .main { max-width: 520px; margin: 0 auto; padding: 20px; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .price-banner {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(30,64,175,0.3);
+        }
+        .price-banner h2 { font-size: 22px; margin-bottom: 8px; }
+        .price-banner .price { font-size: 42px; font-weight: 800; }
+        .price-banner .price-info { font-size: 14px; opacity: 0.9; margin-top: 6px; }
+        .info-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 4px;
+        }
+        .info-badges { text-align: center; margin-bottom: 16px; }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+        input, select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #f9fafb;
+        }
+        input:focus, select:focus { border-color: #3b82f6; background: white; }
+        .field-group { margin-bottom: 14px; }
+        .route-arrow {
+            text-align: center;
+            font-size: 28px;
+            padding: 8px 0;
+            color: #3b82f6;
+        }
+        .toggle-return {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            background: #eff6ff;
+            border: 2px solid #bfdbfe;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 14px;
+        }
+        .toggle-return input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+        .toggle-return label {
+            margin: 0;
+            cursor: pointer;
+            font-size: 15px;
+            color: #1e40af;
+        }
+        .return-fields {
+            display: none;
+            background: #f0f9ff;
+            border: 2px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+        .return-fields.visible { display: block; }
+        .return-fields .card-title { color: #1e40af; }
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-whatsapp {
+            background: linear-gradient(135deg, #25d366, #128c7e);
+            color: white;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(37,211,102,0.3);
+        }
+        .btn-email {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        }
+        .btn-phone {
+            background: white;
+            color: #1e40af;
+            border: 2px solid #1e40af;
+        }
+        .btn-submit:active { transform: scale(0.98); }
+        .closed-banner {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #78350f;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .closed-banner h2 { font-size: 20px; margin-bottom: 8px; }
+        .closed-banner p { font-size: 14px; }
+        .day-indicator {
+            text-align: center;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .day-open { background: #d1fae5; color: #065f46; }
+        .day-closed { background: #fef3c7; color: #92400e; }
+        .success-card {
+            display: none;
+            text-align: center;
+            padding: 30px 20px;
+        }
+        .success-card .icon { font-size: 60px; margin-bottom: 12px; }
+        .success-card h2 { color: #059669; margin-bottom: 8px; }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .feature {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .feature-icon { font-size: 24px; margin-bottom: 4px; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .footer a { color: #64748b; text-decoration: none; }
+        .persons-row {
+            display: flex;
+            gap: 8px;
+        }
+        .persons-row .field-group { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="header-logo">Berlin-Shuttle</div>
+            <div class="header-sub">Funk Taxi Heringsdorf</div>
+        </div>
+        <a href="tel:03837822022" class="header-phone">038378 / 22022</a>
+    </div>
+
+    <div class="main">
+        <!-- Preis-Banner -->
+        <div class="price-banner">
+            <h2>Usedom &harr; Berlin</h2>
+            <div class="price">299 &euro;</div>
+            <div class="price-info">Festpreis &mdash; Hin- und R&uuml;ckfahrt inklusive</div>
+        </div>
+
+        <!-- Info Badges -->
+        <div class="info-badges">
+            <span class="info-badge">📅 Jeden Donnerstag</span>
+            <span class="info-badge">👥 Bis 6 Personen</span>
+            <span class="info-badge">🚐 Komfort-Minibus</span>
+        </div>
+
+        <!-- Tag-Anzeige -->
+        <div id="day-indicator" class="day-indicator"></div>
+
+        <!-- Features -->
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🏠</div>
+                Abholung an Ihrer Haust&uuml;r
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🏥</div>
+                Arzt, Klinik, Beh&ouml;rde
+            </div>
+            <div class="feature">
+                <div class="feature-icon">✈️</div>
+                Flughafen BER
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🛍️</div>
+                Shopping &amp; Freizeit
+            </div>
+        </div>
+
+        <!-- Buchungsformular -->
+        <div class="card" id="booking-form">
+            <div class="card-title">🚐 Ihre Berlin-Fahrt anfragen</div>
+
+            <div class="field-group">
+                <label>📅 Gewünschter Donnerstag</label>
+                <input type="date" id="b-date" onchange="validateDate()">
+                <div id="date-error" style="color:#ef4444;font-size:12px;margin-top:4px;display:none;"></div>
+            </div>
+
+            <div class="field-group">
+                <label>👤 Ihr Name</label>
+                <input type="text" id="b-name" placeholder="Vor- und Nachname">
+            </div>
+
+            <div class="field-group">
+                <label>📱 Telefonnummer</label>
+                <input type="tel" id="b-phone" placeholder="z.B. 0151 12345678">
+            </div>
+
+            <div class="persons-row">
+                <div class="field-group">
+                    <label>👥 Personen</label>
+                    <select id="b-persons">
+                        <option value="1">1 Person</option>
+                        <option value="2">2 Personen</option>
+                        <option value="3">3 Personen</option>
+                        <option value="4">4 Personen</option>
+                        <option value="5">5 Personen</option>
+                        <option value="6">6 Personen</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>🧳 Gep&auml;ck</label>
+                    <select id="b-luggage">
+                        <option value="normal">Normal</option>
+                        <option value="viel">Viel Gep&auml;ck</option>
+                        <option value="sperrig">Sperrgut</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- HINFAHRT -->
+            <div class="card-title" style="margin-top:8px;">📍 Hinfahrt: Usedom &rarr; Berlin</div>
+
+            <div class="field-group">
+                <label>🏠 Abholadresse (Usedom)</label>
+                <input type="text" id="b-pickup" placeholder="z.B. Strandpromenade 5, Heringsdorf">
+            </div>
+
+            <div class="field-group">
+                <label>⏰ Gew&uuml;nschte Abholzeit</label>
+                <input type="time" id="b-time-hin" value="07:00">
+            </div>
+
+            <div class="route-arrow">&darr;</div>
+
+            <div class="field-group">
+                <label>🎯 Ziel in Berlin</label>
+                <input type="text" id="b-destination" placeholder="z.B. Charit&eacute;, Alexanderplatz, BER...">
+            </div>
+
+            <!-- RÜCKFAHRT Toggle -->
+            <div class="toggle-return">
+                <input type="checkbox" id="b-return-toggle" checked onchange="toggleReturn()">
+                <label for="b-return-toggle">↩️ R&uuml;ckfahrt am selben Tag</label>
+            </div>
+
+            <!-- RÜCKFAHRT Felder -->
+            <div class="return-fields visible" id="return-fields">
+                <div class="card-title">↩️ R&uuml;ckfahrt: Berlin &rarr; Usedom</div>
+
+                <div class="field-group">
+                    <label>🎯 Abholadresse in Berlin</label>
+                    <input type="text" id="b-return-pickup" placeholder="Gleiche Adresse oder andere">
+                </div>
+
+                <div class="field-group">
+                    <label>⏰ Gew&uuml;nschte Abholzeit R&uuml;ckfahrt</label>
+                    <input type="time" id="b-time-return" value="15:00">
+                </div>
+
+                <div class="field-group">
+                    <label>🏠 Ziel auf Usedom</label>
+                    <input type="text" id="b-return-dest" placeholder="Gleiche Adresse oder andere">
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>💬 Bemerkungen (optional)</label>
+                <input type="text" id="b-notes" placeholder="z.B. Rollstuhl, Kindersitz, Termin um 10 Uhr...">
+            </div>
+
+            <!-- Buttons -->
+            <button class="btn-submit btn-whatsapp" onclick="sendWhatsApp()">
+                💬 Per WhatsApp anfragen
+            </button>
+            <button class="btn-submit btn-email" onclick="sendEmail()">
+                📧 Per E-Mail anfragen
+            </button>
+            <button class="btn-submit btn-phone" onclick="window.location.href='tel:03837822022'">
+                📞 Direkt anrufen
+            </button>
+        </div>
+
+        <!-- Erfolg -->
+        <div class="card success-card" id="success-card">
+            <div class="icon">✅</div>
+            <h2>Anfrage gesendet!</h2>
+            <p>Wir melden uns schnellstm&ouml;glich bei Ihnen zur Best&auml;tigung.</p>
+            <p style="margin-top:12px;font-size:13px;color:#6b7280;">Festpreis: <strong>299&euro;</strong> (Hin- und R&uuml;ckfahrt)</p>
+            <button class="btn-submit btn-phone" onclick="location.reload()" style="margin-top:16px;">
+                🔄 Neue Anfrage
+            </button>
+        </div>
+
+        <!-- Info -->
+        <div class="card" style="font-size:13px;color:#64748b;line-height:1.6;">
+            <strong>So funktioniert der Berlin-Shuttle:</strong><br>
+            ✅ Jeden <strong>Donnerstag</strong> fahren wir von Usedom nach Berlin und zur&uuml;ck<br>
+            ✅ Abholung direkt an Ihrer Haust&uuml;r auf Usedom<br>
+            ✅ Komfortabler Minibus f&uuml;r bis zu 6 Personen<br>
+            ✅ <strong>299&euro; Festpreis</strong> f&uuml;r Hin- und R&uuml;ckfahrt<br>
+            ✅ Ideal f&uuml;r Arzttermine, Beh&ouml;rdeng&auml;nge, Shopping<br>
+            ✅ Flexible Abholzeiten nach Absprache
+        </div>
+
+        <div class="footer">
+            &copy; 2026 Funk Taxi Heringsdorf &mdash; 038378 / 22022<br>
+            <a href="landing.html">Zur&uuml;ck zur Hauptseite</a> &middot;
+            <a href="buchen.html">Einzelfahrt buchen</a>
+        </div>
+    </div>
+
+    <script>
+        // Nur Donnerstage erlauben
+        function validateDate() {
+            const input = document.getElementById('b-date');
+            const error = document.getElementById('date-error');
+            if (!input.value) { error.style.display = 'none'; return true; }
+
+            const date = new Date(input.value + 'T00:00:00');
+            const day = date.getDay(); // 0=So, 4=Do
+
+            if (day !== 4) {
+                error.textContent = '⚠️ Der Berlin-Shuttle f\u00e4hrt nur donnerstags! Bitte w\u00e4hlen Sie einen Donnerstag.';
+                error.style.display = 'block';
+                return false;
+            } else {
+                error.style.display = 'none';
+                return true;
+            }
+        }
+
+        // Nächsten Donnerstag vorauswählen
+        function setNextThursday() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const daysUntilThursday = (4 - dayOfWeek + 7) % 7 || 7; // nächster Do (nicht heute)
+            const nextThursday = new Date(today);
+            nextThursday.setDate(today.getDate() + daysUntilThursday);
+            const yyyy = nextThursday.getFullYear();
+            const mm = String(nextThursday.getMonth() + 1).padStart(2, '0');
+            const dd = String(nextThursday.getDate()).padStart(2, '0');
+            document.getElementById('b-date').value = `${yyyy}-${mm}-${dd}`;
+
+            // Min-Datum = morgen
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            document.getElementById('b-date').min = tomorrow.toISOString().split('T')[0];
+        }
+
+        // Rückfahrt ein/aus
+        function toggleReturn() {
+            const checked = document.getElementById('b-return-toggle').checked;
+            document.getElementById('return-fields').classList.toggle('visible', checked);
+        }
+
+        // Tag-Anzeige
+        function updateDayIndicator() {
+            const el = document.getElementById('day-indicator');
+            const today = new Date();
+            const day = today.getDay();
+            if (day === 4) {
+                el.className = 'day-indicator day-open';
+                el.textContent = '✅ Heute ist Donnerstag — Berlin-Shuttle f\u00e4hrt!';
+            } else {
+                const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                el.className = 'day-indicator day-closed';
+                el.textContent = '📅 Heute ist ' + dayNames[day] + ' — N\u00e4chster Shuttle am Donnerstag';
+            }
+        }
+
+        // Formular validieren
+        function getFormData() {
+            const name = document.getElementById('b-name').value.trim();
+            const phone = document.getElementById('b-phone').value.trim();
+            const date = document.getElementById('b-date').value;
+            const pickup = document.getElementById('b-pickup').value.trim();
+            const destination = document.getElementById('b-destination').value.trim();
+            const timeHin = document.getElementById('b-time-hin').value;
+            const persons = document.getElementById('b-persons').value;
+            const luggage = document.getElementById('b-luggage').value;
+            const notes = document.getElementById('b-notes').value.trim();
+            const hasReturn = document.getElementById('b-return-toggle').checked;
+
+            if (!name || !phone || !date || !pickup || !destination) {
+                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Datum\n- Abholadresse\n- Ziel in Berlin');
+                return null;
+            }
+
+            if (!validateDate()) return null;
+
+            const dateObj = new Date(date + 'T00:00:00');
+            const dateStr = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            let text = `🚐 BERLIN-SHUTTLE ANFRAGE\n`;
+            text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+            text += `👤 ${name}\n`;
+            text += `📱 ${phone}\n`;
+            text += `📅 ${dateStr}\n`;
+            text += `👥 ${persons} Person(en)\n`;
+            text += `🧳 Gep\u00e4ck: ${luggage}\n\n`;
+            text += `📍 HINFAHRT:\n`;
+            text += `🏠 Ab: ${pickup}\n`;
+            text += `⏰ Abholung: ${timeHin} Uhr\n`;
+            text += `🎯 Nach: ${destination}\n`;
+
+            if (hasReturn) {
+                const returnPickup = document.getElementById('b-return-pickup').value.trim() || destination;
+                const returnDest = document.getElementById('b-return-dest').value.trim() || pickup;
+                const timeReturn = document.getElementById('b-time-return').value;
+                text += `\n↩️ R\u00dcCKFAHRT:\n`;
+                text += `🎯 Ab: ${returnPickup}\n`;
+                text += `⏰ Abholung: ${timeReturn} Uhr\n`;
+                text += `🏠 Nach: ${returnDest}\n`;
+            } else {
+                text += `\n↩️ Nur Hinfahrt (keine R\u00fcckfahrt)\n`;
+            }
+
+            text += `\n💰 Festpreis: 299\u20ac`;
+            if (notes) text += `\n💬 ${notes}`;
+
+            return { text, name, phone, date: dateStr };
+        }
+
+        // WhatsApp senden
+        function sendWhatsApp() {
+            const data = getFormData();
+            if (!data) return;
+            const encoded = encodeURIComponent(data.text);
+            window.open(`https://wa.me/4915127585179?text=${encoded}`, '_blank');
+            showSuccess();
+        }
+
+        // Email senden
+        function sendEmail() {
+            const data = getFormData();
+            if (!data) return;
+            const subject = encodeURIComponent(`Berlin-Shuttle Anfrage ${data.date} - ${data.name}`);
+            const body = encodeURIComponent(data.text);
+            window.location.href = `mailto:taxiwydra@googlemail.com?subject=${subject}&body=${body}`;
+            showSuccess();
+        }
+
+        // Erfolg anzeigen
+        function showSuccess() {
+            document.getElementById('booking-form').style.display = 'none';
+            document.getElementById('success-card').style.display = 'block';
+        }
+
+        // Init
+        setNextThursday();
+        updateDayIndicator();
+    </script>
+</body>
+</html>

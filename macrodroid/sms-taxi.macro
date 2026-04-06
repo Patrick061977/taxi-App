@@ -1,0 +1,60 @@
+{
+  "exportedMacros": [
+    {
+      "name": "SMS Taxi",
+      "isActivated": true,
+      "localVariables": [
+        {
+          "name": "sms_phone",
+          "type": 0,
+          "stringValue": ""
+        },
+        {
+          "name": "sms_text",
+          "type": 0,
+          "stringValue": ""
+        }
+      ],
+      "triggerList": [
+        {
+          "classType": "NotificationTrigger",
+          "state": 0,
+          "option": 2,
+          "appPackages": ["org.telegram.messenger"],
+          "textContent": "\ud83d\udcf2SMS|",
+          "isRegex": false,
+          "ignoreCase": true,
+          "excludeOngoing": false,
+          "preventMultipleFiring": true,
+          "triggerOccurrenceCount": 0
+        }
+      ],
+      "actionList": [
+        {
+          "classType": "SetVariableStringAction",
+          "variableName": "sms_phone",
+          "useRegex": true,
+          "inputText": "{notification_text}",
+          "regexFind": ".*\\ud83d\\udcf2SMS\\|([^|]+)\\|.*",
+          "regexReplace": "$1"
+        },
+        {
+          "classType": "SetVariableStringAction",
+          "variableName": "sms_text",
+          "useRegex": true,
+          "inputText": "{notification_text}",
+          "regexFind": ".*\\ud83d\\udcf2SMS\\|[^|]+\\|(.*)",
+          "regexReplace": "$1"
+        },
+        {
+          "classType": "SendSMSAction",
+          "phoneNumber": "{sms_phone}",
+          "messageContent": "{sms_text}",
+          "simSlot": 0
+        }
+      ],
+      "constraintList": [],
+      "category": "Nicht kategorisiert"
+    }
+  ]
+}

@@ -19743,8 +19743,9 @@ exports.healthCheck = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// 🆕 v6.38.96: SMS-QUEUE — Sendet FCM Push an Admin-Handy
-// Macrodroid auf dem Handy fängt den Push ab und sendet SMS über SIM
+// 🆕 v6.38.96: SMS-QUEUE — Sendet Telegram-Nachricht an Admin
+// Macrodroid fängt Telegram-Notification ab → sendet SMS über SIM
+// Format: 📲SMS|+49151...|SMS Text hier
 // ═══════════════════════════════════════════════════════════════
 exports.onSmsQueued = onValueCreated(
     {
@@ -19761,55 +19762,44 @@ exports.onSmsQueued = onValueCreated(
         console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
 
         try {
-            // FCM Token des Admin-Handys aus Firebase laden
-            const fcmTokenSnap = await db.ref('settings/sms/fcmToken').once('value');
-            const fcmToken = fcmTokenSnap.val();
+            // SMS-Chat-ID laden (separater Chat für SMS-Trigger, damit nicht alle Admin-Nachrichten matchen)
+            // Fallback: Erster Admin-Chat
+            let smsChatId = null;
+            const smsChatSnap = await db.ref('settings/sms/telegramChatId').once('value');
+            smsChatId = smsChatSnap.val();
 
-            if (!fcmToken) {
-                console.warn('⚠️ onSmsQueued: Kein FCM-Token konfiguriert — SMS kann nicht gesendet werden');
-                await db.ref(`smsQueue/${smsId}`).update({
-                    status: 'failed',
-                    error: 'Kein FCM-Token konfiguriert',
-                    processedAt: Date.now()
-                });
+            if (!smsChatId) {
+                // Fallback: Ersten Admin-Chat verwenden
+                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                const admins = adminSnap.val();
+                if (Array.isArray(admins) && admins.length > 0) smsChatId = admins[0];
+                else if (typeof admins === 'object' && admins) smsChatId = Object.values(admins)[0];
+                else if (admins) smsChatId = admins;
+            }
+
+            if (!smsChatId) {
+                console.warn('⚠️ onSmsQueued: Kein Chat-ID konfiguriert');
+                await db.ref(`smsQueue/${smsId}`).update({ status: 'failed', error: 'Kein Chat-ID', processedAt: Date.now() });
                 return;
             }
 
-            // FCM Push senden — Macrodroid fängt diesen ab
-            const fcmMessage = {
-                token: fcmToken,
-                data: {
-                    type: 'sms_send',
-                    phone: smsData.phone,
-                    text: smsData.text,
-                    smsId: smsId,
-                    rideId: smsData.rideId || ''
-                },
-                notification: {
-                    title: '📲 SMS senden',
-                    body: `An ${smsData.phone}: ${smsData.text.substring(0, 80)}...`
-                },
-                android: {
-                    priority: 'high'
-                }
-            };
+            // Telegram-Nachricht im Macrodroid-Format senden
+            // Macrodroid Trigger: Notification von Telegram enthält "📲SMS|"
+            // Macrodroid parst: Alles zwischen erstem | und zweitem | = Nummer, Rest = Text
+            const smsMessage = `📲SMS|${smsData.phone}|${smsData.text}`;
+            await sendTelegramMessage(smsChatId, smsMessage, { parse_mode: undefined });
 
-            await admin.messaging().send(fcmMessage);
-            console.log(`✅ FCM Push gesendet für SMS an ${smsData.phone}`);
+            console.log(`✅ SMS-Trigger via Telegram gesendet: ${smsData.phone}`);
 
-            // Status aktualisieren
             await db.ref(`smsQueue/${smsId}`).update({
-                status: 'fcm_sent',
-                fcmSentAt: Date.now()
+                status: 'telegram_sent',
+                sentAt: Date.now(),
+                sentTo: smsChatId
             });
 
         } catch (err) {
-            console.error('❌ onSmsQueued FCM Fehler:', err.message);
-            await db.ref(`smsQueue/${smsId}`).update({
-                status: 'failed',
-                error: err.message,
-                processedAt: Date.now()
-            });
+            console.error('❌ onSmsQueued Fehler:', err.message);
+            await db.ref(`smsQueue/${smsId}`).update({ status: 'failed', error: err.message, processedAt: Date.now() });
         }
     }
 );

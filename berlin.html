@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Berlin-Shuttle — Funk Taxi Heringsdorf</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBZTDBxMSqKz0o0tMHxAHOlFVgillqfJbk&libraries=places&language=de&region=de"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -99,6 +100,11 @@
             padding: 8px 0;
             color: #3b82f6;
         }
+        .section-divider {
+            border: none;
+            border-top: 2px dashed #e5e7eb;
+            margin: 18px 0;
+        }
         .toggle-return {
             display: flex;
             align-items: center;
@@ -162,16 +168,6 @@
             border: 2px solid #1e40af;
         }
         .btn-submit:active { transform: scale(0.98); }
-        .closed-banner {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            color: #78350f;
-            border-radius: 16px;
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 16px;
-        }
-        .closed-banner h2 { font-size: 20px; margin-bottom: 8px; }
-        .closed-banner p { font-size: 14px; }
         .day-indicator {
             text-align: center;
             padding: 8px;
@@ -216,6 +212,9 @@
             gap: 8px;
         }
         .persons-row .field-group { flex: 1; }
+        /* Donnerstag-only Kalender */
+        input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+        .pac-container { z-index: 10000 !important; }
     </style>
 </head>
 <body>
@@ -232,7 +231,7 @@
         <div class="price-banner">
             <h2>Usedom &harr; Berlin</h2>
             <div class="price">299 &euro;</div>
-            <div class="price-info">Festpreis &mdash; Hin- und R&uuml;ckfahrt inklusive</div>
+            <div class="price-info">Festpreis &mdash; Hin- und R&uuml;ckfahrt</div>
         </div>
 
         <!-- Info Badges -->
@@ -270,12 +269,6 @@
             <div class="card-title">🚐 Ihre Berlin-Fahrt anfragen</div>
 
             <div class="field-group">
-                <label>📅 Gewünschter Donnerstag</label>
-                <input type="date" id="b-date" onchange="validateDate()">
-                <div id="date-error" style="color:#ef4444;font-size:12px;margin-top:4px;display:none;"></div>
-            </div>
-
-            <div class="field-group">
                 <label>👤 Ihr Name</label>
                 <input type="text" id="b-name" placeholder="Vor- und Nachname">
             </div>
@@ -307,12 +300,19 @@
                 </div>
             </div>
 
+            <hr class="section-divider">
+
             <!-- HINFAHRT -->
-            <div class="card-title" style="margin-top:8px;">📍 Hinfahrt: Usedom &rarr; Berlin</div>
+            <div class="card-title">📍 Hinfahrt</div>
 
             <div class="field-group">
-                <label>🏠 Abholadresse (Usedom)</label>
-                <input type="text" id="b-pickup" placeholder="z.B. Strandpromenade 5, Heringsdorf">
+                <label>📅 Hinfahrt &mdash; Donnerstag w&auml;hlen</label>
+                <select id="b-date-hin"></select>
+            </div>
+
+            <div class="field-group">
+                <label>📍 Abholadresse</label>
+                <input type="text" id="b-pickup" placeholder="Adresse eingeben...">
             </div>
 
             <div class="field-group">
@@ -323,33 +323,40 @@
             <div class="route-arrow">&darr;</div>
 
             <div class="field-group">
-                <label>🎯 Ziel in Berlin</label>
-                <input type="text" id="b-destination" placeholder="z.B. Charit&eacute;, Alexanderplatz, BER...">
+                <label>🎯 Zieladresse</label>
+                <input type="text" id="b-destination" placeholder="Adresse eingeben...">
             </div>
+
+            <hr class="section-divider">
 
             <!-- RÜCKFAHRT Toggle -->
             <div class="toggle-return">
                 <input type="checkbox" id="b-return-toggle" checked onchange="toggleReturn()">
-                <label for="b-return-toggle">↩️ R&uuml;ckfahrt am selben Tag</label>
+                <label for="b-return-toggle">↩️ R&uuml;ckfahrt buchen</label>
             </div>
 
             <!-- RÜCKFAHRT Felder -->
             <div class="return-fields visible" id="return-fields">
-                <div class="card-title">↩️ R&uuml;ckfahrt: Berlin &rarr; Usedom</div>
+                <div class="card-title">↩️ R&uuml;ckfahrt</div>
 
                 <div class="field-group">
-                    <label>🎯 Abholadresse in Berlin</label>
-                    <input type="text" id="b-return-pickup" placeholder="Gleiche Adresse oder andere">
+                    <label>📅 R&uuml;ckfahrt &mdash; Donnerstag w&auml;hlen</label>
+                    <select id="b-date-return"></select>
                 </div>
 
                 <div class="field-group">
-                    <label>⏰ Gew&uuml;nschte Abholzeit R&uuml;ckfahrt</label>
+                    <label>📍 Abholadresse</label>
+                    <input type="text" id="b-return-pickup" placeholder="Adresse eingeben...">
+                </div>
+
+                <div class="field-group">
+                    <label>⏰ Gew&uuml;nschte Abholzeit</label>
                     <input type="time" id="b-time-return" value="15:00">
                 </div>
 
                 <div class="field-group">
-                    <label>🏠 Ziel auf Usedom</label>
-                    <input type="text" id="b-return-dest" placeholder="Gleiche Adresse oder andere">
+                    <label>🎯 Zieladresse</label>
+                    <input type="text" id="b-return-dest" placeholder="Adresse eingeben...">
                 </div>
             </div>
 
@@ -400,69 +407,131 @@
     </div>
 
     <script>
-        // Nur Donnerstage erlauben
-        function validateDate() {
-            const input = document.getElementById('b-date');
-            const error = document.getElementById('date-error');
-            if (!input.value) { error.style.display = 'none'; return true; }
+        // ═══════════════════════════════════════
+        // DONNERSTAGE GENERIEREN (nur Do wählbar)
+        // ═══════════════════════════════════════
+        function populateThursdays() {
+            const hinSelect = document.getElementById('b-date-hin');
+            const returnSelect = document.getElementById('b-date-return');
+            hinSelect.innerHTML = '';
+            returnSelect.innerHTML = '';
 
-            const date = new Date(input.value + 'T00:00:00');
-            const day = date.getDay(); // 0=So, 4=Do
-
-            if (day !== 4) {
-                error.textContent = '⚠️ Der Berlin-Shuttle f\u00e4hrt nur donnerstags! Bitte w\u00e4hlen Sie einen Donnerstag.';
-                error.style.display = 'block';
-                return false;
-            } else {
-                error.style.display = 'none';
-                return true;
-            }
-        }
-
-        // Nächsten Donnerstag vorauswählen
-        function setNextThursday() {
             const today = new Date();
-            const dayOfWeek = today.getDay();
-            const daysUntilThursday = (4 - dayOfWeek + 7) % 7 || 7; // nächster Do (nicht heute)
-            const nextThursday = new Date(today);
-            nextThursday.setDate(today.getDate() + daysUntilThursday);
-            const yyyy = nextThursday.getFullYear();
-            const mm = String(nextThursday.getMonth() + 1).padStart(2, '0');
-            const dd = String(nextThursday.getDate()).padStart(2, '0');
-            document.getElementById('b-date').value = `${yyyy}-${mm}-${dd}`;
+            today.setHours(0, 0, 0, 0);
+            const thursdays = [];
 
-            // Min-Datum = morgen
-            const tomorrow = new Date(today);
-            tomorrow.setDate(today.getDate() + 1);
-            document.getElementById('b-date').min = tomorrow.toISOString().split('T')[0];
+            // Nächste 12 Donnerstage berechnen
+            for (let i = 0; i < 90; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                if (d.getDay() === 4 && d > today) { // 4 = Donnerstag, nur Zukunft
+                    thursdays.push(d);
+                    if (thursdays.length >= 12) break;
+                }
+            }
+
+            thursdays.forEach((d, idx) => {
+                const val = d.toISOString().split('T')[0];
+                const label = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                const optHin = document.createElement('option');
+                optHin.value = val;
+                optHin.textContent = label;
+                hinSelect.appendChild(optHin);
+
+                const optReturn = document.createElement('option');
+                optReturn.value = val;
+                optReturn.textContent = label;
+                returnSelect.appendChild(optReturn);
+            });
+
+            // Rückfahrt = mindestens 1 Woche nach Hinfahrt
+            updateReturnDate();
+            hinSelect.addEventListener('change', updateReturnDate);
         }
 
-        // Rückfahrt ein/aus
+        function updateReturnDate() {
+            const hinVal = document.getElementById('b-date-hin').value;
+            const returnSelect = document.getElementById('b-date-return');
+            if (!hinVal) return;
+
+            const hinDate = new Date(hinVal + 'T00:00:00');
+            const minReturn = new Date(hinDate);
+            minReturn.setDate(minReturn.getDate() + 7); // mindestens 1 Woche später
+
+            // Alle Optionen durchgehen, die vor minReturn liegen deaktivieren
+            for (const opt of returnSelect.options) {
+                const optDate = new Date(opt.value + 'T00:00:00');
+                opt.disabled = optDate < minReturn;
+            }
+
+            // Ersten verfügbaren Donnerstag auswählen
+            const firstAvailable = Array.from(returnSelect.options).find(o => !o.disabled);
+            if (firstAvailable) returnSelect.value = firstAvailable.value;
+        }
+
+        // ═══════════════════════════════════════
+        // GOOGLE PLACES AUTOCOMPLETE
+        // ═══════════════════════════════════════
+        function initPlaces() {
+            // Usedom-Adressen (Abholung + Rückfahrt-Ziel)
+            const usedomOptions = {
+                componentRestrictions: { country: 'de' },
+                bounds: new google.maps.LatLngBounds(
+                    new google.maps.LatLng(53.8, 13.8),
+                    new google.maps.LatLng(54.1, 14.3)
+                ),
+                strictBounds: false
+            };
+
+            // Berlin-Adressen (Ziel + Rückfahrt-Abholung)
+            const berlinOptions = {
+                componentRestrictions: { country: 'de' },
+                bounds: new google.maps.LatLngBounds(
+                    new google.maps.LatLng(52.3, 13.0),
+                    new google.maps.LatLng(52.7, 13.8)
+                ),
+                strictBounds: false
+            };
+
+            new google.maps.places.Autocomplete(document.getElementById('b-pickup'), usedomOptions);
+            new google.maps.places.Autocomplete(document.getElementById('b-destination'), berlinOptions);
+            new google.maps.places.Autocomplete(document.getElementById('b-return-pickup'), berlinOptions);
+            new google.maps.places.Autocomplete(document.getElementById('b-return-dest'), usedomOptions);
+        }
+
+        // ═══════════════════════════════════════
+        // RÜCKFAHRT EIN/AUS
+        // ═══════════════════════════════════════
         function toggleReturn() {
             const checked = document.getElementById('b-return-toggle').checked;
             document.getElementById('return-fields').classList.toggle('visible', checked);
         }
 
-        // Tag-Anzeige
+        // ═══════════════════════════════════════
+        // TAG-ANZEIGE
+        // ═══════════════════════════════════════
         function updateDayIndicator() {
             const el = document.getElementById('day-indicator');
             const today = new Date();
             const day = today.getDay();
             if (day === 4) {
                 el.className = 'day-indicator day-open';
-                el.textContent = '✅ Heute ist Donnerstag — Berlin-Shuttle f\u00e4hrt!';
+                el.textContent = '\u2705 Heute ist Donnerstag \u2014 Berlin-Shuttle f\u00e4hrt!';
             } else {
                 const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
                 el.className = 'day-indicator day-closed';
-                el.textContent = '📅 Heute ist ' + dayNames[day] + ' — N\u00e4chster Shuttle am Donnerstag';
+                el.textContent = '\ud83d\udcc5 Heute ist ' + dayNames[day] + ' \u2014 N\u00e4chster Shuttle am Donnerstag';
             }
         }
 
-        // Formular validieren
+        // ═══════════════════════════════════════
+        // FORMULAR DATEN
+        // ═══════════════════════════════════════
         function getFormData() {
             const name = document.getElementById('b-name').value.trim();
             const phone = document.getElementById('b-phone').value.trim();
-            const date = document.getElementById('b-date').value;
+            const dateHin = document.getElementById('b-date-hin').value;
             const pickup = document.getElementById('b-pickup').value.trim();
             const destination = document.getElementById('b-destination').value.trim();
             const timeHin = document.getElementById('b-time-hin').value;
@@ -471,74 +540,79 @@
             const notes = document.getElementById('b-notes').value.trim();
             const hasReturn = document.getElementById('b-return-toggle').checked;
 
-            if (!name || !phone || !date || !pickup || !destination) {
-                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Datum\n- Abholadresse\n- Ziel in Berlin');
+            if (!name || !phone || !dateHin || !pickup || !destination) {
+                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Hinfahrt-Datum\n- Abholadresse\n- Ziel in Berlin');
                 return null;
             }
 
-            if (!validateDate()) return null;
+            const dateHinObj = new Date(dateHin + 'T00:00:00');
+            const dateHinStr = dateHinObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
-            const dateObj = new Date(date + 'T00:00:00');
-            const dateStr = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-
-            let text = `🚐 BERLIN-SHUTTLE ANFRAGE\n`;
-            text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-            text += `👤 ${name}\n`;
-            text += `📱 ${phone}\n`;
-            text += `📅 ${dateStr}\n`;
-            text += `👥 ${persons} Person(en)\n`;
-            text += `🧳 Gep\u00e4ck: ${luggage}\n\n`;
-            text += `📍 HINFAHRT:\n`;
-            text += `🏠 Ab: ${pickup}\n`;
-            text += `⏰ Abholung: ${timeHin} Uhr\n`;
-            text += `🎯 Nach: ${destination}\n`;
+            let text = '\ud83d\ude90 BERLIN-SHUTTLE ANFRAGE\n';
+            text += '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n';
+            text += '\ud83d\udc64 ' + name + '\n';
+            text += '\ud83d\udcf1 ' + phone + '\n';
+            text += '\ud83d\udc65 ' + persons + ' Person(en)\n';
+            text += '\ud83e\uddf3 Gep\u00e4ck: ' + luggage + '\n\n';
+            text += '\ud83d\udccd HINFAHRT (' + dateHinStr + '):\n';
+            text += '\ud83c\udfe0 Ab: ' + pickup + '\n';
+            text += '\u23f0 Abholung: ' + timeHin + ' Uhr\n';
+            text += '\ud83c\udfaf Nach: ' + destination + '\n';
 
             if (hasReturn) {
+                const dateReturn = document.getElementById('b-date-return').value;
+                const dateReturnObj = new Date(dateReturn + 'T00:00:00');
+                const dateReturnStr = dateReturnObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
                 const returnPickup = document.getElementById('b-return-pickup').value.trim() || destination;
                 const returnDest = document.getElementById('b-return-dest').value.trim() || pickup;
                 const timeReturn = document.getElementById('b-time-return').value;
-                text += `\n↩️ R\u00dcCKFAHRT:\n`;
-                text += `🎯 Ab: ${returnPickup}\n`;
-                text += `⏰ Abholung: ${timeReturn} Uhr\n`;
-                text += `🏠 Nach: ${returnDest}\n`;
+                text += '\n\u21a9\ufe0f R\u00dcCKFAHRT (' + dateReturnStr + '):\n';
+                text += '\ud83c\udfaf Ab: ' + returnPickup + '\n';
+                text += '\u23f0 Abholung: ' + timeReturn + ' Uhr\n';
+                text += '\ud83c\udfe0 Nach: ' + returnDest + '\n';
             } else {
-                text += `\n↩️ Nur Hinfahrt (keine R\u00fcckfahrt)\n`;
+                text += '\n\u21a9\ufe0f Nur Hinfahrt (keine R\u00fcckfahrt)\n';
             }
 
-            text += `\n💰 Festpreis: 299\u20ac`;
-            if (notes) text += `\n💬 ${notes}`;
+            text += '\n\ud83d\udcb0 Festpreis: 299\u20ac';
+            if (notes) text += '\n\ud83d\udcac ' + notes;
 
-            return { text, name, phone, date: dateStr };
+            return { text, name, phone, dateHin: dateHinStr };
         }
 
-        // WhatsApp senden
+        // ═══════════════════════════════════════
+        // SENDEN
+        // ═══════════════════════════════════════
         function sendWhatsApp() {
             const data = getFormData();
             if (!data) return;
             const encoded = encodeURIComponent(data.text);
-            window.open(`https://wa.me/4915127585179?text=${encoded}`, '_blank');
+            window.open('https://wa.me/4915127585179?text=' + encoded, '_blank');
             showSuccess();
         }
 
-        // Email senden
         function sendEmail() {
             const data = getFormData();
             if (!data) return;
-            const subject = encodeURIComponent(`Berlin-Shuttle Anfrage ${data.date} - ${data.name}`);
+            const subject = encodeURIComponent('Berlin-Shuttle Anfrage ' + data.dateHin + ' - ' + data.name);
             const body = encodeURIComponent(data.text);
-            window.location.href = `mailto:taxiwydra@googlemail.com?subject=${subject}&body=${body}`;
+            window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + body;
             showSuccess();
         }
 
-        // Erfolg anzeigen
         function showSuccess() {
             document.getElementById('booking-form').style.display = 'none';
             document.getElementById('success-card').style.display = 'block';
         }
 
-        // Init
-        setNextThursday();
+        // ═══════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════
+        populateThursdays();
         updateDayIndicator();
+        if (typeof google !== 'undefined' && google.maps) {
+            initPlaces();
+        }
     </script>
 </body>
 </html>

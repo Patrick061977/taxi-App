@@ -469,46 +469,49 @@
         // ═══════════════════════════════════════
         // GOOGLE PLACES AUTOCOMPLETE
         // ═══════════════════════════════════════
+        // Nur EIN Autocomplete aktiv — wechselt je nach fokussiertem Feld
+        let activeAutocomplete = null;
+        let activeField = null;
+
         function initPlaces() {
-            // Nur Hinfahrt-Felder bekommen Autocomplete (nicht doppelt laden)
-            const usedomOptions = {
-                componentRestrictions: { country: 'de' },
-                bounds: new google.maps.LatLngBounds(
-                    new google.maps.LatLng(53.8, 13.8),
-                    new google.maps.LatLng(54.1, 14.3)
-                ),
-                strictBounds: false
-            };
+            const usedomBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(53.8, 13.8),
+                new google.maps.LatLng(54.1, 14.3)
+            );
+            const berlinBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(52.3, 13.0),
+                new google.maps.LatLng(52.7, 13.8)
+            );
 
-            const berlinOptions = {
-                componentRestrictions: { country: 'de' },
-                bounds: new google.maps.LatLngBounds(
-                    new google.maps.LatLng(52.3, 13.0),
-                    new google.maps.LatLng(52.7, 13.8)
-                ),
-                strictBounds: false
-            };
+            const fields = [
+                { id: 'b-pickup', bounds: usedomBounds, sync: 'b-return-dest' },
+                { id: 'b-destination', bounds: berlinBounds, sync: 'b-return-pickup' }
+            ];
 
-            // Nur 2 Autocomplete-Felder (Hinfahrt)
-            const pickupAC = new google.maps.places.Autocomplete(document.getElementById('b-pickup'), usedomOptions);
-            const destAC = new google.maps.places.Autocomplete(document.getElementById('b-destination'), berlinOptions);
+            fields.forEach(function(cfg) {
+                document.getElementById(cfg.id).addEventListener('focus', function() {
+                    // Altes Autocomplete entfernen
+                    if (activeAutocomplete) {
+                        google.maps.event.clearInstanceListeners(activeAutocomplete);
+                        const pacContainers = document.querySelectorAll('.pac-container');
+                        pacContainers.forEach(function(el) { el.remove(); });
+                    }
 
-            // Bei Auswahl automatisch Rückfahrt befüllen
-            pickupAC.addListener('place_changed', function() {
-                const place = pickupAC.getPlace();
-                if (place && place.formatted_address) {
-                    document.getElementById('b-return-dest').value = place.formatted_address;
-                } else {
-                    syncAddresses();
-                }
-            });
-            destAC.addListener('place_changed', function() {
-                const place = destAC.getPlace();
-                if (place && place.formatted_address) {
-                    document.getElementById('b-return-pickup').value = place.formatted_address;
-                } else {
-                    syncAddresses();
-                }
+                    // Neues Autocomplete NUR fuer dieses Feld
+                    activeField = cfg;
+                    activeAutocomplete = new google.maps.places.Autocomplete(
+                        document.getElementById(cfg.id),
+                        { componentRestrictions: { country: 'de' }, bounds: cfg.bounds, strictBounds: false }
+                    );
+
+                    activeAutocomplete.addListener('place_changed', function() {
+                        const place = activeAutocomplete.getPlace();
+                        if (place && place.formatted_address && cfg.sync) {
+                            document.getElementById(cfg.sync).value = place.formatted_address;
+                        }
+                        syncAddresses();
+                    });
+                });
             });
         }
 

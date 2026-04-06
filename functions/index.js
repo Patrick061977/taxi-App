@@ -17742,7 +17742,7 @@ exports.onRideUpdated = onValueUpdated(
 
             } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
                 // 🆕 v6.25.4: Zeige WER und WO storniert hat
-                const deletedBy = after.deletedBy || '?';
+                const deletedBy = after.deletedBy || after.cancelledBy || '?';
                 let storniertVon = '?';
                 if (deletedBy === 'telegram-admin') storniertVon = '📱 Telegram';
                 else if (deletedBy === 'admin-browser') storniertVon = '🖥️ Browser';
@@ -17751,6 +17751,7 @@ exports.onRideUpdated = onValueUpdated(
                 else if (deletedBy === 'admin-invoice') storniertVon = '🧾 Rechnungs-Ansicht';
                 else if (deletedBy.includes('@')) storniertVon = `👤 ${deletedBy}`;
                 else if (deletedBy === 'customer-telegram' || deletedBy === 'telegram-customer') storniertVon = '📱 Kunde (Telegram)';
+                else if (deletedBy === 'customer-portal') storniertVon = '🌐 Kunde (Portal)';
                 else storniertVon = deletedBy;
 
                 // 🆕 v6.38.31: Lifecycle-Log — Stornierung

@@ -39,6 +39,7 @@ APP_FILES=(
     "kunden.html"
     "buchen.html"
     "landing.html"
+    "berlin.html"
     "track.html"
     "manifest.json"
     "service-worker.js"

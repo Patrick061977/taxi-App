@@ -225,6 +225,24 @@
         /* Donnerstag-only Kalender */
         input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
         .pac-container { z-index: 10000 !important; }
+        .hotel-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .hotel-chip {
+            padding: 6px 12px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #1e40af;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .hotel-chip:hover { background: #dbeafe; }
     </style>
 </head>
 <body>
@@ -258,19 +276,19 @@
         <div class="features">
             <div class="feature">
                 <div class="feature-icon">🏠</div>
-                Abholung an Ihrer Haust&uuml;r
+                Abholung direkt an Ihrer Haust&uuml;r
             </div>
             <div class="feature">
-                <div class="feature-icon">🏥</div>
-                Arzt, Klinik, Beh&ouml;rde
+                <div class="feature-icon">🚐</div>
+                Kein Umsteigen, kein Stress
             </div>
             <div class="feature">
-                <div class="feature-icon">✈️</div>
-                Flughafen BER
+                <div class="feature-icon">🏠</div>
+                Haust&uuml;r zu Haust&uuml;r in Berlin
             </div>
             <div class="feature">
-                <div class="feature-icon">🛍️</div>
-                Shopping &amp; Freizeit
+                <div class="feature-icon">💼</div>
+                Arzt, Klinik, Beh&ouml;rde, Shopping
             </div>
         </div>
 
@@ -322,14 +340,20 @@
 
             <div class="field-group">
                 <label>📍 Abholadresse</label>
-                <input type="text" id="b-pickup" placeholder="Ihre Adresse eingeben...">
+                <input type="text" id="b-pickup" placeholder="Adresse oder Hotel eingeben...">
+                <div id="b-pickup-dd"></div>
+                <div class="hotel-chips" id="pickup-hotels"></div>
             </div>
 
-            <div class="route-arrow">&darr;</div>
+            <div class="route-arrow" style="cursor:pointer;user-select:none;" onclick="swapAddresses()" title="Adressen tauschen">
+                &darr;&uarr;
+            </div>
 
             <div class="field-group">
                 <label>🎯 Zieladresse</label>
-                <input type="text" id="b-destination" placeholder="Adresse in Berlin eingeben...">
+                <input type="text" id="b-destination" placeholder="Adresse oder Klinik eingeben...">
+                <div id="b-destination-dd"></div>
+                <div class="hotel-chips" id="dest-hotels"></div>
             </div>
 
             <hr class="section-divider">
@@ -575,6 +599,61 @@
         }
 
         // ═══════════════════════════════════════
+        // TAUSCH-BUTTON
+        // ═══════════════════════════════════════
+        function swapAddresses() {
+            const pickup = document.getElementById('b-pickup');
+            const dest = document.getElementById('b-destination');
+            const returnPickup = document.getElementById('b-return-pickup');
+            const returnDest = document.getElementById('b-return-dest');
+            // Hinfahrt tauschen
+            const tmp = pickup.value;
+            pickup.value = dest.value;
+            dest.value = tmp;
+            // Rückfahrt auch tauschen
+            const tmp2 = returnPickup.value;
+            returnPickup.value = returnDest.value;
+            returnDest.value = tmp2;
+        }
+
+        // ═══════════════════════════════════════
+        // HOTEL-SCHNELLAUSWAHL
+        // ═══════════════════════════════════════
+        const USEDOM_HOTELS = [
+            'Hotel Kaiserhof, Strandpromenade, Heringsdorf',
+            'SEETELHOTEL Ahlbecker Hof, Dünenstr. 47, Ahlbeck',
+            'Maritim Hotel, Strandpromenade, Heringsdorf',
+            'Hotel & Restaurant & SPA & Entertainment Koserower Seebrücke, Koserower Seebrücke, Koserow',
+            'Hotel & Restaurant & SPA & Entertainment Strandidyll, Strandpromenade 33, Heringsdorf',
+            'Hotel Residenz, Kanalstraße 1, Heringsdorf',
+            'Strandhotel Ostseeblick, Kulmstraße 28, Heringsdorf',
+            'Hotel & Restaurant & SPA & Entertainment Bansin, Seestraße 12, Bansin',
+            'Travel Charme Strandhotel, Strandpromenade 1, Bansin',
+            'Romantik Hotel Esplanade, Dünenstr. 37, Heringsdorf'
+        ];
+
+        function fillAddress(fieldId, address) {
+            document.getElementById(fieldId).value = address;
+            // Sync Rückfahrt
+            if (fieldId === 'b-pickup') {
+                document.getElementById('b-return-dest').value = address;
+            } else if (fieldId === 'b-destination') {
+                document.getElementById('b-return-pickup').value = address;
+            }
+        }
+
+        function renderHotelChips() {
+            const pickupChips = document.getElementById('pickup-hotels');
+            const destChips = document.getElementById('dest-hotels');
+            if (pickupChips) {
+                pickupChips.innerHTML = USEDOM_HOTELS.slice(0, 5).map(function(h) {
+                    const short = h.split(',')[0];
+                    return '<span class="hotel-chip" onclick="fillAddress(\'b-pickup\',\'' + h.replace(/'/g, "\\'") + '\')">' + short + '</span>';
+                }).join('');
+            }
+        }
+
+        // ═══════════════════════════════════════
         // ADRESSEN SYNCHRONISIEREN
         // ═══════════════════════════════════════
         function syncAddresses() {
@@ -690,6 +769,7 @@
         // ═══════════════════════════════════════
         populateThursdays();
         updateDayIndicator();
+        renderHotelChips();
     </script>
 </body>
 </html>

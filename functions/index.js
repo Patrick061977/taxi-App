@@ -6459,7 +6459,7 @@ async function handleTelegramBookingQuery(chatId, text, knownCustomer) {
         const allRides = Object.entries(ridesSnap.val() || {});
         const now = Date.now();
         const upcoming = allRides.filter(([, r]) => {
-            if (r.status === 'deleted' || r.status === 'storniert') return false;
+            if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled') return false;
             const rPhone = (r.customerPhone || '').replace(/\s/g, '');
             return rPhone && cleanPhone && rPhone.slice(-9) === cleanPhone.slice(-9) && (r.pickupTimestamp || 0) >= now - 3600000;
         }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);
@@ -6599,7 +6599,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
             // Nur offene + vorbestellte (ab jetzt, nächste 7 Tage)
             const weekEnd = Date.now() + 7 * 86400000;
             filtered = allRides.filter(([, r]) => {
-                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'completed' || r.status === 'abgeschlossen') return false;
+                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled' || r.status === 'completed' || r.status === 'abgeschlossen') return false;
                 const ts = r.pickupTimestamp || 0;
                 return ts >= Date.now() - 3600000 && ts <= weekEnd;
             });
@@ -6607,7 +6607,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         } else if (filter === 'tomorrow') {
             const tomorrowStart = new Date(todayEnd.getTime() + 1);
             filtered = allRides.filter(([, r]) => {
-                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled') return false;
                 const ts = r.pickupTimestamp || 0;
                 const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
                 return rideDate >= tomorrowStart && rideDate <= tomorrowEnd;
@@ -6622,7 +6622,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
             const dateEnd = new Date(dateStart);
             dateEnd.setHours(23, 59, 59, 999);
             filtered = allRides.filter(([, r]) => {
-                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled') return false;
                 const ts = r.pickupTimestamp || 0;
                 const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
                 return rideDate >= dateStart && rideDate <= dateEnd;
@@ -6632,7 +6632,7 @@ async function handleAdminRidesOverview(chatId, filter = 'today') {
         } else {
             // Heute (default)
             filtered = allRides.filter(([, r]) => {
-                if (r.status === 'deleted' || r.status === 'storniert') return false;
+                if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled') return false;
                 const ts = r.pickupTimestamp || 0;
                 const rideDate = new Date(new Date(ts).toLocaleString('en-US', TZ_BERLIN));
                 return rideDate >= todayStart && rideDate <= todayEnd;
@@ -7014,7 +7014,7 @@ async function handleTelegramModifyQuery(chatId, knownCustomer) {
         const cleanPhone = (knownCustomer.phone || knownCustomer.mobile || '').replace(/\s/g, '');
         const now = Date.now();
         const upcoming = allRides.filter(([, r]) => {
-            if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'unterwegs') return false;
+            if (r.status === 'deleted' || r.status === 'storniert' || r.status === 'cancelled' || r.status === 'unterwegs') return false;
             const rPhone = (r.customerPhone || '').replace(/\s/g, '');
             return rPhone && rPhone.slice(-9) === cleanPhone.slice(-9) && (r.pickupTimestamp || 0) > now;
         }).sort((a, b) => (a[1].pickupTimestamp || 0) - (b[1].pickupTimestamp || 0)).slice(0, 5);

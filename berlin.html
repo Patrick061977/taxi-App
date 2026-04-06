@@ -470,7 +470,7 @@
         // GOOGLE PLACES AUTOCOMPLETE
         // ═══════════════════════════════════════
         function initPlaces() {
-            // Usedom-Adressen (Abholung + Rückfahrt-Ziel)
+            // Nur Hinfahrt-Felder bekommen Autocomplete (nicht doppelt laden)
             const usedomOptions = {
                 componentRestrictions: { country: 'de' },
                 bounds: new google.maps.LatLngBounds(
@@ -480,7 +480,6 @@
                 strictBounds: false
             };
 
-            // Berlin-Adressen (Ziel + Rückfahrt-Abholung)
             const berlinOptions = {
                 componentRestrictions: { country: 'de' },
                 bounds: new google.maps.LatLngBounds(
@@ -490,10 +489,27 @@
                 strictBounds: false
             };
 
-            new google.maps.places.Autocomplete(document.getElementById('b-pickup'), usedomOptions);
-            new google.maps.places.Autocomplete(document.getElementById('b-destination'), berlinOptions);
-            new google.maps.places.Autocomplete(document.getElementById('b-return-pickup'), berlinOptions);
-            new google.maps.places.Autocomplete(document.getElementById('b-return-dest'), usedomOptions);
+            // Nur 2 Autocomplete-Felder (Hinfahrt)
+            const pickupAC = new google.maps.places.Autocomplete(document.getElementById('b-pickup'), usedomOptions);
+            const destAC = new google.maps.places.Autocomplete(document.getElementById('b-destination'), berlinOptions);
+
+            // Bei Auswahl automatisch Rückfahrt befüllen
+            pickupAC.addListener('place_changed', function() {
+                const place = pickupAC.getPlace();
+                if (place && place.formatted_address) {
+                    document.getElementById('b-return-dest').value = place.formatted_address;
+                } else {
+                    syncAddresses();
+                }
+            });
+            destAC.addListener('place_changed', function() {
+                const place = destAC.getPlace();
+                if (place && place.formatted_address) {
+                    document.getElementById('b-return-pickup').value = place.formatted_address;
+                } else {
+                    syncAddresses();
+                }
+            });
         }
 
         // ═══════════════════════════════════════

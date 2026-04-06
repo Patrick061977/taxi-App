@@ -312,52 +312,38 @@
 
             <div class="field-group">
                 <label>📍 Abholadresse</label>
-                <input type="text" id="b-pickup" placeholder="Adresse eingeben...">
-            </div>
-
-            <div class="field-group">
-                <label>⏰ Gew&uuml;nschte Abholzeit</label>
-                <input type="time" id="b-time-hin" value="07:00">
+                <input type="text" id="b-pickup" placeholder="Ihre Adresse eingeben..." oninput="syncAddresses()">
             </div>
 
             <div class="route-arrow">&darr;</div>
 
             <div class="field-group">
                 <label>🎯 Zieladresse</label>
-                <input type="text" id="b-destination" placeholder="Adresse eingeben...">
+                <input type="text" id="b-destination" placeholder="Adresse in Berlin eingeben..." oninput="syncAddresses()">
             </div>
 
             <hr class="section-divider">
 
-            <!-- RÜCKFAHRT Toggle -->
-            <div class="toggle-return">
-                <input type="checkbox" id="b-return-toggle" checked onchange="toggleReturn()">
-                <label for="b-return-toggle">↩️ R&uuml;ckfahrt buchen</label>
+            <!-- RÜCKFAHRT -->
+            <div class="card-title">↩️ R&uuml;ckfahrt</div>
+
+            <div class="field-group">
+                <label>📅 R&uuml;ckfahrt &mdash; Donnerstag w&auml;hlen</label>
+                <select id="b-date-return"></select>
             </div>
 
-            <!-- RÜCKFAHRT Felder -->
-            <div class="return-fields visible" id="return-fields">
-                <div class="card-title">↩️ R&uuml;ckfahrt</div>
+            <div class="field-group">
+                <label>📍 Abholadresse</label>
+                <input type="text" id="b-return-pickup" placeholder="Wird automatisch ausgef&uuml;llt">
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Gleiche Adresse wie Ziel der Hinfahrt &mdash; oder hier &auml;ndern</div>
+            </div>
 
-                <div class="field-group">
-                    <label>📅 R&uuml;ckfahrt &mdash; Donnerstag w&auml;hlen</label>
-                    <select id="b-date-return"></select>
-                </div>
+            <div class="route-arrow">&darr;</div>
 
-                <div class="field-group">
-                    <label>📍 Abholadresse</label>
-                    <input type="text" id="b-return-pickup" placeholder="Adresse eingeben...">
-                </div>
-
-                <div class="field-group">
-                    <label>⏰ Gew&uuml;nschte Abholzeit</label>
-                    <input type="time" id="b-time-return" value="15:00">
-                </div>
-
-                <div class="field-group">
-                    <label>🎯 Zieladresse</label>
-                    <input type="text" id="b-return-dest" placeholder="Adresse eingeben...">
-                </div>
+            <div class="field-group">
+                <label>🎯 Zieladresse</label>
+                <input type="text" id="b-return-dest" placeholder="Wird automatisch ausgef&uuml;llt">
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Gleiche Adresse wie Abholung der Hinfahrt &mdash; oder hier &auml;ndern</div>
             </div>
 
             <div class="field-group">
@@ -501,12 +487,28 @@
         }
 
         // ═══════════════════════════════════════
-        // RÜCKFAHRT EIN/AUS
+        // ADRESSEN SYNCHRONISIEREN
         // ═══════════════════════════════════════
-        function toggleReturn() {
-            const checked = document.getElementById('b-return-toggle').checked;
-            document.getElementById('return-fields').classList.toggle('visible', checked);
+        function syncAddresses() {
+            const pickup = document.getElementById('b-pickup').value;
+            const dest = document.getElementById('b-destination').value;
+            const returnPickup = document.getElementById('b-return-pickup');
+            const returnDest = document.getElementById('b-return-dest');
+
+            // Nur überschreiben wenn Rückfahrt-Feld leer oder gleich dem alten Wert
+            if (!returnDest.dataset.manual) returnDest.value = pickup;
+            if (!returnPickup.dataset.manual) returnPickup.value = dest;
         }
+
+        // Manuelle Änderung der Rückfahrt-Adressen erkennen
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('b-return-pickup').addEventListener('input', function() {
+                this.dataset.manual = 'true';
+            });
+            document.getElementById('b-return-dest').addEventListener('input', function() {
+                this.dataset.manual = 'true';
+            });
+        });
 
         // ═══════════════════════════════════════
         // TAG-ANZEIGE
@@ -534,19 +536,22 @@
             const dateHin = document.getElementById('b-date-hin').value;
             const pickup = document.getElementById('b-pickup').value.trim();
             const destination = document.getElementById('b-destination').value.trim();
-            const timeHin = document.getElementById('b-time-hin').value;
             const persons = document.getElementById('b-persons').value;
             const luggage = document.getElementById('b-luggage').value;
             const notes = document.getElementById('b-notes').value.trim();
-            const hasReturn = document.getElementById('b-return-toggle').checked;
+            const dateReturn = document.getElementById('b-date-return').value;
+            const returnPickup = document.getElementById('b-return-pickup').value.trim() || destination;
+            const returnDest = document.getElementById('b-return-dest').value.trim() || pickup;
 
             if (!name || !phone || !dateHin || !pickup || !destination) {
-                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Hinfahrt-Datum\n- Abholadresse\n- Ziel in Berlin');
+                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Hinfahrt-Datum\n- Abholadresse\n- Zieladresse');
                 return null;
             }
 
             const dateHinObj = new Date(dateHin + 'T00:00:00');
             const dateHinStr = dateHinObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const dateReturnObj = new Date(dateReturn + 'T00:00:00');
+            const dateReturnStr = dateReturnObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
             let text = '\ud83d\ude90 BERLIN-SHUTTLE ANFRAGE\n';
             text += '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n';
@@ -556,23 +561,10 @@
             text += '\ud83e\uddf3 Gep\u00e4ck: ' + luggage + '\n\n';
             text += '\ud83d\udccd HINFAHRT (' + dateHinStr + '):\n';
             text += '\ud83c\udfe0 Ab: ' + pickup + '\n';
-            text += '\u23f0 Abholung: ' + timeHin + ' Uhr\n';
             text += '\ud83c\udfaf Nach: ' + destination + '\n';
-
-            if (hasReturn) {
-                const dateReturn = document.getElementById('b-date-return').value;
-                const dateReturnObj = new Date(dateReturn + 'T00:00:00');
-                const dateReturnStr = dateReturnObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-                const returnPickup = document.getElementById('b-return-pickup').value.trim() || destination;
-                const returnDest = document.getElementById('b-return-dest').value.trim() || pickup;
-                const timeReturn = document.getElementById('b-time-return').value;
-                text += '\n\u21a9\ufe0f R\u00dcCKFAHRT (' + dateReturnStr + '):\n';
-                text += '\ud83c\udfaf Ab: ' + returnPickup + '\n';
-                text += '\u23f0 Abholung: ' + timeReturn + ' Uhr\n';
-                text += '\ud83c\udfe0 Nach: ' + returnDest + '\n';
-            } else {
-                text += '\n\u21a9\ufe0f Nur Hinfahrt (keine R\u00fcckfahrt)\n';
-            }
+            text += '\n\u21a9\ufe0f R\u00dcCKFAHRT (' + dateReturnStr + '):\n';
+            text += '\ud83c\udfaf Ab: ' + returnPickup + '\n';
+            text += '\ud83c\udfe0 Nach: ' + returnDest + '\n';
 
             text += '\n\ud83d\udcb0 Festpreis: 299\u20ac';
             if (notes) text += '\n\ud83d\udcac ' + notes;

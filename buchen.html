@@ -437,13 +437,13 @@
             <div class="map-container" id="route-map"></div>
 
             <!-- Buchen Button -->
-            <button class="btn-book" id="btn-book" onclick="startBooking()" disabled>
+            <button class="btn-book" id="btn-book" onclick="startBooking()" style="display:none;">
                 🚕 Jetzt Taxi buchen
             </button>
             <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
                 ⚠️ Bitte Abholort und Zielort aus der Liste wählen
             </div>
-            <button onclick="resetBookingForm()" style="width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
+            <button id="btn-cancel" onclick="resetBookingForm()" style="display:none;width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
                 ✕ Ich möchte doch nicht bestellen
             </button>
         </div>
@@ -580,25 +580,34 @@
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
         function updateBookButton() {
             const btn = document.getElementById('btn-book');
+            const cancelBtn = document.getElementById('btn-cancel');
             if (!btn) return;
-            if (isAvailable) {
-                // Normal buchen
+            const hasInput = pickupCoords && destCoords;
+
+            if (isAvailable && hasInput) {
+                // Route berechnet + Taxi da → grüner Buchen-Button
+                btn.style.display = '';
                 btn.disabled = false;
                 btn.className = 'btn-book';
                 btn.innerHTML = '🚕 Jetzt Taxi buchen';
                 btn.onclick = startBooking;
-            } else if (wannModus === 'sofort') {
-                // Kein Sofort-Taxi → roter Anruf-Button
+                if (cancelBtn) cancelBtn.style.display = '';
+            } else if (!hasInput) {
+                // Noch nix eingegeben → alles verstecken
+                btn.style.display = 'none';
+                if (cancelBtn) cancelBtn.style.display = 'none';
+            } else if (wannModus === 'vorbestellen' && hasInput) {
+                // Vorbestellen mit Route → Buchen-Button
+                btn.style.display = '';
                 btn.disabled = false;
-                btn.className = 'btn-book btn-call';
-                btn.innerHTML = '📞 038378 22022 — Jetzt anrufen';
-                btn.onclick = () => { window.location.href = 'tel:03837822022'; };
+                btn.className = 'btn-book';
+                btn.innerHTML = '📅 Jetzt vorbestellen';
+                btn.onclick = startBooking;
+                if (cancelBtn) cancelBtn.style.display = '';
             } else {
-                // Vorbestellen nicht verfügbar → grau
-                btn.disabled = true;
-                btn.className = 'btn-book';
-                btn.innerHTML = '🚕 Jetzt Taxi buchen';
-                btn.onclick = startBooking;
+                // Sofort ohne GPS → Button verstecken (Anruf ist oben im Toggle)
+                btn.style.display = 'none';
+                if (cancelBtn) cancelBtn.style.display = 'none';
             }
         }
 

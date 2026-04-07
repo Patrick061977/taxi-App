@@ -19807,3 +19807,50 @@ exports.onSmsQueued = onValueCreated(
         }
     }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.38.96: ANFRAGEN-TRIGGER — Telegram bei neuer Web-Anfrage
+// ═══════════════════════════════════════════════════════════════
+exports.onAnfrageCreated = onValueCreated(
+    {
+        ref: '/anfragen/{anfrageId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const anfrageId = event.params.anfrageId;
+        const anfrage = event.data.val();
+        if (!anfrage) return;
+
+        console.log(`📬 Neue Anfrage: ${anfrageId} — ${anfrage.name || '?'} — ${anfrage.type || 'taxi'}`);
+
+        try {
+            const isBerlin = anfrage.type === 'berlin-shuttle';
+            const channelIcon = anfrage.channel === 'whatsapp' ? '💬' : '✉️';
+            const typeIcon = isBerlin ? '🚐' : '🚕';
+            const typeLabel = isBerlin ? 'BERLIN-SHUTTLE' : 'TAXI';
+
+            let message = `${typeIcon} <b>NEUE ${typeLabel}-ANFRAGE!</b> ${channelIcon}\n\n`;
+            message += `👤 <b>${anfrage.name || '?'}</b>\n`;
+            message += `📱 ${anfrage.phone || '?'}\n`;
+            message += `📍 ${anfrage.pickup || '?'}\n`;
+            message += `🎯 ${anfrage.destination || '?'}\n`;
+
+            if (isBerlin) {
+                message += `📅 Hin: ${anfrage.dateHin || '?'}\n`;
+                message += `📅 Rück: ${anfrage.dateReturn || '?'}\n`;
+            } else {
+                message += `📅 ${anfrage.date || '?'} um ${anfrage.time || '?'}\n`;
+            }
+
+            message += `👥 ${anfrage.passengers || '1'} Pers.\n`;
+            message += `💰 ${anfrage.price || '?'}\n`;
+            message += `\n⚡ <i>Über: ${anfrage.channel === 'whatsapp' ? 'WhatsApp' : 'E-Mail'}</i>`;
+
+            await sendToAllAdmins(message, 'new_ride');
+            console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
+        } catch (err) {
+            console.error('❌ onAnfrageCreated Fehler:', err.message);
+        }
+    }
+);

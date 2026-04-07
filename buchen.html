@@ -443,9 +443,9 @@
             <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
                 ⚠️ Bitte Abholort und Zielort aus der Liste wählen
             </div>
-            <div style="text-align:center;margin-top:6px;font-size:12px;color:#94a3b8;">
-                Kostenlose Stornierung möglich
-            </div>
+            <button onclick="resetBookingForm()" style="width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
+                ✕ Ich möchte doch nicht bestellen
+            </button>
         </div>
 
         <!-- Telefon eingeben -->
@@ -842,6 +842,31 @@
                 sofortBtn.innerHTML = '📞 Anrufen<br><span style="font-size:11px;font-weight:400;">038378 / 22022</span>';
                 sofortBtn.onclick = function() { window.location.href = 'tel:03837822022'; };
             }
+        }
+
+        // 🆕 v6.38.96: Formular komplett zurücksetzen
+        function resetBookingForm() {
+            document.getElementById('b-pickup').value = '';
+            document.getElementById('b-destination').value = '';
+            document.getElementById('b-name').value = '';
+            pickupCoords = null;
+            destCoords = null;
+            routeData = null;
+            passengers = 1;
+            document.querySelectorAll('.pax-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === 0);
+            });
+            const routeInfo = document.getElementById('route-info');
+            if (routeInfo) routeInfo.style.display = 'none';
+            const mapEl = document.getElementById('route-map');
+            if (mapEl) mapEl.style.display = 'none';
+            wannModus = 'sofort';
+            const felder = document.getElementById('vorbestellen-felder');
+            if (felder) felder.classList.remove('active');
+            document.querySelectorAll('.wann-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+            updateStatusBar();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            logBuchen('🔄', 'Formular zurückgesetzt');
         }
 
         // ═══════════════════════════════════════════════

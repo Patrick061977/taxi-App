@@ -49,11 +49,11 @@
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
-                    <input type="text" id="anf-name" placeholder="Vor- und Nachname" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <input type="text" id="anf-name" placeholder="Vor- und Nachname *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
                 </div>
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
-                    <input type="tel" id="anf-phone" placeholder="0176 12345678" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <input type="tel" id="anf-phone" placeholder="0176 12345678 *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
                 </div>
             </div>
             <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">
@@ -208,13 +208,15 @@ function getAnfrageText() {
 
 function sendAnfrageWhatsApp() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
-    if (!document.getElementById('anf-phone').value) { alert('Bitte Telefonnummer eingeben'); return; }
+    if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
+    if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
     window.open('https://wa.me/4915127585179?text=' + encodeURIComponent(getAnfrageText()), '_blank');
 }
 
 function sendAnfrageEmail() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
-    if (!document.getElementById('anf-phone').value) { alert('Bitte Telefonnummer eingeben'); return; }
+    if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
+    if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
     var subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
     window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + encodeURIComponent(getAnfrageText());
 }

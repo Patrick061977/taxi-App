@@ -787,6 +787,8 @@
                     if (callBox) callBox.classList.add('visible');
                 }
                 updateBookButton();
+                // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
+                updateSofortToggle(sofortCount);
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';
                 document.getElementById('status-bar').textContent = '⚠️ Verbindungsfehler';
@@ -805,6 +807,25 @@
             updateStatusBar();
         });
 
+        // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
+        function updateSofortToggle(gpsOnlineCount) {
+            const sofortBtn = document.querySelector('.wann-btn[onclick*="sofort"]');
+            if (!sofortBtn) return;
+            if (gpsOnlineCount > 0) {
+                // GPS online → normaler Sofort-Button
+                sofortBtn.style.background = '';
+                sofortBtn.style.color = '';
+                sofortBtn.innerHTML = '⚡ Sofort';
+                sofortBtn.onclick = function() { setWann('sofort'); };
+            } else {
+                // Kein GPS → Anruf-Button
+                sofortBtn.style.background = '#ef4444';
+                sofortBtn.style.color = 'white';
+                sofortBtn.innerHTML = '📞 Anrufen';
+                sofortBtn.onclick = function() { window.location.href = 'tel:03837822022'; };
+            }
+        }
+
         // ═══════════════════════════════════════════════
         // Wann-Toggle (Sofort / Vorbestellen)
         // ═══════════════════════════════════════════════
@@ -812,7 +833,7 @@
             wannModus = mode;
             logBuchen(mode === 'sofort' ? '⚡' : '📅', `Modus: ${mode.toUpperCase()}`);
             document.querySelectorAll('.wann-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
             const felder = document.getElementById('vorbestellen-felder');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
@@ -821,7 +842,7 @@
                 felder.classList.remove('active');
             }
             // 🆕 v6.38.78: Button-Status neu berechnen wenn Modus wechselt
-            updateBookButton();
+            updateStatusBar();
             checkRoute();
         }
 

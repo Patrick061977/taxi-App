@@ -340,9 +340,8 @@
 
             <div class="field-group">
                 <label>📍 Abholadresse</label>
-                <input type="text" id="b-pickup" placeholder="Adresse oder Hotel eingeben..." autocomplete="off">
+                <input type="text" id="b-pickup" placeholder="Ihre Adresse eingeben..." autocomplete="off">
                 <div id="b-pickup-dd"></div>
-                <div class="hotel-chips" id="pickup-hotels"></div>
             </div>
 
             <div class="route-arrow" style="cursor:pointer;user-select:none;" onclick="swapAddresses()" title="Adressen tauschen">
@@ -441,17 +440,21 @@
             const thursdays = [];
 
             // Nächste 12 Donnerstage berechnen
-            for (let i = 0; i < 90; i++) {
+            for (let i = 1; i <= 90; i++) {
                 const d = new Date(today);
                 d.setDate(today.getDate() + i);
-                if (d.getDay() === 4 && d > today) { // 4 = Donnerstag, nur Zukunft
+                if (d.getDay() === 4) { // 4 = Donnerstag
                     thursdays.push(d);
                     if (thursdays.length >= 12) break;
                 }
             }
 
-            thursdays.forEach((d, idx) => {
-                const val = d.toISOString().split('T')[0];
+            thursdays.forEach(function(d, idx) {
+                // Datum OHNE Zeitzone (lokal) formatieren
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const val = yyyy + '-' + mm + '-' + dd;
                 const label = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
                 const optHin = document.createElement('option');
@@ -795,8 +798,6 @@
         // ═══════════════════════════════════════
         populateThursdays();
         updateDayIndicator();
-        renderHotelChips(); // Zeige sofort Fallback-Hotels
-        loadHotelsFromCRM(); // Dann Firebase-Hotels nachladen
     </script>
 </body>
 </html>

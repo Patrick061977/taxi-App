@@ -1095,11 +1095,11 @@
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📅 Datum</label>
-                    <input type="date" id="anf-date" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <input type="date" id="anf-date" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;" onchange="calcAnfPrice()">
                 </div>
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🕐 Uhrzeit</label>
-                    <input type="time" id="anf-time" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <input type="time" id="anf-time" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;" onchange="calcAnfPrice()">
                 </div>
             </div>
             <!-- Personen -->
@@ -1259,19 +1259,28 @@ async function calcAnfPrice() {
         if (!data.routes || !data.routes[0]) return;
         const km = data.routes[0].distance / 1000;
         const min = Math.ceil(data.routes[0].duration / 60);
-        // Tarif
-        const now = new Date();
-        const h = now.getHours();
-        const isNight = h >= 22 || h < 6 || now.getDay() === 0;
+        // Tarif — basierend auf EINGEGEBENER Uhrzeit, nicht aktueller!
+        const anfTime = document.getElementById('anf-time').value || '';
+        const anfDate = document.getElementById('anf-date').value || '';
+        let h = new Date().getHours(); // Fallback: aktuelle Uhrzeit
+        let dayOfWeek = new Date().getDay();
+        if (anfTime) {
+            h = parseInt(anfTime.split(':')[0]);
+        }
+        if (anfDate) {
+            dayOfWeek = new Date(anfDate + 'T00:00:00').getDay();
+        }
+        const isNight = h >= 22 || h < 6 || dayOfWeek === 0;
         let price = isNight ? 5.50 : 4.00;
         let remaining = km;
         if (remaining > 0) { const s = Math.min(remaining,2); price += s * 3.30; remaining -= s; }
         if (remaining > 0) { const s = Math.min(remaining,2); price += s * 2.80; remaining -= s; }
         if (remaining > 0) { price += remaining * (isNight ? 2.40 : 2.20); }
         if (anfPax >= 5) price += 10;
-        price = Math.round(price * 100) / 100;
-        document.getElementById('anf-price').textContent = price.toFixed(2) + '€';
-        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km · ~' + min + ' Min' + (isNight ? ' · Nachttarif' : '');
+        // Auf 20 Cent runden (wie echtes Taxameter)
+        price = Math.round(price / 0.20) * 0.20;
+        document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
+        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (isNight ? ' \u00b7 Nachttarif' : '');
         document.getElementById('anf-price-box').style.display = 'block';
     } catch(e) {}
 }

@@ -1277,8 +1277,8 @@ async function calcAnfPrice() {
         if (remaining > 0) { const s = Math.min(remaining,2); price += s * 2.80; remaining -= s; }
         if (remaining > 0) { price += remaining * (isNight ? 2.40 : 2.20); }
         if (anfPax >= 5) price += 10;
-        // Auf 20 Cent runden (wie echtes Taxameter)
-        price = Math.round(price / 0.20) * 0.20;
+        // Auf 10 Cent runden (wie buchen.html)
+        price = Math.round(price / 0.1) * 0.1;
         document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (isNight ? ' \u00b7 Nachttarif' : '');
         document.getElementById('anf-price-box').style.display = 'block';

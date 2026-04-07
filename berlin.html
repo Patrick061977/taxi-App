@@ -771,9 +771,38 @@
         // ═══════════════════════════════════════
         // SENDEN
         // ═══════════════════════════════════════
+        // Anfrage in Firebase speichern (Tracking)
+        function saveBerlinAnfrageToFirebase(channel) {
+            try {
+                const anfData = {
+                    pickup: document.getElementById('b-pickup').value || '',
+                    destination: document.getElementById('b-destination').value || '',
+                    dateHin: document.getElementById('b-date-hin').value || '',
+                    dateReturn: document.getElementById('b-date-return').value || '',
+                    returnPickup: document.getElementById('b-return-pickup').value || '',
+                    returnDest: document.getElementById('b-return-dest').value || '',
+                    passengers: document.getElementById('b-persons').value || '1',
+                    luggage: document.getElementById('b-luggage').value || 'normal',
+                    name: document.getElementById('b-name').value || '',
+                    phone: document.getElementById('b-phone').value || '',
+                    price: '299',
+                    channel: channel,
+                    type: 'berlin-shuttle',
+                    status: 'offen',
+                    createdAt: Date.now()
+                };
+                fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/anfragen.json', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(anfData)
+                }).catch(function() {});
+            } catch(e) {}
+        }
+
         function sendWhatsApp() {
             const data = getFormData();
             if (!data) return;
+            saveBerlinAnfrageToFirebase('whatsapp');
             const encoded = encodeURIComponent(data.text);
             window.open('https://wa.me/4915127585179?text=' + encoded, '_blank');
             showSuccess();
@@ -782,6 +811,7 @@
         function sendEmail() {
             const data = getFormData();
             if (!data) return;
+            saveBerlinAnfrageToFirebase('email');
             const subject = encodeURIComponent('Berlin-Shuttle Anfrage ' + data.dateHin + ' - ' + data.name);
             const body = encodeURIComponent(data.text);
             window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + body;

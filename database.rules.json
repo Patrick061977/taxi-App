@@ -136,6 +136,11 @@
       ".write": "auth != null"
     },
 
+    "anfragen": {
+      ".read": "auth != null",
+      ".write": true
+    },
+
     "publicData": {
       ".read": true,
       ".write": "auth != null"

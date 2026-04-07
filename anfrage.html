@@ -206,10 +206,36 @@ function getAnfrageText() {
     return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + name + '\n\ud83d\udcf1 ' + phone + '\n\ud83d\udcb0 ca. ' + price;
 }
 
+// Anfrage in Firebase speichern (Tracking)
+function saveAnfrageToFirebase(channel) {
+    try {
+        var data = {
+            pickup: document.getElementById('anf-pickup').value || '',
+            destination: document.getElementById('anf-dest').value || '',
+            date: document.getElementById('anf-date').value || '',
+            time: document.getElementById('anf-time').value || '',
+            passengers: anfPax,
+            name: document.getElementById('anf-name').value || '',
+            phone: document.getElementById('anf-phone').value || '',
+            price: document.getElementById('anf-price').textContent || '',
+            channel: channel,
+            type: 'taxi',
+            status: 'offen',
+            createdAt: Date.now()
+        };
+        fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/anfragen.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).catch(function() {});
+    } catch(e) {}
+}
+
 function sendAnfrageWhatsApp() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
     if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
     if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
+    saveAnfrageToFirebase('whatsapp');
     window.open('https://wa.me/4915127585179?text=' + encodeURIComponent(getAnfrageText()), '_blank');
 }
 
@@ -217,6 +243,7 @@ function sendAnfrageEmail() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
     if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
     if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
+    saveAnfrageToFirebase('email');
     var subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
     window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + encodeURIComponent(getAnfrageText());
 }

@@ -883,6 +883,9 @@
                 initDateTimePickers();
             } else {
                 felder.classList.remove('active');
+                // 🔧 v6.38.96: Bei Sofort direkt zum Buchen-Button scrollen
+                const btn = document.getElementById('btn-book');
+                if (btn) setTimeout(function() { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
             }
             // 🆕 v6.38.78: Button-Status neu berechnen wenn Modus wechselt
             updateStatusBar();

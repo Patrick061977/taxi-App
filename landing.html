@@ -1270,7 +1270,9 @@ async function calcAnfPrice() {
         if (anfDate) {
             dayOfWeek = new Date(anfDate + 'T00:00:00').getDay();
         }
-        const isNight = h >= 22 || h < 6 || dayOfWeek === 0;
+        const isSunday = dayOfWeek === 0;
+        const isNightTime = h >= 22 || h < 6;
+        const isNight = isNightTime || isSunday;
         let price = isNight ? 5.50 : 4.00;
         let remaining = km;
         if (remaining > 0) { const s = Math.min(remaining,2); price += s * 3.30; remaining -= s; }
@@ -1280,7 +1282,8 @@ async function calcAnfPrice() {
         // Auf 10 Cent runden (wie buchen.html)
         price = Math.round(price / 0.1) * 0.1;
         document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
-        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (isNight ? ' \u00b7 Nachttarif' : '');
+        const tarifLabel = isSunday && !isNightTime ? 'Sonn-/Feiertagstarif' : isNightTime ? 'Nachttarif' : '';
+        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '');
         document.getElementById('anf-price-box').style.display = 'block';
     } catch(e) {}
 }

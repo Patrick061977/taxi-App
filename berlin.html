@@ -254,6 +254,41 @@
         <a href="tel:03837822022" class="header-phone">038378 / 22022</a>
     </div>
 
+    <!-- ANGEBOTS-BANNER -->
+    <div id="angebot-banner" style="display:none;"></div>
+    <script>
+    var ANGEBOT = {
+        aktiv: true,
+        titel: "\ud83d\ude95 Restpl\u00e4tze Berlin \u2192 Usedom",
+        text: "So. 12.04. | Abholung S-Bhf. Gr\u00fcnau ca. 14:30 Uhr",
+        preis: "99\u20ac pro Person",
+        plaetze: "noch 2 Pl\u00e4tze frei",
+        countdown_bis: "2026-04-11T20:00:00",
+        whatsapp_text: "Hallo, ich interessiere mich f\u00fcr die Mitfahrt Berlin\u2192Usedom am 12.04. (S-Bhf Gr\u00fcnau)",
+        whatsapp_nr: "4915127585179"
+    };
+    (function() {
+        if (!ANGEBOT.aktiv) return;
+        var now = new Date(); var ende = new Date(ANGEBOT.countdown_bis);
+        if (now >= ende) return;
+        var b = document.getElementById('angebot-banner');
+        b.style.display = 'block';
+        b.innerHTML = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:14px 16px;text-align:center;color:white;border-radius:0 0 16px 16px;cursor:pointer;" onclick="window.open(\'https://wa.me/' + ANGEBOT.whatsapp_nr + '?text=' + encodeURIComponent(ANGEBOT.whatsapp_text) + '\',\'_blank\')">'
+            + '<div style="font-size:16px;font-weight:800;">' + ANGEBOT.titel + '</div>'
+            + '<div style="font-size:13px;margin:4px 0;">' + ANGEBOT.text + '</div>'
+            + '<div style="font-size:20px;font-weight:800;">' + ANGEBOT.preis + ' <span style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:20px;font-size:12px;">' + ANGEBOT.plaetze + '</span></div>'
+            + '<div style="font-size:22px;font-weight:800;font-family:monospace;" id="angebot-cd"></div>'
+            + '<div style="margin-top:6px;"><span style="background:white;color:#d97706;padding:8px 20px;border-radius:8px;font-weight:700;font-size:14px;">\ud83d\udcac Jetzt buchen</span></div></div>';
+        function tick() {
+            var d = new Date(ANGEBOT.countdown_bis) - new Date();
+            if (d <= 0) { b.style.display = 'none'; return; }
+            var el = document.getElementById('angebot-cd');
+            if (el) el.textContent = Math.floor(d/3600000) + 'h ' + Math.floor((d%3600000)/60000) + 'min ' + Math.floor((d%60000)/1000) + 's';
+        }
+        tick(); setInterval(tick, 1000);
+    })();
+    </script>
+
     <div class="main">
         <!-- Preis-Banner -->
         <div class="price-banner">

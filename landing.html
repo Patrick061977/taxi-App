@@ -889,6 +889,54 @@
     </div>
 </header>
 
+<!-- ==================== ANGEBOTS-BANNER ==================== -->
+<div id="angebot-banner" style="display:none;">
+<script>
+const ANGEBOT = {
+    aktiv: true,
+    titel: "🚕 Restpl\u00e4tze Berlin \u2192 Usedom",
+    text: "So. 12.04. | Abholung S-Bhf. Gr\u00fcnau ca. 14:30 Uhr",
+    preis: "99\u20ac pro Person",
+    plaetze: "noch 2 Pl\u00e4tze frei",
+    countdown_bis: "2026-04-11T20:00:00",
+    whatsapp_text: "Hallo, ich interessiere mich f\u00fcr die Mitfahrt Berlin\u2192Usedom am 12.04. (S-Bhf Gr\u00fcnau)",
+    whatsapp_nr: "4915127585179"
+};
+
+(function() {
+    if (!ANGEBOT.aktiv) return;
+    var now = new Date();
+    var ende = new Date(ANGEBOT.countdown_bis);
+    if (now >= ende) return;
+
+    var banner = document.getElementById('angebot-banner');
+    banner.style.display = 'block';
+    banner.innerHTML = '<div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:16px 20px;text-align:center;color:white;cursor:pointer;" onclick="window.open(\'https://wa.me/' + ANGEBOT.whatsapp_nr + '?text=' + encodeURIComponent(ANGEBOT.whatsapp_text) + '\',\'_blank\')">'
+        + '<div style="font-size:18px;font-weight:800;">' + ANGEBOT.titel + '</div>'
+        + '<div style="font-size:14px;margin:4px 0;">' + ANGEBOT.text + '</div>'
+        + '<div style="display:flex;justify-content:center;gap:16px;align-items:center;margin:8px 0;">'
+        + '<span style="font-size:22px;font-weight:800;">' + ANGEBOT.preis + '</span>'
+        + '<span style="background:rgba(255,255,255,0.25);padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;">' + ANGEBOT.plaetze + '</span>'
+        + '</div>'
+        + '<div style="font-size:28px;font-weight:800;font-family:monospace;" id="angebot-countdown"></div>'
+        + '<div style="margin-top:8px;"><span style="background:white;color:#d97706;padding:10px 24px;border-radius:10px;font-weight:700;font-size:15px;">💬 Jetzt per WhatsApp buchen</span></div>'
+        + '</div>';
+
+    function updateCountdown() {
+        var diff = new Date(ANGEBOT.countdown_bis) - new Date();
+        if (diff <= 0) { banner.style.display = 'none'; return; }
+        var h = Math.floor(diff / 3600000);
+        var m = Math.floor((diff % 3600000) / 60000);
+        var s = Math.floor((diff % 60000) / 1000);
+        var el = document.getElementById('angebot-countdown');
+        if (el) el.textContent = (h > 0 ? h + 'h ' : '') + m + 'min ' + s + 's';
+    }
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+})();
+</script>
+</div>
+
 <!-- ==================== HERO ==================== -->
 <section class="hero">
     <div class="hero-content">

@@ -749,7 +749,7 @@
                 const effectiveCount = wannModus === 'sofort' ? sofortCount : anyCount;
 
                 if (effectiveCount > 0 && !(passengers >= 5 && fitCount === 0)) {
-                    // Taxi verfügbar UND passende Kapazität → grüner Buchen-Button
+                    // Fahrzeug verfügbar → grüner Buchen-Button
                     isAvailable = true;
                     bar.className = 'status-bar online';
                     bar.style.background = '';
@@ -761,15 +761,24 @@
                     }
                     if (callBox) callBox.classList.remove('visible');
                 } else if (anyCount > 0 && passengers >= 5 && fitCount === 0) {
-                    // 🔧 v6.38.87: Taxis da, aber kein Großraumtaxi für 5+ Personen → Anrufen!
+                    // Taxis da, aber kein Großraumtaxi für 5+ Personen
                     isAvailable = false;
                     bar.style.background = '#fef3c7';
                     bar.className = 'status-bar';
                     bar.style.color = '#92400e';
                     bar.textContent = `⚠️ Für ${passengers} Personen: Großraumtaxi anfragen — 038378 22022`;
                     if (callBox) callBox.classList.add('visible');
+                } else if (wannModus === 'sofort' && anyCount > 0 && sofortCount === 0) {
+                    // 🔧 v6.38.96: Schichtplan hat Fahrzeuge, aber keiner per GPS online
+                    // → Statusbar zeigt Dienst, aber Sofort-Button wird Anruf
+                    isAvailable = false;
+                    bar.className = 'status-bar online';
+                    bar.style.background = '';
+                    bar.style.color = '';
+                    bar.textContent = `🟡 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst — kein Fahrer online`;
+                    if (callBox) callBox.classList.remove('visible');
                 } else {
-                    // Kein Taxi im Dienst → Anrufen
+                    // Kein Taxi im Dienst
                     isAvailable = false;
                     bar.style.background = '';
                     bar.style.color = '';

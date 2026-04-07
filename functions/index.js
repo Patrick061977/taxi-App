@@ -19785,11 +19785,13 @@ exports.onSmsQueued = onValueCreated(
                 return;
             }
 
-            // Telegram-Nachricht im Macrodroid-Format senden
-            // Macrodroid Trigger: Notification von Telegram enthält "📲SMS|"
-            // Macrodroid parst: Alles zwischen erstem | und zweitem | = Nummer, Rest = Text
-            const smsMessage = `📲SMS|${smsData.phone}|${smsData.text}`;
-            await sendTelegramMessage(smsChatId, smsMessage, { parse_mode: undefined });
+            // Zwei separate Telegram-Nachrichten für Macrodroid:
+            // 1. Telefonnummer (Macrodroid speichert sie in Variable)
+            // 2. SMS-Text (Macrodroid sendet SMS an gespeicherte Nummer)
+            await sendTelegramMessage(smsChatId, `📲SMSNUM ${smsData.phone}`, { parse_mode: undefined });
+            // 1 Sekunde warten damit Macrodroid die Nummer verarbeiten kann
+            await new Promise(r => setTimeout(r, 1000));
+            await sendTelegramMessage(smsChatId, `📲SMSTXT ${smsData.text}`, { parse_mode: undefined });
 
             console.log(`✅ SMS-Trigger via Telegram gesendet: ${smsData.phone}`);
 

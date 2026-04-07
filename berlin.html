@@ -259,14 +259,13 @@
         <div class="price-banner">
             <h2>Usedom &harr; Berlin</h2>
             <div class="price">299 &euro;</div>
-            <div class="price-info">Festpreis &mdash; Hin- und R&uuml;ckfahrt</div>
+            <div class="price-info">Festpreis pro Person &mdash; Hin- und R&uuml;ckfahrt</div>
         </div>
 
         <!-- Info Badges -->
         <div class="info-badges">
             <span class="info-badge">📅 Jeden Donnerstag</span>
-            <span class="info-badge">👥 Bis 6 Personen</span>
-            <span class="info-badge">🚐 Komfort-Minibus</span>
+            <span class="info-badge">👥 299&euro; pro Person</span>
         </div>
 
         <!-- Tag-Anzeige -->
@@ -309,13 +308,11 @@
             <div class="persons-row">
                 <div class="field-group">
                     <label>👥 Personen</label>
-                    <select id="b-persons">
+                    <select id="b-persons" onchange="updateBerlinPrice()">
                         <option value="1">1 Person</option>
                         <option value="2">2 Personen</option>
                         <option value="3">3 Personen</option>
                         <option value="4">4 Personen</option>
-                        <option value="5">5 Personen</option>
-                        <option value="6">6 Personen</option>
                     </select>
                 </div>
                 <div class="field-group">
@@ -380,6 +377,13 @@
             </div>
 
             <div class="field-group">
+            <!-- Preis-Anzeige -->
+            <div id="berlin-price-box" style="background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;padding:14px;text-align:center;margin-bottom:14px;">
+                <div style="font-size:13px;color:#64748b;">Gesamtpreis</div>
+                <div style="font-size:32px;font-weight:800;color:#1e40af;" id="berlin-total-price">299&euro;</div>
+                <div style="font-size:12px;color:#64748b;" id="berlin-price-detail">1 Person &times; 299&euro;</div>
+            </div>
+
                 <label>💬 Bemerkungen (optional)</label>
                 <input type="text" id="b-notes" placeholder="z.B. Rollstuhl, Kindersitz, Termin um 10 Uhr...">
             </div>
@@ -411,11 +415,10 @@
         <div class="card" style="font-size:13px;color:#64748b;line-height:1.6;">
             <strong>So funktioniert der Berlin-Shuttle:</strong><br>
             ✅ Jeden <strong>Donnerstag</strong> fahren wir von Usedom nach Berlin und zur&uuml;ck<br>
+            ✅ <strong>Abfahrt Heringsdorf ab 08:00 Uhr</strong><br>
+            ✅ <strong>Abholung Berlin ab ca. 12:00 Uhr</strong> oder nach Terminvereinbarung<br>
             ✅ Abholung direkt an Ihrer Haust&uuml;r<br>
-            ✅ Komfortabler Minibus f&uuml;r bis zu 6 Personen<br>
-            ✅ <strong>299&euro; Festpreis</strong> f&uuml;r Hin- und R&uuml;ckfahrt<br>
-            ✅ Abholung auch in Berlin direkt an der Haust&uuml;r<br>
-            ✅ Flexible Abholzeiten nach Absprache
+            ✅ <strong>299&euro; Festpreis pro Person</strong> (Hin- und R&uuml;ckfahrt)
         </div>
 
         <div class="footer">
@@ -762,7 +765,8 @@
             text += '\ud83c\udfaf Ab: ' + returnPickup + '\n';
             text += '\ud83c\udfe0 Nach: ' + returnDest + '\n';
 
-            text += '\n\ud83d\udcb0 Festpreis: 299\u20ac';
+            var totalPrice = parseInt(document.getElementById('b-persons').value) * 299;
+            text += '\n\ud83d\udcb0 Festpreis: ' + totalPrice + '\u20ac (' + document.getElementById('b-persons').value + ' Pers. x 299\u20ac)';
             if (notes) text += '\n\ud83d\udcac ' + notes;
 
             return { text, name, phone, dateHin: dateHinStr };
@@ -785,7 +789,7 @@
                     luggage: document.getElementById('b-luggage').value || 'normal',
                     name: document.getElementById('b-name').value || '',
                     phone: document.getElementById('b-phone').value || '',
-                    price: '299',
+                    price: String(parseInt(document.getElementById('b-persons').value || 1) * 299),
                     channel: channel,
                     type: 'berlin-shuttle',
                     status: 'offen',
@@ -826,6 +830,13 @@
         // ═══════════════════════════════════════
         // INIT
         // ═══════════════════════════════════════
+        function updateBerlinPrice() {
+            var persons = parseInt(document.getElementById('b-persons').value) || 1;
+            var total = persons * 299;
+            document.getElementById('berlin-total-price').textContent = total + '\u20ac';
+            document.getElementById('berlin-price-detail').textContent = persons + ' Person' + (persons > 1 ? 'en' : '') + ' \u00d7 299\u20ac';
+        }
+
         populateThursdays();
         updateDayIndicator();
     </script>

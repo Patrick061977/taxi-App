@@ -348,10 +348,6 @@
 
     <!-- Status Bar -->
     <div class="status-bar loading" id="status-bar">⏳ Verfügbarkeit wird geprüft...</div>
-    <!-- 🆕 v6.38.74: Rote Anruf-Box wenn kein Taxi verfügbar -->
-    <div class="offline-call-box" id="offline-call-box">
-        <a href="tel:03837822022">📞 038378 22022 — Jetzt anrufen</a>
-    </div>
 
     <!-- Buchungsformular -->
     <div class="main">
@@ -778,13 +774,12 @@
                     bar.textContent = `⚠️ Für ${passengers} Personen: Großraumtaxi anfragen — 038378 22022`;
                     if (callBox) callBox.classList.add('visible');
                 } else if (wannModus === 'sofort' && anyCount > 0 && sofortCount === 0) {
-                    // 🔧 v6.38.96: Schichtplan hat Fahrzeuge, aber keiner per GPS online
-                    // → Statusbar zeigt Dienst, aber Sofort-Button wird Anruf
+                    // Schichtplan hat Fahrzeuge, aber keiner per GPS online
                     isAvailable = false;
                     bar.className = 'status-bar online';
                     bar.style.background = '';
                     bar.style.color = '';
-                    bar.textContent = `🟡 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst — kein Fahrer online`;
+                    bar.textContent = `🟡 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
                     if (callBox) callBox.classList.remove('visible');
                 } else {
                     // Kein Taxi im Dienst

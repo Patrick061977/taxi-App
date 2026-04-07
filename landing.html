@@ -1160,13 +1160,14 @@ let anfPax = 1;
 let anfPickupCoords = null;
 let anfDestCoords = null;
 
-// Datum/Uhrzeit Defaults
+// Datum/Uhrzeit Defaults — Start: jetzt + 1 Stunde
 (function() {
     const now = new Date();
+    const minTime = new Date(now.getTime() + 60 * 60000);
     const d = document.getElementById('anf-date');
     const t = document.getElementById('anf-time');
-    if (d) { d.value = now.toISOString().split('T')[0]; d.min = d.value; }
-    if (t) { const h = String(now.getHours()).padStart(2,'0'); const m = String(Math.ceil(now.getMinutes()/5)*5).padStart(2,'0'); t.value = h+':'+m; }
+    if (d) { d.value = minTime.toISOString().split('T')[0]; d.min = now.toISOString().split('T')[0]; }
+    if (t) { const h = String(minTime.getHours()).padStart(2,'0'); const m = String(Math.ceil(minTime.getMinutes()/5)*5 % 60).padStart(2,'0'); t.value = h+':'+m; }
 })();
 
 function setAnfPax(n) {

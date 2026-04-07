@@ -84,10 +84,11 @@ var _anfPlacesReady = false, _anfSuggestion = null, _anfToken = null, _anfPlace 
 
 (function() {
     var now = new Date();
+    var minTime = new Date(now.getTime() + 60 * 60000); // +1 Stunde
     var d = document.getElementById('anf-date');
     var t = document.getElementById('anf-time');
-    if (d) { d.value = now.toISOString().split('T')[0]; d.min = d.value; }
-    if (t) { var hh = String(now.getHours()).padStart(2,'0'); var mm = String(Math.ceil(now.getMinutes()/5)*5).padStart(2,'0'); t.value = hh+':'+mm; }
+    if (d) { d.value = minTime.toISOString().split('T')[0]; d.min = now.toISOString().split('T')[0]; }
+    if (t) { var hh = String(minTime.getHours()).padStart(2,'0'); var mm = String(Math.ceil(minTime.getMinutes()/5)*5 % 60).padStart(2,'0'); t.value = hh+':'+mm; }
 })();
 
 function setAnfPax(n) {
@@ -227,7 +228,11 @@ function saveAnfrageToFirebase(channel) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
-        }).catch(function() {});
+        }).then(function(r) {
+            console.log('Anfrage gespeichert:', r.status);
+        }).catch(function(e) {
+            console.error('Anfrage speichern Fehler:', e);
+        });
     } catch(e) {}
 }
 

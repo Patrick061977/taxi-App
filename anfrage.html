@@ -240,7 +240,6 @@ function sendAnfrageWhatsApp() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
     if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
     if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
-    if (!checkMindestVorlauf()) return;
     saveAnfrageToFirebase('whatsapp');
     window.open('https://wa.me/4915127585179?text=' + encodeURIComponent(getAnfrageText()), '_blank');
 }
@@ -249,24 +248,9 @@ function sendAnfrageEmail() {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return; }
     if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return; }
     if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return; }
-    if (!checkMindestVorlauf()) return;
     saveAnfrageToFirebase('email');
     var subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
     window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + encodeURIComponent(getAnfrageText());
-}
-
-function checkMindestVorlauf() {
-    var date = document.getElementById('anf-date').value;
-    var time = document.getElementById('anf-time').value;
-    if (!date || !time) return true;
-    var pickup = new Date(date + 'T' + time + ':00');
-    var now = new Date();
-    var diffMin = (pickup - now) / 60000;
-    if (diffMin < 60) {
-        alert('Vorbestellungen sind mindestens 60 Minuten im Voraus moeglich.\n\nFuer Sofortfahrten rufen Sie uns bitte direkt an:\n038378 / 22022');
-        return false;
-    }
-    return true;
 }
 </script>
 </body>

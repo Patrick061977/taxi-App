@@ -735,14 +735,27 @@
                 const bar = document.getElementById('status-bar');
                 const callBox = document.getElementById('offline-call-box');
 
-                if (anyCount > 0 && !(passengers >= 5 && fitCount === 0)) {
+                // 🔧 v6.38.96: Bei Sofortfahrt: NUR GPS-online Fahrzeuge zählen!
+                // Schichtplan allein reicht nicht — Fahrer muss wirklich online sein
+                let sofortCount = 0;
+                if (wannModus === 'sofort' && _gpsOnlineVehicles) {
+                    for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {
+                        if (!OFFICIAL_VEHICLES[vid]) continue;
+                        if (OFFICIAL_VEHICLES[vid].capacity < passengers) continue;
+                        const gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                        if (vInfo.online !== false && vInfo.lat && gpsAge < 10) sofortCount++;
+                    }
+                }
+                const effectiveCount = wannModus === 'sofort' ? sofortCount : anyCount;
+
+                if (effectiveCount > 0 && !(passengers >= 5 && fitCount === 0)) {
                     // Taxi verfügbar UND passende Kapazität → grüner Buchen-Button
                     isAvailable = true;
                     bar.className = 'status-bar online';
                     bar.style.background = '';
                     if (wannModus === 'sofort') {
-                        bar.textContent = `🟢 Taxi verfügbar! ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
-                        if (pickupCoords) calcStatusBarEta(bar, anyCount);
+                        bar.textContent = `🟢 Taxi verfügbar! ${sofortCount} Fahrer online`;
+                        if (pickupCoords) calcStatusBarEta(bar, sofortCount);
                     } else {
                         bar.textContent = `🟢 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
                     }

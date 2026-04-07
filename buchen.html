@@ -812,16 +812,34 @@
             const sofortBtn = document.querySelector('.wann-btn[onclick*="sofort"]');
             if (!sofortBtn) return;
             if (gpsOnlineCount > 0) {
-                // GPS online → normaler Sofort-Button
+                // GPS online → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';
                 sofortBtn.style.color = '';
-                sofortBtn.innerHTML = '⚡ Sofort';
+                // ETA berechnen wenn Pickup-Koordinaten vorhanden
+                let etaText = 'Sofort verfügbar';
+                if (pickupCoords && _gpsOnlineVehicles) {
+                    let closestEta = null;
+                    for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {
+                        if (!OFFICIAL_VEHICLES[vid]) continue;
+                        if (!vInfo.lat || !vInfo.lon) continue;
+                        const gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                        if (gpsAge > 10 || vInfo.online === false) continue;
+                        const dLat = (vInfo.lat - pickupCoords.lat) * Math.PI / 180;
+                        const dLon = (vInfo.lon - pickupCoords.lon) * Math.PI / 180;
+                        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(pickupCoords.lat*Math.PI/180)*Math.cos(vInfo.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+                        const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const eta = Math.max(2, Math.round(dist * 1.5 + 1));
+                        if (closestEta === null || eta < closestEta) closestEta = eta;
+                    }
+                    if (closestEta) etaText = 'Taxi in ca. ' + closestEta + ' Min';
+                }
+                sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
             } else {
                 // Kein GPS → Anruf-Button
                 sofortBtn.style.background = '#ef4444';
                 sofortBtn.style.color = 'white';
-                sofortBtn.innerHTML = '📞 Anrufen';
+                sofortBtn.innerHTML = '📞 Anrufen<br><span style="font-size:11px;font-weight:400;">038378 / 22022</span>';
                 sofortBtn.onclick = function() { window.location.href = 'tel:03837822022'; };
             }
         }

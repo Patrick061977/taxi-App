@@ -224,7 +224,7 @@ function saveAnfrageToFirebase(channel) {
             status: 'offen',
             createdAt: Date.now()
         };
-        fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/anfragen.json', {
+        fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

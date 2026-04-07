@@ -646,7 +646,7 @@
         // Hotels aus Firebase POIs laden (öffentlich lesbar)
         async function loadHotelsFromCRM() {
             try {
-                const resp = await fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/pois.json');
+                const resp = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/pois.json');
                 const data = await resp.json();
                 if (!data) return;
                 CRM_HOTELS = Object.values(data)
@@ -656,7 +656,7 @@
 
                 // Fallback: Auch CRM-Kunden mit customerKind=hotel versuchen
                 if (CRM_HOTELS.length === 0) {
-                    const crmResp = await fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/customers.json');
+                    const crmResp = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/customers.json');
                     const crmData = crmResp.ok ? await crmResp.json() : null;
                     if (crmData) {
                         CRM_HOTELS = Object.values(crmData)
@@ -791,7 +791,7 @@
                     status: 'offen',
                     createdAt: Date.now()
                 };
-                fetch('https://taxi-heringsdorf-default-rtdb.firebaseio.com/anfragen.json', {
+                fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(anfData)

@@ -46,31 +46,65 @@
                     <button onclick="setAnfPax(5)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">5+</button>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
-                    <input type="text" id="anf-name" placeholder="Vor- und Nachname *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
-                </div>
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
-                    <div style="display:flex;gap:6px;">
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
+                <input type="text" id="anf-name" placeholder="Vor- und Nachname *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
+                <div style="display:flex;gap:6px;">
                         <select id="anf-phone-country" style="padding:10px 6px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;min-width:85px;background:white;">
+                            <optgroup label="Häufig">
                             <option value="+49">🇩🇪 +49</option>
                             <option value="+48">🇵🇱 +48</option>
                             <option value="+43">🇦🇹 +43</option>
                             <option value="+41">🇨🇭 +41</option>
-                            <option value="+40">🇷🇴 +40</option>
-                            <option value="+31">🇳🇱 +31</option>
-                            <option value="+45">🇩🇰 +45</option>
-                            <option value="+46">🇸🇪 +46</option>
+                            </optgroup>
+                            <optgroup label="Europa">
                             <option value="+44">🇬🇧 +44</option>
                             <option value="+33">🇫🇷 +33</option>
                             <option value="+39">🇮🇹 +39</option>
                             <option value="+34">🇪🇸 +34</option>
+                            <option value="+31">🇳🇱 +31</option>
+                            <option value="+32">🇧🇪 +32</option>
+                            <option value="+45">🇩🇰 +45</option>
+                            <option value="+46">🇸🇪 +46</option>
+                            <option value="+47">🇳🇴 +47</option>
+                            <option value="+358">🇫🇮 +358</option>
                             <option value="+420">🇨🇿 +420</option>
+                            <option value="+421">🇸🇰 +421</option>
+                            <option value="+36">🇭🇺 +36</option>
+                            <option value="+40">🇷🇴 +40</option>
+                            <option value="+359">🇧🇬 +359</option>
+                            <option value="+385">🇭🇷 +385</option>
+                            <option value="+386">🇸🇮 +386</option>
+                            <option value="+381">🇷🇸 +381</option>
+                            <option value="+30">🇬🇷 +30</option>
+                            <option value="+351">🇵🇹 +351</option>
+                            <option value="+353">🇮🇪 +353</option>
+                            <option value="+352">🇱🇺 +352</option>
+                            <option value="+370">🇱🇹 +370</option>
+                            <option value="+371">🇱🇻 +371</option>
+                            <option value="+372">🇪🇪 +372</option>
+                            <option value="+380">🇺🇦 +380</option>
+                            <option value="+7">🇷🇺 +7</option>
+                            <option value="+90">🇹🇷 +90</option>
+                            </optgroup>
+                            <optgroup label="Weitere">
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+86">🇨🇳 +86</option>
+                            <option value="+81">🇯🇵 +81</option>
+                            <option value="+82">🇰🇷 +82</option>
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+61">🇦🇺 +61</option>
+                            <option value="+55">🇧🇷 +55</option>
+                            <option value="+971">🇦🇪 +971</option>
+                            <option value="+966">🇸🇦 +966</option>
+                            <option value="+972">🇮🇱 +972</option>
+                            <option value="+27">🇿🇦 +27</option>
+                            </optgroup>
                         </select>
                         <input type="tel" id="anf-phone" placeholder="176 12345678 *" required style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
-                    </div>
                 </div>
             </div>
             <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">

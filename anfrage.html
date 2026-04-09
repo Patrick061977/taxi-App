@@ -116,9 +116,15 @@
                 <div style="font-size:28px;font-weight:800;color:#059669;" id="anf-price">&mdash;</div>
                 <div style="font-size:12px;color:#64748b;" id="anf-route-info"></div>
             </div>
-            <!-- Festpreis-Info -->
-            <div id="anf-prepay-box" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;color:#475569;line-height:1.6;">
-                💳 <strong>Preis jetzt sichern!</strong> Sie k&ouml;nnen den angezeigten Festpreis vorab bezahlen &mdash; per Kreditkarte, Apple&nbsp;Pay oder Google&nbsp;Pay. Keine b&ouml;sen &Uuml;berraschungen durch Wartezeit, Umwege oder Zuschl&auml;ge. Sie erhalten eine ordentliche Rechnung mit ausgewiesener Mehrwertsteuer. Geben Sie Ihren Wunsch einfach in der Bemerkung an.
+            <!-- Festpreis-Checkbox -->
+            <div id="anf-prepay-box" style="display:none;margin-bottom:12px;">
+                <label onclick="toggleFestpreis()" style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;" id="anf-prepay-label">
+                    <input type="checkbox" id="anf-prepay-check" style="width:20px;height:20px;margin-top:2px;flex-shrink:0;cursor:pointer;accent-color:#3b82f6;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#1e293b;">💳 Festpreis <span id="anf-pay-price">0,00</span>&euro; jetzt sichern</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">Vorab bezahlen per Kreditkarte, Apple&nbsp;Pay oder Google&nbsp;Pay. Keine b&ouml;sen &Uuml;berraschungen durch Wartezeit oder Zuschl&auml;ge. Ordentliche Rechnung mit MwSt.</div>
+                    </div>
+                </label>
             </div>
             <div style="display:flex;gap:8px;">
                 <button onclick="sendAnfrageWhatsApp()" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">💬 WhatsApp</button>
@@ -367,7 +373,23 @@ function showAnfrageSuccess() {
     }
 }
 
-
+function toggleFestpreis() {
+    var check = document.getElementById('anf-prepay-check');
+    var label = document.getElementById('anf-prepay-label');
+    var notes = document.getElementById('anf-notes');
+    var price = window._anfFestpreis;
+    setTimeout(function() {
+        if (check.checked) {
+            label.style.borderColor = '#3b82f6';
+            label.style.background = '#eff6ff';
+            if (notes && price) notes.value = 'Festpreis ' + price.toFixed(2) + '\u20ac vorab bezahlen \u2014 bitte Zahlungslink senden';
+        } else {
+            label.style.borderColor = '#e2e8f0';
+            label.style.background = '#f8fafc';
+            if (notes && notes.value.indexOf('Festpreis') === 0) notes.value = '';
+        }
+    }, 50);
+}
 </script>
 </body>
 </html>

@@ -8954,8 +8954,10 @@ async function handleMessage(message) {
         if (_bestHit) {
             if (isPickupField) {
                 partialBooking.pickup = _bestHit.name; partialBooking.pickupLat = _bestHit.lat; partialBooking.pickupLon = _bestHit.lon;
+                partialBooking.missing = (partialBooking.missing || []).filter(f => f !== 'pickup');
             } else {
                 partialBooking.destination = _bestHit.name; partialBooking.destinationLat = _bestHit.lat; partialBooking.destinationLon = _bestHit.lon;
+                partialBooking.missing = (partialBooking.missing || []).filter(f => f !== 'destination');
             }
             // 🔧 v6.38.96: searchWords ist im Handler-Scope nicht definiert (nur in searchNominatimForTelegram) → entfernt
             await addTelegramLog('✅', chatId, `${fieldLabel} auto: "${text}" → ${_bestHit.name} [${_bestHit.source}${_bestHit.matchScore ? ' score:' + _bestHit.matchScore : ''}${_bestHit.matchReason ? ' grund:' + _bestHit.matchReason : ''}]`);
@@ -9639,9 +9641,22 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
 // CALLBACK-HANDLER (Inline Keyboard Buttons)
 // ═══════════════════════════════════════════════════════════════
 
+// 🔧 v6.38.35: Duplikat-Schutz für Button-Klicks (verhindert Doppel-Verarbeitung)
+const _lastCallbackPerChat = {};
 async function handleCallback(callback) {
     const chatId = callback.message.chat.id;
     const data = callback.data;
+
+    // Duplikat-Schutz: gleicher Button im gleichen Chat innerhalb von 3 Sekunden → ignorieren
+    const _cbKey = `${chatId}_${data}`;
+    const _cbNow = Date.now();
+    if (_lastCallbackPerChat[_cbKey] && (_cbNow - _lastCallbackPerChat[_cbKey]) < 3000) {
+        console.log(`[Duplikat] Button "${data}" in Chat ${chatId} ignoriert (${_cbNow - _lastCallbackPerChat[_cbKey]}ms seit letztem Klick)`);
+        await answerCallbackQuery(callback.id);
+        return;
+    }
+    _lastCallbackPerChat[_cbKey] = _cbNow;
+
     // 🔧 v6.38.58: Button-TEXT im Log anzeigen (nicht nur callback_data)
     const _btnLabel = callback.message?.reply_markup?.inline_keyboard?.flat()?.find(b => b.callback_data === data)?.text || data;
     await addTelegramLog('🖱️', chatId, `Button geklickt: ${_btnLabel}`);

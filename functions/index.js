@@ -3012,6 +3012,7 @@ async function searchNominatimForTelegram(query) {
             const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
             const gKey = gKeySnap.val();
             if (gKey) {
+                console.log(`[Google Places] Key gefunden (${gKey.substring(0, 10)}...), suche: "${query + ' Usedom'}"`);
                 const gResp = await fetch('https://places.googleapis.com/v1/places:searchText', {
                     method: 'POST',
                     headers: {
@@ -3029,6 +3030,7 @@ async function searchNominatimForTelegram(query) {
                     })
                 });
                 const gData = await gResp.json();
+                console.log(`[Google Places] Response Status: ${gResp.status}, places: ${gData.places?.length || 0}, error: ${gData.error?.message || 'none'}`);
                 if (gData.places) {
                     for (const place of gData.places) {
                         if (place.location) {

@@ -534,7 +534,10 @@
             const thursdays = [];
 
             // Nächste 12 Donnerstage berechnen
-            for (let i = 1; i <= 90; i++) {
+            // Buchungsschluss: Dienstag 23:59 — ab Mittwoch ist der kommende Donnerstag nicht mehr buchbar
+            const dayOfWeek = new Date().getDay(); // 0=So, 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa
+            const minDaysAhead = (dayOfWeek >= 3 && dayOfWeek <= 4) ? 7 : 2; // Mi/Do: erst nächste Woche
+            for (let i = minDaysAhead; i <= 90; i++) {
                 const d = new Date(today);
                 d.setDate(today.getDate() + i);
                 if (d.getDay() === 4) { // 4 = Donnerstag

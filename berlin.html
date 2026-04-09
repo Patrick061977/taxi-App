@@ -304,8 +304,15 @@
             <span class="info-badge">🏠 T&uuml;r-zu-T&uuml;r</span>
         </div>
 
-        <!-- Tag-Anzeige -->
+        <!-- Tag-Anzeige + Plätze -->
         <div id="day-indicator" class="day-indicator"></div>
+        <div id="plaetze-box" style="display:none;text-align:center;margin-bottom:16px;">
+            <div style="background:white;border:2px solid #e2e8f0;border-radius:12px;padding:14px;display:inline-block;min-width:280px;">
+                <div style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;" id="plaetze-label">Diesen Donnerstag</div>
+                <div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px;" id="plaetze-dots"></div>
+                <div style="font-size:14px;font-weight:700;" id="plaetze-text"></div>
+            </div>
+        </div>
 
         <!-- EXKLUSIV-BANNER -->
         <div class="card" style="border:2px solid #1e40af;background:linear-gradient(135deg,#eff6ff,#dbeafe);">
@@ -810,14 +817,85 @@
             const el = document.getElementById('day-indicator');
             const today = new Date();
             const day = today.getDay();
+
+            // Nächsten Donnerstag berechnen
+            const daysUntilThu = (4 - day + 7) % 7 || 7;
+            const nextThu = new Date(today);
+            nextThu.setDate(today.getDate() + daysUntilThu);
+            const thuLabel = nextThu.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+
             if (day === 4) {
                 el.className = 'day-indicator day-open';
                 el.textContent = '\u2705 Heute ist Donnerstag \u2014 Berlin-Shuttle f\u00e4hrt!';
+            } else if (day <= 2) {
+                // So-Di: Buchung noch möglich
+                const tage = daysUntilThu;
+                el.className = 'day-indicator day-open';
+                el.textContent = '\ud83d\udcc5 N\u00e4chster Shuttle: ' + thuLabel + ' \u2014 noch ' + tage + ' Tag' + (tage > 1 ? 'e' : '') + ' buchbar!';
             } else {
-                const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                // Mi, Fr, Sa: Buchung für diesen Do geschlossen
                 el.className = 'day-indicator day-closed';
-                el.textContent = '\ud83d\udcc5 Heute ist ' + dayNames[day] + ' \u2014 N\u00e4chster Shuttle am Donnerstag';
+                el.textContent = '\ud83d\udcc5 N\u00e4chster buchbarer Shuttle: ' + thuLabel;
             }
+
+            // Plätze laden aus Firebase
+            loadPlaetze(nextThu);
+        }
+
+        function loadPlaetze(nextThu) {
+            const box = document.getElementById('plaetze-box');
+            const yyyy = nextThu.getFullYear();
+            const mm = String(nextThu.getMonth() + 1).padStart(2, '0');
+            const dd = String(nextThu.getDate()).padStart(2, '0');
+            const key = yyyy + '-' + mm + '-' + dd;
+            const label = nextThu.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+
+            // Firebase REST API (ohne Auth — read-only)
+            fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/settings/berlinShuttle/' + key + '.json')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    const maxPlaetze = 4;
+                    const gebucht = (data && data.gebucht) ? data.gebucht : 0;
+                    const frei = Math.max(0, maxPlaetze - gebucht);
+
+                    box.style.display = 'block';
+                    document.getElementById('plaetze-label').textContent = label;
+
+                    // Punkte anzeigen (grün = frei, rot = belegt)
+                    var dots = '';
+                    for (var i = 0; i < maxPlaetze; i++) {
+                        if (i < gebucht) {
+                            dots += '<div style="width:28px;height:28px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;">✗</div>';
+                        } else {
+                            dots += '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;">✓</div>';
+                        }
+                    }
+                    document.getElementById('plaetze-dots').innerHTML = dots;
+
+                    var textEl = document.getElementById('plaetze-text');
+                    if (frei === 0) {
+                        textEl.textContent = '❌ Ausgebucht!';
+                        textEl.style.color = '#ef4444';
+                    } else if (frei === 1) {
+                        textEl.textContent = '🔥 Nur noch 1 Platz frei!';
+                        textEl.style.color = '#f59e0b';
+                    } else if (frei === 2) {
+                        textEl.textContent = 'Noch ' + frei + ' Pl\u00e4tze frei';
+                        textEl.style.color = '#f59e0b';
+                    } else {
+                        textEl.textContent = 'Noch ' + frei + ' Pl\u00e4tze frei';
+                        textEl.style.color = '#10b981';
+                    }
+                })
+                .catch(function() {
+                    // Kein Eintrag = alle 4 Plätze frei
+                    box.style.display = 'block';
+                    document.getElementById('plaetze-label').textContent = label;
+                    document.getElementById('plaetze-dots').innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;">✓</div>'.repeat(4);
+                    var textEl = document.getElementById('plaetze-text');
+                    textEl.textContent = 'Noch 4 Pl\u00e4tze frei';
+                    textEl.style.color = '#10b981';
+                });
         }
 
         // ═══════════════════════════════════════

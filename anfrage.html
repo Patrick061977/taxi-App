@@ -116,14 +116,14 @@
                 <div style="font-size:28px;font-weight:800;color:#059669;" id="anf-price">&mdash;</div>
                 <div style="font-size:12px;color:#64748b;" id="anf-route-info"></div>
             </div>
-            <!-- Festpreis-Vorauszahlung -->
-            <div id="anf-prepay-box" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #3b82f6;border-radius:10px;padding:14px;margin-bottom:12px;text-align:center;">
-                <div style="font-size:13px;color:#1e40af;font-weight:700;margin-bottom:4px;">💳 Festpreis jetzt sichern!</div>
-                <div style="font-size:12px;color:#475569;margin-bottom:10px;">Bezahlen Sie vorab &mdash; keine &Uuml;berraschungen bei Wartezeit oder Umwegen. Kreditkarte, Apple&nbsp;Pay, Google&nbsp;Pay.</div>
-                <button onclick="payFestpreis()" id="anf-pay-btn" style="width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">
-                    💳 Festpreis <span id="anf-pay-price">0,00</span>&euro; jetzt bezahlen
+            <!-- Festpreis-Hinweis -->
+            <div id="anf-prepay-box" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:2px solid #3b82f6;border-radius:10px;padding:14px;margin-bottom:12px;">
+                <div style="font-size:13px;color:#1e40af;font-weight:700;margin-bottom:4px;">💳 Festpreis sichern?</div>
+                <div style="font-size:12px;color:#475569;margin-bottom:8px;">Sie k&ouml;nnen den angezeigten Preis als <strong>Festpreis vorab bezahlen</strong> &mdash; per Kreditkarte, Apple&nbsp;Pay oder Google&nbsp;Pay. Keine &Uuml;berraschungen bei Wartezeit oder Umwegen.</div>
+                <button onclick="anfSetFestpreis()" style="width:100%;padding:10px;background:white;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
+                    💳 Ja, Festpreis <span id="anf-pay-price">0,00</span>&euro; sichern
                 </button>
-                <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Sichere Zahlung &uuml;ber Stripe &mdash; Sie erhalten eine Best&auml;tigung per E-Mail</div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:6px;">Wir senden Ihnen nach Best&auml;tigung einen sicheren Zahlungslink per WhatsApp oder E-Mail</div>
             </div>
             <div style="display:flex;gap:8px;">
                 <button onclick="sendAnfrageWhatsApp()" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">💬 WhatsApp</button>
@@ -372,50 +372,21 @@ function showAnfrageSuccess() {
     }
 }
 
-async function payFestpreis() {
+function anfSetFestpreis() {
     var price = window._anfFestpreis;
-    if (!price || price < 1) { alert('Bitte zuerst Abholort und Zielort eingeben.'); return; }
-    var name = document.getElementById('anf-name').value.trim();
-    var phone = document.getElementById('anf-phone').value.trim();
-    if (!name) { alert('Bitte Name eingeben.'); return; }
-    if (!phone) { alert('Bitte Telefonnummer eingeben.'); return; }
-
-    var pickup = document.getElementById('anf-pickup').value || '';
-    var dest = document.getElementById('anf-dest').value || '';
-    var date = document.getElementById('anf-date').value || '';
-    var time = document.getElementById('anf-time').value || '';
-
-    // Anfrage speichern
-    saveAnfrageToFirebase('stripe-prepay');
-
-    // Rechnungsnummer generieren
-    var invNr = 'ANF-' + Date.now().toString(36).toUpperCase();
-
-    var btn = document.getElementById('anf-pay-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Wird vorbereitet...'; }
-
-    try {
-        var resp = await fetch('https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                invoiceNumber: invNr,
-                amount: price.toFixed(2),
-                customerName: name,
-                description: 'Taxi Festpreis: ' + pickup + ' → ' + dest + ' (' + date + ' ' + time + ')'
-            })
-        });
-        var data = await resp.json();
-        if (data.checkoutUrl) {
-            window.location.href = data.checkoutUrl;
-        } else {
-            alert('Fehler: ' + (data.error || 'Zahlung konnte nicht erstellt werden'));
-            if (btn) { btn.disabled = false; btn.textContent = '💳 Festpreis ' + price.toFixed(2) + '€ jetzt bezahlen'; }
-        }
-    } catch(e) {
-        alert('Verbindungsfehler. Bitte versuchen Sie es erneut.');
-        if (btn) { btn.disabled = false; btn.textContent = '💳 Festpreis ' + price.toFixed(2) + '€ jetzt bezahlen'; }
+    if (!price) return;
+    var notes = document.getElementById('anf-notes');
+    if (notes) {
+        notes.value = 'Festpreis ' + price.toFixed(2) + '\u20ac vorab bezahlen \u2014 bitte Zahlungslink senden';
+        notes.style.borderColor = '#3b82f6';
+        notes.style.background = '#eff6ff';
     }
+    var btn = event.target;
+    btn.textContent = '\u2705 Festpreis-Wunsch eingetragen';
+    btn.style.background = '#d1fae5';
+    btn.style.borderColor = '#10b981';
+    btn.style.color = '#065f46';
+    btn.disabled = true;
 }
 </script>
 </body>

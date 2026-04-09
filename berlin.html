@@ -875,28 +875,25 @@
                     document.getElementById('plaetze-dots').innerHTML = dots;
 
                     var textEl = document.getElementById('plaetze-text');
+                    // Nur anzeigen wenn knapp (1-2 frei) oder ausgebucht
+                    if (frei >= 3) {
+                        box.style.display = 'none';
+                        return;
+                    }
                     if (frei === 0) {
                         textEl.textContent = '❌ Ausgebucht!';
                         textEl.style.color = '#ef4444';
                     } else if (frei === 1) {
                         textEl.textContent = '🔥 Nur noch 1 Platz frei!';
                         textEl.style.color = '#f59e0b';
-                    } else if (frei === 2) {
-                        textEl.textContent = 'Noch ' + frei + ' Pl\u00e4tze frei';
-                        textEl.style.color = '#f59e0b';
                     } else {
-                        textEl.textContent = 'Noch ' + frei + ' Pl\u00e4tze frei';
-                        textEl.style.color = '#10b981';
+                        textEl.textContent = 'Nur noch ' + frei + ' Pl\u00e4tze frei!';
+                        textEl.style.color = '#f59e0b';
                     }
                 })
                 .catch(function() {
-                    // Kein Eintrag = alle 4 Plätze frei
-                    box.style.display = 'block';
-                    document.getElementById('plaetze-label').textContent = label;
-                    document.getElementById('plaetze-dots').innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;">✓</div>'.repeat(4);
-                    var textEl = document.getElementById('plaetze-text');
-                    textEl.textContent = 'Noch 4 Pl\u00e4tze frei';
-                    textEl.style.color = '#10b981';
+                    // Kein Eintrag = alle 4 frei → nicht anzeigen
+                    box.style.display = 'none';
                 });
         }
 

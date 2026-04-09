@@ -3006,6 +3006,36 @@ async function searchNominatimForTelegram(query) {
             }
         }
 
+        // 🆕 v6.38.96: Google Places als zusätzliche Quelle (parallel zu Nominatim)
+        try {
+            const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
+            const gKey = gKeySnap.val();
+            if (gKey && allItems.length < 3) {
+                const gResp = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' Usedom')}&language=de&key=${gKey}`);
+                const gData = await gResp.json();
+                if (gData.results) {
+                    for (const place of gData.results.slice(0, 3)) {
+                        if (place.geometry && place.geometry.location) {
+                            const gLat = place.geometry.location.lat;
+                            const gLon = place.geometry.location.lng;
+                            const gName = place.formatted_address || place.name || '';
+                            const coordKey = `${gLat.toFixed(3)}_${gLon.toFixed(3)}`;
+                            if (!seen.has(coordKey)) {
+                                seen.add(coordKey);
+                                allItems.push({
+                                    display_name: gName,
+                                    lat: gLat, lon: gLon,
+                                    source: 'google-places',
+                                    address: { road: place.name || '', city: '' }
+                                });
+                                console.log(`[Google Places] Gefunden: ${gName}`);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch(gErr) { console.warn('Google Places Fehler:', gErr.message); }
+
         // 🔧 v6.25.5: Duplikate nach Koordinaten entfernen (beide Requests liefern oft gleiche Ergebnisse)
         const seenCoords = new Set();
         allItems = allItems.filter(item => {

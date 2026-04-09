@@ -1125,6 +1125,22 @@
             }
         }
 
+        // 🔧 v6.38.35: PDF-Zeichensatz-Hilfe — jsPDF Helvetica unterstützt nur WinAnsi (Latin-1)
+        function pdfSafeText(text) {
+            if (!text) return '';
+            const map = {
+                'Ą': 'A', 'ą': 'a', 'Ć': 'C', 'ć': 'c', 'Ę': 'E', 'ę': 'e',
+                'Ł': 'L', 'ł': 'l', 'Ń': 'N', 'ń': 'n', 'Ś': 'S', 'ś': 's',
+                'Ź': 'Z', 'ź': 'z', 'Ż': 'Z', 'ż': 'z',
+                'Č': 'C', 'č': 'c', 'Ř': 'R', 'ř': 'r', 'Š': 'S', 'š': 's',
+                'Ž': 'Z', 'ž': 'z', 'Ď': 'D', 'ď': 'd', 'Ť': 'T', 'ť': 't',
+                'Ň': 'N', 'ň': 'n', 'Ě': 'E', 'ě': 'e', 'Ů': 'U', 'ů': 'u',
+                '\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
+                '\u201C': '"', '\u201D': '"', '\u2026': '...', '\u20AC': 'EUR'
+            };
+            return String(text).replace(/[^\x00-\xFF]/g, ch => map[ch] || ch);
+        }
+
         function generateInvoicePDF(inv, ride, invoiceNumber) {
             try {
                 const { jsPDF } = window.jspdf;
@@ -1151,7 +1167,7 @@
                 doc.text('Datum: ' + invDate.toLocaleDateString('de-DE'), 20, 66);
 
                 // Kundenname
-                const custName = inv.customerName || ride?.customerName || ride?.name || '';
+                const custName = pdfSafeText(inv.customerName || ride?.customerName || ride?.name || '');
                 if (custName) {
                     doc.text('Kunde: ' + custName, 20, 74);
                 }
@@ -1170,8 +1186,8 @@
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
 
-                const pickup = inv.pickup || ride?.pickup || '-';
-                const dest = inv.destination || ride?.destination || '-';
+                const pickup = pdfSafeText(inv.pickup || ride?.pickup || '-');
+                const dest = pdfSafeText(inv.destination || ride?.destination || '-');
                 doc.text('Abholort: ' + pickup, 20, y); y += 6;
                 doc.text('Zielort: ' + dest, 20, y); y += 6;
 

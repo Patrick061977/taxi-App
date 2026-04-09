@@ -450,7 +450,24 @@
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
                 <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Sie erhalten einen Bestätigungscode per SMS (kostenlos)</p>
-                <input type="tel" id="b-phone" class="phone-input" placeholder="0176 12345678" autocomplete="tel">
+                <div style="display:flex;gap:6px;margin-bottom:8px;">
+                    <select id="b-phone-country" style="padding:12px 8px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;min-width:90px;background:white;">
+                        <option value="+49">🇩🇪 +49</option>
+                        <option value="+48">🇵🇱 +48</option>
+                        <option value="+43">🇦🇹 +43</option>
+                        <option value="+41">🇨🇭 +41</option>
+                        <option value="+40">🇷🇴 +40</option>
+                        <option value="+31">🇳🇱 +31</option>
+                        <option value="+45">🇩🇰 +45</option>
+                        <option value="+46">🇸🇪 +46</option>
+                        <option value="+44">🇬🇧 +44</option>
+                        <option value="+33">🇫🇷 +33</option>
+                        <option value="+39">🇮🇹 +39</option>
+                        <option value="+34">🇪🇸 +34</option>
+                        <option value="+420">🇨🇿 +420</option>
+                    </select>
+                    <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel" style="flex:1;">
+                </div>
                 <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
                 <button class="btn-book" id="btn-send-code" onclick="sendFirebaseCode()">📨 Code senden</button>
                 <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
@@ -1562,9 +1579,10 @@
         // SMS-Code über Firebase Phone Auth senden (kostenlos!)
         async function sendFirebaseCode() {
             const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
-            if (phone.length < 10) return showToast('Bitte gültige Telefonnummer eingeben');
+            const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
+            if (phone.length < 6) return showToast('Bitte gültige Telefonnummer eingeben');
 
-            customerPhone = phone.startsWith('0') ? '+49' + phone.slice(1) : (phone.startsWith('+') ? phone : '+49' + phone);
+            customerPhone = phone.startsWith('+') ? phone : (phone.startsWith('0') ? phoneCountry + phone.slice(1) : phoneCountry + phone);
 
             const btn = document.getElementById('btn-send-code');
             btn.disabled = true;

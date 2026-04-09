@@ -53,7 +53,24 @@
                 </div>
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📱 Telefon</label>
-                    <input type="tel" id="anf-phone" placeholder="0176 12345678 *" required style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <div style="display:flex;gap:6px;">
+                        <select id="anf-phone-country" style="padding:10px 6px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;min-width:85px;background:white;">
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+48">🇵🇱 +48</option>
+                            <option value="+43">🇦🇹 +43</option>
+                            <option value="+41">🇨🇭 +41</option>
+                            <option value="+40">🇷🇴 +40</option>
+                            <option value="+31">🇳🇱 +31</option>
+                            <option value="+45">🇩🇰 +45</option>
+                            <option value="+46">🇸🇪 +46</option>
+                            <option value="+44">🇬🇧 +44</option>
+                            <option value="+33">🇫🇷 +33</option>
+                            <option value="+39">🇮🇹 +39</option>
+                            <option value="+34">🇪🇸 +34</option>
+                            <option value="+420">🇨🇿 +420</option>
+                        </select>
+                        <input type="tel" id="anf-phone" placeholder="176 12345678 *" required style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    </div>
                 </div>
             </div>
             <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">
@@ -202,7 +219,9 @@ function getAnfrageText() {
     var date = document.getElementById('anf-date').value || '?';
     var time = document.getElementById('anf-time').value || '?';
     var name = document.getElementById('anf-name').value || '?';
-    var phone = document.getElementById('anf-phone').value || '?';
+    var phoneRaw = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, '') || '?';
+    var phoneCountry = document.getElementById('anf-phone-country').value || '+49';
+    var phone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
     var price = document.getElementById('anf-price').textContent || '?';
     return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + name + '\n\ud83d\udcf1 ' + phone + '\n\ud83d\udcb0 ca. ' + price;
 }
@@ -217,7 +236,7 @@ function saveAnfrageToFirebase(channel) {
             time: document.getElementById('anf-time').value || '',
             passengers: anfPax,
             name: document.getElementById('anf-name').value || '',
-            phone: document.getElementById('anf-phone').value || '',
+            phone: (function(){ var p = document.getElementById('anf-phone').value.replace(/[\s\-\/]/g, ''); var c = document.getElementById('anf-phone-country').value || '+49'; return p.startsWith('+') ? p : (p.startsWith('0') ? c + p.slice(1) : c + p); })(),
             price: document.getElementById('anf-price').textContent || '',
             channel: channel,
             type: 'taxi',

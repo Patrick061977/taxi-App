@@ -3006,11 +3006,12 @@ async function searchNominatimForTelegram(query) {
             }
         }
 
-        // 🆕 v6.38.96: Google Places als zusätzliche Quelle (parallel zu Nominatim)
+        // 🆕 v6.38.96: Google Places als zusätzliche Quelle — IMMER suchen wenn Key vorhanden
+        // 🔧 v6.38.35: Nicht mehr auf allItems.length < 3 beschränkt — Google Places findet POIs die Nominatim nicht kennt
         try {
             const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
             const gKey = gKeySnap.val();
-            if (gKey && allItems.length < 3) {
+            if (gKey) {
                 const gResp = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' Usedom')}&language=de&key=${gKey}`);
                 const gData = await gResp.json();
                 if (gData.results) {

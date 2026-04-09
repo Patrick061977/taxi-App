@@ -1355,6 +1355,7 @@ function sendAnfrageWhatsApp() {
     if (!phone) { alert('Bitte Telefonnummer eingeben'); return; }
     const text = encodeURIComponent(getAnfrageText());
     window.open('https://wa.me/4915127585179?text=' + text, '_blank');
+    showAnfrageSuccess();
 }
 
 function sendAnfrageEmail() {
@@ -1365,6 +1366,20 @@ function sendAnfrageEmail() {
     const subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
     const body = encodeURIComponent(getAnfrageText());
     window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + body;
+    showAnfrageSuccess();
+}
+
+function showAnfrageSuccess() {
+    const section = document.getElementById('anfrage');
+    if (section) {
+        section.innerHTML = '<div style="text-align:center;padding:40px;">'
+            + '<div style="font-size:50px;margin-bottom:12px;">✅</div>'
+            + '<h2 style="color:#059669;margin-bottom:8px;">Anfrage gesendet!</h2>'
+            + '<p style="color:#64748b;font-size:14px;">Wir melden uns schnellstmöglich bei Ihnen.</p>'
+            + '<p style="margin-top:12px;font-size:13px;color:#94a3b8;">📞 038378 / 22022</p>'
+            + '<button onclick="location.reload()" style="margin-top:16px;padding:12px 24px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">🔄 Neue Anfrage</button>'
+            + '</div>';
+    }
 }
 
 

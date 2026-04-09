@@ -5245,7 +5245,7 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     const _isKaiserbad2 = _KAISERBAEDER.includes(_explTown2);
                     const _townOk2 = (s) => {
                         if (!_explTown2) return true;
-                        const sLow = s.name.toLowerCase();
+                        const sLow = (s.name + ' ' + (s.display_name || '')).toLowerCase();
                         if (sLow.includes(_explTown2)) return true;
                         // Kaiserbäder-Synonym: Heringsdorf = Ahlbeck = Bansin (gleiche Gemeinde!)
                         if (_isKaiserbad2) return _KAISERBAEDER.some(k => sLow.includes(k));
@@ -8931,7 +8931,8 @@ async function handleMessage(message) {
         const _isKaiserbad = _explTown ? _KAISERBAEDER.includes(_explTown) : false;
         const _townOk = (s) => {
             if (!_explTown) return true;
-            const sLow = s.name.toLowerCase();
+            // 🔧 v6.38.35: Auch display_name prüfen — Google Places hat Ort nur in der Adresse
+            const sLow = (s.name + ' ' + (s.display_name || '')).toLowerCase();
             if (sLow.includes(_explTown)) return true;
             if (_isKaiserbad) return _KAISERBAEDER.some(k => sLow.includes(k));
             return false;

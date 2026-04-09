@@ -3006,33 +3006,51 @@ async function searchNominatimForTelegram(query) {
             }
         }
 
-        // 🆕 v6.38.96: Google Places als zusätzliche Quelle — IMMER suchen wenn Key vorhanden
-        // 🔧 v6.38.35: Nicht mehr auf allItems.length < 3 beschränkt — Google Places findet POIs die Nominatim nicht kennt
+        // 🆕 v6.38.96: Google Places (New API) als zusätzliche Quelle — IMMER suchen wenn Key vorhanden
+        // 🔧 v6.38.35: Nutzt Places API (New) Endpoint statt veralteter textsearch/json
         try {
             const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
             const gKey = gKeySnap.val();
             if (gKey) {
-                const gResp = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' Usedom')}&language=de&key=${gKey}`);
+                const gResp = await fetch('https://places.googleapis.com/v1/places:searchText', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Goog-Api-Key': gKey,
+                        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
+                    },
+                    body: JSON.stringify({
+                        textQuery: query + ' Usedom',
+                        languageCode: 'de',
+                        locationBias: {
+                            circle: { center: { latitude: 53.95, longitude: 14.10 }, radius: 25000.0 }
+                        },
+                        maxResultCount: 3
+                    })
+                });
                 const gData = await gResp.json();
-                if (gData.results) {
-                    for (const place of gData.results.slice(0, 3)) {
-                        if (place.geometry && place.geometry.location) {
-                            const gLat = place.geometry.location.lat;
-                            const gLon = place.geometry.location.lng;
-                            const gName = place.formatted_address || place.name || '';
+                if (gData.places) {
+                    for (const place of gData.places) {
+                        if (place.location) {
+                            const gLat = place.location.latitude;
+                            const gLon = place.location.longitude;
+                            const gName = place.formattedAddress || place.displayName?.text || '';
+                            const gLabel = place.displayName?.text || '';
                             const coordKey = `${gLat.toFixed(3)}_${gLon.toFixed(3)}`;
                             if (!seen.has(coordKey)) {
                                 seen.add(coordKey);
                                 allItems.push({
-                                    display_name: gName,
+                                    display_name: gLabel ? (gLabel + ', ' + gName) : gName,
                                     lat: gLat, lon: gLon,
                                     source: 'google-places',
-                                    address: { road: place.name || '', city: '' }
+                                    address: { road: gLabel || '', city: '' }
                                 });
-                                console.log(`[Google Places] Gefunden: ${gName}`);
+                                console.log(`[Google Places] Gefunden: ${gLabel} — ${gName}`);
                             }
                         }
                     }
+                } else if (gData.error) {
+                    console.warn('[Google Places] API Fehler:', gData.error.message || JSON.stringify(gData.error));
                 }
             }
         } catch(gErr) { console.warn('Google Places Fehler:', gErr.message); }

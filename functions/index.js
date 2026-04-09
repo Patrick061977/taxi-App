@@ -9435,8 +9435,28 @@ async function handleMessage(message) {
             genericWords.includes(extractedLower) ||
             extractedWords.every(w => genericWords.includes(w))
         );
+        // 🔧 v6.38.35: Adress-Erkennung — wenn extrahierter Name nach Adresse/Ort aussieht → NICHT als Kundenname
+        const addressIndicators = ['straße', 'strasse', 'str.', 'weg', 'ring', 'platz', 'allee', 'damm',
+            'chaussee', 'gasse', 'steig', 'pfad', 'ufer', 'promenade', 'stieg', 'hof',
+            'klinik', 'klinikum', 'krankenhaus', 'bahnhof', 'flughafen', 'hafen', 'airport',
+            'schule', 'kindergarten', 'friedhof', 'kirche', 'rathaus', 'markt', 'apotheke',
+            'residenz', 'supermarkt', 'lidl', 'aldi', 'edeka', 'rewe', 'netto', 'penny',
+            'campingplatz', 'ferienwohnung', 'ferienpark', 'jugendherberge', 'hostel',
+            'restaurant', 'gasthof', 'gasthaus', 'brauhaus', 'cafe', 'bäckerei',
+            'seebrücke', 'strandpromenade', 'kurplatz', 'konzertplatz'];
+        const looksLikeAddress = extractedLower && (
+            addressIndicators.some(w => extractedLower.includes(w)) ||
+            /\d+[a-z]?\s*$/.test(extractedCustomerName?.trim() || '') ||  // Hausnummer am Ende
+            /\b1\d{4}\b/.test(extractedCustomerName || '')  // PLZ (z.B. 17424)
+        );
         // 🆕 v6.14.2: Bei "vom"-Pattern nur akzeptieren wenn CRM-Treffer existiert (sonst ist es ein Ortsname)
         const isVomPattern = !fuerMatch && !!vomMatch;
+
+        if (extractedCustomerName && !isGenericWord && looksLikeAddress) {
+            // 🔧 v6.38.35: Sieht nach Adresse aus (Klinik, Straße, Weg, etc.) → direkt zur KI-Buchungsanalyse
+            await addTelegramLog('👔', chatId, `"${extractedCustomerName}" sieht nach Adresse/Ort aus → direkt zur Buchungsanalyse (kein CRM-Suche)`);
+            extractedCustomerName = null; // Reset → normaler Buchungsflow weiter unten
+        }
 
         if (extractedCustomerName && !isGenericWord) {
             // Kundenname erkannt → direkt CRM-Suche, kein Nachfragen

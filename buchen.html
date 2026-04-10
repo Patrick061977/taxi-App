@@ -1210,8 +1210,8 @@
             const totalHours = shiftEnd - shiftStart;
 
             // Header: Stunden-Labels (Pixel-basiert wie Timeline-Bar)
-            const slotsPerHour = 60 / 15; // 4 Slots pro Stunde
-            const pxPerHour = slotsPerHour * 40; // 4 * 40 = 160px pro Stunde
+            const slotsPerHour = 60 / 10; // 6 Slots pro Stunde
+            const pxPerHour = slotsPerHour * 40; // 6 * 40 = 240px pro Stunde
             headerEl.innerHTML = '';
             for (let h = shiftStart; h < shiftEnd; h++) {
                 const leftPx = (h - shiftStart) * pxPerHour;
@@ -1251,7 +1251,7 @@
 
             // Fahrzeuganzahl pro Zeitslot ermitteln + Konflikte zählen
             barEl.innerHTML = '';
-            const slotMinutes = 15; // 15-Min-Slots für feinere Auswahl (z.B. 08:15)
+            const slotMinutes = 10; // 10-Min-Slots (06:00, 06:10, 06:20...)
             const totalSlots = totalHours * (60 / slotMinutes);
             const pxPerSlot = 40; // Breite pro Slot in Pixel
             const totalWidth = totalSlots * pxPerSlot;

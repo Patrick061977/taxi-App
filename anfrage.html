@@ -423,9 +423,10 @@ async function anfSelect(inputId, placeId, mainText, secText) {
             var lng = place.location?.lng();
             if (inputId === 'anf-pickup') anfPickupCoords = {lat:lat,lon:lng};
             else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};
+            else if (inputId === 'anf-festpreis-addr-input') { /* Festpreis-Abholadresse — Preis NICHT ändern */ }
             else anfDestCoords = {lat:lat,lon:lng};
             document.getElementById(inputId).value = place.formattedAddress || mainText;
-            calcAnfPrice();
+            if (inputId !== 'anf-festpreis-addr-input') calcAnfPrice();
         } catch(e) {}
     }
 }

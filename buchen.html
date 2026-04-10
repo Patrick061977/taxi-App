@@ -1146,7 +1146,16 @@
             return new Date(`${d}T${h}:${m}:00`).getTime();
         }
 
-        function onDateTimeChange() { checkRoute(); }
+        function onDateTimeChange() {
+            // Slot-Auswahl im Kalender zurücksetzen bei manueller Änderung
+            _selectedSlot = null;
+            const infoEl = document.getElementById('slot-selected-info');
+            if (infoEl) infoEl.style.display = 'none';
+            if (_slotCalendarDate && wannModus === 'vorbestellen') {
+                renderSlotTimeline(_slotCalendarDate);
+            }
+            checkRoute();
+        }
 
         // ═══════════════════════════════════════════════
         // Zeitfenster-Kalender (Timeline wie Fleet-Kalender)
@@ -1194,10 +1203,13 @@
             const hintEl = document.getElementById('slot-route-hint');
             if (hintEl) {
                 if (routeData && routeData.min) {
-                    hintEl.textContent = `Ihre Fahrt dauert ca. ${routeData.min} Min — Konflikte werden berücksichtigt`;
+                    const hin = parseInt(routeData.min);
+                    const rueck = Math.round(hin * 0.8);
+                    const gesamt = hin + rueck + bufferMin;
+                    hintEl.textContent = `Ihre Fahrt: ca. ${hin} Min hin + ${rueck} Min Rückfahrt = ${gesamt} Min blockiert`;
                     hintEl.style.color = '#059669';
                 } else {
-                    hintEl.textContent = 'Tipp: Erst Abholort + Zielort eingeben — dann wird geprüft ob Ihre Fahrt in den Slot passt';
+                    hintEl.textContent = 'Tipp: Erst Abholort + Zielort eingeben — dann wird geprüft ob Ihre Fahrt passt';
                     hintEl.style.color = '#f59e0b';
                 }
             }
@@ -1287,10 +1299,11 @@
                 }
 
                 // Konflikte: Passt die KUNDENFAHRT in diesen Slot?
-                // Wenn Route berechnet → echte Fahrtdauer nehmen, sonst nur Slot-Breite prüfen
+                // Hin + Rückfahrt: Fahrer fährt Kunden hin (X Min) und muss zurück (ca. X Min)
                 const kundenDauer = routeData ? parseInt(routeData.min) : 0;
+                const rueckfahrtFaktor = 0.8; // Rückfahrt ca. 80% der Hinfahrt (leer, schneller)
                 const kundenEndTs = kundenDauer > 0
-                    ? slotTs + (kundenDauer + bufferMin) * 60000  // Echte Fahrtdauer + Buffer
+                    ? slotTs + (kundenDauer + Math.round(kundenDauer * rueckfahrtFaktor) + bufferMin) * 60000
                     : slotEndTs;  // Keine Route → nur Slot prüfen
                 const overlapping = rides.filter(r => r.start < kundenEndTs && r.end > slotTs).length;
                 const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
@@ -1530,7 +1543,9 @@
                         }
                     }
                     el.className = 'availability-card unavailable';
-                    el.innerHTML = '⚠️ <strong>Alle Fahrzeuge belegt</strong> zu dieser Zeit.' + nextFreeMsg;
+                    el.style.display = '';
+                    const fahrtInfo = routeData ? ` (Ihre Fahrt: ca. ${routeData.min} Min + Rückfahrt)` : '';
+                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${nextFreeMsg}<br><br><a href="tel:03837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
                     isAvailable = false;
                     updateBookButton();
                 }

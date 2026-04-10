@@ -354,64 +354,8 @@
         <div class="card" id="booking-card">
             <div class="card-title">🚖 Taxi buchen</div>
 
-            <!-- Abholort -->
-            <div class="input-group">
-                <label>📍 Abholort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
-                <span class="input-icon">📍</span>
-                <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off">
-                <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
-                <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
-                <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
-                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
-                </div>
-            </div>
-
-            <!-- Zwischenstopp -->
-            <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
-                <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
-            </div>
-            <div class="input-group" id="b-stopp-box" style="display:none;">
-                <label>📍 Zwischenstopp</label>
-                <span class="input-icon">📍</span>
-                <div style="display:flex;gap:6px;">
-                    <input type="text" id="b-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." autocomplete="off" style="flex:1;padding:12px 14px 12px 38px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
-                    <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
-                </div>
-                <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
-            </div>
-
-            <!-- Zielort -->
-            <div class="input-group">
-                <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
-                <span class="input-icon">🎯</span>
-                <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
-                <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
-                <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
-                    ⚠️ Bitte einen Vorschlag aus der Liste auswählen
-                </div>
-            </div>
-
-            <!-- Name -->
-            <div class="input-group">
-                <label>👤 Ihr Name</label>
-                <span class="input-icon">👤</span>
-                <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
-            </div>
-
-            <!-- Personen -->
-            <div class="input-group">
-                <label>👥 Personen</label>
-                <div class="pax-selector">
-                    <button class="pax-btn active" onclick="setPax(1)">1</button>
-                    <button class="pax-btn" onclick="setPax(2)">2</button>
-                    <button class="pax-btn" onclick="setPax(3)">3</button>
-                    <button class="pax-btn" onclick="setPax(4)">4</button>
-                    <button class="pax-btn" onclick="setPax(5)">5+</button>
-                </div>
-            </div>
-
-            <!-- Wann? -->
-            <div class="input-group">
+            <!-- Wann? (oben damit Kunde zuerst wählt) -->
+            <div class="input-group" style="margin-bottom:16px;">
                 <label>🕐 Wann?</label>
                 <div class="wann-toggle">
                     <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
@@ -424,38 +368,113 @@
                 </div>
             </div>
 
-            <!-- Verfügbarkeit -->
-            <div class="availability-card" id="availability"></div>
-
-            <!-- Route Info -->
-            <div class="route-info" id="route-info">
-                <div class="route-stat">
-                    <div class="value" id="r-price">—</div>
-                    <div class="label">Preis (ca.)</div>
-                </div>
-                <div class="route-stat">
-                    <div class="value" id="r-distance">—</div>
-                    <div class="label">Kilometer</div>
-                </div>
-                <div class="route-stat">
-                    <div class="value" id="r-duration">—</div>
-                    <div class="label">Minuten</div>
-                </div>
+            <!-- Sofort nicht verfügbar — Anruf-Box -->
+            <div id="sofort-call-box" style="display:none;text-align:center;padding:20px 16px;">
+                <div style="font-size:48px;margin-bottom:12px;">📞</div>
+                <h3 style="color:#1e293b;margin-bottom:8px;">Aktuell kein Fahrer online</h3>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;line-height:1.5;">
+                    Für eine sofortige Fahrt rufen Sie uns bitte direkt an.<br>
+                    Oder wählen Sie <strong>Vorbestellen</strong> um eine Fahrt im Voraus zu buchen.
+                </p>
+                <a href="tel:03837822022" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;text-decoration:none;font-size:18px;font-weight:800;border-radius:14px;box-shadow:0 4px 16px rgba(220,38,38,0.4);">
+                    📞 038378 22022 anrufen
+                </a>
+                <button onclick="setWann('vorbestellen')" style="width:100%;margin-top:10px;padding:14px;background:white;color:#3b82f6;border:2px solid #3b82f6;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">
+                    📅 Stattdessen vorbestellen
+                </button>
             </div>
 
-            <!-- Karte -->
-            <div class="map-container" id="route-map"></div>
+            <!-- Buchungsformular-Felder (ausgeblendet wenn Sofort + kein GPS) -->
+            <div id="booking-fields">
+                <!-- Abholort -->
+                <div class="input-group">
+                    <label>📍 Abholort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
+                    <span class="input-icon">📍</span>
+                    <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off">
+                    <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
+                    <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
+                    <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                        ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                    </div>
+                </div>
 
-            <!-- Buchen Button -->
-            <button class="btn-book" id="btn-book" onclick="startBooking()" style="display:none;">
-                🚕 Jetzt Taxi buchen
-            </button>
-            <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
-                ⚠️ Bitte Abholort und Zielort aus der Liste wählen
+                <!-- Zwischenstopp -->
+                <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
+                    <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
+                </div>
+                <div class="input-group" id="b-stopp-box" style="display:none;">
+                    <label>📍 Zwischenstopp</label>
+                    <span class="input-icon">📍</span>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="b-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." autocomplete="off" style="flex:1;padding:12px 14px 12px 38px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
+                        <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
+                    </div>
+                    <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
+                </div>
+
+                <!-- Zielort -->
+                <div class="input-group">
+                    <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
+                    <span class="input-icon">🎯</span>
+                    <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
+                    <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
+                    <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
+                        ⚠️ Bitte einen Vorschlag aus der Liste auswählen
+                    </div>
+                </div>
+
+                <!-- Name -->
+                <div class="input-group">
+                    <label>👤 Ihr Name</label>
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
+                </div>
+
+                <!-- Personen -->
+                <div class="input-group">
+                    <label>👥 Personen</label>
+                    <div class="pax-selector">
+                        <button class="pax-btn active" onclick="setPax(1)">1</button>
+                        <button class="pax-btn" onclick="setPax(2)">2</button>
+                        <button class="pax-btn" onclick="setPax(3)">3</button>
+                        <button class="pax-btn" onclick="setPax(4)">4</button>
+                        <button class="pax-btn" onclick="setPax(5)">5+</button>
+                    </div>
+                </div>
+
+                <!-- Verfügbarkeit -->
+                <div class="availability-card" id="availability"></div>
+
+                <!-- Route Info -->
+                <div class="route-info" id="route-info">
+                    <div class="route-stat">
+                        <div class="value" id="r-price">—</div>
+                        <div class="label">Preis (ca.)</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="value" id="r-distance">—</div>
+                        <div class="label">Kilometer</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="value" id="r-duration">—</div>
+                        <div class="label">Minuten</div>
+                    </div>
+                </div>
+
+                <!-- Karte -->
+                <div class="map-container" id="route-map"></div>
+
+                <!-- Buchen Button -->
+                <button class="btn-book" id="btn-book" onclick="startBooking()" style="display:none;">
+                    🚕 Jetzt Taxi buchen
+                </button>
+                <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
+                    ⚠️ Bitte Abholort und Zielort aus der Liste wählen
+                </div>
+                <button id="btn-cancel" onclick="resetBookingForm()" style="display:none;width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
+                    ✕ Ich möchte doch nicht bestellen
+                </button>
             </div>
-            <button id="btn-cancel" onclick="resetBookingForm()" style="display:none;width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
-                ✕ Ich möchte doch nicht bestellen
-            </button>
         </div>
 
         <!-- Telefon eingeben -->
@@ -861,6 +880,7 @@
                 updateBookButton();
                 // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
                 updateSofortToggle(sofortCount);
+                updateFormVisibility(sofortCount);
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';
                 document.getElementById('status-bar').textContent = '⚠️ Verbindungsfehler';
@@ -914,6 +934,25 @@
                 sofortBtn.innerHTML = '📞 Anrufen<br><span style="font-size:11px;font-weight:400;">038378 / 22022</span><br><span style="font-size:10px;font-weight:400;opacity:0.8;">Bitte Abholort &amp; Zielort mitteilen</span>';
                 sofortBtn.onclick = function() { window.location.href = 'tel:03837822022'; };
             }
+        }
+
+        // Formular ein-/ausblenden: Sofort + kein GPS → nur Anruf-Box
+        let _lastGpsOnlineCount = -1;
+        function updateFormVisibility(gpsOnlineCount) {
+            const fields = document.getElementById('booking-fields');
+            const callBox = document.getElementById('sofort-call-box');
+            if (!fields || !callBox) return;
+
+            if (wannModus === 'sofort' && gpsOnlineCount === 0) {
+                // Kein Fahrer GPS-online → Formular ausblenden, Anruf-Box zeigen
+                fields.style.display = 'none';
+                callBox.style.display = '';
+            } else {
+                // Fahrer online ODER Vorbestellen → Formular zeigen
+                fields.style.display = '';
+                callBox.style.display = 'none';
+            }
+            _lastGpsOnlineCount = gpsOnlineCount;
         }
 
         // 🆕 v6.38.96: Formular komplett zurücksetzen
@@ -972,17 +1011,20 @@
             wannModus = mode;
             logBuchen(mode === 'sofort' ? '⚡' : '📅', `Modus: ${mode.toUpperCase()}`);
             document.querySelectorAll('.wann-btn').forEach(b => b.classList.remove('active'));
-            if (event && event.target) event.target.classList.add('active');
+            // Richtigen Button aktiv setzen (auch wenn programmatisch aufgerufen)
+            document.querySelectorAll('.wann-btn').forEach(b => {
+                if (mode === 'sofort' && b.textContent.includes('Sofort')) b.classList.add('active');
+                if (mode === 'vorbestellen' && b.textContent.includes('Vorbestellen')) b.classList.add('active');
+            });
             const felder = document.getElementById('vorbestellen-felder');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
                 initDateTimePickers();
             } else {
                 felder.classList.remove('active');
-                // 🔧 v6.38.96: Bei Sofort direkt zum Buchen-Button scrollen
-                const btn = document.getElementById('btn-book');
-                if (btn) setTimeout(function() { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
             }
+            // Formular-Sichtbarkeit sofort aktualisieren
+            updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);
             // 🆕 v6.38.78: Button-Status neu berechnen wenn Modus wechselt
             updateStatusBar();
             checkRoute();

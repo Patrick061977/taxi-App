@@ -173,9 +173,24 @@
                     </div>
                 </label>
             </div>
-            <div style="display:flex;gap:8px;">
-                <button onclick="sendAnfrageWhatsApp()" style="flex:1;padding:14px;background:#25D366;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">💬 WhatsApp</button>
-                <button onclick="sendAnfrageEmail()" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">✉️ Email</button>
+            <!-- Action-Buttons: Anfrage absenden -->
+            <div style="background:#f0fdf4;border:2px solid #a7f3d0;border-radius:12px;padding:16px;margin-bottom:4px;">
+                <div style="text-align:center;margin-bottom:12px;">
+                    <div style="font-size:14px;font-weight:700;color:#065f46;">Anfrage jetzt absenden</div>
+                    <div style="font-size:11px;color:#64748b;">W&auml;hlen Sie Ihren bevorzugten Weg:</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <button onclick="sendAnfrageWhatsApp()" style="width:100%;padding:16px 20px;background:#25D366;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 12px rgba(37,211,102,0.3);transition:transform 0.1s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
+                        <span style="font-size:22px;">💬</span>
+                        <span>Per WhatsApp senden</span>
+                        <span style="font-size:18px;">→</span>
+                    </button>
+                    <button onclick="sendAnfrageEmail()" style="width:100%;padding:16px 20px;background:#3b82f6;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 12px rgba(59,130,246,0.3);transition:transform 0.1s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
+                        <span style="font-size:22px;">✉️</span>
+                        <span>Per E-Mail senden</span>
+                        <span style="font-size:18px;">→</span>
+                    </button>
+                </div>
             </div>
             <div style="text-align:center;margin-top:8px;font-size:12px;color:#94a3b8;">
                 oder anrufen: <a href="tel:03837822022" style="color:#059669;font-weight:600;">038378 22022</a>
@@ -189,7 +204,7 @@
             <!-- Festpreis-Angebote (nur bis 10:00 Uhr) -->
             <div id="festpreis-section" style="display:none;margin-top:16px;">
                 <div style="text-align:center;margin-bottom:10px;">
-                    <div style="font-size:16px;font-weight:700;color:#059669;">🏷️ Festpreis-Angebote</div>
+                    <div style="font-size:16px;font-weight:700;color:#059669;">🏷️ Pauschalpreis-Angebote</div>
                     <div style="font-size:11px;color:#f59e0b;font-weight:600;" id="festpreis-timer">Nur bis 10:00 Uhr verf&uuml;gbar!</div>
                 </div>
 
@@ -262,9 +277,9 @@
                 document.getElementById('festpreis-section').style.display = 'block';
                 if (h < 10) {
                     var rest = 10 - h;
-                    document.getElementById('festpreis-timer').textContent = '\u23f0 Heute verf\u00fcgbar \u2014 noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' bis 10:00 Uhr!';
+                    document.getElementById('festpreis-timer').textContent = '\u23f0 Heute verf\u00fcgbar \u2014 noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' bis 10:00 Uhr! (Pauschalpreise)';
                 } else {
-                    document.getElementById('festpreis-timer').textContent = '\ud83d\udcc5 F\u00fcr morgen buchen \u2014 Festpreise bis 10:00 Uhr verf\u00fcgbar';
+                    document.getElementById('festpreis-timer').textContent = '\ud83d\udcc5 F\u00fcr morgen buchen \u2014 Pauschalpreise bis 10:00 Uhr verf\u00fcgbar';
                     document.getElementById('festpreis-timer').style.color = '#3b82f6';
                 }
             })();
@@ -282,7 +297,7 @@
                 if (ORTE_COORDS[von]) anfPickupCoords = ORTE_COORDS[von];
                 if (ziel === 'Promenade') anfDestCoords = {lat:53.92283, lon:14.23880};
                 if (ziel === 'Zentrum') anfDestCoords = {lat:53.91006, lon:14.24674};
-                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')';
+                document.getElementById('anf-notes').value = 'Pauschalpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')';
                 // Zeit setzen: vor 10 Uhr → heute +1h, nach 10 Uhr → morgen 08:00
                 var jetzt = new Date();
                 var berlinH = parseInt(new Date().toLocaleString('de-DE', {timeZone:'Europe/Berlin', hour:'numeric', hour12:false}));
@@ -309,7 +324,7 @@
                 if (addrInput) { addrInput.value = ''; addrInput.focus(); }
                 document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
                 document.getElementById('anf-price-box').style.display = 'block';
-                document.getElementById('anf-price-label').textContent = 'Festpreis';
+                document.getElementById('anf-price-label').textContent = 'Pauschalpreis';
                 document.getElementById('anf-price-label').style.color = '#059669';
                 document.getElementById('anf-price-label').style.fontWeight = '700';
                 document.getElementById('anf-route-info').textContent = '\u015awinouj\u015bcie ' + ziel;
@@ -349,7 +364,7 @@
 
             <!-- Service-Hinweise -->
             <div style="margin-top:14px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;font-size:12px;color:#475569;line-height:1.6;">
-                ✅ Festpreise &mdash; keine &Uuml;berraschungen am Taxameter<br>
+                ✅ Pauschalpreise f&uuml;r Swinem&uuml;nde &mdash; keine &Uuml;berraschungen<br>
                 ✅ Abholung direkt an Ihrer Haust&uuml;r<br>
                 ✅ Flughafen, Bahnhof, Arzttermine &mdash; wir fahren Sie &uuml;berall hin<br>
                 ✅ Auch Gro&szlig;raumtaxi f&uuml;r bis zu 8 Personen verf&uuml;gbar
@@ -521,7 +536,7 @@ async function calcAnfPrice() {
         document.getElementById('anf-price-box').style.display = 'block';
         // Alte Festpreis-Bemerkung leeren wenn neu berechnet wird
         var notesEl = document.getElementById('anf-notes');
-        if (notesEl && notesEl.value.indexOf('Festpreis') === 0) notesEl.value = '';
+        if (notesEl && (notesEl.value.indexOf('Festpreis') === 0 || notesEl.value.indexOf('Pauschalpreis') === 0)) notesEl.value = '';
         var prLabel = document.getElementById('anf-price-label');
         if (prLabel) { prLabel.textContent = 'Gesch\u00e4tzter Preis'; prLabel.style.color = '#64748b'; prLabel.style.fontWeight = 'normal'; }
         // Hin-und-Zurück Rabatt ab 30km ODER Świnoujście
@@ -617,13 +632,21 @@ function sendAnfrageEmail() {
 
 function showAnfrageSuccess() {
     var form = document.querySelector('div[style*="border-radius:16px"]');
+    var hatFestpreis = document.getElementById('anf-prepay-check') && document.getElementById('anf-prepay-check').checked;
     if (form) {
+        var zahlHinweis = hatFestpreis
+            ? '<div style="margin-top:14px;padding:12px;background:#eff6ff;border:2px solid #bfdbfe;border-radius:10px;text-align:left;font-size:13px;color:#1e40af;line-height:1.6;">'
+              + '<strong>💳 Festpreis gew\u00e4hlt:</strong><br>'
+              + 'Ihre Vorbestellung wird jetzt von uns bearbeitet. Den <strong>Zahlungslink</strong> erhalten Sie nach pers\u00f6nlicher Best\u00e4tigung \u2014 bitte haben Sie einen Moment Geduld.'
+              + '</div>'
+            : '';
         form.innerHTML = '<div style="text-align:center;padding:30px;">'
-            + '<div style="font-size:50px;margin-bottom:12px;">✅</div>'
+            + '<div style="font-size:50px;margin-bottom:12px;">\u2705</div>'
             + '<h2 style="color:#059669;margin-bottom:8px;">Anfrage gesendet!</h2>'
-            + '<p style="color:#64748b;font-size:14px;">Wir melden uns schnellstm\u00f6glich bei Ihnen.</p>'
-            + '<p style="margin-top:12px;font-size:13px;color:#94a3b8;">📞 038378 / 22022</p>'
-            + '<button onclick="location.reload()" style="margin-top:16px;padding:12px 24px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">🔄 Neue Anfrage</button>'
+            + '<p style="color:#64748b;font-size:14px;">Ihre Vorbestellung wird bearbeitet. Wir melden uns schnellstm\u00f6glich bei Ihnen.</p>'
+            + zahlHinweis
+            + '<p style="margin-top:12px;font-size:13px;color:#94a3b8;">\ud83d\udcde 038378 / 22022</p>'
+            + '<button onclick="location.reload()" style="margin-top:16px;padding:12px 24px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">\ud83d\udd04 Neue Anfrage</button>'
             + '</div>';
     }
 }
@@ -679,7 +702,7 @@ function toggleFestpreis() {
         } else {
             label.style.borderColor = '#e2e8f0';
             label.style.background = '#f8fafc';
-            if (notes && notes.value.indexOf('Festpreis') === 0) notes.value = '';
+            if (notes && (notes.value.indexOf('Festpreis') === 0 || notes.value.indexOf('Pauschalpreis') === 0)) notes.value = '';
         }
     }, 50);
 }

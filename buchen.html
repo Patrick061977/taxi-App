@@ -1455,11 +1455,17 @@
                 barEl.appendChild(block);
             }
 
-            // Zum ersten freien Slot scrollen
+            // Scrollen: Zum gewählten Slot ODER zum ersten freien Slot
             const scrollContainer = document.getElementById('slot-timeline');
-            if (scrollContainer && firstFreeSlotPx) {
-                // Etwas links davon scrollen damit Kontext sichtbar ist
-                scrollContainer.scrollLeft = Math.max(0, firstFreeSlotPx - 60);
+            if (scrollContainer) {
+                const selBlock = document.querySelector('#slot-timeline-bar .sel');
+                if (selBlock) {
+                    // Gewählter Slot → dahin scrollen
+                    scrollContainer.scrollLeft = Math.max(0, selBlock.offsetLeft - 60);
+                } else if (firstFreeSlotPx) {
+                    // Kein Slot gewählt → zum ersten freien scrollen
+                    scrollContainer.scrollLeft = Math.max(0, firstFreeSlotPx - 60);
+                }
             }
 
             // Hinweis: Nächster freier Slot

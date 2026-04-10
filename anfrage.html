@@ -348,7 +348,9 @@ var _anfPlacesReady = false, _anfSuggestion = null, _anfToken = null, _anfPlace 
     var minTime = new Date(now.getTime() + 120 * 60000); // +2 Stunden Vorlauf
     var d = document.getElementById('anf-date');
     var t = document.getElementById('anf-time');
-    if (d) { d.value = minTime.toISOString().split('T')[0]; d.min = now.toISOString().split('T')[0]; }
+    var dateStr = minTime.getFullYear() + '-' + String(minTime.getMonth()+1).padStart(2,'0') + '-' + String(minTime.getDate()).padStart(2,'0');
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    if (d) { d.value = dateStr; d.min = todayStr; }
     if (t) { var hh = String(minTime.getHours()).padStart(2,'0'); var mm = String(Math.ceil(minTime.getMinutes()/5)*5 % 60).padStart(2,'0'); t.value = hh+':'+mm; }
 })();
 

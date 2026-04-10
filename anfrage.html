@@ -132,6 +132,7 @@
             <div id="anf-festpreis-addr" style="display:none;margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#f59e0b;font-weight:700;margin-bottom:4px;">📍 Ihre genaue Abholadresse *</label>
                 <input type="text" id="anf-festpreis-addr-input" placeholder="z.B. Seestra&szlig;e 12, Heringsdorf" style="width:100%;padding:12px;border:2px solid #f59e0b;border-radius:10px;font-size:15px;background:#fffbeb;box-sizing:border-box;" autocomplete="off">
+                <div id="anf-festpreis-addr-input-dropdown" style="display:none;position:relative;background:white;border:2px solid #f59e0b;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
                 <div style="font-size:10px;color:#92400e;margin-top:3px;">Damit wir Sie direkt an Ihrer Haust&uuml;r abholen k&ouml;nnen</div>
             </div>
             <div style="margin-bottom:12px;">
@@ -372,7 +373,7 @@ window.addEventListener('load', async function() {
 });
 
 var _anfDebounce = {};
-['anf-pickup','anf-dest','anf-stopp'].forEach(function(id) {
+['anf-pickup','anf-dest','anf-stopp','anf-festpreis-addr-input'].forEach(function(id) {
     var input = document.getElementById(id);
     if (!input) return;
     input.addEventListener('input', function() {
@@ -386,6 +387,8 @@ document.addEventListener('click', function(e) {
     if (!e.target.closest('#anf-dest-dropdown') && !e.target.closest('#anf-dest')) document.getElementById('anf-dest-dropdown').style.display='none';
     var stoppDD = document.getElementById('anf-stopp-dropdown');
     if (stoppDD && !e.target.closest('#anf-stopp-dropdown') && !e.target.closest('#anf-stopp')) stoppDD.style.display='none';
+    var fpDD = document.getElementById('anf-festpreis-addr-input-dropdown');
+    if (fpDD && !e.target.closest('#anf-festpreis-addr-input-dropdown') && !e.target.closest('#anf-festpreis-addr-input')) fpDD.style.display='none';
 });
 
 async function anfSearch(query, inputId) {

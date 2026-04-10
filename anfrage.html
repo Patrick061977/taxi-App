@@ -262,7 +262,9 @@
                 'zentrum': { name: 'Zentrum / Korso', lat: 53.91006, lon: 14.24674, beschreibung: 'Korso \u2014 Einkaufsstra\u00dfe im Zentrum' }
             };
             (function() {
-                var h = new Date().getHours();
+                // Berliner Zeit (nicht UTC!)
+                var berlinTime = new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false});
+                var h = parseInt(berlinTime);
                 if (h < 10) {
                     document.getElementById('festpreis-section').style.display = 'block';
                     var rest = 10 - h;

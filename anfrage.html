@@ -269,12 +269,13 @@
                 }
             })();
             var ORTE_COORDS = {
-                'Ahlbeck': {lat:53.9340, lon:14.1940},
-                'Heringsdorf': {lat:53.9460, lon:14.1630},
-                'Bansin': {lat:53.9570, lon:14.1400}
+                'Ahlbeck': {lat:53.9340, lon:14.1940, plz:'17419'},
+                'Heringsdorf': {lat:53.9460, lon:14.1630, plz:'17424'},
+                'Bansin': {lat:53.9570, lon:14.1400, plz:'17429'}
             };
             function quickFestpreis(von, ziel, preis) {
                 anfFestpreisAktiv = true;
+                window._anfFestpreisOrt = von;
                 document.getElementById('anf-pickup').value = von;
                 document.getElementById('anf-dest').value = '\u015awinouj\u015bcie ' + ziel;
                 // Koordinaten setzen damit spätere Adressänderung Preis berechnen kann
@@ -282,6 +283,25 @@
                 if (ziel === 'Promenade') anfDestCoords = {lat:53.92283, lon:14.23880};
                 if (ziel === 'Zentrum') anfDestCoords = {lat:53.91006, lon:14.24674};
                 document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')';
+                // Zeit setzen: vor 10 Uhr → heute +1h, nach 10 Uhr → morgen 08:00
+                var jetzt = new Date();
+                var berlinH = parseInt(new Date().toLocaleString('de-DE', {timeZone:'Europe/Berlin', hour:'numeric', hour12:false}));
+                var dateEl = document.getElementById('anf-date');
+                var timeEl = document.getElementById('anf-time');
+                if (berlinH >= 10) {
+                    var morgen = new Date(jetzt.getTime() + 86400000);
+                    if (dateEl) dateEl.value = morgen.getFullYear() + '-' + String(morgen.getMonth()+1).padStart(2,'0') + '-' + String(morgen.getDate()).padStart(2,'0');
+                    if (timeEl) timeEl.value = '08:00';
+                } else {
+                    var minZeit = new Date(jetzt.getTime() + 60 * 60000);
+                    if (dateEl) dateEl.value = minZeit.getFullYear() + '-' + String(minZeit.getMonth()+1).padStart(2,'0') + '-' + String(minZeit.getDate()).padStart(2,'0');
+                    if (timeEl) timeEl.value = String(minZeit.getHours()).padStart(2,'0') + ':' + String(Math.ceil(minZeit.getMinutes()/5)*5 % 60).padStart(2,'0');
+                }
+                // Zwischenstopp ausblenden bei Festpreis
+                var stoppBox = document.getElementById('anf-stopp-box');
+                var stoppBtn = document.getElementById('anf-stopp-btn-box');
+                if (stoppBox) stoppBox.style.display = 'none';
+                if (stoppBtn) stoppBtn.style.display = 'none';
                 // Abholadresse-Feld anzeigen
                 var addrBox = document.getElementById('anf-festpreis-addr');
                 if (addrBox) { addrBox.style.display = 'block'; }
@@ -426,13 +446,25 @@ async function anfSelect(inputId, placeId, mainText, secText) {
             await place.fetchFields({fields:['location','formattedAddress']});
             var lat = place.location?.lat();
             var lng = place.location?.lng();
-            if (inputId === 'anf-festpreis-addr-input') { /* Festpreis-Abholadresse — nichts ändern */ }
+            if (inputId === 'anf-festpreis-addr-input') {
+                // PLZ-Check: Adresse muss zur gewählten Festpreis-Stadt passen
+                var addr = (place.formattedAddress || mainText).toString();
+                var ort = window._anfFestpreisOrt;
+                var erlaubtePLZ = ort && ORTE_COORDS[ort] ? ORTE_COORDS[ort].plz : null;
+                if (erlaubtePLZ && addr.indexOf(erlaubtePLZ) === -1) {
+                    alert('Diese Adresse liegt nicht in ' + ort + ' (PLZ ' + erlaubtePLZ + ').\nBitte w\u00e4hlen Sie eine Adresse in ' + ort + ' oder nutzen Sie das normale Buchungsformular oben.');
+                    document.getElementById('anf-festpreis-addr-input').value = '';
+                    return;
+                }
+            }
             else {
                 // Manuelle Adressänderung → Festpreis deaktivieren
                 if (anfFestpreisAktiv) {
                     anfFestpreisAktiv = false;
                     var fpAddr = document.getElementById('anf-festpreis-addr');
                     if (fpAddr) fpAddr.style.display = 'none';
+                    var stoppBtn2 = document.getElementById('anf-stopp-btn-box');
+                    if (stoppBtn2) stoppBtn2.style.display = 'block';
                 }
                 if (inputId === 'anf-pickup') anfPickupCoords = {lat:lat,lon:lng};
                 else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};

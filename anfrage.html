@@ -185,21 +185,21 @@
 
                 <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">🇵🇱 &Sacute;winouj&sacute;cie (Swinem&uuml;nde)</div>
                 <div style="display:grid;gap:6px;margin-bottom:12px;">
-                    <div onclick="selectFestpreis('Heringsdorf','\u015awinouj\u015bcie',25)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                    <div onclick="selectFestpreis('Heringsdorf',25)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
                         <div>
                             <div style="font-size:13px;font-weight:600;">Heringsdorf &rarr; &Sacute;winouj&sacute;cie</div>
                             <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
                         </div>
                         <div style="font-size:18px;font-weight:800;color:#059669;">25&euro;</div>
                     </div>
-                    <div onclick="selectFestpreis('Ahlbeck','\u015awinouj\u015bcie',20)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                    <div onclick="selectFestpreis('Ahlbeck',20)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
                         <div>
                             <div style="font-size:13px;font-weight:600;">Ahlbeck &rarr; &Sacute;winouj&sacute;cie</div>
                             <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
                         </div>
                         <div style="font-size:18px;font-weight:800;color:#059669;">20&euro;</div>
                     </div>
-                    <div onclick="selectFestpreis('Bansin','\u015awinouj\u015bcie',30)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                    <div onclick="selectFestpreis('Bansin',30)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
                         <div>
                             <div style="font-size:13px;font-weight:600;">Bansin &rarr; &Sacute;winouj&sacute;cie</div>
                             <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
@@ -209,10 +209,15 @@
                 </div>
 
                 <div style="font-size:11px;color:#64748b;text-align:center;padding:8px;background:#f8fafc;border-radius:8px;">
-                    📍 <strong>Absetzpunkte in &Sacute;winouj&sacute;cie:</strong> Zentrum, Promenade, Kurviertel, Hafen, Polenmarkt, Bahnhof &mdash; oder Wunschziel auf Anfrage
+                    📍 <strong>Absetzpunkte in &Sacute;winouj&sacute;cie:</strong> Promenade oder Zentrum/Korso &mdash; Sie w&auml;hlen beim Buchen
                 </div>
+                <div id="festpreis-absetz" style="display:none;margin-top:10px;padding:12px;background:#f0fdf4;border:2px solid #bbf7d0;border-radius:10px;"></div>
             </div>
             <script>
+            var FESTPREIS_ZIELE = {
+                'promenade': { name: 'Promenade', lat: 53.92283, lon: 14.23880, beschreibung: 'Strandpromenade \u015awinouj\u015bcie' },
+                'zentrum': { name: 'Zentrum / Korso', lat: 53.91006, lon: 14.24674, beschreibung: 'Korso \u2014 Einkaufsstra\u00dfe im Zentrum' }
+            };
             (function() {
                 var h = new Date().getHours();
                 if (h < 10) {
@@ -221,13 +226,33 @@
                     document.getElementById('festpreis-timer').textContent = '\u23f0 Noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' verf\u00fcgbar \u2014 nur bis 10:00 Uhr!';
                 }
             })();
-            function selectFestpreis(von, nach, preis) {
+            function selectFestpreis(von, preis) {
+                // Absetzpunkt-Auswahl anzeigen
+                var box = document.getElementById('festpreis-absetz');
+                box.style.display = 'block';
+                box.innerHTML = '<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;">📍 Wo m\u00f6chten Sie abgesetzt werden?</div>'
+                    + Object.keys(FESTPREIS_ZIELE).map(function(key) {
+                        var z = FESTPREIS_ZIELE[key];
+                        return '<div onclick="confirmFestpreis(\'' + von + '\',' + preis + ',\'' + key + '\')" style="display:flex;gap:10px;padding:10px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;margin-bottom:6px;" onmouseover="this.style.borderColor=\'#059669\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">'
+                            + '<img src="https://maps.googleapis.com/maps/api/staticmap?center=' + z.lat + ',' + z.lon + '&zoom=16&size=80x80&markers=color:green|' + z.lat + ',' + z.lon + '&key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg" style="width:60px;height:60px;border-radius:8px;flex-shrink:0;object-fit:cover;">'
+                            + '<div>'
+                            + '<div style="font-size:13px;font-weight:700;color:#059669;">' + z.name + '</div>'
+                            + '<div style="font-size:11px;color:#64748b;">' + z.beschreibung + '</div>'
+                            + '<div style="font-size:14px;font-weight:800;color:#059669;margin-top:2px;">' + preis + '\u20ac</div>'
+                            + '</div></div>';
+                    }).join('')
+                    + '<div onclick="document.getElementById(\'festpreis-absetz\').style.display=\'none\'" style="text-align:center;padding:8px;font-size:12px;color:#94a3b8;cursor:pointer;">Abbrechen</div>';
+                box.scrollIntoView({behavior:'smooth'});
+            }
+            function confirmFestpreis(von, preis, zielKey) {
+                var z = FESTPREIS_ZIELE[zielKey];
                 document.getElementById('anf-pickup').value = von;
-                document.getElementById('anf-dest').value = nach;
-                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 ' + nach + ')';
+                document.getElementById('anf-dest').value = '\u015awinouj\u015bcie ' + z.name;
+                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + z.name + ')';
                 document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
                 document.getElementById('anf-price-box').style.display = 'block';
-                document.getElementById('anf-route-info').textContent = 'Festpreis-Angebot';
+                document.getElementById('anf-route-info').textContent = 'Festpreis-Angebot \u2014 ' + z.name;
+                document.getElementById('festpreis-absetz').style.display = 'none';
                 window.scrollTo({top: 0, behavior: 'smooth'});
             }
             </script>

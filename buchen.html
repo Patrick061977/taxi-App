@@ -1107,26 +1107,43 @@
             }
             const activeCount = fitCount; // Weiterrechnen mit passenden Fahrzeugen
 
-            // Konflikt-Check: Bestehende Fahrten laden
+            // Konflikt-Check: Bestehende Fahrten laden (gleiche Logik wie Cloud Function)
             try {
+                // Buffer aus Firebase-Einstellungen (settings/pricing)
+                const boardingTime = pricingSettings.boardingTime || 2;
+                const alightingTime = pricingSettings.alightingTime || 2;
+                const mindestAbstandMin = pricingSettings.mindestAbstandMin || 0;
+                const bufferMs = (boardingTime + alightingTime + mindestAbstandMin) * 60000;
+                const defaultDuration = 30; // wie Cloud Function
+
+                // Gleicher Tag — Start/Ende des Tages berechnen
+                const dayStart = new Date(dateStr + 'T00:00:00').getTime();
+                const dayEnd = dayStart + 24 * 3600000;
                 const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
-                    .startAt(ts - 6 * 3600000).endAt(ts + 6 * 3600000).once('value');
-                const activeStatuses = ['new', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+                    .startAt(dayStart).endAt(dayEnd).once('value');
+
+                const activeStatuses = ['new', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 let conflictCount = 0;
-                // 🔧 v6.38.57: Alle Endzeiten sammeln um früheste Verfügbarkeit zu berechnen
                 const rideEndTimes = [];
+                const nowTs = Date.now();
+
                 ridesSnap.forEach(child => {
                     const r = child.val();
+                    // Inaktive Status rausfiltern
                     if (!activeStatuses.includes(r.status)) return;
-                    const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
-                    const buffer = 15 * 60000;
-                    const rEnd = r.pickupTimestamp + rDur + buffer; // Mit Puffer für Konflikterkennung
-                    const rEndReal = r.pickupTimestamp + rDur; // 🔧 v6.38.58: OHNE Puffer für Anzeige
-                    const newDur = (routeData ? parseInt(routeData.min) : 20) * 60000;
-                    const newEnd = ts + newDur + buffer;
+                    // Hotel-Kalender-Imports ignorieren
+                    if (r.source === 'hotel_calendar_import' || r.hotelCalendarId) return;
+                    // Bereits abgelaufene Fahrten ignorieren
+                    const rDur = (r.duration || r.estimatedDuration || defaultDuration) * 60000;
+                    const rEndReal = r.pickupTimestamp + rDur;
+                    if (rEndReal < nowTs) return; // Fahrt schon vorbei
+
+                    const rEnd = r.pickupTimestamp + rDur + bufferMs;
+                    const newDur = (routeData ? parseInt(routeData.min) : defaultDuration) * 60000;
+                    const newEnd = ts + newDur + bufferMs;
                     if (ts < rEnd && r.pickupTimestamp < newEnd) {
                         conflictCount++;
-                        rideEndTimes.push(rEndReal); // 🔧 v6.38.58: Echte Endzeit ohne Puffer anzeigen
+                        rideEndTimes.push(rEndReal);
                     }
                 });
 
@@ -1257,6 +1274,15 @@
                 const data = snap.val();
                 Object.assign(TARIF, data);
                 console.log('Tarif aus Firebase geladen:', TARIF);
+            }
+        });
+
+        // Pricing-Einstellungen aus Firebase laden (Boarding, Alighting, Buffer etc.)
+        let pricingSettings = {};
+        db.ref('settings/pricing').once('value', snap => {
+            if (snap.exists()) {
+                pricingSettings = snap.val();
+                console.log('Pricing-Settings geladen:', pricingSettings);
             }
         });
 

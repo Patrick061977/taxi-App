@@ -291,7 +291,7 @@
                 if (berlinH >= 10) {
                     var morgen = new Date(jetzt.getTime() + 86400000);
                     if (dateEl) dateEl.value = morgen.getFullYear() + '-' + String(morgen.getMonth()+1).padStart(2,'0') + '-' + String(morgen.getDate()).padStart(2,'0');
-                    if (timeEl) timeEl.value = '08:00';
+                    if (timeEl) timeEl.value = '06:00';
                 } else {
                     var minZeit = new Date(jetzt.getTime() + 60 * 60000);
                     if (dateEl) dateEl.value = minZeit.getFullYear() + '-' + String(minZeit.getMonth()+1).padStart(2,'0') + '-' + String(minZeit.getDate()).padStart(2,'0');

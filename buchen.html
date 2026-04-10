@@ -1148,12 +1148,41 @@
         }
 
         function onDateTimeChange() {
-            // Slot-Auswahl im Kalender zurücksetzen bei manueller Änderung
-            _selectedSlot = null;
-            const infoEl = document.getElementById('slot-selected-info');
-            if (infoEl) infoEl.style.display = 'none';
-            if (_slotCalendarDate && wannModus === 'vorbestellen') {
-                renderSlotTimeline(_slotCalendarDate);
+            // Gewählte Zeit aus Dropdowns holen und passenden Slot markieren
+            const dateVal = document.getElementById('b-date').value;
+            const hourVal = document.getElementById('b-hour').value;
+            const minVal = document.getElementById('b-minute').value;
+            if (dateVal && hourVal && minVal && wannModus === 'vorbestellen') {
+                // Auf nächsten 10-Min-Slot runden
+                const m = parseInt(minVal);
+                const roundedMin = Math.floor(m / 10) * 10;
+                const slotTime = hourVal + ':' + String(roundedMin).padStart(2, '0');
+                _selectedSlot = slotTime + '_' + dateVal;
+                _slotCalendarDate = dateVal;
+                // Tag-Tab aktiv setzen
+                document.querySelectorAll('.day-tab').forEach(t => {
+                    t.classList.toggle('active', t._dateStr === dateVal);
+                });
+                renderSlotTimeline(dateVal);
+                // Info anzeigen
+                const infoEl = document.getElementById('slot-selected-info');
+                if (infoEl) {
+                    const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                    const dt = new Date(dateVal + 'T00:00:00');
+                    infoEl.textContent = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${hourVal}:${minVal} Uhr`;
+                    infoEl.style.display = '';
+                }
+                // Zum Slot scrollen
+                const scrollContainer = document.getElementById('slot-timeline');
+                if (scrollContainer) {
+                    const h = parseInt(hourVal);
+                    const slotIndex = Math.floor(((h - 5) * 60 + roundedMin) / 10); // Grob
+                    scrollContainer.scrollLeft = Math.max(0, slotIndex * 40 - 60);
+                }
+            } else {
+                _selectedSlot = null;
+                const infoEl = document.getElementById('slot-selected-info');
+                if (infoEl) infoEl.style.display = 'none';
             }
             checkRoute();
         }
@@ -1216,6 +1245,7 @@
                 const tab = document.createElement('div');
                 tab.className = 'day-tab' + (i === 0 ? ' active' : '');
                 tab.textContent = label;
+                tab._dateStr = ds; // für onDateTimeChange
                 tab.onclick = () => {
                     document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');

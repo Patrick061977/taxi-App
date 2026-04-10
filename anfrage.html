@@ -257,7 +257,7 @@
                 setTimeout(function() {
                     var mapEl = document.getElementById('festpreis-map');
                     if (!mapEl || !window.L) return;
-                    var map = L.map('festpreis-map', {zoomControl:false, attributionControl:false, dragging:false, touchZoom:true, scrollWheelZoom:false, doubleClickZoom:false}).fitBounds([[53.9080, 14.233],[53.9250, 14.250]], {padding:[15,15]});
+                    var map = L.map('festpreis-map', {zoomControl:true, attributionControl:false, dragging:true, touchZoom:true, scrollWheelZoom:false, doubleClickZoom:true}).fitBounds([[53.9080, 14.233],[53.9250, 14.250]], {padding:[15,15]});
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                     var greenIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#059669;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">P</div>',iconSize:[24,24],iconAnchor:[12,12]});
                     var orangeIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#f59e0b;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">Z</div>',iconSize:[24,24],iconAnchor:[12,12]});

@@ -426,10 +426,13 @@
                 <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
                 <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
                     <div class="day-tabs" id="day-tabs"></div>
-                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow:hidden;min-height:60px;">
-                        <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:10px;color:#64748b;font-weight:600;"></div>
-                        <div id="slot-timeline-bar" style="position:relative;height:48px;margin:6px 4px;"></div>
+                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
+                        <div id="slot-timeline-inner" style="min-width:600px;">
+                            <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:11px;color:#64748b;font-weight:600;"></div>
+                            <div id="slot-timeline-bar" style="position:relative;height:56px;margin:6px 4px;"></div>
+                        </div>
                     </div>
+                    <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
                     <div id="slot-selected-info" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:#065f46;"></div>
                     <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#94a3b8;justify-content:center;">
                         <span><span style="display:inline-block;width:10px;height:10px;background:#d1fae5;border:1px solid #a7f3d0;border-radius:2px;vertical-align:middle;"></span> Frei</span>
@@ -1206,14 +1209,16 @@
 
             const totalHours = shiftEnd - shiftStart;
 
-            // Header: Stunden-Labels
+            // Header: Stunden-Labels (Pixel-basiert wie Timeline-Bar)
+            const slotsPerHour = 60 / 15; // 4 Slots pro Stunde
+            const pxPerHour = slotsPerHour * 40; // 4 * 40 = 160px pro Stunde
             headerEl.innerHTML = '';
             for (let h = shiftStart; h < shiftEnd; h++) {
-                const pct = ((h - shiftStart) / totalHours) * 100;
-                headerEl.innerHTML += `<div style="position:absolute;left:${pct}%;width:${100/totalHours}%;text-align:center;padding:4px 0;border-right:1px solid #e2e8f0;">${String(h).padStart(2,'0')}:00</div>`;
+                const leftPx = (h - shiftStart) * pxPerHour;
+                headerEl.innerHTML += `<div style="position:absolute;left:${leftPx}px;width:${pxPerHour}px;text-align:center;padding:4px 0;border-right:1px solid #e2e8f0;font-size:11px;">${String(h).padStart(2,'0')}:00</div>`;
             }
             headerEl.style.position = 'relative';
-            headerEl.style.height = '24px';
+            headerEl.style.height = '26px';
 
             // Bestehende Fahrten laden
             const boardingTime = pricingSettings.boardingTime || 2;
@@ -1246,8 +1251,14 @@
 
             // Fahrzeuganzahl pro Zeitslot ermitteln + Konflikte zählen
             barEl.innerHTML = '';
-            const slotMinutes = 30;
+            const slotMinutes = 15; // 15-Min-Slots für feinere Auswahl (z.B. 08:15)
             const totalSlots = totalHours * (60 / slotMinutes);
+            const pxPerSlot = 40; // Breite pro Slot in Pixel
+            const totalWidth = totalSlots * pxPerSlot;
+
+            // Inner-Container auf exakte Breite setzen
+            const innerEl = document.getElementById('slot-timeline-inner');
+            if (innerEl) innerEl.style.minWidth = totalWidth + 'px';
 
             for (let i = 0; i < totalSlots; i++) {
                 const slotH = shiftStart + Math.floor(i * slotMinutes / 60);
@@ -1267,15 +1278,16 @@
                 const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
 
                 // Status bestimmen
-                const pct = (i / totalSlots) * 100;
-                const wPct = (1 / totalSlots) * 100;
+                const leftPx = i * pxPerSlot;
                 let bg, border, cursor, opacity;
                 const isPast = isToday && slotTs < nowTs;
+                // Mindestens 1 Stunde Vorlauf für Vorbestellungen
+                const tooSoon = isToday && slotTs < (nowTs + 60 * 60000);
 
-                if (isPast) {
-                    bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.5';
+                if (isPast || tooSoon) {
+                    bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.4';
                 } else if (vehiclesInShift === 0) {
-                    bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.6';
+                    bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.5';
                 } else if (freeVehicles > 0) {
                     bg = '#d1fae5'; border = '#a7f3d0'; cursor = 'pointer'; opacity = '1';
                 } else {
@@ -1286,15 +1298,15 @@
                 if (isSelected) { bg = '#059669'; border = '#059669'; }
 
                 const block = document.createElement('div');
-                block.style.cssText = `position:absolute;left:${pct}%;width:${wPct}%;height:100%;background:${bg};border-right:1px solid ${border};cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;transition:background 0.15s;`;
+                block.style.cssText = `position:absolute;left:${leftPx}px;width:${pxPerSlot}px;height:100%;background:${bg};border-right:1px solid ${border};cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:background 0.15s;`;
                 block.title = `${slotTimeStr} — ${freeVehicles > 0 ? freeVehicles + ' frei' : vehiclesInShift === 0 ? 'Kein Dienst' : 'Belegt'}`;
 
-                // Label nur für jede volle Stunde oder wenn genug Platz
-                if (slotM === 0) {
-                    block.innerHTML = `<span style="font-size:10px;font-weight:600;color:${isSelected ? 'white' : freeVehicles > 0 ? '#065f46' : '#94a3b8'};pointer-events:none;">${String(slotH).padStart(2,'0')}</span>`;
-                }
+                // Zeitlabel in jedem Slot anzeigen (15-Min-Raster)
+                const isFullHour = slotM === 0;
+                const labelColor = isSelected ? 'white' : isPast || tooSoon ? '#cbd5e1' : freeVehicles > 0 ? '#065f46' : '#94a3b8';
+                block.innerHTML = `<span style="font-size:${isFullHour ? '11' : '10'}px;font-weight:${isFullHour ? '700' : '500'};color:${labelColor};pointer-events:none;line-height:1;">${slotTimeStr}</span>`;
 
-                if (!isPast && freeVehicles > 0 && vehiclesInShift > 0) {
+                if (!isPast && !tooSoon && freeVehicles > 0 && vehiclesInShift > 0) {
                     block.onmouseover = () => { if (!block.classList.contains('sel')) block.style.background = '#a7f3d0'; };
                     block.onmouseout = () => { if (!block.classList.contains('sel')) block.style.background = '#d1fae5'; };
                     block.onclick = () => selectSlot(dateStr, slotTimeStr, slotH, slotM);

@@ -1990,10 +1990,14 @@
 
             if (inputId === 'b-pickup') {
                 pickupCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
-                // 🔧 v6.38.82: ETA in Status-Bar sofort aktualisieren nach Adresseingabe
+                // ETA in Status-Bar sofort aktualisieren nach Adresseingabe
                 const bar = document.getElementById('status-bar');
                 const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), passengers);
                 if (cnt > 0 && wannModus === 'sofort') calcStatusBarEta(bar, cnt);
+                // Kalender sofort aktualisieren (Leerfahrt-Berechnung braucht nur Abholort)
+                if (_slotCalendarDate && wannModus === 'vorbestellen') {
+                    renderSlotTimeline(_slotCalendarDate);
+                }
             }
             if (inputId === 'b-destination') destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
             if (inputId === 'b-stopp') stoppCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;

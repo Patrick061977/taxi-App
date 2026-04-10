@@ -434,11 +434,12 @@
                     </div>
                     <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
                     <div id="slot-selected-info" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:#065f46;"></div>
-                    <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#94a3b8;justify-content:center;">
+                    <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#94a3b8;justify-content:center;flex-wrap:wrap;">
                         <span><span style="display:inline-block;width:10px;height:10px;background:#d1fae5;border:1px solid #a7f3d0;border-radius:2px;vertical-align:middle;"></span> Frei</span>
                         <span><span style="display:inline-block;width:10px;height:10px;background:#fecaca;border:1px solid #fca5a5;border-radius:2px;vertical-align:middle;"></span> Belegt</span>
                         <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:2px;vertical-align:middle;"></span> Kein Dienst</span>
                     </div>
+                    <div id="slot-route-hint" style="text-align:center;margin-top:4px;font-size:11px;color:#f59e0b;font-weight:600;"></div>
                 </div>
             </div>
 
@@ -1189,6 +1190,18 @@
             const barEl = document.getElementById('slot-timeline-bar');
             if (!headerEl || !barEl) return;
 
+            // Hinweis ob Route bekannt ist
+            const hintEl = document.getElementById('slot-route-hint');
+            if (hintEl) {
+                if (routeData && routeData.min) {
+                    hintEl.textContent = `Ihre Fahrt dauert ca. ${routeData.min} Min — Konflikte werden berücksichtigt`;
+                    hintEl.style.color = '#059669';
+                } else {
+                    hintEl.textContent = 'Tipp: Erst Abholort + Zielort eingeben — dann wird geprüft ob Ihre Fahrt in den Slot passt';
+                    hintEl.style.color = '#f59e0b';
+                }
+            }
+
             // Schichtzeiten ermitteln: Frühester Start und spätestes Ende aller Fahrzeuge
             let shiftStart = 24, shiftEnd = 0;
             let anyShift = false;
@@ -1273,8 +1286,13 @@
                     if (isVehicleInShift(vid, dateStr, slotTimeStr)) vehiclesInShift++;
                 }
 
-                // Konflikte: Wie viele Fahrten überlappen diesen Slot?
-                const overlapping = rides.filter(r => r.start < slotEndTs && r.end > slotTs).length;
+                // Konflikte: Passt die KUNDENFAHRT in diesen Slot?
+                // Wenn Route berechnet → echte Fahrtdauer nehmen, sonst nur Slot-Breite prüfen
+                const kundenDauer = routeData ? parseInt(routeData.min) : 0;
+                const kundenEndTs = kundenDauer > 0
+                    ? slotTs + (kundenDauer + bufferMin) * 60000  // Echte Fahrtdauer + Buffer
+                    : slotEndTs;  // Keine Route → nur Slot prüfen
+                const overlapping = rides.filter(r => r.start < kundenEndTs && r.end > slotTs).length;
                 const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
 
                 // Status bestimmen
@@ -1925,6 +1943,10 @@
                     routeData = { km, min, price: pricing.total, geometry: route.geometry };
                     logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
 
+                    // Kalender neu rendern mit echter Fahrtdauer
+                    if (_slotCalendarDate && wannModus === 'vorbestellen') {
+                        renderSlotTimeline(_slotCalendarDate);
+                    }
                     document.getElementById('r-price').textContent = pricing.total + '€';
                     document.getElementById('r-distance').textContent = km;
                     document.getElementById('r-duration').textContent = '~' + min;

@@ -30,6 +30,15 @@
                 <input type="text" id="anf-pickup" placeholder="z.B. Seestr. 12, Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
                 <div id="anf-pickup-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
+            <!-- Zwischenstopp -->
+            <div id="anf-stopp-box" style="display:none;margin-bottom:12px;">
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📍 Zwischenstopp</label>
+                <input type="text" id="anf-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." style="width:100%;padding:12px;border:2px solid #f59e0b;border-radius:10px;font-size:15px;background:#fffbeb;" autocomplete="off">
+                <div id="anf-stopp-dropdown" style="display:none;position:relative;background:white;border:2px solid #f59e0b;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+            </div>
+            <div id="anf-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
+                <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzuf&uuml;gen</button>
+            </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🎯 Zielort</label>
                 <input type="text" id="anf-dest" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
@@ -239,7 +248,7 @@ window.addEventListener('load', async function() {
 });
 
 var _anfDebounce = {};
-['anf-pickup','anf-dest'].forEach(function(id) {
+['anf-pickup','anf-dest','anf-stopp'].forEach(function(id) {
     var input = document.getElementById(id);
     if (!input) return;
     input.addEventListener('input', function() {
@@ -251,6 +260,8 @@ var _anfDebounce = {};
 document.addEventListener('click', function(e) {
     if (!e.target.closest('#anf-pickup-dropdown') && !e.target.closest('#anf-pickup')) document.getElementById('anf-pickup-dropdown').style.display='none';
     if (!e.target.closest('#anf-dest-dropdown') && !e.target.closest('#anf-dest')) document.getElementById('anf-dest-dropdown').style.display='none';
+    var stoppDD = document.getElementById('anf-stopp-dropdown');
+    if (stoppDD && !e.target.closest('#anf-stopp-dropdown') && !e.target.closest('#anf-stopp')) stoppDD.style.display='none';
 });
 
 async function anfSearch(query, inputId) {
@@ -284,6 +295,7 @@ async function anfSelect(inputId, placeId, mainText, secText) {
             var lat = place.location?.lat();
             var lng = place.location?.lng();
             if (inputId === 'anf-pickup') anfPickupCoords = {lat:lat,lon:lng};
+            else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};
             else anfDestCoords = {lat:lat,lon:lng};
             document.getElementById(inputId).value = place.formattedAddress || mainText;
             calcAnfPrice();
@@ -294,7 +306,11 @@ async function anfSelect(inputId, placeId, mainText, secText) {
 async function calcAnfPrice() {
     if (!anfPickupCoords || !anfDestCoords) return;
     try {
-        var resp = await fetch('https://router.project-osrm.org/route/v1/driving/' + anfPickupCoords.lon + ',' + anfPickupCoords.lat + ';' + anfDestCoords.lon + ',' + anfDestCoords.lat + '?overview=false');
+        // Route: Pickup → (Stopp) → Ziel
+        var waypoints = anfPickupCoords.lon + ',' + anfPickupCoords.lat;
+        if (anfStoppCoords) waypoints += ';' + anfStoppCoords.lon + ',' + anfStoppCoords.lat;
+        waypoints += ';' + anfDestCoords.lon + ',' + anfDestCoords.lat;
+        var resp = await fetch('https://router.project-osrm.org/route/v1/driving/' + waypoints + '?overview=false');
         var data = await resp.json();
         if (!data.routes || !data.routes[0]) return;
         var km = data.routes[0].distance / 1000;
@@ -352,8 +368,9 @@ function getAnfrageText() {
     var phoneCountry = document.getElementById('anf-phone-country').value || '+49';
     var phone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
     var price = document.getElementById('anf-price').textContent || '?';
+    var stopp = document.getElementById('anf-stopp')?.value || '';
     var notes = document.getElementById('anf-notes').value || '';
-    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + name + '\n\ud83d\udcf1 ' + phone + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '');
+    return 'Taxi-Anfrage:\n\ud83d\udccd Von: ' + pickup + (stopp ? '\n\ud83d\udccd Zwischenstopp: ' + stopp : '') + '\n\ud83c\udfaf Nach: ' + dest + '\n\ud83d\udcc5 ' + date + ' um ' + time + ' Uhr\n\ud83d\udc65 ' + anfPax + ' Person(en)\n\ud83d\udc64 ' + name + '\n\ud83d\udcf1 ' + phone + '\n\ud83d\udcb0 ca. ' + price + (notes ? '\n\ud83d\udcac Bemerkung: ' + notes : '');
 }
 
 // Anfrage in Firebase speichern (Tracking)
@@ -416,6 +433,14 @@ function showAnfrageSuccess() {
             + '<button onclick="location.reload()" style="margin-top:16px;padding:12px 24px;background:#059669;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">🔄 Neue Anfrage</button>'
             + '</div>';
     }
+}
+
+var anfStoppCoords = null;
+
+function showZwischenstopp() {
+    document.getElementById('anf-stopp-box').style.display = 'block';
+    document.getElementById('anf-stopp-btn-box').style.display = 'none';
+    document.getElementById('anf-stopp').focus();
 }
 
 function toggleRabatt() {

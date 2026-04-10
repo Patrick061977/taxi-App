@@ -176,6 +176,62 @@
                 📞 <strong>Bitte rechtzeitig vorbestellen!</strong> Um alle Fahrten reibungslos planen zu k&ouml;nnen, bitten wir Sie, Ihre Fahrt fr&uuml;hzeitig zu buchen. Vorbestellungen bis 22:00 Uhr am gleichen Tag. Anfragen nach 22:00 Uhr werden erst am n&auml;chsten Morgen ab 07:00 Uhr bearbeitet.
             </div>
 
+            <!-- Festpreis-Angebote (nur bis 10:00 Uhr) -->
+            <div id="festpreis-section" style="display:none;margin-top:16px;">
+                <div style="text-align:center;margin-bottom:10px;">
+                    <div style="font-size:16px;font-weight:700;color:#059669;">🏷️ Festpreis-Angebote</div>
+                    <div style="font-size:11px;color:#f59e0b;font-weight:600;" id="festpreis-timer">Nur bis 10:00 Uhr verf&uuml;gbar!</div>
+                </div>
+
+                <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">🇵🇱 &Sacute;winouj&sacute;cie (Swinem&uuml;nde)</div>
+                <div style="display:grid;gap:6px;margin-bottom:12px;">
+                    <div onclick="selectFestpreis('Heringsdorf','\u015awinouj\u015bcie',25)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <div>
+                            <div style="font-size:13px;font-weight:600;">Heringsdorf &rarr; &Sacute;winouj&sacute;cie</div>
+                            <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
+                        </div>
+                        <div style="font-size:18px;font-weight:800;color:#059669;">25&euro;</div>
+                    </div>
+                    <div onclick="selectFestpreis('Ahlbeck','\u015awinouj\u015bcie',20)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <div>
+                            <div style="font-size:13px;font-weight:600;">Ahlbeck &rarr; &Sacute;winouj&sacute;cie</div>
+                            <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
+                        </div>
+                        <div style="font-size:18px;font-weight:800;color:#059669;">20&euro;</div>
+                    </div>
+                    <div onclick="selectFestpreis('Bansin','\u015awinouj\u015bcie',30)" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#059669'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <div>
+                            <div style="font-size:13px;font-weight:600;">Bansin &rarr; &Sacute;winouj&sacute;cie</div>
+                            <div style="font-size:11px;color:#64748b;">Zentrum, Promenade, Hafen, Kurgebiet</div>
+                        </div>
+                        <div style="font-size:18px;font-weight:800;color:#059669;">30&euro;</div>
+                    </div>
+                </div>
+
+                <div style="font-size:11px;color:#64748b;text-align:center;padding:8px;background:#f8fafc;border-radius:8px;">
+                    📍 <strong>Absetzpunkte in &Sacute;winouj&sacute;cie:</strong> Zentrum, Promenade, Kurviertel, Hafen, Polenmarkt, Bahnhof &mdash; oder Wunschziel auf Anfrage
+                </div>
+            </div>
+            <script>
+            (function() {
+                var h = new Date().getHours();
+                if (h < 10) {
+                    document.getElementById('festpreis-section').style.display = 'block';
+                    var rest = 10 - h;
+                    document.getElementById('festpreis-timer').textContent = '\u23f0 Noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' verf\u00fcgbar \u2014 nur bis 10:00 Uhr!';
+                }
+            })();
+            function selectFestpreis(von, nach, preis) {
+                document.getElementById('anf-pickup').value = von;
+                document.getElementById('anf-dest').value = nach;
+                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 ' + nach + ')';
+                document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
+                document.getElementById('anf-price-box').style.display = 'block';
+                document.getElementById('anf-route-info').textContent = 'Festpreis-Angebot';
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+            </script>
+
             <!-- Vertrauens-Leiste -->
             <div style="display:flex;justify-content:center;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;flex-wrap:wrap;">
                 <div style="text-align:center;font-size:11px;color:#64748b;">

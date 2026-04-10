@@ -31,9 +31,12 @@
                 <div id="anf-pickup-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
             <!-- Zwischenstopp -->
-            <div id="anf-stopp-box" style="display:none;margin-bottom:12px;">
+            <div id="anf-stopp-box" style="display:none;margin-bottom:12px;position:relative;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📍 Zwischenstopp</label>
-                <input type="text" id="anf-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." style="width:100%;padding:12px;border:2px solid #f59e0b;border-radius:10px;font-size:15px;background:#fffbeb;" autocomplete="off">
+                <div style="display:flex;gap:6px;">
+                    <input type="text" id="anf-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." style="flex:1;padding:12px;border:2px solid #f59e0b;border-radius:10px;font-size:15px;background:#fffbeb;" autocomplete="off">
+                    <button onclick="clearZwischenstopp()" style="width:40px;height:40px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:16px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
+                </div>
                 <div id="anf-stopp-dropdown" style="display:none;position:relative;background:white;border:2px solid #f59e0b;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
             <div id="anf-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
@@ -233,12 +236,14 @@
                 box.innerHTML = '<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;">📍 Wo m\u00f6chten Sie abgesetzt werden?</div>'
                     + Object.keys(FESTPREIS_ZIELE).map(function(key) {
                         var z = FESTPREIS_ZIELE[key];
-                        return '<div onclick="confirmFestpreis(\'' + von + '\',' + preis + ',\'' + key + '\')" style="display:flex;gap:10px;padding:10px;background:white;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;margin-bottom:6px;" onmouseover="this.style.borderColor=\'#059669\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">'
-                            + '<img src="https://maps.googleapis.com/maps/api/staticmap?center=' + z.lat + ',' + z.lon + '&zoom=16&size=80x80&markers=color:green|' + z.lat + ',' + z.lon + '&key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg" style="width:60px;height:60px;border-radius:8px;flex-shrink:0;object-fit:cover;">'
-                            + '<div>'
+                        return '<div style="display:flex;gap:10px;padding:10px;background:white;border:2px solid #e2e8f0;border-radius:10px;margin-bottom:6px;align-items:center;" onmouseover="this.style.borderColor=\'#059669\'" onmouseout="this.style.borderColor=\'#e2e8f0\'">'
+                            + '<a href="https://www.google.com/maps?q=' + z.lat + ',' + z.lon + '" target="_blank" style="flex-shrink:0;">'
+                            + '<img src="https://maps.googleapis.com/maps/api/staticmap?center=' + z.lat + ',' + z.lon + '&zoom=15&size=120x80&scale=2&markers=color:green|' + z.lat + ',' + z.lon + '&key=AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE" style="width:70px;height:50px;border-radius:6px;object-fit:cover;border:1px solid #e2e8f0;">'
+                            + '</a>'
+                            + '<div style="flex:1;cursor:pointer;" onclick="confirmFestpreis(\'' + von + '\',' + preis + ',\'' + key + '\')">'
                             + '<div style="font-size:13px;font-weight:700;color:#059669;">' + z.name + '</div>'
                             + '<div style="font-size:11px;color:#64748b;">' + z.beschreibung + '</div>'
-                            + '<div style="font-size:14px;font-weight:800;color:#059669;margin-top:2px;">' + preis + '\u20ac</div>'
+                            + '<div style="font-size:14px;font-weight:800;color:#059669;margin-top:2px;">' + preis + '\u20ac \u2014 ausw\u00e4hlen</div>'
                             + '</div></div>';
                     }).join('')
                     + '<div onclick="document.getElementById(\'festpreis-absetz\').style.display=\'none\'" style="text-align:center;padding:8px;font-size:12px;color:#94a3b8;cursor:pointer;">Abbrechen</div>';
@@ -522,6 +527,14 @@ function showZwischenstopp() {
     document.getElementById('anf-stopp-box').style.display = 'block';
     document.getElementById('anf-stopp-btn-box').style.display = 'none';
     document.getElementById('anf-stopp').focus();
+}
+
+function clearZwischenstopp() {
+    document.getElementById('anf-stopp').value = '';
+    anfStoppCoords = null;
+    document.getElementById('anf-stopp-box').style.display = 'none';
+    document.getElementById('anf-stopp-btn-box').style.display = 'block';
+    calcAnfPrice();
 }
 
 function toggleRabatt() {

@@ -439,6 +439,9 @@ async function calcAnfPrice() {
         var tarifLabel = isSunday && !isNightTime ? 'Sonn-/Feiertagstarif' : isNightTime ? 'Nachttarif' : '';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '');
         document.getElementById('anf-price-box').style.display = 'block';
+        // Alte Festpreis-Bemerkung leeren wenn neu berechnet wird
+        var notesEl = document.getElementById('anf-notes');
+        if (notesEl && notesEl.value.indexOf('Festpreis') === 0) notesEl.value = '';
         // Hin-und-Zurück Rabatt ab 30km ODER Świnoujście
         var rabattBox = document.getElementById('anf-rabatt-box');
         var destVal = (document.getElementById('anf-dest').value || '').toLowerCase();

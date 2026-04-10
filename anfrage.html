@@ -259,9 +259,18 @@
                     document.getElementById('festpreis-timer').textContent = '\u23f0 Noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' verf\u00fcgbar \u2014 nur bis 10:00 Uhr!';
                 }
             })();
+            var ORTE_COORDS = {
+                'Ahlbeck': {lat:53.9340, lon:14.1940},
+                'Heringsdorf': {lat:53.9460, lon:14.1630},
+                'Bansin': {lat:53.9570, lon:14.1400}
+            };
             function quickFestpreis(von, ziel, preis) {
                 document.getElementById('anf-pickup').value = von;
                 document.getElementById('anf-dest').value = '\u015awinouj\u015bcie ' + ziel;
+                // Koordinaten setzen damit spätere Adressänderung Preis berechnen kann
+                if (ORTE_COORDS[von]) anfPickupCoords = ORTE_COORDS[von];
+                if (ziel === 'Promenade') anfDestCoords = {lat:53.92283, lon:14.23880};
+                if (ziel === 'Zentrum') anfDestCoords = {lat:53.91006, lon:14.24674};
                 document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')';
                 document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
                 document.getElementById('anf-price-box').style.display = 'block';

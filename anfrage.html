@@ -272,6 +272,7 @@
                 'Bansin': {lat:53.9570, lon:14.1400}
             };
             function quickFestpreis(von, ziel, preis) {
+                anfFestpreisAktiv = true;
                 document.getElementById('anf-pickup').value = von;
                 document.getElementById('anf-dest').value = '\u015awinouj\u015bcie ' + ziel;
                 // Koordinaten setzen damit spätere Adressänderung Preis berechnen kann
@@ -421,10 +422,18 @@ async function anfSelect(inputId, placeId, mainText, secText) {
             await place.fetchFields({fields:['location','formattedAddress']});
             var lat = place.location?.lat();
             var lng = place.location?.lng();
-            if (inputId === 'anf-pickup') anfPickupCoords = {lat:lat,lon:lng};
-            else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};
-            else if (inputId === 'anf-festpreis-addr-input') { /* Festpreis-Abholadresse — Preis NICHT ändern */ }
-            else anfDestCoords = {lat:lat,lon:lng};
+            if (inputId === 'anf-festpreis-addr-input') { /* Festpreis-Abholadresse — nichts ändern */ }
+            else {
+                // Manuelle Adressänderung → Festpreis deaktivieren
+                if (anfFestpreisAktiv) {
+                    anfFestpreisAktiv = false;
+                    var fpAddr = document.getElementById('anf-festpreis-addr');
+                    if (fpAddr) fpAddr.style.display = 'none';
+                }
+                if (inputId === 'anf-pickup') anfPickupCoords = {lat:lat,lon:lng};
+                else if (inputId === 'anf-stopp') anfStoppCoords = {lat:lat,lon:lng};
+                else anfDestCoords = {lat:lat,lon:lng};
+            }
             document.getElementById(inputId).value = place.formattedAddress || mainText;
             if (inputId !== 'anf-festpreis-addr-input') calcAnfPrice();
         } catch(e) {}
@@ -432,6 +441,7 @@ async function anfSelect(inputId, placeId, mainText, secText) {
 }
 
 async function calcAnfPrice() {
+    if (anfFestpreisAktiv) return; // Festpreis aktiv — nicht neu berechnen!
     if (!anfPickupCoords || !anfDestCoords) return;
     try {
         // Route: Pickup → (Stopp) → Ziel
@@ -571,6 +581,7 @@ function showAnfrageSuccess() {
 }
 
 var anfStoppCoords = null;
+var anfFestpreisAktiv = false;
 
 function showZwischenstopp() {
     document.getElementById('anf-stopp-box').style.display = 'block';

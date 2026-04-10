@@ -129,7 +129,7 @@
                 </div>
             </div>
             <div style="margin-bottom:12px;">
-                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">💬 Bemerkung (optional)</label>
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">💬 Bemerkung <span id="anf-notes-hint" style="display:none;color:#f59e0b;font-weight:700;">&mdash; Bitte genaue Abholadresse eintragen!</span></label>
                 <input type="text" id="anf-notes" placeholder="z.B. Kindersitz, Rollstuhl, Zwischenstopp..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
             </div>
             <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">
@@ -271,7 +271,10 @@
                 if (ORTE_COORDS[von]) anfPickupCoords = ORTE_COORDS[von];
                 if (ziel === 'Promenade') anfDestCoords = {lat:53.92283, lon:14.23880};
                 if (ziel === 'Zentrum') anfDestCoords = {lat:53.91006, lon:14.24674};
-                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')';
+                document.getElementById('anf-notes').value = 'Festpreis ' + preis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ') \u2014 Abholadresse: ';
+                document.getElementById('anf-notes').focus();
+                var hint = document.getElementById('anf-notes-hint');
+                if (hint) hint.style.display = 'inline';
                 document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
                 document.getElementById('anf-price-box').style.display = 'block';
                 document.getElementById('anf-route-info').textContent = 'Festpreis \u2014 \u015awinouj\u015bcie ' + ziel;

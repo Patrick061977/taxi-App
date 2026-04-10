@@ -366,6 +366,20 @@
                 </div>
             </div>
 
+            <!-- Zwischenstopp -->
+            <div id="b-stopp-btn-box" style="text-align:center;margin-bottom:12px;">
+                <button onclick="showZwischenstopp()" style="padding:6px 14px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">+ Zwischenstopp hinzufügen</button>
+            </div>
+            <div class="input-group" id="b-stopp-box" style="display:none;">
+                <label>📍 Zwischenstopp</label>
+                <span class="input-icon">📍</span>
+                <div style="display:flex;gap:6px;">
+                    <input type="text" id="b-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." autocomplete="off" style="flex:1;padding:12px 14px 12px 38px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
+                    <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
+                </div>
+                <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
+            </div>
+
             <!-- Zielort -->
             <div class="input-group">
                 <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
@@ -616,6 +630,7 @@
         // State
         let pickupCoords = null;
         let destCoords = null;
+        let stoppCoords = null;
         let passengers = 1;
         let routeData = null;
         let smsCode = null;
@@ -906,9 +921,16 @@
             document.getElementById('b-pickup').value = '';
             document.getElementById('b-destination').value = '';
             document.getElementById('b-name').value = '';
+            if (document.getElementById('b-stopp')) document.getElementById('b-stopp').value = '';
             pickupCoords = null;
             destCoords = null;
+            stoppCoords = null;
             routeData = null;
+            // Zwischenstopp zurücksetzen
+            const stoppBox = document.getElementById('b-stopp-box');
+            const stoppBtnBox = document.getElementById('b-stopp-btn-box');
+            if (stoppBox) stoppBox.style.display = 'none';
+            if (stoppBtnBox) stoppBtnBox.style.display = '';
             passengers = 1;
             document.querySelectorAll('.pax-btn').forEach((b, i) => {
                 b.classList.toggle('active', i === 0);
@@ -924,6 +946,23 @@
             updateStatusBar();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             logBuchen('🔄', 'Formular zurückgesetzt');
+        }
+
+        // ═══════════════════════════════════════════════
+        // Zwischenstopp
+        // ═══════════════════════════════════════════════
+        function showZwischenstopp() {
+            document.getElementById('b-stopp-box').style.display = '';
+            document.getElementById('b-stopp-btn-box').style.display = 'none';
+            document.getElementById('b-stopp').focus();
+        }
+
+        function clearZwischenstopp() {
+            document.getElementById('b-stopp').value = '';
+            stoppCoords = null;
+            document.getElementById('b-stopp-box').style.display = 'none';
+            document.getElementById('b-stopp-btn-box').style.display = '';
+            checkRoute();
         }
 
         // ═══════════════════════════════════════════════
@@ -1335,7 +1374,7 @@
         };
 
         let debounceTimer = null;
-        ['b-pickup', 'b-destination'].forEach(id => {
+        ['b-pickup', 'b-destination', 'b-stopp'].forEach(id => {
             const input = document.getElementById(id);
             const dropdown = document.getElementById(id + '-dropdown');
             if (!input || !dropdown) return;
@@ -1518,6 +1557,7 @@
                 if (cnt > 0 && wannModus === 'sofort') calcStatusBarEta(bar, cnt);
             }
             if (inputId === 'b-destination') destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+            if (inputId === 'b-stopp') stoppCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
             checkRoute();
         }
 
@@ -1530,7 +1570,11 @@
                 return;
             }
             try {
-                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords.lon},${pickupCoords.lat};${destCoords.lon},${destCoords.lat}?overview=full&geometries=geojson`);
+                // Route: Pickup → (Zwischenstopp) → Ziel
+                let waypoints = `${pickupCoords.lon},${pickupCoords.lat}`;
+                if (stoppCoords) waypoints += `;${stoppCoords.lon},${stoppCoords.lat}`;
+                waypoints += `;${destCoords.lon},${destCoords.lat}`;
+                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`);
                 const data = await resp.json();
                 if (data.routes && data.routes[0]) {
                     const route = data.routes[0];
@@ -1576,8 +1620,13 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
             L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
             L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');
+            if (stoppCoords) {
+                L.marker([stoppCoords.lat, stoppCoords.lon]).addTo(bookingMap).bindPopup('📍 Zwischenstopp');
+            }
             L.marker([destCoords.lat, destCoords.lon]).addTo(bookingMap).bindPopup('🎯 Zielort');
-            bookingMap.fitBounds([[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]], { padding: [30, 30] });
+            const bounds = [[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]];
+            if (stoppCoords) bounds.push([stoppCoords.lat, stoppCoords.lon]);
+            bookingMap.fitBounds(bounds, { padding: [30, 30] });
         }
 
         // ═══════════════════════════════════════════════
@@ -1679,6 +1728,7 @@
             const pickupTimeStr = new Date(new Date(pickupTs).toLocaleString('en-US', {timeZone:'Europe/Berlin'}))
                 .toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
 
+            const stopp = document.getElementById('b-stopp')?.value || '';
             const rideData = {
                 pickup,
                 destination,
@@ -1688,6 +1738,12 @@
                 destinationLat: destCoords.lat,
                 destinationLon: destCoords.lon,
                 destCoords: { lat: destCoords.lat, lon: destCoords.lon },
+                ...(stopp && stoppCoords && {
+                    zwischenstopp: stopp,
+                    zwischenstoppLat: stoppCoords.lat,
+                    zwischenstoppLon: stoppCoords.lon,
+                    zwischenstoppCoords: { lat: stoppCoords.lat, lon: stoppCoords.lon }
+                }),
                 customerName: (document.getElementById('b-name')?.value || '').trim() || 'Web-Kunde',
                 customerPhone: customerPhone,
                 passengers,
@@ -1746,6 +1802,7 @@
                     </div>` : ''}
                     <div style="font-size:12px;line-height:1.6;">
                         <div>📍 ${pickup}</div>
+                        ${stopp ? `<div>📍 Zwischenstopp: ${stopp}</div>` : ''}
                         <div>🎯 ${destination}</div>
                         <div>👥 ${passengers} Pers. ${routeData ? `· 💰 ca. ${routeData.price}€ · ${routeData.km} km` : ''}</div>
                     </div>
@@ -1825,7 +1882,7 @@
                 });
 
                 showToast('🎉 Buchung erfolgreich!');
-                logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup} → ${destination} | ${passengers} Pers. | ${wannModus}`);
+                logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup}${stopp ? ' → ' + stopp : ''} → ${destination} | ${passengers} Pers. | ${wannModus}`);
                 logBuchen('📱', `KUNDE SIEHT MODAL: ${isVorbestellt ? 'VORBESTELLUNG' : 'SOFORTFAHRT'} | ${isVorbestellt ? _pickupDateStr + ' ' + _pickupTimeStr2 : 'Sofort'} | Tracking: ${trackingUrl} | Stornieren: verfuegbar`);
             } catch(e) {
                 showToast('Fehler bei der Buchung — bitte rufen Sie uns an');

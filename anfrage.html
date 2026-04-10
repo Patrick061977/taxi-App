@@ -454,8 +454,8 @@ async function calcAnfPrice() {
         // Hin-und-Zurück Rabatt ab 30km ODER Świnoujście
         var rabattBox = document.getElementById('anf-rabatt-box');
         var destVal = (document.getElementById('anf-dest').value || '').toLowerCase();
-        var istSwinomuende = destVal.includes('wino') || destVal.includes('winouj') || destVal.includes('swinem');
-        if (rabattBox && (km >= 30 || istSwinomuende)) {
+        var istPolen = (anfDestCoords && anfDestCoords.lon > 14.22) || destVal.includes('wino') || destVal.includes('winouj') || destVal.includes('swinem') || destVal.includes('polen') || destVal.includes('szcze') || destVal.includes('międ');
+        if (rabattBox && (km >= 30 || istPolen)) {
             rabattBox.style.display = 'block';
             var doppel = price * 2;
             var rabattPreis = Math.round((doppel * 0.9) / 0.1) * 0.1;

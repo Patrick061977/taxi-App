@@ -1161,6 +1161,43 @@
         // Zeitfenster-Kalender (Timeline wie Fleet-Kalender)
         // ═══════════════════════════════════════════════
         let _slotCalendarDate = null;
+
+        // Leerfahrt in Minuten berechnen (Luftlinie × 1.3 / 50 km/h)
+        function calcLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
+            const dLat = (fromLat - toLat) * Math.PI / 180;
+            const dLon = (fromLon - toLon) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(fromLat*Math.PI/180)*Math.cos(toLat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.max(3, Math.round((distKm * 1.3 / 50) * 60));
+        }
+
+        // Homebase-Koordinaten aus Schichtplan holen (wie Cloud Function)
+        function getVehicleHomeCoords(vehicleId, dateStr, timeStr) {
+            const vShift = shiftsData[vehicleId];
+            if (!vShift) return null;
+            const dow = new Date(dateStr + 'T00:00:00').getDay();
+            const dayEntry = vShift[dateStr];
+            const defTimes = vShift.defaultTimes || {};
+            // Tagesausnahme mit timeRanges
+            if (dayEntry && dayEntry.timeRanges) {
+                for (const range of dayEntry.timeRanges) {
+                    if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
+                        return range.homeCoords;
+                    }
+                }
+            }
+            if (dayEntry && dayEntry.homeCoords?.lat) return dayEntry.homeCoords;
+            // defaultTimes
+            if (defTimes[dow] && defTimes[dow].timeRanges) {
+                for (const range of defTimes[dow].timeRanges) {
+                    if (timeStr >= range.startTime && timeStr <= range.endTime && range.homeCoords?.lat) {
+                        return range.homeCoords;
+                    }
+                }
+            }
+            if (defTimes[dow] && defTimes[dow].homeCoords?.lat) return defTimes[dow].homeCoords;
+            return null;
+        }
         let _selectedSlot = null;
 
         function initSlotCalendar() {
@@ -1203,10 +1240,7 @@
             const hintEl = document.getElementById('slot-route-hint');
             if (hintEl) {
                 if (routeData && routeData.min) {
-                    const hin = parseInt(routeData.min);
-                    const rueck = Math.round(hin * 0.8);
-                    const gesamt = hin + rueck + bufferMin;
-                    hintEl.textContent = `Ihre Fahrt: ca. ${hin} Min hin + ${rueck} Min Rückfahrt = ${gesamt} Min blockiert`;
+                    hintEl.textContent = `Ihre Fahrt dauert ca. ${routeData.min} Min — Leerfahrten werden berücksichtigt`;
                     hintEl.style.color = '#059669';
                 } else {
                     hintEl.textContent = 'Tipp: Erst Abholort + Zielort eingeben — dann wird geprüft ob Ihre Fahrt passt';
@@ -1266,10 +1300,19 @@
                     if (!activeStatuses.includes(r.status)) return;
                     if (r.source === 'hotel_calendar_import' || r.hotelCalendarId) return;
                     const dur = r.duration || r.estimatedDuration || defaultDuration;
+                    const endReal = r.pickupTimestamp + dur * 60000;
+                    // Leerfahrt: Zielort der bestehenden Fahrt → Abholort des neuen Kunden
+                    let leerfahrtMin = 0;
+                    const destLat = r.destCoords?.lat || r.destinationLat;
+                    const destLon = r.destCoords?.lon || r.destinationLon;
+                    if (destLat && destLon && pickupCoords) {
+                        leerfahrtMin = calcLeerfahrtMin(destLat, destLon, pickupCoords.lat, pickupCoords.lon);
+                    }
                     rides.push({
                         start: r.pickupTimestamp,
-                        end: r.pickupTimestamp + (dur + bufferMin) * 60000,
-                        endReal: r.pickupTimestamp + dur * 60000
+                        end: endReal + (leerfahrtMin + bufferMin) * 60000,
+                        endReal: endReal,
+                        destLat: destLat, destLon: destLon
                     });
                 });
             } catch(e) {}
@@ -1299,13 +1342,39 @@
                 }
 
                 // Konflikte: Passt die KUNDENFAHRT in diesen Slot?
-                // Hin + Rückfahrt: Fahrer fährt Kunden hin (X Min) und muss zurück (ca. X Min)
+                // 1) Kundenfahrt blockiert: Fahrtdauer + Buffer
+                // 2) Leerfahrt VOR der Kundenfahrt: Fahrer muss vom letzten Zielort
+                //    oder der Homebase zum Abholort kommen
                 const kundenDauer = routeData ? parseInt(routeData.min) : 0;
-                const rueckfahrtFaktor = 0.8; // Rückfahrt ca. 80% der Hinfahrt (leer, schneller)
+                let leerfahrtVorher = 0;
+                if (pickupCoords && kundenDauer > 0) {
+                    // Gibt es eine Fahrt die kurz VOR diesem Slot endet?
+                    const vorherigefahrt = rides.filter(r => r.endReal <= slotTs && r.endReal > slotTs - 120*60000)
+                        .sort((a,b) => b.endReal - a.endReal)[0];
+                    if (vorherigefahrt && vorherigefahrt.destLat && vorherigefahrt.destLon) {
+                        // Fahrer kommt vom Zielort der letzten Fahrt
+                        leerfahrtVorher = calcLeerfahrtMin(vorherigefahrt.destLat, vorherigefahrt.destLon, pickupCoords.lat, pickupCoords.lon);
+                    } else {
+                        // Kein vorheriger Auftrag → Fahrer kommt von Homebase
+                        for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
+                            if (!isVehicleInShift(vid, dateStr, slotTimeStr)) continue;
+                            const home = getVehicleHomeCoords(vid, dateStr, slotTimeStr);
+                            if (home && home.lat) {
+                                const hMin = calcLeerfahrtMin(home.lat, home.lon, pickupCoords.lat, pickupCoords.lon);
+                                // Nächstes Fahrzeug nehmen
+                                if (leerfahrtVorher === 0 || hMin < leerfahrtVorher) leerfahrtVorher = hMin;
+                            }
+                        }
+                    }
+                }
+                // Gesamte Blockierzeit: Leerfahrt zum Kunden + Fahrt + Buffer
                 const kundenEndTs = kundenDauer > 0
-                    ? slotTs + (kundenDauer + Math.round(kundenDauer * rueckfahrtFaktor) + bufferMin) * 60000
-                    : slotEndTs;  // Keine Route → nur Slot prüfen
-                const overlapping = rides.filter(r => r.start < kundenEndTs && r.end > slotTs).length;
+                    ? slotTs + (kundenDauer + bufferMin) * 60000
+                    : slotEndTs;
+                // Frühester möglicher Abholzeitpunkt (Fahrer braucht Leerfahrt-Zeit)
+                const fruehestAbhol = slotTs - leerfahrtVorher * 60000;
+                // Überlappung: bestehende Fahrt kollidiert mit Leerfahrt+Kundenfahrt
+                const overlapping = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).length;
                 const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
 
                 // Status bestimmen

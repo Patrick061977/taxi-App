@@ -264,7 +264,7 @@
                     <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#f59e0b;border-radius:50%;display:inline-block;"></span> Zentrum/Korso</span>
                 </div>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css">
-                <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"><\/script>
+                <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
                 <script>
                 setTimeout(function() {
                     var mapEl = document.getElementById('festpreis-map');
@@ -274,9 +274,9 @@
                     var greenIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#059669;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">P</div>',iconSize:[24,24],iconAnchor:[12,12]});
                     var orangeIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#f59e0b;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">Z</div>',iconSize:[24,24],iconAnchor:[12,12]});
                     L.marker([53.92283, 14.23880], {icon:greenIcon}).addTo(map).bindPopup('<b>Promenade</b><br>Strandpromenade');
-                    L.marker([53.91006, 14.24674], {icon:orangeIcon}).addTo(map).bindPopup('<b>Zentrum / Korso</b><br>Einkaufsstra\u00dfe');
+                    L.marker([53.91006, 14.24674], {icon:orangeIcon}).addTo(map).bindPopup('<b>Zentrum / Korso</b><br>Einkaufsstrasse');
                 }, 500);
-                <\/script>
+                </script>
             </div>
             <script>
             var FESTPREIS_ZIELE = {

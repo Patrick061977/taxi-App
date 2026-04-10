@@ -257,13 +257,15 @@
                 'zentrum': { name: 'Zentrum / Korso', lat: 53.91006, lon: 14.24674, beschreibung: 'Korso \u2014 Einkaufsstra\u00dfe im Zentrum' }
             };
             (function() {
-                // Berliner Zeit (nicht UTC!)
                 var berlinTime = new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false});
                 var h = parseInt(berlinTime);
+                document.getElementById('festpreis-section').style.display = 'block';
                 if (h < 10) {
-                    document.getElementById('festpreis-section').style.display = 'block';
                     var rest = 10 - h;
-                    document.getElementById('festpreis-timer').textContent = '\u23f0 Noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' verf\u00fcgbar \u2014 nur bis 10:00 Uhr!';
+                    document.getElementById('festpreis-timer').textContent = '\u23f0 Heute verf\u00fcgbar \u2014 noch ' + rest + ' Stunde' + (rest > 1 ? 'n' : '') + ' bis 10:00 Uhr!';
+                } else {
+                    document.getElementById('festpreis-timer').textContent = '\ud83d\udcc5 F\u00fcr morgen buchen \u2014 Festpreise bis 10:00 Uhr verf\u00fcgbar';
+                    document.getElementById('festpreis-timer').style.color = '#3b82f6';
                 }
             })();
             var ORTE_COORDS = {

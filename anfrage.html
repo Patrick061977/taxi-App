@@ -188,7 +188,7 @@
 
                 <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">🇵🇱 &Sacute;winouj&sacute;cie (Swinem&uuml;nde)</div>
                 <!-- Karte mit Absetzpunkten -->
-                <div id="festpreis-map" style="height:90px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:4px;"></div>
+                <div id="festpreis-map" style="height:130px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:4px;"></div>
                 <div style="display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;margin-bottom:6px;padding:0 4px;">
                     <div style="display:flex;gap:6px;">
                         <span style="display:flex;align-items:center;gap:2px;"><span style="width:7px;height:7px;background:#059669;border-radius:50%;display:inline-block;"></span> Promenade</span>
@@ -235,7 +235,7 @@
                 setTimeout(function() {
                     var mapEl = document.getElementById('festpreis-map');
                     if (!mapEl || !window.L) return;
-                    var map = L.map('festpreis-map', {zoomControl:false, attributionControl:false}).setView([53.916, 14.243], 14);
+                    var map = L.map('festpreis-map', {zoomControl:false, attributionControl:false}).fitBounds([[53.9080, 14.233],[53.9250, 14.250]], {padding:[15,15]});
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                     var greenIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#059669;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">P</div>',iconSize:[24,24],iconAnchor:[12,12]});
                     var orangeIcon = L.divIcon({html:'<div style="width:24px;height:24px;background:#f59e0b;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">Z</div>',iconSize:[24,24],iconAnchor:[12,12]});

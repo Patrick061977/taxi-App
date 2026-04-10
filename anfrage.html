@@ -345,7 +345,7 @@ var _anfPlacesReady = false, _anfSuggestion = null, _anfToken = null, _anfPlace 
 
 (function() {
     var now = new Date();
-    var minTime = new Date(now.getTime() + 60 * 60000); // +1 Stunde
+    var minTime = new Date(now.getTime() + 120 * 60000); // +2 Stunden Vorlauf
     var d = document.getElementById('anf-date');
     var t = document.getElementById('anf-time');
     if (d) { d.value = minTime.toISOString().split('T')[0]; d.min = now.toISOString().split('T')[0]; }

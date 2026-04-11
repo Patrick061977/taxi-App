@@ -19114,6 +19114,7 @@ exports.sendCrmEmail = onRequest(
                 toName,
                 subject,
                 htmlBody,
+                replyTo,    // Optional: Antwort-Adresse (z.B. Kunden-Email bei Anfragen)
                 attachment  // Optional: { filename, content (base64), contentType }
             } = req.body;
 
@@ -19144,7 +19145,8 @@ exports.sendCrmEmail = onRequest(
                 from: `"${smtp.fromName || 'Taxi Wydra'}" <${smtp.fromEmail || smtp.user}>`,
                 to: toName ? `"${toName}" <${to}>` : to,
                 subject: subject,
-                html: htmlBody || `<p>${subject}</p>`
+                html: htmlBody || `<p>${subject}</p>`,
+                ...(replyTo && { replyTo: replyTo })
             };
 
             // Anhang hinzufügen wenn vorhanden

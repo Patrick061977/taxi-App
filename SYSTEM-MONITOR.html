@@ -1344,6 +1344,21 @@ function renderVehicles() {
             html += `<div class="vehicle-dist">${distStr}</div>`;
         }
 
+        // Remote-Log Button (aufklappbar)
+        const hasLog = v && v.remoteLog && v.remoteLog.length > 0;
+        if (hasLog) {
+            const logId = 'rlog-' + vid.replace(/[^a-z0-9]/gi, '');
+            html += `<div style="margin-top:3px"><button onclick="document.getElementById('${logId}').style.display=document.getElementById('${logId}').style.display==='none'?'block':'none'" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em;width:100%;">📋 Console-Log (${v.remoteLog.length})</button>`;
+            html += `<div id="${logId}" style="display:none;max-height:200px;overflow-y:auto;background:#0f172a;border:1px solid #1e293b;border-radius:4px;margin-top:2px;padding:4px;font-family:monospace;font-size:0.65em;line-height:1.4;">`;
+            const logs = v.remoteLog.slice(-20).reverse();
+            for (const entry of logs) {
+                const t = new Date(entry.t).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                const color = entry.l === 'error' ? '#f87171' : entry.l === 'warn' ? '#fbbf24' : '#94a3b8';
+                html += `<div style="color:${color};border-bottom:1px solid #1e293b;padding:1px 0;"><span style="color:#475569">${t}</span> ${esc(entry.m)}</div>`;
+            }
+            html += `</div></div>`;
+        }
+
         html += `</div>`;
     }
 

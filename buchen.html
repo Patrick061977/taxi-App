@@ -976,23 +976,20 @@
         setInterval(updateStatusBar, 30000);
 
         // 🆕 v6.38.95: GPS-online Fahrzeuge live tracken
+        let _lastVehicleLog = 0;
         db.ref('vehicles').on('value', snap => {
             _gpsOnlineVehicles = snap.val() || {};
-            // Debug: Was kommt von Firebase?
-            const vKeys = Object.keys(_gpsOnlineVehicles);
-            console.log('📡 Firebase /vehicles Update:', vKeys.length, 'Fahrzeuge');
-            const details = [];
-            for (const vid of vKeys) {
-                const v = _gpsOnlineVehicles[vid];
-                const hasGPS = v && v.lat && v.lon;
-                const age = v && v.timestamp ? Math.round((Date.now() - v.timestamp) / 60000) : '?';
-                const info = hasGPS
-                    ? `✅ ${v.lat.toFixed(4)},${v.lon.toFixed(4)} | ${age}min alt | online=${v.online}`
-                    : `❌ KEIN lat/lon | online=${v ? v.online : '?'} | keys=${v ? Object.keys(v).join(',') : 'null'}`;
-                console.log(`  ${vid}: ${info}`);
-                details.push(`${vid}: ${hasGPS ? age + 'min' : 'KEIN GPS'}`);
+            // Log max alle 30 Sekunden (Spam-Schutz)
+            const now = Date.now();
+            if (now - _lastVehicleLog > 30000) {
+                _lastVehicleLog = now;
+                const details = Object.keys(_gpsOnlineVehicles).map(vid => {
+                    const v = _gpsOnlineVehicles[vid];
+                    const age = v && v.timestamp ? Math.round((now - v.timestamp) / 60000) : '?';
+                    return `${vid}: ${v && v.lat ? age + 'min' : 'KEIN GPS'}`;
+                }).join(' | ');
+                logBuchen('📡', `vehicles: ${details}`);
             }
-            logBuchen('📡', `vehicles: ${details.join(' | ')}`);
             updateStatusBar();
         });
 

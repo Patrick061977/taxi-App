@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <script>
         var host = window.location.hostname;
+        var qs = window.location.search || ''; // ?ride=XYZ etc. mitnehmen
         if (host.indexOf('umwelt-taxi-insel-usedom') !== -1) {
-            window.location.href = '/Taxi-App/';
+            window.location.href = '/Taxi-App/' + qs;
         } else if (host.indexOf('taschenlokal') !== -1) {
             window.location.href = '/taschenlokal-de/';
         } else if (host.indexOf('strandurlaub-heringsdorf') !== -1) {

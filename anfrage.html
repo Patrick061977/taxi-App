@@ -129,7 +129,7 @@
                 </div>
             </div>
             <div style="margin-bottom:12px;">
-                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📧 E-Mail-Adresse <span style="font-weight:400;color:#94a3b8;">(Pflicht bei E-Mail-Anfrage)</span></label>
+                <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📧 E-Mail-Adresse *</label>
                 <input type="email" id="anf-email" placeholder="ihre@email.de" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
                 <div style="font-size:10px;color:#94a3b8;margin-top:3px;">F&uuml;r Ihre Buchungsbest&auml;tigung</div>
             </div>
@@ -630,7 +630,7 @@ function validateAnfrage(requireEmail) {
 }
 
 function sendAnfrageWhatsApp() {
-    if (!validateAnfrage(false)) return;
+    if (!validateAnfrage(true)) return;
     saveAnfrageToFirebase('whatsapp');
     window.open('https://wa.me/4915127585179?text=' + encodeURIComponent(getAnfrageText()), '_blank');
     showAnfrageSuccess();
@@ -638,10 +638,32 @@ function sendAnfrageWhatsApp() {
 
 function sendAnfrageEmail() {
     if (!validateAnfrage(true)) return;
+    var btn = event.target.closest('button');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span style="font-size:22px;">⏳</span> <span>Wird gesendet...</span>'; }
     saveAnfrageToFirebase('email');
-    var subject = encodeURIComponent('Taxi-Anfrage von ' + (document.getElementById('anf-name').value || 'Kunde'));
-    window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + encodeURIComponent(getAnfrageText());
-    showAnfrageSuccess();
+    // Direkt über Server senden (Cloud Function)
+    var email = (document.getElementById('anf-email').value || '').trim();
+    var name = document.getElementById('anf-name').value || 'Kunde';
+    fetch('https://sendcrmemail-jdesb7r5ua-ew.a.run.app', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            to: 'taxiwydra@googlemail.com',
+            subject: 'Taxi-Anfrage von ' + name + ' (' + email + ')',
+            htmlBody: getAnfrageText().replace(/\n/g, '<br>'),
+            replyTo: email
+        })
+    }).then(function(r) {
+        if (!r.ok) throw new Error('Status ' + r.status);
+        console.log('Anfrage-Email gesendet');
+        showAnfrageSuccess();
+    }).catch(function(e) {
+        console.error('Email-Versand Fehler:', e);
+        // Fallback: mailto
+        var subject = encodeURIComponent('Taxi-Anfrage von ' + name);
+        window.location.href = 'mailto:taxiwydra@googlemail.com?subject=' + subject + '&body=' + encodeURIComponent(getAnfrageText());
+        showAnfrageSuccess();
+    });
 }
 
 function showAnfrageSuccess() {

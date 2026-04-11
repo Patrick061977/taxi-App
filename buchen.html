@@ -1359,7 +1359,9 @@
                         start: r.pickupTimestamp,
                         end: endReal + (leerfahrtMin + bufferMin) * 60000,
                         endReal: endReal,
-                        destLat: destLat, destLon: destLon
+                        destLat: destLat, destLon: destLon,
+                        pickupLat: r.pickupCoords?.lat || r.pickupLat,
+                        pickupLon: r.pickupCoords?.lon || r.pickupLon
                     });
                 });
             } catch(e) {}
@@ -1424,7 +1426,27 @@
                 // Frühester möglicher Abholzeitpunkt (Fahrer braucht Leerfahrt-Zeit)
                 const fruehestAbhol = slotTs - leerfahrtVorher * 60000;
                 // Überlappung: bestehende Fahrt kollidiert mit Leerfahrt+Kundenfahrt
-                const overlapping = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).length;
+                let overlapping = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).length;
+
+                // ZUSÄTZLICH: Schafft der Fahrer es NACH der Kundenfahrt zum nächsten Termin?
+                // Kunden-Zielort → Leerfahrt → nächster Abholort
+                if (kundenDauer > 0 && destCoords) {
+                    const naechsteFahrt = rides.filter(r => r.start >= slotTs)
+                        .sort((a,b) => a.start - b.start)[0];
+                    if (naechsteFahrt) {
+                        // Kundenfahrt endet am Zielort, dann Leerfahrt zum nächsten Abholort
+                        let leerfahrtDanach = bufferMin; // Mindestens Buffer
+                        if (naechsteFahrt.pickupLat && naechsteFahrt.pickupLon) {
+                            leerfahrtDanach = calcLeerfahrtMin(destCoords.lat, destCoords.lon, naechsteFahrt.pickupLat, naechsteFahrt.pickupLon) + bufferMin;
+                        }
+                        const kundenFertig = slotTs + (kundenDauer + leerfahrtDanach) * 60000;
+                        if (kundenFertig > naechsteFahrt.start) {
+                            // Fahrer schafft es nicht rechtzeitig zum nächsten Termin
+                            overlapping = Math.max(overlapping, vehiclesInShift); // Slot blockieren
+                        }
+                    }
+                }
+
                 const freeVehicles = Math.max(0, vehiclesInShift - overlapping);
 
                 // Status bestimmen

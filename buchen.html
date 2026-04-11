@@ -976,10 +976,17 @@
         setInterval(updateStatusBar, 30000);
 
         // 🆕 v6.38.95: GPS-online Fahrzeuge live tracken
-        // Wenn Fahrer GPS-online sind aber nicht im Schichtplan → trotzdem als verfuegbar zaehlen
         db.ref('vehicles').on('value', snap => {
             _gpsOnlineVehicles = snap.val() || {};
-            // Status-Bar sofort aktualisieren wenn sich GPS-Status aendert
+            // Debug: Was kommt von Firebase? → Im System Monitor sichtbar
+            const vKeys = Object.keys(_gpsOnlineVehicles);
+            const details = vKeys.slice(0, 8).map(vid => {
+                const v = _gpsOnlineVehicles[vid];
+                const hasGPS = v && v.lat && v.lon;
+                const age = v && v.timestamp ? Math.round((Date.now() - v.timestamp) / 60000) : '?';
+                return `${vid}: ${hasGPS ? v.lat.toFixed(3) + ',' + v.lon.toFixed(3) + ' (' + age + 'min)' : 'KEIN lat/lon'}`;
+            }).join(' | ');
+            logBuchen('📡', `Firebase /vehicles: ${vKeys.length} Eintraege`, { raw: details });
             updateStatusBar();
         });
 

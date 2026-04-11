@@ -283,6 +283,16 @@ firebase.initializeApp({
 
 const db = firebase.database();
 
+// 🆕 v6.38.96: Panels zuklappen per Klick auf Header
+document.addEventListener('click', function(e) {
+    const header = e.target.closest('.panel-header');
+    if (!header) return;
+    // Nicht zuklappen wenn auf Button/Select/Input geklickt
+    if (e.target.closest('button, select, input, a')) return;
+    const panel = header.closest('.panel');
+    if (panel) panel.classList.toggle('collapsed');
+});
+
 // ===== STATE =====
 let allRides = {};        // Aktueller Stand aller Fahrten
 let prevRides = {};       // Vorheriger Stand (fuer Diff)
@@ -1193,7 +1203,7 @@ function renderLogEntries(evts) {
     }).join('');
 }
 
-db.ref('settings/buchenLog').orderByChild('time').limitToLast(80).on('value', snap => {
+db.ref('settings/buchenLog').orderByChild('time').limitToLast(200).on('value', snap => {
     const data = snap.val();
     const kundenFeed = document.getElementById('buchenLogFeed');
     const fahrerFeed = document.getElementById('driverLogFeed');

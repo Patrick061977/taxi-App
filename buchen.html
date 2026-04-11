@@ -514,15 +514,14 @@
                 <!-- Telefon -->
                 <div class="input-group">
                     <label>📱 Telefonnummer</label>
-                    <span class="input-icon">📱</span>
                     <div style="display:flex;gap:6px;">
-                        <select id="b-phone-country" style="padding:10px 6px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;min-width:85px;background:white;">
+                        <select id="b-phone-country" style="padding:12px 8px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;min-width:90px;background:white;">
                             <option value="+49">🇩🇪 +49</option>
                             <option value="+48">🇵🇱 +48</option>
                             <option value="+43">🇦🇹 +43</option>
                             <option value="+41">🇨🇭 +41</option>
                         </select>
-                        <input type="tel" id="b-phone" placeholder="176 12345678" autocomplete="tel" style="flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;">
+                        <input type="tel" id="b-phone" placeholder="176 12345678" autocomplete="tel" style="flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;transition:border-color 0.2s;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#e2e8f0'">
                     </div>
                 </div>
 

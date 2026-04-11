@@ -1344,7 +1344,13 @@
                     tab.classList.add('active');
                     document.getElementById('b-date').value = ds;
                     _slotCalendarDate = ds;
+                    // Slot-Auswahl beibehalten aber für neuen Tag prüfen
+                    if (_selectedSlot) {
+                        const timeOnly = _selectedSlot.split('_')[0];
+                        _selectedSlot = timeOnly + '_' + ds;
+                    }
                     renderSlotTimeline(ds);
+                    onDateTimeChange();
                 };
                 tabsEl.appendChild(tab);
             }

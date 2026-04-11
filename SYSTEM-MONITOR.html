@@ -1319,9 +1319,20 @@ function renderVehicles() {
         if (hasGPS) {
             const ageStr = gpsAge !== null ? (gpsAge < 60 ? gpsAge + 's' : Math.round(gpsAge/60) + 'min') : '?';
             const ageColor = gpsAge < 30 ? '#4caf50' : gpsAge < 120 ? '#ff9800' : '#f44336';
-            html += `<div class="vehicle-gps">${v.lat.toFixed(4)},${v.lon.toFixed(4)} <span style="color:${ageColor}">${ageStr}</span></div>`;
+            const freshIcon = gpsAge < 30 ? '🟢' : gpsAge < 120 ? '🟡' : '🔴';
+            const accStr = v.accuracy ? Math.round(v.accuracy) + 'm' : '';
+            html += `<div class="vehicle-gps">${freshIcon} ${v.lat.toFixed(4)},${v.lon.toFixed(4)} <span style="color:${ageColor};font-weight:700">${ageStr}</span> ${accStr ? '<span style="color:#666;font-size:0.85em">±' + accStr + '</span>' : ''}</div>`;
+            // GPS-Details: Online-Flag, Timestamp, User
+            const onFlag = v.online === true ? '✅ online' : v.online === false ? '❌ offline' : '❓ unknown';
+            const lastTime = v.timestamp ? new Date(v.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '?';
+            const userInfo = v.userEmail || v.userId || '';
+            html += `<div style="font-size:0.7em;color:#666;margin-top:1px">${onFlag} | Letztes Signal: ${lastTime}${userInfo ? ' | ' + esc(userInfo).substring(0,20) : ''}</div>`;
         } else {
-            html += `<div class="vehicle-gps" style="color:#555">Kein GPS</div>`;
+            // Kein GPS — zeige trotzdem ob online-Flag gesetzt ist
+            const onFlag = v && v.online === true ? '⚠️ online aber kein GPS!' : '❌ offline';
+            const lastTime = v && v.timestamp ? new Date(v.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : 'nie';
+            html += `<div class="vehicle-gps" style="color:#f44336">Kein GPS <span style="font-size:0.85em">(${onFlag})</span></div>`;
+            html += `<div style="font-size:0.7em;color:#555">Letztes Signal: ${lastTime}</div>`;
         }
 
         if (currentRide) {

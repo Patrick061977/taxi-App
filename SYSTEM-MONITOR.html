@@ -18,10 +18,15 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
 .main-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0; height: calc(100vh - 50px); }
 .panel { border: 1px solid #222; overflow-y: auto; position: relative; resize: both; overflow: auto; min-width: 200px; min-height: 100px; }
 .panel.span-full { grid-column: 1 / -1; }
-.panel-header { position: sticky; top: 0; z-index: 10; background: #111; padding: 8px 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+.panel-header { position: sticky; top: 0; z-index: 10; background: #111; padding: 8px 12px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+.panel-header:hover { background: #1a1a2e; }
 .panel-header h2 { font-size: 0.95em; color: #ffd700; }
+.panel-header h2::before { content: '▼ '; font-size: 0.7em; opacity: 0.5; }
+.panel.collapsed .panel-header h2::before { content: '▶ '; }
 .panel-header .badge { background: #ffd700; color: #000; border-radius: 10px; padding: 1px 8px; font-size: 0.75em; font-weight: bold; }
 .panel-body { padding: 8px; }
+.panel.collapsed .panel-body { display: none; }
+.panel.collapsed { min-height: auto !important; overflow: hidden; }
 
 /* ===== CHANGE FEED ===== */
 .change-item { padding: 8px 10px; margin: 4px 0; border-radius: 8px; font-size: 0.82em; border-left: 4px solid #333; animation: slideIn 0.4s ease-out; }

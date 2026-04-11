@@ -52,6 +52,9 @@
       },
       "tarif": {
         ".read": true
+      },
+      "pricing": {
+        ".read": true
       }
     },
 

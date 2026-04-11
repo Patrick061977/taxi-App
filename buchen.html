@@ -411,7 +411,10 @@
         <div class="card" id="booking-card">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="card-title" style="margin-bottom:0;">🚖 Taxi buchen</div>
-                <button onclick="resetBookingForm()" style="padding:6px 12px;background:white;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;">🔄 Zurücksetzen</button>
+                <div style="display:flex;gap:4px;">
+                    <button onclick="clearAddresses()" id="btn-clear-addr" style="display:none;padding:6px 10px;background:white;color:#f59e0b;border:1px solid #fde68a;border-radius:6px;font-size:11px;cursor:pointer;">✕ Adressen</button>
+                    <button onclick="resetBookingForm()" style="padding:6px 10px;background:white;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;">🔄 Alles neu</button>
+                </div>
             </div>
 
             <!-- Wann? (oben damit Kunde zuerst wählt) -->
@@ -1075,6 +1078,37 @@
             logBuchen('🔄', 'Formular zurückgesetzt');
         }
 
+        // Nur Adressen löschen — Kalender + Zeitauswahl bleiben
+        function clearAddresses() {
+            document.getElementById('b-pickup').value = '';
+            document.getElementById('b-destination').value = '';
+            if (document.getElementById('b-stopp')) document.getElementById('b-stopp').value = '';
+            pickupCoords = null;
+            destCoords = null;
+            stoppCoords = null;
+            routeData = null;
+            _slotIsFree = false;
+            _selectedSlot = null;
+            const slotInfo = document.getElementById('slot-selected-info');
+            if (slotInfo) slotInfo.style.display = 'none';
+            const routeInfo = document.getElementById('route-info');
+            if (routeInfo) routeInfo.style.display = 'none';
+            const mapEl = document.getElementById('route-map');
+            if (mapEl) mapEl.style.display = 'none';
+            const availability = document.getElementById('availability');
+            if (availability) availability.style.display = 'none';
+            const btn = document.getElementById('btn-book');
+            if (btn) btn.style.display = 'none';
+            const cancelBtn = document.getElementById('btn-cancel');
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            document.getElementById('btn-clear-addr').style.display = 'none';
+            // Kalender neu rendern (ohne Route → zeigt generelle Verfügbarkeit)
+            if (_slotCalendarDate && wannModus === 'vorbestellen') {
+                renderSlotTimeline(_slotCalendarDate);
+            }
+            logBuchen('✕', 'Adressen gelöscht, Kalender bleibt');
+        }
+
         // ═══════════════════════════════════════════════
         // Zwischenstopp
         // ═══════════════════════════════════════════════
@@ -1185,19 +1219,33 @@
                 // Prüfen ob der gewählte Slot frei ist (grün im Kalender)
                 const selBlock = document.querySelector('#slot-timeline-bar .sel');
                 _slotIsFree = selBlock && selBlock.style.cursor === 'pointer';
+                const el = document.getElementById('availability');
+                const infoEl = document.getElementById('slot-selected-info');
+                const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                const dt = new Date(dateVal + 'T00:00:00');
+                const zeitText = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${hourVal}:${minVal} Uhr`;
                 if (_slotIsFree) {
                     isAvailable = true;
-                    const el = document.getElementById('availability');
+                    if (el) el.style.display = 'none';
+                    if (infoEl) {
+                        infoEl.textContent = zeitText;
+                        infoEl.style.display = '';
+                        infoEl.style.background = '#f0fdf4';
+                        infoEl.style.borderColor = '#a7f3d0';
+                        infoEl.style.color = '#065f46';
+                    }
+                    updateBookButton();
+                } else {
+                    isAvailable = false;
+                    if (infoEl) {
+                        infoEl.innerHTML = `<span style="color:#ef4444;">❌ ${zeitText} — leider nicht verfügbar</span><br><a href="tel:03837822022" style="display:inline-block;margin-top:6px;padding:8px 16px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📞 038378 22022 anrufen</a>`;
+                        infoEl.style.display = '';
+                        infoEl.style.background = '#fef2f2';
+                        infoEl.style.borderColor = '#fecaca';
+                        infoEl.style.color = '#991b1b';
+                    }
                     if (el) el.style.display = 'none';
                     updateBookButton();
-                }
-                // Info anzeigen
-                const infoEl = document.getElementById('slot-selected-info');
-                if (infoEl) {
-                    const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-                    const dt = new Date(dateVal + 'T00:00:00');
-                    infoEl.textContent = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${hourVal}:${minVal} Uhr`;
-                    infoEl.style.display = '';
                 }
                 // Zum markierten Slot scrollen (über .sel Klasse im DOM finden)
                 const scrollContainer = document.getElementById('slot-timeline');
@@ -2145,6 +2193,9 @@
                     const pricing = calculatePrice(parseFloat(km), pricingTimestamp);
 
                     routeData = { km, min, price: pricing.total, geometry: route.geometry };
+                    // "Adressen löschen" Button einblenden
+                    const clearBtn = document.getElementById('btn-clear-addr');
+                    if (clearBtn) clearBtn.style.display = '';
                     logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
 
                     // Kalender einblenden + rendern wenn Vorbestellen

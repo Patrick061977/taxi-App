@@ -674,6 +674,9 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- Invisible reCAPTCHA Container (unsichtbar, läuft im Hintergrund) -->
+    <div id="recaptcha-container" style="position:fixed;bottom:0;left:0;z-index:-1;"></div>
+
     <!-- 🆕 v6.38.95: Schwebender Kontakt-Button -->
     <div id="contact-fab" style="position:fixed;bottom:20px;right:20px;z-index:900;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
         <div id="contact-options" style="display:none;flex-direction:column;gap:6px;align-items:flex-end;">
@@ -2292,8 +2295,25 @@
         // Firebase Phone Auth
         const auth = firebase.auth();
         auth.languageCode = 'de';
-        let confirmationResult = null;
+
+        // Invisible reCAPTCHA beim Laden vorbereiten (wie index.html)
         let recaptchaVerifier = null;
+        let confirmationResult = null;
+
+        function initRecaptcha() {
+            if (recaptchaVerifier) return;
+            try {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'invisible',
+                    'callback': (response) => { console.log('reCAPTCHA gelöst (unsichtbar)'); },
+                    'expired-callback': () => { console.log('reCAPTCHA abgelaufen'); recaptchaVerifier = null; },
+                    'error-callback': (error) => { console.warn('reCAPTCHA Fehler:', error); }
+                });
+                recaptchaVerifier.render();
+            } catch(e) { console.warn('reCAPTCHA init Fehler:', e); }
+        }
+        // Früh initialisieren damit Google Zeit hat den User zu bewerten
+        setTimeout(initRecaptcha, 2000);
 
         async function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
@@ -2312,46 +2332,56 @@
             const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
             customerPhone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
 
-            // Direkt buchen — kein SMS/Captcha nötig
-            await createBooking();
-        }
-
-        // SMS-Code über Firebase Phone Auth senden (kostenlos!)
-        async function sendFirebaseCode() {
-            const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
-            const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
-            if (phone.length < 6) return showToast('Bitte gültige Telefonnummer eingeben');
-
-            customerPhone = phone.startsWith('+') ? phone : (phone.startsWith('0') ? phoneCountry + phone.slice(1) : phoneCountry + phone);
-
-            const btn = document.getElementById('btn-send-code');
-            btn.disabled = true;
-            btn.textContent = '⏳ Code wird gesendet...';
+            // SMS-Code senden (unsichtbares reCAPTCHA)
+            initRecaptcha();
+            const infoEl = document.getElementById('slot-selected-info');
+            if (infoEl) infoEl.innerHTML += '<div style="margin-top:8px;font-size:13px;color:#64748b;">⏳ SMS wird gesendet...</div>';
 
             try {
                 confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
-                document.getElementById('phone-card').style.display = 'none';
-                document.getElementById('sms-card').style.display = 'block';
-                document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
-                document.getElementById('b-sms-code').focus();
+                // SMS-Code Eingabe inline anzeigen
+                if (infoEl) {
+                    infoEl.innerHTML = `
+                        <div style="font-weight:700;font-size:14px;color:#3b82f6;margin-bottom:8px;">📨 SMS-Code an ${customerPhone} gesendet</div>
+                        <input type="text" id="b-sms-code-inline" placeholder="6-stelliger Code" maxlength="6" inputmode="numeric" style="width:100%;padding:14px;border:2px solid #3b82f6;border-radius:10px;font-size:20px;text-align:center;letter-spacing:8px;margin-bottom:8px;">
+                        <button onclick="verifyAndBook()" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">✅ Bestätigen & Buchen</button>
+                        <button onclick="startBooking()" style="width:100%;margin-top:6px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>`;
+                    infoEl.style.background = '#eff6ff';
+                    infoEl.style.borderColor = '#93c5fd';
+                    document.getElementById('b-sms-code-inline')?.focus();
+                }
                 showToast('📨 SMS-Code gesendet!');
             } catch(e) {
-                console.error('Firebase Phone Auth Fehler:', e);
+                console.error('Phone Auth Fehler:', e);
                 if (e.code === 'auth/too-many-requests') {
                     showToast('Zu viele Versuche — bitte später erneut');
                 } else if (e.code === 'auth/invalid-phone-number') {
                     showToast('Ungültige Telefonnummer');
                 } else {
-                    showToast('Fehler — bitte rufen Sie uns an: 038378 22022');
+                    showToast('SMS-Fehler — bitte anrufen: 038378 22022');
                 }
-                btn.disabled = false;
-                btn.textContent = '📨 Code senden';
                 // reCAPTCHA neu initialisieren
-                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                    size: 'invisible'
-                });
-                recaptchaVerifier.render();
+                recaptchaVerifier = null;
+                initRecaptcha();
             }
+        }
+
+        async function verifyAndBook() {
+            const code = (document.getElementById('b-sms-code-inline')?.value || '').trim();
+            if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
+            if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
+            try {
+                const result = await confirmationResult.confirm(code);
+                customerPhone = result.user.phoneNumber || customerPhone;
+            } catch(e) {
+                if (e.code === 'auth/invalid-verification-code') {
+                    showToast('Falscher Code — bitte erneut versuchen');
+                } else {
+                    showToast('Verifizierung fehlgeschlagen');
+                }
+                return;
+            }
+            await createBooking();
         }
 
         async function createBooking() {

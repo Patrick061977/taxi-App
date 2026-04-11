@@ -978,15 +978,21 @@
         // 🆕 v6.38.95: GPS-online Fahrzeuge live tracken
         db.ref('vehicles').on('value', snap => {
             _gpsOnlineVehicles = snap.val() || {};
-            // Debug: Was kommt von Firebase? → Im System Monitor sichtbar
+            // Debug: Was kommt von Firebase?
             const vKeys = Object.keys(_gpsOnlineVehicles);
-            const details = vKeys.slice(0, 8).map(vid => {
+            console.log('📡 Firebase /vehicles Update:', vKeys.length, 'Fahrzeuge');
+            const details = [];
+            for (const vid of vKeys) {
                 const v = _gpsOnlineVehicles[vid];
                 const hasGPS = v && v.lat && v.lon;
                 const age = v && v.timestamp ? Math.round((Date.now() - v.timestamp) / 60000) : '?';
-                return `${vid}: ${hasGPS ? v.lat.toFixed(3) + ',' + v.lon.toFixed(3) + ' (' + age + 'min)' : 'KEIN lat/lon'}`;
-            }).join(' | ');
-            logBuchen('📡', `Firebase /vehicles: ${vKeys.length} Eintraege`, { raw: details });
+                const info = hasGPS
+                    ? `✅ ${v.lat.toFixed(4)},${v.lon.toFixed(4)} | ${age}min alt | online=${v.online}`
+                    : `❌ KEIN lat/lon | online=${v ? v.online : '?'} | keys=${v ? Object.keys(v).join(',') : 'null'}`;
+                console.log(`  ${vid}: ${info}`);
+                details.push(`${vid}: ${hasGPS ? age + 'min' : 'KEIN GPS'}`);
+            }
+            logBuchen('📡', `vehicles: ${details.join(' | ')}`);
             updateStatusBar();
         });
 

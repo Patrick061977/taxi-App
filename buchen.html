@@ -418,10 +418,11 @@
                     <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
                     <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
                 </div>
-                <div class="vorbestellen-felder" id="vorbestellen-felder">
-                    <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
-                    <select id="b-hour" onchange="onDateTimeChange()"></select>
-                    <select id="b-minute" onchange="onDateTimeChange()"></select>
+                <!-- Interne Felder (versteckt, werden vom Kalender gesetzt) -->
+                <div id="vorbestellen-felder" style="display:none;">
+                    <input type="date" id="b-date" min="">
+                    <select id="b-hour"></select>
+                    <select id="b-minute"></select>
                 </div>
                 <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
                 <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
@@ -1090,10 +1091,8 @@
                 if (mode === 'sofort' && b.textContent.includes('Sofort')) b.classList.add('active');
                 if (mode === 'vorbestellen' && b.textContent.includes('Vorbestellen')) b.classList.add('active');
             });
-            const felder = document.getElementById('vorbestellen-felder');
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
-                felder.classList.add('active');
                 // Kalender erst zeigen wenn Route berechnet ist
                 if (routeData) {
                     kalender.style.display = '';
@@ -1103,7 +1102,6 @@
                     kalender.style.display = 'none';
                 }
             } else {
-                felder.classList.remove('active');
                 kalender.style.display = 'none';
             }
             updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);

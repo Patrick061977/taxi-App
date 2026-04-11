@@ -756,23 +756,22 @@ async function autoAssignRide(rideId, rideData) {
                     }
                 }
 
-                if (rideData.pickupCoords && vLat && vLon) {
+                // Sofortfahrt: NUR echtes GPS (< 10 Min) zulassen!
+                // Homebase/Letzter-GPS reicht NICHT — wir brauchen die echte Position
+                if (isSofort && posSource !== 'GPS') {
+                    console.log(`   ❌ ${info.name}: ${posSource || 'kein Standort'} → bei Sofortfahrt NUR echtes GPS erlaubt`);
+                    if (vehicleScores[vehicleId]) {
+                        vehicleScores[vehicleId].status = 'no-gps';
+                        vehicleScores[vehicleId].reason = `Sofortfahrt: Nur GPS erlaubt (hatte: ${posSource || 'nichts'})`;
+                    }
+                } else if (rideData.pickupCoords && vLat && vLon) {
                     const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
                     candidates.push({ vehicleId, name: info.name, distance: dist, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource });
                     console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource}) [Prio ${getVehiclePrio(vehicleId)}]`);
                 } else {
-                    if (isSofort) {
-                        // Sofortfahrt: Ohne Standort NICHT zuweisen — wir wissen nicht wo der Fahrer ist
-                        console.log(`   ❌ ${info.name}: Kein Standort → bei Sofortfahrt NICHT zuweisbar`);
-                        if (vehicleScores[vehicleId]) {
-                            vehicleScores[vehicleId].status = 'no-gps';
-                            vehicleScores[vehicleId].reason = 'Sofortfahrt: Kein GPS/Standort';
-                        }
-                    } else {
-                        // Vorbestellung: Ohne GPS trotzdem nach Priorität aufnehmen
-                        candidates.push({ vehicleId, name: info.name, distance: 999, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
-                        console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${getVehiclePrio(vehicleId)}`);
-                    }
+                    // Vorbestellung: Ohne GPS nach Priorität aufnehmen
+                    candidates.push({ vehicleId, name: info.name, distance: 999, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
+                    console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${getVehiclePrio(vehicleId)}`);
                 }
             } else {
                 // ═══ VORBESTELLUNG: Schichtplan + Priorität ═══

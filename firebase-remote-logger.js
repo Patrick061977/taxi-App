@@ -47,7 +47,8 @@
             'auth',
             'database',
             'system',
-            'performance'
+            'performance',
+            'console'
         ],
 
         // 🔥 Firebase path (NEVER READ FROM THIS PATH!)
@@ -66,6 +67,7 @@
     let isUploading = false;
     let uploadInterval = null;
     let deviceId = null;
+    let _isInternalLog = false; // Loop-Schutz: verhindert dass eigene console.log Aufrufe nochmal gequeued werden
     let uploadStats = {
         totalUploaded: 0,
         totalFailed: 0,
@@ -113,8 +115,11 @@
          * Initialize and start batch upload
          */
         async init() {
+            _isInternalLog = true; // Loop-Schutz
+            try {
             if (!CONFIG.ENABLED) {
                 console.log('🔥 Firebase Remote Logger: Disabled by config');
+                _isInternalLog = false;
                 return;
             }
 
@@ -126,6 +131,7 @@
 
             this.isReady = true;
             console.log('✅ Firebase Remote Logger ready');
+            } finally { _isInternalLog = false; }
 
             // Log initialization
             this.queueLog({
@@ -181,6 +187,9 @@
         queueLog(logEntry) {
             if (!CONFIG.ENABLED) return;
 
+            // Loop-Schutz: eigene console.log Aufrufe nicht nochmal queuen
+            if (_isInternalLog) return;
+
             // Filter by level
             if (logEntry.level < CONFIG.MIN_UPLOAD_LEVEL) {
                 return;
@@ -228,6 +237,10 @@
          * 🔒 CRITICAL: This ONLY WRITES, never reads!
          */
         async uploadBatch() {
+            _isInternalLog = true; // Loop-Schutz: alle console.log in dieser Methode ignorieren
+            try { return await this._uploadBatchInner(); } finally { _isInternalLog = false; }
+        }
+        async _uploadBatchInner() {
             // Protection: Don't upload if already uploading
             if (isUploading) {
                 console.log('⏳ Already uploading, skipping...');
@@ -421,6 +434,10 @@
     window.FirebaseRemoteLogger = FirebaseRemoteLogger;
     window.firebaseRemoteLogger = new FirebaseRemoteLogger();
     window.getOrCreateDeviceId = getOrCreateDeviceId;
+
+    // Loop-Schutz API: Verhindert dass console-Override eigene Logger-Ausgaben nochmal queued
+    window._remoteLoggerIsInternal = function() { return _isInternalLog; };
+    window._remoteLoggerSetInternal = function(v) { _isInternalLog = v; };
 
     // Auto-initialize after page load
     window.addEventListener('load', async () => {

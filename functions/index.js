@@ -761,9 +761,18 @@ async function autoAssignRide(rideId, rideData) {
                     candidates.push({ vehicleId, name: info.name, distance: dist, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource });
                     console.log(`   ✅ ${info.name}: ${dist.toFixed(1)} km (${posSource}) [Prio ${getVehiclePrio(vehicleId)}]`);
                 } else {
-                    // Kein Standort → trotzdem aufnehmen, nach Priorität
-                    candidates.push({ vehicleId, name: info.name, distance: 999, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
-                    console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${getVehiclePrio(vehicleId)}`);
+                    if (isSofort) {
+                        // Sofortfahrt: Ohne Standort NICHT zuweisen — wir wissen nicht wo der Fahrer ist
+                        console.log(`   ❌ ${info.name}: Kein Standort → bei Sofortfahrt NICHT zuweisbar`);
+                        if (vehicleScores[vehicleId]) {
+                            vehicleScores[vehicleId].status = 'no-gps';
+                            vehicleScores[vehicleId].reason = 'Sofortfahrt: Kein GPS/Standort';
+                        }
+                    } else {
+                        // Vorbestellung: Ohne GPS trotzdem nach Priorität aufnehmen
+                        candidates.push({ vehicleId, name: info.name, distance: 999, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: posSource || 'kein-Standort' });
+                        console.log(`   ⚠️ ${info.name}: Kein Standort → Priorität ${getVehiclePrio(vehicleId)}`);
+                    }
                 }
             } else {
                 // ═══ VORBESTELLUNG: Schichtplan + Priorität ═══

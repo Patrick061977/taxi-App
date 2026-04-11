@@ -1094,9 +1094,14 @@
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
-                kalender.style.display = '';
-                initDateTimePickers();
-                initSlotCalendar();
+                // Kalender erst zeigen wenn Route berechnet ist
+                if (routeData) {
+                    kalender.style.display = '';
+                    initDateTimePickers();
+                    initSlotCalendar();
+                } else {
+                    kalender.style.display = 'none';
+                }
             } else {
                 felder.classList.remove('active');
                 kalender.style.display = 'none';
@@ -2106,9 +2111,16 @@
                     routeData = { km, min, price: pricing.total, geometry: route.geometry };
                     logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
 
-                    // Kalender neu rendern mit echter Fahrtdauer
-                    if (_slotCalendarDate && wannModus === 'vorbestellen') {
-                        renderSlotTimeline(_slotCalendarDate);
+                    // Kalender einblenden + rendern wenn Vorbestellen
+                    if (wannModus === 'vorbestellen') {
+                        const kalender = document.getElementById('vorbestellen-kalender');
+                        if (kalender && kalender.style.display === 'none') {
+                            kalender.style.display = '';
+                            initDateTimePickers();
+                            initSlotCalendar();
+                        } else if (_slotCalendarDate) {
+                            renderSlotTimeline(_slotCalendarDate);
+                        }
                     }
                     document.getElementById('r-price').textContent = pricing.total + '€';
                     document.getElementById('r-distance').textContent = km;

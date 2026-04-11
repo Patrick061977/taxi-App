@@ -511,20 +511,6 @@
                     <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
                 </div>
 
-                <!-- Telefon -->
-                <div class="input-group">
-                    <label>📱 Telefonnummer</label>
-                    <div style="display:flex;gap:6px;">
-                        <select id="b-phone-country" style="padding:12px 8px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;min-width:90px;background:white;">
-                            <option value="+49">🇩🇪 +49</option>
-                            <option value="+48">🇵🇱 +48</option>
-                            <option value="+43">🇦🇹 +43</option>
-                            <option value="+41">🇨🇭 +41</option>
-                        </select>
-                        <input type="tel" id="b-phone" placeholder="176 12345678" autocomplete="tel" style="flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;transition:border-color 0.2s;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#e2e8f0'">
-                    </div>
-                </div>
-
                 <!-- Personen -->
                 <div class="input-group">
                     <label>👥 Personen</label>
@@ -572,8 +558,8 @@
             </div>
         </div>
 
-        <!-- Telefon/SMS Cards (deaktiviert — Direktbuchung ohne Phone Auth) -->
-        <div style="display:none;" id="phone-card">
+        <!-- Telefon eingeben -->
+        <div class="card" style="display:none;" id="phone-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
@@ -633,19 +619,20 @@
                     <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel" style="flex:1;">
                 </div>
                 <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
-                <button class="btn-book" id="btn-send-code" onclick="sendFirebaseCode()">📨 Code senden</button>
+                <button class="btn-book" id="btn-send-code" onclick="sendSmsCode()">📨 Code senden</button>
                 <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
             </div>
         </div>
 
-        <div style="display:none;" id="sms-card">
+        <!-- SMS-Code eingeben -->
+        <div class="card" style="display:none;" id="sms-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">🔐</div>
                 <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
                 <p style="font-size:13px;color:#64748b;" id="sms-info">Code wurde an Ihre Nummer gesendet</p>
                 <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • • • •" maxlength="6" inputmode="numeric">
                 <button class="btn-book" onclick="verifyAndBook()">✅ Bestätigen & Buchen</button>
-                <button onclick="sendFirebaseCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
+                <button onclick="sendSmsCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
             </div>
         </div>
 
@@ -2314,7 +2301,7 @@
         // Früh initialisieren damit Google Zeit hat den User zu bewerten
         setTimeout(initRecaptcha, 2000);
 
-        async function startBooking() {
+        function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             const nameVal = (document.getElementById('b-name')?.value || '').trim();
             if (!nameVal || nameVal.length < 2) {
@@ -2322,33 +2309,30 @@
                 document.getElementById('b-name')?.focus();
                 return;
             }
-            const phoneRaw = (document.getElementById('b-phone')?.value || '').replace(/[\s\-\/]/g, '');
-            if (phoneRaw.length < 6) {
-                showToast('⚠️ Bitte Telefonnummer eingeben');
-                document.getElementById('b-phone')?.focus();
-                return;
-            }
-            const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
-            customerPhone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
-
-            // SMS-Code senden (unsichtbares reCAPTCHA)
+            // Zur Telefonnummer-Eingabe wechseln
+            document.getElementById('booking-card').style.display = 'none';
+            document.getElementById('phone-card').style.display = 'block';
+            document.getElementById('b-phone').focus();
             initRecaptcha();
-            const infoEl = document.getElementById('slot-selected-info');
-            if (infoEl) infoEl.innerHTML += '<div style="margin-top:8px;font-size:13px;color:#64748b;">⏳ SMS wird gesendet...</div>';
+        }
 
+        async function sendSmsCode() {
+            const phone = document.getElementById('b-phone').value.replace(/[\s\-\/]/g, '');
+            const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
+            if (phone.length < 6) return showToast('Bitte gültige Telefonnummer eingeben');
+            customerPhone = phone.startsWith('+') ? phone : (phone.startsWith('0') ? phoneCountry + phone.slice(1) : phoneCountry + phone);
+
+            const btn = document.getElementById('btn-send-code');
+            btn.disabled = true;
+            btn.textContent = '⏳ Code wird gesendet...';
+
+            initRecaptcha();
             try {
                 confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
-                // SMS-Code Eingabe inline anzeigen
-                if (infoEl) {
-                    infoEl.innerHTML = `
-                        <div style="font-weight:700;font-size:14px;color:#3b82f6;margin-bottom:8px;">📨 SMS-Code an ${customerPhone} gesendet</div>
-                        <input type="text" id="b-sms-code-inline" placeholder="6-stelliger Code" maxlength="6" inputmode="numeric" style="width:100%;padding:14px;border:2px solid #3b82f6;border-radius:10px;font-size:20px;text-align:center;letter-spacing:8px;margin-bottom:8px;">
-                        <button onclick="verifyAndBook()" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;">✅ Bestätigen & Buchen</button>
-                        <button onclick="startBooking()" style="width:100%;margin-top:6px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>`;
-                    infoEl.style.background = '#eff6ff';
-                    infoEl.style.borderColor = '#93c5fd';
-                    document.getElementById('b-sms-code-inline')?.focus();
-                }
+                document.getElementById('phone-card').style.display = 'none';
+                document.getElementById('sms-card').style.display = 'block';
+                document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
+                document.getElementById('b-sms-code').focus();
                 showToast('📨 SMS-Code gesendet!');
             } catch(e) {
                 console.error('Phone Auth Fehler:', e);
@@ -2359,14 +2343,15 @@
                 } else {
                     showToast('SMS-Fehler — bitte anrufen: 038378 22022');
                 }
-                // reCAPTCHA neu initialisieren
+                btn.disabled = false;
+                btn.textContent = '📨 Code senden';
                 recaptchaVerifier = null;
                 initRecaptcha();
             }
         }
 
         async function verifyAndBook() {
-            const code = (document.getElementById('b-sms-code-inline')?.value || '').trim();
+            const code = (document.getElementById('b-sms-code')?.value || '').trim();
             if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
             if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
             try {

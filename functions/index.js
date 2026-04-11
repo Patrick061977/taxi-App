@@ -1057,6 +1057,19 @@ async function autoAssignRide(rideId, rideData) {
 
         console.log(`✅ ${rideId} → ${best.name} (${isSofort ? best.distance.toFixed(1) + ' km, ~' + drivingTimeMin + ' Min' : 'Score ' + (vehicleScores[best.vehicleId]?.totalScore || '?') + ', Prio ' + best.priority}) [${isSofort ? 'Sofort' : 'Vorbestellung'}]`);
 
+        // 🆕 v6.38.96: Auto-Zuweisung ins buchenLog (System Monitor Remote Console)
+        try {
+            const _rejList = Object.entries(vehicleScores)
+                .filter(([, s]) => s.status !== 'available')
+                .map(([vid, s]) => `${(OFFICIAL_VEHICLES[vid] || {}).name || vid}: ${s.reason || s.status}`)
+                .join(' | ');
+            db.ref('settings/buchenLog').push({
+                time: Date.now(), emoji: '🎯',
+                msg: `AUTO-ZUWEISUNG: ${rideData.customerName || '?'} → ${best.name} | ${isSofort ? 'Sofort' : 'Vorbestellung'} | Score: ${vehicleScores[best.vehicleId]?.totalScore ?? '?'}${isSofort ? ' | ' + (best.distance < 999 ? best.distance.toFixed(1) + 'km' : 'kein GPS') + ', ~' + drivingTimeMin + 'min' : ''}${_rejList ? ' | Abgelehnt: ' + _rejList.substring(0, 200) : ''}`,
+                session: 'cloud'
+            }).catch(() => {});
+        } catch(_blErr) { /* non-critical */ }
+
         // Fahrer per Telegram benachrichtigen
         if (best.telegramChatId) {
             const pickupLabel = rideData.pickupTime || (isSofort ? 'Sofort' : timeStr + ' Uhr');
@@ -1479,7 +1492,7 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     const passengerName = ride.guestName || ride.customerName;
     const greeting = passengerName ? `Hallo ${passengerName},\n\n` : '';
 
-    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
+    const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
     let message = '';
 
     if (type === 'booking_confirmed') {
@@ -17537,7 +17550,7 @@ exports.onRideCreated = onValueCreated(
             const _passengerName = ride.guestName || ride.customerName;
             const _greeting = _passengerName ? `Hallo ${_passengerName},\n\n` : '';
             const vehicleInfo = ride.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
-            const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
+            const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
             const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
                 _greeting +
                 `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
@@ -17723,7 +17736,7 @@ exports.onRideUpdated = onValueUpdated(
                     const _greeting2 = _passengerName2 ? `Hallo ${_passengerName2},\n\n` : '';
                     const driverInfo = after.driverName ? `\n👤 <b>Fahrer:</b> ${after.driverName}` : '';
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
-                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
+                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                     const customerMsg = `🚕 <b>IHR TAXI IST UNTERWEGS!</b> 🚕\n\n` +
                         _greeting2 +
                         `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
@@ -17894,7 +17907,7 @@ exports.onRideUpdated = onValueUpdated(
                         const _custName = after.guestName || after.customerName || '';
                         const _greeting = _custName ? `Hallo ${_custName},\n\n` : '';
                         const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}` : '';
-                        const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
+                        const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                         let custMsg = '';
 
                         if (newStatus === 'on_way') {
@@ -17990,7 +18003,7 @@ exports.onRideUpdated = onValueUpdated(
                     // 🔧 v6.36.0: Gastname hat Priorität über Hotel/CRM-Name
                     const _passengerName3 = after.guestName || after.customerName;
                     const _greeting3 = _passengerName3 ? `Hallo ${_passengerName3},\n\n` : '';
-                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/?ride=${rideId}`;
+                    const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                     const vehicleInfo = after.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
                         _greeting3 +

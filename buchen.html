@@ -409,7 +409,10 @@
     <!-- Buchungsformular -->
     <div class="main">
         <div class="card" id="booking-card">
-            <div class="card-title">🚖 Taxi buchen</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="card-title" style="margin-bottom:0;">🚖 Taxi buchen</div>
+                <button onclick="resetBookingForm()" style="padding:6px 12px;background:white;color:#94a3b8;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;">🔄 Zurücksetzen</button>
+            </div>
 
             <!-- Wann? (oben damit Kunde zuerst wählt) -->
             <div class="input-group" style="margin-bottom:16px;">
@@ -1057,6 +1060,16 @@
             const felder = document.getElementById('vorbestellen-felder');
             if (felder) felder.classList.remove('active');
             document.querySelectorAll('.wann-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+            // Kalender + Slot-Auswahl zurücksetzen
+            _selectedSlot = null;
+            _slotIsFree = false;
+            _slotCalendarDate = null;
+            const kalender = document.getElementById('vorbestellen-kalender');
+            if (kalender) kalender.style.display = 'none';
+            const slotInfo = document.getElementById('slot-selected-info');
+            if (slotInfo) slotInfo.style.display = 'none';
+            const availability = document.getElementById('availability');
+            if (availability) availability.style.display = 'none';
             updateStatusBar();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             logBuchen('🔄', 'Formular zurückgesetzt');

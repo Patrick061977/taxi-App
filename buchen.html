@@ -511,6 +511,21 @@
                     <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
                 </div>
 
+                <!-- Telefon -->
+                <div class="input-group">
+                    <label>📱 Telefonnummer</label>
+                    <span class="input-icon">📱</span>
+                    <div style="display:flex;gap:6px;">
+                        <select id="b-phone-country" style="padding:10px 6px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;min-width:85px;background:white;">
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+48">🇵🇱 +48</option>
+                            <option value="+43">🇦🇹 +43</option>
+                            <option value="+41">🇨🇭 +41</option>
+                        </select>
+                        <input type="tel" id="b-phone" placeholder="176 12345678" autocomplete="tel" style="flex:1;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;">
+                    </div>
+                </div>
+
                 <!-- Personen -->
                 <div class="input-group">
                     <label>👥 Personen</label>
@@ -558,8 +573,8 @@
             </div>
         </div>
 
-        <!-- Telefon eingeben -->
-        <div class="card" style="display:none;" id="phone-card">
+        <!-- Telefon/SMS Cards (deaktiviert — Direktbuchung ohne Phone Auth) -->
+        <div style="display:none;" id="phone-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
@@ -624,8 +639,7 @@
             </div>
         </div>
 
-        <!-- SMS-Code eingeben -->
-        <div class="card" style="display:none;" id="sms-card">
+        <div style="display:none;" id="sms-card">
             <div style="text-align:center;">
                 <div style="font-size:48px;margin-bottom:12px;">🔐</div>
                 <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
@@ -2281,27 +2295,25 @@
         let confirmationResult = null;
         let recaptchaVerifier = null;
 
-        function startBooking() {
+        async function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
-            // 🆕 v6.38.74: Namens-Check
             const nameVal = (document.getElementById('b-name')?.value || '').trim();
             if (!nameVal || nameVal.length < 2) {
                 showToast('⚠️ Bitte Ihren Namen eingeben');
                 document.getElementById('b-name')?.focus();
                 return;
             }
-            document.getElementById('booking-card').style.display = 'none';
-            document.getElementById('phone-card').style.display = 'block';
-            document.getElementById('b-phone').focus();
-
-            // reCAPTCHA initialisieren (unsichtbar)
-            if (!recaptchaVerifier) {
-                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                    size: 'invisible',
-                    callback: () => console.log('reCAPTCHA gelöst')
-                });
-                recaptchaVerifier.render();
+            const phoneRaw = (document.getElementById('b-phone')?.value || '').replace(/[\s\-\/]/g, '');
+            if (phoneRaw.length < 6) {
+                showToast('⚠️ Bitte Telefonnummer eingeben');
+                document.getElementById('b-phone')?.focus();
+                return;
             }
+            const phoneCountry = document.getElementById('b-phone-country')?.value || '+49';
+            customerPhone = phoneRaw.startsWith('+') ? phoneRaw : (phoneRaw.startsWith('0') ? phoneCountry + phoneRaw.slice(1) : phoneCountry + phoneRaw);
+
+            // Direkt buchen — kein SMS/Captcha nötig
+            await createBooking();
         }
 
         // SMS-Code über Firebase Phone Auth senden (kostenlos!)
@@ -2342,27 +2354,7 @@
             }
         }
 
-        async function verifyAndBook() {
-            const code = document.getElementById('b-sms-code').value.trim();
-            if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
-
-            if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
-
-            try {
-                // Firebase prüft den Code — bei Erfolg ist User eingeloggt
-                const result = await confirmationResult.confirm(code);
-                customerPhone = result.user.phoneNumber;
-                console.log('✅ Verifiziert:', customerPhone);
-            } catch(e) {
-                if (e.code === 'auth/invalid-verification-code') {
-                    showToast('Falscher Code — bitte erneut versuchen');
-                } else {
-                    showToast('Fehler bei der Verifizierung');
-                }
-                return;
-            }
-
-            // Buchung in Firebase erstellen
+        async function createBooking() {
             const pickup = document.getElementById('b-pickup').value;
             const destination = document.getElementById('b-destination').value;
             const now = Date.now();
@@ -2420,7 +2412,7 @@
                 const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
                 const _pickupTimeStr2 = _pickupDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 
-                document.getElementById('sms-card').style.display = 'none';
+                document.getElementById('booking-card').style.display = 'none';
                 document.getElementById('success-card').style.display = 'block';
 
                 // Erfolgs-Icon + Titel je nach Modus

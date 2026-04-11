@@ -987,6 +987,14 @@
         function updateSofortToggle(gpsOnlineCount) {
             const sofortBtn = document.querySelector('.wann-btn[onclick*="sofort"]');
             if (!sofortBtn) return;
+            // Wenn Vorbestellen aktiv → Sofort-Button normal lassen
+            if (wannModus === 'vorbestellen') {
+                sofortBtn.style.background = '';
+                sofortBtn.style.color = '';
+                sofortBtn.innerHTML = '⚡ Sofort';
+                sofortBtn.onclick = function() { setWann('sofort'); };
+                return;
+            }
             if (gpsOnlineCount > 0) {
                 // GPS online → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';

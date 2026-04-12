@@ -2322,7 +2322,7 @@
                 var badge = document.getElementById('user-badge');
                 if (badge) {
                     badge.style.display = 'flex';
-                    badge.innerHTML = '👤 ' + user.phoneNumber + ' <button onclick="auth.signOut().then(()=>{location.reload()})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px;margin-left:6px;">Abmelden</button>';
+                    badge.innerHTML = '👤 ' + user.phoneNumber + ' <a href="kunden.html" style="color:white;margin-left:8px;font-size:11px;text-decoration:underline;">Mein Konto</a> <button onclick="auth.signOut().then(()=>{location.reload()})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px;margin-left:4px;">Abmelden</button>';
                 }
                 // Kunden-Login Link ausblenden (User ist schon eingeloggt)
                 document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = 'none'; });

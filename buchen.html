@@ -1536,9 +1536,11 @@
                             leerfahrtDanach = calcLeerfahrtMin(destCoords.lat, destCoords.lon, naechsteFahrt.pickupLat, naechsteFahrt.pickupLon) + bufferMin;
                         }
                         const kundenFertig = slotTs + (kundenDauer + leerfahrtDanach) * 60000;
-                        if (kundenFertig > naechsteFahrt.start) {
-                            // Fahrer schafft es nicht rechtzeitig zum nächsten Termin
-                            overlapping = Math.max(overlapping, vehiclesInShift); // Slot blockieren
+                        // 🔧 v6.38.97: Nur blockieren wenn nächste Fahrt INNERHALB 2h liegt
+                        // Sonst blockiert eine Fahrt um 19:45 alle Slots ab 16:00
+                        const zeitBisNaechste = naechsteFahrt.start - slotTs;
+                        if (kundenFertig > naechsteFahrt.start && zeitBisNaechste < 120 * 60000) {
+                            overlapping = Math.max(overlapping, vehiclesInShift);
                         }
                     }
                 }

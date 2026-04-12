@@ -1437,7 +1437,7 @@
             try {
                 const snap = await db.ref('rides').orderByChild('pickupTimestamp')
                     .startAt(dayStart).endAt(dayEnd).once('value');
-                const activeStatuses = ['new', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 snap.forEach(child => {
                     const r = child.val();
                     if (!activeStatuses.includes(r.status)) return;
@@ -1690,7 +1690,7 @@
                 const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
                     .startAt(dayStart).endAt(dayEnd).once('value');
 
-                const activeStatuses = ['new', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+                const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
                 let conflictCount = 0;
                 const rideEndTimes = [];
                 const nowTs = Date.now();

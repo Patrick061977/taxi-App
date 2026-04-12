@@ -1639,6 +1639,13 @@
         // ═══════════════════════════════════════════════
         async function checkAvailability() {
             const el = document.getElementById('availability');
+            // 🔧 v6.38.97: shiftsData laden falls noch leer (Race Condition bei Seitenstart)
+            if (!shiftsData || Object.keys(shiftsData).length === 0) {
+                try {
+                    const _snap = await db.ref('vehicleShifts').once('value');
+                    shiftsData = _snap.val() || {};
+                } catch(e) {}
+            }
 
             // Bei Vorbestellen + Slot aus Kalender gewählt → Kalender hat schon geprüft
             if (wannModus === 'vorbestellen' && _selectedSlot && _slotIsFree) {

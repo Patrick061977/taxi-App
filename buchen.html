@@ -1929,6 +1929,19 @@
             });
         }
 
+        // 🆕 v6.38.97: Zielort, Personen, Name aus URL-Parametern (z.B. "Nochmal buchen")
+        const qrTo = urlParams.get('to');
+        const qrPax = urlParams.get('passengers');
+        const qrName = urlParams.get('name');
+        if (qrTo) {
+            document.getElementById('b-destination').value = decodeURIComponent(qrTo);
+            geocodeAddress(decodeURIComponent(qrTo)).then(coords => {
+                if (coords) { destCoords = coords; checkRoute(); }
+            });
+        }
+        if (qrPax) { setPax(parseInt(qrPax) || 1); }
+        if (qrName) { const nameEl = document.getElementById('b-name'); if (nameEl) nameEl.value = decodeURIComponent(qrName); }
+
         // ═══════════════════════════════════════════════
         // Personen-Auswahl
         // ═══════════════════════════════════════════════

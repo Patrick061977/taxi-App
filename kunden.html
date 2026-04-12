@@ -1004,8 +1004,9 @@
         }
 
         async function cancelRide(rideId) {
+            console.log('🔴 cancelRide aufgerufen:', rideId);
             const ride = customerRides.find(r => r.firebaseId === rideId);
-            if (!ride) return;
+            if (!ride) { console.error('Fahrt nicht gefunden:', rideId); alert('Fahrt nicht gefunden'); return; }
 
             // Hotel-Schutz
             if (ride.hotelCalendarId) {
@@ -1057,7 +1058,8 @@
             const params = new URLSearchParams({
                 from: ride.pickup || '',
                 to: ride.destination || '',
-                passengers: ride.passengers || '1'
+                passengers: ride.passengers || '1',
+                name: ride.customerName || verifiedPhone || ''
             });
             window.location.href = 'buchen.html?' + params.toString();
         }

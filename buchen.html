@@ -1551,8 +1551,8 @@
                 const leftPx = i * pxPerSlot;
                 let bg, border, cursor, opacity;
                 const isPast = isToday && slotTs < nowTs;
-                // Mindestens 1 Stunde Vorlauf für Vorbestellungen
-                const tooSoon = isToday && slotTs < (nowTs + 60 * 60000);
+                // 🔧 v6.38.97: Mindestens 15 Min Vorlauf (statt 60 Min!)
+                const tooSoon = isToday && slotTs < (nowTs + 15 * 60000);
 
                 if (isPast || tooSoon) {
                     bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.4';
@@ -2346,6 +2346,24 @@
                 _isLoggedIn = true;
                 customerPhone = user.phoneNumber;
                 logBuchen('🔐', 'Bereits eingeloggt: ' + user.phoneNumber);
+                // Name aus CRM laden (Phone → Kundenname)
+                try {
+                    var _phone = user.phoneNumber.replace(/[^0-9]/g, '');
+                    db.ref('customers').once('value').then(function(snap) {
+                        var found = false;
+                        snap.forEach(function(child) {
+                            if (found) return;
+                            var c = child.val();
+                            var cp = ((c.phone || '') + (c.mobile || c.mobilePhone || '')).replace(/[^0-9]/g, '');
+                            if (cp && _phone.endsWith(cp.slice(-9))) {
+                                found = true;
+                                var nameEl = document.getElementById('b-name');
+                                if (nameEl && !nameEl.value) nameEl.value = c.name || '';
+                                logBuchen('👤', 'CRM-Kunde erkannt: ' + (c.name || '?'));
+                            }
+                        });
+                    });
+                } catch(e) {}
                 // Login-Badge oben anzeigen, Kunden-Login ausblenden
                 var badge = document.getElementById('user-badge');
                 if (badge) {

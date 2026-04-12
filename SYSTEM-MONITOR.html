@@ -254,6 +254,20 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         </div>
     </div>
 
+    <!-- Panel 4g: Zeitslot-Konflikte (Live Fahrzeug-Belegung) v6.38.97 -->
+    <div class="panel" id="panelConflicts">
+        <div class="panel-header">
+            <h2>📊 Fahrzeug-Belegung</h2>
+            <div style="display:flex;gap:6px;align-items:center">
+                <button onclick="renderConflictPanel()" style="background:#1a1a2e;border:1px solid #555;color:#888;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.7em">🔄</button>
+                <div class="badge" id="conflictCount">0</div>
+            </div>
+        </div>
+        <div class="panel-body" id="conflictFeed" style="font-size:0.8em;">
+            <div class="empty-msg">Lade Belegung...</div>
+        </div>
+    </div>
+
     <!-- Panel 4f: GPS-Karte (Live Fahrzeug-Positionen) v6.38.97 -->
     <div class="panel" id="panelMap">
         <div class="panel-header">
@@ -1437,6 +1451,115 @@ try {
         if (panel) panel.style.display = 'none';
     });
 } catch(e) {}
+
+// ===== PANEL: FAHRZEUG-BELEGUNG (v6.38.97) =====
+function renderConflictPanel() {
+    const feed = document.getElementById('conflictFeed');
+    const countEl = document.getElementById('conflictCount');
+    if (!feed) return;
+
+    const now = Date.now();
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const todayEnd = todayStart.getTime() + 24 * 3600000;
+
+    // Heutige aktive Fahrten sammeln
+    const activeStatuses = ['new','sofort','assigned','vorbestellt','accepted','on_way','picked_up'];
+    const todayRides = Object.entries(allRides)
+        .filter(([id, r]) => r && r.pickupTimestamp && r.pickupTimestamp >= todayStart.getTime() && r.pickupTimestamp < todayEnd && activeStatuses.includes(r.status))
+        .map(([id, r]) => ({ ...r, _id: id }))
+        .sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+
+    if (todayRides.length === 0) {
+        feed.innerHTML = '<div class="empty-msg">Keine aktiven Fahrten heute</div>';
+        if (countEl) countEl.textContent = '0';
+        return;
+    }
+
+    if (countEl) countEl.textContent = todayRides.length;
+
+    // Pro Fahrzeug gruppieren
+    const byVehicle = {};
+    todayRides.forEach(r => {
+        const vid = r.vehicleId || r.assignedVehicle || 'unzugewiesen';
+        if (!byVehicle[vid]) byVehicle[vid] = [];
+        byVehicle[vid].push(r);
+    });
+
+    let html = '';
+    const vehicleNames = {'pw-ik-222':'Toyota Prius IK','pw-my-222-e':'Tesla Model Y','pw-ki-222':'Toyota Prius II','pw-sk-222':'Renault Traffic','vg-lk-111':'Mercedes Vito','pw-ym-222-e':'Tesla'};
+
+    for (const [vid, rides] of Object.entries(byVehicle)) {
+        const vName = vehicleNames[vid] || vid;
+        const isOnline = vehicleData[vid] && vehicleData[vid].online;
+        const statusDot = isOnline ? '🟢' : '⚪';
+
+        html += `<div style="margin-bottom:8px;padding:6px;background:#0d1520;border:1px solid #1a2e3e;border-radius:6px;">`;
+        html += `<div style="font-size:0.75em;color:#42a5f5;font-weight:700;margin-bottom:4px;">${statusDot} ${vName} (${rides.length} Fahrten)</div>`;
+
+        rides.forEach(r => {
+            const pickupTime = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin' });
+            const dur = r.duration || r.estimatedDuration || 20;
+            const endTs = r.pickupTimestamp + dur * 60000;
+            const endTime = new Date(endTs).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin' });
+            const isPast = endTs < now;
+            const isActive = r.status === 'on_way' || r.status === 'picked_up';
+            const isSofort = r.status === 'sofort';
+
+            const statusColors = {
+                'sofort': '#ef4444', 'assigned': '#f59e0b', 'accepted': '#10b981',
+                'on_way': '#3b82f6', 'picked_up': '#8b5cf6', 'vorbestellt': '#6b7280', 'new': '#f59e0b'
+            };
+            const statusLabels = {
+                'sofort': '⚡Sofort', 'assigned': '🟡Zugeteilt', 'accepted': '🟢Angenommen',
+                'on_way': '🚗Unterwegs', 'picked_up': '🚕An Bord', 'vorbestellt': '📋Vorbestellt', 'new': '🟡Neu'
+            };
+            const color = statusColors[r.status] || '#666';
+            const label = statusLabels[r.status] || r.status;
+
+            html += `<div style="padding:3px 6px;margin:2px 0;border-left:3px solid ${color};background:${isPast ? '#111' : isActive ? '#0a1a0a' : '#0d0d1a'};border-radius:0 4px 4px 0;opacity:${isPast ? '0.5' : '1'};">`;
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
+            html += `<span style="color:#ccc;font-size:0.85em;"><strong style="color:${color};">${pickupTime}-${endTime}</strong> (${dur}min) ${esc(r.customerName || '?')}</span>`;
+            html += `<span style="font-size:0.7em;color:${color};font-weight:600;">${label}</span>`;
+            html += `</div>`;
+            html += `<div style="font-size:0.7em;color:#666;margin-top:1px;">${esc((r.pickup || '?').substring(0, 30))} → ${esc((r.destination || '?').substring(0, 30))}</div>`;
+            html += `</div>`;
+        });
+
+        // Konflikte erkennen (Überlappungen)
+        for (let i = 0; i < rides.length - 1; i++) {
+            const r1 = rides[i];
+            const r2 = rides[i + 1];
+            const r1End = r1.pickupTimestamp + ((r1.duration || r1.estimatedDuration || 20) + 5) * 60000;
+            if (r1End > r2.pickupTimestamp) {
+                const overlapMin = Math.round((r1End - r2.pickupTimestamp) / 60000);
+                html += `<div style="padding:2px 6px;background:#1a0d0d;border:1px solid #f44336;border-radius:4px;margin:2px 0;font-size:0.7em;color:#f44336;">⚠️ KONFLIKT: ${overlapMin} Min Überlappung zwischen ${esc(r1.customerName || '?')} und ${esc(r2.customerName || '?')}</div>`;
+            }
+        }
+
+        html += `</div>`;
+    }
+
+    // Unzugewiesene Fahrten hervorheben
+    const unassigned = todayRides.filter(r => !r.vehicleId && !r.assignedVehicle);
+    if (unassigned.length > 0) {
+        html += `<div style="padding:6px;background:#1a0d0d;border:2px solid #f44336;border-radius:6px;margin-top:4px;">`;
+        html += `<div style="font-size:0.75em;color:#f44336;font-weight:700;">🚨 ${unassigned.length} OHNE FAHRZEUG</div>`;
+        unassigned.forEach(r => {
+            const t = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin' });
+            html += `<div style="font-size:0.7em;color:#f88;margin-top:2px;">${t} ${esc(r.customerName || '?')} — ${esc((r.pickup || '?').substring(0, 25))}</div>`;
+        });
+        html += `</div>`;
+    }
+
+    feed.innerHTML = html;
+}
+
+// Konflikt-Panel bei Fahrten-Updates aktualisieren
+setInterval(renderConflictPanel, 10000);
+setTimeout(renderConflictPanel, 3000);
+
+// Panel-Config erweitern
+PANEL_CONFIG.push({ id: 'panelConflicts', name: 'Fahrzeug-Belegung', icon: '📊' });
 
 // ===== PANEL: LIVE-KARTE (v6.38.97) =====
 let _monitorMap = null;

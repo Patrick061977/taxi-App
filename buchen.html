@@ -713,19 +713,8 @@
                 };
                 if (data) entry.data = data;
                 db.ref('settings/buchenLog').push(entry);
-                // Max 100 Eintraege halten (alte loeschen)
-                db.ref('settings/buchenLog').orderByChild('time').limitToFirst(1).once('value', snap => {
-                    const count = snap.numChildren();
-                    if (count > 0) {
-                        db.ref('settings/buchenLog').once('value', s => {
-                            const all = s.val();
-                            if (all && Object.keys(all).length > 100) {
-                                const oldest = Object.entries(all).sort((a,b) => a[1].time - b[1].time).slice(0, 20);
-                                oldest.forEach(([k]) => db.ref('settings/buchenLog/' + k).remove());
-                            }
-                        });
-                    }
-                });
+                // 🔧 v6.38.97: Cleanup DEAKTIVIERT — löschte wichtige Fahrer/System-Logs!
+                // Cleanup wird jetzt nur noch manuell im System Monitor gemacht
             } catch(e) { /* non-critical */ }
         }
         logBuchen('🌐', 'buchen.html geoeffnet', { userAgent: navigator.userAgent.substring(0, 60) });
@@ -2327,6 +2316,9 @@
                 document.getElementById('b-name')?.focus();
                 return;
             }
+            const pickup = document.getElementById('b-pickup')?.value || '?';
+            const dest = document.getElementById('b-destination')?.value || '?';
+            logBuchen('🚕', 'BUCHUNG GESTARTET: ' + nameVal + ' | ' + pickup + ' → ' + dest + ' | ' + wannModus);
             // Zur Telefonnummer-Eingabe wechseln
             document.getElementById('booking-card').style.display = 'none';
             document.getElementById('phone-card').style.display = 'block';
@@ -2340,13 +2332,17 @@
             if (phone.length < 6) return showToast('Bitte gültige Telefonnummer eingeben');
             customerPhone = phone.startsWith('+') ? phone : (phone.startsWith('0') ? phoneCountry + phone.slice(1) : phoneCountry + phone);
 
+            logBuchen('📱', 'SMS-Code angefordert: ' + customerPhone);
+
             const btn = document.getElementById('btn-send-code');
             btn.disabled = true;
             btn.textContent = '⏳ Code wird gesendet...';
 
             initRecaptcha();
             try {
+                logBuchen('🔐', 'reCAPTCHA + signInWithPhoneNumber gestartet...');
                 confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
+                logBuchen('✅', 'SMS-Code gesendet an ' + customerPhone);
                 document.getElementById('phone-card').style.display = 'none';
                 document.getElementById('sms-card').style.display = 'block';
                 document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
@@ -2354,6 +2350,7 @@
                 showToast('📨 SMS-Code gesendet!');
             } catch(e) {
                 console.error('Phone Auth Fehler:', e);
+                logBuchen('🔴', 'SMS FEHLER: ' + (e.code || '') + ' ' + (e.message || '').substring(0, 100));
                 if (e.code === 'auth/too-many-requests') {
                     showToast('Zu viele Versuche — bitte später erneut');
                 } else if (e.code === 'auth/invalid-phone-number') {
@@ -2372,10 +2369,13 @@
             const code = (document.getElementById('b-sms-code')?.value || '').trim();
             if (!code || code.length < 6) return showToast('Bitte 6-stelligen Code eingeben');
             if (!confirmationResult) return showToast('Bitte zuerst Code anfordern');
+            logBuchen('🔑', 'SMS-Code eingegeben, verifiziere...');
             try {
                 const result = await confirmationResult.confirm(code);
                 customerPhone = result.user.phoneNumber || customerPhone;
+                logBuchen('✅', 'Phone-Auth erfolgreich: ' + customerPhone);
             } catch(e) {
+                logBuchen('🔴', 'Phone-Auth FEHLER: ' + (e.code || '') + ' ' + (e.message || '').substring(0, 100));
                 if (e.code === 'auth/invalid-verification-code') {
                     showToast('Falscher Code — bitte erneut versuchen');
                 } else {
@@ -2387,6 +2387,7 @@
         }
 
         async function createBooking() {
+            logBuchen('🚕', 'createBooking() gestartet...');
             const pickup = document.getElementById('b-pickup').value;
             const destination = document.getElementById('b-destination').value;
             const now = Date.now();
@@ -2414,7 +2415,7 @@
                 customerName: (document.getElementById('b-name')?.value || '').trim() || 'Web-Kunde',
                 customerPhone: customerPhone,
                 passengers,
-                status: isVorbestellt ? 'vorbestellt' : 'new',
+                status: isVorbestellt ? 'vorbestellt' : 'sofort',
                 isJetzt: !isVorbestellt,
                 source: 'web-booking',
                 createdAt: now,
@@ -2438,7 +2439,8 @@
                 await ref.set(rideData);
 
                 // Erfolg anzeigen — unterschiedlich für Sofort vs. Vorbestellung
-                const trackingUrl = `https://umwelt-taxi-insel-usedom.de/?ride=${ref.key}`;
+                const trackingUrl = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${ref.key}`;
+                logBuchen('✅', 'FAHRT ERSTELLT: ' + ref.key + ' | ' + pickup + ' → ' + destination + ' | ' + (isVorbestellt ? 'Vorbestellt' : 'Sofort'));
                 const _rideId = ref.key;
                 const _pickupDate = new Date(new Date(pickupTs).toLocaleString('en-US',{timeZone:'Europe/Berlin'}));
                 const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});

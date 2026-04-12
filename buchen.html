@@ -2612,6 +2612,19 @@
                     if (r.status === 'on_way') detailText += ' — Bitte bereithalten!';
                     if (r.status === 'completed' && (r.finalPrice || r.price)) detailText += ' — ' + (r.finalPrice || r.price) + '€';
                     if (detail) detail.textContent = detailText;
+
+                    // 🔧 v6.38.97: Tracking/Stornieren Buttons ausblenden bei Abschluss/Stornierung
+                    const actionBtns = box.parentElement?.querySelector('[style*="display:flex"][style*="gap:6px"]');
+                    if (actionBtns && ['completed','cancelled','storniert'].includes(r.status)) {
+                        actionBtns.style.display = 'none';
+                    }
+                    // Tracking nur zeigen wenn Fahrer angenommen hat
+                    const trackBtn = box.parentElement?.querySelector('a[href*="track"]');
+                    if (trackBtn && ['new','sofort'].includes(r.status)) {
+                        trackBtn.style.display = 'none';
+                    } else if (trackBtn && ['accepted','on_way','picked_up'].includes(r.status)) {
+                        trackBtn.style.display = '';
+                    }
                 });
 
                 showToast('🎉 Buchung erfolgreich!');

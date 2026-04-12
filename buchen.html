@@ -1226,9 +1226,10 @@
                     t.classList.toggle('active', t._dateStr === dateVal);
                 });
                 renderSlotTimeline(dateVal);
-                // Prüfen ob der gewählte Slot frei ist (grün im Kalender)
-                const selBlock = document.querySelector('#slot-timeline-bar .sel');
-                _slotIsFree = selBlock && selBlock.style.cursor === 'pointer';
+                // 🔧 v6.38.97: Warten bis DOM aktualisiert, dann Slot-Status prüfen
+                setTimeout(() => {
+                    const selBlock = document.querySelector('#slot-timeline-bar .sel');
+                    _slotIsFree = selBlock && selBlock.style.cursor === 'pointer';
                 const el = document.getElementById('availability');
                 const infoEl = document.getElementById('slot-selected-info');
                 const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
@@ -1273,14 +1274,15 @@
                     if (el) el.style.display = 'none';
                     updateBookButton();
                 }
-                // Zum markierten Slot scrollen (über .sel Klasse im DOM finden)
-                const scrollContainer = document.getElementById('slot-timeline');
-                if (scrollContainer) {
-                    const selBlock = document.querySelector('#slot-timeline-bar .sel');
-                    if (selBlock) {
-                        scrollContainer.scrollLeft = Math.max(0, selBlock.offsetLeft - 60);
+                    // Zum markierten Slot scrollen (über .sel Klasse im DOM finden)
+                    const scrollContainer = document.getElementById('slot-timeline');
+                    if (scrollContainer) {
+                        const selBlock2 = document.querySelector('#slot-timeline-bar .sel');
+                        if (selBlock2) {
+                            scrollContainer.scrollLeft = Math.max(0, selBlock2.offsetLeft - 60);
+                        }
                     }
-                }
+                }, 50); // 50ms warten bis DOM aktualisiert
             } else {
                 _selectedSlot = null;
                 const infoEl = document.getElementById('slot-selected-info');

@@ -600,6 +600,8 @@ function saveAnfrageToFirebase(channel) {
             price: document.getElementById('anf-price').textContent || '',
             notes: document.getElementById('anf-notes').value || '',
             email: (document.getElementById('anf-email').value || '').trim(),
+            stopp: document.getElementById('anf-stopp')?.value || '',
+            ...(anfStoppCoords ? { stoppLat: anfStoppCoords.lat, stoppLon: anfStoppCoords.lon } : {}),
             festpreisAdresse: document.getElementById('anf-festpreis-addr-input')?.value || '',
             channel: channel,
             type: 'taxi',

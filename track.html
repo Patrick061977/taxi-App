@@ -163,16 +163,17 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         
-        // Tracking-Code aus URL
+        // Tracking-Code oder Ride-ID aus URL
         const urlParams = new URLSearchParams(window.location.search);
         const trackingCode = urlParams.get('code');
-        
-        if (!trackingCode) {
+        const directRideId = urlParams.get('ride');
+
+        if (!trackingCode && !directRideId) {
             showError('❌ Kein Tracking-Code in URL angegeben');
             throw new Error('No tracking code');
         }
-        
-        console.log('🔗 Tracking-Code:', trackingCode);
+
+        console.log('🔗 Tracking:', trackingCode ? 'Code: ' + trackingCode : 'Ride-ID: ' + directRideId);
         
         // Karte initialisieren
         const map = L.map('map').setView([54.0, 14.0], 10);
@@ -186,20 +187,28 @@
         let destinationMarker = null;
         let locationUpdateInterval = null;
         
-        // Tracking-Daten laden
-        db.ref('tracking').child(trackingCode).once('value', async (snapshot) => {
-            const tracking = snapshot.val();
-            
-            if (!tracking) {
-                showError('❌ Tracking-Link ungültig oder abgelaufen');
-                return;
+        // Tracking-Daten laden (per Code ODER direkt per Ride-ID)
+        async function loadTrackingData() {
+            let rideId, vehicleId;
+
+            if (trackingCode) {
+                // Per Tracking-Code → /tracking/{code}
+                const snapshot = await db.ref('tracking').child(trackingCode).once('value');
+                const tracking = snapshot.val();
+                if (!tracking) { showError('❌ Tracking-Link ungültig oder abgelaufen'); return; }
+                rideId = tracking.rideId;
+                vehicleId = tracking.vehicleId;
+            } else if (directRideId) {
+                // 🆕 v6.38.97: Direkt per Ride-ID → /rides/{id}
+                rideId = directRideId;
+                const rideSnap = await db.ref('rides').child(rideId).once('value');
+                const ride = rideSnap.val();
+                if (!ride) { showError('❌ Fahrt nicht gefunden'); return; }
+                vehicleId = ride.vehicleId || ride.assignedVehicle;
             }
-            
-            const rideId = tracking.rideId;
-            const vehicleId = tracking.vehicleId;
-            
+
             console.log('📍 Tracking aktiv:', { rideId, vehicleId });
-            
+
             // Fahrt-Daten laden
             const rideSnap = await db.ref('rides').child(rideId).once('value');
             const ride = rideSnap.val();
@@ -344,7 +353,8 @@
                     db.ref('drivers').off();
                 }
             }, 30000); // Alle 30 Sekunden
-        });
+        }
+        loadTrackingData();
         
         function showError(msg) {
             document.getElementById('vehicle-info').innerHTML = `

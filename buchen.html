@@ -1551,8 +1551,8 @@
                 const leftPx = i * pxPerSlot;
                 let bg, border, cursor, opacity;
                 const isPast = isToday && slotTs < nowTs;
-                // 🔧 v6.38.97: Mindestens 15 Min Vorlauf (statt 60 Min!)
-                const tooSoon = isToday && slotTs < (nowTs + 15 * 60000);
+                // Mindestens 60 Min Vorlauf für Vorbestellungen (darunter = Sofortfahrt)
+                const tooSoon = isToday && slotTs < (nowTs + 60 * 60000);
 
                 if (isPast || tooSoon) {
                     bg = '#f1f5f9'; border = '#e2e8f0'; cursor = 'default'; opacity = '0.4';

@@ -1694,17 +1694,15 @@
                 let conflictCount = 0;
                 const rideEndTimes = [];
                 const nowTs = Date.now();
+                const _conflictDetails = [];
 
                 ridesSnap.forEach(child => {
                     const r = child.val();
-                    // Inaktive Status rausfiltern
                     if (!activeStatuses.includes(r.status)) return;
-                    // Hotel-Kalender-Imports ignorieren
                     if (r.source === 'hotel_calendar_import' || r.hotelCalendarId) return;
-                    // Bereits abgelaufene Fahrten ignorieren
                     const rDur = (r.duration || r.estimatedDuration || defaultDuration) * 60000;
                     const rEndReal = r.pickupTimestamp + rDur;
-                    if (rEndReal < nowTs) return; // Fahrt schon vorbei
+                    if (rEndReal < nowTs) return;
 
                     const rEnd = r.pickupTimestamp + rDur + bufferMs;
                     const newDur = (routeData ? parseInt(routeData.min) : defaultDuration) * 60000;
@@ -1712,8 +1710,16 @@
                     if (ts < rEnd && r.pickupTimestamp < newEnd) {
                         conflictCount++;
                         rideEndTimes.push(rEndReal);
+                        const rTime = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                        const rEndTime = new Date(rEnd).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                        _conflictDetails.push(`${r.customerName||'?'} ${rTime}-${rEndTime} (${Math.round(rDur/60000)}+${Math.round(bufferMs/60000)}min) ${r.status} ${r.vehicleId||''}`);
                     }
                 });
+
+                // 🆕 v6.38.97: Konflikt-Details loggen
+                if (conflictCount > 0) {
+                    logBuchen('⚠️', `KONFLIKTE (${conflictCount}/${activeCount}): ${_conflictDetails.join(' | ')}`);
+                }
 
                 if (conflictCount < activeCount) {
                     isAvailable = true;

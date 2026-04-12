@@ -761,7 +761,7 @@
             const upcoming = customerRides.filter(r => {
                 const t = r.pickupTimestamp || r.createdAt || 0;
                 const isFuture = t > now - 3600000; // Noch nicht 1h her
-                const isActive = !['completed', 'cancelled'].includes(r.status);
+                const isActive = !['completed', 'cancelled', 'storniert'].includes(r.status);
                 return isFuture && isActive;
             });
 

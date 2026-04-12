@@ -2318,16 +2318,20 @@
                 _isLoggedIn = true;
                 customerPhone = user.phoneNumber;
                 logBuchen('🔐', 'Bereits eingeloggt: ' + user.phoneNumber);
-                // Login-Badge oben anzeigen
+                // Login-Badge oben anzeigen, Kunden-Login ausblenden
                 var badge = document.getElementById('user-badge');
                 if (badge) {
                     badge.style.display = 'flex';
                     badge.innerHTML = '👤 ' + user.phoneNumber + ' <button onclick="auth.signOut().then(()=>{location.reload()})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px;margin-left:6px;">Abmelden</button>';
                 }
+                // Kunden-Login Link ausblenden (User ist schon eingeloggt)
+                document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = 'none'; });
             } else {
                 _isLoggedIn = false;
                 var badge = document.getElementById('user-badge');
                 if (badge) badge.style.display = 'none';
+                // Kunden-Login Link wieder zeigen
+                document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = ''; });
             }
         });
 

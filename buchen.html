@@ -400,6 +400,7 @@
     <!-- Header -->
     <div class="header">
         <div class="header-logo">🚕 Funk Taxi Heringsdorf</div>
+        <div id="user-badge" style="display:none;align-items:center;gap:4px;background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;color:white;font-size:12px;font-weight:600;"></div>
         <a href="kunden.html" class="header-login">👤 Kunden-Login</a>
     </div>
 
@@ -2310,6 +2311,26 @@
         // Früh initialisieren damit Google Zeit hat den User zu bewerten
         setTimeout(initRecaptcha, 2000);
 
+        // 🆕 v6.38.97: Bereits eingeloggten User erkennen (kein SMS nötig)
+        let _isLoggedIn = false;
+        auth.onAuthStateChanged(function(user) {
+            if (user && user.phoneNumber) {
+                _isLoggedIn = true;
+                customerPhone = user.phoneNumber;
+                logBuchen('🔐', 'Bereits eingeloggt: ' + user.phoneNumber);
+                // Login-Badge oben anzeigen
+                var badge = document.getElementById('user-badge');
+                if (badge) {
+                    badge.style.display = 'flex';
+                    badge.innerHTML = '👤 ' + user.phoneNumber + ' <button onclick="auth.signOut().then(()=>{location.reload()})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:11px;margin-left:6px;">Abmelden</button>';
+                }
+            } else {
+                _isLoggedIn = false;
+                var badge = document.getElementById('user-badge');
+                if (badge) badge.style.display = 'none';
+            }
+        });
+
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             const nameVal = (document.getElementById('b-name')?.value || '').trim();
@@ -2321,6 +2342,14 @@
             const pickup = document.getElementById('b-pickup')?.value || '?';
             const dest = document.getElementById('b-destination')?.value || '?';
             logBuchen('🚕', 'BUCHUNG GESTARTET: ' + nameVal + ' | ' + pickup + ' → ' + dest + ' | ' + wannModus);
+
+            // 🆕 v6.38.97: Bereits eingeloggt → SMS überspringen, direkt buchen!
+            if (_isLoggedIn && customerPhone) {
+                logBuchen('✅', 'Bereits eingeloggt — überspringe SMS (' + customerPhone + ')');
+                createBooking();
+                return;
+            }
+
             // Zur Telefonnummer-Eingabe wechseln
             document.getElementById('booking-card').style.display = 'none';
             document.getElementById('phone-card').style.display = 'block';

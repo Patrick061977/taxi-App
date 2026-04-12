@@ -609,6 +609,14 @@ async function autoAssignRide(rideId, rideData) {
                 continue;
             }
 
+            // 🆕 v6.38.97: Abgelehnte Fahrzeuge überspringen (Fahrer hat nicht bestätigt / abgelehnt)
+            const _rejectedList = rideData._rejectedVehicles || rideData.rejectedVehicles || [];
+            if (_rejectedList.includes(vehicleId)) {
+                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer hat nicht bestätigt', check: 'driver_rejected' };
+                continue;
+            }
+
             if (info.capacity < passengers) {
                 console.log(`   ❌ ${info.name}: Kapazität ${info.capacity} < ${passengers} Personen`);
                 vehicleScores[vehicleId] = { status: 'rejected', reason: `Kapazität ${info.capacity} < ${passengers} Personen`, check: 'capacity' };
@@ -1027,9 +1035,10 @@ async function autoAssignRide(rideId, rideData) {
             });
         } catch (_logErr) { console.warn('Decision-Log Fehler:', _logErr.message); }
 
-        // Status: Sofortfahrt → assigned, Vorbestellung → vorbestellt (mit zugewiesenem Fahrzeug)
+        // 🔧 v6.38.97: Sofortfahrt → 'sofort' (Fahrer muss erst bestätigen!)
+        // Erst wenn Fahrer im App "Annehmen" klickt → status wird 'assigned'
         const rideUpdate = {
-            status: isSofort ? 'assigned' : 'vorbestellt',
+            status: isSofort ? 'sofort' : 'vorbestellt',
             assignedTo: best.vehicleId,
             vehicleId: best.vehicleId,
             vehicle: best.name,
@@ -1089,7 +1098,7 @@ async function autoAssignRide(rideId, rideData) {
                 (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone)}\n` : '') +
                 `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                 (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min${best.distance < 999 ? ` (${best.distance.toFixed(1)} km)` : ' (GPS nicht verfügbar)'}\n\n` : '\n') +
-                (isSofort ? `⏱️ <i>60 Sek zum Annehmen</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
+                (isSofort ? `⏱️ <i>Bitte in der App annehmen oder ablehnen!</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
             );
             // 🆕 v6.38.45: Fahrer-Benachrichtigung loggen
             await addRideLog(rideId, '📨', `Fahrer-Telegram: ${best.name}`, {
@@ -18386,6 +18395,49 @@ exports.scheduledOpenRideCheck = onSchedule(
                         warnings.push({ rideId, ride, minutesUntilPickup });
                     }
                 }
+            });
+
+            // 🆕 v6.38.97: Timeout für 'sofort' Fahrten — Fahrer hat nicht bestätigt
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (ride.status !== 'sofort') return;
+                if (!ride.assignmentExpiresAt) return;
+                if (ride.assignmentExpiresAt > now) return; // Noch nicht abgelaufen
+
+                // Abgelaufen! Fahrzeug entfernen und neu zuweisen
+                const expiredVehicle = ride.assignedVehicle || ride.vehicleId;
+                const expiredName = ride.vehicle || ride.assignedVehicleName || expiredVehicle;
+                console.log(`⏰ Sofortfahrt ${rideId} abgelaufen — ${expiredName} hat nicht bestätigt`);
+
+                // Bisherige abgelehnte Fahrzeuge merken
+                const rejectedVehicles = ride.rejectedVehicles || [];
+                if (expiredVehicle) rejectedVehicles.push(expiredVehicle);
+
+                // Fahrzeug entfernen, Status zurück auf 'new'
+                db.ref('rides/' + rideId).update({
+                    status: 'new',
+                    assignedVehicle: null,
+                    vehicleId: null,
+                    vehicle: null,
+                    assignedTo: null,
+                    assignedAt: null,
+                    assignedBy: null,
+                    assignmentExpiresAt: null,
+                    rejectedVehicles: rejectedVehicles,
+                    updatedAt: Date.now()
+                }).then(() => {
+                    // Neu zuweisen (ohne abgelehnte Fahrzeuge)
+                    console.log(`🔄 Versuche Neuzuweisung für ${rideId} (ohne ${rejectedVehicles.join(', ')})`);
+                    autoAssignRide(rideId, { ...ride, _rejectedVehicles: rejectedVehicles }).then(result => {
+                        if (result) {
+                            console.log(`✅ Neu zugewiesen: ${rideId} → ${result.name}`);
+                        } else {
+                            console.log(`⚠️ Kein Fahrzeug mehr verfügbar für ${rideId}`);
+                            sendToAllAdmins(`⚠️ <b>Sofortfahrt ohne Fahrer!</b>\n\n${ride.customerName || '?'}\n📍 ${ride.pickup}\n🎯 ${ride.destination}\n\nKein Fahrer hat bestätigt!`, 'unassigned');
+                        }
+                    });
+                }).catch(e => console.error('Timeout-Reset Fehler:', e.message));
             });
 
             if (warnings.length === 0) return;

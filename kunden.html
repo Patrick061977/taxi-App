@@ -1053,13 +1053,13 @@
             const ride = customerRides.find(r => r.firebaseId === rideId);
             if (!ride) return;
 
-            // Zur Hauptseite mit Parametern
+            // 🔧 v6.38.97: Zu buchen.html statt index.html (leichte Buchungsseite)
             const params = new URLSearchParams({
                 from: ride.pickup || '',
                 to: ride.destination || '',
                 passengers: ride.passengers || '1'
             });
-            window.location.href = 'index.html?' + params.toString();
+            window.location.href = 'buchen.html?' + params.toString();
         }
 
         // ========================================

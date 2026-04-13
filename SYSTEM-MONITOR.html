@@ -1107,7 +1107,7 @@ db.ref('settings/telegram/botlog/' + getTodayKey()).orderByKey().limitToLast(1).
 });
 
 // Initial load
-db.ref('settings/telegram/botlog/' + getTodayKey()).orderByKey().limitToLast(50).once('value', snap => {
+db.ref('settings/telegram/botlog/' + getTodayKey()).orderByKey().limitToLast(200).once('value', snap => {
     const data = snap.val();
     if (!data) return;
     events = Object.entries(data).map(([k, v]) => ({

@@ -404,9 +404,17 @@
 </head>
 <body>
 
-    <div class="header">
-        <h1>Funk Taxi Usedom</h1>
-        <div class="subtitle">Meine Fahrten</div>
+    <div class="header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <h1>Funk Taxi Usedom</h1>
+            <div class="subtitle" id="header-subtitle">Meine Fahrten</div>
+        </div>
+        <div id="header-user-info" style="display:none;text-align:right;">
+            <div id="header-phone" style="font-size:13px;font-weight:600;opacity:0.9;"></div>
+            <button onclick="openProfileModal()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:white;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-top:4px;">
+                👤 Mein Konto
+            </button>
+        </div>
     </div>
 
     <div class="container">
@@ -461,11 +469,14 @@
                     ← Zurück
                 </a>
             </div>
-            <div class="welcome-bar">
-                <div>
-                    <div class="name" id="customer-name">Kunde</div>
-                    <div class="phone" id="customer-phone-display"></div>
+            <div class="welcome-bar" style="display:flex;align-items:center;gap:12px;">
+                <div style="flex:1;">
+                    <div class="name" id="customer-name" style="font-size:18px;font-weight:700;">Willkommen!</div>
+                    <div class="phone" id="customer-phone-display" style="font-size:13px;color:#6b7280;"></div>
                 </div>
+                <button onclick="openProfileModal()" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                    👤 Profil
+                </button>
                 <button class="logout-btn" onclick="logout()">Abmelden</button>
             </div>
 
@@ -493,6 +504,43 @@
                 <button onclick="closeModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
             </div>
             <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- PROFIL MODAL -->
+    <div class="modal-overlay" id="profile-modal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3>👤 Mein Konto</h3>
+                <button onclick="closeProfileModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
+            </div>
+            <div class="form-group">
+                <label>👤 Name</label>
+                <input type="text" id="profile-name" placeholder="Vor- und Nachname">
+            </div>
+            <div class="form-group">
+                <label>📧 Email</label>
+                <input type="email" id="profile-email" placeholder="email@beispiel.de">
+            </div>
+            <div class="form-group">
+                <label>📱 Telefon</label>
+                <input type="tel" id="profile-phone" readonly style="background:#f3f4f6;color:#6b7280;">
+            </div>
+            <div class="form-group">
+                <label>🏠 Adresse (Heimadresse)</label>
+                <input type="text" id="profile-address" placeholder="Straße, PLZ Ort">
+            </div>
+            <div style="font-size:12px;color:#6b7280;background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:16px;">
+                💡 Ihre Heimadresse wird automatisch als Abholort oder Ziel vorgeschlagen.
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button onclick="closeProfileModal()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">
+                    Abbrechen
+                </button>
+                <button onclick="saveProfile()" style="flex:2;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">
+                    💾 Speichern
+                </button>
+            </div>
         </div>
     </div>
 
@@ -669,6 +717,78 @@
             document.getElementById('code-error').style.display = 'none';
         }
 
+        // 🆕 v6.39.1: Profil-Modal Funktionen
+        function openProfileModal() {
+            const modal = document.getElementById('profile-modal');
+            modal.classList.add('active');
+
+            // Felder befüllen
+            document.getElementById('profile-phone').value = '+' + verifiedPhone;
+            if (customerData) {
+                document.getElementById('profile-name').value = customerData.name || (customerData.firstName ? customerData.firstName + ' ' + (customerData.lastName || '') : '').trim();
+                document.getElementById('profile-email').value = customerData.email || '';
+                document.getElementById('profile-address').value = customerData.address || '';
+            }
+
+            // Header-Info aktualisieren
+            const headerInfo = document.getElementById('header-user-info');
+            if (headerInfo) {
+                headerInfo.style.display = 'block';
+                document.getElementById('header-phone').textContent = '+' + verifiedPhone;
+            }
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.remove('active');
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById('profile-name').value.trim();
+            const email = document.getElementById('profile-email').value.trim();
+            const address = document.getElementById('profile-address').value.trim();
+
+            if (!name) {
+                showToast('Bitte Name eingeben');
+                return;
+            }
+
+            try {
+                if (customerData && customerData.id) {
+                    // Bestehendes CRM-Profil updaten
+                    await db.ref('customers/' + customerData.id).update({
+                        name: name,
+                        email: email || null,
+                        address: address || null,
+                        updatedAt: Date.now()
+                    });
+                    customerData.name = name;
+                    customerData.email = email;
+                    customerData.address = address;
+                } else {
+                    // Neues CRM-Profil anlegen
+                    const newRef = db.ref('customers').push();
+                    const newCustomer = {
+                        name: name,
+                        phone: '+' + verifiedPhone,
+                        email: email || null,
+                        address: address || null,
+                        createdAt: Date.now(),
+                        source: 'kunden-portal'
+                    };
+                    await newRef.set(newCustomer);
+                    customerData = { ...newCustomer, id: newRef.key };
+                }
+
+                // UI updaten
+                document.getElementById('customer-name').textContent = name;
+                closeProfileModal();
+                showToast('Profil gespeichert!');
+            } catch (e) {
+                console.error('Profil speichern Fehler:', e);
+                showToast('Fehler beim Speichern');
+            }
+        }
+
         function logout() {
             sessionStorage.removeItem('kundenPortalPhone');
             sessionStorage.removeItem('kundenPortalExpiry');
@@ -714,11 +834,19 @@
 
             // Anzeige
             const displayPhone = '+' + verifiedPhone;
+            const displayName = customerData?.name || customerData?.firstName
+                ? (customerData.name || (customerData.firstName + ' ' + (customerData.lastName || '')).trim())
+                : 'Willkommen';
             document.getElementById('customer-phone-display').textContent = displayPhone;
-            document.getElementById('customer-name').textContent =
-                customerData?.name || customerData?.firstName
-                    ? (customerData.name || (customerData.firstName + ' ' + (customerData.lastName || '')).trim())
-                    : 'Willkommen';
+            document.getElementById('customer-name').textContent = displayName;
+
+            // 🆕 v6.39.1: Header-Info anzeigen
+            const headerInfo = document.getElementById('header-user-info');
+            if (headerInfo) {
+                headerInfo.style.display = 'block';
+                document.getElementById('header-phone').textContent = displayPhone;
+            }
+            document.getElementById('header-subtitle').textContent = displayName !== 'Willkommen' ? displayName : 'Meine Fahrten';
 
             // Lade Fahrten (Echtzeit!)
             loadRides();

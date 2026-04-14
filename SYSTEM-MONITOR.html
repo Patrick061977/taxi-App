@@ -1519,15 +1519,25 @@ function renderConflictPanel() {
             const startH = new Date(r.pickupTimestamp).getHours() + new Date(r.pickupTimestamp).getMinutes() / 60;
             const endH = startH + (dur + buffer) / 60;
             const left = Math.max(0, ((startH - ganttStart) / ganttHours) * 100);
-            const width = Math.max(1, ((dur + buffer) / 60 / ganttHours) * 100);
+            const widthRide = Math.max(1, (dur / 60 / ganttHours) * 100);
+            const widthTotal = Math.max(1, ((dur + buffer) / 60 / ganttHours) * 100);
 
-            const statusColors = { 'sofort':'#ef4444', 'assigned':'#f59e0b', 'accepted':'#10b981', 'on_way':'#3b82f6', 'picked_up':'#8b5cf6', 'vorbestellt':'#64748b', 'new':'#f59e0b' };
+            const statusColors = { 'sofort':'#ef4444', 'assigned':'#f59e0b', 'accepted':'#10b981', 'on_way':'#3b82f6', 'picked_up':'#8b5cf6', 'vorbestellt':'#64748b', 'new':'#f59e0b', 'storniert':'#666', 'completed':'#374151' };
             const bg = statusColors[r.status] || '#666';
             const t = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+            const endT = new Date(r.pickupTimestamp + dur * 60000).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+            const dest = (r.destination||'?').substring(0,20);
+            const name = (r.customerName||'?').substring(0,12);
+            const tooltipText = `${t}-${endT} ${r.customerName||'?'} (${dur}min ${r.status})\\n${r.pickup||''} → ${r.destination||''}`;
 
-            html += `<div style="position:absolute;left:${left}%;width:${width}%;height:100%;background:${bg};opacity:0.85;border-radius:3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;" title="${t} ${r.customerName||'?'} (${dur}min) ${r.status}\n${r.pickup||''} → ${r.destination||''}">`;
-            html += `<span style="font-size:8px;color:white;font-weight:600;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${(r.customerName||'?').substring(0,10)}</span>`;
+            // Fahrt-Block
+            html += `<div onclick="alert('${t} ${name}\\n${dur} Min Fahrt + ${buffer} Min Buffer\\n${(r.pickup||'').replace(/'/g,'')} →\\n${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${left}%;width:${widthRide}%;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;" title="${tooltipText}">`;
+            html += `<span style="font-size:8px;color:white;font-weight:600;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name}</span>`;
             html += `</div>`;
+            // Buffer-Block (schraffiert)
+            const bufferLeft = left + widthRide;
+            const bufferWidth = Math.max(0.5, (buffer / 60 / ganttHours) * 100);
+            html += `<div style="position:absolute;left:${bufferLeft}%;width:${bufferWidth}%;height:100%;background:repeating-linear-gradient(45deg,${bg}22,${bg}22 2px,transparent 2px,transparent 6px);border-radius:0 3px 3px 0;z-index:1;" title="Buffer ${buffer}min"></div>`;
         });
 
         // Freie Slots grün markieren (nur wo kein Block ist)

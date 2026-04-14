@@ -1686,6 +1686,13 @@
                     block.onmouseover = () => { if (!block.classList.contains('sel')) block.style.background = '#a7f3d0'; };
                     block.onmouseout = () => { if (!block.classList.contains('sel')) block.style.background = '#d1fae5'; };
                     block.onclick = () => selectSlot(dateStr, slotTimeStr, slotH, slotM);
+                } else if (!isPast && !tooSoon && vehiclesInShift > 0 && freeVehicles === 0) {
+                    // 🔧 v6.39.1: Belegter Slot — zeige Grund bei Klick
+                    const _blockedRides = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol);
+                    const _reason = _blockedRides.length > 0
+                        ? `${slotTimeStr} Uhr belegt: ${_blockedRides.length} Fahrt(en) blockieren diesen Zeitraum.\nFahrzeuge im Dienst: ${vehiclesInShift}\n\nNächster freier Slot wird grün angezeigt.`
+                        : `${slotTimeStr} Uhr: Fahrer schafft es nicht rechtzeitig nach vorheriger Fahrt.`;
+                    block.onclick = () => showToast(_reason.split('\n')[0]);
                 }
                 if (isSelected) block.classList.add('sel');
                 // Ersten freien Slot merken

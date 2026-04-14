@@ -848,11 +848,12 @@
             const hasInput = pickupCoords && destCoords;
 
             if (isAvailable && hasInput) {
-                // Route berechnet + Taxi da → grüner Buchen-Button
+                // Route berechnet + Taxi da → Buchen-Button
                 btn.style.display = '';
                 btn.disabled = false;
                 btn.className = 'btn-book';
-                btn.innerHTML = '🚕 Jetzt Taxi buchen';
+                // 🔧 v6.39.1: Korrekter Button-Text je nach Modus
+                btn.innerHTML = wannModus === 'vorbestellen' ? '📅 Jetzt vorbestellen' : '🚕 Jetzt Taxi buchen';
                 btn.onclick = startBooking;
                 if (cancelBtn) cancelBtn.style.display = '';
             } else if (!hasInput) {
@@ -1404,12 +1405,37 @@
         let _slotCalendarDate = null;
 
         // Leerfahrt in Minuten berechnen (Luftlinie × 1.3 / 50 km/h)
+        // 🔧 v6.39.1: Leerfahrt-Berechnung — OSRM mit Fallback auf Haversine
+        // OSRM-Cache: key = "lat1,lon1→lat2,lon2" → durationMin
+        const _osrmCache = {};
+
         function calcLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
+            // Erst OSRM-Cache prüfen
+            const cacheKey = `${Number(fromLat).toFixed(4)},${Number(fromLon).toFixed(4)}→${Number(toLat).toFixed(4)},${Number(toLon).toFixed(4)}`;
+            if (_osrmCache[cacheKey] !== undefined) return _osrmCache[cacheKey];
+            // Fallback: Haversine (wird durch OSRM-Prefetch überschrieben)
             const dLat = (fromLat - toLat) * Math.PI / 180;
             const dLon = (fromLon - toLon) * Math.PI / 180;
             const a = Math.sin(dLat/2)**2 + Math.cos(fromLat*Math.PI/180)*Math.cos(toLat*Math.PI/180)*Math.sin(dLon/2)**2;
             const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return Math.max(3, Math.round((distKm * 1.3 / 50) * 60));
+        }
+
+        // OSRM-Abfrage (async) — befüllt Cache und re-rendert Timeline
+        async function fetchOSRMDuration(fromLat, fromLon, toLat, toLon) {
+            const cacheKey = `${Number(fromLat).toFixed(4)},${Number(fromLon).toFixed(4)}→${Number(toLat).toFixed(4)},${Number(toLon).toFixed(4)}`;
+            if (_osrmCache[cacheKey] !== undefined) return _osrmCache[cacheKey];
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                    const min = Math.max(3, Math.round(data.routes[0].duration / 60));
+                    _osrmCache[cacheKey] = min;
+                    return min;
+                }
+            } catch(e) { console.warn('OSRM Fehler:', e); }
+            return calcLeerfahrtMin(fromLat, fromLon, toLat, toLon); // Fallback
         }
 
         // Homebase-Koordinaten aus Schichtplan holen (wie Cloud Function)
@@ -1544,13 +1570,33 @@
                 const snap = await db.ref('rides').orderByChild('pickupTimestamp')
                     .startAt(dayStart).endAt(dayEnd).once('value');
                 const activeStatuses = ['new', 'sofort', 'open', 'assigned', 'vorbestellt', 'accepted', 'picked_up', 'on_way'];
+                const _rawRides = [];
                 snap.forEach(child => {
                     const r = child.val();
                     if (!activeStatuses.includes(r.status)) return;
                     if (r.source === 'hotel_calendar_import' || r.hotelCalendarId) return;
+                    _rawRides.push(r);
+                });
+
+                // 🔧 v6.39.1: OSRM-Prefetch für alle Leerfahrten (parallel!)
+                const osrmPromises = [];
+                if (pickupCoords) {
+                    for (const r of _rawRides) {
+                        const dLat = r.destCoords?.lat || r.destinationLat;
+                        const dLon = r.destCoords?.lon || r.destinationLon;
+                        if (dLat && dLon) {
+                            osrmPromises.push(fetchOSRMDuration(dLat, dLon, pickupCoords.lat, pickupCoords.lon));
+                        }
+                    }
+                }
+                if (osrmPromises.length > 0) {
+                    await Promise.allSettled(osrmPromises); // Cache befüllen
+                }
+
+                // Rides mit OSRM-Leerfahrten aufbauen
+                for (const r of _rawRides) {
                     const dur = r.duration || r.estimatedDuration || defaultDuration;
                     const endReal = r.pickupTimestamp + dur * 60000;
-                    // Leerfahrt: Zielort der bestehenden Fahrt → Abholort des neuen Kunden
                     let leerfahrtMin = 0;
                     const destLat = r.destCoords?.lat || r.destinationLat;
                     const destLon = r.destCoords?.lon || r.destinationLon;
@@ -1565,7 +1611,7 @@
                         pickupLat: r.pickupCoords?.lat || r.pickupLat,
                         pickupLon: r.pickupCoords?.lon || r.pickupLon
                     });
-                });
+                }
             } catch(e) {}
 
             // Fahrzeuganzahl pro Zeitslot ermitteln + Konflikte zählen

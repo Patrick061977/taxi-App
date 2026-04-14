@@ -1643,7 +1643,27 @@ function renderConflictPanel() {
             html += `</div>`;
         }
 
-        html += `</div></div>`;
+        html += `</div>`;
+
+        // 🔧 v6.39.1: Kompakte Fahrtkette unter der Timeline-Zeile
+        if (rides.length > 0) {
+            html += `<div style="font-size:9px;color:#999;padding:1px 0 1px 100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">`;
+            rides.forEach((r, i) => {
+                const t = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                const dur = r.duration || r.estimatedDuration || 20;
+                const destShort = (r.destination||'?').split(',')[0].substring(0,18);
+                if (i > 0) html += ` <span style="color:#f59e0b;">→</span> `;
+                html += `<span style="color:#4caf50;">${t}</span> ${destShort} <span style="color:#666;">(${dur}m)</span>`;
+            });
+            // Letzte Fahrt → Homebase
+            const hb = _vehicleHomeBases[vid];
+            if (hb) {
+                html += ` <span style="color:#f59e0b;">→</span> <span style="color:#3b82f6;">🏠 Homebase</span>`;
+            }
+            html += `</div>`;
+        }
+
+        html += `</div>`;
     }
 
     html += `</div></div>`; // Scrollbaren Container schließen

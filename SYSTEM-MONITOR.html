@@ -8,7 +8,18 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; color: #e0e0e0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; color: #e0e0e0; transition: background 0.3s, color 0.3s; }
+body.light-mode { background: #f0f2f5; color: #1f2937; }
+body.light-mode .header { background: #fff; border-bottom-color: #667eea; }
+body.light-mode .header h1 { color: #667eea; }
+body.light-mode .panel { background: #fff; border-color: #e5e7eb; }
+body.light-mode .panel-header { background: #f9fafb; border-bottom-color: #e5e7eb; }
+body.light-mode .panel-header h2 { color: #374151; }
+body.light-mode .stat { background: #f3f4f6; color: #374151; }
+body.light-mode #gantt-scroll div[style*="background:#111"] { background: #e5e7eb !important; border-color: #d1d5db !important; }
+body.light-mode #gantt-scroll div[style*="background:#0a1a0a"] { background: #f0fdf4 !important; }
+body.light-mode .main-grid { background: #f0f2f5; }
+body.light-mode .empty-msg { color: #6b7280; }
 .header { background: #111; border-bottom: 2px solid #ffd700; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
 .header h1 { color: #ffd700; font-size: 1.2em; }
 .header .live { color: #4caf50; font-size: 0.85em; animation: pulse 2s infinite; }
@@ -137,6 +148,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a12; colo
         <button class="sound-btn" onclick="cleanupStaleRides()" title="Alte Fahrten (Status new, >24h) stornieren">🧹 Aufräumen</button>
         <button class="sound-btn" id="soundBtn" onclick="toggleSound()">Sound: Aus</button>
         <button class="sound-btn" onclick="openPanelToggle()" title="Panels ein-/ausblenden">⚙️ Panels</button>
+        <button class="sound-btn" onclick="document.body.classList.toggle('light-mode');this.textContent=document.body.classList.contains('light-mode')?'🌙 Dunkel':'☀️ Hell'" title="Hell/Dunkel umschalten">☀️ Hell</button>
         <div class="live" id="liveIndicator">LIVE <span id="lastUpdate">-</span></div>
     </div>
 </div>

@@ -15,6 +15,16 @@
   ],
   "hosting": {
     "public": ".",
+    "headers": [
+      {
+        "source": "app-download.html",
+        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+      },
+      {
+        "source": "**/*.apk",
+        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+      }
+    ],
     "ignore": [
       "firebase.json",
       "**/node_modules/**",

@@ -1474,6 +1474,37 @@ const VEHICLE_INFO = {
     'pw-ym-222-e': { name: 'Tesla', plate: 'PW-YM 222 E', color: '#06b6d4' }
 };
 
+// 🔧 v6.39.1: Homebase-Koordinaten aus Schichtplan laden
+let _vehicleHomeBases = {};
+async function loadHomeBases() {
+    try {
+        const snap = await db.ref('vehicleShifts').once('value');
+        const shifts = snap.val() || {};
+        for (const [vid, vShift] of Object.entries(shifts)) {
+            // Heute oder defaultTimes durchsuchen
+            const now = new Date();
+            const dow = now.getDay();
+            const todayStr = now.toISOString().split('T')[0];
+            const dayEntry = vShift[todayStr];
+            if (dayEntry?.homeCoords?.lat) {
+                _vehicleHomeBases[vid] = dayEntry.homeCoords;
+            } else if (dayEntry?.timeRanges) {
+                for (const range of dayEntry.timeRanges) {
+                    if (range.homeCoords?.lat) { _vehicleHomeBases[vid] = range.homeCoords; break; }
+                }
+            } else if (vShift.defaultTimes?.[dow]?.homeCoords?.lat) {
+                _vehicleHomeBases[vid] = vShift.defaultTimes[dow].homeCoords;
+            } else if (vShift.defaultTimes?.[dow]?.timeRanges) {
+                for (const range of vShift.defaultTimes[dow].timeRanges) {
+                    if (range.homeCoords?.lat) { _vehicleHomeBases[vid] = range.homeCoords; break; }
+                }
+            }
+        }
+        console.log('🏠 HomeBases geladen:', Object.keys(_vehicleHomeBases).length, 'Fahrzeuge');
+    } catch(e) { console.warn('HomeBases Fehler:', e); }
+}
+loadHomeBases();
+
 function renderConflictPanel() {
     const feed = document.getElementById('conflictFeed');
     const countEl = document.getElementById('conflictCount');
@@ -1544,23 +1575,36 @@ function renderConflictPanel() {
             const buffer = 5; // 5 Min Ein-/Aussteigen
             const startH = new Date(r.pickupTimestamp).getHours() + new Date(r.pickupTimestamp).getMinutes() / 60;
 
-            // Rückfahrt-Schätzung: Distanz Zielort → Startort der nächsten Fahrt (oder Homebase)
+            // 🔧 v6.39.1: Rückfahrt zur Homebase aus Schichtplan (oder nächster Abholort)
             let rueckfahrtMin = 0;
+            let rueckfahrtZiel = 'Homebase';
             const destLat = r.destCoords?.lat || r.destinationLat;
             const destLon = r.destCoords?.lon || r.destinationLon;
             if (destLat && destLon) {
-                // Nächste Fahrt dieses Fahrzeugs?
+                // 1. Priorität: Nächste Fahrt → Leerfahrt zum nächsten Abholort
                 const nextRide = rides[rIdx + 1];
                 const nextLat = nextRide?.pickupCoords?.lat || nextRide?.pickupLat;
                 const nextLon = nextRide?.pickupCoords?.lon || nextRide?.pickupLon;
                 if (nextLat && nextLon) {
-                    const dLat = (destLat - nextLat) * Math.PI / 180;
-                    const dLon = (destLon - nextLon) * Math.PI / 180;
-                    const a = Math.sin(dLat/2)**2 + Math.cos(destLat*Math.PI/180)*Math.cos(nextLat*Math.PI/180)*Math.sin(dLon/2)**2;
-                    rueckfahrtMin = Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.3 / 50 * 60);
-                } else {
-                    // Keine nächste Fahrt → grobe Schätzung: halbe Fahrtdauer als Rückfahrt
-                    rueckfahrtMin = Math.round(dur * 0.5);
+                    const dLat2 = (destLat - nextLat) * Math.PI / 180;
+                    const dLon2 = (destLon - nextLon) * Math.PI / 180;
+                    const a2 = Math.sin(dLat2/2)**2 + Math.cos(destLat*Math.PI/180)*Math.cos(nextLat*Math.PI/180)*Math.sin(dLon2/2)**2;
+                    rueckfahrtMin = Math.max(3, Math.round(6371 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) * 1.3 / 50 * 60));
+                    rueckfahrtZiel = 'nächster Kunde';
+                }
+                // 2. Priorität: Homebase aus Schichtplan
+                else if (_vehicleHomeBases[vid]) {
+                    const hb = _vehicleHomeBases[vid];
+                    const dLat2 = (destLat - hb.lat) * Math.PI / 180;
+                    const dLon2 = (destLon - hb.lon) * Math.PI / 180;
+                    const a2 = Math.sin(dLat2/2)**2 + Math.cos(destLat*Math.PI/180)*Math.cos(hb.lat*Math.PI/180)*Math.sin(dLon2/2)**2;
+                    rueckfahrtMin = Math.max(3, Math.round(6371 * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) * 1.3 / 50 * 60));
+                    rueckfahrtZiel = 'Homebase';
+                }
+                // 3. Fallback: halbe Fahrtdauer
+                else {
+                    rueckfahrtMin = Math.max(3, Math.round(dur * 0.5));
+                    rueckfahrtZiel = 'geschätzt';
                 }
             }
 
@@ -1581,7 +1625,7 @@ function renderConflictPanel() {
             const widthReturnPx = rueckfahrtMin > 0 ? Math.max(4, (rueckfahrtMin / 60) * pxPerHour) : 0;
 
             // Fahrt-Block (Hauptfarbe)
-            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Rückfahrt: ~${rueckfahrtMin} Min\\n━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
+            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Rückfahrt: ~${rueckfahrtMin} Min (→ ${rueckfahrtZiel})\\n━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
             html += `<span style="font-size:8px;color:white;font-weight:700;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name} ${dur}m</span>`;
             html += `</div>`;
             // Buffer-Block (schraffiert)

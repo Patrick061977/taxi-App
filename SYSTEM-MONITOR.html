@@ -1482,14 +1482,24 @@ function renderConflictPanel() {
     // Gantt-Timeline: 06:00 - 23:00
     const ganttStart = 6, ganttEnd = 23;
     const ganttHours = ganttEnd - ganttStart;
-    const pxPerHour = 120; // 🔧 v6.39.1: Doppelt so breit für bessere Lesbarkeit
+    // 🔧 v6.39.1: Zoom-Level (gespeichert)
+    if (!window._ganttZoom) window._ganttZoom = 120;
+    const pxPerHour = window._ganttZoom;
     const totalWidth = ganttHours * pxPerHour;
     const nowHour = new Date().getHours() + new Date().getMinutes() / 60;
 
     let html = '';
 
+    // Zoom-Buttons
+    html += `<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center;">`;
+    html += `<button onclick="window._ganttZoom=Math.max(60,window._ganttZoom-30);renderRides()" style="background:#1a1a2e;border:1px solid #444;color:#ccc;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:14px;">−</button>`;
+    html += `<span style="font-size:10px;color:#666;">Zoom: ${pxPerHour}px/h</span>`;
+    html += `<button onclick="window._ganttZoom=Math.min(300,window._ganttZoom+30);renderRides()" style="background:#1a1a2e;border:1px solid #444;color:#ccc;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:14px;">+</button>`;
+    html += `<button onclick="document.getElementById('gantt-scroll').scrollLeft=Math.max(0,((new Date().getHours()+new Date().getMinutes()/60)-${ganttStart}-1)*${pxPerHour})" style="background:#1a1a2e;border:1px solid #ef4444;color:#ef4444;padding:2px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;">⏱ JETZT</button>`;
+    html += `</div>`;
+
     // Scrollbarer Container
-    html += `<div style="overflow-x:auto;overflow-y:hidden;padding-bottom:4px;">`;
+    html += `<div id="gantt-scroll" style="overflow-x:auto;overflow-y:hidden;padding-bottom:4px;">`;
     html += `<div style="min-width:${totalWidth + 100}px;">`;
 
     // Stunden-Header
@@ -1534,14 +1544,17 @@ function renderConflictPanel() {
             const name = (r.customerName||'?').substring(0,12);
             const tooltipText = `${t}-${endT} ${r.customerName||'?'} (${dur}min ${r.status})\\n${r.pickup||''} → ${r.destination||''}`;
 
-            // Fahrt-Block
-            html += `<div onclick="alert('${t} ${name}\\n${dur} Min Fahrt + ${buffer} Min Buffer\\n${(r.pickup||'').replace(/'/g,'')} →\\n${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${left}%;width:${widthRide}%;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;" title="${tooltipText}">`;
-            html += `<span style="font-size:8px;color:white;font-weight:600;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name}</span>`;
+            // Fahrt-Block — jetzt mit Pixel-Position statt Prozent (genauer bei Zoom)
+            const leftPx = Math.max(0, (startH - ganttStart) * pxPerHour);
+            const widthPx = Math.max(8, (dur / 60) * pxPerHour);
+            const bufferPx = Math.max(4, (buffer / 60) * pxPerHour);
+            const totalBlockMin = dur + buffer;
+
+            html += `<div onclick="alert('${t}–${endT} ${name}\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthPx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;" title="${tooltipText}">`;
+            html += `<span style="font-size:8px;color:white;font-weight:700;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name} ${dur}m</span>`;
             html += `</div>`;
             // Buffer-Block (schraffiert)
-            const bufferLeft = left + widthRide;
-            const bufferWidth = Math.max(0.5, (buffer / 60 / ganttHours) * 100);
-            html += `<div style="position:absolute;left:${bufferLeft}%;width:${bufferWidth}%;height:100%;background:repeating-linear-gradient(45deg,${bg}22,${bg}22 2px,transparent 2px,transparent 6px);border-radius:0 3px 3px 0;z-index:1;" title="Buffer ${buffer}min"></div>`;
+            html += `<div style="position:absolute;left:${leftPx + widthPx}px;width:${bufferPx}px;height:100%;background:repeating-linear-gradient(45deg,${bg}44,${bg}44 2px,transparent 2px,transparent 5px);border-radius:0 3px 3px 0;z-index:1;" title="Buffer ${buffer}min bis ${endT}"></div>`;
         });
 
         // Freie Slots grün markieren (nur wo kein Block ist)
@@ -1582,6 +1595,16 @@ function renderConflictPanel() {
     }
 
     feed.innerHTML = html || '<div class="empty-msg">Keine Fahrten heute</div>';
+
+    // 🔧 v6.39.1: Auto-Scroll zur aktuellen Zeit
+    setTimeout(() => {
+        const ganttScroll = document.getElementById('gantt-scroll');
+        if (ganttScroll && !window._ganttUserScrolled) {
+            const _now = new Date();
+            const _nowH = _now.getHours() + _now.getMinutes() / 60;
+            ganttScroll.scrollLeft = Math.max(0, (_nowH - ganttStart - 0.5) * pxPerHour);
+        }
+    }, 100);
 }
 
 setInterval(renderConflictPanel, 10000);

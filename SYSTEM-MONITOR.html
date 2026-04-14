@@ -1624,8 +1624,23 @@ function renderConflictPanel() {
             const widthBufferPx = Math.max(4, (buffer / 60) * pxPerHour);
             const widthReturnPx = rueckfahrtMin > 0 ? Math.max(4, (rueckfahrtMin / 60) * pxPerHour) : 0;
 
+            // 🔧 v6.39.1: Erweiterte Analyse mit nächster Fahrt
+            const nextRide2 = rides[rIdx + 1];
+            let nextInfo = '';
+            if (nextRide2) {
+                const nextT = new Date(nextRide2.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                const nextName = (nextRide2.customerName||'?').substring(0,15);
+                const nextPickup = (nextRide2.pickup||'?').split(',')[0].substring(0,25);
+                const nextDest = (nextRide2.destination||'?').split(',')[0].substring(0,25);
+                const lueckeMin = Math.round((nextRide2.pickupTimestamp - (r.pickupTimestamp + totalBlockMin * 60000)) / 60000);
+                nextInfo = `\\n\\n━━━ NÄCHSTE FAHRT ━━━\\n${nextT} ${nextName}\\n📍 ${nextPickup.replace(/'/g,'')}\\n🎯 ${nextDest.replace(/'/g,'')}\\n${lueckeMin >= 0 ? '✅ Lücke: ' + lueckeMin + ' Min Puffer' : '⚠️ ÜBERLAPPUNG: ' + Math.abs(lueckeMin) + ' Min zu knapp!'}`;
+            } else {
+                const hbName = _vehicleHomeBases[vid] ? 'Homebase' : '?';
+                nextInfo = `\\n\\n━━━ DANACH ━━━\\n🏠 Zurück zu ${hbName} (~${rueckfahrtMin} Min)`;
+            }
+
             // Fahrt-Block (Hauptfarbe)
-            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Rückfahrt: ~${rueckfahrtMin} Min (→ ${rueckfahrtZiel})\\n━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
+            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Leerfahrt: ~${rueckfahrtMin} Min (→ ${rueckfahrtZiel})\\n━━━━━━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}${nextInfo}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
             html += `<span style="font-size:8px;color:white;font-weight:700;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name} ${dur}m</span>`;
             html += `</div>`;
             // Buffer-Block (schraffiert)

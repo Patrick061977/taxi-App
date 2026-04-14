@@ -19,9 +19,22 @@
       "firebase.json",
       "**/node_modules/**",
       "functions/**",
+      "android/**",
+      "www/**",
+      ".claude/**",
+      ".git/**",
+      ".github/**",
+      "tools/**",
+      "google-apps-script/**",
+      "macrodroid/**",
+      "strato/**",
+      "strato-upload/**",
+      "strato-deploy.zip",
       "*.py",
       "*.txt",
-      "*.md"
+      "*.md",
+      "*.sh",
+      "*.backup*"
     ]
   },
   "database": {

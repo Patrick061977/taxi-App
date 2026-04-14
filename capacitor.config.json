@@ -1,5 +1,9 @@
 {
   "appId": "de.taxiheringsdorf.app",
   "appName": "Funk Taxi Heringsdorf",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "url": "https://taxi-heringsdorf.web.app",
+    "cleartext": false
+  }
 }

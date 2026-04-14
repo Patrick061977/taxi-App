@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Funk Taxi Heringsdorf — App Download</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 40px 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .icon { font-size: 80px; margin-bottom: 20px; }
+        h1 { font-size: 24px; color: #1f2937; margin-bottom: 8px; }
+        .version { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s;
+        }
+        .download-btn:hover { transform: translateY(-2px); }
+        .size { font-size: 12px; color: #9ca3af; margin-top: 12px; }
+        .steps {
+            text-align: left;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .steps h3 { font-size: 14px; color: #374151; margin-bottom: 12px; }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #4b5563;
+        }
+        .step-num {
+            background: #667eea;
+            color: white;
+            min-width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🚕</div>
+        <h1>Funk Taxi Heringsdorf</h1>
+        <div class="version">Version 6.39.0 — Fahrer-App</div>
+
+        <a href="taxi-heringsdorf-v6.39.0.apk" class="download-btn" id="dlBtn">
+            📥 App herunterladen
+        </a>
+        <div class="size">APK • 6.4 MB • Android</div>
+
+        <div class="steps">
+            <h3>So installierst du die App:</h3>
+            <div class="step">
+                <div class="step-num">1</div>
+                <div>Auf <b>"App herunterladen"</b> tippen</div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div>Download abwarten, dann <b>APK öffnen</b></div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div>Bei Nachfrage <b>"Aus unbekannten Quellen installieren"</b> erlauben</div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div><b>"Installieren"</b> tippen — fertig!</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

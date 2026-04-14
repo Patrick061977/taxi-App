@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "886448081276-pu82okhi4b49cgv94sf4js7a8v9qjuvu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "de.taxiheringsdorf.app",
+            "certificate_hash": "361108eafb53a99a8a95c11c20ffaee142c29210"
+          }
+        },
+        {
           "client_id": "886448081276-sl2qbi9fbub9k1g3bhdspb78vqdcacsq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

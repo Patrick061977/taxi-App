@@ -5,5 +5,11 @@
   "server": {
     "url": "https://taxi-heringsdorf.web.app",
     "cleartext": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
   }
 }

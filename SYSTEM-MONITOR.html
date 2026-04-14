@@ -1527,34 +1527,57 @@ function renderConflictPanel() {
         // Timeline-Bar
         html += `<div style="flex:1;position:relative;height:24px;background:#111;border-radius:4px;border:1px solid #222;overflow:hidden;">`;
 
-        rides.forEach(r => {
+        rides.forEach((r, rIdx) => {
             const dur = r.duration || r.estimatedDuration || 20;
-            const buffer = 5; // 5 Min Puffer
+            const buffer = 5; // 5 Min Ein-/Aussteigen
             const startH = new Date(r.pickupTimestamp).getHours() + new Date(r.pickupTimestamp).getMinutes() / 60;
-            const endH = startH + (dur + buffer) / 60;
-            const left = Math.max(0, ((startH - ganttStart) / ganttHours) * 100);
-            const widthRide = Math.max(1, (dur / 60 / ganttHours) * 100);
-            const widthTotal = Math.max(1, ((dur + buffer) / 60 / ganttHours) * 100);
+
+            // Rückfahrt-Schätzung: Distanz Zielort → Startort der nächsten Fahrt (oder Homebase)
+            let rueckfahrtMin = 0;
+            const destLat = r.destCoords?.lat || r.destinationLat;
+            const destLon = r.destCoords?.lon || r.destinationLon;
+            if (destLat && destLon) {
+                // Nächste Fahrt dieses Fahrzeugs?
+                const nextRide = rides[rIdx + 1];
+                const nextLat = nextRide?.pickupCoords?.lat || nextRide?.pickupLat;
+                const nextLon = nextRide?.pickupCoords?.lon || nextRide?.pickupLon;
+                if (nextLat && nextLon) {
+                    const dLat = (destLat - nextLat) * Math.PI / 180;
+                    const dLon = (destLon - nextLon) * Math.PI / 180;
+                    const a = Math.sin(dLat/2)**2 + Math.cos(destLat*Math.PI/180)*Math.cos(nextLat*Math.PI/180)*Math.sin(dLon/2)**2;
+                    rueckfahrtMin = Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1.3 / 50 * 60);
+                } else {
+                    // Keine nächste Fahrt → grobe Schätzung: halbe Fahrtdauer als Rückfahrt
+                    rueckfahrtMin = Math.round(dur * 0.5);
+                }
+            }
+
+            const totalBlockMin = dur + buffer + rueckfahrtMin;
+            const freiAbH = startH + totalBlockMin / 60;
+            const freiAbT = new Date(r.pickupTimestamp + totalBlockMin * 60000).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
 
             const statusColors = { 'sofort':'#ef4444', 'assigned':'#f59e0b', 'accepted':'#10b981', 'on_way':'#3b82f6', 'picked_up':'#8b5cf6', 'vorbestellt':'#64748b', 'new':'#f59e0b', 'storniert':'#666', 'completed':'#374151' };
             const bg = statusColors[r.status] || '#666';
             const t = new Date(r.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
             const endT = new Date(r.pickupTimestamp + dur * 60000).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
-            const dest = (r.destination||'?').substring(0,20);
             const name = (r.customerName||'?').substring(0,12);
-            const tooltipText = `${t}-${endT} ${r.customerName||'?'} (${dur}min ${r.status})\\n${r.pickup||''} → ${r.destination||''}`;
 
-            // Fahrt-Block — jetzt mit Pixel-Position statt Prozent (genauer bei Zoom)
+            // Pixel-Positionen
             const leftPx = Math.max(0, (startH - ganttStart) * pxPerHour);
-            const widthPx = Math.max(8, (dur / 60) * pxPerHour);
-            const bufferPx = Math.max(4, (buffer / 60) * pxPerHour);
-            const totalBlockMin = dur + buffer;
+            const widthRidePx = Math.max(8, (dur / 60) * pxPerHour);
+            const widthBufferPx = Math.max(4, (buffer / 60) * pxPerHour);
+            const widthReturnPx = rueckfahrtMin > 0 ? Math.max(4, (rueckfahrtMin / 60) * pxPerHour) : 0;
 
-            html += `<div onclick="alert('${t}–${endT} ${name}\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthPx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;" title="${tooltipText}">`;
+            // Fahrt-Block (Hauptfarbe)
+            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Rückfahrt: ~${rueckfahrtMin} Min\\n━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
             html += `<span style="font-size:8px;color:white;font-weight:700;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name} ${dur}m</span>`;
             html += `</div>`;
             // Buffer-Block (schraffiert)
-            html += `<div style="position:absolute;left:${leftPx + widthPx}px;width:${bufferPx}px;height:100%;background:repeating-linear-gradient(45deg,${bg}44,${bg}44 2px,transparent 2px,transparent 5px);border-radius:0 3px 3px 0;z-index:1;" title="Buffer ${buffer}min bis ${endT}"></div>`;
+            html += `<div style="position:absolute;left:${leftPx + widthRidePx}px;width:${widthBufferPx}px;height:100%;background:repeating-linear-gradient(45deg,${bg}44,${bg}44 2px,transparent 2px,transparent 5px);border-radius:0;z-index:1;" title="Buffer ${buffer}min"></div>`;
+            // Rückfahrt-Block (gepunktet, heller)
+            if (widthReturnPx > 0) {
+                html += `<div style="position:absolute;left:${leftPx + widthRidePx + widthBufferPx}px;width:${widthReturnPx}px;height:100%;background:repeating-linear-gradient(90deg,${bg}33,${bg}33 3px,transparent 3px,transparent 6px);border-radius:0 3px 3px 0;z-index:1;" title="Rückfahrt ~${rueckfahrtMin}min → frei ab ${freiAbT}"></div>`;
+            }
         });
 
         // Freie Slots grün markieren (nur wo kein Block ist)
@@ -1596,13 +1619,14 @@ function renderConflictPanel() {
 
     feed.innerHTML = html || '<div class="empty-msg">Keine Fahrten heute</div>';
 
-    // 🔧 v6.39.1: Auto-Scroll zur aktuellen Zeit
+    // 🔧 v6.39.1: Auto-Scroll — immer bei aktueller Zeit bleiben
     setTimeout(() => {
         const ganttScroll = document.getElementById('gantt-scroll');
-        if (ganttScroll && !window._ganttUserScrolled) {
+        if (ganttScroll) {
             const _now = new Date();
             const _nowH = _now.getHours() + _now.getMinutes() / 60;
-            ganttScroll.scrollLeft = Math.max(0, (_nowH - ganttStart - 0.5) * pxPerHour);
+            const targetScroll = Math.max(0, (_nowH - ganttStart - 0.5) * pxPerHour);
+            ganttScroll.scrollLeft = targetScroll;
         }
     }, 100);
 }

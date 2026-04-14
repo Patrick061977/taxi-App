@@ -1,0 +1,14 @@
+{
+  "name": "taxi-heringsdorf",
+  "version": "6.39.0",
+  "description": "Funk Taxi Heringsdorf - Fahrer App",
+  "private": true,
+  "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2"
+  }
+}

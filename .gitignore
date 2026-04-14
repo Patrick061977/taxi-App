@@ -3,5 +3,14 @@ functions/package-lock.json
 
 # Strato-Upload wird generiert (nicht manuell editieren)
 strato-upload/
-package.json
+
+# Capacitor — www/ ist Build-Output (kopiert aus Root)
+www/
+
+# Android Build-Artefakte
+android/app/build/
+android/.gradle/
+*.apk
+
+# Lock-Datei
 package-lock.json

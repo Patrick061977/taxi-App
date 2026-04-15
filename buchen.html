@@ -831,7 +831,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 09:30';
+        const _buchenBuild = '2026-04-15 10:05';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1326,35 +1326,37 @@
                 opt.textContent = String(h).padStart(2, '0') + ' Uhr';
                 hourSelect.appendChild(opt);
             }
-            // 🔧 v6.39.1: Smart-Default wie anfrage.html — jetzt + 1h, aufgerundet auf 5 Min
-            if (prevValue && parseInt(prevValue) >= minHour) {
-                hourSelect.value = prevValue;
-            } else if (now.getHours() >= 10 && !prevValue) {
-                // Ab 10 Uhr → morgen 06:00
-                const morgen = new Date(now.getTime() + 86400000);
-                dateInput.value = berlinDateStr(morgen);
-                hourSelect.innerHTML = '';
-                for (let h = 0; h <= 23; h++) {
-                    const opt = document.createElement('option');
-                    opt.value = String(h).padStart(2, '0');
-                    opt.textContent = String(h).padStart(2, '0') + ' Uhr';
-                    hourSelect.appendChild(opt);
-                }
-                hourSelect.value = '06';
-            } else {
-                // Exakt jetzt + 1h, aufgerundet auf 5 Min
-                const defaultTime = new Date(now.getTime() + 60 * 60000);
-                const roundedMin = Math.ceil(defaultTime.getMinutes() / 5) * 5;
-                let defH = defaultTime.getHours();
-                let defM = roundedMin;
-                if (defM >= 60) { defH++; defM = 0; }
-                if (defH >= minHour) {
-                    hourSelect.value = String(defH).padStart(2, '0');
+            // 🔧 v6.39.1: Smart-Default — nur beim ersten Aufruf
+            if (!window._dateTimeInitDone) {
+                window._dateTimeInitDone = true;
+                if (now.getHours() >= 10) {
+                    // Ab 10 Uhr → morgen 06:00
+                    const morgen = new Date(now.getTime() + 86400000);
+                    dateInput.value = berlinDateStr(morgen);
+                    // Dropdown neu bauen für morgen (alle Stunden)
+                    hourSelect.innerHTML = '';
+                    for (let h = 0; h <= 23; h++) {
+                        const opt = document.createElement('option');
+                        opt.value = String(h).padStart(2, '0');
+                        opt.textContent = String(h).padStart(2, '0') + ' Uhr';
+                        hourSelect.appendChild(opt);
+                    }
+                    hourSelect.value = '06';
+                    window._defaultMinute = '00';
                 } else {
-                    hourSelect.value = String(minHour).padStart(2, '0');
+                    // Vor 10 Uhr → jetzt + 1h aufgerundet auf 5 Min
+                    const defaultTime = new Date(now.getTime() + 60 * 60000);
+                    const roundedMin = Math.ceil(defaultTime.getMinutes() / 5) * 5;
+                    let defH = defaultTime.getHours();
+                    let defM = roundedMin;
+                    if (defM >= 60) { defH++; defM = 0; }
+                    hourSelect.value = String(Math.max(defH, minHour)).padStart(2, '0');
+                    window._defaultMinute = String(defM).padStart(2, '0');
                 }
-                // Minute wird unten gesetzt nach Options-Init
-                window._defaultMinute = String(defM).padStart(2, '0');
+            } else if (prevValue && parseInt(prevValue) >= minHour) {
+                hourSelect.value = prevValue;
+            } else {
+                hourSelect.value = String(minHour).padStart(2, '0');
             }
             if (minuteSelect.options.length === 0) {
                 for (let m = 0; m < 60; m += 5) {

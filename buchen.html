@@ -864,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 10:40';
+        const _buchenBuild = '2026-04-15 11:15';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1682,6 +1682,7 @@
                         start: r.pickupTimestamp,
                         end: endReal + (leerfahrtMin + bufferMin) * 60000,
                         endReal: endReal,
+                        vehicleId: r.vehicleId || r.assignedVehicle || null,
                         destLat: destLat, destLon: destLon,
                         pickupLat: r.pickupCoords?.lat || r.pickupLat,
                         pickupLon: r.pickupCoords?.lon || r.pickupLon
@@ -1748,17 +1749,22 @@
                     : slotEndTs;
                 // Frühester möglicher Abholzeitpunkt (Fahrer braucht Leerfahrt-Zeit)
                 const fruehestAbhol = slotTs - leerfahrtVorher * 60000;
-                // Überlappung: bestehende Fahrt kollidiert mit Leerfahrt+Kundenfahrt
-                let overlapping = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).length;
+                // 🔧 v6.39.5: Überlappung PRO FAHRZEUG zählen!
+                // Vorher: ALLE überlappenden Fahrten gezählt → 2 Fahrten auf 2 Fahrzeugen = 2 Overlaps = rot
+                // Jetzt: Pro Fahrzeug max 1 Overlap → 2 Fahrten auf 2 Fahrzeugen = 2 besetzte Fahrzeuge
+                const overlappingVehicles = new Set();
+                rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).forEach(r => {
+                    if (r.vehicleId) overlappingVehicles.add(r.vehicleId);
+                    else overlappingVehicles.add('unknown_' + r.start); // Fallback
+                });
+                let overlapping = overlappingVehicles.size;
 
                 // ZUSÄTZLICH: Schafft der Fahrer es NACH der Kundenfahrt zum nächsten Termin?
-                // Kunden-Zielort → Leerfahrt → nächster Abholort
                 if (kundenDauer > 0 && destCoords) {
                     const naechsteFahrt = rides.filter(r => r.start >= slotTs)
                         .sort((a,b) => a.start - b.start)[0];
                     if (naechsteFahrt) {
-                        // Kundenfahrt endet am Zielort, dann Leerfahrt zum nächsten Abholort
-                        let leerfahrtDanach = bufferMin; // Mindestens Buffer
+                        let leerfahrtDanach = bufferMin;
                         if (naechsteFahrt.pickupLat && naechsteFahrt.pickupLon) {
                             leerfahrtDanach = calcLeerfahrtMin(destCoords.lat, destCoords.lon, naechsteFahrt.pickupLat, naechsteFahrt.pickupLon) + bufferMin;
                         }

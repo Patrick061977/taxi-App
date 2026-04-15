@@ -832,7 +832,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 08:55';
+        const _buchenBuild = '2026-04-15 09:00';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1159,20 +1159,10 @@
 
         // Formular ein-/ausblenden: Sofort + kein GPS → nur Anruf-Box
         let _lastGpsOnlineCount = -1;
+        // 🔧 v6.39.1: Formular IMMER sichtbar — Kunde kann jederzeit vorbestellen
         function updateFormVisibility(gpsOnlineCount) {
             const fields = document.getElementById('booking-fields');
-            const callBox = document.getElementById('sofort-call-box');
-            if (!fields || !callBox) return;
-
-            if (wannModus === 'sofort' && gpsOnlineCount === 0) {
-                // Kein Fahrer GPS-online → Formular ausblenden, Anruf-Box zeigen
-                fields.style.display = 'none';
-                callBox.style.display = '';
-            } else {
-                // Fahrer online ODER Vorbestellen → Formular zeigen
-                fields.style.display = '';
-                callBox.style.display = 'none';
-            }
+            if (fields) fields.style.display = '';
             _lastGpsOnlineCount = gpsOnlineCount;
         }
 

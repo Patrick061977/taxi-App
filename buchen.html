@@ -864,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 10:30';
+        const _buchenBuild = '2026-04-15 10:40';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -904,22 +904,20 @@
             if (!btn) return;
             const hasInput = pickupCoords && destCoords;
 
-            if (isAvailable && hasInput) {
-                // Route berechnet + Taxi da → Buchen-Button
+            if (wannModus === 'vorbestellen') {
+                // 🔧 v6.39.1: Vorbestellen — btn-book IMMER verstecken
+                // selectSlot() rendert den Button in slot-selected-info
+                btn.style.display = 'none';
+                if (cancelBtn) cancelBtn.style.display = 'none';
+            } else if (isAvailable && hasInput) {
+                // Sofort: Route berechnet + Taxi da → grüner Buchen-Button
                 btn.style.display = '';
                 btn.disabled = false;
                 btn.className = 'btn-book';
-                // 🔧 v6.39.1: Korrekter Button-Text je nach Modus
-                btn.innerHTML = wannModus === 'vorbestellen' ? '📅 Jetzt vorbestellen' : '🚕 Jetzt Taxi buchen';
+                btn.innerHTML = '🚕 Jetzt Taxi buchen';
                 btn.onclick = startBooking;
                 if (cancelBtn) cancelBtn.style.display = '';
             } else if (!hasInput) {
-                // Noch nix eingegeben → alles verstecken
-                btn.style.display = 'none';
-                if (cancelBtn) cancelBtn.style.display = 'none';
-            } else if (wannModus === 'vorbestellen' && hasInput) {
-                // 🔧 v6.39.1: Vorbestellen — Button unten NICHT zeigen
-                // Der Slot-Kalender hat schon den "Jetzt vorbestellen" Button in der Mitte
                 btn.style.display = 'none';
                 if (cancelBtn) cancelBtn.style.display = 'none';
             } else {

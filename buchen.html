@@ -555,14 +555,8 @@
             </div>
 
             <!-- Sofort nicht verfügbar — Anruf-Box -->
-            <!-- 🔧 v6.39.1: Kompakter Hinweis wenn kein Fahrer online -->
-            <div id="sofort-call-box" style="display:none;text-align:center;padding:12px 16px;background:#fef2f2;border-radius:10px;margin-bottom:12px;">
-                <div style="font-size:14px;color:#991b1b;font-weight:600;margin-bottom:6px;">Aktuell kein Fahrer online</div>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="setWann('vorbestellen')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">📅 Vorbestellen</button>
-                    <a href="tel:03837822022" style="flex:1;padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;text-align:center;">📞 Anrufen</a>
-                </div>
-            </div>
+            <!-- Sofort-Call-Box entfernt — Anrufen + Vorbestellen im Menü -->
+            <div id="sofort-call-box" style="display:none;"></div>
 
             <!-- Buchungsformular-Felder (ausgeblendet wenn Sofort + kein GPS) -->
             <div id="booking-fields">
@@ -838,7 +832,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 08:50';
+        const _buchenBuild = '2026-04-15 08:55';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern

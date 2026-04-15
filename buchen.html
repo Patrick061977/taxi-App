@@ -611,8 +611,8 @@
                     </div>
                 </div>
 
-                <!-- Verfügbarkeit -->
-                <div class="availability-card" id="availability"></div>
+                <!-- Verfügbarkeit — ausgeblendet, Status-Bar oben reicht -->
+                <div class="availability-card" id="availability" style="display:none !important;"></div>
 
                 <!-- Route Info -->
                 <div class="route-info" id="route-info">
@@ -831,7 +831,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 09:15';
+        const _buchenBuild = '2026-04-15 09:25';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1051,7 +1051,21 @@
                         bar.textContent = `🟢 Taxi verfügbar! ${sofortCount} Fahrer online`;
                         if (pickupCoords) calcStatusBarEta(bar, sofortCount);
                     } else {
-                        bar.textContent = `🟢 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst`;
+                        // Schicht-Endzeit ermitteln
+                        let _shiftEnd = '';
+                        try {
+                            const _nowH = berlinNow().getHours();
+                            const _todayStr = berlinDateStr(berlinNow());
+                            for (let h = _nowH; h <= 23; h++) {
+                                const ts = String(h).padStart(2,'0') + ':00';
+                                let _still = 0;
+                                for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
+                                    if (isVehicleInShift(vid, _todayStr, ts)) _still++;
+                                }
+                                if (_still === 0 && h > _nowH) { _shiftEnd = ` · bis ${String(h-1).padStart(2,'0')}:00`; break; }
+                            }
+                        } catch(e) {}
+                        bar.textContent = `🟢 ${anyCount} Fahrzeug${anyCount > 1 ? 'e' : ''} im Dienst${_shiftEnd}`;
                     }
                     if (callBox) callBox.classList.remove('visible');
                 } else if (anyCount > 0 && passengers >= 5 && fitCount === 0) {

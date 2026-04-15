@@ -1789,12 +1789,37 @@
             // Timeline neu rendern (Selection-Highlight)
             renderSlotTimeline(dateStr);
 
-            // Bei Vorbestellen: Kalender ist die Wahrheit, nicht checkAvailability
+            // 🔧 v6.39.1: FIX — Slot wurde angeklickt = ist definitiv frei!
+            // onDateTimeChange() NICHT aufrufen — die überschreibt _slotIsFree
+            // weil das DOM noch nicht aktualisiert ist (Race Condition)
             _slotIsFree = true;
             isAvailable = true;
-            updateBookButton();
 
-            onDateTimeChange();
+            // Info direkt anzeigen (ohne onDateTimeChange Umweg)
+            const infoEl2 = document.getElementById('slot-selected-info');
+            if (infoEl2 && routeData) {
+                const dayNames2 = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                const dt2 = new Date(dateStr + 'T00:00:00');
+                const zeitText2 = `${dayNames2[dt2.getDay()]}, ${String(dt2.getDate()).padStart(2,'0')}.${String(dt2.getMonth()+1).padStart(2,'0')}. um ${timeStr} Uhr`;
+                const nameVal2 = (document.getElementById('b-name')?.value || '').trim();
+                const nameHint2 = !nameVal2 ? '<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">👤 Bitte noch Name eingeben ↓</div>' : '';
+                infoEl2.innerHTML = `
+                    <div style="font-weight:700;font-size:15px;color:#065f46;">✅ ${zeitText2}</div>
+                    <div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-size:13px;color:#065f46;">
+                        <span>💰 <strong>${routeData.price}€</strong></span>
+                        <span>📏 ${routeData.km} km</span>
+                        <span>⏱ ~${routeData.min} Min</span>
+                    </div>
+                    ${nameHint2}
+                    <button onclick="startBooking()" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);">
+                        🚕 Jetzt vorbestellen
+                    </button>`;
+                infoEl2.style.display = '';
+                infoEl2.style.background = '#f0fdf4';
+                infoEl2.style.borderColor = '#a7f3d0';
+                infoEl2.style.color = '#065f46';
+            }
+            updateBookButton();
             logBuchen('📅', `Zeitfenster gewählt: ${dateStr} ${timeStr}`);
         }
 

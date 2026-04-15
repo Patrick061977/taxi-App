@@ -1285,22 +1285,35 @@
             maxDate.setDate(maxDate.getDate() + 30);
             dateInput.max = berlinDateStr(maxDate);
             if (!dateInput.value) dateInput.value = today;
-            if (hourSelect.options.length === 0) {
+            // 🔧 v6.39.1: Stunden-Dropdown dynamisch — vergangene Stunden ausblenden wenn heute
+            const selectedDate = dateInput.value;
+            const isSelectedToday = selectedDate === today;
+            const minHour = isSelectedToday ? now.getHours() + 1 : 0; // Heute: ab nächster Stunde
+            const prevValue = hourSelect.value;
+            hourSelect.innerHTML = '';
+            for (let h = minHour; h <= 23; h++) {
+                const opt = document.createElement('option');
+                opt.value = String(h).padStart(2, '0');
+                opt.textContent = String(h).padStart(2, '0') + ' Uhr';
+                hourSelect.appendChild(opt);
+            }
+            // Vorherige Auswahl beibehalten oder Smart-Default
+            if (prevValue && parseInt(prevValue) >= minHour) {
+                hourSelect.value = prevValue;
+            } else if (now.getHours() >= 10 && !prevValue) {
+                // Smart-Default: Ab 10 Uhr → morgen 06:00
+                const morgen = new Date(now.getTime() + 86400000);
+                dateInput.value = berlinDateStr(morgen);
+                hourSelect.innerHTML = '';
                 for (let h = 0; h <= 23; h++) {
                     const opt = document.createElement('option');
                     opt.value = String(h).padStart(2, '0');
                     opt.textContent = String(h).padStart(2, '0') + ' Uhr';
                     hourSelect.appendChild(opt);
                 }
-                // 🔧 v6.39.1: Smart-Default wie anfrage.html
-                // Ab 10 Uhr → morgen 06:00; vor 10 Uhr → jetzt + 1 Stunde
-                if (now.getHours() >= 10) {
-                    const morgen = new Date(now.getTime() + 86400000);
-                    dateInput.value = berlinDateStr(morgen);
-                    hourSelect.value = '06';
-                } else {
-                    hourSelect.value = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
-                }
+                hourSelect.value = '06';
+            } else {
+                hourSelect.value = String(minHour).padStart(2, '0');
             }
             if (minuteSelect.options.length === 0) {
                 for (let m = 0; m < 60; m += 5) {

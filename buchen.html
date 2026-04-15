@@ -824,7 +824,10 @@
                 // Cleanup wird jetzt nur noch manuell im System Monitor gemacht
             } catch(e) { /* non-critical */ }
         }
-        logBuchen('🌐', 'buchen.html geoeffnet', { userAgent: navigator.userAgent.substring(0, 60) });
+        // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
+        const _buchenBuild = '2026-04-15 08:20';
+        const _isCapacitorApp = window.Capacitor && window.Capacitor.isNativePlatform();
+        logBuchen('🌐', `buchen.html geoeffnet | Build: ${_buchenBuild} | ${_isCapacitorApp ? '📱 App' : '🌐 Browser'} | ${window.location.hostname}`);
 
         // State
         let pickupCoords = null;

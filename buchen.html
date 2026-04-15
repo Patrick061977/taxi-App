@@ -864,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 11:15';
+        const _buchenBuild = '2026-04-15 13:45';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1773,7 +1773,10 @@
                         // Sonst blockiert eine Fahrt um 19:45 alle Slots ab 16:00
                         const zeitBisNaechste = naechsteFahrt.start - slotTs;
                         if (kundenFertig > naechsteFahrt.start && zeitBisNaechste < 120 * 60000) {
-                            overlapping = Math.max(overlapping, vehiclesInShift);
+                            // 🔧 v6.39.5: Nur 1 Fahrzeug blockiert (das mit dem Folgetermin), nicht alle!
+                            if (naechsteFahrt.vehicleId) overlappingVehicles.add(naechsteFahrt.vehicleId);
+                            else overlapping++;
+                            overlapping = Math.max(overlapping, overlappingVehicles.size);
                         }
                     }
                 }

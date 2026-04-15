@@ -1,4 +1,4 @@
-package de.taxiheringsdorf.app;
+package de.taxiheringsdorf.kunden;
 
 import android.os.Bundle;
 import android.webkit.WebView;

@@ -581,6 +581,11 @@
                     <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
                 </div>
 
+                <!-- 🔧 v6.39.1: Tauschen-Button (Abholort ↔ Zielort) -->
+                <div style="text-align:center;margin:-4px 0 4px;">
+                    <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;" title="Abholort und Zielort tauschen">🔄</button>
+                </div>
+
                 <!-- Zielort -->
                 <div class="input-group">
                     <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
@@ -792,16 +797,16 @@
         });
         const db = firebase.database();
 
-        // 🔧 v6.39.1: Felder beim Laden/Aktualisieren zurücksetzen
+        // 🔧 v6.39.1: Felder beim Laden zurücksetzen (Name bleibt wenn eingeloggt)
         (function resetFormOnLoad() {
-            // Nur wenn KEINE URL-Parameter (Rebook von kunden.html)
             const params = new URLSearchParams(window.location.search);
             if (!params.get('from') && !params.get('to')) {
-                ['b-pickup', 'b-destination', 'b-name', 'b-phone', 'b-sms-code', 'b-stopp'].forEach(id => {
+                // Adressfelder leeren (Name bleibt — wird vom Login gesetzt)
+                ['b-pickup', 'b-destination', 'b-phone', 'b-sms-code', 'b-stopp'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
-                // Success-Card ausblenden, Booking-Card zeigen
+                // Cards zurücksetzen
                 const sc = document.getElementById('success-card');
                 if (sc) sc.style.display = 'none';
                 const bc = document.getElementById('booking-card');
@@ -810,6 +815,13 @@
                 if (smsC) smsC.style.display = 'none';
                 const phoneC = document.getElementById('phone-card');
                 if (phoneC) phoneC.style.display = 'none';
+                // Buchungsübersicht + Karte zurücksetzen
+                const info = document.getElementById('slot-selected-info');
+                if (info) info.style.display = 'none';
+                const map = document.getElementById('route-map');
+                if (map) map.style.display = 'none';
+                const routeInfo = document.querySelector('.route-info');
+                if (routeInfo) routeInfo.style.display = 'none';
             }
         })();
 
@@ -831,7 +843,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 10:05';
+        const _buchenBuild = '2026-04-15 10:15';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1180,6 +1192,21 @@
         }
 
         // 🆕 v6.38.96: Formular komplett zurücksetzen
+        // 🔧 v6.39.1: Abholort ↔ Zielort tauschen
+        function swapPickupDest() {
+            const pEl = document.getElementById('b-pickup');
+            const dEl = document.getElementById('b-destination');
+            const tmpText = pEl.value;
+            pEl.value = dEl.value;
+            dEl.value = tmpText;
+            // Koordinaten tauschen
+            const tmpCoords = pickupCoords;
+            pickupCoords = destCoords;
+            destCoords = tmpCoords;
+            // Route neu berechnen
+            if (pickupCoords && destCoords) checkRoute();
+        }
+
         function resetBookingForm() {
             document.getElementById('b-pickup').value = '';
             document.getElementById('b-destination').value = '';

@@ -1515,6 +1515,7 @@ function renderConflictPanel() {
     const todayEnd = todayStart.getTime() + 24 * 3600000;
 
     const activeStatuses = ['new','sofort','assigned','vorbestellt','accepted','on_way','picked_up'];
+    // 🔧 v6.39.5: Global für showRideOnMap()
     const todayRides = Object.entries(allRides)
         .filter(([id, r]) => r && r.pickupTimestamp && r.pickupTimestamp >= todayStart.getTime() && r.pickupTimestamp < todayEnd && activeStatuses.includes(r.status))
         .map(([id, r]) => ({ ...r, _id: id }))
@@ -1639,8 +1640,9 @@ function renderConflictPanel() {
                 nextInfo = `\\n\\n━━━ DANACH ━━━\\n🏠 Zurück zu ${hbName} (~${rueckfahrtMin} Min)`;
             }
 
-            // Fahrt-Block (Hauptfarbe)
-            html += `<div onclick="alert('${t}–${endT} ${name}\\n\\n⏱ Fahrt: ${dur} Min\\n⏳ Buffer: ${buffer} Min\\n🔄 Leerfahrt: ~${rueckfahrtMin} Min (→ ${rueckfahrtZiel})\\n━━━━━━━━━━━━━━━━━━━\\n📊 Gesamt belegt: ${totalBlockMin} Min\\n🕐 Frei ab: ${freiAbT} Uhr\\n\\n📍 ${(r.pickup||'').replace(/'/g,'')}\\n🎯 ${(r.destination||'').replace(/'/g,'')}${nextInfo}')" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;">`;
+            // Fahrt-Block — Klick zeigt Route auf Karte
+            const _rIdx = todayRides.indexOf(r);
+            html += `<div onclick="showRideOnMap(todayRides[${_rIdx}])" style="position:absolute;left:${leftPx}px;width:${widthRidePx}px;height:100%;background:${bg};opacity:0.9;border-radius:3px 0 0 3px;display:flex;align-items:center;overflow:hidden;cursor:pointer;z-index:2;" title="${t}–${endT} ${r.customerName||'?'} (${dur}min)\n${r.pickup||''} → ${r.destination||''}\nGesamt belegt: ${totalBlockMin} Min | Frei ab: ${freiAbT}">`;
             html += `<span style="font-size:8px;color:white;font-weight:700;padding:0 3px;white-space:nowrap;overflow:hidden;">${t} ${name} ${dur}m</span>`;
             html += `</div>`;
             // Buffer-Block (schraffiert)
@@ -1691,6 +1693,7 @@ function renderConflictPanel() {
     }
 
     feed.innerHTML = html || '<div class="empty-msg">Keine Fahrten heute</div>';
+    window.todayRides = todayRides; // Global für showRideOnMap()
 
     // 🔧 v6.39.1: Auto-Scroll — immer bei aktueller Zeit bleiben
     setTimeout(() => {
@@ -1769,6 +1772,134 @@ function updateMonitorMap(vehicles) {
 
 // Karte initialisieren nach DOM ready
 setTimeout(initMonitorMap, 1000);
+
+// 🔧 v6.39.5: Fahrt auf Karte anzeigen — Klick aus Fahrt-Balken oder Fahrten-Liste
+let _routeLayer = null;
+let _rideMarkers = [];
+async function showRideOnMap(ride) {
+    if (!_monitorMap) initMonitorMap();
+    if (!_monitorMap) return;
+
+    // Alte Route entfernen
+    if (_routeLayer) { _monitorMap.removeLayer(_routeLayer); _routeLayer = null; }
+    _rideMarkers.forEach(m => _monitorMap.removeLayer(m));
+    _rideMarkers = [];
+
+    const pLat = ride.pickupCoords?.lat || ride.pickupLat;
+    const pLon = ride.pickupCoords?.lon || ride.pickupLon;
+    const dLat = ride.destCoords?.lat || ride.destinationLat;
+    const dLon = ride.destCoords?.lon || ride.destinationLon;
+    const vid = ride.vehicleId || ride.assignedVehicle;
+    const vData = vehicleData[vid];
+    const dur = ride.duration || ride.estimatedDuration || '?';
+    const t = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}) : '?';
+
+    if (!pLat || !pLon || !dLat || !dLon) {
+        alert('❌ Keine Koordinaten für diese Fahrt');
+        return;
+    }
+
+    // Marker: Abholort (grün), Zielort (rot)
+    const pickupMarker = L.marker([pLat, pLon], {
+        icon: L.divIcon({
+            className: '',
+            html: `<div style="background:#10b981;color:white;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;">📍 ${t} ${(ride.pickup||'').split(',')[0].substring(0,20)}</div>`,
+            iconSize: null, iconAnchor: [10, 10]
+        })
+    }).addTo(_monitorMap);
+    _rideMarkers.push(pickupMarker);
+
+    const destMarker = L.marker([dLat, dLon], {
+        icon: L.divIcon({
+            className: '',
+            html: `<div style="background:#ef4444;color:white;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;">🎯 ${(ride.destination||'').split(',')[0].substring(0,20)}</div>`,
+            iconSize: null, iconAnchor: [10, 10]
+        })
+    }).addTo(_monitorMap);
+    _rideMarkers.push(destMarker);
+
+    // Fahrzeug-Position → Abholort (Leerfahrt)
+    if (vData && vData.lat && vData.lon) {
+        const vMarker = L.marker([vData.lat, vData.lon], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div style="background:#3b82f6;color:white;padding:3px 8px;border-radius:8px;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;">🚗 ${(VEHICLE_INFO[vid]?.name || vid)}</div>`,
+                iconSize: null, iconAnchor: [10, 10]
+            })
+        }).addTo(_monitorMap);
+        _rideMarkers.push(vMarker);
+
+        // Leerfahrt-Linie (gestrichelt blau)
+        const leerLinie = L.polyline([[vData.lat, vData.lon], [pLat, pLon]], {
+            color: '#3b82f6', weight: 3, dashArray: '8,8', opacity: 0.7
+        }).addTo(_monitorMap);
+        _rideMarkers.push(leerLinie);
+
+        // OSRM Route Fahrzeug → Abholort
+        try {
+            const resp1 = await fetch(`https://router.project-osrm.org/route/v1/driving/${vData.lon},${vData.lat};${pLon},${pLat}?overview=full&geometries=geojson`);
+            const data1 = await resp1.json();
+            if (data1.code === 'Ok' && data1.routes[0]) {
+                const anfahrtMin = Math.round(data1.routes[0].duration / 60);
+                const anfahrtKm = (data1.routes[0].distance / 1000).toFixed(1);
+                _monitorMap.removeLayer(leerLinie);
+                const routeLine1 = L.geoJSON(data1.routes[0].geometry, {
+                    style: { color: '#3b82f6', weight: 4, dashArray: '8,8', opacity: 0.8 }
+                }).addTo(_monitorMap);
+                _rideMarkers.push(routeLine1);
+
+                // Anfahrt-Info auf der Linie
+                const midIdx = Math.floor(data1.routes[0].geometry.coordinates.length / 2);
+                const mid1 = data1.routes[0].geometry.coordinates[midIdx];
+                const infoMarker1 = L.marker([mid1[1], mid1[0]], {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid #93c5fd;">🚗 Anfahrt: ${anfahrtMin} Min · ${anfahrtKm} km</div>`,
+                        iconSize: null, iconAnchor: [50, 10]
+                    })
+                }).addTo(_monitorMap);
+                _rideMarkers.push(infoMarker1);
+            }
+        } catch(e) { console.warn('OSRM Anfahrt Fehler:', e); }
+    }
+
+    // OSRM Route Abholort → Zielort (Fahrt)
+    try {
+        const resp2 = await fetch(`https://router.project-osrm.org/route/v1/driving/${pLon},${pLat};${dLon},${dLat}?overview=full&geometries=geojson`);
+        const data2 = await resp2.json();
+        if (data2.code === 'Ok' && data2.routes[0]) {
+            const fahrtMin = Math.round(data2.routes[0].duration / 60);
+            const fahrtKm = (data2.routes[0].distance / 1000).toFixed(1);
+            _routeLayer = L.geoJSON(data2.routes[0].geometry, {
+                style: { color: '#10b981', weight: 5, opacity: 0.9 }
+            }).addTo(_monitorMap);
+
+            // Fahrt-Info
+            const midIdx2 = Math.floor(data2.routes[0].geometry.coordinates.length / 2);
+            const mid2 = data2.routes[0].geometry.coordinates[midIdx2];
+            const infoMarker2 = L.marker([mid2[1], mid2[0]], {
+                icon: L.divIcon({
+                    className: '',
+                    html: `<div style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid #a7f3d0;">🚕 Fahrt: ${fahrtMin} Min · ${fahrtKm} km · ${ride.price||'?'}€</div>`,
+                    iconSize: null, iconAnchor: [50, 10]
+                })
+            }).addTo(_monitorMap);
+            _rideMarkers.push(infoMarker2);
+        }
+    } catch(e) { console.warn('OSRM Fahrt Fehler:', e); }
+
+    // Karte auf Route zoomen
+    const bounds = L.latLngBounds([[pLat, pLon], [dLat, dLon]]);
+    if (vData && vData.lat) bounds.extend([vData.lat, vData.lon]);
+    _monitorMap.fitBounds(bounds, { padding: [30, 30] });
+
+    // Karten-Panel sichtbar machen
+    const mapPanel = document.getElementById('panelMap');
+    if (mapPanel && mapPanel.classList.contains('collapsed')) {
+        mapPanel.classList.remove('collapsed');
+    }
+    setTimeout(() => _monitorMap.invalidateSize(), 100);
+}
 
 // ===== PANEL: FAHRZEUGE & DISPATCH (v6.38.95) =====
 let vehicleData = {};

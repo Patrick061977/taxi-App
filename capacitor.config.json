@@ -3,7 +3,7 @@
   "appName": "Funk Taxi Heringsdorf",
   "webDir": "www",
   "server": {
-    "url": "https://taxi-heringsdorf.web.app",
+    "url": "https://umwelt-taxi-insel-usedom.de",
     "cleartext": false
   },
   "plugins": {

@@ -1,0 +1,9 @@
+{
+  "appId": "de.taxiheringsdorf.kunden",
+  "appName": "Taxi Buchen",
+  "webDir": "www",
+  "server": {
+    "url": "https://umwelt-taxi-insel-usedom.de/buchen.html",
+    "cleartext": false
+  }
+}

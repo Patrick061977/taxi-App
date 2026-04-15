@@ -16135,35 +16135,46 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
-            // 🔧 v6.39.5: Fahrten die keinen Konflikt mehr haben → assignedBy zurücksetzen
-            // Damit der Optimierer sie wieder anfassen kann (z.B. nach Stornierung)
+            // 🔧 v6.39.5: Prüfe ob cloud-auto-replan Fahrten auf dem ORIGINAL-Fahrzeug
+            // besser aufgehoben wären (z.B. nach Stornierung einer blockierenden Fahrt)
+            // Lösung: Prüfe ob das ORIGINAL-Fahrzeug jetzt konfliktfrei wäre
             for (const ride of allRides) {
                 if (ride.assignedBy !== 'cloud-auto-replan') continue;
                 if (!ride.assignedVehicle || !ride.pickupTimestamp) continue;
                 if (['accepted','picked_up','on_way','completed','deleted','cancelled','storniert'].includes(ride.status)) continue;
-                // Prüfe ob noch ein Konflikt besteht
-                const vRides = allRides.filter(r =>
-                    r.assignedVehicle === ride.assignedVehicle &&
-                    r.id !== ride.id &&
-                    !['completed','deleted','cancelled','storniert'].includes(r.status)
-                );
-                let hasConflict = false;
-                for (const other of vRides) {
-                    if (!other.pickupTimestamp) continue;
-                    const dur1 = ride.duration || ride.estimatedDuration || 20;
-                    const dur2 = other.duration || other.estimatedDuration || 20;
-                    const end1 = ride.pickupTimestamp + (dur1 + 10) * 60000;
-                    const end2 = other.pickupTimestamp + (dur2 + 10) * 60000;
-                    if (ride.pickupTimestamp < end2 && other.pickupTimestamp < end1) {
-                        hasConflict = true;
+
+                // Prüfe ALLE anderen Fahrzeuge ob eines besser wäre (kürzere Anfahrt, kein Konflikt)
+                let shouldRelease = false;
+                for (const altVid of Object.keys(vehicleShifts || {})) {
+                    if (altVid === ride.assignedVehicle) continue; // Aktuelles überspringen
+                    // Hat dieses Fahrzeug einen Konflikt mit der Fahrt?
+                    const altRides = allRides.filter(r =>
+                        (r.assignedVehicle === altVid) &&
+                        r.id !== ride.id &&
+                        !['completed','deleted','cancelled','storniert'].includes(r.status)
+                    );
+                    let altConflict = false;
+                    for (const other of altRides) {
+                        if (!other.pickupTimestamp) continue;
+                        const dur1 = ride.duration || ride.estimatedDuration || 20;
+                        const dur2 = other.duration || other.estimatedDuration || 20;
+                        const end1 = ride.pickupTimestamp + (dur1 + 15) * 60000;
+                        const end2 = other.pickupTimestamp + (dur2 + 15) * 60000;
+                        if (ride.pickupTimestamp < end2 && other.pickupTimestamp < end1) {
+                            altConflict = true;
+                            break;
+                        }
+                    }
+                    if (!altConflict) {
+                        // Alternatives Fahrzeug ist konfliktfrei → Optimierer soll prüfen
+                        shouldRelease = true;
                         break;
                     }
                 }
-                if (!hasConflict) {
-                    // Kein Konflikt mehr → assignedBy zurücksetzen → Optimierer darf wieder
+                if (shouldRelease) {
                     const rideId = ride.firebaseId || ride.id;
                     await db.ref(`rides/${rideId}/assignedBy`).set('cloud-conflict-cleared');
-                    console.log(`🔓 ${ride.customerName}: Konflikt gelöst → assignedBy zurückgesetzt`);
+                    console.log(`🔓 ${ride.customerName}: Alternatives Fahrzeug konfliktfrei → Optimierer darf prüfen`);
                 }
             }
 

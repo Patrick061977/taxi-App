@@ -1292,7 +1292,15 @@
                     opt.textContent = String(h).padStart(2, '0') + ' Uhr';
                     hourSelect.appendChild(opt);
                 }
-                hourSelect.value = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
+                // 🔧 v6.39.1: Smart-Default wie anfrage.html
+                // Ab 10 Uhr → morgen 06:00; vor 10 Uhr → jetzt + 1 Stunde
+                if (now.getHours() >= 10) {
+                    const morgen = new Date(now.getTime() + 86400000);
+                    dateInput.value = berlinDateStr(morgen);
+                    hourSelect.value = '06';
+                } else {
+                    hourSelect.value = String(Math.min(now.getHours() + 1, 23)).padStart(2, '0');
+                }
             }
             if (minuteSelect.options.length === 0) {
                 for (let m = 0; m < 60; m += 5) {

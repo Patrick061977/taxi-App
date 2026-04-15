@@ -16304,20 +16304,43 @@ exports.autoResolveConflicts = onSchedule(
                         continue;
                     }
 
-                    // 🔧 v6.25.4: Zeitkonflikt prüfen mit mindestAbstandMs (wie Browser)
+                    // 🔧 v6.39.5: Zeitkonflikt MIT Leerfahrt prüfen (wie Phase 1!)
+                    // Nicht nur Überlappung, sondern: schafft der Fahrer es rechtzeitig?
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
-                    const conflictRide = allRides.find(r => {
-                        if (r.firebaseId === ride.firebaseId) return false;
-                        if (r.assignedVehicle !== vehicleId) return false;
-                        if (!r.pickupTimestamp) return false;
-                        if (['deleted','cancelled','storniert','completed'].includes(r.status)) return false;
+                    const vehicleRidesForConflict = allRides.filter(r =>
+                        r.assignedVehicle === vehicleId &&
+                        r.firebaseId !== ride.firebaseId &&
+                        r.pickupTimestamp &&
+                        !['deleted','cancelled','storniert','completed'].includes(r.status)
+                    );
+                    let hasConflict = false;
+                    let conflictRideName = '';
+                    for (const r of vehicleRidesForConflict) {
                         const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
-                        const rEnd = r.pickupTimestamp + rDurMs + bufferMs;
-                        const newEnd = ride.pickupTimestamp + rideDurMs + bufferMs;
-                        return (ride.pickupTimestamp < rEnd + mindestAbstandMs) && (r.pickupTimestamp < newEnd + mindestAbstandMs);
-                    });
-                    if (conflictRide) {
-                        candidateDebug.push(`  ${vName}: ❌ Zeitkonflikt mit ${conflictRide.customerName || '?'} (${berlinTime(conflictRide.pickupTimestamp)})`);
+                        // Prüfe: Vorherige Fahrt → Leerfahrt → neue Fahrt passt zeitlich?
+                        if (r.pickupTimestamp < ride.pickupTimestamp) {
+                            // r ist VOR der neuen Fahrt — schafft Fahrer es rechtzeitig?
+                            const rEndMs = r.pickupTimestamp + rDurMs + bufferMs;
+                            // Leerfahrt von r-Zielort zu ride-Abholort (geschätzt 10 Min)
+                            const leerfahrtMs = 15 * 60000; // 15 Min pauschale Leerfahrt
+                            if (rEndMs + leerfahrtMs > ride.pickupTimestamp) {
+                                hasConflict = true;
+                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — Fahrer schafft es nicht rechtzeitig (${Math.round((rEndMs + leerfahrtMs - ride.pickupTimestamp) / 60000)} Min zu spät)`;
+                                break;
+                            }
+                        } else {
+                            // r ist NACH der neuen Fahrt — schafft Fahrer es zum nächsten Termin?
+                            const newEndMs = ride.pickupTimestamp + rideDurMs + bufferMs;
+                            const leerfahrtMs = 15 * 60000;
+                            if (newEndMs + leerfahrtMs > r.pickupTimestamp) {
+                                hasConflict = true;
+                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — nächster Termin zu knapp (${Math.round((newEndMs + leerfahrtMs - r.pickupTimestamp) / 60000)} Min zu spät)`;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasConflict) {
+                        candidateDebug.push(`  ${vName}: ❌ Zeitkonflikt: ${conflictRideName}`);
                         continue;
                     }
 

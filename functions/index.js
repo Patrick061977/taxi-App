@@ -16135,6 +16135,38 @@ exports.autoResolveConflicts = onSchedule(
                 }
             }
 
+            // 🔧 v6.39.5: Fahrten die keinen Konflikt mehr haben → assignedBy zurücksetzen
+            // Damit der Optimierer sie wieder anfassen kann (z.B. nach Stornierung)
+            for (const ride of allRides) {
+                if (ride.assignedBy !== 'cloud-auto-replan') continue;
+                if (!ride.assignedVehicle || !ride.pickupTimestamp) continue;
+                if (['accepted','picked_up','on_way','completed','deleted','cancelled','storniert'].includes(ride.status)) continue;
+                // Prüfe ob noch ein Konflikt besteht
+                const vRides = allRides.filter(r =>
+                    r.assignedVehicle === ride.assignedVehicle &&
+                    r.id !== ride.id &&
+                    !['completed','deleted','cancelled','storniert'].includes(r.status)
+                );
+                let hasConflict = false;
+                for (const other of vRides) {
+                    if (!other.pickupTimestamp) continue;
+                    const dur1 = ride.duration || ride.estimatedDuration || 20;
+                    const dur2 = other.duration || other.estimatedDuration || 20;
+                    const end1 = ride.pickupTimestamp + (dur1 + 10) * 60000;
+                    const end2 = other.pickupTimestamp + (dur2 + 10) * 60000;
+                    if (ride.pickupTimestamp < end2 && other.pickupTimestamp < end1) {
+                        hasConflict = true;
+                        break;
+                    }
+                }
+                if (!hasConflict) {
+                    // Kein Konflikt mehr → assignedBy zurücksetzen → Optimierer darf wieder
+                    const rideId = ride.firebaseId || ride.id;
+                    await db.ref(`rides/${rideId}/assignedBy`).set('cloud-conflict-cleared');
+                    console.log(`🔓 ${ride.customerName}: Konflikt gelöst → assignedBy zurückgesetzt`);
+                }
+            }
+
             console.log(`✅ Phase 1 (Konflikte) abgeschlossen: ${totalReplanned} Umplanung(en)`);
 
             // ═══════════════════════════════════════════════════════════
@@ -16148,16 +16180,15 @@ exports.autoResolveConflicts = onSchedule(
             let totalOptimized = 0;
 
             // Alle offenen, nicht akzeptierten Fahrten
-            // 🔧 v6.39.5: Cooldown statt komplett ignorieren — 10 Min nach Konflikt-Umplanung
-            // darf der Optimierer die Fahrt wieder anfassen (z.B. wenn Stornierung Platz schafft)
-            const REPLAN_COOLDOWN_MS = 10 * 60 * 1000; // 10 Minuten Cooldown
+            // 🔧 v6.39.5: Komplett ignorieren wenn von Konflikt-Umplanung zugewiesen
+            // Ping-Pong Vermeidung: Optimierer plant NICHT um was Phase 1 zugewiesen hat
+            // Wenn eine Stornierung Platz schafft, kümmert sich Phase 1 im nächsten Lauf darum
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
                 r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                // Cooldown: Nach Konflikt-Umplanung 10 Min warten bevor re-optimiert wird
-                !(r.assignedBy === 'cloud-auto-replan' && r.lastOptimizedAt && (now - r.lastOptimizedAt) < REPLAN_COOLDOWN_MS)
+                r.assignedBy !== 'cloud-auto-replan' // Phase 1 Zuweisungen NIE anfassen
             );
 
             // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden

@@ -16148,14 +16148,16 @@ exports.autoResolveConflicts = onSchedule(
             let totalOptimized = 0;
 
             // Alle offenen, nicht akzeptierten Fahrten
-            // 🔧 v6.39.1: Fahrten die von Phase 1 (Konflikt-Umplanung) zugewiesen wurden NICHT re-optimieren
-            // Verhindert Ping-Pong: Konflikt→Tesla, Optimierung→Prius, Konflikt→Tesla, ...
+            // 🔧 v6.39.5: Cooldown statt komplett ignorieren — 10 Min nach Konflikt-Umplanung
+            // darf der Optimierer die Fahrt wieder anfassen (z.B. wenn Stornierung Platz schafft)
+            const REPLAN_COOLDOWN_MS = 10 * 60 * 1000; // 10 Minuten Cooldown
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
                 r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                r.assignedBy !== 'cloud-auto-replan' // Nicht re-optimieren wenn gerade wegen Konflikt umgeplant
+                // Cooldown: Nach Konflikt-Umplanung 10 Min warten bevor re-optimiert wird
+                !(r.assignedBy === 'cloud-auto-replan' && r.lastOptimizedAt && (now - r.lastOptimizedAt) < REPLAN_COOLDOWN_MS)
             );
 
             // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden

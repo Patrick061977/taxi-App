@@ -861,13 +861,10 @@
                 btn.style.display = 'none';
                 if (cancelBtn) cancelBtn.style.display = 'none';
             } else if (wannModus === 'vorbestellen' && hasInput) {
-                // Vorbestellen mit Route → Buchen-Button
-                btn.style.display = '';
-                btn.disabled = false;
-                btn.className = 'btn-book';
-                btn.innerHTML = '📅 Jetzt vorbestellen';
-                btn.onclick = startBooking;
-                if (cancelBtn) cancelBtn.style.display = '';
+                // 🔧 v6.39.1: Vorbestellen — Button unten NICHT zeigen
+                // Der Slot-Kalender hat schon den "Jetzt vorbestellen" Button in der Mitte
+                btn.style.display = 'none';
+                if (cancelBtn) cancelBtn.style.display = 'none';
             } else {
                 // Sofort ohne GPS → Button verstecken (Anruf ist oben im Toggle)
                 btn.style.display = 'none';

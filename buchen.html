@@ -844,7 +844,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 08:40';
+        const _buchenBuild = '2026-04-15 08:42';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1326,7 +1326,7 @@
             const selectedDate = dateInput.value;
             const isSelectedToday = selectedDate === today;
             // Heute: mindestens 1 Stunde Vorlauf (z.B. 08:36 → frühestens 10:00)
-            const minHour = isSelectedToday ? now.getHours() + 2 : 0;
+            const minHour = isSelectedToday ? now.getHours() + 1 : 0; // Synchron mit Timeline (1h Vorlauf)
             const prevValue = hourSelect.value;
             hourSelect.innerHTML = '';
             for (let h = minHour; h <= 23; h++) {

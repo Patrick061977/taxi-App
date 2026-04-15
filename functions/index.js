@@ -10565,8 +10565,8 @@ async function handleCallback(callback) {
                 ...(booking.email && { customerEmail: booking.email }),
                 telegramChatId: String(chatId),
                 notes: booking.notes && booking.notes !== 'null' ? booking.notes : '',
-                // 🔧 v6.14.7: 'new' statt 'open' — damit Auto-Assign auch Telegram-Sofortfahrten zuweist!
-                status: isVorbestellung ? 'vorbestellt' : 'new',
+                // 🔧 v6.39.5: 'sofort' statt 'new' für Sofortfahrten — damit Fahrer sofort benachrichtigt wird
+                status: isVorbestellung ? 'vorbestellt' : 'sofort',
                 ...(booking._isJetzt && { isJetzt: true }),
                 source: booking._adminBooked ? 'telegram-admin' : 'telegram-bot',
                 createdAt: Date.now(),

@@ -15709,16 +15709,22 @@ exports.autoResolveConflicts = onSchedule(
 
         try {
             // Daten laden
-            const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
+            const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap, timeslotSnap] = await Promise.all([
                 db.ref('rides').once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
-                db.ref('settings/vehiclePriorities').once('value')
+                db.ref('settings/vehiclePriorities').once('value'),
+                db.ref('settings/timeslotSettings').once('value')
             ]);
 
             const shiftsData = shiftsSnap.val() || {};
             const pricingSettings = settingsSnap.val() || {};
             const vehiclePriorities = prioritiesSnap.val() || {};
+            const timeslotSettings = timeslotSnap.val() || {};
+            // 🔧 v6.39.5: Soft/Hard Grenzen aus Einstellungen lesen
+            const overlapSoftMin = timeslotSettings.overlapToleranceSoft || 5;
+            const overlapHardMin = timeslotSettings.overlapToleranceHard || 10;
+            console.log(`⚙️ Overlap-Toleranz: Soft ${overlapSoftMin} Min, Hard ${overlapHardMin} Min`);
             const vorlaufMin = pricingSettings.autoOptimierungVorlaufMinuten || 60;
             const boardingTime = pricingSettings.boardingTime || 3;
             const alightingTime = pricingSettings.alightingTime || 2;
@@ -16063,7 +16069,19 @@ exports.autoResolveConflicts = onSchedule(
                     const vName = OFFICIAL_VEHICLES[vehicleId]?.name || vehicleId;
                     const leerfahrtInfo = leerfahrtMin > 0 ? ` (inkl. ${leerfahrtDetail || leerfahrtMin + ' Min Leerfahrt'})` : '';
 
-                    console.warn(`⚠️ KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) — ${overlapMin} Min zu spät${leerfahrtInfo}`);
+                    // 🔧 v6.39.5: Soft/Hard Grenzen anwenden
+                    if (overlapMin <= overlapSoftMin) {
+                        // Soft-Grenze: Tolerieren, nur loggen
+                        console.log(`🟡 SOFT-KONFLIKT auf ${vName}: ${currTime} → ${nextTime} — ${overlapMin} Min (Soft-Grenze: ${overlapSoftMin} Min) → wird toleriert`);
+                        continue;
+                    }
+                    if (overlapMin <= overlapHardMin) {
+                        // Zwischen Soft und Hard: Warnung, aber nicht umplanen
+                        console.warn(`🟡 KONFLIKT auf ${vName}: ${currTime} → ${nextTime} — ${overlapMin} Min (Hard-Grenze: ${overlapHardMin} Min) → Warnung, keine Umplanung`);
+                        continue;
+                    }
+
+                    console.warn(`🔴 HARD-KONFLIKT auf ${vName}: ${currTime} (${curr.customerName || '?'}) und ${nextTime} (${next.customerName || '?'}) — ${overlapMin} Min zu spät${leerfahrtInfo} (Hard-Grenze: ${overlapHardMin} Min)`);
 
                     // Nicht umplanen wenn Fahrer bereits akzeptiert
                     if (['accepted', 'picked_up', 'on_way'].includes(next.status)) {

@@ -452,7 +452,14 @@
             </div>
             <!-- Footer -->
             <div style="padding:16px 20px;border-top:1px solid #e5e7eb;flex-shrink:0;">
-                <div style="font-size:11px;color:#9ca3af;text-align:center;">
+                <!-- 🔧 v6.39.1: Version + Update-Button -->
+                <div style="text-align:center;margin-top:8px;">
+                    <div id="menu-version" style="font-size:11px;color:#9ca3af;margin-bottom:6px;"></div>
+                    <button onclick="location.reload(true)" style="padding:8px 16px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
+                        🔄 Auf Updates prüfen
+                    </button>
+                </div>
+                <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;">
                     Funk Taxi Heringsdorf · Patrick Wydra<br>
                     Umwelt-Taxi Insel Usedom
                 </div>
@@ -461,6 +468,15 @@
     </div>
 
     <script>
+    // 🔧 v6.39.1: Version im Menü anzeigen
+    setTimeout(() => {
+        const vEl = document.getElementById('menu-version');
+        if (vEl && typeof _buchenBuild !== 'undefined') {
+            const isApp = window.Capacitor && window.Capacitor.isNativePlatform();
+            vEl.textContent = `Version: Build ${_buchenBuild} · ${isApp ? '📱 App' : '🌐 Web'}`;
+        }
+    }, 1000);
+
     function toggleMenu() {
         const menu = document.getElementById('side-menu');
         const panel = document.getElementById('menu-panel');

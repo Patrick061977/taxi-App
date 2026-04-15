@@ -2520,17 +2520,9 @@
                         });
                     });
                 } catch(e) {}
-                // Login-Badge oben anzeigen, Kunden-Login ausblenden
+                // 🔧 v6.39.1: Badge entfernt — Hamburger-Menü zeigt alles (Mein Konto, Abmelden etc.)
                 var badge = document.getElementById('user-badge');
-                if (badge) {
-                    badge.style.display = 'flex';
-                    badge.innerHTML = `
-                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;">
-                            <span style="font-weight:700;font-size:14px;">👤 ${user.phoneNumber}</span>
-                            <a href="kunden.html" style="padding:6px 14px;background:rgba(255,255,255,0.25);color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid rgba(255,255,255,0.4);">📋 Meine Fahrten</a>
-                            <button onclick="auth.signOut().then(()=>{window.location.href=window.location.pathname})" style="padding:6px 12px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Abmelden</button>
-                        </div>`;
-                }
+                if (badge) badge.style.display = 'none';
                 // Kunden-Login Link ausblenden (User ist schon eingeloggt)
                 document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = 'none'; });
                 // 🆕 v6.39.0: Hamburger-Menü aktualisieren

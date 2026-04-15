@@ -544,13 +544,8 @@
                         </div>
                     </div>
                     <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
-                    <div id="slot-selected-info" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:#065f46;"></div>
-                    <div style="display:flex;gap:8px;margin-top:6px;font-size:10px;color:#94a3b8;justify-content:center;flex-wrap:wrap;">
-                        <span><span style="display:inline-block;width:10px;height:10px;background:#d1fae5;border:1px solid #a7f3d0;border-radius:2px;vertical-align:middle;"></span> Frei</span>
-                        <span><span style="display:inline-block;width:10px;height:10px;background:#fecaca;border:1px solid #fca5a5;border-radius:2px;vertical-align:middle;"></span> Belegt</span>
-                        <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:2px;vertical-align:middle;"></span> Kein Dienst</span>
-                    </div>
-                    <div id="slot-route-hint" style="text-align:center;margin-top:4px;font-size:11px;color:#f59e0b;font-weight:600;"></div>
+                    <!-- slot-selected-info wurde nach unten verschoben (unter Personen) -->
+                    <div id="slot-route-hint" style="display:none;"></div>
                 </div>
             </div>
 
@@ -638,15 +633,19 @@
                 <!-- Karte -->
                 <div class="map-container" id="route-map"></div>
 
-                <!-- Buchen Button -->
+                <!-- 🔧 v6.39.1: Buchungsübersicht + Button ganz unten (nach allen Feldern) -->
+                <div id="slot-selected-info" style="display:none;margin-top:12px;padding:14px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;font-size:14px;font-weight:700;color:#1f2937;"></div>
+
+                <!-- Buchen Button (für Sofort-Modus) -->
                 <button class="btn-book" id="btn-book" onclick="startBooking()" style="display:none;">
                     🚕 Jetzt Taxi buchen
                 </button>
                 <div id="book-hint" style="text-align:center;margin-top:8px;font-size:12px;color:#f59e0b;display:none;">
                     ⚠️ Bitte Abholort und Zielort aus der Liste wählen
                 </div>
-                <button id="btn-cancel" onclick="resetBookingForm()" style="display:none;width:100%;margin-top:10px;padding:12px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">
-                    ✕ Ich möchte doch nicht bestellen
+                <!-- Abbrechen: kleiner, dezent -->
+                <button id="btn-cancel" onclick="resetBookingForm()" style="display:none;width:100%;margin-top:8px;padding:10px;background:none;color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;">
+                    ✕ Abbrechen
                 </button>
             </div>
         </div>
@@ -832,7 +831,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 09:00';
+        const _buchenBuild = '2026-04-15 09:15';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1850,21 +1849,26 @@
                 const zeitText2 = `${dayNames2[dt2.getDay()]}, ${String(dt2.getDate()).padStart(2,'0')}.${String(dt2.getMonth()+1).padStart(2,'0')}. um ${timeStr} Uhr`;
                 const nameVal2 = (document.getElementById('b-name')?.value || '').trim();
                 const nameHint2 = !nameVal2 ? '<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">👤 Bitte noch Name eingeben ↓</div>' : '';
+                const pickup2 = (document.getElementById('b-pickup')?.value || '').split(',')[0];
+                const dest2 = (document.getElementById('b-destination')?.value || '').split(',')[0];
                 infoEl2.innerHTML = `
-                    <div style="font-weight:700;font-size:15px;color:#065f46;">✅ ${zeitText2}</div>
-                    <div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-size:13px;color:#065f46;">
-                        <span>💰 <strong>${routeData.price}€</strong></span>
-                        <span>📏 ${routeData.km} km</span>
-                        <span>⏱ ~${routeData.min} Min</span>
+                    <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📋 Ihre Buchung</div>
+                    <div style="text-align:left;font-size:13px;line-height:1.8;color:#1f2937;">
+                        <div>📅 <strong>${zeitText2}</strong></div>
+                        <div>📍 ${pickup2 || 'Abholort'} → 🎯 ${dest2 || 'Zielort'}</div>
+                        <div>👥 ${document.querySelector('.pax-btn.active')?.textContent || '1'} Person${document.querySelector('.pax-btn.active')?.textContent !== '1' ? 'en' : ''} · 💰 <strong>${routeData.price}€</strong> · ${routeData.km} km · ~${routeData.min} Min</div>
                     </div>
                     ${nameHint2}
-                    <button onclick="startBooking()" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);">
-                        🚕 Jetzt vorbestellen
+                    <button onclick="startBooking()" style="width:100%;padding:14px;margin-top:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
+                        📅 Jetzt vorbestellen
+                    </button>
+                    <button onclick="resetBookingForm()" style="width:100%;padding:10px;margin-top:6px;background:none;color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;cursor:pointer;">
+                        ✕ Abbrechen
                     </button>`;
                 infoEl2.style.display = '';
-                infoEl2.style.background = '#f0fdf4';
-                infoEl2.style.borderColor = '#a7f3d0';
-                infoEl2.style.color = '#065f46';
+                infoEl2.style.background = '#f8fafc';
+                infoEl2.style.borderColor = '#e2e8f0';
+                infoEl2.style.color = '#1f2937';
             }
             updateBookButton();
             logBuchen('📅', `Zeitfenster gewählt: ${dateStr} ${timeStr}`);

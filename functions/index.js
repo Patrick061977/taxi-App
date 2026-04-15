@@ -16313,28 +16313,49 @@ exports.autoResolveConflicts = onSchedule(
                         r.pickupTimestamp &&
                         !['deleted','cancelled','storniert','completed'].includes(r.status)
                     );
+                    // 🔧 v6.39.5: Leerfahrt aus Koordinaten berechnen (Haversine)
+                    function quickLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
+                        if (!fromLat || !fromLon || !toLat || !toLon) return 10; // Fallback 10 Min
+                        const dLat = (fromLat - toLat) * Math.PI / 180;
+                        const dLon = (fromLon - toLon) * Math.PI / 180;
+                        const a = Math.sin(dLat/2)**2 + Math.cos(fromLat*Math.PI/180)*Math.cos(toLat*Math.PI/180)*Math.sin(dLon/2)**2;
+                        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        return Math.max(2, Math.round(distKm * 1.3 / 40 * 60)); // 40 km/h Durchschnitt
+                    }
+
                     let hasConflict = false;
                     let conflictRideName = '';
                     for (const r of vehicleRidesForConflict) {
                         const rDurMs = (r.duration || r.estimatedDuration || 20) * 60000;
-                        // Prüfe: Vorherige Fahrt → Leerfahrt → neue Fahrt passt zeitlich?
                         if (r.pickupTimestamp < ride.pickupTimestamp) {
                             // r ist VOR der neuen Fahrt — schafft Fahrer es rechtzeitig?
                             const rEndMs = r.pickupTimestamp + rDurMs + bufferMs;
-                            // Leerfahrt von r-Zielort zu ride-Abholort (geschätzt 10 Min)
-                            const leerfahrtMs = 15 * 60000; // 15 Min pauschale Leerfahrt
+                            // Echte Leerfahrt: r-Zielort → ride-Abholort
+                            const rDestLat = r.destCoords?.lat || r.destinationLat;
+                            const rDestLon = r.destCoords?.lon || r.destinationLon;
+                            const ridePLat = ride.pickupCoords?.lat || ride.pickupLat;
+                            const ridePLon = ride.pickupCoords?.lon || ride.pickupLon;
+                            const leerfahrtMin = quickLeerfahrtMin(rDestLat, rDestLon, ridePLat, ridePLon);
+                            const leerfahrtMs = leerfahrtMin * 60000;
                             if (rEndMs + leerfahrtMs > ride.pickupTimestamp) {
+                                const zuSpaetMin = Math.round((rEndMs + leerfahrtMs - ride.pickupTimestamp) / 60000);
                                 hasConflict = true;
-                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — Fahrer schafft es nicht rechtzeitig (${Math.round((rEndMs + leerfahrtMs - ride.pickupTimestamp) / 60000)} Min zu spät)`;
+                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — ${zuSpaetMin} Min zu spät (Leerfahrt ${leerfahrtMin} Min)`;
                                 break;
                             }
                         } else {
                             // r ist NACH der neuen Fahrt — schafft Fahrer es zum nächsten Termin?
                             const newEndMs = ride.pickupTimestamp + rideDurMs + bufferMs;
-                            const leerfahrtMs = 15 * 60000;
+                            const rideDestLat = ride.destCoords?.lat || ride.destinationLat;
+                            const rideDestLon = ride.destCoords?.lon || ride.destinationLon;
+                            const rPLat = r.pickupCoords?.lat || r.pickupLat;
+                            const rPLon = r.pickupCoords?.lon || r.pickupLon;
+                            const leerfahrtMin = quickLeerfahrtMin(rideDestLat, rideDestLon, rPLat, rPLon);
+                            const leerfahrtMs = leerfahrtMin * 60000;
                             if (newEndMs + leerfahrtMs > r.pickupTimestamp) {
+                                const zuSpaetMin = Math.round((newEndMs + leerfahrtMs - r.pickupTimestamp) / 60000);
                                 hasConflict = true;
-                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — nächster Termin zu knapp (${Math.round((newEndMs + leerfahrtMs - r.pickupTimestamp) / 60000)} Min zu spät)`;
+                                conflictRideName = `${r.customerName || '?'} (${berlinTime(r.pickupTimestamp)}) — ${zuSpaetMin} Min zu spät (Leerfahrt ${leerfahrtMin} Min)`;
                                 break;
                             }
                         }

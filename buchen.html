@@ -455,9 +455,10 @@
                 <!-- 🔧 v6.39.1: Version + Update-Button -->
                 <div style="text-align:center;margin-top:8px;">
                     <div id="menu-version" style="font-size:11px;color:#9ca3af;margin-bottom:6px;"></div>
-                    <button onclick="location.reload(true)" style="padding:8px 16px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
+                    <button onclick="sessionStorage.setItem('_justUpdated','1');location.reload(true)" style="padding:8px 16px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
                         🔄 Auf Updates prüfen
                     </button>
+                    <div id="update-status" style="display:none;font-size:11px;margin-top:4px;padding:4px 8px;border-radius:6px;text-align:center;"></div>
                 </div>
                 <div style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;">
                     Funk Taxi Heringsdorf · Patrick Wydra<br>
@@ -468,12 +469,32 @@
     </div>
 
     <script>
-    // 🔧 v6.39.1: Version im Menü anzeigen
+    // 🔧 v6.39.1: Version im Menü anzeigen + Update-Bestätigung
     setTimeout(() => {
         const vEl = document.getElementById('menu-version');
         if (vEl && typeof _buchenBuild !== 'undefined') {
             const isApp = window.Capacitor && window.Capacitor.isNativePlatform();
             vEl.textContent = `Version: Build ${_buchenBuild} · ${isApp ? '📱 App' : '🌐 Web'}`;
+        }
+        // Update-Bestätigung nach Reload
+        if (sessionStorage.getItem('_justUpdated')) {
+            sessionStorage.removeItem('_justUpdated');
+            const statusEl = document.getElementById('update-status');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.style.background = '#d1fae5';
+                statusEl.style.color = '#065f46';
+                statusEl.textContent = `✅ Update geladen! Build ${typeof _buchenBuild !== 'undefined' ? _buchenBuild : '?'}`;
+                setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+            }
+            // Menü kurz öffnen damit User die Bestätigung sieht
+            const menu = document.getElementById('side-menu');
+            const panel = document.getElementById('menu-panel');
+            if (menu && panel) {
+                menu.style.display = 'block';
+                setTimeout(() => panel.style.transform = 'translateX(0)', 10);
+                setTimeout(() => { panel.style.transform = 'translateX(100%)'; setTimeout(() => menu.style.display = 'none', 300); }, 3000);
+            }
         }
     }, 1000);
 
@@ -843,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 10:15';
+        const _buchenBuild = '2026-04-15 10:30';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1353,25 +1374,10 @@
                 opt.textContent = String(h).padStart(2, '0') + ' Uhr';
                 hourSelect.appendChild(opt);
             }
-            // 🔧 v6.39.1: Smart-Default — nur beim ersten Aufruf
+            // 🔧 v6.39.1: Default immer jetzt +1h aufgerundet auf 5 Min (heute)
             if (!window._dateTimeInitDone) {
                 window._dateTimeInitDone = true;
-                if (now.getHours() >= 10) {
-                    // Ab 10 Uhr → morgen 06:00
-                    const morgen = new Date(now.getTime() + 86400000);
-                    dateInput.value = berlinDateStr(morgen);
-                    // Dropdown neu bauen für morgen (alle Stunden)
-                    hourSelect.innerHTML = '';
-                    for (let h = 0; h <= 23; h++) {
-                        const opt = document.createElement('option');
-                        opt.value = String(h).padStart(2, '0');
-                        opt.textContent = String(h).padStart(2, '0') + ' Uhr';
-                        hourSelect.appendChild(opt);
-                    }
-                    hourSelect.value = '06';
-                    window._defaultMinute = '00';
-                } else {
-                    // Vor 10 Uhr → jetzt + 1h aufgerundet auf 5 Min
+                {
                     const defaultTime = new Date(now.getTime() + 60 * 60000);
                     const roundedMin = Math.ceil(defaultTime.getMinutes() / 5) * 5;
                     let defH = defaultTime.getHours();

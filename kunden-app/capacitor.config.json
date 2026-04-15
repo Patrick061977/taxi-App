@@ -5,5 +5,9 @@
   "server": {
     "url": "https://umwelt-taxi-insel-usedom.de/buchen.html",
     "cleartext": false
+  },
+  "android": {
+    "webContentsDebuggingEnabled": true,
+    "allowMixedContent": true
   }
 }

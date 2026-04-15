@@ -828,7 +828,22 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 08:20';
+        const _buchenBuild = '2026-04-15 08:30';
+        // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
+        if (window._buchenLoaded) {
+            // Doppel-Load verhindern
+        } else {
+            window._buchenLoaded = true;
+            // Prüfe ob die Seite frisch vom Server kommt
+            if (performance && performance.getEntriesByType) {
+                const nav = performance.getEntriesByType('navigation')[0];
+                if (nav && nav.transferSize === 0 && nav.type !== 'reload') {
+                    // Aus Cache geladen → Force-Reload
+                    console.log('⚠️ buchen.html aus Cache geladen → Force-Reload');
+                    location.reload(true);
+                }
+            }
+        }
         const _isCapacitorApp = window.Capacitor && window.Capacitor.isNativePlatform();
         logBuchen('🌐', `buchen.html geoeffnet | Build: ${_buchenBuild} | ${_isCapacitorApp ? '📱 App' : '🌐 Browser'} | ${window.location.hostname}`);
 

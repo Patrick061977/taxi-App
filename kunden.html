@@ -1489,6 +1489,19 @@
                 loadCustomerData();
             }
 
+            // 🔧 v6.39.1: Firebase Auth Check — wenn User in buchen.html eingeloggt war
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                firebase.auth().onAuthStateChanged(function(user) {
+                    if (user && user.phoneNumber && !verifiedPhone) {
+                        console.log('✅ Firebase Auth erkannt:', user.phoneNumber);
+                        verifiedPhone = user.phoneNumber.replace('+', '');
+                        sessionStorage.setItem('kundenPortalPhone', verifiedPhone);
+                        sessionStorage.setItem('kundenPortalExpiry', String(Date.now() + 24 * 60 * 60 * 1000));
+                        loadCustomerData();
+                    }
+                });
+            }
+
             // Phone-Input Enter Key
             document.getElementById('phone-input').addEventListener('keydown', e => {
                 if (e.key === 'Enter') sendVerificationCode();

@@ -2505,7 +2505,8 @@
             const mapEl = document.getElementById('route-map');
             mapEl.style.display = 'block';
             if (bookingMap) bookingMap.remove();
-            bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false });
+            // 🔧 v6.39.1: Touch-Drag deaktiviert — verhindert versehentliches Scrollen auf Handy
+            bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: true, scrollWheelZoom: false });
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
             L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
             L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');

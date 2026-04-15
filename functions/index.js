@@ -16148,11 +16148,14 @@ exports.autoResolveConflicts = onSchedule(
             let totalOptimized = 0;
 
             // Alle offenen, nicht akzeptierten Fahrten
+            // 🔧 v6.39.1: Fahrten die von Phase 1 (Konflikt-Umplanung) zugewiesen wurden NICHT re-optimieren
+            // Verhindert Ping-Pong: Konflikt→Tesla, Optimierung→Prius, Konflikt→Tesla, ...
             const optimizableRides = allRides.filter(r =>
                 r.assignedVehicle &&
                 !r.assignmentLocked &&
                 !['accepted', 'picked_up', 'on_way', 'completed', 'deleted', 'cancelled', 'storniert'].includes(r.status) &&
-                r.pickupTimestamp > now + vorlaufMin * 60000
+                r.pickupTimestamp > now + vorlaufMin * 60000 &&
+                r.assignedBy !== 'cloud-auto-replan' // Nicht re-optimieren wenn gerade wegen Konflikt umgeplant
             );
 
             // 🔧 v6.25.4: Geocoding-Fallback — Fahrten ohne Koordinaten nachgeocoden

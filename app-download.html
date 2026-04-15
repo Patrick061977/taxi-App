@@ -6,54 +6,101 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>📱 Funk Taxi Heringsdorf — App Download</title>
+    <title>Funk Taxi Heringsdorf — Apps</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 24px;
+            padding-top: 20px;
+        }
+        .header .icon { font-size: 64px; margin-bottom: 12px; }
+        .header h1 { font-size: 24px; margin-bottom: 4px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+
+        .app-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .app-card .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .app-card .app-icon {
+            font-size: 40px;
+            width: 56px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            background: #f0fdf4;
+            border-radius: 14px;
         }
-        .card {
-            background: white;
-            border-radius: 24px;
-            padding: 40px 30px;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .icon { font-size: 80px; margin-bottom: 20px; }
-        h1 { font-size: 24px; color: #1f2937; margin-bottom: 8px; }
-        .version { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
+        .app-card h2 { font-size: 18px; color: #1f2937; }
+        .app-card .app-desc { font-size: 13px; color: #6b7280; }
+        .app-card .app-version { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
         .download-btn {
             display: block;
             width: 100%;
-            padding: 18px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
+            padding: 14px;
             border: none;
-            border-radius: 14px;
-            font-size: 18px;
+            border-radius: 12px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             text-decoration: none;
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            text-align: center;
             transition: transform 0.2s;
         }
         .download-btn:hover { transform: translateY(-2px); }
-        .size { font-size: 12px; color: #9ca3af; margin-top: 12px; }
-        .steps {
-            text-align: left;
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 1px solid #e5e7eb;
+        .download-btn.green {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
         }
-        .steps h3 { font-size: 14px; color: #374151; margin-bottom: 12px; }
+        .download-btn.purple {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .app-card .size { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 8px; }
+
+        .features {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .feature {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: #f3f4f6;
+            border-radius: 20px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .steps {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .steps h3 { font-size: 15px; color: #374151; margin-bottom: 14px; }
         .step {
             display: flex;
             align-items: flex-start;
@@ -73,20 +120,70 @@
             justify-content: center;
             font-size: 12px;
             font-weight: 700;
+            flex-shrink: 0;
+        }
+        .footer {
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            margin-top: 20px;
+            padding-bottom: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="icon">🚕</div>
-        <h1>Funk Taxi Heringsdorf</h1>
-        <div class="version">Version 6.39.1 — Fahrer-App</div>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🚕</div>
+            <h1>Funk Taxi Heringsdorf</h1>
+            <p>Unsere Apps für Android</p>
+        </div>
 
-        <a href="taxi-heringsdorf.apk" class="download-btn" id="dlBtn">
-            📥 App herunterladen
-        </a>
-        <div class="size">APK • 6.4 MB • Android</div>
+        <!-- Kunden-App -->
+        <div class="app-card">
+            <div class="app-header">
+                <div class="app-icon">📱</div>
+                <div>
+                    <h2>Taxi Buchen</h2>
+                    <div class="app-desc">Taxi bestellen leicht gemacht</div>
+                    <div class="app-version">v1.0.1 · Android</div>
+                </div>
+            </div>
+            <div class="features">
+                <span class="feature">🚕 Sofort-Taxi</span>
+                <span class="feature">📅 Vorbestellen</span>
+                <span class="feature">📍 Live-Tracking</span>
+                <span class="feature">💰 Preisanzeige</span>
+            </div>
+            <a href="https://github.com/Patrick061977/taxi-App/releases/download/v1.0.1-kunden/taxi-kunden-app.apk" class="download-btn green">
+                📥 Kunden-App herunterladen
+            </a>
+            <div class="size">APK · ca. 5 MB</div>
+        </div>
 
+        <!-- Fahrer-App -->
+        <div class="app-card">
+            <div class="app-header">
+                <div class="app-icon" style="background:#eff6ff;">🚗</div>
+                <div>
+                    <h2>Fahrer-App</h2>
+                    <div class="app-desc">Für registrierte Fahrer</div>
+                    <div class="app-version">v6.39.2 · Android</div>
+                </div>
+            </div>
+            <div class="features">
+                <span class="feature">🧭 Navigation</span>
+                <span class="feature">📊 Schicht-Verwaltung</span>
+                <span class="feature">📍 GPS-Tracking</span>
+                <span class="feature">💬 Chat</span>
+            </div>
+            <a href="https://github.com/Patrick061977/taxi-App/releases/download/v6.39.2-fahrer/taxi-heringsdorf-release.apk" class="download-btn purple">
+                📥 Fahrer-App herunterladen
+            </a>
+            <div class="size">APK · ca. 6 MB</div>
+        </div>
+
+        <!-- Anleitung -->
         <div class="steps">
             <h3>So installierst du die App:</h3>
             <div class="step">
@@ -105,6 +202,11 @@
                 <div class="step-num">4</div>
                 <div><b>"Installieren"</b> tippen — fertig!</div>
             </div>
+        </div>
+
+        <div class="footer">
+            Funk Taxi Heringsdorf · Usedom · Bansin · Ahlbeck<br>
+            📞 038378 22022
         </div>
     </div>
 </body>

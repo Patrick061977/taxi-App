@@ -831,7 +831,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 09:25';
+        const _buchenBuild = '2026-04-15 09:30';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1409,31 +1409,8 @@
                 const dt = new Date(dateVal + 'T00:00:00');
                 const zeitText = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${hourVal}:${minVal} Uhr`;
                 if (_slotIsFree) {
+                    // 🔧 v6.39.1: selectSlot() rendert die Übersicht — hier nur Flags setzen
                     isAvailable = true;
-                    if (el) el.style.display = 'none';
-                    if (infoEl) {
-                        // Kompakte Buchungs-Übersicht: Zeit + Preis + Buchen-Button
-                        const preisInfo = routeData
-                            ? `<div style="display:flex;justify-content:center;gap:12px;margin:8px 0;font-size:13px;color:#065f46;">
-                                <span>💰 <strong>${routeData.price}€</strong></span>
-                                <span>📏 ${routeData.km} km</span>
-                                <span>⏱ ~${routeData.min} Min</span>
-                               </div>`
-                            : '';
-                        const nameVal = (document.getElementById('b-name')?.value || '').trim();
-                        const nameHint = !nameVal ? '<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">👤 Bitte noch Name eingeben ↓</div>' : '';
-                        infoEl.innerHTML = `
-                            <div style="font-weight:700;font-size:15px;color:#065f46;">✅ ${zeitText}</div>
-                            ${preisInfo}
-                            ${nameHint}
-                            <button onclick="startBooking()" style="width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);">
-                                🚕 Jetzt vorbestellen
-                            </button>`;
-                        infoEl.style.display = '';
-                        infoEl.style.background = '#f0fdf4';
-                        infoEl.style.borderColor = '#a7f3d0';
-                        infoEl.style.color = '#065f46';
-                    }
                     updateBookButton();
                 } else {
                     isAvailable = false;

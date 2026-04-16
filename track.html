@@ -57,15 +57,32 @@
             background: #ccc;
             animation: pulse 2s infinite;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
+
         .status-ok { background: #10b981; }
         .status-warning { background: #f59e0b; }
         .status-error { background: #ef4444; }
+
+        /* 🔧 v6.39.5: Fahrt-Status-Badge mit Farbe je nach Status */
+        #ride-status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            margin: 8px 0;
+        }
+        .ride-status-new { background: #fef3c7; color: #92400e; }
+        .ride-status-assigned { background: #dbeafe; color: #1e40af; }
+        .ride-status-accepted { background: #d1fae5; color: #065f46; }
+        .ride-status-on_way { background: #3b82f6; color: white; animation: pulse 2s infinite; }
+        .ride-status-picked_up { background: #8b5cf6; color: white; animation: pulse 2s infinite; }
+        .ride-status-completed { background: #6b7280; color: white; }
+        .ride-status-cancelled { background: #ef4444; color: white; }
         
         #vehicle-info {
             font-size: 14px;
@@ -129,14 +146,20 @@
             <h2>🚕 Ihr Taxi</h2>
             <div id="status-indicator" class="status-indicator"></div>
         </div>
-        
+
+        <div id="ride-status-badge" class="ride-status-new" style="display:none;">⏳ Wartet auf Fahrer</div>
+
         <div id="vehicle-info">
             Lädt Fahrzeug-Informationen...
         </div>
-        
+
         <div id="location-info">
             📍 Warte auf GPS-Position...
         </div>
+
+        <button id="my-location-btn" onclick="showMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+            📍 Meinen Standort anzeigen
+        </button>
     </div>
     
     <div id="map"></div>
@@ -231,9 +254,15 @@
                     <div class="info-line">🎯 ${destination}</div>
                 `;
                 
+                // 🔧 v6.39.5: Koordinaten aus Rides — pickupCoords/destCoords oder pickupLat/pickupLon
+                const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;
+                const pickupLon = ride.pickupCoords?.lon || ride.pickupLon;
+                const destLat = ride.destCoords?.lat || ride.destinationLat;
+                const destLon = ride.destCoords?.lon || ride.destinationLon;
+
                 // Pickup Marker
-                if (ride.pickupCoordinates && ride.pickupCoordinates.lat) {
-                    pickupMarker = L.marker([ride.pickupCoordinates.lat, ride.pickupCoordinates.lng], {
+                if (pickupLat && pickupLon) {
+                    pickupMarker = L.marker([pickupLat, pickupLon], {
                         icon: L.divIcon({
                             html: '<div style="font-size:30px;">📍</div>',
                             iconSize: [30, 30],
@@ -241,10 +270,10 @@
                         })
                     }).addTo(map).bindPopup('Abholung: ' + pickup);
                 }
-                
+
                 // Destination Marker
-                if (ride.destinationCoordinates && ride.destinationCoordinates.lat) {
-                    destinationMarker = L.marker([ride.destinationCoordinates.lat, ride.destinationCoordinates.lng], {
+                if (destLat && destLon) {
+                    destinationMarker = L.marker([destLat, destLon], {
                         icon: L.divIcon({
                             html: '<div style="font-size:30px;">🎯</div>',
                             iconSize: [30, 30],
@@ -253,14 +282,42 @@
                     }).addTo(map).bindPopup('Ziel: ' + destination);
                 }
             }
-            
+
+            // 🔧 v6.39.5: Fahrt-Status live verfolgen + Badge-Farbe aktualisieren
+            db.ref('rides').child(rideId).on('value', (snap) => {
+                const r = snap.val();
+                if (!r) return;
+                const badge = document.getElementById('ride-status-badge');
+                if (!badge) return;
+                const statusMap = {
+                    'new': '⏳ Wartet auf Fahrer',
+                    'sofort': '⚡ Sofortfahrt — Fahrer wird gesucht',
+                    'assigned': '🔔 Fahrer zugewiesen — wartet auf Bestätigung',
+                    'accepted': '✅ Fahrer hat bestätigt',
+                    'on_way': '🚗 Fahrer ist unterwegs zu Ihnen',
+                    'picked_up': '🚕 Unterwegs zum Ziel',
+                    'completed': '🏁 Fahrt abgeschlossen',
+                    'cancelled': '❌ Fahrt storniert',
+                    'storniert': '❌ Fahrt storniert'
+                };
+                badge.textContent = statusMap[r.status] || r.status;
+                // Farbe: alle ride-status-* Klassen entfernen
+                badge.className = 'ride-status-' + (r.status || 'new');
+                badge.id = 'ride-status-badge';
+                badge.style.display = 'inline-block';
+                if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'storniert') {
+                    // Fahrt fertig — Live-Update stoppen
+                    setTimeout(() => { db.ref('rides').child(rideId).off(); }, 2000);
+                }
+            });
+
             // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!
-            db.ref('drivers').on('value', (driversSnapshot) => {
+            db.ref('vehicles').on('value', (driversSnapshot) => {
                 const driversData = driversSnapshot.val() || {};
-                
-                console.log('📊 Live-Update: Alle Fahrer:', Object.keys(driversData));
-                
-                // Finde den richtigen Fahrer
+
+                console.log('📊 Live-Update: Alle Fahrzeuge:', Object.keys(driversData));
+
+                // Finde das richtige Fahrzeug
                 const driver = driversData[vehicleId];
                 
                 if (!driver) {
@@ -350,7 +407,7 @@
                 
                 if (!trackingData) {
                     showError('❌ Tracking wurde beendet');
-                    db.ref('drivers').off();
+                    db.ref('vehicles').off();
                 }
             }, 30000); // Alle 30 Sekunden
         }
@@ -366,6 +423,47 @@
             document.getElementById('location-info').innerHTML = `
                 <div class="warning-box">${msg}</div>
             `;
+        }
+
+        // 🔧 v6.39.5: Eigenen Standort auf der Karte anzeigen
+        let myLocationMarker = null;
+        let myLocationCircle = null;
+        function showMyLocation() {
+            if (!navigator.geolocation) {
+                alert('GPS auf diesem Gerät nicht verfügbar');
+                return;
+            }
+            const btn = document.getElementById('my-location-btn');
+            if (btn) btn.textContent = '📡 Suche Standort...';
+            navigator.geolocation.getCurrentPosition(pos => {
+                const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+                // Alte Marker entfernen
+                if (myLocationMarker) map.removeLayer(myLocationMarker);
+                if (myLocationCircle) map.removeLayer(myLocationCircle);
+                // Neue Marker
+                myLocationMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        html: '<div style="font-size:30px;">🙋</div>',
+                        iconSize: [30, 30],
+                        className: ''
+                    })
+                }).addTo(map).bindPopup('Ihr Standort').openPopup();
+                myLocationCircle = L.circle([lat, lon], {
+                    radius: accuracy || 50,
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.15
+                }).addTo(map);
+                // Karte anpassen: Alle Marker sichtbar
+                const bounds = L.latLngBounds([[lat, lon]]);
+                if (vehicleMarker) bounds.extend(vehicleMarker.getLatLng());
+                if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                if (btn) btn.textContent = '📍 Standort aktualisieren';
+            }, err => {
+                alert('Standort-Fehler: ' + err.message + '\n\nBitte GPS aktivieren und Browser-Berechtigung erlauben.');
+                if (btn) btn.textContent = '📍 Meinen Standort anzeigen';
+            }, { enableHighAccuracy: true, timeout: 10000 });
         }
     </script>
 </body>

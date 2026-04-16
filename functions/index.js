@@ -764,14 +764,21 @@ async function autoAssignRide(rideId, rideData) {
                     }
                 }
 
-                // Sofortfahrt: NUR echtes GPS (< 10 Min) zulassen!
-                // Homebase/Letzter-GPS reicht NICHT — wir brauchen die echte Position
-                if (isSofort && posSource !== 'GPS') {
-                    console.log(`   ❌ ${info.name}: ${posSource || 'kein Standort'} → bei Sofortfahrt NUR echtes GPS erlaubt`);
+                // 🔧 v6.39.5: Abstufung für Sofortfahrten
+                // < 30 Min Vorlauf: NUR echtes GPS (echte Sofortfahrt)
+                // 30-60 Min Vorlauf: GPS bevorzugt, aber Schichtplan-Fahrzeug erlaubt
+                // > 60 Min = Vorbestellung (kommt nicht in diesen Zweig)
+                const sofortStrict = minutesUntilPickup < 30;
+                if (sofortStrict && posSource !== 'GPS') {
+                    console.log(`   ❌ ${info.name}: ${posSource || 'kein Standort'} → Sofortfahrt (< 30 Min) braucht GPS`);
                     if (vehicleScores[vehicleId]) {
                         vehicleScores[vehicleId].status = 'no-gps';
-                        vehicleScores[vehicleId].reason = `Sofortfahrt: Nur GPS erlaubt (hatte: ${posSource || 'nichts'})`;
+                        vehicleScores[vehicleId].reason = `Sofortfahrt < 30 Min: Nur GPS erlaubt (hatte: ${posSource || 'nichts'})`;
                     }
+                } else if (!sofortStrict && !vLat && !vLon) {
+                    // Sofort mit 30-60 Min Vorlauf, aber kein Standort → Schichtplan-Fallback
+                    candidates.push({ vehicleId, name: info.name, distance: 500, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });
+                    console.log(`   ✅ ${info.name}: Kein GPS, aber 30-60 Min Vorlauf → Schichtplan-Fallback, Prio ${getVehiclePrio(vehicleId)}`);
                 } else if (rideData.pickupCoords && vLat && vLon) {
                     const dist = gpsDistanceKm(rideData.pickupCoords.lat, rideData.pickupCoords.lon, vLat, vLon);
                     candidates.push({ vehicleId, name: info.name, distance: dist, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource });

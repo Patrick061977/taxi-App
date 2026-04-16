@@ -864,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-16 06:45';
+        const _buchenBuild = '2026-04-16 06:55';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1587,6 +1587,17 @@
             if (!headerEl || !barEl) return;
             // 🔧 v6.39.5: Log-Flag zurücksetzen — erster roter Slot wird wieder geloggt
             window._slotBlockLogged = false;
+            // Zeit-Kontrolle (nur 1x pro Minute loggen)
+            if (!window._lastTimeCheckLog || (Date.now() - window._lastTimeCheckLog) > 60000) {
+                window._lastTimeCheckLog = Date.now();
+                const _dNow = new Date();
+                const _berlin = berlinNow();
+                const _browserT = _dNow.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                const _berlinT = _berlin.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Europe/Berlin'});
+                const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const _offset = _dNow.getTimezoneOffset();
+                logBuchen('🕐', `Zeit-Check: Browser=${_browserT} | Berlin=${_berlinT} | TZ=${_tz} | Offset=${_offset}min | Datum=${dateStr}`);
+            }
 
             // Hinweis ob Route bekannt ist
             const hintEl = document.getElementById('slot-route-hint');

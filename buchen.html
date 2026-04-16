@@ -580,7 +580,8 @@
                 <div class="input-group">
                     <label>📍 Abholort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
                     <span class="input-icon">📍</span>
-                    <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off">
+                    <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off" style="padding-right:70px;">
+                    <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                     <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
                     <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
                     <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
@@ -611,7 +612,8 @@
                 <div class="input-group">
                     <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
                     <span class="input-icon">🎯</span>
-                    <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
+                    <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off" style="padding-right:40px;">
+                    <button onclick="clearAddressField('destination')" title="Zielort löschen" style="position:absolute;right:10px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                     <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
                     <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
                         ⚠️ Bitte einen Vorschlag aus der Liste auswählen
@@ -640,24 +642,23 @@
                 <!-- Verfügbarkeit — ausgeblendet, Status-Bar oben reicht -->
                 <div class="availability-card" id="availability" style="display:none !important;"></div>
 
-                <!-- Route Info -->
-                <div class="route-info" id="route-info">
-                    <div class="route-stat">
-                        <div class="value" id="r-price">—</div>
-                        <div class="label">Preis (ca.)</div>
+                <!-- Karte mit Preis-Badge -->
+                <div class="map-container" id="route-map" style="position:relative;"></div>
+                <!-- Route Info kompakt unter der Karte -->
+                <div class="route-info" id="route-info" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;padding:8px;background:#f0fdf4;border-radius:10px;">
+                    <div style="text-align:center;">
+                        <div style="font-size:18px;font-weight:800;color:#059669;" id="r-price">—</div>
+                        <div style="font-size:10px;color:#64748b;">Preis</div>
                     </div>
-                    <div class="route-stat">
-                        <div class="value" id="r-distance">—</div>
-                        <div class="label">Kilometer</div>
+                    <div style="text-align:center;border-left:1px solid #d1fae5;border-right:1px solid #d1fae5;">
+                        <div style="font-size:18px;font-weight:800;color:#059669;" id="r-distance">—</div>
+                        <div style="font-size:10px;color:#64748b;">km</div>
                     </div>
-                    <div class="route-stat">
-                        <div class="value" id="r-duration">—</div>
-                        <div class="label">Minuten</div>
+                    <div style="text-align:center;">
+                        <div style="font-size:18px;font-weight:800;color:#059669;" id="r-duration">—</div>
+                        <div style="font-size:10px;color:#64748b;">Min (inkl. Ein-/Aussteigen)</div>
                     </div>
                 </div>
-
-                <!-- Karte -->
-                <div class="map-container" id="route-map"></div>
 
                 <!-- 🔧 v6.39.1: Buchungsübersicht + Button ganz unten (nach allen Feldern) -->
                 <div id="slot-selected-info" style="display:none;margin-top:12px;padding:14px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;font-size:14px;font-weight:700;color:#1f2937;"></div>
@@ -864,7 +865,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-16 06:55';
+        const _buchenBuild = '2026-04-16 07:45';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1268,6 +1269,31 @@
         }
 
         // Nur Adressen löschen — Kalender + Zeitauswahl bleiben
+        // 🔧 v6.39.5: Einzelnes Adressfeld löschen
+        function clearAddressField(which) {
+            if (which === 'pickup') {
+                document.getElementById('b-pickup').value = '';
+                pickupCoords = null;
+            } else if (which === 'destination') {
+                document.getElementById('b-destination').value = '';
+                destCoords = null;
+            }
+            routeData = null;
+            const routeInfo = document.getElementById('route-info');
+            if (routeInfo) routeInfo.style.display = 'none';
+            const mapEl = document.getElementById('route-map');
+            if (mapEl) mapEl.style.display = 'none';
+            const slotInfo = document.getElementById('slot-selected-info');
+            if (slotInfo) slotInfo.style.display = 'none';
+            updateBookButton();
+            // Dropdown schließen
+            const dropdown = document.getElementById('b-' + which + '-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+            logBuchen('✕', `${which === 'pickup' ? 'Abholort' : 'Zielort'} gelöscht`);
+            // Fokus auf Feld
+            document.getElementById('b-' + which).focus();
+        }
+
         function clearAddresses() {
             document.getElementById('b-pickup').value = '';
             document.getElementById('b-destination').value = '';
@@ -1906,13 +1932,15 @@
                 const zeitText2 = `${dayNames2[dt2.getDay()]}, ${String(dt2.getDate()).padStart(2,'0')}.${String(dt2.getMonth()+1).padStart(2,'0')}. um ${timeStr} Uhr`;
                 const nameVal2 = (document.getElementById('b-name')?.value || '').trim();
                 const nameHint2 = !nameVal2 ? '<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">👤 Bitte noch Name eingeben ↓</div>' : '';
-                const pickup2 = (document.getElementById('b-pickup')?.value || '').split(',')[0];
-                const dest2 = (document.getElementById('b-destination')?.value || '').split(',')[0];
+                // 🔧 v6.39.5: Vollständige Adressen statt split(',')[0]
+                const pickup2 = (document.getElementById('b-pickup')?.value || '').trim();
+                const dest2 = (document.getElementById('b-destination')?.value || '').trim();
                 infoEl2.innerHTML = `
                     <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📋 Ihre Buchung</div>
-                    <div style="text-align:left;font-size:13px;line-height:1.8;color:#1f2937;">
-                        <div>📅 <strong>${zeitText2}</strong></div>
-                        <div>📍 ${pickup2 || 'Abholort'} → 🎯 ${dest2 || 'Zielort'}</div>
+                    <div style="text-align:left;font-size:13px;line-height:1.6;color:#1f2937;">
+                        <div style="margin-bottom:4px;">📅 <strong>${zeitText2}</strong></div>
+                        <div style="margin-bottom:4px;">📍 ${pickup2 || 'Abholort'}</div>
+                        <div style="margin-bottom:4px;">🎯 ${dest2 || 'Zielort'}</div>
                         <div>👥 ${document.querySelector('.pax-btn.active')?.textContent || '1'} Person${document.querySelector('.pax-btn.active')?.textContent !== '1' ? 'en' : ''} · 💰 <strong>${routeData.price}€</strong> · ${routeData.km} km · ~${routeData.min} Min</div>
                     </div>
                     ${nameHint2}
@@ -2264,21 +2292,44 @@
         // ═══════════════════════════════════════════════
         // GPS
         // ═══════════════════════════════════════════════
-        function useGPS(field) {
-            if (!navigator.geolocation) return showToast('GPS nicht verfügbar');
+        // 🔧 v6.39.5: GPS mit Capacitor Plugin + Fallback auf Browser-API
+        async function useGPS(field) {
             showToast('📡 Standort wird ermittelt...');
-            navigator.geolocation.getCurrentPosition(async pos => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
+            try {
+                let lat, lon;
+                const isCapacitor = window.Capacitor && window.Capacitor.isNativePlatform();
+                if (isCapacitor && window.Capacitor.Plugins.Geolocation) {
+                    // Native Capacitor Geolocation
+                    const Geolocation = window.Capacitor.Plugins.Geolocation;
+                    // Berechtigungen anfordern
+                    const perms = await Geolocation.requestPermissions();
+                    if (perms.location !== 'granted' && perms.coarseLocation !== 'granted') {
+                        showToast('⚠️ GPS-Berechtigung verweigert. Bitte in den App-Einstellungen erlauben.');
+                        return;
+                    }
+                    const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+                    lat = pos.coords.latitude;
+                    lon = pos.coords.longitude;
+                } else {
+                    // Browser-Fallback
+                    if (!navigator.geolocation) return showToast('GPS nicht verfügbar');
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+                    });
+                    lat = pos.coords.latitude;
+                    lon = pos.coords.longitude;
+                }
                 const addr = await reverseGeocode(lat, lon);
                 if (field === 'pickup') {
                     pickupCoords = { lat, lon };
                     document.getElementById('b-pickup').value = addr || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
                 }
                 checkRoute();
-            }, err => {
-                showToast('GPS-Fehler: ' + err.message);
-            }, { enableHighAccuracy: true, timeout: 10000 });
+                showToast('✅ Standort übernommen');
+            } catch(err) {
+                console.error('GPS Fehler:', err);
+                showToast('GPS-Fehler: ' + (err.message || err));
+            }
         }
 
         // ═══════════════════════════════════════════════

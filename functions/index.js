@@ -765,21 +765,16 @@ async function autoAssignRide(rideId, rideData) {
                 }
 
                 // 🔧 v6.39.5: Abstufung für Sofortfahrten
-                // < 30 Min Vorlauf: GPS bevorzugt, aber auch aktive Schicht erlaubt
-                // 30-60 Min Vorlauf: GPS bevorzugt, Schichtplan als Fallback
-                // > 60 Min = Vorbestellung
+                // < 30 Min Vorlauf: NUR echtes GPS (echte Sofortfahrt)
+                // 30-60 Min Vorlauf: GPS bevorzugt, aber Schichtplan-Fahrzeug erlaubt
+                // > 60 Min = Vorbestellung (kommt nicht in diesen Zweig)
                 const sofortStrict = minutesUntilPickup < 30;
-                const _shiftActive = _vData.shift && _vData.shift.status === 'active';
-                if (sofortStrict && posSource !== 'GPS' && !_shiftActive) {
-                    console.log(`   ❌ ${info.name}: ${posSource || 'kein Standort'} → Sofortfahrt < 30 Min braucht GPS ODER aktive Schicht`);
+                if (sofortStrict && posSource !== 'GPS') {
+                    console.log(`   ❌ ${info.name}: ${posSource || 'kein Standort'} → Sofortfahrt (< 30 Min) braucht GPS`);
                     if (vehicleScores[vehicleId]) {
                         vehicleScores[vehicleId].status = 'no-gps';
-                        vehicleScores[vehicleId].reason = `Sofortfahrt < 30 Min: GPS oder aktive Schicht nötig (hatte: ${posSource || 'nichts'})`;
+                        vehicleScores[vehicleId].reason = `Sofortfahrt < 30 Min: Nur GPS erlaubt (hatte: ${posSource || 'nichts'})`;
                     }
-                } else if (sofortStrict && posSource !== 'GPS' && _shiftActive) {
-                    // Sofort < 30 Min, altes/kein GPS, aber Schicht aktiv → erlauben
-                    candidates.push({ vehicleId, name: info.name, distance: 300, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'Schicht-aktiv' });
-                    console.log(`   ✅ ${info.name}: Schicht aktiv (GPS ${posSource || 'fehlt'}) → Fallback für Sofortfahrt`);
                 } else if (!sofortStrict && !vLat && !vLon) {
                     // Sofort mit 30-60 Min Vorlauf, aber kein Standort → Schichtplan-Fallback
                     candidates.push({ vehicleId, name: info.name, distance: 500, priority: getVehiclePrio(vehicleId), telegramChatId: driver?.telegramChatId, posSource: 'Schichtplan' });

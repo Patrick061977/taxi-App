@@ -864,7 +864,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-15 13:45';
+        const _buchenBuild = '2026-04-16 06:45';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1585,6 +1585,8 @@
             const headerEl = document.getElementById('slot-timeline-header');
             const barEl = document.getElementById('slot-timeline-bar');
             if (!headerEl || !barEl) return;
+            // 🔧 v6.39.5: Log-Flag zurücksetzen — erster roter Slot wird wieder geloggt
+            window._slotBlockLogged = false;
 
             // Hinweis ob Route bekannt ist
             const hintEl = document.getElementById('slot-route-hint');
@@ -1798,6 +1800,17 @@
                     bg = '#d1fae5'; border = '#a7f3d0'; cursor = 'pointer'; opacity = '1';
                 } else {
                     bg = '#fecaca'; border = '#fca5a5'; cursor = 'not-allowed'; opacity = '0.8';
+                    // 🔧 v6.39.5: Ersten roten Slot loggen (nicht für jeden roten Slot)
+                    if (!isPast && !tooSoon && !window._slotBlockLogged) {
+                        window._slotBlockLogged = true;
+                        const blockers = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol);
+                        const blockerInfo = blockers.map(r => {
+                            const rStartT = new Date(r.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                            const rEndT = new Date(r.end).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                            return `${rStartT}-${rEndT} (Fzg:${r.vehicleId || '?'})`;
+                        }).join(', ');
+                        logBuchen('🔴', `Slot BLOCKIERT ${slotTimeStr}: ${overlapping}/${vehiclesInShift} Fzg belegt | Blocker: ${blockerInfo || 'keine direkte Überlappung'}`);
+                    }
                 }
 
                 const isSelected = _selectedSlot === slotTimeStr + '_' + dateStr;

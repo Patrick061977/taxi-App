@@ -438,10 +438,7 @@
                     <span style="font-size:20px;">📞</span>
                     <div><div style="font-size:15px;">Anrufen</div><div style="font-size:11px;color:#6b7280;font-weight:400;">038378 22022</div></div>
                 </a>
-                <a href="anfrage.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                    <span style="font-size:20px;">📧</span>
-                    <div><div style="font-size:15px;">Anfrage senden</div><div style="font-size:11px;color:#6b7280;font-weight:400;">E-Mail oder WhatsApp</div></div>
-                </a>
+                <!-- Anfrage entfernt — Telefon + WhatsApp reichen -->
                 <div style="height:1px;background:#e5e7eb;margin:8px 0;"></div>
                 <div id="menu-auth-section">
                     <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
@@ -783,19 +780,7 @@
     <div id="recaptcha-container" style="position:fixed;bottom:0;left:0;z-index:-1;"></div>
 
     <!-- 🆕 v6.38.95: Schwebender Kontakt-Button -->
-    <div id="contact-fab" style="position:fixed;bottom:20px;right:20px;z-index:900;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
-        <div id="contact-options" style="display:none;flex-direction:column;gap:6px;align-items:flex-end;">
-            <a href="tel:03837822022" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:white;color:#059669;border-radius:24px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);border:2px solid #059669;">
-                📞 038378 22022
-            </a>
-            <a href="https://wa.me/4915127585179?text=Hallo%2C%20ich%20habe%20eine%20Frage%20zur%20Taxi-Buchung" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:white;color:#25D366;border-radius:24px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);border:2px solid #25D366;">
-                💬 WhatsApp
-            </a>
-        </div>
-        <button onclick="const o=document.getElementById('contact-options');o.style.display=o.style.display==='flex'?'none':'flex'" style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(5,150,105,0.4);transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-            💬
-        </button>
-    </div>
+    <!-- 🔧 v6.39.5: Chat-Blase entfernt — Anrufen + WhatsApp im Hamburger-Menü -->
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -865,7 +850,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-16 07:45';
+        const _buchenBuild = '2026-04-16 08:20';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern

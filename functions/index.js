@@ -5283,9 +5283,10 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     };
 
                     // 🆕 v6.38.14: Adresse mit Hausnummer → ersten Treffer direkt nehmen
+                    // 🔧 v6.39.6: Kaiserbäder-Fix — PLZ-strict + Ambiguität bei Heringsdorf/Ahlbeck/Bansin
+                    let _disambigReason = null; // 'plz_miss' | 'kaiserbad_ambig' | null
+                    let _disambigPLZ = null;
                     if (_hasHausnrInAddr2 && suggestions.length > 0) {
-                        // 🆕 v6.38.15: Nur auto-selektieren wenn Ergebnis nahe Usedom ODER vertrauenswürdige Quelle
-                        // 🆕 v6.38.16: Straßenname-Plausibilitäts-Check
                         const _qStreet2 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
                         const _qPrefix2 = _qStreet2.replace(/straße$|str\.?$|weg$|allee$|platz$/, '').slice(0, 5);
                         const _streetOk2 = (s) => {
@@ -5302,19 +5303,68 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             const sNr = sName.match(/\b(\d+)\s*[a-z]?\s*(?:,|$|\s)/i)?.[1] || '';
                             return sNr === _qHausnr2;
                         };
+                        // 🆕 v6.39.6: PLZ aus Query extrahieren
+                        const _qPLZ2 = addressToResolve.match(/\b(\d{5})\b/)?.[1] || '';
+                        const _plzOk2 = (s) => {
+                            if (!_qPLZ2) return true;
+                            const hay = (s.name + ' ' + (s.display_name || '')).toLowerCase();
+                            return hay.includes(_qPLZ2);
+                        };
                         const _TRUSTED2 = ['geocache-verified', 'crm-verified', 'known', 'poi'];
-                        // 🔧 v6.38.25: 3-Stufen Auto-Select — Straßenname + Hausnummer MÜSSEN in ALLEN Stufen passen!
-                        const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s))
-                            || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s)))
-                            || (_hasHausnrInAddr2 && _explTown2 && suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _hausnrOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
-                        if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
-                            await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
-                            if (needsPickupResolve) {
-                                booking.pickup = _bestHit2.name; booking.pickupLat = _bestHit2.lat; booking.pickupLon = _bestHit2.lon;
-                            } else {
-                                booking.destination = _bestHit2.name; booking.destinationLat = _bestHit2.lat; booking.destinationLon = _bestHit2.lon;
+
+                        // 🆕 v6.39.6: Welches Kaiserbad steckt im Treffer?
+                        const _extractKaiserbad = (s) => {
+                            const hay = (s.name + ' ' + (s.display_name || '')).toLowerCase();
+                            return _KAISERBAEDER.find(k => hay.includes(k)) || null;
+                        };
+
+                        // Alle validen Kandidaten (Straße + Hausnr + nahe Usedom)
+                        const _allValidHits = suggestions.filter(s =>
+                            s.lat && s.lon && _streetOk2(s) && _hausnrOk2(s) &&
+                            isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))
+                        );
+
+                        // STUFE 1: User gab PLZ an → strict PLZ-Match
+                        if (_qPLZ2) {
+                            const _plzHits = _allValidHits.filter(_plzOk2);
+                            if (_plzHits.length >= 1) {
+                                const _bestPlzHit = _plzHits.find(s => _TRUSTED2.includes(s.source)) || _plzHits[0];
+                                await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → PLZ-Match (${_qPLZ2}) → Auto: ${_bestPlzHit.name}`);
+                                if (needsPickupResolve) {
+                                    booking.pickup = _bestPlzHit.name; booking.pickupLat = _bestPlzHit.lat; booking.pickupLon = _bestPlzHit.lon;
+                                } else {
+                                    booking.destination = _bestPlzHit.name; booking.destinationLat = _bestPlzHit.lat; booking.destinationLon = _bestPlzHit.lon;
+                                }
+                                return await continueBookingFlow(chatId, booking, originalText);
                             }
-                            return await continueBookingFlow(chatId, booking, originalText);
+                            // PLZ angegeben, aber keine Treffer in dieser PLZ → NICHT auto-selektieren, Rückfrage mit Alternativen
+                            if (_allValidHits.length > 0) {
+                                _disambigReason = 'plz_miss';
+                                _disambigPLZ = _qPLZ2;
+                                await addTelegramLog('⚠️', chatId, `${fieldLabel} "${addressToResolve}" → PLZ ${_qPLZ2} nicht gefunden, zeige ${_allValidHits.length} Alternativen`);
+                            }
+                        } else {
+                            // STUFE 2: Keine PLZ — gibt es die Straße in MEHREREN Kaiserbädern?
+                            const _kaiserbadHits = _allValidHits.filter(s => _extractKaiserbad(s));
+                            const _kaiserbadTowns = new Set(_kaiserbadHits.map(_extractKaiserbad).filter(Boolean));
+                            if (_kaiserbadTowns.size >= 2) {
+                                _disambigReason = 'kaiserbad_ambig';
+                                await addTelegramLog('❓', chatId, `${fieldLabel} "${addressToResolve}" → Straße in ${_kaiserbadTowns.size} Kaiserbädern (${[..._kaiserbadTowns].join('/')}) → Rückfrage`);
+                            } else {
+                                // STUFE 3: Eindeutig → Auto-Select wie bisher
+                                const _bestHit2 = suggestions.find(s => _TRUSTED2.includes(s.source) && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s))
+                                    || (_explTown2 && suggestions.find(s => s.source !== 'nominatim' && s.lat && s.lon && _townOk2(s) && _streetOk2(s) && _hausnrOk2(s)))
+                                    || (_hasHausnrInAddr2 && _explTown2 && suggestions.find(s => s.lat && s.lon && _streetOk2(s) && _hausnrOk2(s) && _townOk2(s) && isNearUsedom(parseFloat(s.lat), parseFloat(s.lon))));
+                                if (_bestHit2 && _bestHit2.lat && _bestHit2.lon) {
+                                    await addTelegramLog('✅', chatId, `${fieldLabel} "${addressToResolve}" → Hausnummer → Auto: ${_bestHit2.name}`);
+                                    if (needsPickupResolve) {
+                                        booking.pickup = _bestHit2.name; booking.pickupLat = _bestHit2.lat; booking.pickupLon = _bestHit2.lon;
+                                    } else {
+                                        booking.destination = _bestHit2.name; booking.destinationLat = _bestHit2.lat; booking.destinationLon = _bestHit2.lon;
+                                    }
+                                    return await continueBookingFlow(chatId, booking, originalText);
+                                }
+                            }
                         }
                     }
 
@@ -5520,11 +5570,21 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // 🔧 v6.39.0: Vorschläge im Log
                     const _suggNames2 = _displaySugg2.map(s => `${s.source === 'known' || s.source === 'poi' ? '⭐' : '📍'}${s.name}`).join(' | ');
                     await addTelegramLog('🔍', chatId, `${fieldLabel} "${addressToResolve}" → ${_displaySugg2.length} Vorschläge: ${_suggNames2}`);
-                    await sendTelegramMessage(chatId,
-                        `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
-                        `Meinten Sie:`,
-                        { reply_markup: keyboard }
-                    );
+                    // 🆕 v6.39.6: Klarer Hinweis bei PLZ-Miss oder Kaiserbäder-Ambiguität
+                    let _introMsg;
+                    if (_disambigReason === 'plz_miss') {
+                        _introMsg = `⚠️ <b>Kein Treffer in PLZ ${_disambigPLZ}</b>\n\n` +
+                            `Für "<b>${addressToResolve}</b>" habe ich keine Adresse in PLZ ${_disambigPLZ} gefunden.\n\n` +
+                            `Meinten Sie vielleicht:`;
+                    } else if (_disambigReason === 'kaiserbad_ambig') {
+                        _introMsg = `❓ <b>Welches Kaiserbad?</b>\n\n` +
+                            `"<b>${addressToResolve}</b>" gibt es in mehreren Orten.\n\n` +
+                            `Bitte wählen:`;
+                    } else {
+                        _introMsg = `🔍 <b>${fieldLabel}: "${addressToResolve}"</b>\n\n` +
+                            `Meinten Sie:`;
+                    }
+                    await sendTelegramMessage(chatId, _introMsg, { reply_markup: keyboard });
                     return; // Warte auf Kundenauswahl
                     } // Ende else (Multi-Treffer-Buttons)
                 }

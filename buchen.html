@@ -203,6 +203,10 @@
             text-align: center;
             letter-spacing: 8px;
             margin: 16px 0;
+            box-sizing: border-box;
+        }
+        @media (max-width: 380px) {
+            .sms-input { letter-spacing: 4px; font-size: 17px; }
         }
         .phone-input {
             width: 100%;
@@ -211,6 +215,38 @@
             border-radius: 10px;
             font-size: 16px;
             margin: 12px 0;
+            box-sizing: border-box;
+        }
+        /* 🆕 v6.39.6: Phone-Eingabe-Gruppe (Land + Nummer) — Mobile-fix */
+        .phone-input-group {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            width: 100%;
+            align-items: stretch;
+        }
+        .phone-input-group select {
+            flex: 0 0 auto;
+            padding: 12px 6px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            background: white;
+            width: 92px;
+            box-sizing: border-box;
+            min-width: 0;
+        }
+        .phone-input-group .phone-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0;
+            padding: 12px 14px;
+            font-size: 16px;
+        }
+        @media (max-width: 380px) {
+            .phone-input-group { gap: 4px; }
+            .phone-input-group select { width: 80px; padding: 12px 4px; font-size: 13px; }
+            .phone-input-group .phone-input { font-size: 15px; padding: 12px 10px; }
         }
         /* Success */
         .success-card {
@@ -680,8 +716,8 @@
                 <div style="font-size:48px;margin-bottom:12px;">📱</div>
                 <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
                 <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Sie erhalten einen Bestätigungscode per SMS (kostenlos)</p>
-                <div style="display:flex;gap:6px;margin-bottom:8px;">
-                    <select id="b-phone-country" style="padding:12px 8px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;min-width:90px;background:white;">
+                <div class="phone-input-group">
+                    <select id="b-phone-country">
                         <optgroup label="Häufig">
                         <option value="+49">🇩🇪 +49</option>
                         <option value="+48">🇵🇱 +48</option>
@@ -732,7 +768,7 @@
                         <option value="+27">🇿🇦 +27</option>
                         </optgroup>
                     </select>
-                    <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel" style="flex:1;">
+                    <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel">
                 </div>
                 <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
                 <button class="btn-book" id="btn-send-code" onclick="sendSmsCode()">📨 Code senden</button>
@@ -850,7 +886,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-16 08:20';
+        const _buchenBuild = '2026-04-18 09:46';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern

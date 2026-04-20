@@ -39,17 +39,39 @@ jobs:
           java-version: '21'
 
       - name: NPM Dependencies installieren
-        run: npm install --no-audit --no-fund
+        run: |
+          set -x
+          node --version
+          npm --version
+          npm install --no-audit --no-fund
+          echo "--- node_modules/.bin ---"
+          ls node_modules/.bin/cap* 2>&1 || echo "cap binary missing"
+          echo "--- @capacitor ---"
+          ls node_modules/@capacitor/ 2>&1 || echo "@capacitor missing"
 
       - name: www/ Platzhalter anlegen (App lädt Remote-URL)
         run: |
+          set -x
           mkdir -p www
-          if [ ! -f www/index.html ]; then
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Taxi Heringsdorf</title></head><body><script>location.href="https://taxi-heringsdorf.web.app"</script></body></html>' > www/index.html
-          fi
+          cat > www/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Taxi Heringsdorf</title></head>
+          <body><script>location.href="https://taxi-heringsdorf.web.app"</script></body></html>
+          EOF
+          ls -la www/
 
       - name: Capacitor sync (Android)
-        run: npx cap sync android
+        run: |
+          set -x
+          cat capacitor.config.json
+          npx cap sync android 2>&1 || {
+            echo "===== CAP SYNC FAILED ====="
+            echo "--- android/ contents ---"
+            ls -la android/
+            echo "--- capacitor-cordova plugins? ---"
+            ls -la android/capacitor-cordova-android-plugins/ 2>&1 || echo "folder missing"
+            exit 1
+          }
 
       - name: Keystore aus Secret dekodieren
         env:

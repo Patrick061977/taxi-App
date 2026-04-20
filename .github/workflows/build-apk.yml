@@ -27,10 +27,10 @@ jobs:
           echo "versionCode=$VCODE" >> $GITHUB_OUTPUT
           echo "🏷️ Baue Version $VNAME (Code $VCODE)"
 
-      - name: Node.js 20 installieren
+      - name: Node.js 22 installieren
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: JDK 21 installieren
         uses: actions/setup-java@v4

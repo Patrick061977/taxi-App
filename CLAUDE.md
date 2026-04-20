@@ -146,6 +146,12 @@ Dies betrifft:
 
 ### TODO (Später):
 - **Google Places Autocomplete** — Nominatim durch Google Places API ersetzen für Adresssuche (bessere POI-Erkennung, Tippfehler-Toleranz, schneller). Benötigt: Google Cloud Account + API Key mit Places API (New) aktiviert. Geschätzte Kosten: ~0-42 €/Monat (200$/Monat Gratis-Guthaben von Google). OSRM für Routing bleibt, Nominatim als Fallback.
+- **Auto-Shift-End (Sicherheitsgurt gegen vergessene Schichten)** — Cloud Function die Schichten automatisch beendet. Ideen-Sammlung:
+  - Option A: Um 00:00 Uhr Auto-Close, ABER Nachtschichten (z.B. 22:00–04:00) müssen ausgenommen werden → Prüfung gegen `shiftPlan`
+  - Option B: Nach 12h ohne manuelles Ende automatisch schließen, dann Push-Benachrichtigung "Schicht wurde auto-beendet — neu anmelden?" an Fahrer
+  - Option C: Hybrid: nach Ende laut Wochenplan + 1h Puffer, wenn keine laufende Fahrt → Auto-End
+  - Implementierung: `scheduledShiftAutoEnd` in `functions/index.js` (z.B. alle 10 Min) + Fahrer-Telegram-Benachrichtigung
+  - WICHTIG: Laufende Fahrten (`on_way`, `picked_up`) dürfen NIE automatisch beendet werden
 
 ### Architektur-Entscheidungen (26.03.2026):
 - **Auto-Zuweisung:** Browser-Zuweisung (`auto-assign-schichtplan`) ist im Webhook-Modus DEAKTIVIERT. Cloud Function `scheduledAutoAssign` übernimmt (alle 10 Min)

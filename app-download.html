@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Funk Taxi Heringsdorf — Apps</title>
+    <title>Funk Taxi Heringsdorf — Fahrer-App</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -46,7 +46,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f0fdf4;
+            background: #eff6ff;
             border-radius: 14px;
         }
         .app-card h2 { font-size: 18px; color: #1f2937; }
@@ -65,17 +65,16 @@
             text-decoration: none;
             text-align: center;
             transition: transform 0.2s;
-        }
-        .download-btn:hover { transform: translateY(-2px); }
-        .download-btn.green {
-            background: linear-gradient(135deg, #059669, #047857);
-            color: white;
-            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-        }
-        .download-btn.purple {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .download-btn:hover { transform: translateY(-2px); }
+        .download-btn[aria-disabled="true"] {
+            background: #9ca3af;
+            cursor: wait;
+            pointer-events: none;
+            box-shadow: none;
         }
         .app-card .size { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 8px; }
 
@@ -129,6 +128,15 @@
             margin-top: 20px;
             padding-bottom: 20px;
         }
+        .note {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #78350f;
+            margin-top: 12px;
+        }
     </style>
 </head>
 <body>
@@ -136,59 +144,38 @@
         <div class="header">
             <div class="icon">🚕</div>
             <h1>Funk Taxi Heringsdorf</h1>
-            <p>Unsere Apps für Android</p>
+            <p>Fahrer-App für Android</p>
         </div>
 
-        <!-- Kunden-App -->
         <div class="app-card">
             <div class="app-header">
-                <div class="app-icon">📱</div>
-                <div>
-                    <h2>Taxi Buchen</h2>
-                    <div class="app-desc">Taxi bestellen leicht gemacht</div>
-                    <div class="app-version">v1.0.3 · Android</div>
-                </div>
-            </div>
-            <div class="features">
-                <span class="feature">🚕 Sofort-Taxi</span>
-                <span class="feature">📅 Vorbestellen</span>
-                <span class="feature">📍 Live-Tracking</span>
-                <span class="feature">💰 Preisanzeige</span>
-            </div>
-            <a href="https://github.com/Patrick061977/taxi-App/releases/download/v1.0.3-kunden/taxi-kunden-app.apk" class="download-btn green">
-                📥 Kunden-App herunterladen
-            </a>
-            <div class="size">APK · ca. 5 MB</div>
-        </div>
-
-        <!-- Fahrer-App -->
-        <div class="app-card">
-            <div class="app-header">
-                <div class="app-icon" style="background:#eff6ff;">🚗</div>
+                <div class="app-icon">🚗</div>
                 <div>
                     <h2>Fahrer-App</h2>
                     <div class="app-desc">Für registrierte Fahrer</div>
-                    <div class="app-version">v6.39.5 · Android</div>
+                    <div class="app-version" id="app-version">Version wird geladen …</div>
                 </div>
             </div>
             <div class="features">
                 <span class="feature">🧭 Navigation</span>
                 <span class="feature">📊 Schicht-Verwaltung</span>
                 <span class="feature">📍 GPS-Tracking</span>
-                <span class="feature">💬 Chat</span>
+                <span class="feature">💬 Telegram</span>
             </div>
-            <a href="https://github.com/Patrick061977/taxi-App/releases/download/v6.39.5-fahrer/taxi-heringsdorf-release.apk" class="download-btn purple">
-                📥 Fahrer-App herunterladen
+            <a id="download-link" href="#" class="download-btn" aria-disabled="true">
+                ⏳ Lade neueste Version …
             </a>
-            <div class="size">APK · ca. 6 MB</div>
+            <div class="size" id="app-size">&nbsp;</div>
+            <div class="note">
+                🔒 Nur für registrierte Fahrer von Funk Taxi Heringsdorf. Login mit freigeschaltetem Google-Konto nötig.
+            </div>
         </div>
 
-        <!-- Anleitung -->
         <div class="steps">
             <h3>So installierst du die App:</h3>
             <div class="step">
                 <div class="step-num">1</div>
-                <div>Auf <b>"App herunterladen"</b> tippen</div>
+                <div>Auf <b>"Fahrer-App herunterladen"</b> tippen</div>
             </div>
             <div class="step">
                 <div class="step-num">2</div>
@@ -202,6 +189,10 @@
                 <div class="step-num">4</div>
                 <div><b>"Installieren"</b> tippen — fertig!</div>
             </div>
+            <div class="step">
+                <div class="step-num">5</div>
+                <div>App öffnen und mit <b>Google-Konto anmelden</b></div>
+            </div>
         </div>
 
         <div class="footer">
@@ -209,5 +200,43 @@
             📞 038378 22022
         </div>
     </div>
+
+    <script>
+        const FALLBACK_URL = 'https://github.com/Patrick061977/taxi-App/releases/latest';
+
+        async function loadLatestRelease() {
+            const versionEl = document.getElementById('app-version');
+            const sizeEl = document.getElementById('app-size');
+            const linkEl = document.getElementById('download-link');
+
+            try {
+                const res = await fetch('https://api.github.com/repos/Patrick061977/taxi-App/releases/latest', {
+                    headers: { 'Accept': 'application/vnd.github+json' }
+                });
+                if (!res.ok) throw new Error('GitHub API ' + res.status);
+                const data = await res.json();
+
+                const apk = (data.assets || []).find(a => a.name.endsWith('.apk'));
+                if (!apk) throw new Error('Keine APK im Release gefunden');
+
+                const version = (data.tag_name || '').replace(/^v/, '');
+                const sizeMB = (apk.size / (1024 * 1024)).toFixed(1);
+
+                versionEl.textContent = 'v' + version + ' · Android';
+                sizeEl.textContent = 'APK · ca. ' + sizeMB + ' MB';
+                linkEl.href = apk.browser_download_url;
+                linkEl.textContent = '📥 Fahrer-App herunterladen';
+                linkEl.removeAttribute('aria-disabled');
+            } catch (err) {
+                versionEl.textContent = 'Version konnte nicht geladen werden';
+                sizeEl.textContent = '';
+                linkEl.href = FALLBACK_URL;
+                linkEl.textContent = '📥 Zu den Downloads';
+                linkEl.removeAttribute('aria-disabled');
+            }
+        }
+
+        loadLatestRelease();
+    </script>
 </body>
 </html>

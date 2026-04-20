@@ -13,6 +13,7 @@ on:
       - 'berlin.html'
       - 'anfrage.html'
       - 'track.html'
+      - 'app-download.html'
       - 'manifest.json'
       - 'service-worker.js'
       - 'favicon.svg'

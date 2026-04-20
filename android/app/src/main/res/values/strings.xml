@@ -4,4 +4,6 @@
     <string name="title_activity_main">Funk Taxi Heringsdorf</string>
     <string name="package_name">de.taxiheringsdorf.app</string>
     <string name="custom_url_scheme">de.taxiheringsdorf.app</string>
+    <!-- v6.40.4: Google Sign-In Server-Client-ID (Web-OAuth-Client aus Firebase) -->
+    <string name="server_client_id">886448081276-odgqv3if3hfhrgoesfiavbn8kkn7jkpm.apps.googleusercontent.com</string>
 </resources>

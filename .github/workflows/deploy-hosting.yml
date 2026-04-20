@@ -1,0 +1,48 @@
+name: Firebase Hosting deployen
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'kunden.html'
+      - 'buchen.html'
+      - 'landing.html'
+      - 'berlin.html'
+      - 'anfrage.html'
+      - 'track.html'
+      - 'manifest.json'
+      - 'service-worker.js'
+      - 'favicon.svg'
+      - 'icon-192.png'
+      - 'advanced-logger.js'
+      - 'firebase-remote-logger.js'
+      - 'firebase.json'
+      - '.firebaserc'
+
+jobs:
+  deploy-hosting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code herunterladen
+        uses: actions/checkout@v4
+
+      - name: Node.js 20 einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Firebase Tools installieren
+        run: npm install -g firebase-tools
+
+      - name: Hosting deployen
+        run: firebase deploy --only hosting --project taxi-heringsdorf --token ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy-Info
+        if: success()
+        run: |
+          echo "## 🚀 Firebase Hosting deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Live unter: https://taxi-heringsdorf.web.app" >> $GITHUB_STEP_SUMMARY

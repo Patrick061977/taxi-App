@@ -20079,6 +20079,104 @@ exports.healthCheck = onRequest(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.40.8: DRIVER-HEALTH LOG — GPS + Akku-Temperatur auf Abruf
+// Endpoint für Claude/Admin um Fahrer-Health zu prüfen
+// ?key=XXX&vehicleId=YYY&hours=24 (vehicleId optional → alle)
+// ═══════════════════════════════════════════════════════════════
+exports.getHealthLog = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const savedKey = keySnap.val();
+        const STATIC_KEY = 'funk-taxi-heringsdorf-2026';
+        const validKey = savedKey || STATIC_KEY;
+        if (!key || key !== validKey) {
+            res.status(403).json({ error: 'Kein Zugriff. ?key= Parameter fehlt.' });
+            return;
+        }
+
+        try {
+            const hours = Math.max(1, Math.min(168, parseInt(req.query.hours, 10) || 24));
+            const vehicleId = req.query.vehicleId ? String(req.query.vehicleId) : null;
+            const since = Date.now() - hours * 3600 * 1000;
+
+            async function loadVehicleHealth(vid) {
+                const healthSnap = await db.ref('driverHealth/' + vid)
+                    .orderByKey()
+                    .startAt(String(since))
+                    .once('value');
+                const entries = [];
+                healthSnap.forEach(c => { entries.push(c.val()); });
+
+                const alertsSnap = await db.ref('driverHealthAlerts/' + vid).limitToLast(50).once('value');
+                const alerts = [];
+                alertsSnap.forEach(c => {
+                    const a = c.val();
+                    if (a && a.ts && a.ts >= since) alerts.push(a);
+                });
+
+                // Aggregation: min/max/avg Temp, Akku-Verlauf, Sample-Zahl
+                let tMin = null, tMax = null, tSum = 0, tN = 0;
+                let pctMin = null, pctMax = null;
+                for (const e of entries) {
+                    if (typeof e.battery_temp_c === 'number' && e.battery_temp_c > -50 && e.battery_temp_c < 100) {
+                        if (tMin === null || e.battery_temp_c < tMin) tMin = e.battery_temp_c;
+                        if (tMax === null || e.battery_temp_c > tMax) tMax = e.battery_temp_c;
+                        tSum += e.battery_temp_c;
+                        tN++;
+                    }
+                    if (typeof e.battery_pct === 'number' && e.battery_pct >= 0) {
+                        if (pctMin === null || e.battery_pct < pctMin) pctMin = e.battery_pct;
+                        if (pctMax === null || e.battery_pct > pctMax) pctMax = e.battery_pct;
+                    }
+                }
+
+                return {
+                    vehicleId: vid,
+                    samples: entries.length,
+                    hours: hours,
+                    summary: {
+                        battery_temp_c: {
+                            min: tMin,
+                            max: tMax,
+                            avg: tN > 0 ? Math.round(tSum / tN * 10) / 10 : null,
+                        },
+                        battery_pct: { min: pctMin, max: pctMax },
+                    },
+                    alerts: alerts,
+                    latest: entries.length > 0 ? entries[entries.length - 1] : null,
+                    // Nur letzte 20 Einträge als Detail — sonst wird die Response riesig
+                    recent: entries.slice(-20),
+                };
+            }
+
+            const result = { ok: true, generatedAt: new Date().toISOString(), hours };
+
+            if (vehicleId) {
+                result.vehicles = [await loadVehicleHealth(vehicleId)];
+            } else {
+                // Alle Fahrzeuge aus /driverHealth
+                const allSnap = await db.ref('driverHealth').once('value');
+                const vids = [];
+                allSnap.forEach(c => { vids.push(c.key); });
+                result.vehicles = [];
+                for (const vid of vids) {
+                    result.vehicles.push(await loadVehicleHealth(vid));
+                }
+            }
+
+            res.status(200).json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message, ok: false });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.38.96: SMS-QUEUE — Sendet Telegram-Nachricht an Admin
 // Macrodroid fängt Telegram-Notification ab → sendet SMS über SIM
 // Format: 📲SMS|+49151...|SMS Text hier

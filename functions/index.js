@@ -10737,7 +10737,10 @@ async function handleCallback(callback) {
                 ...(rideData.customerEmail ? [[{ text: `📧 Bestätigung an ${rideData.customerEmail.length > 28 ? rideData.customerEmail.substring(0, 26) + '…' : rideData.customerEmail}`, callback_data: `email_ride_${rideData.id}` }]] : []),
                 [{ text: '📋 Meine Buchungen', callback_data: 'cmd_meine' }, { text: '🏠 Hauptmenü', callback_data: 'back_to_menu' }]
             ]};
-            const _isJetztFahrt = booking._isJetzt;
+            // 🆕 v6.40.2: "Sofortfahrt" = alles unter 60 Min (nicht nur wenn User "jetzt" tippt!)
+            // Vorher: nur true wenn Keyword "jetzt/sofort/gleich" erkannt → Admin bekam keine
+            // Fahrer-gesucht-Buttons wenn er per Button-Flow eine Zeit in den nächsten 60 Min wählte.
+            const _isJetztFahrt = booking._isJetzt || !isVorbestellung;
 
             // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen!
             // Erst 15 Min vorher weiß man welcher Fahrer am nächsten dran ist.

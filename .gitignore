@@ -14,3 +14,9 @@ android/.gradle/
 
 # Lock-Datei
 package-lock.json
+
+# APK-Signatur — NIEMALS ins Repo!
+*.keystore
+*.keystore.base64
+*.jks
+keystore.properties

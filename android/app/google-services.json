@@ -8,6 +8,80 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:886448081276:android:6fec9cab6a31e0e48efcf9",
+        "android_client_info": {
+          "package_name": "Taxi.App"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "886448081276-4h96al085q6clv4eoc14atv84e4cqee0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "Taxi.App",
+            "certificate_hash": "8a92cc444ba40c7fc765ea6dc7fe89729585d8ff"
+          }
+        },
+        {
+          "client_id": "886448081276-odgqv3if3hfhrgoesfiavbn8kkn7jkpm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "886448081276-62s2lg4dsqi085v891761tqfg1ngas57.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:886448081276:android:1b147b57e13879568efcf9",
+        "android_client_info": {
+          "package_name": "de.funkhgw.taxi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "886448081276-t54ipq79b3qr9b8b3q95cv82is9n3i4h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "de.funkhgw.taxi",
+            "certificate_hash": "8a92cc444ba40c7fc765ea6dc7fe89729585d8ff"
+          }
+        },
+        {
+          "client_id": "886448081276-odgqv3if3hfhrgoesfiavbn8kkn7jkpm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "886448081276-62s2lg4dsqi085v891761tqfg1ngas57.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:886448081276:android:154650e0d99b8fce8efcf9",
         "android_client_info": {
           "package_name": "de.taxiheringsdorf.app"
@@ -15,19 +89,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "886448081276-pu82okhi4b49cgv94sf4js7a8v9qjuvu.apps.googleusercontent.com",
+          "client_id": "886448081276-jrvlk8f65g6b4uamgaoqemsh46kftq4p.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "de.taxiheringsdorf.app",
-            "certificate_hash": "361108eafb53a99a8a95c11c20ffaee142c29210"
-          }
-        },
-        {
-          "client_id": "886448081276-sl2qbi9fbub9k1g3bhdspb78vqdcacsq.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "de.taxiheringsdorf.app",
-            "certificate_hash": "8a92cc444ba40c7fc765ea6dc7fe89729585d8ff"
+            "certificate_hash": "5ce477821a5819214dabdc6d159626629281e407"
           }
         },
         {

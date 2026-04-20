@@ -1,0 +1,119 @@
+name: Android APK bauen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main']
+    paths:
+      - 'android/**'
+      - 'package.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions-Info aus build.gradle lesen
+        id: version
+        run: |
+          VNAME=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle | head -1)
+          VCODE=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle | head -1)
+          echo "versionName=$VNAME" >> $GITHUB_OUTPUT
+          echo "versionCode=$VCODE" >> $GITHUB_OUTPUT
+          echo "🏷️ Baue Version $VNAME (Code $VCODE)"
+
+      - name: Node.js 20 installieren
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JDK 21 installieren
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: NPM Dependencies installieren
+        run: npm install --no-audit --no-fund
+
+      - name: www/ Platzhalter anlegen (App lädt Remote-URL)
+        run: |
+          mkdir -p www
+          if [ ! -f www/index.html ]; then
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Taxi Heringsdorf</title></head><body><script>location.href="https://taxi-heringsdorf.web.app"</script></body></html>' > www/index.html
+          fi
+
+      - name: Capacitor sync (Android)
+        run: npx cap sync android
+
+      - name: Keystore aus Secret dekodieren
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          ls -la android/app/release.keystore
+
+      - name: APK signieren + bauen
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: APK umbenennen
+        id: rename
+        run: |
+          SRC=android/app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$SRC" ]; then
+            SRC=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          fi
+          DEST=taxi-app-v${{ steps.version.outputs.versionName }}.apk
+          cp "$SRC" "$DEST"
+          SIZE=$(du -h "$DEST" | cut -f1)
+          echo "apkPath=$DEST" >> $GITHUB_OUTPUT
+          echo "apkSize=$SIZE" >> $GITHUB_OUTPUT
+          echo "## 📱 APK fertig" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.version.outputs.versionName }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code:** ${{ steps.version.outputs.versionCode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Datei:** \`$DEST\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Größe:** $SIZE" >> $GITHUB_STEP_SUMMARY
+
+      - name: APK als Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxi-app-v${{ steps.version.outputs.versionName }}
+          path: ${{ steps.rename.outputs.apkPath }}
+          retention-days: 90
+
+      - name: GitHub Release erstellen
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.versionName }}
+          name: Taxi App v${{ steps.version.outputs.versionName }}
+          body: |
+            ## 📱 Taxi Heringsdorf – Fahrer App
+
+            - **Version:** ${{ steps.version.outputs.versionName }}
+            - **versionCode:** ${{ steps.version.outputs.versionCode }}
+            - **Größe:** ${{ steps.rename.outputs.apkSize }}
+
+            ### 📥 Installation
+            1. APK unten herunterladen
+            2. Auf dem Handy öffnen (Unbekannte Quellen erlauben falls nötig)
+            3. Fertig – App startet automatisch die aktuelle Web-Version von taxi-heringsdorf.web.app
+
+            ℹ️ Der "Update verfügbar"-Banner in der App verlinkt automatisch auf diese Release-Seite.
+          files: ${{ steps.rename.outputs.apkPath }}
+          fail_on_unmatched_files: true
+          make_latest: true

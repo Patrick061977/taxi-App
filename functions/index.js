@@ -17166,6 +17166,43 @@ exports.scheduledAutoAssign = onSchedule(
             vorbestelltSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
             newSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
 
+            // 🔧 v6.40.18: SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen >60min korrigieren.
+            // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).
+            // Das verhinderte dass autoResolveConflicts neue Prio-Werte übernehmen konnte.
+            // Hier werden diese Fahrten wieder auf 'vorbestellt' zurückgesetzt (Fahrzeug bleibt dran).
+            {
+                const SOFORT_SCHWELLE_MS = 60 * 60000;
+                const healCandidates = allRides.filter(r => {
+                    if (r.status !== 'assigned') return false;
+                    if (!r.pickupTimestamp) return false;
+                    if (r.pickupTimestamp - now <= SOFORT_SCHWELLE_MS) return false; // echte Sofort-Fahrt
+                    // Fahrer hat bereits akzeptiert oder ist unterwegs → nicht anfassen
+                    // (status wäre dann accepted/on_way/picked_up, nicht assigned — aber defensiv)
+                    return true;
+                });
+                if (healCandidates.length > 0) {
+                    console.log(`🩹 v6.40.18 SELBSTHEILUNG: ${healCandidates.length} Vorbestellung(en) fälschlich 'assigned' → korrigiere auf 'vorbestellt'`);
+                    for (const r of healCandidates) {
+                        try {
+                            await db.ref('rides/' + r.firebaseId).update({
+                                status: 'vorbestellt',
+                                statusHealedAt: now,
+                                statusHealedReason: 'v6.40.18 Selbstheilung: assigned→vorbestellt (Pickup >60min)',
+                                updatedAt: now
+                            });
+                            // Lokale Kopie im allRides-Array aktualisieren damit der Rest des Laufs
+                            // die korrigierte Fahrt sieht (z.B. autoResolveConflicts-Queries unten)
+                            r.status = 'vorbestellt';
+                            const _hVeh = (OFFICIAL_VEHICLES[r.assignedVehicle || r.vehicleId] || {}).name || r.assignedVehicle || r.vehicleId || '?';
+                            const _hTime = new Date(r.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_hTime}, ${_hVeh}) → vorbestellt`);
+                        } catch (_hErr) {
+                            console.error(`   ❌ Heilung fehlgeschlagen ${r.firebaseId}:`, _hErr.message);
+                        }
+                    }
+                }
+            }
+
             // 🆕 v6.25.5: Zuerst: Falsch zugewiesene Fahrten korrigieren
             // Wenn eine Sofortfahrt auf ein anderes Datum verschoben wurde,
             // muss das Fahrzeug neu geprüft werden

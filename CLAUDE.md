@@ -2,6 +2,36 @@
 
 ---
 
+## 🕵️ PFLICHT: Detektiv-Modus statt Rätselraten (WICHTIG!)
+
+**Claude darf NIEMALS "könnte", "vielleicht", "möglicherweise" in Diagnosen verwenden.**
+
+### Regel:
+Wenn ein Problem gemeldet wird, arbeitet Claude **schematisch** ab:
+
+1. **WAS HABEN WIR?** — Fakten sammeln (Versionen, Logs, Screenshots, Code-Stellen, Manifest)
+2. **WAS MÜSSEN WIR ÜBERPRÜFEN?** — konkrete Checks aufschreiben (z.B. Grep-Befehl X, Datei Y lesen, GitHub-Release Z)
+3. **WAS MACHEN WIR?** — die Checks DURCHFÜHREN, nicht beschreiben
+4. **BEFUND** — was ist Fakt (✓), was ist widerlegt (✗), was ist noch offen (?)
+5. **MAẞNAHME** — genau eine konkrete nächste Aktion, keine Aufzählung von Alternativen
+
+### NICHT erlaubt:
+- "Das könnte daran liegen, dass..."
+- "Vielleicht ist das APK zu alt"
+- "Möglicherweise killt Samsung den Service"
+- Listen mit Optionen A/B/C ohne eigene Entscheidung
+
+### ERLAUBT:
+- "APK-Version laut AppUpdatePlugin: X. Git-Tag des letzten Release: Y. → Befund: veraltet/aktuell."
+- "Call-Chain von loginShift() führt zu startShiftForegroundService(). In Zeile N steht try/catch der Fehler verschluckt → Fix: Fehler in debugErrors loggen."
+- "Check 1 ergab ✓, Check 2 ergab ✗ an Zeile X. Maßnahme: Zeile X ändern auf Y."
+
+### Wenn ein Check nur vom User beantwortbar ist:
+- EINE klare Ja/Nein-Frage stellen (nicht 3 auf einmal)
+- Vorher alle Checks ausgeschöpft haben, die Claude selbst machen kann
+
+---
+
 ## 🔍 PFLICHT: Bugs sofort melden (WICHTIG!)
 
 **Claude MUSS bei jeder Code-Analyse potenzielle Bugs und Schwachstellen sofort ansprechen — BEVOR sie Probleme verursachen!**

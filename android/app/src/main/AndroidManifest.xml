@@ -52,4 +52,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- v6.40.31: SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden) -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
 </manifest>

@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ShiftForegroundPlugin.class);
         // v6.40.1: Plugin für APK-Update (Versionsabfrage + externer Download-Link)
         registerPlugin(AppUpdatePlugin.class);
+        // v6.40.31: Plugin für SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden)
+        registerPlugin(SmsSenderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

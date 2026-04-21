@@ -7,10 +7,10 @@ android {
         applicationId "de.taxiheringsdorf.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // v6.40.6: Test-Build um den neuen Update-Banner zu verifizieren
-        // versionCode wird aus "6.40.6" als 6_040_006 abgeleitet (Format: Major*1_000_000 + Minor*1_000 + Patch)
-        versionCode 6040006
-        versionName "6.40.6"
+        // v6.40.31: Tracking-SMS über Fahrer-SIM (neues SmsSender-Plugin) + Shift-Heartbeat-Watchdog
+        // versionCode wird aus "6.40.31" als 6_040_031 abgeleitet (Format: Major*1_000_000 + Minor*1_000 + Patch)
+        versionCode 6040031
+        versionName "6.40.31"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

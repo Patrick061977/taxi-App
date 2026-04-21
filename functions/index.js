@@ -18780,6 +18780,30 @@ exports.scheduledOpenRideCheck = onSchedule(
                 }).catch(e => console.error('Timeout-Reset Fehler:', e.message));
             });
 
+            // 🩹 v6.40.34: STUCK-ASSIGNED-WATCHDOG
+            // Heilt Vorbestellungen die fälschlich auf 'assigned' hängen (pickup > 60min Future).
+            // onRideUpdated Instant-Heal v6.40.21 greift nur bei Änderung — diese Schleife
+            // findet auch Fahrten die ohne Änderung im falschen Zustand verharren.
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (ride.status !== 'assigned') return;
+                if (!ride.pickupTimestamp) return;
+                if (ride.assignmentLocked) return;
+                if (['accepted','on_way','picked_up','completed','cancelled','storniert','deleted'].includes(ride.status)) return;
+                const msUntil = ride.pickupTimestamp - now;
+                if (msUntil <= 60 * 60000) return; // Nur > 60 Min Future
+                const minUntil = Math.round(msUntil / 60000);
+                console.log(`🩹 Stuck-Assigned-Heal: ${rideId} → vorbestellt (${minUntil}min bis Abholung)`);
+                db.ref('rides/' + rideId).update({
+                    status: 'vorbestellt',
+                    updatedAt: Date.now(),
+                    _healedStuckAssigned: Date.now()
+                }).then(() => {
+                    addRideLog(rideId, '🩹', `Stuck-Heal: assigned → vorbestellt (${minUntil}min bis Abholung)`, { quelle: 'scheduledOpenRideCheck v6.40.34' }).catch(()=>{});
+                }).catch(e => console.error('Stuck-Heal Fehler:', e.message));
+            });
+
             if (warnings.length === 0) return;
 
             const timestamp = formatBerlinTime();
@@ -18812,6 +18836,78 @@ exports.scheduledOpenRideCheck = onSchedule(
             }
         } catch (e) {
             console.error('❌ scheduledOpenRideCheck Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🚕 ONLINE-TRIGGER — v6.40.34
+// Reagiert innerhalb Sekunden wenn ein Fahrzeug online geht.
+// Sucht unzugewiesene Sofort-Fahrten und weist sie zu.
+// Schließt die 10-Min-Lücke von scheduledAutoAssign für Sofortfahrten.
+// ═══════════════════════════════════════════════════════════════
+exports.onVehicleOnline = onValueUpdated(
+    {
+        ref: '/vehicles/{vehicleId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const vehicleId = event.params.vehicleId;
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after) return;
+
+        // Nur reagieren wenn Fahrzeug NEU online geht
+        const wasOnline = before && (before.online === true || before.status === 'online');
+        const isOnline = after.online === true || after.status === 'online';
+        if (wasOnline || !isOnline) return;
+
+        // Nicht reagieren wenn gerade busy oder in Pause
+        if (after.shift && after.shift.status === 'paused') return;
+
+        console.log(`🚕 v6.40.34: Fahrzeug ${vehicleId} ist online gegangen — prüfe unzugewiesene Sofort-Fahrten`);
+
+        try {
+            // Unzugewiesene Fahrten laden: status=new + kein Fahrzeug
+            const newSnap = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
+            if (!newSnap.exists()) {
+                console.log('   ✓ Keine offenen Sofortfahrten');
+                return;
+            }
+
+            const openRides = [];
+            newSnap.forEach(c => {
+                const r = c.val();
+                if (r.vehicleId || r.assignedVehicle || r.driverId) return;
+                // Nur Sofort-Fahrten (pickup <=60min oder kein pickupTimestamp)
+                const msUntil = r.pickupTimestamp ? (r.pickupTimestamp - Date.now()) : 0;
+                if (r.pickupTimestamp && msUntil > 60 * 60000) return;
+                openRides.push({ id: c.key, ride: r });
+            });
+
+            if (openRides.length === 0) {
+                console.log('   ✓ Keine offenen Sofortfahrten');
+                return;
+            }
+
+            console.log(`   🔍 ${openRides.length} offene Sofort-Fahrt(en) gefunden`);
+
+            for (const { id, ride } of openRides) {
+                try {
+                    const result = await autoAssignRide(id, ride);
+                    if (result && result.vehicleId) {
+                        console.log(`   ✅ ${id} → ${result.name || result.vehicleId} zugewiesen (via Online-Trigger)`);
+                        await addRideLog(id, '🚕', `Online-Trigger: Fahrzeug zugewiesen`, { fahrzeug: result.name || result.vehicleId, trigger: `Fahrzeug ${vehicleId} ging online` });
+                    } else {
+                        console.log(`   ⚠️ ${id} — kein Match (auch mit neuem Fahrzeug)`);
+                    }
+                } catch (e) {
+                    console.error(`   ❌ autoAssignRide Fehler für ${id}:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('❌ onVehicleOnline Fehler:', e.message);
         }
     }
 );

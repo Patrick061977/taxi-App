@@ -1545,8 +1545,9 @@ async function sendCustomerWhatsAppNotification(ride, rideId, type) {
     } else if (type === 'driver_assigned') {
         const driverInfo = ride.driverName ? `\n👤 Fahrer: ${ride.driverName}` : '';
         const vehicleInfo = ride.vehicle ? `\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
+        // 🏷️ v6.40.13: "Vorgesehen" statt "Zugeteilt" (Fahrer hat noch nicht akzeptiert)
         message = greeting +
-            `🚕 Fahrer zugeteilt!\n\n` +
+            `🎯 Fahrer vorgesehen!\n\n` +
             `📍 Von: ${ride.pickup || '?'}\n` +
             `🎯 Nach: ${ride.destination || '?'}\n` +
             `🕐 Abholung: ${ride.pickupTime || 'Sofort'}\n` +
@@ -6870,7 +6871,8 @@ async function handleAdminRideDetail(chatId, rideId) {
         const dt = new Date(r.pickupTimestamp || 0);
         const dateStr = dt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
         const timeStr = dt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
-        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', completed: '✅ Abgeschlossen', abgeschlossen: '✅ Abgeschlossen', deleted: '🗑️ Gelöscht', storniert: '❌ Storniert' };
+        // 🏷️ v6.40.13: Neue Status-Benennung
+        const statusLabels = { sofort: '⚡ Sofortfahrt', open: '📋 Offen', new: '📋 Offen', pending: '📋 Offen', vorbestellt: '📅 Vorbestellt', assigned: '🎯 Vorgesehen', accepted: '✅ Akzeptiert', unterwegs: '🚗 Unterwegs', on_way: '🚗 Unterwegs', picked_up: '👤 Besetzt', completed: '🏁 Abgeschlossen', abgeschlossen: '🏁 Abgeschlossen', deleted: '🗑️ Gelöscht', storniert: '❌ Storniert', cancelled: '❌ Storniert' };
 
         let msg = '📄 <b>Fahrt-Details</b>\n\n';
         msg += `📅 <b>${dateStr} um ${timeStr} Uhr</b>\n`;
@@ -7062,7 +7064,8 @@ async function handleAdminEditStatus(chatId, rideId) {
         const r = snap.val();
         if (!r) { await sendTelegramMessage(chatId, '⚠️ Fahrt nicht gefunden.'); return; }
 
-        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', abgeschlossen: '✅ Abgeschlossen' };
+        // 🏷️ v6.40.13: Neue Status-Benennung — Vorgesehen/Akzeptiert/Besetzt
+        const statusLabels = { sofort: '⚡ Sofortfahrt', open: '📋 Offen', new: '📋 Offen', pending: '📋 Offen', vorbestellt: '📅 Vorbestellt', assigned: '🎯 Vorgesehen', accepted: '✅ Akzeptiert', unterwegs: '🚗 Unterwegs', on_way: '🚗 Unterwegs', picked_up: '👤 Besetzt', abgeschlossen: '🏁 Abgeschlossen', completed: '🏁 Abgeschlossen', deleted: '🗑️ Gelöscht', storniert: '❌ Storniert', cancelled: '❌ Storniert' };
 
         await sendTelegramMessage(chatId,
             `📋 <b>Status ändern</b>\n\nAktuell: <b>${statusLabels[r.status] || r.status || '?'}</b>`,
@@ -13052,8 +13055,9 @@ async function handleCallback(callback) {
                         if (customerChatId && String(customerChatId) !== String(chatId)) {
                             const dt = new Date(ride.pickupTimestamp || Date.now());
                             const timeStr = dt.toLocaleString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
+                            // 🏷️ v6.40.13: "Vorgesehen" statt "Zugewiesen" (Fahrer hat noch nicht akzeptiert)
                             await sendTelegramMessage(customerChatId,
-                                `🚕 <b>Fahrzeug zugewiesen!</b>\n\n` +
+                                `🎯 <b>Fahrzeug vorgesehen!</b>\n\n` +
                                 `🚗 <b>${v.name}</b>\n` +
                                 `📍 ${ride.pickup} → ${ride.destination}\n` +
                                 `🕐 Abholung: ${timeStr} Uhr\n\n` +
@@ -13223,7 +13227,8 @@ async function handleCallback(callback) {
         const parts = data.replace('adm_setstatus_', '').split('_');
         const rideId = parts.slice(0, -1).join('_');
         const newStatus = parts[parts.length - 1];
-        const statusLabels = { open: '🟢 Offen', vorbestellt: '🔵 Vorbestellt', unterwegs: '🚕 Unterwegs', abgeschlossen: '✅ Abgeschlossen' };
+        // 🏷️ v6.40.13: Neue Status-Benennung — Vorgesehen/Akzeptiert/Besetzt
+        const statusLabels = { sofort: '⚡ Sofortfahrt', open: '📋 Offen', new: '📋 Offen', pending: '📋 Offen', vorbestellt: '📅 Vorbestellt', assigned: '🎯 Vorgesehen', accepted: '✅ Akzeptiert', unterwegs: '🚗 Unterwegs', on_way: '🚗 Unterwegs', picked_up: '👤 Besetzt', abgeschlossen: '🏁 Abgeschlossen', completed: '🏁 Abgeschlossen', deleted: '🗑️ Gelöscht', storniert: '❌ Storniert', cancelled: '❌ Storniert' };
         try {
             await db.ref(`rides/${rideId}`).update({ status: newStatus, editedAt: Date.now(), editedBy: 'telegram-admin', updatedAt: Date.now() });
             await addTelegramLog('✏️', chatId, `Admin: Status geändert auf "${newStatus}"`);

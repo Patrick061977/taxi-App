@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.40.22';
-const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
+const CLOUD_FUNCTIONS_VERSION = '6.40.23';
+const CLOUD_FUNCTIONS_BUILD = '21.04.2026 13:40';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -3678,6 +3678,44 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
             }
 
             const suggestions = await searchNominatimForTelegram(addressToResolve);
+
+            // 🆕 v6.40.23: Kunden-Favoriten (häufige Ziele aus Historie) als Top-Vorschläge einblenden
+            // Grund: User fragte "wir haben ja die beliebten Ziele warum wurden die nicht vorgeschlagen"
+            if (fieldToResolve === 'destination') {
+                try {
+                    const _custName = booking.customerName || booking.name;
+                    const _custPhone = booking.customerPhone || booking.customerMobile || booking.phone;
+                    const _custId = booking.customerId || booking._crmCustomerId;
+                    if (_custName && (_custPhone || _custId)) {
+                        const _favs = await getCustomerFavoriteDestinations(_custName, _custPhone, _custId);
+                        if (_favs && _favs.length > 0) {
+                            const _validFavs = _favs.filter(f => f.destinationLat && f.destinationLon).slice(0, 3);
+                            const _existingCoords = new Set();
+                            for (const s of suggestions) {
+                                if (s.lat && s.lon) _existingCoords.add(`${parseFloat(s.lat).toFixed(4)}_${parseFloat(s.lon).toFixed(4)}`);
+                            }
+                            const _favSuggestions = _validFavs
+                                .filter(f => !_existingCoords.has(`${parseFloat(f.destinationLat).toFixed(4)}_${parseFloat(f.destinationLon).toFixed(4)}`))
+                                .map(f => ({
+                                    name: f.destination,
+                                    label: `⭐ ${f.count}× ${f.destination}`,
+                                    lat: f.destinationLat,
+                                    lon: f.destinationLon,
+                                    source: 'customer-favorite',
+                                    priority: 1
+                                }));
+                            if (_favSuggestions.length > 0) {
+                                suggestions.unshift(..._favSuggestions);
+                                await addTelegramLog('⭐', chatId, `${_favSuggestions.length} Kunden-Favorit(en) von ${_custName} vorgeschlagen`, {
+                                    favoriten: _favSuggestions.map(f => f.name).join(' | ')
+                                });
+                            }
+                        }
+                    }
+                } catch (_favErr) {
+                    console.warn('v6.40.23 Kunden-Favoriten Fehler:', _favErr.message);
+                }
+            }
 
             if (suggestions.length > 0) {
                 // 🆕 v6.25.5: Verifizierte Adresse direkt übernehmen ohne Nachfrage!

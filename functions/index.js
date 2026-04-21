@@ -18797,6 +18797,145 @@ exports.scheduledOpenRideCheck = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 💓 SHIFT-HEARTBEAT WATCHDOG — v6.40.29
+// Läuft jede Minute, prüft ob aktive Schichten noch einen frischen
+// Heartbeat senden. Fehlt der Heartbeat >2 Min → Schicht auto-beenden
+// (App ist gecrasht / Handy aus / Netz tot). Der "Lock" (shift.status
+// = 'active') wird damit zuverlässig freigegeben, auch wenn die App
+// nie wieder startet.
+//
+// Sicherheit: NICHT auto-beenden wenn Fahrzeug eine laufende Fahrt
+// (on_way / picked_up) hat — dann nur warnen.
+// ═══════════════════════════════════════════════════════════════
+
+exports.scheduledShiftHeartbeatCheck = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 Minuten ohne Beat → tot
+            const now = Date.now();
+
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+
+            const ridesSnap = await db.ref('rides').once('value');
+            const rides = ridesSnap.val() || {};
+
+            // Map: vehicleId → hat laufende Fahrt?
+            const vehicleHasActiveRide = {};
+            for (const [rid, r] of Object.entries(rides)) {
+                if (!r) continue;
+                if (r.status === 'on_way' || r.status === 'picked_up') {
+                    const vid = r.vehicleId || r.assignedVehicle;
+                    if (vid) vehicleHasActiveRide[vid] = rid;
+                }
+            }
+
+            let autoEnded = 0;
+            let warned = 0;
+
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || !v.shift) continue;
+                if (v.shift.status !== 'active') continue;
+
+                const lastBeat = v.shift.lastHeartbeat || v.shift.startTime || 0;
+                const age = now - lastBeat;
+
+                if (age <= HEARTBEAT_TIMEOUT_MS) continue; // Frisch → alles OK
+
+                const ageMin = Math.round(age / 60000);
+                const vName = v.name || vid;
+                const driverName = v.shift.driverName || v.currentDriver || 'Fahrer';
+
+                // Sicherheitsnetz: laufende Fahrt? → NICHT auto-beenden
+                if (vehicleHasActiveRide[vid]) {
+                    const rid = vehicleHasActiveRide[vid];
+                    console.warn(`💓 Watchdog: ${vName} Heartbeat ${ageMin} Min alt ABER Fahrt ${rid} läuft — nur warnen`);
+                    // Einmal warnen (Flag auf shift)
+                    if (!v.shift.heartbeatWarned) {
+                        await db.ref(`vehicles/${vid}/shift/heartbeatWarned`).set(true);
+                        const msg = `⚠️ <b>Fahrer-App nicht erreichbar</b>\n\n` +
+                            `🚗 ${vName}\n` +
+                            `👤 ${driverName}\n` +
+                            `💓 Letzter Heartbeat vor ${ageMin} Min\n\n` +
+                            `🚨 <b>Laufende Fahrt — Schicht NICHT auto-beendet!</b>\n` +
+                            `Bitte manuell prüfen ob Fahrer erreichbar ist.`;
+                        try { await sendToAllAdmins(msg, 'warning'); } catch(_) {}
+                        warned++;
+                    }
+                    continue;
+                }
+
+                // Keine laufende Fahrt → Schicht auto-beenden (Lock freigeben)
+                console.log(`💓 Watchdog: Schicht von ${vName} auto-beenden (Heartbeat ${ageMin} Min alt)`);
+
+                const shiftDurationMs = now - (v.shift.startTime || now);
+                await db.ref(`vehicles/${vid}/shift`).set({
+                    status: 'auto-ended',
+                    endedAt: new Date().toISOString(),
+                    endedReason: 'heartbeat_timeout',
+                    durationMs: shiftDurationMs,
+                    lastHeartbeat: lastBeat,
+                    startTime: v.shift.startTime || null,
+                    autoEndedAt: now
+                });
+
+                // Fahrzeug offline setzen, damit keine neuen Fahrten zugewiesen werden
+                try {
+                    await db.ref(`vehicles/${vid}`).update({
+                        online: false,
+                        available: false,
+                        updatedAt: now
+                    });
+                } catch(_) {}
+
+                autoEnded++;
+
+                // Admins + Fahrer informieren
+                const tsStr = formatBerlinTime();
+                const adminMsg = `💓 <b>Schicht auto-beendet (Heartbeat-Timeout)</b>\n\n` +
+                    `🚗 ${vName}\n` +
+                    `👤 ${driverName}\n` +
+                    `⏱️ Schicht-Dauer: ${Math.round(shiftDurationMs / 60000)} Min\n` +
+                    `💓 Letzter Heartbeat vor ${ageMin} Min\n` +
+                    `📱 Grund: App-Crash oder Netz-/Akku-Problem\n\n` +
+                    `✅ Fahrzeug-Lock freigegeben\n` +
+                    `⏰ ${tsStr}`;
+                try { await sendToAllAdmins(adminMsg, 'info'); } catch(_) {}
+
+                // Fahrer-Telegram (best effort)
+                try {
+                    if (v.shift.driverUid) {
+                        const tgSnap = await db.ref(`users/${v.shift.driverUid}/telegramChatId`).once('value');
+                        const chatId = tgSnap.val();
+                        if (chatId) {
+                            await sendTelegramMessage(chatId,
+                                `💓 <b>Schicht wurde automatisch beendet</b>\n\n` +
+                                `Grund: Deine App hat ${ageMin} Min nichts gemeldet (App-Crash, Akku leer oder Netz weg).\n\n` +
+                                `Falls du weiterfährst: App öffnen und Schicht neu starten.`
+                            );
+                        }
+                    }
+                } catch(_) {}
+
+                await addTelegramLog('💓', 'cloud', `Schicht auto-beendet: ${vName} (Heartbeat ${ageMin} Min alt)`, { vehicleId: vid });
+            }
+
+            if (autoEnded > 0 || warned > 0) {
+                console.log(`💓 Watchdog abgeschlossen: ${autoEnded} auto-beendet, ${warned} gewarnt`);
+            }
+        } catch (e) {
+            console.error('❌ scheduledShiftHeartbeatCheck Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 💳 STRIPE CHECKOUT — v6.21.0
 // Erstellt eine Stripe Checkout Session für eine Rechnung
 // ═══════════════════════════════════════════════════════════════

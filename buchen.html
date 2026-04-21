@@ -1017,6 +1017,7 @@
 
         // 🔧 v6.38.82: ETA nur berechnen wenn Abholort bekannt (pickupCoords gesetzt)
         // Kein GPS-Fallback — ohne Adresse wäre die Zeit irreführend (z.B. 2 Min statt 30 Min)
+        // ☁️ v6.40.28: OSRM statt Luftlinie — Haversine nur als Pre-Filter, dann echte Straßen-Route
         async function calcStatusBarEta(bar, count) {
             if (!pickupCoords) return; // Keine Adresse → keine ETA
             try {
@@ -1027,28 +1028,48 @@
                 const nowTs = Date.now();
                 const nowDateStr = berlinDateStr(berlinNow());
                 const nowTimeStr = berlinTimeStr(berlinNow());
-                let closestEtaMin = null;
-                let closestFresh = false;
 
+                // Schritt 1: Pre-Filter per Haversine — nur Kandidaten in <= 15 km Luftlinie weiter prüfen
+                const candidates = [];
                 for (const [vid, vInfo] of Object.entries(vData)) {
                     if (!vInfo.lat || !vInfo.lon) continue;
-                    // 🔧 v6.38.95: GPS-online Fahrzeuge IMMER beruecksichtigen
                     const inShift = isVehicleInShift(vid, nowDateStr, nowTimeStr);
                     const isGpsOnline = vInfo.online !== false && vInfo.timestamp && (nowTs - vInfo.timestamp) < 5 * 60000;
                     if (!inShift && !isGpsOnline) continue;
                     const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 :
                                       (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
-                    // 🔧 v6.38.89: War 60 Min → 10 Min — veraltetes GPS erzeugt keine falschen ETAs mehr
                     if (gpsAgeMin > 10) continue;
-                    const isFresh = gpsAgeMin < 5; // 🔧 v6.38.89: War 30 → 5 Min
+                    const isFresh = gpsAgeMin < 5;
                     const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
                     const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
                     const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(pickupCoords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
                     const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    const etaMin = Math.max(2, Math.round(distKm * 1.5 + 1));
-                    if (closestEtaMin === null || (isFresh && !closestFresh) || (isFresh === closestFresh && etaMin < closestEtaMin)) {
-                        closestEtaMin = etaMin;
-                        closestFresh = isFresh;
+                    if (distKm > 15) continue; // zu weit → keine sinnvolle ETA
+                    candidates.push({ vid, lat: vInfo.lat, lon: vInfo.lon, distKm, isFresh });
+                }
+
+                // Schritt 2: Top 3 nach Luftlinie nehmen, echte OSRM-Zeit parallel holen
+                candidates.sort((x, y) => x.distKm - y.distKm);
+                const top = candidates.slice(0, 3);
+                const osrmResults = await Promise.all(top.map(async c => {
+                    try {
+                        const url = `https://router.project-osrm.org/route/v1/driving/${c.lon},${c.lat};${pickupCoords.lon},${pickupCoords.lat}?overview=false`;
+                        const resp = await fetch(url);
+                        const data = await resp.json();
+                        if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                            return { ...c, etaMin: Math.max(2, Math.round(data.routes[0].duration / 60)), osrm: true };
+                        }
+                    } catch(e) { /* Fallback */ }
+                    // Fallback: Haversine × 1.5 (wie bisher, falls OSRM down)
+                    return { ...c, etaMin: Math.max(2, Math.round(c.distKm * 1.5 + 1)), osrm: false };
+                }));
+
+                let closestEtaMin = null;
+                let closestFresh = false;
+                for (const r of osrmResults) {
+                    if (closestEtaMin === null || (r.isFresh && !closestFresh) || (r.isFresh === closestFresh && r.etaMin < closestEtaMin)) {
+                        closestEtaMin = r.etaMin;
+                        closestFresh = r.isFresh;
                     }
                 }
                 if (closestEtaMin !== null) {

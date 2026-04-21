@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.38.64';
+const CLOUD_FUNCTIONS_VERSION = '6.40.21';
 const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -17999,6 +17999,32 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🩹 v6.40.21: SOFORT-SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen direkt korrigieren.
+        // Reagiert innerhalb von Sekunden auf jeden Schreibpfad (statt alle 10 Min via scheduledAutoAssign).
+        // Bedingung: status=assigned + Pickup >60min in Zukunft + kein Fahrer-Akzept (keine on_way/picked_up).
+        if (newStatus === 'assigned' && after.pickupTimestamp) {
+            const _msUntil = after.pickupTimestamp - Date.now();
+            const _SOFORT_MS = 60 * 60000;
+            // Nicht heilen wenn: schon Fahrer akzeptiert/unterwegs ODER Sofortfahrt (<=60min) ODER storniert/completed
+            const _blockedStatuses = ['accepted', 'on_way', 'picked_up', 'completed', 'cancelled', 'storniert', 'deleted'];
+            if (_msUntil > _SOFORT_MS && !_blockedStatuses.includes(newStatus)) {
+                try {
+                    await db.ref('rides/' + rideId).update({
+                        status: 'vorbestellt',
+                        statusHealedAt: Date.now(),
+                        statusHealedReason: `v6.40.21 Instant-Heal: assigned→vorbestellt (Pickup ${Math.round(_msUntil/60000)}min in Zukunft)`,
+                        updatedAt: Date.now()
+                    });
+                    console.log(`🩹 v6.40.21 Instant-Heal: ${rideId} assigned→vorbestellt (${Math.round(_msUntil/60000)}min bis Pickup)`);
+                    await addRideLog(rideId, '🩹', `Status korrigiert: assigned → vorbestellt (${Math.round(_msUntil/60000)}min bis Abholung)`, { quelle: 'onRideUpdated Instant-Heal v6.40.21' });
+                    // Die nachfolgende Logik arbeitet auf dem alten 'after' weiter — die Heil-Update triggert
+                    // onRideUpdated erneut, aber mit status='vorbestellt' → Heal-Block läuft nicht nochmal.
+                } catch (_healErr) {
+                    console.error(`❌ v6.40.21 Instant-Heal fehlgeschlagen ${rideId}:`, _healErr.message);
+                }
+            }
+        }
+
         // 🆕 v6.25.5: Schicht-Check bei Änderung einer zugewiesenen Fahrt
         // 🔧 v6.38.44: Admin-manuelle Zuweisungen werden NICHT mehr automatisch umgeplant!
         // Nur auto-assigns (cloud-auto-assign, auto-assign, cloud-auto-replan) werden geprüft.
@@ -19978,13 +20004,17 @@ async function validateRideConsistency(rideId, ride) {
     }
 
     // 5. Status-Konsistenz
+    // 🔧 v6.40.21: respektiere 60-Min-Schwelle — Vorbestellung bleibt 'vorbestellt', nicht 'assigned'
     if (ride.assignedVehicle && ride.status === 'new') {
+        const _msUntilPickup = ride.pickupTimestamp ? (ride.pickupTimestamp - Date.now()) : 0;
+        const _isSofort = _msUntilPickup > 0 && _msUntilPickup <= 60 * 60000;
+        const _targetStatus = _isSofort ? 'assigned' : 'vorbestellt';
         issues.push('Status "new" aber Fahrzeug zugewiesen (' + ride.assignedVehicle + ')');
         // Auto-Fix
         try {
-            await db.ref(`rides/${rideId}/status`).set('assigned');
-            await addRideLog(rideId, '🔧', 'Auto-Fix: Status new → assigned (Fahrzeug war zugewiesen)');
-            issues.push('→ Auto-Fix: Status auf "assigned" gesetzt');
+            await db.ref(`rides/${rideId}/status`).set(_targetStatus);
+            await addRideLog(rideId, '🔧', `Auto-Fix: Status new → ${_targetStatus} (Fahrzeug war zugewiesen, ${_isSofort ? 'Sofort' : 'Vorbestellung'})`);
+            issues.push(`→ Auto-Fix: Status auf "${_targetStatus}" gesetzt`);
         } catch (e) { /* ignore */ }
     }
 

@@ -2987,6 +2987,62 @@
 
                 // 🆕 v6.38.95: Live-Status Updates + Logging was Kunde sieht
                 let _lastLoggedStatus = '';
+                // 🆕 v6.40.30: Live-ETA-Tracking vom zugewiesenen Fahrer
+                let _assignedVehicleId = null;
+                let _assignedVehicleListener = null;
+                let _assignedEtaMin = null;
+                let _lastEtaFetch = 0;
+                const _pickupLat = pickupCoords.lat, _pickupLon = pickupCoords.lon;
+                async function _fetchDriverEta(vLat, vLon) {
+                    try {
+                        const url = `https://router.project-osrm.org/route/v1/driving/${vLon},${vLat};${_pickupLon},${_pickupLat}?overview=false`;
+                        const resp = await fetch(url);
+                        const data = await resp.json();
+                        if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                            return Math.max(1, Math.round(data.routes[0].duration / 60));
+                        }
+                    } catch(e) { /* Fallback unten */ }
+                    // Fallback: Luftlinie × 1.5 + 1
+                    const toRad = d => d * Math.PI / 180;
+                    const dLat = toRad(_pickupLat - vLat), dLon = toRad(_pickupLon - vLon);
+                    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(vLat)) * Math.cos(toRad(_pickupLat)) * Math.sin(dLon/2)**2;
+                    const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return Math.max(2, Math.round(distKm * 1.5 + 1));
+                }
+                function _updateDriverEtaDisplay() {
+                    const detailEl = document.getElementById('live-status-detail');
+                    if (!detailEl) return;
+                    const parts = [];
+                    const vName = detailEl.dataset.vehicleName;
+                    if (vName) parts.push('🚕 ' + vName);
+                    if (_assignedEtaMin !== null) parts.push('ca. ' + _assignedEtaMin + ' Min bis zu Ihnen');
+                    const extra = detailEl.dataset.extra || '';
+                    detailEl.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
+                }
+                function _attachVehicleListener(vid) {
+                    if (_assignedVehicleId === vid) return;
+                    if (_assignedVehicleListener) {
+                        try { _assignedVehicleListener.ref.off('value', _assignedVehicleListener.handler); } catch(_) {}
+                        _assignedVehicleListener = null;
+                    }
+                    _assignedVehicleId = vid;
+                    _assignedEtaMin = null;
+                    if (!vid) return;
+                    const vRef = db.ref('vehicles/' + vid);
+                    const handler = async snap => {
+                        const v = snap.val();
+                        if (!v || typeof v.lat !== 'number' || typeof v.lon !== 'number') return;
+                        // Throttle: max alle 20s neu OSRM anfragen
+                        const nowMs = Date.now();
+                        if (nowMs - _lastEtaFetch < 20000 && _assignedEtaMin !== null) return;
+                        _lastEtaFetch = nowMs;
+                        const eta = await _fetchDriverEta(v.lat, v.lon);
+                        _assignedEtaMin = eta;
+                        _updateDriverEtaDisplay();
+                    };
+                    vRef.on('value', handler);
+                    _assignedVehicleListener = { ref: vRef, handler };
+                }
                 db.ref('rides/' + ref.key).on('value', snap => {
                     const r = snap.val();
                     if (!r) return;
@@ -2999,6 +3055,15 @@
                     if (r.status !== _lastLoggedStatus) {
                         _lastLoggedStatus = r.status;
                         logBuchen('👁️', `KUNDE SIEHT: ${r.status.toUpperCase()}${r.vehicle ? ' | Fahrzeug: ' + r.vehicle : ''}`);
+                    }
+
+                    // 🆕 v6.40.30: Vehicle-Listener aufbauen/abbauen je nach Status
+                    const showEtaStatuses = ['assigned', 'accepted', 'on_way'];
+                    const vid = r.vehicleId || r.assignedVehicle;
+                    if (showEtaStatuses.includes(r.status) && vid) {
+                        _attachVehicleListener(vid);
+                    } else {
+                        _attachVehicleListener(null);
                     }
 
                     const statusMap = {
@@ -3020,11 +3085,23 @@
                     text.textContent = s.text;
                     text.style.color = s.color;
 
-                    let detailText = '';
-                    if (r.vehicle) detailText += '🚕 ' + r.vehicle;
-                    if (r.status === 'on_way') detailText += ' — Bitte bereithalten!';
-                    if (r.status === 'completed' && (r.finalPrice || r.price)) detailText += ' — ' + (r.finalPrice || r.price) + '€';
-                    if (detail) detail.textContent = detailText;
+                    // 🆕 v6.40.30: Detail-Text über dataset zusammensetzen damit ETA-Update reinpasst
+                    if (detail) {
+                        detail.dataset.vehicleName = r.vehicle || '';
+                        let extra = '';
+                        if (r.status === 'on_way') extra = '— Bitte bereithalten!';
+                        if (r.status === 'completed' && (r.finalPrice || r.price)) extra = '— ' + (r.finalPrice || r.price) + '€';
+                        detail.dataset.extra = extra;
+                        // Bei Status ohne ETA: Fahrer-Name + extra zeigen
+                        if (!['assigned','accepted','on_way'].includes(r.status)) {
+                            _assignedEtaMin = null;
+                            const parts = [];
+                            if (r.vehicle) parts.push('🚕 ' + r.vehicle);
+                            detail.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
+                        } else {
+                            _updateDriverEtaDisplay();
+                        }
+                    }
 
                     // 🔧 v6.38.97: Tracking/Stornieren Buttons ausblenden bei Abschluss/Stornierung
                     const actionBtns = box.parentElement?.querySelector('[style*="display:flex"][style*="gap:6px"]');

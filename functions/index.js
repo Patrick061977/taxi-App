@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.40.21';
+const CLOUD_FUNCTIONS_VERSION = '6.40.22';
 const CLOUD_FUNCTIONS_BUILD = '03.04.2026 17:00';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -17947,7 +17947,12 @@ exports.onRideCreated = onValueCreated(
             _freshRide = _freshSnap.val() || ride;
         } catch(e) { /* Fallback auf Event-Daten */ }
         if (!_freshRide.assignedVehicle && !_freshRide.vehicleId) {
-            const _hasCoords = ride.pickupLat && ride.destinationLat;
+            // 🔧 v6.40.22: frische Daten verwenden (nicht stale Event-Daten) + nested coords als Fallback
+            const _pLat = _freshRide.pickupLat || _freshRide.pickupCoords?.lat;
+            const _pLon = _freshRide.pickupLon || _freshRide.pickupCoords?.lon;
+            const _dLat = _freshRide.destinationLat || _freshRide.destinationCoords?.lat || _freshRide.destLat;
+            const _dLon = _freshRide.destinationLon || _freshRide.destinationCoords?.lon || _freshRide.destLon;
+            const _hasCoords = _pLat && _dLat;
             // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen — erst 15 Min vorher (scheduledAutoAssign)
             const _isVorbestellung = !isSofort;
             if (_hasCoords && !_isVorbestellung) {
@@ -17969,8 +17974,15 @@ exports.onRideCreated = onValueCreated(
                     await addRideLog(rideId, '❌', 'Cloud: Auto-Zuweisung Fehler', e.message);
                 }
             } else {
-                console.log(`⚠️ Cloud: Keine Koordinaten für Auto-Zuweisung von ${rideId}`);
-                await addRideLog(rideId, '⚠️', 'Cloud: Auto-Zuweisung übersprungen — keine Koordinaten', { pickupLat: ride.pickupLat || 'fehlt', destLat: ride.destinationLat || 'fehlt' });
+                // 🔧 v6.40.22: aussagekräftigeres Log mit ALLEN geprüften Feldern
+                console.log(`⚠️ Cloud: Keine Koordinaten für Auto-Zuweisung von ${rideId} (pLat=${_pLat}, dLat=${_dLat})`);
+                await addRideLog(rideId, '⚠️', 'Cloud: Auto-Zuweisung übersprungen — keine Koordinaten', {
+                    pickupLat: _pLat || 'fehlt',
+                    pickupLon: _pLon || 'fehlt',
+                    destLat: _dLat || 'fehlt',
+                    destLon: _dLon || 'fehlt',
+                    hinweis: _isVorbestellung ? 'Vorbestellung — scheduledAutoAssign übernimmt 15 Min vor Pickup' : 'Sofortfahrt'
+                });
             }
         }
 

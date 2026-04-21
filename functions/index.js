@@ -7,8 +7,8 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.40.23';
-const CLOUD_FUNCTIONS_BUILD = '21.04.2026 13:40';
+const CLOUD_FUNCTIONS_VERSION = '6.40.25';
+const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -17208,20 +17208,25 @@ exports.scheduledAutoAssign = onSchedule(
             // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).
             // Das verhinderte dass autoResolveConflicts neue Prio-Werte übernehmen konnte.
             // Hier werden diese Fahrten wieder auf 'vorbestellt' zurückgesetzt (Fahrzeug bleibt dran).
+            // 🔧 v6.40.25: gesperrte Fahrten (assignmentLocked) werden NICHT angefasst +
+            //              Fahrt-Log-Eintrag + Telegram-Benachrichtigung für Transparenz.
             {
                 const SOFORT_SCHWELLE_MS = 60 * 60000;
                 const healCandidates = allRides.filter(r => {
                     if (r.status !== 'assigned') return false;
                     if (!r.pickupTimestamp) return false;
                     if (r.pickupTimestamp - now <= SOFORT_SCHWELLE_MS) return false; // echte Sofort-Fahrt
+                    if (r.assignmentLocked) return false; // 🔧 v6.40.25: gesperrte Fahrten nicht anfassen
                     // Fahrer hat bereits akzeptiert oder ist unterwegs → nicht anfassen
                     // (status wäre dann accepted/on_way/picked_up, nicht assigned — aber defensiv)
                     return true;
                 });
                 if (healCandidates.length > 0) {
                     console.log(`🩹 v6.40.18 SELBSTHEILUNG: ${healCandidates.length} Vorbestellung(en) fälschlich 'assigned' → korrigiere auf 'vorbestellt'`);
+                    const _healedList = [];
                     for (const r of healCandidates) {
                         try {
+                            const _minUntil = Math.round((r.pickupTimestamp - now) / 60000);
                             await db.ref('rides/' + r.firebaseId).update({
                                 status: 'vorbestellt',
                                 statusHealedAt: now,
@@ -17234,9 +17239,25 @@ exports.scheduledAutoAssign = onSchedule(
                             const _hVeh = (OFFICIAL_VEHICLES[r.assignedVehicle || r.vehicleId] || {}).name || r.assignedVehicle || r.vehicleId || '?';
                             const _hTime = new Date(r.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
                             console.log(`   ✅ ${r.customerName || r.firebaseId} (${_hTime}, ${_hVeh}) → vorbestellt`);
+                            // 🆕 v6.40.25: Fahrt-Log + Sammlung für Telegram
+                            try {
+                                await addRideLog(r.firebaseId, '🩹', `Selbstheilung: assigned → vorbestellt (Pickup in ${_minUntil}min)`, {
+                                    quelle: 'scheduledAutoAssign v6.40.18',
+                                    fahrzeug: _hVeh,
+                                    abholzeit: _hTime
+                                });
+                            } catch(_logErr) { /* non-critical */ }
+                            _healedList.push(`• ${r.customerName || '?'} (${_hTime}, ${_hVeh})`);
                         } catch (_hErr) {
                             console.error(`   ❌ Heilung fehlgeschlagen ${r.firebaseId}:`, _hErr.message);
                         }
+                    }
+                    // 🆕 v6.40.25: Telegram-Benachrichtigung — sammelt alle geheilten Fahrten in EINER Nachricht
+                    if (_healedList.length > 0) {
+                        try {
+                            const _tgMsg = `🩹 <b>Selbstheilung (v6.40.18)</b>\n\n${_healedList.length} Vorbestellung(en) standen fälschlich auf "assigned" (Pickup &gt;60min) und wurden auf "vorbestellt" zurückgesetzt — Fahrzeug bleibt dran, Umplanung durch autoResolveConflicts möglich.\n\n${_healedList.join('\n')}`;
+                            await sendToAllAdmins(_tgMsg, 'optimization');
+                        } catch(_tgErr) { /* non-critical */ }
                     }
                 }
             }
@@ -18052,21 +18073,30 @@ exports.onRideUpdated = onValueUpdated(
         // 🩹 v6.40.21: SOFORT-SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen direkt korrigieren.
         // Reagiert innerhalb von Sekunden auf jeden Schreibpfad (statt alle 10 Min via scheduledAutoAssign).
         // Bedingung: status=assigned + Pickup >60min in Zukunft + kein Fahrer-Akzept (keine on_way/picked_up).
-        if (newStatus === 'assigned' && after.pickupTimestamp) {
+        // 🔧 v6.40.25: gesperrte Fahrten (assignmentLocked) werden NICHT angefasst + Telegram-Benachrichtigung.
+        if (newStatus === 'assigned' && after.pickupTimestamp && !after.assignmentLocked) {
             const _msUntil = after.pickupTimestamp - Date.now();
             const _SOFORT_MS = 60 * 60000;
             // Nicht heilen wenn: schon Fahrer akzeptiert/unterwegs ODER Sofortfahrt (<=60min) ODER storniert/completed
             const _blockedStatuses = ['accepted', 'on_way', 'picked_up', 'completed', 'cancelled', 'storniert', 'deleted'];
             if (_msUntil > _SOFORT_MS && !_blockedStatuses.includes(newStatus)) {
                 try {
+                    const _minUntil = Math.round(_msUntil / 60000);
                     await db.ref('rides/' + rideId).update({
                         status: 'vorbestellt',
                         statusHealedAt: Date.now(),
-                        statusHealedReason: `v6.40.21 Instant-Heal: assigned→vorbestellt (Pickup ${Math.round(_msUntil/60000)}min in Zukunft)`,
+                        statusHealedReason: `v6.40.21 Instant-Heal: assigned→vorbestellt (Pickup ${_minUntil}min in Zukunft)`,
                         updatedAt: Date.now()
                     });
-                    console.log(`🩹 v6.40.21 Instant-Heal: ${rideId} assigned→vorbestellt (${Math.round(_msUntil/60000)}min bis Pickup)`);
-                    await addRideLog(rideId, '🩹', `Status korrigiert: assigned → vorbestellt (${Math.round(_msUntil/60000)}min bis Abholung)`, { quelle: 'onRideUpdated Instant-Heal v6.40.21' });
+                    console.log(`🩹 v6.40.21 Instant-Heal: ${rideId} assigned→vorbestellt (${_minUntil}min bis Pickup)`);
+                    await addRideLog(rideId, '🩹', `Status korrigiert: assigned → vorbestellt (${_minUntil}min bis Abholung)`, { quelle: 'onRideUpdated Instant-Heal v6.40.21' });
+                    // 🆕 v6.40.25: Telegram-Benachrichtigung für Transparenz
+                    try {
+                        const _vehName = (OFFICIAL_VEHICLES[after.assignedVehicle || after.vehicleId] || {}).name || after.vehicle || '?';
+                        const _pickTime = new Date(after.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
+                        const _tgMsg = `🩹 <b>Instant-Heal (v6.40.21)</b>\n\nVorbestellung wurde fälschlich auf "assigned" gesetzt — korrigiert auf "vorbestellt" (Pickup in ${_minUntil}min, Fahrzeug bleibt).\n\n👤 ${after.customerName || '?'}\n🕐 ${_pickTime}\n🚗 ${_vehName}\n📋 ID: <code>${rideId}</code>`;
+                        await sendToAllAdmins(_tgMsg, 'optimization');
+                    } catch(_tgErr) { /* non-critical */ }
                     // Die nachfolgende Logik arbeitet auf dem alten 'after' weiter — die Heil-Update triggert
                     // onRideUpdated erneut, aber mit status='vorbestellt' → Heal-Block läuft nicht nochmal.
                 } catch (_healErr) {

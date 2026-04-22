@@ -1,20 +1,32 @@
 package de.taxiheringsdorf.app;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
-import java.io.OutputStream;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -22,9 +34,11 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * v6.40.0: Hält die Fahrer-App am Leben während aktiver Schicht.
- * v6.41.17: Nativer Heartbeat — pingt alle 30s unsere Cloud Function
- *           unabhängig vom WebView. Läuft auch bei Screen-off / Doze-Mode
- *           weil Foreground-Services davon ausgenommen sind.
+ * v6.41.17: Nativer Heartbeat alle 30s (ScheduledExecutorService).
+ * v6.41.19: Nativer GPS-Tracker (FusedLocationProviderClient) — läuft auch
+ *           bei Screen-off / Doze-Mode weil Foreground-Services davon
+ *           ausgenommen sind. GPS wird zusammen mit dem Heartbeat an die
+ *           Cloud Function gepusht (ein HTTP-Call für beides).
  */
 public class ShiftForegroundService extends Service {
 
@@ -42,12 +56,21 @@ public class ShiftForegroundService extends Service {
     // Heartbeat-Endpoint
     private static final String HEARTBEAT_URL = "https://europe-west1-taxi-heringsdorf.cloudfunctions.net/shiftHeartbeatPing";
     private static final long HEARTBEAT_INTERVAL_SEC = 30;
+    private static final long GPS_INTERVAL_MS = 15000; // GPS alle 15s (schneller als Heartbeat)
+    private static final long GPS_MIN_INTERVAL_MS = 10000;
 
     private static boolean running = false;
     private static String currentVehicleId = null;
 
     private ScheduledExecutorService heartbeatExecutor;
     private ScheduledFuture<?> heartbeatTask;
+
+    // 🆕 v6.41.19: GPS
+    private FusedLocationProviderClient fusedLocationClient;
+    private LocationCallback locationCallback;
+    private volatile Double lastLat = null;
+    private volatile Double lastLon = null;
+    private volatile Float lastAccuracy = null;
 
     public static boolean isRunning() {
         return running;
@@ -70,6 +93,7 @@ public class ShiftForegroundService extends Service {
             running = false;
             currentVehicleId = null;
             stopHeartbeat();
+            stopGpsTracking();
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -83,7 +107,6 @@ public class ShiftForegroundService extends Service {
             }
         }
 
-        // 🆕 v6.41.17: vehicleId aus Intent lesen, Heartbeat starten
         if (intent != null && intent.hasExtra(EXTRA_VEHICLE_ID)) {
             String vid = intent.getStringExtra(EXTRA_VEHICLE_ID);
             if (vid != null && !vid.isEmpty()) {
@@ -116,8 +139,8 @@ public class ShiftForegroundService extends Service {
         startForeground(NOTIFICATION_ID, notification);
         running = true;
 
-        // 🆕 v6.41.17: Heartbeat-Timer starten
         startHeartbeat();
+        startGpsTracking();
 
         return START_STICKY;
     }
@@ -126,6 +149,7 @@ public class ShiftForegroundService extends Service {
     public void onDestroy() {
         running = false;
         stopHeartbeat();
+        stopGpsTracking();
         super.onDestroy();
     }
 
@@ -151,11 +175,12 @@ public class ShiftForegroundService extends Service {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 💓 Nativer Heartbeat (läuft auch bei Screen-off / Doze-Mode)
+    // 💓 Nativer Heartbeat — pingt alle 30s Cloud Function
+    //    (auch bei Screen-off / Doze-Mode)
     // ═══════════════════════════════════════════════════════════════
 
     private void startHeartbeat() {
-        stopHeartbeat(); // alten Task killen falls vorhanden
+        stopHeartbeat();
         if (currentVehicleId == null || currentVehicleId.isEmpty()) {
             Log.w(TAG, "Heartbeat nicht gestartet — keine vehicleId übergeben");
             return;
@@ -163,11 +188,11 @@ public class ShiftForegroundService extends Service {
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
         heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(
             this::sendHeartbeat,
-            5, // erste Ausführung nach 5s (nicht sofort — gibt Zeit für Firebase-Init)
+            5,
             HEARTBEAT_INTERVAL_SEC,
             TimeUnit.SECONDS
         );
-        Log.i(TAG, "💓 Nativer Heartbeat gestartet für vehicle=" + currentVehicleId + " (alle " + HEARTBEAT_INTERVAL_SEC + "s)");
+        Log.i(TAG, "💓 Nativer Heartbeat gestartet für vehicle=" + currentVehicleId);
     }
 
     private void stopHeartbeat() {
@@ -185,22 +210,85 @@ public class ShiftForegroundService extends Service {
         if (currentVehicleId == null || currentVehicleId.isEmpty()) return;
         HttpURLConnection conn = null;
         try {
-            URL url = new URL(HEARTBEAT_URL + "?vehicleId=" + currentVehicleId);
-            conn = (HttpURLConnection) url.openConnection();
+            StringBuilder url = new StringBuilder(HEARTBEAT_URL);
+            url.append("?vehicleId=").append(URLEncoder.encode(currentVehicleId, "UTF-8"));
+            // 🆕 v6.41.19: GPS aus FusedLocationProviderClient mitsenden wenn vorhanden
+            Double lat = lastLat;
+            Double lon = lastLon;
+            Float acc = lastAccuracy;
+            if (lat != null && lon != null) {
+                url.append("&lat=").append(lat);
+                url.append("&lon=").append(lon);
+                if (acc != null) url.append("&acc=").append(acc);
+            }
+
+            URL u = new URL(url.toString());
+            conn = (HttpURLConnection) u.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
             int code = conn.getResponseCode();
             if (code >= 200 && code < 300) {
-                Log.d(TAG, "💓 Heartbeat OK (" + code + ") vehicle=" + currentVehicleId);
+                Log.d(TAG, "💓 Heartbeat OK (" + code + ") gps=" + (lat != null));
             } else {
-                Log.w(TAG, "💓 Heartbeat HTTP " + code + " vehicle=" + currentVehicleId);
+                Log.w(TAG, "💓 Heartbeat HTTP " + code);
             }
         } catch (Exception e) {
-            // Netzwerk-Fehler sind normal (kein WLAN / schlechter Empfang) — nur loggen
             Log.w(TAG, "💓 Heartbeat Fehler: " + e.getMessage());
         } finally {
             if (conn != null) conn.disconnect();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 📍 Nativer GPS-Tracker — läuft auch bei Screen-off
+    //    Speichert Position lokal, Heartbeat sendet sie an Cloud Function
+    // ═══════════════════════════════════════════════════════════════
+
+    private void startGpsTracking() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "📍 Keine Location-Permission — nativer GPS-Tracker deaktiviert");
+            return;
+        }
+        try {
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+            LocationRequest req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, GPS_INTERVAL_MS)
+                    .setMinUpdateIntervalMillis(GPS_MIN_INTERVAL_MS)
+                    .setWaitForAccurateLocation(false)
+                    .build();
+            locationCallback = new LocationCallback() {
+                @Override
+                public void onLocationResult(LocationResult result) {
+                    if (result == null) return;
+                    Location loc = result.getLastLocation();
+                    if (loc == null) return;
+                    lastLat = loc.getLatitude();
+                    lastLon = loc.getLongitude();
+                    lastAccuracy = loc.hasAccuracy() ? loc.getAccuracy() : null;
+                    Log.d(TAG, "📍 Native GPS: " + lastLat + "," + lastLon + " ±" + lastAccuracy + "m");
+                }
+            };
+            fusedLocationClient.requestLocationUpdates(req, locationCallback, Looper.getMainLooper());
+            Log.i(TAG, "📍 Nativer GPS-Tracker gestartet (alle " + (GPS_INTERVAL_MS / 1000) + "s, PRIORITY_HIGH_ACCURACY)");
+        } catch (SecurityException e) {
+            Log.w(TAG, "📍 GPS-Permission fehlt: " + e.getMessage());
+        } catch (Exception e) {
+            Log.w(TAG, "📍 GPS-Tracker konnte nicht gestartet werden: " + e.getMessage());
+        }
+    }
+
+    private void stopGpsTracking() {
+        if (fusedLocationClient != null && locationCallback != null) {
+            try {
+                fusedLocationClient.removeLocationUpdates(locationCallback);
+                Log.i(TAG, "📍 Nativer GPS-Tracker gestoppt");
+            } catch (Exception e) { /* ignore */ }
+        }
+        fusedLocationClient = null;
+        locationCallback = null;
+        lastLat = null;
+        lastLon = null;
+        lastAccuracy = null;
     }
 }

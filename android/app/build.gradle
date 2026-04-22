@@ -7,10 +7,10 @@ android {
         applicationId "de.taxiheringsdorf.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // v6.41.17: Nativer Heartbeat im ShiftForegroundService (läuft auch bei Screen-off/Doze-Mode)
-        // versionCode wird aus "6.41.17" als 6_041_017 abgeleitet (Format: Major*1_000_000 + Minor*1_000 + Patch)
-        versionCode 6041017
-        versionName "6.41.17"
+        // v6.41.19: Nativer GPS-Tracker (FusedLocationProviderClient) + Auto-SMS beim Losfahren
+        // versionCode wird aus "6.41.19" als 6_041_019 abgeleitet (Format: Major*1_000_000 + Minor*1_000 + Patch)
+        versionCode 6041019
+        versionName "6.41.19"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -53,6 +53,8 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // v6.41.19: FusedLocationProviderClient für nativen GPS-Tracker im Foreground-Service
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

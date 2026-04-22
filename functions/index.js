@@ -2987,53 +2987,12 @@ async function searchNominatimForTelegram(query) {
         const hasOrt = knownOrte.some(o => searchKey.includes(o));
         const hasPLZ = !!queryPostcode;
 
-        let usedomData = [], generalData = [];
-
-        if (hasPLZ) {
-            // ══ PLZ-MODUS: Structured Search — PLZ als postalcode Parameter ══
-            // Straße ohne PLZ extrahieren (z.B. "Delbrückstraße 4, 17424" → "Delbrückstraße 4")
-            const streetOnly = query.replace(/\b\d{5}\b/g, '').replace(/[,\s]+$/, '').trim();
-            const plzOrt = PLZ_CENTERS[queryPostcode] ? PLZ_CENTERS[queryPostcode].name : '';
-            console.log(`[Nominatim] PLZ-Modus: street="${streetOnly}", postalcode=${queryPostcode}, city=${plzOrt}`);
-
-            // Structured Search: Nominatim bekommt Straße + PLZ + Ort getrennt → viel genauer!
-            const [structuredResp, freeResp] = await Promise.all([
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(streetOnly)}&postalcode=${queryPostcode}${plzOrt ? '&city=' + encodeURIComponent(plzOrt) : ''}&countrycodes=de&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts),
-                // Backup: Freitext mit PLZ als bounded-Suche auf Usedom
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=${usedomViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
-            ]);
-            usedomData = await structuredResp.json();
-            generalData = await freeResp.json();
-            console.log(`[Nominatim] PLZ-Modus Ergebnisse: structured=${usedomData.length}, freitext=${generalData.length}`);
-
-        } else if (hasOrt) {
-            // ══ ORT-MODUS: Ortsname im Query → direkt suchen, Viewbox als Preference ══
-            const [localResp, boundedResp] = await Promise.all([
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=10&addressdetails=1&extratags=1&namedetails=1&viewbox=${usedomViewbox}&bounded=0`, fetchOpts),
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
-            ]);
-            usedomData = await localResp.json();
-            generalData = await boundedResp.json();
-
-        } else {
-            // 🔧 Fix 5: KEIN ORT/PLZ — NICHT blind Heringsdorf annehmen, stattdessen
-            // strikt auf Usedom viewbox begrenzen → 0 Treffer → continueBookingFlow fragt nach Ort
-            const [localResp, boundedResp] = await Promise.all([
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${usedomViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts),
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${wideViewbox}&bounded=1&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts)
-            ]);
-            usedomData = await localResp.json();
-            generalData = await boundedResp.json();
-        }
-
-        // Fallback: Unbounded-Suche für Orte außerhalb Usedom (Berlin, Hamburg etc.)
-        let wideData = [];
-        if (usedomData.length === 0 && generalData.length === 0) {
-            try {
-                const wideResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=10&addressdetails=1&extratags=1&namedetails=1`, fetchOpts);
-                wideData = await wideResp.json();
-            } catch (e) { console.warn('Nominatim Wide-Suche Fehler:', e); }
-        }
+        // 🆕 v6.41.14: Nominatim-Haupt-Suche deaktiviert (User-Wunsch: nur Google Places).
+        //   Google Places wird weiter unten als einzige externe Quelle aufgerufen.
+        //   Nominatim-Calls in der Haupt-Suche komplett raus — keine Fuzzy/Score-Matches
+        //   mehr aus OSM-Rohdaten die dann auf falsche Orte verweisen könnten.
+        let usedomData = [], generalData = [], wideData = [];
+        // hasPLZ / hasOrt Variablen bleiben erhalten — andere Code-Teile nutzen sie eventuell
         const plzCenter = queryPostcode ? PLZ_CENTERS[queryPostcode] : null;
 
         // Usedom-Ergebnisse zuerst, PLZ-Match bevorzugt, dann allgemeine

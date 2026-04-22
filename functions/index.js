@@ -18911,7 +18911,12 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
     },
     async (event) => {
         try {
-            const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 Minuten ohne Beat → tot
+            // 🆕 v6.41.15: Timeout von 2 → 10 Min (User-Feedback: "Power-Knopf → Timeout")
+            //   Bei Bildschirm-aus drosselt Android den WebView komplett (Doze-Mode).
+            //   2 Min waren zu streng — Bildschirm kurz aus beim Einkaufen/Pause-Machen
+            //   reicht nicht für 2-Min-Beat. 10 Min gibt Puffer ohne App-Crash-Erkennung
+            //   zu verlieren.
+            const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000; // 10 Minuten ohne Beat → tot
             const now = Date.now();
 
             const vehiclesSnap = await db.ref('vehicles').once('value');

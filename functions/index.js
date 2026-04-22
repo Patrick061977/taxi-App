@@ -3066,6 +3066,45 @@ async function searchNominatimForTelegram(query) {
             }
         } catch(gErr) { console.warn('Google Places Fehler:', gErr.message); }
 
+        // 🆕 v6.41.20: Nominatim-FALLBACK wenn Geocache + Google Places leer sind.
+        //   v6.41.14 hatte Nominatim komplett rausgeworfen — Folge: Wenn Google Places
+        //   eine Adresse nicht findet (z.B. "Bergstraße 16, Villa Frieda" mit POI-Suffix),
+        //   dann KEINE Koordinaten → Cloud-Function meldet "DATEN-INKONSISTENZ".
+        //   Fix: Nominatim als Notfall-Quelle wenn sonst nichts gefunden wurde.
+        if (allItems.length === 0) {
+            console.log('[Nominatim-Fallback] Geocache + Google Places leer — versuche Nominatim');
+            try {
+                const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${usedomViewbox}&bounded=0&limit=5&addressdetails=1`;
+                const fallbackResp = await fetch(fallbackUrl, fetchOpts);
+                if (fallbackResp.ok) {
+                    const fallbackData = await fallbackResp.json();
+                    if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+                        console.log(`[Nominatim-Fallback] ${fallbackData.length} Treffer`);
+                        for (const item of fallbackData) {
+                            const fLat = parseFloat(item.lat);
+                            const fLon = parseFloat(item.lon);
+                            if (isNaN(fLat) || isNaN(fLon)) continue;
+                            // Plausibilitäts-Check: Ort-Konflikt (analog v6.41.13)
+                            const _UO = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'uckeritz', 'loddin', 'zempin', 'karlshagen', 'peenemünde', 'peenemuende', 'trassenheide'];
+                            const sOrt = searchKey ? _UO.find(o => searchKey.includes(o)) : null;
+                            const itemAddr = (item.display_name || '').toLowerCase();
+                            const itemOrt = _UO.find(o => itemAddr.includes(o));
+                            if (sOrt && itemOrt && sOrt !== itemOrt) {
+                                console.log(`[Nominatim-Fallback] Ort-Konflikt: Suche "${sOrt}" vs. Adresse "${itemOrt}" → übersprungen`);
+                                continue;
+                            }
+                            allItems.push({
+                                display_name: item.display_name || '',
+                                lat: fLat, lon: fLon,
+                                source: 'nominatim-fallback',
+                                address: item.address || {}
+                            });
+                        }
+                    }
+                }
+            } catch(nfErr) { console.warn('[Nominatim-Fallback] Fehler:', nfErr.message); }
+        }
+
         // 🔧 v6.25.5: Duplikate nach Koordinaten entfernen (beide Requests liefern oft gleiche Ergebnisse)
         const seenCoords = new Set();
         allItems = allItems.filter(item => {

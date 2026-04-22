@@ -19072,8 +19072,8 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
 // Der Service läuft UNABHÄNGIG vom WebView (auch bei Screen-off / Doze-Mode)
 // und pingt alle 30s hierhin. Schreibt direkt lastHeartbeat in Firebase.
 //
-// Kein Auth nötig — Security: Schreibt NUR auf /vehicles/{vid}/shift/lastHeartbeat
-// (einzelne Feld-Überschreibung), Fahrzeug muss existieren + Schicht aktiv sein.
+// v6.41.19: Erweitert — optional lat/lon werden mitgeschrieben
+// (nativer FusedLocationProviderClient im Service schickt GPS in selbem Call).
 // ═══════════════════════════════════════════════════════════════
 exports.shiftHeartbeatPing = onRequest(
     { region: 'europe-west1', invoker: 'public' },
@@ -19083,20 +19083,25 @@ exports.shiftHeartbeatPing = onRequest(
         res.set('Access-Control-Allow-Headers', 'Content-Type');
         if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
 
-        // vehicleId aus Query oder Body
         const vehicleId = (req.query.vehicleId || (req.body && req.body.vehicleId) || '').toString().trim();
         if (!vehicleId) {
             res.status(400).json({ error: 'vehicleId required' });
             return;
         }
-        // Nur alphanumerisch + Bindestrich (verhindert Pfad-Injection)
         if (!/^[a-z0-9-]{3,40}$/i.test(vehicleId)) {
             res.status(400).json({ error: 'invalid vehicleId format' });
             return;
         }
 
+        // 🆕 v6.41.19: Optional GPS-Position
+        const latStr = (req.query.lat || (req.body && req.body.lat) || '').toString();
+        const lonStr = (req.query.lon || (req.body && req.body.lon) || '').toString();
+        const accStr = (req.query.acc || (req.body && req.body.acc) || '').toString();
+        const lat = latStr ? parseFloat(latStr) : null;
+        const lon = lonStr ? parseFloat(lonStr) : null;
+        const acc = accStr ? parseFloat(accStr) : null;
+
         try {
-            // Prüfen ob Fahrzeug existiert + Schicht aktiv ist
             const vSnap = await db.ref('vehicles/' + vehicleId).once('value');
             const v = vSnap.val();
             if (!v || !v.shift || v.shift.status !== 'active') {
@@ -19105,12 +19110,27 @@ exports.shiftHeartbeatPing = onRequest(
             }
 
             const now = Date.now();
-            await db.ref('vehicles/' + vehicleId + '/shift/lastHeartbeat').set(now);
-            // ETA-Info mit zurück senden damit der Service weiß er macht das richtige
+            const updates = {};
+            updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
+            // GPS mitsenden wenn angegeben + plausibel (Usedom-Bereich grob gefiltert)
+            if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) &&
+                lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0) {
+                updates['vehicles/' + vehicleId + '/lat'] = lat;
+                updates['vehicles/' + vehicleId + '/lon'] = lon;
+                updates['vehicles/' + vehicleId + '/timestamp'] = now;
+                updates['vehicles/' + vehicleId + '/lastUpdate'] = now;
+                updates['vehicles/' + vehicleId + '/hasGPS'] = true;
+                if (acc !== null && !isNaN(acc)) {
+                    updates['vehicles/' + vehicleId + '/accuracy'] = acc;
+                }
+            }
+            await db.ref().update(updates);
+
             res.status(200).json({
                 ok: true,
                 vehicleId: vehicleId,
                 lastHeartbeat: now,
+                gpsWritten: (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)),
                 source: 'native-service'
             });
         } catch(e) {

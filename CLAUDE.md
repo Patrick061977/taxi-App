@@ -217,60 +217,54 @@ Bei größeren Änderungen APP_VERSION hochzählen UND Timestamp aktualisieren.
 
 ---
 
-## Deploy-Pflicht bei Cloud Functions (WICHTIG!)
+## 🚀 Deploy-Ablauf — AUTOMATISCH bei Merge auf main (WICHTIG!)
 
-Nach JEDEM Commit der `functions/index.js` ändert, MUSS ein Deploy-Hinweis gegeben werden.
-Die Cloud Function läuft auf Firebase-Servern — Code-Änderungen sind erst nach Deploy aktiv!
+**Ab v6.40.34 (21.04.2026): Kein manuelles Deploy mehr nötig.**
+GitHub Actions triggern automatisch bei Push auf `main`:
 
-```bash
-# Nach dem Push den User erinnern:
-# "WICHTIG: functions/index.js wurde geändert → Deploy nötig:"
-firebase deploy --only functions
-```
+| Geänderte Datei | Workflow | Was passiert |
+|-----------------|----------|--------------|
+| `index.html` | `strato-zip.yml` | ZIP wird gebaut → Strato erhält neue Fahrer-App |
+| `functions/**` | `deploy-functions.yml` | Firebase Cloud Functions werden deployed |
+| `google-apps-script/**` | ❌ kein Workflow | User muss manuell ins Apps Script kopieren |
+
+### Standard-Ablauf für Claude (kein `gh`/`firebase` CLI nötig!):
+
+1. **Arbeiten** auf Feature-Branch `claude/fix-...` (NIE direkt auf main)
+2. **Commit** mit aussagekräftiger Message
+3. **Build-Timestamp** aktualisieren wenn `index.html` geändert:
+   ```bash
+   TS=$(TZ="Europe/Berlin" date +"%d.%m.%Y %H:%M")
+   sed -i "s/const APP_BUILD = '.*'/const APP_BUILD = '$TS'/" index.html
+   git add index.html && git commit -m "build: $TS"
+   ```
+4. **Push** auf Feature-Branch: `git push -u origin claude/fix-...`
+5. **PR erstellen** via `mcp__github__create_pull_request` (nicht `gh pr create` — nicht verfügbar)
+6. **PR mergen** via `mcp__github__merge_pull_request` (merge_method: "merge")
+7. **Warten** — GitHub Actions deployed automatisch (1–2 Min):
+   - Strato-ZIP: neue `index.html` liegt bereit
+   - Cloud Functions: neue `functions/index.js` ist live
+8. **Fahrer-App**: Zeigt Update-Banner beim nächsten Öffnen ("Neues Update verfügbar") → Fahrer tippt → neue Version aktiv
+
+### Was NICHT mehr tun (obsolet):
+- ❌ `gh workflow run strato-zip.yml --ref main` — `gh` CLI ist nicht verfügbar
+- ❌ `firebase deploy --only functions` — passiert automatisch beim Merge
+- ❌ Den User manuell zum Deploy erinnern — der Merge reicht
+
+### Was der User bestätigt hat (22.04.2026):
+> "Das mit dem Update klappt wunderbar — nachdem ich die App geöffnet habe wird automatisch ein Banner oben gezeigt 'neues Update verfügbar'. Das System hat sehr gut funktioniert."
+
+### Ausnahme: Google Apps Script (Kalender-Sync)
+Hat KEINEN Auto-Deploy-Workflow. Bei Änderungen an `google-apps-script/kalender-sync-v*.js`
+→ Claude MUSS den User erinnern: "Bitte Code manuell ins Google Apps Script Projekt kopieren."
 
 ### Was wird über Cloud Functions gesteuert:
 - **Telegram-Webhook** — alle Bot-Nachrichten, Buchungen, Admin-Befehle
 - **Konversations-Flow** — Pending-States, Follow-Ups, CRM-Suche
 - **KI-Analyse** — Buchungs-Parsing via Anthropic API
 - **Benachrichtigungen** — Buchungsbestätigungen an Kunden + Admins
-- **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen (siehe unten)
-
-### Regel:
-- Änderungen an `index.html` → Build-Timestamp aktualisieren **+ `gh workflow run strato-zip.yml --ref main` PARALLEL ausführen!**
-- Änderungen an `functions/index.js` → User auf `firebase deploy --only functions` hinweisen
-- Änderungen an `google-apps-script/kalender-sync-v4.0.js` → User erinnern: Code manuell ins Google Apps Script kopieren
-- Änderungen an beiden/allen → alles tun
-
----
-
-## Strato-Deploy (WICHTIG — IMMER PARALLEL MACHEN!)
-
-Die Fahrer-App (`index.html`) wird auf **Strato** gehostet.
-**Bei JEDEM Push der `index.html` ändert MUSS Claude PARALLEL den Strato-Deploy auslösen!**
-
-### GitHub Actions Workflow: `strato-zip.yml`
-
-Das Strato-Deploy läuft über eine **GitHub Actions Workflow** namens **"Strato ZIP erstellen"**.
-- **Workflow:** `strato-zip.yml` im Repository `Patrick061977/taxi-App`
-- **Trigger:** `workflow_dispatch` (manuell) + automatisch bei Push auf `main`
-- **Was es tut:** Erstellt eine ZIP-Datei mit der aktuellen `index.html` für Strato
-
-### PFLICHT für Claude:
-```bash
-# Nach JEDEM git push der index.html ändert → Strato-Workflow triggern:
-gh workflow run strato-zip.yml --ref main
-```
-
-### Ablauf bei index.html Änderungen:
-1. `git add index.html && git commit`
-2. `git push`
-3. **PARALLEL:** `gh workflow run strato-zip.yml --ref main` ← NICHT VERGESSEN!
-4. Prüfen: `gh run list --workflow=strato-zip.yml --limit 1`
-
-### Regel:
-- **Claude MUSS bei JEDER Änderung an `index.html` AUTOMATISCH den Strato-Workflow auslösen** — NICHT nur den User erinnern, sondern SELBER machen!
-- Aktuell auf Strato: Version wird unten rechts in der Fahrer-App angezeigt (z.B. `v6.38.34`)
-- Wenn Strato veraltet ist, sehen Fahrer alte Bugs/fehlendes Features
+- **Database Triggers (v6.20.0)** — Server-seitige Telegram-Benachrichtigungen
+- **Scheduled Tasks** — Auto-Zuweisung, Offene-Fahrt-Warner, Stuck-Assigned-Watchdog
 
 ---
 

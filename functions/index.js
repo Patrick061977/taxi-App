@@ -19001,6 +19001,28 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
                     autoEndedAt: now
                 });
 
+                // 🆕 v6.41.4: Auch /shiftHistory als beendet markieren (sonst zeigt Admin "AKTIV")
+                try {
+                    if (v.shift.startTime) {
+                        const shiftId = String(v.shift.startTime);
+                        await db.ref(`shiftHistory/${vid}/${shiftId}`).update({
+                            status: 'auto-ended',
+                            endTime: now,
+                            endedAt: new Date().toISOString(),
+                            endedReason: 'heartbeat_timeout',
+                            durationMs: shiftDurationMs,
+                            _autoEnded: true,
+                            _heartbeatAgeMin: ageMin
+                        });
+                        await db.ref(`shiftHistory/${vid}/${shiftId}/events`).push({
+                            ts: now,
+                            type: 'shift_auto_ended',
+                            message: `Schicht auto-beendet (Heartbeat ${ageMin} Min alt)`,
+                            data: { lastHeartbeat: lastBeat, ageMin: ageMin }
+                        });
+                    }
+                } catch(e) { console.warn('⚠️ shiftHistory auto-end update fehlgeschlagen:', e.message); }
+
                 // Fahrzeug offline setzen, damit keine neuen Fahrten zugewiesen werden
                 try {
                     await db.ref(`vehicles/${vid}`).update({

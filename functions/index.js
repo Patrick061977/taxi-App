@@ -19067,6 +19067,60 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 💓 SHIFT HEARTBEAT PING — v6.41.17
+// Empfängt Heartbeats vom nativen Android-Foreground-Service.
+// Der Service läuft UNABHÄNGIG vom WebView (auch bei Screen-off / Doze-Mode)
+// und pingt alle 30s hierhin. Schreibt direkt lastHeartbeat in Firebase.
+//
+// Kein Auth nötig — Security: Schreibt NUR auf /vehicles/{vid}/shift/lastHeartbeat
+// (einzelne Feld-Überschreibung), Fahrzeug muss existieren + Schicht aktiv sein.
+// ═══════════════════════════════════════════════════════════════
+exports.shiftHeartbeatPing = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+
+        // vehicleId aus Query oder Body
+        const vehicleId = (req.query.vehicleId || (req.body && req.body.vehicleId) || '').toString().trim();
+        if (!vehicleId) {
+            res.status(400).json({ error: 'vehicleId required' });
+            return;
+        }
+        // Nur alphanumerisch + Bindestrich (verhindert Pfad-Injection)
+        if (!/^[a-z0-9-]{3,40}$/i.test(vehicleId)) {
+            res.status(400).json({ error: 'invalid vehicleId format' });
+            return;
+        }
+
+        try {
+            // Prüfen ob Fahrzeug existiert + Schicht aktiv ist
+            const vSnap = await db.ref('vehicles/' + vehicleId).once('value');
+            const v = vSnap.val();
+            if (!v || !v.shift || v.shift.status !== 'active') {
+                res.status(404).json({ error: 'no active shift for vehicle', vehicleId: vehicleId });
+                return;
+            }
+
+            const now = Date.now();
+            await db.ref('vehicles/' + vehicleId + '/shift/lastHeartbeat').set(now);
+            // ETA-Info mit zurück senden damit der Service weiß er macht das richtige
+            res.status(200).json({
+                ok: true,
+                vehicleId: vehicleId,
+                lastHeartbeat: now,
+                source: 'native-service'
+            });
+        } catch(e) {
+            console.error('shiftHeartbeatPing Fehler:', e && e.message);
+            res.status(500).json({ error: 'internal error' });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 💳 STRIPE CHECKOUT — v6.21.0
 // Erstellt eine Stripe Checkout Session für eine Rechnung
 // ═══════════════════════════════════════════════════════════════

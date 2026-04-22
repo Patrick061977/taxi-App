@@ -24,10 +24,15 @@ public class ShiftForegroundPlugin extends Plugin {
     public void start(PluginCall call) {
         try {
             String text = call.getString("text", null);
+            // 🆕 v6.41.17: vehicleId für nativen Heartbeat
+            String vehicleId = call.getString("vehicleId", null);
             Intent svc = new Intent(getContext(), ShiftForegroundService.class);
             svc.setAction(ShiftForegroundService.ACTION_START);
             if (text != null && !text.isEmpty()) {
                 svc.putExtra(ShiftForegroundService.EXTRA_CONTENT_TEXT, text);
+            }
+            if (vehicleId != null && !vehicleId.isEmpty()) {
+                svc.putExtra(ShiftForegroundService.EXTRA_VEHICLE_ID, vehicleId);
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 getContext().startForegroundService(svc);
@@ -36,6 +41,7 @@ public class ShiftForegroundPlugin extends Plugin {
             }
             JSObject ret = new JSObject();
             ret.put("started", true);
+            ret.put("vehicleId", vehicleId != null ? vehicleId : "");
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Foreground-Service konnte nicht gestartet werden: " + e.getMessage(), e);

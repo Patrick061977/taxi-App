@@ -2706,6 +2706,25 @@ async function searchNominatimForTelegram(query) {
 
                 // Mindestens 1 Wort muss matchen (Score > 0)
                 if (matchScore > 0) {
+                    // 🆕 v6.41.13: USEDOM-ORT-KONFLIKT-CHECK
+                    // Bug: "bahnhof heringsdorf" → "Bahnhof Ahlbeck" (score 35 fuzzy/partial)
+                    // Root cause: Score basiert nur auf Anzahl Treffer — ignoriert dass
+                    //   ein Ortsname in der Suche fehlt UND ein ANDERER Ort in der Adresse ist.
+                    // Fix: Wenn User Ort X sucht aber Adresse Ort Y enthält → reject.
+                    const _USEDOM_ORTE = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'ückeritz', 'uckeritz', 'loddin', 'zempin', 'koserow', 'karlshagen', 'peenemünde', 'peenemuende', 'trassenheide'];
+                    const searchOrt = searchWords.find(w => _USEDOM_ORTE.includes(w));
+                    if (searchOrt) {
+                        const addrOrt = _USEDOM_ORTE.find(ort => addr.includes(ort) || labelNorm.includes(ort));
+                        if (addrOrt && addrOrt !== searchOrt) {
+                            // User sucht in searchOrt, Adresse in anderem Ort → ungültig
+                            console.log(`🛡️ Ort-Konflikt: Suche "${searchOrt}" vs. Adresse "${addrOrt}" → ${entry.address} verworfen`);
+                            matchScore = 0;
+                        }
+                    }
+                }
+
+                // Nochmal prüfen nach Ort-Konflikt-Check
+                if (matchScore > 0) {
                     // 🔧 v6.38.37: Bei Label-Match → "Label — Adresse" als Name anzeigen
                     const displayName = (label && matchScore >= 60 && searchWords.some(w => label.includes(w) || labelNorm.includes(w)))
                         ? `${entry.label} — ${entry.address}` : entry.address;

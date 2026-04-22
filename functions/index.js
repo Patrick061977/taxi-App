@@ -18964,6 +18964,16 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
 
                 if (age <= HEARTBEAT_TIMEOUT_MS) continue; // Frisch → alles OK
 
+                // 🆕 v6.41.8: GPS-Timestamp als Fallback. Wenn der Fahrer GPS-Positionen
+                //   sendet, läuft die App nachweislich — egal ob der Heartbeat gedrosselt
+                //   wurde. In dem Fall nicht auto-beenden.
+                const gpsTimestamp = v.timestamp || v.lastUpdate || 0;
+                const gpsAge = gpsTimestamp ? (now - gpsTimestamp) : Infinity;
+                if (gpsAge < HEARTBEAT_TIMEOUT_MS) {
+                    console.log(`💓 Watchdog: ${v.name || vid} Heartbeat ${Math.round(age/60000)} Min alt ABER GPS ${Math.round(gpsAge/1000)}s frisch → nicht beenden`);
+                    continue;
+                }
+
                 const ageMin = Math.round(age / 60000);
                 const vName = v.name || vid;
                 const driverName = v.shift.driverName || v.currentDriver || 'Fahrer';

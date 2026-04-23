@@ -10,6 +10,13 @@ permissions:
   pages: write
   id-token: write
 
+# 🔧 v6.41.45: Concurrency-Gruppe verhindert parallele Deployments die sich
+# gegenseitig crashen ('Deployment request failed due to in progress deployment').
+# Bei schnellen PRs in Folge wird der laufende abgebrochen, der neueste läuft.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

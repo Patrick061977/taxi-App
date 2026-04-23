@@ -21,13 +21,13 @@
         .header {
             background: linear-gradient(135deg, #059669 0%, #047857 100%);
             color: white;
-            padding: 16px 20px;
+            padding: 8px 14px;   /* 🔧 v6.41.52: kompakter (16 20 → 8 14) */
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-        .header-logo { font-size: 20px; font-weight: 700; }
+        .header-logo { font-size: 15px; font-weight: 700; }  /* 🔧 v6.41.52: 20 → 15 */
         .header-login {
             padding: 8px 16px;
             background: rgba(255,255,255,0.2);
@@ -601,7 +601,9 @@
     </script>
 
     <!-- Status Bar -->
-    <div class="status-bar loading" id="status-bar">⏳ Verfügbarkeit wird geprüft...</div>
+    <!-- 🔧 v6.41.52: Status-Bar oben VERSTECKT — Info ist in der Karte-Überschrift (1 frei · 0 besetzt)
+         und im Sofort-Button-Untertitel ('Taxi in ca. 3 Min'). Doppelt gemoppelt vorher. -->
+    <div class="status-bar loading" id="status-bar" style="display:none !important;">⏳ Verfügbarkeit wird geprüft...</div>
 
     <!-- Buchungsformular -->
     <div class="main">
@@ -647,6 +649,10 @@
                 </div>
                 <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
                 <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:12px;color:#64748b;font-weight:600;">Tag wählen</span>
+                        <button onclick="jumpToToday()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📅 Heute</button>
+                    </div>
                     <div class="day-tabs" id="day-tabs"></div>
                     <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
                         <div id="slot-timeline-inner" style="min-width:600px;">
@@ -739,8 +745,8 @@
                 <div class="map-container" id="route-map" style="position:relative;"></div>
                 <!-- 🆕 v6.41.42: Zwei-Preis-Vergleich bei Vorbestellung (aus index.html übernommen) -->
                 <div id="two-price-display" style="display:none;margin-top:10px;"></div>
-                <!-- Route Info kompakt unter der Karte (nur bei Sofort-Buchung) -->
-                <div class="route-info" id="route-info" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;padding:8px;background:#f0fdf4;border-radius:10px;">
+                <!-- Route Info (unten) — v6.41.52: KOMPLETT VERSTECKT, Preis-Overlay auf Karte reicht -->
+                <div class="route-info" id="route-info" style="display:none !important;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;padding:8px;background:#f0fdf4;border-radius:10px;">
                     <div style="text-align:center;">
                         <div style="font-size:18px;font-weight:800;color:#059669;" id="r-price">—</div>
                         <div style="font-size:10px;color:#64748b;">Preis</div>
@@ -1390,8 +1396,21 @@
             // "Adressen löschen" Button verstecken
             const clearBtn = document.getElementById('btn-clear-addr');
             if (clearBtn) clearBtn.style.display = 'none';
+            // 🔧 v6.41.52: Autocomplete-Dropdowns + Hinweise schließen
+            ['b-pickup-dropdown','b-destination-dropdown','b-stopp-dropdown'].forEach(id => {
+                const dd = document.getElementById(id);
+                if (dd) { dd.innerHTML = ''; dd.style.display = 'none'; }
+            });
+            ['pickup-hint','dest-hint','slot-route-hint'].forEach(id => {
+                const h = document.getElementById(id);
+                if (h) h.style.display = 'none';
+            });
+            // Abbrechen-Button selbst auch verstecken
+            const cancelBtn = document.getElementById('btn-cancel');
+            if (cancelBtn) cancelBtn.style.display = 'none';
             updateStatusBar();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Scroll nach oben (ohne smooth um Flackern zu vermeiden)
+            window.scrollTo({ top: 0, behavior: 'instant' in Element.prototype ? 'instant' : 'auto' });
             logBuchen('🔄', 'Formular zurückgesetzt');
         }
 
@@ -1502,8 +1521,18 @@
                     kalender.style.display = 'none';
                 }
             } else {
+                // 🔧 v6.41.52: Sofort — komplett alle Vorbestell-Elemente ausblenden
                 felder.classList.remove('active');
                 kalender.style.display = 'none';
+                _selectedSlot = null;
+                _slotIsFree = false;
+                _slotCalendarDate = null;
+                const slotInfo = document.getElementById('slot-selected-info');
+                if (slotInfo) slotInfo.style.display = 'none';
+                const twoPrice = document.getElementById('two-price-display');
+                if (twoPrice) twoPrice.style.display = 'none';
+                const slotHint = document.getElementById('slot-route-hint');
+                if (slotHint) slotHint.style.display = 'none';
             }
             updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);
             updateStatusBar();
@@ -1709,6 +1738,25 @@
         }
         let _selectedSlot = null;
         let _slotIsFree = false;
+
+        function jumpToToday() {
+            // 🆕 v6.41.52: Kalender springt auf heute
+            const tabs = document.querySelectorAll('.day-tab');
+            if (tabs.length === 0) return;
+            const firstTab = tabs[0];
+            document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+            firstTab.classList.add('active');
+            const ds = firstTab._dateStr;
+            if (ds) {
+                document.getElementById('b-date').value = ds;
+                _slotCalendarDate = ds;
+                _selectedSlot = null;
+                renderSlotTimeline(ds);
+                onDateTimeChange();
+                const tabsEl = document.getElementById('day-tabs');
+                if (tabsEl) tabsEl.scrollLeft = 0;
+            }
+        }
 
         function initSlotCalendar() {
             const tabsEl = document.getElementById('day-tabs');
@@ -2014,6 +2062,11 @@
                         ? `${slotTimeStr} Uhr belegt: ${_blockedRides.length} Fahrt(en) blockieren diesen Zeitraum.\nFahrzeuge im Dienst: ${vehiclesInShift}\n\nNächster freier Slot wird grün angezeigt.`
                         : `${slotTimeStr} Uhr: Fahrer schafft es nicht rechtzeitig nach vorheriger Fahrt.`;
                     block.onclick = () => showToast(_reason.split('\n')[0]);
+                } else if (!isPast && !tooSoon && vehiclesInShift === 0) {
+                    // 🔧 v6.41.52: Slot ohne Schicht — Feedback geben
+                    block.onclick = () => showToast(`${slotTimeStr} Uhr: Kein Fahrer im Dienst — bitte anderen Zeitpunkt wählen`);
+                } else if (tooSoon && !isPast) {
+                    block.onclick = () => showToast(`${slotTimeStr} Uhr: Zu kurzfristig — bitte bei "Sofort" anrufen`);
                 }
                 if (isSelected) block.classList.add('sel');
                 // Ersten freien Slot merken

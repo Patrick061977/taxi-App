@@ -1,3 +1,32 @@
 User-agent: *
-Allow: /
+
+# Öffentliche Seiten — sollen gecrawlt werden
+Allow: /landing.html
+Allow: /buchen.html
+Allow: /kunden.html
+Allow: /berlin.html
+Allow: /anfrage.html
+Allow: /track.html
+Allow: /sitemap.xml
+Allow: /favicon.svg
+Allow: /icon-192.png
+Allow: /manifest.json
+
+# Fahrer-/Admin-App und interne Tools — NICHT crawlen
+Disallow: /index.html
+Disallow: /admin-log-viewer.html
+Disallow: /log-viewer.html
+Disallow: /monitor.html
+Disallow: /SYSTEM-MONITOR.html
+Disallow: /PENDING-MONITOR.html
+Disallow: /HILFE.html
+Disallow: /FUNKTIONS-REFERENZ.html
+Disallow: /FUNKTIONS-SUCHE.html
+Disallow: /change-viewer.html
+Disallow: /function-explorer.html
+Disallow: /konflikt-tester.html
+Disallow: /jimdo-buttons.html
+Disallow: /datetime-picker.html
+Disallow: /app-download.html
+
 Sitemap: https://umwelt-taxi-insel-usedom.de/sitemap.xml

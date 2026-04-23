@@ -43,6 +43,8 @@ APP_FILES=(
     "berlin.html"
     "anfrage.html"
     "track.html"
+    "payment-success.html"
+    "payment-cancel.html"
     "manifest.json"
     "service-worker.js"
     "favicon.svg"

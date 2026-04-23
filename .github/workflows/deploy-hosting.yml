@@ -15,6 +15,8 @@ on:
       - 'anfrage.html'
       - 'track.html'
       - 'app-download.html'
+      - 'payment-success.html'
+      - 'payment-cancel.html'
       - 'manifest.json'
       - 'service-worker.js'
       - 'favicon.svg'

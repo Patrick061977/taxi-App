@@ -1990,6 +1990,20 @@
             _slotIsFree = true;
             isAvailable = true;
 
+            // 🆕 v6.41.43: Preis sofort neu berechnen mit dem neuen Timestamp
+            // (ohne OSRM-Call — wir haben km schon in routeData). Löst den Bug:
+            // 'Preis wechselt erst wenn ich was anderes ändere'.
+            if (routeData && routeData.km && typeof calculatePrice === 'function') {
+                try {
+                    const newPricing = calculatePrice(parseFloat(routeData.km), getPickupTimestamp());
+                    routeData.price = newPricing.total;
+                    // Zwei-Preis-Display neu rendern falls vorhanden (ruft intern checkRoute)
+                    if (pickupCoords && destCoords && typeof checkRoute === 'function') {
+                        checkRoute();
+                    }
+                } catch(e) { console.warn('Preis-Recalc nach Slot-Wahl fehlgeschlagen:', e.message); }
+            }
+
             // Info direkt anzeigen (ohne onDateTimeChange Umweg)
             const infoEl2 = document.getElementById('slot-selected-info');
             if (infoEl2 && routeData) {

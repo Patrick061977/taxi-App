@@ -51,6 +51,7 @@ APP_FILES=(
     "firebase-remote-logger.js"
     "robots.txt"
     "sitemap.xml"
+    "googleb29a71be78bd0c12.html"
 )
 
 for file in "${APP_FILES[@]}"; do

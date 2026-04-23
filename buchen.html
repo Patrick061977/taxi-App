@@ -577,7 +577,16 @@
                 <div class="card-title" style="margin-bottom:0;">🗺️ Taxis & Route</div>
                 <div id="live-taxi-count" style="font-size:12px;color:#64748b;font-weight:600;">…</div>
             </div>
-            <div id="live-taxi-map" style="width:100%;height:260px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+            <div style="position:relative;">
+                <div id="live-taxi-map" style="width:100%;height:260px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+                <!-- 🆕 v6.41.45: Preis-Overlay IN der Karte (schwebend, Glass-Look) -->
+                <div id="map-price-overlay" style="display:none;position:absolute;top:10px;right:10px;z-index:500;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.8);min-width:110px;">
+                    <div id="map-price-label" style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis</div>
+                    <div id="map-price-amount" style="font-size:22px;font-weight:800;color:#047857;line-height:1;letter-spacing:-0.5px;">—€</div>
+                    <div id="map-price-meta" style="font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;">—</div>
+                    <div id="map-price-diff" style="display:none;font-size:10px;font-weight:700;margin-top:4px;padding:2px 6px;border-radius:6px;"></div>
+                </div>
+            </div>
             <div id="live-taxi-status" style="font-size:11px;color:#94a3b8;margin-top:6px;text-align:center;">Lade Fahrzeuge…</div>
         </div>
 
@@ -1371,6 +1380,15 @@
             if (routeInfo) routeInfo.style.display = 'none';
             const mapEl = document.getElementById('route-map');
             if (mapEl) mapEl.style.display = 'none';
+            // 🆕 v6.41.45: Preis-Overlay auf der Karte + Zwei-Preis-Display ausblenden
+            const mpOverlay = document.getElementById('map-price-overlay');
+            if (mpOverlay) mpOverlay.style.display = 'none';
+            const twoPrice = document.getElementById('two-price-display');
+            if (twoPrice) twoPrice.style.display = 'none';
+            // Route-Layer auf der Live-Karte leeren
+            if (window.liveTaxiRouteLayer && typeof window.liveTaxiRouteLayer.clearLayers === 'function') {
+                try { window.liveTaxiRouteLayer.clearLayers(); } catch(e){}
+            }
             const availability = document.getElementById('availability');
             if (availability) availability.style.display = 'none';
             const btn = document.getElementById('btn-book');
@@ -2719,6 +2737,43 @@
                         hinweisEl.innerHTML = pricing.total + '€ <span style="font-size:10px;display:block;color:#92400e;">' + pricing.hinweise.join(', ') + '</span>';
                     } else {
                         hinweisEl.innerHTML = pricing.total + '€';
+                    }
+
+                    // 🆕 v6.41.45: Preis-Overlay direkt IN der Karte befüllen (Uber-Style)
+                    const mpOverlay = document.getElementById('map-price-overlay');
+                    const mpLabel = document.getElementById('map-price-label');
+                    const mpAmount = document.getElementById('map-price-amount');
+                    const mpMeta = document.getElementById('map-price-meta');
+                    const mpDiff = document.getElementById('map-price-diff');
+                    if (mpOverlay && mpAmount) {
+                        mpOverlay.style.display = 'block';
+                        if (isVorbestellungNow && pricingJetzt) {
+                            // Vorbestellung: Termin-Preis im Overlay + Differenz-Badge
+                            mpLabel.textContent = '📅 Zum Termin';
+                            mpAmount.textContent = pricing.total + '€';
+                            mpAmount.style.color = pricing.total > pricingJetzt.total ? '#b45309' : (pricing.total < pricingJetzt.total ? '#0369a1' : '#047857');
+                            mpMeta.textContent = km + ' km · ' + min + ' Min';
+                            const diff = pricing.total - pricingJetzt.total;
+                            if (Math.abs(diff) > 0.01) {
+                                mpDiff.style.display = 'block';
+                                if (diff > 0) {
+                                    mpDiff.innerHTML = '⬆ +' + diff.toFixed(2) + '€ vs. jetzt';
+                                    mpDiff.style.background = '#fef3c7'; mpDiff.style.color = '#92400e';
+                                } else {
+                                    mpDiff.innerHTML = '⬇ ' + diff.toFixed(2) + '€ vs. jetzt';
+                                    mpDiff.style.background = '#dbeafe'; mpDiff.style.color = '#1e40af';
+                                }
+                            } else {
+                                mpDiff.style.display = 'none';
+                            }
+                        } else {
+                            // Sofort oder ohne Termin: einfacher Preis
+                            mpLabel.textContent = 'Preis';
+                            mpAmount.textContent = pricing.total + '€';
+                            mpAmount.style.color = '#047857';
+                            mpMeta.textContent = km + ' km · ' + min + ' Min';
+                            mpDiff.style.display = 'none';
+                        }
                     }
 
                     // 🆕 v6.41.42: Zwei-Preis-Display bei Vorbestellung (aus index.html)

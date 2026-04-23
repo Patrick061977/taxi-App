@@ -38,6 +38,7 @@ APP_FILES=(
     "index.html"
     "kunden.html"
     "buchen.html"
+    "buchung-test.html"
     "landing.html"
     "berlin.html"
     "anfrage.html"

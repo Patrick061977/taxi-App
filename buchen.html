@@ -3399,14 +3399,13 @@
             // 1) CSS dynamisch einfügen (Sticky, Pulse, Progress-Bar, Highlight)
             const style = document.createElement('style');
             style.textContent = `
-                /* Sticky Live-Karte oben — bleibt beim Scrollen sichtbar */
+                /* 🔧 v6.41.49: Karte NICHT mehr sticky — verursachte Overlap mit Booking-Card
+                   auf bestimmten Viewport-Größen (User-Screenshot: Karte lag über Sofort-Button).
+                   Karte scrollt jetzt normal mit weg. Mini-Modus bei Scroll (v6.41.48) bleibt. */
                 #live-taxi-card {
-                    position: sticky;
-                    top: 68px;  /* Unter Header */
-                    z-index: 500;
-                    transition: all 0.4s ease;
+                    transition: all 0.3s ease;
                 }
-                /* Progress-Bar */
+                /* Progress-Bar — bleibt sticky (dünn, keine Overlap-Gefahr) */
                 #booking-progress {
                     position: sticky;
                     top: 60px;

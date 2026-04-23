@@ -571,13 +571,13 @@
 
     <!-- Buchungsformular -->
     <div class="main">
-        <!-- 🆕 v6.41.39: Live-Taxi-Karte oben — Uber-Style, zeigt aktive Fahrzeuge -->
+        <!-- 🆕 v6.41.39: Live-Taxi-Karte oben — Uber-Style, zeigt aktive Fahrzeuge UND Route (v6.41.44) -->
         <div class="card" id="live-taxi-card" style="padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div class="card-title" style="margin-bottom:0;">🗺️ Taxis in der Nähe</div>
+                <div class="card-title" style="margin-bottom:0;">🗺️ Taxis & Route</div>
                 <div id="live-taxi-count" style="font-size:12px;color:#64748b;font-weight:600;">…</div>
             </div>
-            <div id="live-taxi-map" style="width:100%;height:200px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+            <div id="live-taxi-map" style="width:100%;height:260px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
             <div id="live-taxi-status" style="font-size:11px;color:#94a3b8;margin-top:6px;text-align:center;">Lade Fahrzeuge…</div>
         </div>
 
@@ -2780,21 +2780,59 @@
         }
 
         function showRouteMap(geometry) {
+            // 🆕 v6.41.44: Route zeichnet auf die EINE Live-Karte oben — nicht mehr
+            // zweite Karte unten. Taxis bleiben sichtbar (eigener Layer), Route wird
+            // in window.liveTaxiRouteLayer gerendert (bei jedem Aufruf geleert).
             const mapEl = document.getElementById('route-map');
-            mapEl.style.display = 'block';
-            if (bookingMap) bookingMap.remove();
-            // 🔧 v6.39.1: Touch-Drag deaktiviert — verhindert versehentliches Scrollen auf Handy
-            bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: true, scrollWheelZoom: false });
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
-            L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
-            L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');
-            if (stoppCoords) {
-                L.marker([stoppCoords.lat, stoppCoords.lon]).addTo(bookingMap).bindPopup('📍 Zwischenstopp');
+            if (mapEl) mapEl.style.display = 'none'; // Alte zweite Karte verstecken
+            if (bookingMap) { try { bookingMap.remove(); } catch(e){} bookingMap = null; }
+
+            const liveMap = window.liveTaxiMap;
+            const routeLayer = window.liveTaxiRouteLayer;
+            if (!liveMap || !routeLayer) {
+                // Fallback: falls Live-Karte nicht initialisiert, zeichne in alter zweiter Karte
+                if (mapEl) mapEl.style.display = 'block';
+                bookingMap = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: true, scrollWheelZoom: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(bookingMap);
+                L.geoJSON(geometry, { style: { color: '#059669', weight: 4 } }).addTo(bookingMap);
+                L.marker([pickupCoords.lat, pickupCoords.lon]).addTo(bookingMap).bindPopup('📍 Abholort');
+                if (stoppCoords) L.marker([stoppCoords.lat, stoppCoords.lon]).addTo(bookingMap).bindPopup('📍 Zwischenstopp');
+                L.marker([destCoords.lat, destCoords.lon]).addTo(bookingMap).bindPopup('🎯 Zielort');
+                const bounds = [[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]];
+                if (stoppCoords) bounds.push([stoppCoords.lat, stoppCoords.lon]);
+                bookingMap.fitBounds(bounds, { padding: [30, 30] });
+                return;
             }
-            L.marker([destCoords.lat, destCoords.lon]).addTo(bookingMap).bindPopup('🎯 Zielort');
+
+            // Route-Layer leeren (neue Berechnung) — Taxi-Marker bleiben auf eigenem Layer
+            routeLayer.clearLayers();
+
+            // Route-Linie (grün, 4px)
+            L.geoJSON(geometry, { style: { color: '#059669', weight: 4, opacity: 0.85 } }).addTo(routeLayer);
+
+            // Abhol-Marker (grüner Pin)
+            const pickupIcon = L.divIcon({
+                html: '<div style="background:#059669;border:3px solid white;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:14px;">📍</span></div>',
+                iconSize: [28, 28], iconAnchor: [14, 28], className: 'pickup-pin'
+            });
+            L.marker([pickupCoords.lat, pickupCoords.lon], { icon: pickupIcon }).addTo(routeLayer).bindPopup('📍 Abholort');
+            if (stoppCoords) {
+                L.marker([stoppCoords.lat, stoppCoords.lon]).addTo(routeLayer).bindPopup('📍 Zwischenstopp');
+            }
+            // Ziel-Marker (roter Pin)
+            const destIcon = L.divIcon({
+                html: '<div style="background:#dc2626;border:3px solid white;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:14px;">🎯</span></div>',
+                iconSize: [28, 28], iconAnchor: [14, 28], className: 'dest-pin'
+            });
+            L.marker([destCoords.lat, destCoords.lon], { icon: destIcon }).addTo(routeLayer).bindPopup('🎯 Zielort');
+
+            // Karte fitet zu Route-Bounds
             const bounds = [[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]];
             if (stoppCoords) bounds.push([stoppCoords.lat, stoppCoords.lon]);
-            bookingMap.fitBounds(bounds, { padding: [30, 30] });
+            try {
+                liveMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+                setTimeout(() => { try { liveMap.invalidateSize(); } catch(e){} }, 100);
+            } catch(e) { console.warn('Map fitBounds error:', e.message); }
         }
 
         // ═══════════════════════════════════════════════
@@ -3525,6 +3563,10 @@
             const liveMap = L.map('live-taxi-map', { zoomControl: false, attributionControl: false }).setView(HERINGSDORF, 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(liveMap);
             L.control.zoom({ position: 'bottomright' }).addTo(liveMap);
+            // 🆕 v6.41.44: Map-Instance global exposed — damit showRouteMap() drauf zugreifen kann
+            window.liveTaxiMap = liveMap;
+            // Layer für Route-Zeichnung (wird in showRouteMap() befüllt, Taxis bleiben unberührt)
+            window.liveTaxiRouteLayer = L.layerGroup().addTo(liveMap);
 
             // Icon-Factories
             function makeIcon(color) {

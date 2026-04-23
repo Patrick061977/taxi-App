@@ -156,16 +156,12 @@
             <input type="text" class="input-field" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
         </div>
 
-        <!-- 5b. KUNDEN-DATEN -->
+        <!-- 5b. KUNDEN-DATEN (nur Name + Personenzahl — Telefonnummer kommt nach Klick "Jetzt buchen") -->
         <div class="card" id="card-customer">
             <div class="card-title">👤 Deine Daten</div>
             <div class="input-group">
                 <label class="input-label">Name</label>
                 <input type="text" class="input-field" id="b-name" placeholder="Vor- und Nachname" autocomplete="name">
-            </div>
-            <div class="input-group">
-                <label class="input-label">Telefonnummer (für Rückruf bei Problemen)</label>
-                <input type="tel" class="input-field" id="b-phone" placeholder="+49 ..." autocomplete="tel">
             </div>
             <div class="input-group">
                 <label class="input-label">Anzahl Personen</label>
@@ -194,11 +190,41 @@
         </div>
 
         <!-- 7. BUCHEN -->
-        <button class="book-btn" id="book-btn" onclick="doBooking()">
+        <button class="book-btn" id="book-btn" onclick="openPhoneModal()">
             🚕 JETZT BUCHEN
         </button>
 
         <a href="landing.html" class="footer-link">← Zurück zur Startseite</a>
+    </div>
+
+    <!-- 8. TELEFON-MODAL (erscheint nach Klick auf JETZT BUCHEN) -->
+    <div id="phone-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;padding:20px;overflow-y:auto;">
+        <div style="max-width:440px;margin:40px auto;background:white;border-radius:18px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="text-align:center;margin-bottom:18px;">
+                <div style="font-size:48px;margin-bottom:8px;">📱</div>
+                <h2 style="font-size:22px;font-weight:800;color:#047857;margin-bottom:6px;">Fast fertig!</h2>
+                <p style="font-size:14px;color:#64748b;line-height:1.4;">
+                    Deine Handynummer — damit der Fahrer dich erreicht falls er dich nicht findet.
+                </p>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;">📱 Handynummer</label>
+                <input type="tel" id="modal-phone" placeholder="+49 176 ..." autocomplete="tel"
+                    style="width:100%;padding:14px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;">
+            </div>
+            <button onclick="confirmBooking()" id="modal-confirm-btn"
+                style="width:100%;padding:16px;background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);margin-bottom:10px;">
+                ✓ Taxi jetzt schicken
+            </button>
+            <button onclick="closePhoneModal()"
+                style="width:100%;padding:12px;background:none;color:#64748b;border:none;font-size:14px;cursor:pointer;">
+                Abbrechen
+            </button>
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.5;">
+                Wir nutzen deine Nummer nur für diese Fahrt.<br>
+                Keine Werbung, keine Weitergabe.
+            </div>
+        </div>
     </div>
 
     <!-- Leaflet -->
@@ -472,28 +498,58 @@
             }, 100);
         });
 
-        // === BUCHUNG AUSFÜHREN ===
-        async function doBooking() {
+        // === SCHRITT 1: Hauptformular-Validierung + Modal öffnen ===
+        // Wird vom "🚕 JETZT BUCHEN"-Button aufgerufen. Prüft Pickup/Ziel/Name, dann öffnet
+        // das Telefon-Modal. Die eigentliche Buchung passiert erst nach Nummer-Eingabe in confirmBooking().
+        function openPhoneModal() {
             if (!state.pickup || !state.destination) {
                 alert('Bitte Abholort und Zielort eingeben.');
                 return;
             }
-
-            // Kunden-Daten lesen
             const customerName = (document.getElementById('b-name')?.value || '').trim();
-            const customerPhone = (document.getElementById('b-phone')?.value || '').trim();
-            const passengers = parseInt(document.getElementById('b-passengers')?.value || '2', 10);
-
             if (!customerName) {
                 alert('Bitte Namen eingeben.');
                 document.getElementById('b-name').focus();
                 return;
             }
-            if (!customerPhone || customerPhone.length < 5) {
-                alert('Bitte Telefonnummer eingeben (für Rückruf bei Problemen).');
-                document.getElementById('b-phone').focus();
+            // Vorbestellungs-Datum früh validieren (bevor Kunde die Nummer eintippt)
+            if (state.mode === 'vorbestellen') {
+                const dateStr = document.getElementById('b-date')?.value;
+                const timeStr = document.getElementById('b-time')?.value;
+                if (!dateStr || !timeStr) {
+                    alert('Bitte Datum und Uhrzeit für die Vorbestellung wählen.');
+                    return;
+                }
+                const _ts = new Date(dateStr + 'T' + timeStr).getTime();
+                if (_ts < Date.now() + 5 * 60 * 1000) {
+                    alert('Die Abholzeit muss mindestens 5 Min in der Zukunft liegen.');
+                    return;
+                }
+            }
+            document.getElementById('phone-modal').style.display = 'block';
+            setTimeout(() => document.getElementById('modal-phone').focus(), 100);
+        }
+
+        function closePhoneModal() {
+            document.getElementById('phone-modal').style.display = 'none';
+        }
+
+        // === SCHRITT 2: Nummer validieren + Buchung ausführen ===
+        async function confirmBooking() {
+            const customerPhone = (document.getElementById('modal-phone')?.value || '').trim();
+            if (!customerPhone || customerPhone.replace(/\D/g, '').length < 7) {
+                alert('Bitte eine gültige Handynummer eingeben.');
+                document.getElementById('modal-phone').focus();
                 return;
             }
+            closePhoneModal();
+            await doBooking(customerPhone);
+        }
+
+        // === SCHRITT 3: Firebase-Buchung ===
+        async function doBooking(customerPhone) {
+            const customerName = (document.getElementById('b-name')?.value || '').trim();
+            const passengers = parseInt(document.getElementById('b-passengers')?.value || '2', 10);
 
             // Vorbestellung: Datum/Uhrzeit prüfen
             const now = Date.now();

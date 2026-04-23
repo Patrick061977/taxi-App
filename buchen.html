@@ -567,6 +567,16 @@
 
     <!-- Buchungsformular -->
     <div class="main">
+        <!-- 🆕 v6.41.39: Live-Taxi-Karte oben — Uber-Style, zeigt aktive Fahrzeuge -->
+        <div class="card" id="live-taxi-card" style="padding:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="card-title" style="margin-bottom:0;">🗺️ Taxis in der Nähe</div>
+                <div id="live-taxi-count" style="font-size:12px;color:#64748b;font-weight:600;">…</div>
+            </div>
+            <div id="live-taxi-map" style="width:100%;height:200px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+            <div id="live-taxi-status" style="font-size:11px;color:#94a3b8;margin-top:6px;text-align:center;">Lade Fahrzeuge…</div>
+        </div>
+
         <div class="card" id="booking-card">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="card-title" style="margin-bottom:0;">🚖 Taxi buchen</div>
@@ -3170,6 +3180,133 @@
             t.style.display = 'block';
             setTimeout(() => t.style.display = 'none', 3000);
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 🆕 v6.41.39: LIVE-TAXI-KARTE (Uber-Style)
+        // Firebase-Listener auf /vehicles + /rides → Farb-codierte Marker
+        //   🟢 Grün  = FREI
+        //   🟡 Orange = Besetzt (mit ETA bis frei wenn berechenbar)
+        //   Offline-Fahrzeuge werden nicht gezeigt
+        // ═══════════════════════════════════════════════════════════════
+        (function initLiveTaxiMap() {
+            const HERINGSDORF = [53.9577, 14.1486];
+            const mapEl = document.getElementById('live-taxi-map');
+            if (!mapEl || typeof L === 'undefined') return;
+
+            const liveMap = L.map('live-taxi-map', { zoomControl: false, attributionControl: false }).setView(HERINGSDORF, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(liveMap);
+            L.control.zoom({ position: 'bottomright' }).addTo(liveMap);
+
+            // Icon-Factories
+            function makeIcon(color) {
+                return L.divIcon({
+                    html: `<div style="background:${color};border:2px solid white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:16px;">🚕</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16],
+                    className: 'live-taxi-marker'
+                });
+            }
+            const iconFree  = makeIcon('#10b981'); // grün
+            const iconBusy  = makeIcon('#f59e0b'); // orange
+
+            const taxiMarkers = {}; // vehicleId → {marker, isFree, etaMin}
+            let latestVehicles = {};
+            let latestRides = {};
+
+            function rebuildMarkers() {
+                const now = Date.now();
+                const activeStatuses = ['accepted', 'on_way', 'picked_up', 'assigned', 'sofort'];
+                // Pro Fahrzeug: bestimme ob es eine aktive Fahrt hat und schätze ETA bis Ende
+                const busyByVehicle = {}; // vid → { etaMin, rideCount }
+                Object.values(latestRides || {}).forEach(r => {
+                    if (!r || !r.vehicleId) return;
+                    if (!activeStatuses.includes(r.status)) return;
+                    const vid = r.vehicleId;
+                    // ETA bis Ende: pickupTimestamp + estimatedDuration - now  (in Min)
+                    let etaMin = null;
+                    const dur = parseInt(r.duration || r.estimatedDuration || 0);
+                    if (dur && r.pickupTimestamp) {
+                        const endTs = r.pickupTimestamp + dur * 60 * 1000;
+                        etaMin = Math.max(1, Math.round((endTs - now) / 60000));
+                    }
+                    if (!busyByVehicle[vid] || (etaMin !== null && (busyByVehicle[vid].etaMin === null || etaMin > busyByVehicle[vid].etaMin))) {
+                        busyByVehicle[vid] = { etaMin };
+                    }
+                });
+
+                let onlineCount = 0;
+                let freeCount = 0;
+                const seen = new Set();
+
+                Object.entries(latestVehicles || {}).forEach(([vid, v]) => {
+                    if (!v) return;
+                    const isOnline = v.online === true || v.dispatchStatus === 'online';
+                    const fresh = v.timestamp && (now - v.timestamp) < 10 * 60 * 1000;
+                    if (!isOnline || !fresh || !v.lat || !v.lon) return;
+                    onlineCount++;
+                    seen.add(vid);
+
+                    const isBusy = !!busyByVehicle[vid];
+                    if (!isBusy) freeCount++;
+                    const icon = isBusy ? iconBusy : iconFree;
+
+                    // Popup-Text
+                    const vehName = v.name || 'Taxi';
+                    const etaMin = isBusy ? busyByVehicle[vid].etaMin : null;
+                    const popupText = isBusy
+                        ? (etaMin !== null
+                            ? `🚕 <b>${vehName}</b><br>🟡 Besetzt — frei in ca. <b>${etaMin} Min</b>`
+                            : `🚕 <b>${vehName}</b><br>🟡 Besetzt`)
+                        : `🚕 <b>${vehName}</b><br>🟢 <b>FREI</b>`;
+
+                    if (taxiMarkers[vid]) {
+                        taxiMarkers[vid].setLatLng([v.lat, v.lon]);
+                        taxiMarkers[vid].setIcon(icon);
+                        taxiMarkers[vid].setPopupContent(popupText);
+                    } else {
+                        const m = L.marker([v.lat, v.lon], { icon: icon }).addTo(liveMap);
+                        m.bindPopup(popupText);
+                        taxiMarkers[vid] = m;
+                    }
+                });
+
+                // Verschwundene Marker entfernen
+                Object.keys(taxiMarkers).forEach(vid => {
+                    if (!seen.has(vid)) {
+                        liveMap.removeLayer(taxiMarkers[vid]);
+                        delete taxiMarkers[vid];
+                    }
+                });
+
+                // Status-Zeile + Badge
+                const countEl = document.getElementById('live-taxi-count');
+                const statusEl = document.getElementById('live-taxi-status');
+                if (onlineCount === 0) {
+                    if (countEl) countEl.innerHTML = '<span style="color:#dc2626;">Kein Taxi online</span>';
+                    if (statusEl) statusEl.innerHTML = '📞 Bitte anrufen: <a href="tel:+49383782022" style="color:#059669;font-weight:600;">038378/22022</a>';
+                } else {
+                    if (countEl) countEl.innerHTML = `<span style="color:#047857;">🟢 ${freeCount} frei</span> · <span style="color:#b45309;">🟡 ${onlineCount - freeCount} besetzt</span>`;
+                    if (statusEl) statusEl.textContent = `Position aktualisiert sich live — auf 🚕 tippen für Details`;
+                }
+            }
+
+            // Firebase-Listener
+            try {
+                db.ref('vehicles').on('value', snap => {
+                    latestVehicles = snap.val() || {};
+                    rebuildMarkers();
+                });
+                // Nur aktive Rides (status != completed/cancelled) — alle zu laden wäre zu viel
+                db.ref('rides').orderByChild('status').on('value', snap => {
+                    latestRides = snap.val() || {};
+                    rebuildMarkers();
+                });
+                // Periodischer Refresh damit ETA-Minuten tickern (auch ohne Firebase-Update)
+                setInterval(rebuildMarkers, 30 * 1000);
+            } catch(e) {
+                console.warn('Live-Taxi-Map Listener-Fehler:', e.message);
+            }
+        })();
     </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ on:
       - 'icon-192.png'
       - 'advanced-logger.js'
       - 'firebase-remote-logger.js'
+      - 'google*.html'
       - 'strato/**'
 
   workflow_dispatch:

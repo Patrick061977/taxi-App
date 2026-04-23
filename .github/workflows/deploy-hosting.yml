@@ -21,6 +21,7 @@ on:
       - 'icon-192.png'
       - 'advanced-logger.js'
       - 'firebase-remote-logger.js'
+      - 'google*.html'
       - 'firebase.json'
       - '.firebaserc'
 

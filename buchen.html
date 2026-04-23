@@ -56,6 +56,60 @@
             margin-bottom: 6px;
             letter-spacing: 0.5px;
         }
+        /* 🆕 v6.41.47: Floating Mini-Map bei Scroll (Uber/Bolt-Style) */
+        #live-taxi-card.is-mini {
+            position: fixed;
+            top: 58px;
+            right: 10px;
+            width: 130px !important;
+            z-index: 998;
+            padding: 4px !important;
+            margin: 0 !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25) !important;
+            border-radius: 12px !important;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        #live-taxi-card.is-mini #live-taxi-map {
+            height: 100px !important;
+            min-height: 100px !important;
+            max-height: 100px !important;
+            border-radius: 8px !important;
+        }
+        #live-taxi-card.is-mini > div > .card-title,
+        #live-taxi-card.is-mini #live-taxi-count,
+        #live-taxi-card.is-mini #live-taxi-status,
+        #live-taxi-card.is-mini #map-price-overlay { display: none !important; }
+        #live-taxi-card.is-mini::after {
+            content: '⤢ Vergrößern';
+            position: absolute;
+            bottom: 4px; left: 0; right: 0;
+            font-size: 9px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 2px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+        }
+        /* Platzhalter damit der Content nicht springt wenn die Karte minimiert wird */
+        #live-taxi-card-placeholder {
+            display: none;
+            margin-bottom: 8px;
+        }
+        #live-taxi-card-placeholder.is-active {
+            display: block;
+            height: 120px;
+            background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
+            border-radius: 12px;
+            border: 1px dashed #a78bfa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6366f1;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         /* 🆕 v6.41.46: Mobile-first kompakt — alles auf einen Screen ohne Scrollen */
         @media (max-width: 600px) {
             .main { padding: 8px; }
@@ -3613,6 +3667,59 @@
 
             // Initiale Progress-Bar-Aktualisierung
             setTimeout(updateProgress, 500);
+
+            // 🆕 v6.41.47: Floating Mini-Map bei Scroll (Uber/Bolt-Style)
+            const mapCard = document.getElementById('live-taxi-card');
+            if (mapCard) {
+                // Platzhalter einfügen (verhindert Layout-Shift wenn Karte minimiert)
+                const placeholder = document.createElement('div');
+                placeholder.id = 'live-taxi-card-placeholder';
+                placeholder.innerHTML = '🗺️ Tippe oben rechts für Karte ↗';
+                mapCard.parentNode.insertBefore(placeholder, mapCard.nextSibling);
+
+                let userExpanded = false; // wenn User explizit auf Mini geklickt hat → groß
+                let _mapCollapseCheck = null;
+
+                function checkMapCollapse() {
+                    const scrollY = window.scrollY || document.documentElement.scrollTop;
+                    const shouldMini = scrollY > 150 && !userExpanded;
+                    const isMini = mapCard.classList.contains('is-mini');
+                    if (shouldMini && !isMini) {
+                        mapCard.classList.add('is-mini');
+                        placeholder.classList.add('is-active');
+                        if (window.liveTaxiMap) setTimeout(() => { try { window.liveTaxiMap.invalidateSize(); } catch(e){} }, 400);
+                    } else if (!shouldMini && isMini && scrollY <= 100) {
+                        // Auto-Expand nur wenn User wirklich ganz nach oben scrollt
+                        mapCard.classList.remove('is-mini');
+                        placeholder.classList.remove('is-active');
+                        userExpanded = false;
+                        if (window.liveTaxiMap) setTimeout(() => { try { window.liveTaxiMap.invalidateSize(); } catch(e){} }, 400);
+                    }
+                }
+
+                // Klick auf Mini-Karte → groß machen + smooth-scroll nach oben
+                mapCard.addEventListener('click', (e) => {
+                    if (mapCard.classList.contains('is-mini')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        userExpanded = true;
+                        mapCard.classList.remove('is-mini');
+                        placeholder.classList.remove('is-active');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        if (window.liveTaxiMap) setTimeout(() => { try { window.liveTaxiMap.invalidateSize(); } catch(e){} }, 400);
+                    }
+                });
+
+                // Scroll-Listener (throttled via rAF)
+                let scrollTimer = null;
+                window.addEventListener('scroll', () => {
+                    if (scrollTimer) return;
+                    scrollTimer = requestAnimationFrame(() => {
+                        checkMapCollapse();
+                        scrollTimer = null;
+                    });
+                });
+            }
         })();
 
         // ═══════════════════════════════════════════════════════════════

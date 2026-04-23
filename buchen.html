@@ -70,6 +70,32 @@
             max-height: 1200px;
             pointer-events: auto;
         }
+        /* 🆕 v6.41.54: Uber-Style — Buchungs-Card schiebt sich VON UNTEN in die Karte (overlap,
+           keine position:fixed — damit keine Scroll-Bugs wie v6.41.47). */
+        #live-taxi-card {
+            padding-bottom: 24px !important;
+            margin-bottom: 0 !important;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        #booking-card {
+            margin-top: -28px !important;
+            position: relative;
+            z-index: 2;
+            border-top-left-radius: 24px !important;
+            border-top-right-radius: 24px !important;
+            box-shadow: 0 -6px 22px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+        }
+        /* Kleiner "Grip"-Strich oben auf der Card — signalisiert dass Card über Map schwebt */
+        #booking-card::before {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 4px;
+            background: #cbd5e1;
+            border-radius: 2px;
+            margin: -4px auto 10px;
+        }
         /* 🆕 v6.41.48: Karte bleibt im Fluss, schrumpft nur bei Scroll (kein position:fixed).
            Verhindert Layout-Shift-Bug (v6.41.47 hatte 'kann nicht runterscrollen'). */
         #live-taxi-card {
@@ -1662,11 +1688,22 @@
                 const el = document.getElementById('availability');
                 const infoEl = document.getElementById('slot-selected-info');
                 const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+                // 🔧 v6.41.54: Zeit aus frisch gelesenen Dropdown-Werten (nicht den stale Closure)
+                const _hNow = document.getElementById('b-hour').value || hourVal;
+                const _mNow = document.getElementById('b-minute').value || minVal;
                 const dt = new Date(dateVal + 'T00:00:00');
-                const zeitText = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${hourVal}:${minVal} Uhr`;
+                const zeitText = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${_hNow}:${_mNow} Uhr`;
+                // 🔧 v6.41.54: "Nicht verfügbar" NUR zeigen wenn Adressen gesetzt sind
+                // Sonst verwirrt es den Nutzer — ohne Route kann kein Slot geprüft werden
+                const hasAddresses = pickupCoords && destCoords;
                 if (_slotIsFree) {
                     // 🔧 v6.39.1: selectSlot() rendert die Übersicht — hier nur Flags setzen
                     isAvailable = true;
+                    updateBookButton();
+                } else if (!hasAddresses) {
+                    // Noch keine Adressen → kein "nicht verfügbar" anzeigen
+                    isAvailable = false;
+                    if (infoEl) infoEl.style.display = 'none';
                     updateBookButton();
                 } else {
                     isAvailable = false;

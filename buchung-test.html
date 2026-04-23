@@ -156,6 +156,32 @@
             <input type="text" class="input-field" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
         </div>
 
+        <!-- 5b. KUNDEN-DATEN -->
+        <div class="card" id="card-customer">
+            <div class="card-title">👤 Deine Daten</div>
+            <div class="input-group">
+                <label class="input-label">Name</label>
+                <input type="text" class="input-field" id="b-name" placeholder="Vor- und Nachname" autocomplete="name">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Telefonnummer (für Rückruf bei Problemen)</label>
+                <input type="tel" class="input-field" id="b-phone" placeholder="+49 ..." autocomplete="tel">
+            </div>
+            <div class="input-group">
+                <label class="input-label">Anzahl Personen</label>
+                <select class="input-field" id="b-passengers">
+                    <option value="1">1 Person</option>
+                    <option value="2" selected>2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                    <option value="5">5 Personen</option>
+                    <option value="6">6 Personen</option>
+                    <option value="7">7 Personen</option>
+                    <option value="8">8 Personen</option>
+                </select>
+            </div>
+        </div>
+
         <!-- 6. PREIS -->
         <div class="price-box" id="price-box">
             <div class="price-row">
@@ -281,27 +307,49 @@
         });
 
         // === GOOGLE PLACES AUTOCOMPLETE ===
-        // Wird aufgerufen sobald Google Maps API geladen ist
+        // Globale Funktion — Google Maps Script ruft sie auf wenn geladen
         let _gAutocompletePickup = null;
         let _gAutocompleteDest = null;
-        function initGooglePlaces() {
-            const opts = {
-                componentRestrictions: { country: 'de' },
-                fields: ['formatted_address', 'geometry', 'name'],
-                bounds: new google.maps.LatLngBounds(
-                    new google.maps.LatLng(53.85, 13.95),
-                    new google.maps.LatLng(54.10, 14.30)
-                ),
-                strictBounds: false
-            };
-            _gAutocompletePickup = new google.maps.places.Autocomplete(document.getElementById('b-pickup'), opts);
-            _gAutocompletePickup.addListener('place_changed', () => onAddressPicked('pickup'));
+        window.initGooglePlaces = function() {
+            try {
+                if (!window.google || !window.google.maps || !window.google.maps.places) {
+                    console.warn('⚠️ Google Maps Places nicht verfügbar — versuche in 1s erneut');
+                    setTimeout(window.initGooglePlaces, 1000);
+                    return;
+                }
+                const pickupEl = document.getElementById('b-pickup');
+                const destEl = document.getElementById('b-destination');
+                if (!pickupEl || !destEl) {
+                    console.warn('⚠️ Input-Elemente noch nicht im DOM — retry in 500ms');
+                    setTimeout(window.initGooglePlaces, 500);
+                    return;
+                }
+                const opts = {
+                    componentRestrictions: { country: 'de' },
+                    fields: ['formatted_address', 'geometry', 'name'],
+                    types: ['geocode', 'establishment']
+                };
+                _gAutocompletePickup = new google.maps.places.Autocomplete(pickupEl, opts);
+                _gAutocompletePickup.addListener('place_changed', () => onAddressPicked('pickup'));
 
-            _gAutocompleteDest = new google.maps.places.Autocomplete(document.getElementById('b-destination'), opts);
-            _gAutocompleteDest.addListener('place_changed', () => onAddressPicked('destination'));
+                _gAutocompleteDest = new google.maps.places.Autocomplete(destEl, opts);
+                _gAutocompleteDest.addListener('place_changed', () => onAddressPicked('destination'));
 
-            console.log('✅ Google Places Autocomplete bereit');
-        }
+                // Bounds nachträglich setzen (wenn LatLngBounds verfügbar) — Usedom-Region bevorzugen
+                try {
+                    const bounds = new google.maps.LatLngBounds(
+                        new google.maps.LatLng(53.85, 13.95),
+                        new google.maps.LatLng(54.10, 14.30)
+                    );
+                    _gAutocompletePickup.setBounds(bounds);
+                    _gAutocompleteDest.setBounds(bounds);
+                } catch(e) { /* nicht schlimm wenn bounds-Hint nicht klappt */ }
+
+                console.log('✅ Google Places Autocomplete bereit');
+            } catch(e) {
+                console.error('💾 initGooglePlaces Fehler:', e.message);
+            }
+        };
 
         function onAddressPicked(which) {
             const ac = which === 'pickup' ? _gAutocompletePickup : _gAutocompleteDest;
@@ -431,6 +479,43 @@
                 return;
             }
 
+            // Kunden-Daten lesen
+            const customerName = (document.getElementById('b-name')?.value || '').trim();
+            const customerPhone = (document.getElementById('b-phone')?.value || '').trim();
+            const passengers = parseInt(document.getElementById('b-passengers')?.value || '2', 10);
+
+            if (!customerName) {
+                alert('Bitte Namen eingeben.');
+                document.getElementById('b-name').focus();
+                return;
+            }
+            if (!customerPhone || customerPhone.length < 5) {
+                alert('Bitte Telefonnummer eingeben (für Rückruf bei Problemen).');
+                document.getElementById('b-phone').focus();
+                return;
+            }
+
+            // Vorbestellung: Datum/Uhrzeit prüfen
+            const now = Date.now();
+            const isVorbestellung = state.mode === 'vorbestellen';
+            let pickupTimestamp = now;
+            let pickupTimeStr = new Date(now).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+
+            if (isVorbestellung) {
+                const dateStr = document.getElementById('b-date').value;
+                const timeStr = document.getElementById('b-time').value;
+                if (!dateStr || !timeStr) {
+                    alert('Bitte Datum und Uhrzeit für die Vorbestellung wählen.');
+                    return;
+                }
+                pickupTimestamp = new Date(dateStr + 'T' + timeStr).getTime();
+                if (pickupTimestamp < now + 5 * 60 * 1000) {
+                    alert('Die Abholzeit muss mindestens 5 Min in der Zukunft liegen. Für Sofortfahrt → SOFORT-Button oben.');
+                    return;
+                }
+                pickupTimeStr = new Date(pickupTimestamp).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+            }
+
             const btn = document.getElementById('book-btn');
             btn.disabled = true;
             btn.textContent = '⏳ Buche…';
@@ -440,12 +525,11 @@
                 setTimeout(() => {
                     const summary =
                         `🧪 TEST-BUCHUNG erfasst (würde gebucht werden):\n\n` +
+                        `👤 ${customerName} (${customerPhone}, ${passengers} Pers.)\n` +
                         `📍 Abholort: ${state.pickup.address}\n` +
                         `🎯 Zielort: ${state.destination.address}\n` +
-                        `📏 Distanz: ${state.distanceKm.toFixed(1)} km\n` +
-                        `⏱️ Fahrtzeit: ~${state.durationMin} Min\n` +
-                        `💰 Preis: ${state.priceEuro.toFixed(2).replace('.', ',')} €\n` +
-                        `🚕 ETA: ~${state.nearestEtaMin || '?'} Min\n\n` +
+                        `📏 ${state.distanceKm.toFixed(1)} km · ~${state.durationMin} Min · ${state.priceEuro.toFixed(2).replace('.', ',')} €\n` +
+                        `${isVorbestellung ? '📅 Vorbestellung: ' + pickupTimeStr : '⚡ SOFORT — ETA ~' + (state.nearestEtaMin || '?') + ' Min'}\n\n` +
                         `Für echte Buchung: URL mit ?live=1 öffnen.`;
                     alert(summary);
                     btn.disabled = false;
@@ -454,73 +538,78 @@
                 return;
             }
 
-            // === LIVE: echter Firebase-Push ===
+            // === LIVE: echter Firebase-Push (Schema wie buchen.html) ===
             try {
-                const now = Date.now();
-                const isVorbestellung = state.mode === 'vorbestellen';
-                let pickupTimestamp = now;
-
-                if (isVorbestellung) {
-                    const dateStr = document.getElementById('b-date').value;
-                    const timeStr = document.getElementById('b-time').value;
-                    if (!dateStr || !timeStr) {
-                        alert('Bitte Datum und Uhrzeit für die Vorbestellung wählen.');
-                        btn.disabled = false;
-                        btn.textContent = '🚕 JETZT BUCHEN';
-                        return;
-                    }
-                    pickupTimestamp = new Date(dateStr + 'T' + timeStr).getTime();
-                    if (pickupTimestamp < now) {
-                        alert('Die Abholzeit liegt in der Vergangenheit.');
-                        btn.disabled = false;
-                        btn.textContent = '🚕 JETZT BUCHEN';
-                        return;
-                    }
-                }
-
-                // Ride-Objekt nach Schema /rides/{id}
-                const rideId = 'ride_' + now + '_' + Math.random().toString(36).substring(2, 11);
-                const ride = {
-                    customerName: 'TEST-Buchung (buchung-test.html)',
+                const ref = db.ref('rides').push();
+                const rideId = ref.key;
+                const rideData = {
+                    id: rideId,
+                    customerName: customerName,
+                    customerPhone: customerPhone,
+                    passengers: passengers,
                     pickup: state.pickup.address,
                     pickupLat: state.pickup.lat,
                     pickupLon: state.pickup.lon,
+                    pickupCoords: { lat: state.pickup.lat, lon: state.pickup.lon },
                     destination: state.destination.address,
                     destinationLat: state.destination.lat,
                     destinationLon: state.destination.lon,
+                    destCoords: { lat: state.destination.lat, lon: state.destination.lon },
                     pickupTimestamp: pickupTimestamp,
+                    pickupTime: pickupTimeStr,
                     timestamp: now,
                     createdAt: now,
                     updatedAt: now,
-                    distanceKm: state.distanceKm,
-                    durationMin: state.durationMin,
                     price: state.priceEuro,
+                    estimatedPrice: state.priceEuro,
+                    distance: state.distanceKm,
+                    estimatedDistance: state.distanceKm,
+                    duration: state.durationMin,
+                    estimatedDuration: state.durationMin,
                     paymentMethod: 'bar',
-                    status: isVorbestellung ? 'vorbestellt' : 'new',
-                    source: 'buchung-test.html',
-                    isJetzt: !isVorbestellung
+                    status: isVorbestellung ? 'vorbestellt' : 'sofort',
+                    isJetzt: !isVorbestellung,
+                    source: 'buchung-test.html'
                 };
+                await ref.set(rideData);
 
-                await db.ref('rides/' + rideId).set(ride);
-
-                btn.textContent = '✅ Buchung erfasst!';
-                setTimeout(() => {
-                    alert(
-                        `✅ BUCHUNG ERFASST\n\n` +
-                        `Ride-ID: ${rideId}\n\n` +
-                        `Status: ${isVorbestellung ? 'vorbestellt' : 'new (sucht Fahrer)'}\n` +
-                        `Preis: ${state.priceEuro.toFixed(2).replace('.', ',')} €\n\n` +
-                        `Bitte JETZT in Firebase Console / Admin-Tab den Status auf "cancelled" setzen wenn das nur ein Test war!`
-                    );
-                    btn.disabled = false;
-                    btn.textContent = '🚕 NOCHMAL BUCHEN';
-                }, 400);
+                // Erfolgs-Screen
+                const trackingUrl = `https://umwelt-taxi-insel-usedom.de/track.html?ride=${rideId}`;
+                showSuccess(rideId, isVorbestellung, pickupTimeStr, trackingUrl);
             } catch (e) {
                 console.error('Buchung-Fehler:', e);
                 alert('❌ Fehler: ' + (e.message || e));
                 btn.disabled = false;
                 btn.textContent = '🚕 JETZT BUCHEN';
             }
+        }
+
+        function showSuccess(rideId, isVorbestellung, pickupTimeStr, trackingUrl) {
+            const main = document.querySelector('.main');
+            main.innerHTML = `
+                <div class="card" style="text-align:center; padding:30px;">
+                    <div style="font-size:64px; margin-bottom:12px;">${isVorbestellung ? '📅' : '🎉'}</div>
+                    <h2 style="font-size:22px; color:${isVorbestellung ? '#3b82f6' : '#059669'}; margin-bottom:8px;">
+                        ${isVorbestellung ? 'Vorbestellung bestätigt!' : 'Taxi ist gebucht!'}
+                    </h2>
+                    <p style="color:#475569; margin-bottom:20px;">
+                        ${isVorbestellung
+                            ? 'Ihr Taxi ist für ' + pickupTimeStr + ' Uhr vorgemerkt.'
+                            : 'Ihr Taxi kommt in wenigen Minuten.'}
+                    </p>
+                    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:14px; margin-bottom:16px; text-align:left;">
+                        <div style="font-size:12px; color:#15803d; margin-bottom:4px; text-transform:uppercase; font-weight:700;">Buchungs-ID</div>
+                        <div style="font-family:monospace; font-size:13px; color:#1e293b; word-break:break-all;">${rideId}</div>
+                    </div>
+                    <a href="${trackingUrl}" style="display:block; background:linear-gradient(135deg,#059669,#047857); color:white; padding:16px; border-radius:12px; font-weight:700; text-decoration:none; margin-bottom:10px;">
+                        🗺️ Live-Tracking öffnen
+                    </a>
+                    <a href="buchung-test.html${isLive ? '?live=1' : ''}" style="display:block; padding:12px; color:#64748b; text-decoration:none; font-size:13px;">
+                        ↩️ Neue Buchung
+                    </a>
+                </div>
+            `;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
 </body>

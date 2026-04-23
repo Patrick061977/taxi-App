@@ -1367,6 +1367,29 @@
             if (slotInfo) slotInfo.style.display = 'none';
             const availability = document.getElementById('availability');
             if (availability) availability.style.display = 'none';
+            // 🔧 v6.41.51: Kompletter Reset — auch neue Elemente ab v6.41.40+
+            const mpOverlay = document.getElementById('map-price-overlay');
+            if (mpOverlay) mpOverlay.style.display = 'none';
+            const twoPrice = document.getElementById('two-price-display');
+            if (twoPrice) twoPrice.style.display = 'none';
+            const paxHint = document.getElementById('pax-groupsize-hint');
+            if (paxHint) paxHint.style.display = 'none';
+            // Route-Layer auf Live-Karte leeren (Route-Linie + Pins weg, Taxis bleiben)
+            if (window.liveTaxiRouteLayer && typeof window.liveTaxiRouteLayer.clearLayers === 'function') {
+                try { window.liveTaxiRouteLayer.clearLayers(); } catch(e){}
+            }
+            // Buchungs-Cards wieder sichtbar falls nach Buchung versteckt
+            const bookingCard = document.getElementById('booking-card');
+            if (bookingCard) bookingCard.style.display = '';
+            const phoneCard = document.getElementById('phone-card');
+            if (phoneCard) phoneCard.style.display = 'none';
+            const smsCard = document.getElementById('sms-card');
+            if (smsCard) smsCard.style.display = 'none';
+            const successCard = document.getElementById('success-card');
+            if (successCard) successCard.style.display = 'none';
+            // "Adressen löschen" Button verstecken
+            const clearBtn = document.getElementById('btn-clear-addr');
+            if (clearBtn) clearBtn.style.display = 'none';
             updateStatusBar();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             logBuchen('🔄', 'Formular zurückgesetzt');
@@ -2549,39 +2572,10 @@
             const searchKey = (query || '').toLowerCase().trim();
             const results = [];
 
-            // POIs
-            Object.values(allPOIs).forEach(poi => {
-                if (!poi.name || !poi.lat) return;
-                const n = poi.name.toLowerCase();
-                const a = (poi.address || '').toLowerCase();
-                if (!searchKey || n.includes(searchKey) || a.includes(searchKey)) {
-                    results.push({
-                        name: poi.address ? `${poi.name}, ${poi.address}` : poi.name,
-                        lat: poi.lat, lon: poi.lon, icon: '⭐'
-                    });
-                }
-            });
-
-            // 🆕 v6.34.0: Geocache-Einträge (beliebte Ziele, POIs, private Adressen)
-            Object.values(geocacheEntries).forEach(gc => {
-                if (!gc.lat || !gc.address) return;
-                if (!gc.type || gc.type === 'korrektur') return; // Korrekturen nicht anzeigen
-                const addr = (gc.address || '').toLowerCase();
-                const label = (gc.label || '').toLowerCase();
-                if (!searchKey || addr.includes(searchKey) || label.includes(searchKey)) {
-                    // Duplikat-Check gegen POIs
-                    const displayName = gc.label ? `${gc.label}, ${gc.address}` : gc.address;
-                    const isDuplicate = results.some(r => r.name.toLowerCase() === displayName.toLowerCase());
-                    if (!isDuplicate) {
-                        const typeIcons = { 'beliebtes-ziel': '⭐', 'poi': '📍', 'privat': '🏠' };
-                        results.push({
-                            name: displayName,
-                            lat: gc.lat, lon: gc.lon,
-                            icon: typeIcons[gc.type] || '📍'
-                        });
-                    }
-                }
-            });
+            // 🔧 v6.41.51: POI-Favoriten + Geocache-Einträge im Dropdown DEAKTIVIERT.
+            // User-Wunsch: 'Die Favoriten brauchen wir da nicht — die Leute sollen das
+            // eingeben was sie möchten und nicht irgendwelche Vorschläge vorgesetzt bekommen.'
+            // Nur noch Google Places + Nominatim als echte Suchergebnisse.
 
             // Nominatim nur wenn Google Places NICHT verfuegbar ist
             // 🔧 v6.38.95: Google Places ersetzt Nominatim als Haupt-Fallback

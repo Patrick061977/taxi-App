@@ -3,6 +3,10 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Standard-Seite: landing.html (öffentliche Buchungsseite, SEO-Hauptseite)
+# Die App (index.html) ist weiterhin direkt erreichbar via /index.html
+DirectoryIndex landing.html index.html
+
 # SPA Routing - alle Anfragen auf index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

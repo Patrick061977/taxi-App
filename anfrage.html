@@ -538,13 +538,22 @@ async function calcAnfPrice() {
         var min = Math.ceil(data.routes[0].duration / 60);
         var anfTime = document.getElementById('anf-time').value || '';
         var anfDate = document.getElementById('anf-date').value || '';
+        // 🆕 v6.41.43: Konsistent mit buchen.html — Feiertags-Tarif hinzugefügt
+        var FEIERTAGE_ANF = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
         var h = new Date().getHours();
         var dayOfWeek = new Date().getDay();
+        var feiertagDt = new Date();
         if (anfTime) h = parseInt(anfTime.split(':')[0]);
-        if (anfDate) dayOfWeek = new Date(anfDate + 'T00:00:00').getDay();
+        if (anfDate) {
+            feiertagDt = new Date(anfDate + 'T00:00:00');
+            dayOfWeek = feiertagDt.getDay();
+        }
+        var mm = String(feiertagDt.getMonth() + 1).padStart(2, '0');
+        var dd = String(feiertagDt.getDate()).padStart(2, '0');
+        var isFeiertag = FEIERTAGE_ANF.indexOf(mm + '-' + dd) !== -1;
         var isSunday = dayOfWeek === 0;
         var isNightTime = h >= 22 || h < 6;
-        var isNight = isNightTime || isSunday;
+        var isNight = isNightTime || isSunday || isFeiertag;
         var price = isNight ? 5.50 : 4.00;
         var remaining = km;
         if (remaining > 0) { var s = Math.min(remaining,2); price += s * 3.30; remaining -= s; }
@@ -553,7 +562,8 @@ async function calcAnfPrice() {
         if (anfPax >= 5) price += 10;
         price = Math.round(price / 0.1) * 0.1;
         document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
-        var tarifLabel = isSunday && !isNightTime ? 'Sonn-/Feiertagstarif' : isNightTime ? 'Nachttarif' : '';
+        // 🆕 v6.41.43: Feiertags-Label explizit zuerst (hat Priorität)
+        var tarifLabel = isFeiertag ? 'Feiertagstarif (Nachttarif)' : (isSunday && !isNightTime ? 'Sonntagstarif' : (isNightTime ? 'Nachttarif' : ''));
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '');
         document.getElementById('anf-price-box').style.display = 'block';
         // Alte Festpreis-Bemerkung leeren wenn neu berechnet wird

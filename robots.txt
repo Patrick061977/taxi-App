@@ -13,6 +13,7 @@ Allow: /icon-192.png
 Allow: /manifest.json
 
 # Fahrer-/Admin-App und interne Tools — NICHT crawlen
+Disallow: /buchung-test.html
 Disallow: /index.html
 Disallow: /admin-log-viewer.html
 Disallow: /log-viewer.html

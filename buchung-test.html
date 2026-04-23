@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>🚕 Taxi buchen — TEST</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f0f4f8;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 14px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky; top: 0; z-index: 1000;
+        }
+        .header-row { display: flex; justify-content: space-between; align-items: center; max-width: 600px; margin: 0 auto; }
+        .header-logo { font-size: 18px; font-weight: 700; }
+        .header-test { font-size: 11px; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; }
+        .main { max-width: 600px; margin: 0 auto; padding: 16px; }
+        .card { background: white; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); padding: 16px; margin-bottom: 14px; }
+        .card-title { font-size: 13px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+        #live-map { width: 100%; height: 240px; border-radius: 12px; }
+        .map-status { font-size: 12px; color: #64748b; margin-top: 8px; text-align: center; }
+        .toggle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .toggle-btn { padding: 14px; border: 2px solid #e2e8f0; background: white; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .toggle-btn.active { border-color: #059669; background: #ecfdf5; color: #047857; }
+        .toggle-btn .ico { font-size: 22px; display: block; margin-bottom: 4px; }
+        .input-group { margin-bottom: 12px; }
+        .input-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+        .input-field { width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; transition: border-color 0.2s; }
+        .input-field:focus { outline: none; border-color: #059669; }
+        .input-field.filled { border-color: #10b981; background: #f0fdf4; }
+        .eta-box {
+            display: none;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 14px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .eta-box.warn { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .eta-box.error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .eta-title { font-size: 13px; opacity: 0.9; margin-bottom: 4px; }
+        .eta-value { font-size: 26px; font-weight: 800; }
+        .eta-detail { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+        .price-box {
+            display: none;
+            background: white;
+            border: 2px solid #10b981;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 14px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .price-row { display: flex; justify-content: space-between; align-items: center; }
+        .price-label { font-size: 13px; color: #6b7280; }
+        .price-value { font-size: 28px; font-weight: 800; color: #047857; }
+        .price-meta { font-size: 11px; color: #94a3b8; margin-top: 6px; text-align: right; }
+        .book-btn {
+            display: none;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(5,150,105,0.4);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .book-btn:hover { transform: translateY(-1px); }
+        .book-btn:disabled { background: #94a3b8; box-shadow: none; animation: none; cursor: not-allowed; }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 16px rgba(5,150,105,0.4); }
+            50% { box-shadow: 0 4px 24px rgba(5,150,105,0.7); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .test-badge { background: #fef3c7; color: #92400e; font-size: 11px; padding: 6px 10px; border-radius: 8px; text-align: center; margin-bottom: 12px; font-weight: 600; }
+        .footer-link { display: block; text-align: center; margin: 20px 0; color: #64748b; font-size: 13px; text-decoration: none; }
+        .footer-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-row">
+            <div class="header-logo">🚕 Funk Taxi Heringsdorf</div>
+            <div class="header-test">🧪 TEST-VERSION</div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="test-badge" id="test-badge">⚠️ Test-Modus — Buchungen werden NICHT ausgeführt. Mit <code>?live=1</code> in URL für echte Buchung.</div>
+
+        <!-- 1. LIVE-KARTE MIT TAXIS -->
+        <div class="card">
+            <div class="card-title">🗺️ Taxis in der Nähe</div>
+            <div id="live-map"></div>
+            <div class="map-status" id="map-status">Lade Taxi-Positionen…</div>
+        </div>
+
+        <!-- 2. SOFORT / VORBESTELLEN -->
+        <div class="card">
+            <div class="card-title">Wann brauchst du das Taxi?</div>
+            <div class="toggle-row">
+                <button class="toggle-btn active" id="btn-sofort" onclick="setMode('sofort')">
+                    <span class="ico">⚡</span>SOFORT
+                </button>
+                <button class="toggle-btn" id="btn-vorbestellen" onclick="setMode('vorbestellen')">
+                    <span class="ico">📅</span>VORBESTELLEN
+                </button>
+            </div>
+            <div id="vorbestellen-fields" style="display:none; margin-top:12px;">
+                <div class="input-group">
+                    <label class="input-label">Datum</label>
+                    <input type="date" class="input-field" id="b-date">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">Uhrzeit</label>
+                    <input type="time" class="input-field" id="b-time">
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. ABHOLORT -->
+        <div class="card" id="card-pickup">
+            <div class="card-title">📍 Wo wirst du abgeholt?</div>
+            <input type="text" class="input-field" id="b-pickup" placeholder="z.B. Hotel Kaiserhof, Heringsdorf" autocomplete="off">
+        </div>
+
+        <!-- 4. LIVE-ETA (erscheint sobald Pickup gesetzt) -->
+        <div class="eta-box" id="eta-box">
+            <div class="eta-title" id="eta-title">🚕 Nächstes Taxi</div>
+            <div class="eta-value" id="eta-value">–</div>
+            <div class="eta-detail" id="eta-detail"></div>
+        </div>
+
+        <!-- 5. ZIELORT -->
+        <div class="card" id="card-destination">
+            <div class="card-title">🎯 Wohin geht's?</div>
+            <input type="text" class="input-field" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off">
+        </div>
+
+        <!-- 6. PREIS -->
+        <div class="price-box" id="price-box">
+            <div class="price-row">
+                <div>
+                    <div class="price-label">Geschätzter Preis</div>
+                </div>
+                <div class="price-value" id="price-value">–</div>
+            </div>
+            <div class="price-meta" id="price-meta"></div>
+        </div>
+
+        <!-- 7. BUCHEN -->
+        <button class="book-btn" id="book-btn" onclick="doBooking()">
+            🚕 JETZT BUCHEN
+        </button>
+
+        <a href="landing.html" class="footer-link">← Zurück zur Startseite</a>
+    </div>
+
+    <!-- Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Firebase 8 (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- Google Places -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
+
+    <script>
+        // === FIREBASE INIT ===
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf"
+        });
+        const db = firebase.database();
+
+        // === GLOBAL STATE ===
+        const state = {
+            mode: 'sofort',
+            pickup: null,        // { lat, lon, address }
+            destination: null,   // { lat, lon, address }
+            distanceKm: null,
+            durationMin: null,
+            priceEuro: null,
+            availableTaxis: 0,
+            nearestEtaMin: null
+        };
+
+        // Test-Modus Check
+        const isLive = new URLSearchParams(window.location.search).get('live') === '1';
+        if (isLive) {
+            document.getElementById('test-badge').innerHTML = '🔴 LIVE-MODUS — Buchungen sind ECHT! Fahrer wird losgeschickt.';
+            document.getElementById('test-badge').style.background = '#fee2e2';
+            document.getElementById('test-badge').style.color = '#991b1b';
+        }
+
+        // Mode toggle
+        function setMode(mode) {
+            state.mode = mode;
+            document.getElementById('btn-sofort').classList.toggle('active', mode === 'sofort');
+            document.getElementById('btn-vorbestellen').classList.toggle('active', mode === 'vorbestellen');
+            document.getElementById('vorbestellen-fields').style.display = mode === 'vorbestellen' ? 'block' : 'none';
+        }
+
+        // === LIVE-KARTE MIT TAXIS ===
+        const HERINGSDORF = [53.9577, 14.1486];
+        const map = L.map('live-map', { zoomControl: false, attributionControl: false }).setView(HERINGSDORF, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Taxi-Icon (anonym, kein Kennzeichen)
+        const taxiIcon = L.divIcon({
+            html: '<div style="background:#fbbf24;border:2px solid white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:14px;">🚕</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            className: 'taxi-marker'
+        });
+        const taxiMarkers = {}; // vehicleId → marker
+
+        // Live-Listener auf /vehicles
+        db.ref('vehicles').on('value', (snap) => {
+            const vehicles = snap.val() || {};
+            let onlineCount = 0;
+            const now = Date.now();
+            const seenIds = new Set();
+
+            Object.entries(vehicles).forEach(([id, v]) => {
+                if (!v) return;
+                // Nur online + frische Position (max 10 Min alt)
+                const isOnline = v.online === true || v.dispatchStatus === 'online';
+                const fresh = v.timestamp && (now - v.timestamp) < 10 * 60 * 1000;
+                if (!isOnline || !fresh || !v.lat || !v.lon) return;
+
+                onlineCount++;
+                seenIds.add(id);
+
+                if (taxiMarkers[id]) {
+                    // Vorhandenen Marker verschieben
+                    taxiMarkers[id].setLatLng([v.lat, v.lon]);
+                } else {
+                    // Neuen Marker setzen
+                    taxiMarkers[id] = L.marker([v.lat, v.lon], { icon: taxiIcon }).addTo(map);
+                }
+            });
+
+            // Alte Marker entfernen (Fahrzeuge die offline gegangen sind)
+            Object.keys(taxiMarkers).forEach(id => {
+                if (!seenIds.has(id)) {
+                    map.removeLayer(taxiMarkers[id]);
+                    delete taxiMarkers[id];
+                }
+            });
+
+            // Status-Text
+            const statusEl = document.getElementById('map-status');
+            if (onlineCount === 0) {
+                statusEl.innerHTML = '⏸️ Keine Taxis online — bitte Telefon nutzen: <a href="tel:+49383782022" style="color:#dc2626;font-weight:600;">038378/22022</a>';
+            } else {
+                statusEl.innerHTML = `✅ ${onlineCount} Taxi${onlineCount > 1 ? 's' : ''} verfügbar — Position aktualisiert sich live`;
+            }
+            state.availableTaxis = onlineCount;
+        });
+
+        // === GOOGLE PLACES AUTOCOMPLETE ===
+        // Wird aufgerufen sobald Google Maps API geladen ist
+        let _gAutocompletePickup = null;
+        let _gAutocompleteDest = null;
+        function initGooglePlaces() {
+            const opts = {
+                componentRestrictions: { country: 'de' },
+                fields: ['formatted_address', 'geometry', 'name'],
+                bounds: new google.maps.LatLngBounds(
+                    new google.maps.LatLng(53.85, 13.95),
+                    new google.maps.LatLng(54.10, 14.30)
+                ),
+                strictBounds: false
+            };
+            _gAutocompletePickup = new google.maps.places.Autocomplete(document.getElementById('b-pickup'), opts);
+            _gAutocompletePickup.addListener('place_changed', () => onAddressPicked('pickup'));
+
+            _gAutocompleteDest = new google.maps.places.Autocomplete(document.getElementById('b-destination'), opts);
+            _gAutocompleteDest.addListener('place_changed', () => onAddressPicked('destination'));
+
+            console.log('✅ Google Places Autocomplete bereit');
+        }
+
+        function onAddressPicked(which) {
+            const ac = which === 'pickup' ? _gAutocompletePickup : _gAutocompleteDest;
+            const place = ac.getPlace();
+            if (!place || !place.geometry) return;
+            const lat = place.geometry.location.lat();
+            const lon = place.geometry.location.lng();
+            const address = place.formatted_address || place.name || '';
+
+            state[which] = { lat, lon, address };
+            const inputEl = document.getElementById(which === 'pickup' ? 'b-pickup' : 'b-destination');
+            inputEl.value = address;
+            inputEl.classList.add('filled');
+
+            if (which === 'pickup') {
+                map.setView([lat, lon], 14);
+                showLiveEta();
+                // Auto-scroll zum Zielort-Feld
+                setTimeout(() => {
+                    document.getElementById('card-destination').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => document.getElementById('b-destination').focus(), 400);
+                }, 600);
+            } else {
+                calculatePrice();
+            }
+        }
+
+        // === LIVE-ETA (basierend auf nähestem Online-Taxi) ===
+        function showLiveEta() {
+            if (!state.pickup) return;
+            const etaBox = document.getElementById('eta-box');
+            const etaTitle = document.getElementById('eta-title');
+            const etaValue = document.getElementById('eta-value');
+            const etaDetail = document.getElementById('eta-detail');
+
+            etaBox.style.display = 'block';
+            etaBox.classList.remove('warn', 'error');
+
+            if (state.availableTaxis === 0) {
+                etaBox.classList.add('error');
+                etaTitle.textContent = '⚠️ Aktuell kein Taxi verfügbar';
+                etaValue.textContent = 'Bitte anrufen';
+                etaDetail.innerHTML = '<a href="tel:+49383782022" style="color:white;text-decoration:underline;">📞 038378/22022</a>';
+                state.nearestEtaMin = null;
+                return;
+            }
+
+            // Finde nähestes Taxi (Luftlinie → grob ETA)
+            let minKm = Infinity;
+            Object.values(taxiMarkers).forEach(m => {
+                const ll = m.getLatLng();
+                const km = haversineKm(state.pickup.lat, state.pickup.lon, ll.lat, ll.lng);
+                if (km < minKm) minKm = km;
+            });
+
+            // Annahme 40 km/h Stadt + 1 Min Vorbereitung
+            const etaMin = Math.max(2, Math.round(minKm / 40 * 60 + 1));
+            state.nearestEtaMin = etaMin;
+
+            if (etaMin > 15) etaBox.classList.add('warn');
+            etaTitle.textContent = '🚕 Nächstes Taxi';
+            etaValue.textContent = `~${etaMin} Min`;
+            etaDetail.textContent = `${state.availableTaxis} Taxi${state.availableTaxis > 1 ? 's' : ''} im Einsatz · ${minKm.toFixed(1)} km Luftlinie`;
+        }
+
+        // Haversine-Distanz in km
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // === PREIS-BERECHNUNG via OSRM ===
+        async function calculatePrice() {
+            if (!state.pickup || !state.destination) return;
+            const priceBox = document.getElementById('price-box');
+            const priceVal = document.getElementById('price-value');
+            const priceMeta = document.getElementById('price-meta');
+            priceBox.style.display = 'block';
+            priceVal.textContent = '…';
+            priceMeta.textContent = 'Berechne Route…';
+
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${state.pickup.lon},${state.pickup.lat};${state.destination.lon},${state.destination.lat}?overview=false`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.routes || !data.routes[0]) throw new Error('Keine Route');
+
+                const km = data.routes[0].distance / 1000;
+                const min = Math.round(data.routes[0].duration / 60);
+                // Tarif Heringsdorf: 4 € Grundpreis + 2,50 €/km (näherung — echter Tarif kommt aus Firebase settings/tarif)
+                const price = Math.max(8, 4 + km * 2.5);
+
+                state.distanceKm = km;
+                state.durationMin = min;
+                state.priceEuro = price;
+
+                priceVal.textContent = price.toFixed(2).replace('.', ',') + ' €';
+                priceMeta.textContent = `${km.toFixed(1)} km · ca. ${min} Min Fahrt · Schätzung`;
+
+                // Zeige Buchen-Button
+                document.getElementById('book-btn').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('book-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 400);
+            } catch(e) {
+                priceVal.textContent = 'Fehler';
+                priceMeta.textContent = 'Route konnte nicht berechnet werden';
+                console.error('Preis-Fehler:', e);
+            }
+        }
+
+        // Auto-scroll bei Sofort-Klick → zum Abholort
+        document.getElementById('btn-sofort').addEventListener('click', () => {
+            setTimeout(() => {
+                document.getElementById('card-pickup').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => document.getElementById('b-pickup').focus(), 400);
+            }, 100);
+        });
+
+        // === BUCHUNG AUSFÜHREN ===
+        async function doBooking() {
+            if (!state.pickup || !state.destination) {
+                alert('Bitte Abholort und Zielort eingeben.');
+                return;
+            }
+
+            const btn = document.getElementById('book-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Buche…';
+
+            // Test-Modus → nur Dialog, kein Firebase-Write
+            if (!isLive) {
+                setTimeout(() => {
+                    const summary =
+                        `🧪 TEST-BUCHUNG erfasst (würde gebucht werden):\n\n` +
+                        `📍 Abholort: ${state.pickup.address}\n` +
+                        `🎯 Zielort: ${state.destination.address}\n` +
+                        `📏 Distanz: ${state.distanceKm.toFixed(1)} km\n` +
+                        `⏱️ Fahrtzeit: ~${state.durationMin} Min\n` +
+                        `💰 Preis: ${state.priceEuro.toFixed(2).replace('.', ',')} €\n` +
+                        `🚕 ETA: ~${state.nearestEtaMin || '?'} Min\n\n` +
+                        `Für echte Buchung: URL mit ?live=1 öffnen.`;
+                    alert(summary);
+                    btn.disabled = false;
+                    btn.textContent = '🚕 JETZT BUCHEN';
+                }, 600);
+                return;
+            }
+
+            // === LIVE: echter Firebase-Push ===
+            try {
+                const now = Date.now();
+                const isVorbestellung = state.mode === 'vorbestellen';
+                let pickupTimestamp = now;
+
+                if (isVorbestellung) {
+                    const dateStr = document.getElementById('b-date').value;
+                    const timeStr = document.getElementById('b-time').value;
+                    if (!dateStr || !timeStr) {
+                        alert('Bitte Datum und Uhrzeit für die Vorbestellung wählen.');
+                        btn.disabled = false;
+                        btn.textContent = '🚕 JETZT BUCHEN';
+                        return;
+                    }
+                    pickupTimestamp = new Date(dateStr + 'T' + timeStr).getTime();
+                    if (pickupTimestamp < now) {
+                        alert('Die Abholzeit liegt in der Vergangenheit.');
+                        btn.disabled = false;
+                        btn.textContent = '🚕 JETZT BUCHEN';
+                        return;
+                    }
+                }
+
+                // Ride-Objekt nach Schema /rides/{id}
+                const rideId = 'ride_' + now + '_' + Math.random().toString(36).substring(2, 11);
+                const ride = {
+                    customerName: 'TEST-Buchung (buchung-test.html)',
+                    pickup: state.pickup.address,
+                    pickupLat: state.pickup.lat,
+                    pickupLon: state.pickup.lon,
+                    destination: state.destination.address,
+                    destinationLat: state.destination.lat,
+                    destinationLon: state.destination.lon,
+                    pickupTimestamp: pickupTimestamp,
+                    timestamp: now,
+                    createdAt: now,
+                    updatedAt: now,
+                    distanceKm: state.distanceKm,
+                    durationMin: state.durationMin,
+                    price: state.priceEuro,
+                    paymentMethod: 'bar',
+                    status: isVorbestellung ? 'vorbestellt' : 'new',
+                    source: 'buchung-test.html',
+                    isJetzt: !isVorbestellung
+                };
+
+                await db.ref('rides/' + rideId).set(ride);
+
+                btn.textContent = '✅ Buchung erfasst!';
+                setTimeout(() => {
+                    alert(
+                        `✅ BUCHUNG ERFASST\n\n` +
+                        `Ride-ID: ${rideId}\n\n` +
+                        `Status: ${isVorbestellung ? 'vorbestellt' : 'new (sucht Fahrer)'}\n` +
+                        `Preis: ${state.priceEuro.toFixed(2).replace('.', ',')} €\n\n` +
+                        `Bitte JETZT in Firebase Console / Admin-Tab den Status auf "cancelled" setzen wenn das nur ein Test war!`
+                    );
+                    btn.disabled = false;
+                    btn.textContent = '🚕 NOCHMAL BUCHEN';
+                }, 400);
+            } catch (e) {
+                console.error('Buchung-Fehler:', e);
+                alert('❌ Fehler: ' + (e.message || e));
+                btn.disabled = false;
+                btn.textContent = '🚕 JETZT BUCHEN';
+            }
+        }
+    </script>
+</body>
+</html>

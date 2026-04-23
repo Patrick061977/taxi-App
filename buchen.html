@@ -400,15 +400,15 @@
         .availability-card.available { display: block; background: #d1fae5; color: #065f46; }
         .availability-card.unavailable { display: block; background: #fef3c7; color: #92400e; }
         .availability-card.error { display: block; background: #fecaca; color: #991b1b; }
-        /* Personen-Auswahl */
+        /* Personen-Auswahl — 4x2 Grid für 1-8 Personen (v6.41.41) */
         .pax-selector {
-            display: flex;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
             margin-top: 4px;
         }
         .pax-btn {
-            flex: 1;
-            padding: 10px;
+            padding: 10px 4px;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             background: white;
@@ -416,8 +416,12 @@
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
+            min-height: 40px;
         }
         .pax-btn.active { border-color: #059669; background: #ecfdf5; color: #059669; font-weight: 700; }
+        /* v6.41.41: Großraum-Buttons (5-8) haben orange Farbton */
+        .pax-btn:nth-child(n+5) { border-color: #fed7aa; }
+        .pax-btn:nth-child(n+5).active { border-color: #d97706; background: #fff7ed; color: #b45309; }
         /* Toast */
         .toast {
             position: fixed;
@@ -672,13 +676,16 @@
 
                 <!-- Personen -->
                 <div class="input-group">
-                    <label>👥 Personen</label>
+                    <label>👥 Personen <span id="pax-groupsize-hint" style="display:none;font-size:11px;color:#d97706;background:#fef3c7;padding:2px 8px;border-radius:10px;margin-left:6px;font-weight:600;">🚐 Großraumtaxi</span></label>
                     <div class="pax-selector">
                         <button class="pax-btn active" onclick="setPax(1)">1</button>
                         <button class="pax-btn" onclick="setPax(2)">2</button>
                         <button class="pax-btn" onclick="setPax(3)">3</button>
                         <button class="pax-btn" onclick="setPax(4)">4</button>
-                        <button class="pax-btn" onclick="setPax(5)">5+</button>
+                        <button class="pax-btn" onclick="setPax(5)">5</button>
+                        <button class="pax-btn" onclick="setPax(6)">6</button>
+                        <button class="pax-btn" onclick="setPax(7)">7</button>
+                        <button class="pax-btn" onclick="setPax(8)">8</button>
                     </div>
                 </div>
 
@@ -1498,6 +1505,11 @@
             const dateVal = document.getElementById('b-date').value;
             const hourVal = document.getElementById('b-hour').value;
             const minVal = document.getElementById('b-minute').value;
+            // 🆕 v6.41.41: Preis neu berechnen bei Datum/Uhrzeit-Änderung
+            // (Tag-/Nacht-/Feiertags-Tarif je nach Pickup-Zeitstempel)
+            if (pickupCoords && destCoords && typeof checkRoute === 'function') {
+                setTimeout(() => checkRoute(), 100);
+            }
             if (dateVal && hourVal && minVal && wannModus === 'vorbestellen') {
                 // Auf nächsten 10-Min-Slot runden
                 const m = parseInt(minVal);
@@ -2336,9 +2348,14 @@
             document.querySelectorAll('.pax-btn').forEach((btn, i) => {
                 btn.classList.toggle('active', i + 1 === n);
             });
+            // 🆕 v6.41.41: Großraum-Indikator zeigen/verstecken
+            const hint = document.getElementById('pax-groupsize-hint');
+            if (hint) hint.style.display = n >= 5 ? 'inline-block' : 'none';
             // 🔧 v6.38.83: Verfügbarkeit sofort neu prüfen bei Personenänderung
             updateStatusBar();
             if (pickupCoords && destCoords) checkAvailability();
+            // 🆕 v6.41.41: Preis neu berechnen (Großraumzuschlag +10€ ab 5)
+            if (pickupCoords && destCoords && typeof checkRoute === 'function') checkRoute();
         }
 
         // ═══════════════════════════════════════════════
@@ -3359,7 +3376,7 @@
                 setInterval(checkPickup, 1500);
             }
 
-            // C) Zielort geändert → scrolle zu Buchen-Button
+            // C) Zielort geändert → erst zu Name-Feld scrollen (falls leer), sonst zu Buchen-Button
             let _lastDest = '';
             const destEl = document.getElementById('b-destination');
             if (destEl) {
@@ -3370,6 +3387,15 @@
                         vibrate([50, 30, 50, 30, 80]);
                         updateProgress();
                         setTimeout(() => {
+                            // 🆕 v6.41.41: Wenn Name leer → erst zum Name-Feld scrollen
+                            const nameEl = document.getElementById('b-name');
+                            if (nameEl && !nameEl.value.trim()) {
+                                smoothScrollTo(nameEl.closest('.input-group') || nameEl, 240);
+                                setTimeout(() => nameEl.focus(), 700);
+                                showCoach('👤 Noch dein Name, dann geht\'s los!');
+                                return;
+                            }
+                            // Sonst: direkt zum Buchen-Button
                             const bookBtn = document.querySelector('[onclick*="startBooking"]')
                                 || document.getElementById('btn-book')
                                 || document.querySelector('button.primary-btn');
@@ -3386,6 +3412,32 @@
                 destEl.addEventListener('change', checkDest);
                 destEl.addEventListener('blur', () => setTimeout(checkDest, 300));
                 setInterval(checkDest, 1500);
+            }
+
+            // D) 🆕 v6.41.41: Name geändert → zu Buchen-Button scrollen
+            const nameEl = document.getElementById('b-name');
+            if (nameEl) {
+                let _lastName = '';
+                const checkName = () => {
+                    const v = nameEl.value.trim();
+                    if (v && v !== _lastName && v.length >= 3 && destEl && destEl.value.trim()) {
+                        _lastName = v;
+                        vibrate(40);
+                        setTimeout(() => {
+                            const bookBtn = document.querySelector('[onclick*="startBooking"]')
+                                || document.getElementById('btn-book')
+                                || document.querySelector('button.primary-btn');
+                            if (bookBtn) {
+                                smoothScrollTo(bookBtn, 320);
+                                showCoach('✨ Alles bereit — auf JETZT BUCHEN tippen!', 4000);
+                            }
+                        }, 400);
+                    } else if (!v) {
+                        _lastName = '';
+                    }
+                };
+                nameEl.addEventListener('blur', () => setTimeout(checkName, 300));
+                nameEl.addEventListener('change', checkName);
             }
 
             // Initiale Progress-Bar-Aktualisierung

@@ -40,24 +40,36 @@
         }
         .header-login:hover { background: rgba(255,255,255,0.3); }
         /* Main */
-        .main { max-width: 500px; margin: 0 auto; padding: 20px; }
+        .main { max-width: 500px; margin: 0 auto; padding: 12px; }
         .card {
             background: white;
-            border-radius: 16px;
+            border-radius: 14px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            padding: 20px;
-            margin-bottom: 16px;
+            padding: 12px;
+            margin-bottom: 8px;
         }
         .card-title {
-            font-size: 13px;
+            font-size: 12px;
             text-transform: uppercase;
             color: #64748b;
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             letter-spacing: 0.5px;
         }
+        /* 🆕 v6.41.46: Mobile-first kompakt — alles auf einen Screen ohne Scrollen */
+        @media (max-width: 600px) {
+            .main { padding: 8px; }
+            .card { padding: 10px; margin-bottom: 6px; border-radius: 12px; }
+            .card-title { font-size: 11px; margin-bottom: 4px; }
+            #live-taxi-map { height: 32vh !important; min-height: 180px; }
+            .input-group label { font-size: 11px !important; margin-bottom: 3px !important; }
+            .input-group input, .input-group select { padding: 9px 10px !important; font-size: 14px !important; }
+            .pax-btn { padding: 7px 2px !important; font-size: 14px !important; min-height: 32px !important; }
+            /* Personen + Name nebeneinander */
+            .compact-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+        }
         /* Inputs */
-        .input-group { position: relative; margin-bottom: 12px; }
+        .input-group { position: relative; margin-bottom: 8px; }
         .input-group label {
             display: block;
             font-size: 12px;
@@ -578,7 +590,7 @@
                 <div id="live-taxi-count" style="font-size:12px;color:#64748b;font-weight:600;">…</div>
             </div>
             <div style="position:relative;">
-                <div id="live-taxi-map" style="width:100%;height:260px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+                <div id="live-taxi-map" style="width:100%;height:34vh;min-height:200px;max-height:320px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
                 <!-- 🆕 v6.41.45: Preis-Overlay IN der Karte (schwebend, Glass-Look) -->
                 <div id="map-price-overlay" style="display:none;position:absolute;top:10px;right:10px;z-index:500;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.8);min-width:110px;">
                     <div id="map-price-label" style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis</div>

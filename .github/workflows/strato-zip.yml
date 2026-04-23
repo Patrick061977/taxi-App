@@ -2,7 +2,9 @@ name: Strato ZIP erstellen
 
 on:
   push:
-    branches: ['**']
+    # 🔧 v6.41.48: Nur auf main — vorher '**' triggerte AUCH auf Feature-Branches,
+    # dadurch 2 Runs pro Merge (1× Branch-Push + 1× Main-Merge-Push). Verschwenderisch.
+    branches: [main]
     paths:
       - 'index.html'
       - 'kunden.html'

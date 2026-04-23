@@ -10,12 +10,15 @@ permissions:
   pages: write
   id-token: write
 
-# 🔧 v6.41.45: Concurrency-Gruppe verhindert parallele Deployments die sich
-# gegenseitig crashen ('Deployment request failed due to in progress deployment').
-# Bei schnellen PRs in Folge wird der laufende abgebrochen, der neueste läuft.
+# 🔧 v6.41.45/48: Concurrency-Gruppe gegen GitHub-Pages-Deploy-Kollision.
+# GitHub Pages serialisiert DEPLOYMENTS server-seitig — cancel-in-progress:true
+# cancelt nur Workflow-Runs, nicht die laufenden Pages-API-Deployments selbst.
+# Folge: neuer Workflow läuft, macht API-Call, API sagt '400 in progress' → Fehler.
+# Fix: cancel-in-progress:false → neue Workflows WARTEN bis der alte fertig ist,
+# dann läuft der nächste sauber. Kein paralleler Konflikt mehr.
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:

@@ -647,7 +647,40 @@
 
     <!-- Buchungsformular -->
     <div class="main">
-        <!-- 🆕 v6.41.39: Live-Taxi-Karte oben — Uber-Style, zeigt aktive Fahrzeuge UND Route (v6.41.44) -->
+        <!-- 🆕 v6.41.55: Wann-Card oben — erste Entscheidung des Kunden (Sofort/Vorbestellen) -->
+        <div class="card" id="wann-card" style="padding:12px;">
+            <div class="input-group" style="margin-bottom:0;">
+                <label style="margin-bottom:6px;">🕐 Wann?</label>
+                <div class="wann-toggle">
+                    <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
+                    <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
+                </div>
+                <div class="vorbestellen-felder" id="vorbestellen-felder">
+                    <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
+                    <select id="b-hour" onchange="onDateTimeChange()"></select>
+                    <select id="b-minute" onchange="onDateTimeChange()"></select>
+                </div>
+                <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
+                <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:12px;color:#64748b;font-weight:600;">Tag wählen</span>
+                        <button onclick="jumpToToday()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📅 Heute</button>
+                    </div>
+                    <div class="day-tabs" id="day-tabs"></div>
+                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
+                        <div id="slot-timeline-inner" style="min-width:600px;">
+                            <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:11px;color:#64748b;font-weight:600;"></div>
+                            <div id="slot-timeline-bar" style="position:relative;height:56px;margin:6px 4px;"></div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
+                    <div id="slot-route-hint" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 🆕 v6.41.55: Sofort-Call-Box zwischen Wann-Card und Karte — sichtbar wenn kein Taxi da -->
+        <div class="card" id="sofort-call-box" style="display:none;padding:0;"></div>
+        <!-- 🆕 v6.41.39: Live-Taxi-Karte mittig — Uber-Style, zeigt aktive Fahrzeuge UND Route (v6.41.44) -->
         <div class="card" id="live-taxi-card" style="padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <div class="card-title" style="margin-bottom:0;">🗺️ Taxis & Route</div>
@@ -675,40 +708,8 @@
                 </div>
             </div>
 
-            <!-- Wann? (oben damit Kunde zuerst wählt) -->
-            <div class="input-group" style="margin-bottom:16px;">
-                <label>🕐 Wann?</label>
-                <div class="wann-toggle">
-                    <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
-                    <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
-                </div>
-                <div class="vorbestellen-felder" id="vorbestellen-felder">
-                    <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
-                    <select id="b-hour" onchange="onDateTimeChange()"></select>
-                    <select id="b-minute" onchange="onDateTimeChange()"></select>
-                </div>
-                <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
-                <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <span style="font-size:12px;color:#64748b;font-weight:600;">Tag wählen</span>
-                        <button onclick="jumpToToday()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📅 Heute</button>
-                    </div>
-                    <div class="day-tabs" id="day-tabs"></div>
-                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
-                        <div id="slot-timeline-inner" style="min-width:600px;">
-                            <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:11px;color:#64748b;font-weight:600;"></div>
-                            <div id="slot-timeline-bar" style="position:relative;height:56px;margin:6px 4px;"></div>
-                        </div>
-                    </div>
-                    <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
-                    <!-- slot-selected-info wurde nach unten verschoben (unter Personen) -->
-                    <div id="slot-route-hint" style="display:none;"></div>
-                </div>
-            </div>
-
-            <!-- Sofort nicht verfügbar — Anruf-Box -->
-            <!-- Sofort-Call-Box entfernt — Anrufen + Vorbestellen im Menü -->
-            <div id="sofort-call-box" style="display:none;"></div>
+            <!-- Wann-Toggle + Vorbestellen-Felder: nach v6.41.55 in #wann-card oben ausgelagert -->
+            <!-- Sofort-Call-Box: nach v6.41.55 als eigene Karte zwischen Wann-Card und Live-Karte -->
 
             <!-- Buchungsformular-Felder (ausgeblendet wenn Sofort + kein GPS) -->
             <div id="booking-fields">
@@ -1364,11 +1365,46 @@
 
         // Formular ein-/ausblenden: Sofort + kein GPS → nur Anruf-Box
         let _lastGpsOnlineCount = -1;
-        // 🔧 v6.39.1: Formular IMMER sichtbar — Kunde kann jederzeit vorbestellen
+        // 🔧 v6.41.55: Progressive Disclosure auf Seitenebene
+        //   Sofort + 0 Taxis  → nur Wann-Toggle + prominenter Anruf-CTA (keine Karte, keine Felder)
+        //   Sofort + Taxi da  → alles sichtbar
+        //   Vorbestellen      → alles sichtbar (Zeit jederzeit buchbar)
         function updateFormVisibility(gpsOnlineCount) {
             const fields = document.getElementById('booking-fields');
-            if (fields) fields.style.display = '';
+            const liveCard = document.getElementById('live-taxi-card');
+            const callBox = document.getElementById('sofort-call-box');
             _lastGpsOnlineCount = gpsOnlineCount;
+
+            const noTaxi = gpsOnlineCount === 0;
+            const isSofort = wannModus === 'sofort';
+            const hideEverything = isSofort && noTaxi;
+
+            if (hideEverything) {
+                if (fields) fields.style.display = 'none';
+                if (liveCard) liveCard.style.display = 'none';
+                if (callBox) {
+                    callBox.style.display = 'block';
+                    callBox.innerHTML = `
+                        <div style="text-align:center;padding:24px 16px;">
+                            <div style="font-size:44px;margin-bottom:10px;">📞</div>
+                            <div style="font-size:15px;color:#64748b;margin-bottom:18px;line-height:1.45;">
+                                Aktuell ist kein Taxi für eine Sofortfahrt im Dienst.<br>
+                                Bitte rufen Sie uns an:
+                            </div>
+                            <a href="tel:03837822022" style="display:inline-block;padding:16px 30px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;border-radius:14px;font-size:20px;font-weight:800;text-decoration:none;box-shadow:0 8px 22px rgba(220,38,38,0.35);letter-spacing:0.3px;">
+                                038378 22022
+                            </a>
+                            <div style="font-size:13px;color:#94a3b8;margin-top:18px;">
+                                oder nutzen Sie <b style="color:#059669;">📅 Vorbestellen</b> für später
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                if (fields) fields.style.display = '';
+                if (liveCard) liveCard.style.display = '';
+                if (callBox) callBox.style.display = 'none';
+            }
         }
 
         // 🆕 v6.38.96: Formular komplett zurücksetzen

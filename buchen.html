@@ -694,7 +694,9 @@
 
                 <!-- Karte mit Preis-Badge -->
                 <div class="map-container" id="route-map" style="position:relative;"></div>
-                <!-- Route Info kompakt unter der Karte -->
+                <!-- 🆕 v6.41.42: Zwei-Preis-Vergleich bei Vorbestellung (aus index.html übernommen) -->
+                <div id="two-price-display" style="display:none;margin-top:10px;"></div>
+                <!-- Route Info kompakt unter der Karte (nur bei Sofort-Buchung) -->
                 <div class="route-info" id="route-info" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;padding:8px;background:#f0fdf4;border-radius:10px;">
                     <div style="text-align:center;">
                         <div style="font-size:18px;font-weight:800;color:#059669;" id="r-price">—</div>
@@ -2672,6 +2674,10 @@
                     const pricingTimestamp = getPickupTimestamp();
                     const pricing = calculatePrice(parseFloat(km), pricingTimestamp);
 
+                    // 🆕 v6.41.42: Bei Vorbestellung IMMER auch den "Jetzt"-Preis berechnen für Vergleich
+                    const isVorbestellungNow = (wannModus === 'vorbestellen' && pricingTimestamp > Date.now() + 30 * 60 * 1000);
+                    const pricingJetzt = isVorbestellungNow ? calculatePrice(parseFloat(km), Date.now()) : null;
+
                     routeData = { km, min, price: pricing.total, geometry: route.geometry };
                     // "Adressen löschen" Button einblenden
                     const clearBtn = document.getElementById('btn-clear-addr');
@@ -2700,7 +2706,53 @@
                     } else {
                         hinweisEl.innerHTML = pricing.total + '€';
                     }
-                    document.getElementById('route-info').style.display = 'grid';
+
+                    // 🆕 v6.41.42: Zwei-Preis-Display bei Vorbestellung (aus index.html)
+                    const twoPriceEl = document.getElementById('two-price-display');
+                    const routeInfoEl = document.getElementById('route-info');
+                    if (isVorbestellungNow && pricingJetzt && twoPriceEl) {
+                        // Zwei-Preis-Vergleich rendern, Route-Info ausblenden
+                        const preiseGleich = pricingJetzt.total === pricing.total;
+                        const terminDt = new Date(pricingTimestamp);
+                        const terminStr = terminDt.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' })
+                                        + ' ' + terminDt.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) + ' Uhr';
+                        const jetztLabel = (pricingJetzt.hinweise && pricingJetzt.hinweise.length > 0) ? pricingJetzt.hinweise.join(', ') : 'Normalpreis';
+                        const terminLabel = (pricing.hinweise && pricing.hinweise.length > 0) ? pricing.hinweise.join(', ') : 'Normalpreis';
+                        const terminFarbe = preiseGleich ? '#16a34a' : (pricing.total > pricingJetzt.total ? '#b45309' : '#0369a1');
+                        const terminBg = preiseGleich ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : (pricing.total > pricingJetzt.total ? 'linear-gradient(135deg,#fffbeb,#fef3c7)' : 'linear-gradient(135deg,#eff6ff,#dbeafe)');
+                        const terminBorder = preiseGleich ? '#86efac' : (pricing.total > pricingJetzt.total ? '#fcd34d' : '#93c5fd');
+                        const terminIcon = preiseGleich ? '=' : (pricing.total > pricingJetzt.total ? '↑' : '↓');
+                        const terminIconBg = preiseGleich ? '#22c55e' : (pricing.total > pricingJetzt.total ? '#f59e0b' : '#3b82f6');
+                        const diffHtml = preiseGleich ? '' :
+                            (pricing.total > pricingJetzt.total
+                                ? `<div style="font-size:12px;color:${terminFarbe};font-weight:600;line-height:1.4;margin-top:6px;">⬆ +${(pricing.total - pricingJetzt.total).toFixed(2)}€ — <span style="font-weight:400;">Zuschlag zum Termin</span></div>`
+                                : `<div style="font-size:12px;color:${terminFarbe};font-weight:600;line-height:1.4;margin-top:6px;">⬇ -${(pricingJetzt.total - pricing.total).toFixed(2)}€ — <span style="font-weight:400;">Günstiger zum Termin</span></div>`);
+                        twoPriceEl.innerHTML = `
+                            <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);padding:14px 16px;border-radius:12px 12px 0 0;border:2px solid #86efac;border-bottom:none;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+                                <div>
+                                    <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.05em;">Aktueller Preis</div>
+                                    <div style="font-size:26px;font-weight:800;color:#15803d;letter-spacing:-0.5px;line-height:1.1;">${pricingJetzt.total}€</div>
+                                    <div style="font-size:11px;color:#4ade80;">${jetztLabel} · ${km} km · ${min} Min</div>
+                                </div>
+                                <div style="min-width:30px;height:30px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;">✓</div>
+                            </div>
+                            <div style="background:${terminBg};padding:14px 16px;border-radius:0 0 12px 12px;border:2px solid ${terminBorder};border-top:1px dashed ${terminBorder};display:flex;align-items:center;justify-content:space-between;gap:14px;">
+                                <div style="flex:1;">
+                                    <div style="font-size:11px;font-weight:700;color:${terminFarbe};text-transform:uppercase;letter-spacing:0.05em;">📅 Preis zum Termin</div>
+                                    <div style="font-size:26px;font-weight:800;color:${terminFarbe};letter-spacing:-0.5px;line-height:1.1;">${pricing.total}€</div>
+                                    <div style="font-size:11px;color:${terminFarbe};opacity:0.85;">${terminLabel}</div>
+                                    <div style="font-size:11px;color:#64748b;margin-top:1px;">${terminStr}</div>
+                                    ${diffHtml}
+                                </div>
+                                <div style="min-width:30px;height:30px;background:${terminIconBg};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:white;">${terminIcon}</div>
+                            </div>`;
+                        twoPriceEl.style.display = 'block';
+                        if (routeInfoEl) routeInfoEl.style.display = 'none';
+                    } else {
+                        // Sofort-Buchung: kompakte route-info wie bisher
+                        if (twoPriceEl) twoPriceEl.style.display = 'none';
+                        if (routeInfoEl) routeInfoEl.style.display = 'grid';
+                    }
 
                     // Karte zeigen
                     showRouteMap(route.geometry);

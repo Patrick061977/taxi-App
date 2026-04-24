@@ -1271,43 +1271,29 @@
         }
 
         // 🆕 v6.41.66: Nach erfolgreicher Zeitwahl alles einklappen (Datum/Uhrzeit-Felder + Kalender)
+        // 🆕 v6.41.70: Wann-Card komplett verstecken — Termin-Badge auf Karte + Zeit-Chip oben reichen
         function collapseVorbestellFelder() {
             if (wannModus !== 'vorbestellen') return;
             if (!_slotIsFree || !_selectedSlot) return;
-            const felder = document.getElementById('vorbestellen-felder');
-            const kalender = document.getElementById('vorbestellen-kalender');
+            const wannCard = document.getElementById('wann-card');
+            if (wannCard) wannCard.style.display = 'none';
+            // Compact-Streifen brauchen wir auch nicht mehr — Termin-Badge ist auf der Karte
             const compact = document.getElementById('termin-compact');
-            const compactText = document.getElementById('termin-compact-text');
-            if (felder) felder.style.display = 'none';
-            if (kalender) kalender.style.display = 'none';
-            if (compact && compactText) {
-                const dateVal = document.getElementById('b-date')?.value;
-                const hourVal = document.getElementById('b-hour')?.value;
-                const minVal = document.getElementById('b-minute')?.value;
-                const dt = new Date(dateVal + 'T00:00:00');
-                const today = new Date(); today.setHours(0,0,0,0);
-                const diffDays = Math.round((dt - today) / 86400000);
-                const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-                let label;
-                if (diffDays === 0) label = 'Heute';
-                else if (diffDays === 1) label = 'Morgen';
-                else label = dayNames[dt.getDay()] + ' ' + String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.';
-                compactText.textContent = `📅 ${label} um ${hourVal}:${minVal} Uhr gewählt`;
-                compact.style.display = 'flex';
-            }
+            if (compact) compact.style.display = 'none';
         }
 
-        // 🆕 v6.41.66: Felder wieder ausklappen (über "Ändern"-Button oder Termin-Badge)
+        // 🆕 v6.41.66: Felder wieder ausklappen (über Termin-Chip oder Karten-Badge)
         function expandVorbestellFelder() {
+            const wannCard = document.getElementById('wann-card');
             const felder = document.getElementById('vorbestellen-felder');
             const kalender = document.getElementById('vorbestellen-kalender');
             const compact = document.getElementById('termin-compact');
+            if (wannCard) wannCard.style.display = '';
             if (felder) felder.style.display = 'flex';
             if (kalender && routeData) kalender.style.display = '';
             if (compact) compact.style.display = 'none';
-            // Scroll zur Wann-Card
-            const wannCard = document.getElementById('wann-card');
-            if (wannCard) wannCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const wc = document.getElementById('wann-card');
+            if (wc) wc.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function updateBookButton() {
@@ -2085,6 +2071,8 @@
                     // 🔧 v6.39.1: selectSlot() rendert die Übersicht — hier nur Flags setzen
                     isAvailable = true;
                     updateBookButton();
+                    // 🆕 v6.41.70: Auch wenn Zeit über Time-Input gewählt wurde → Wann-Card einklappen
+                    try { collapseVorbestellFelder(); } catch(e) {}
                 } else if (!hasAddresses) {
                     // Noch keine Adressen → kein "nicht verfügbar" anzeigen
                     isAvailable = false;

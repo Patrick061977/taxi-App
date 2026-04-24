@@ -19170,9 +19170,10 @@ exports.shiftHeartbeatPing = onRequest(
             const now = Date.now();
             const updates = {};
             updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
+            const hasGps = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+            const inBox = hasGps && lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0;
             // GPS mitsenden wenn angegeben + plausibel (Usedom-Bereich grob gefiltert)
-            if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) &&
-                lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0) {
+            if (inBox) {
                 updates['vehicles/' + vehicleId + '/lat'] = lat;
                 updates['vehicles/' + vehicleId + '/lon'] = lon;
                 updates['vehicles/' + vehicleId + '/timestamp'] = now;
@@ -19182,13 +19183,41 @@ exports.shiftHeartbeatPing = onRequest(
                     updates['vehicles/' + vehicleId + '/accuracy'] = acc;
                 }
             }
+
+            // 🆕 v6.41.76: GPS-Health-Diagnose — damit ohne adb logcat sichtbar ist ob der Native-Service
+            // lebt und GPS liefert. `latest` wird bei jedem Heartbeat überschrieben; `history/{ts}` ist Ringbuffer.
+            const diag = {
+                ts: now,
+                hasGps: hasGps,
+                inBox: inBox,
+                lat: hasGps ? lat : null,
+                lon: hasGps ? lon : null,
+                acc: (acc !== null && !isNaN(acc)) ? acc : null,
+                ua: (req.get('user-agent') || '').substring(0, 80)
+            };
+            updates['gpsHealth/' + vehicleId + '/latest'] = diag;
+            updates['gpsHealth/' + vehicleId + '/history/' + now] = diag;
+
             await db.ref().update(updates);
+
+            // Fire-and-forget: History auf letzte 2 Stunden beschneiden (verhindert unbegrenztes Wachstum)
+            db.ref('gpsHealth/' + vehicleId + '/history')
+                .orderByKey().endAt(String(now - 2 * 60 * 60 * 1000)).once('value')
+                .then(snap => {
+                    if (!snap.exists()) return;
+                    const del = {};
+                    snap.forEach(c => { del['gpsHealth/' + vehicleId + '/history/' + c.key] = null; });
+                    return db.ref().update(del);
+                })
+                .catch(() => {});
 
             res.status(200).json({
                 ok: true,
                 vehicleId: vehicleId,
                 lastHeartbeat: now,
-                gpsWritten: (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)),
+                gpsWritten: inBox,
+                hasGps: hasGps,
+                inBox: inBox,
                 source: 'native-service'
             });
         } catch(e) {

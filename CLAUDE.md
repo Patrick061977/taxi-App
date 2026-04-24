@@ -226,7 +226,30 @@ GitHub Actions triggern automatisch bei Push auf `main`:
 |-----------------|----------|--------------|
 | `index.html` | `strato-zip.yml` | ZIP wird gebaut → Strato erhält neue Fahrer-App |
 | `functions/**` | `deploy-functions.yml` | Firebase Cloud Functions werden deployed |
+| `android/**` | `build-apk.yml` | APK wird gebaut (Fahrer-App native Hülle) |
 | `google-apps-script/**` | ❌ kein Workflow | User muss manuell ins Apps Script kopieren |
+
+### 🚨 PFLICHT bei `android/**`-Änderungen — VERSION IM `build.gradle` HOCHZÄHLEN!
+
+**Der APK-Build läuft zwar auto bei jedem Merge mit `android/**`, aber:**
+`AppUpdatePlugin` auf den Fahrer-Geräten vergleicht `versionName` — wenn die
+neue APK die GLEICHE Versionsnummer hat wie die installierte, **zeigt sie
+KEIN Update-Banner** und der Fahrer bekommt die Änderung nie zu sehen.
+
+**Darum IMMER** vor dem PR:
+```bash
+# Synchron zu APP_VERSION in index.html setzen
+NEW_VER="6.41.76"                              # ← Beispiel
+NEW_CODE=$(echo $NEW_VER | awk -F. '{printf "%d%03d%03d", $1, $2, $3}')
+sed -i "s/versionCode [0-9]*/versionCode $NEW_CODE/" android/app/build.gradle
+sed -i "s/versionName \"[0-9.]*\"/versionName \"$NEW_VER\"/" android/app/build.gradle
+```
+
+`versionCode`-Format: `Major*1_000_000 + Minor*1_000 + Patch` (z.B. 6.41.76 → 6041076).
+
+**Merkregel:** Wenn du eine `.java`/`.kt`/`AndroidManifest.xml`/`build.gradle`-Datei
+änderst → IMMER `versionName`+`versionCode` hochzählen. Sonst landet dein Code zwar
+auf GitHub + im Build-Artifact, aber NIE auf dem Fahrer-Handy.
 
 ### Standard-Ablauf für Claude (kein `gh`/`firebase` CLI nötig!):
 

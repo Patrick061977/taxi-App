@@ -1335,9 +1335,15 @@
 
             if (wannModus === 'vorbestellen') {
                 // 🆕 v6.41.65: Vorbestellen — btn-book zeigen wenn Route + gültige Zeit
+                // 🔧 v6.41.79: Button bei unvollständiger Auswahl SICHTBAR aber disabled —
+                // sonst verliert der Kunde die Orientierung (Button verschwindet ohne Grund).
                 const ts = getPickupTimestamp();
                 const zeitOk = ts > Date.now() + 60 * 60000;
-                if (hasInput && zeitOk && _slotIsFree) {
+                if (!hasInput) {
+                    // Adressen fehlen → Button macht noch keinen Sinn
+                    btn.style.display = 'none';
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                } else if (zeitOk && _slotIsFree) {
                     btn.style.display = '';
                     btn.disabled = false;
                     btn.className = 'btn-book';
@@ -1345,8 +1351,22 @@
                     btn.onclick = startBooking;
                     if (cancelBtn) cancelBtn.style.display = '';
                 } else {
-                    btn.style.display = 'none';
-                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    // Adressen da, aber Zeit/Slot fehlen — disabled anzeigen mit Grund
+                    btn.style.display = '';
+                    btn.disabled = true;
+                    btn.className = 'btn-book';
+                    btn.onclick = null;
+                    if (!_slotIsFree) {
+                        btn.innerHTML = '📅 Bitte Zeit-Slot auswählen';
+                    } else if (!zeitOk) {
+                        const diffMin = Math.round((ts - Date.now()) / 60000);
+                        btn.innerHTML = diffMin < 0
+                            ? '⏰ Zeit liegt in der Vergangenheit'
+                            : '⏰ Mindestens 1 Std. Vorlauf — spätere Zeit wählen';
+                    } else {
+                        btn.innerHTML = '📅 Zeit wählen';
+                    }
+                    if (cancelBtn) cancelBtn.style.display = '';
                 }
             } else if (isAvailable && hasInput) {
                 // Sofort: Route berechnet + Taxi da → grüner Buchen-Button
@@ -1988,9 +2008,19 @@
             maxDate.setDate(maxDate.getDate() + 30);
             dateInput.max = berlinDateStr(maxDate);
             if (!dateInput.value) dateInput.value = today;
+            // 🆕 v6.41.79: Wenn nach 22 Uhr auf "Heute" → keine Stunde mehr buchbar (Vorlauf >1h).
+            // Default-Datum automatisch auf Morgen setzen, damit der Kunde nicht im toten Zustand landet
+            // (Button versteckt ohne Erklärung, weil minHour=24 → leerer Stunden-Dropdown → 00:05-Chaos).
+            let selectedDate = dateInput.value;
+            let isSelectedToday = selectedDate === today;
+            if (isSelectedToday && (now.getHours() + 1) >= 24 && !window._dateTimeInitDone) {
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                dateInput.value = berlinDateStr(tomorrow);
+                selectedDate = dateInput.value;
+                isSelectedToday = false;
+            }
             // 🔧 v6.39.1: Stunden-Dropdown dynamisch — vergangene Stunden ausblenden wenn heute
-            const selectedDate = dateInput.value;
-            const isSelectedToday = selectedDate === today;
             // Heute: mindestens 1 Stunde Vorlauf (z.B. 08:36 → frühestens 10:00)
             const minHour = isSelectedToday ? now.getHours() + 1 : 0; // Synchron mit Timeline (1h Vorlauf)
             const prevValue = hourSelect.value;
@@ -2542,7 +2572,15 @@
 
                 const block = document.createElement('div');
                 block.style.cssText = `position:absolute;left:${leftPx}px;width:${pxPerSlot}px;height:100%;background:${bg};border-right:1px solid ${border};cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:background 0.15s;`;
-                block.title = `${slotTimeStr} — ${freeVehicles > 0 ? freeVehicles + ' frei' : vehiclesInShift === 0 ? 'Kein Dienst' : 'Belegt'}`;
+                // 🔧 v6.41.79: Tooltip zeigt bei Vergangenheit/zu-kurzfristig den echten Grund —
+                // vorher stand bei grauen Slots fälschlich "2 frei" obwohl sie nicht buchbar waren.
+                block.title = `${slotTimeStr} — ${
+                    isPast ? 'Vergangen' :
+                    tooSoon ? 'Zu kurzfristig (min. 1 Std. Vorlauf)' :
+                    freeVehicles > 0 ? freeVehicles + ' frei' :
+                    vehiclesInShift === 0 ? 'Kein Dienst' :
+                    'Belegt'
+                }`;
 
                 // Zeitlabel in jedem Slot anzeigen (15-Min-Raster)
                 const isFullHour = slotM === 0;

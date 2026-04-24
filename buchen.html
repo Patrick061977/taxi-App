@@ -553,7 +553,7 @@
                     <div><div style="font-size:15px;">Meine Fahrten</div><div style="font-size:11px;color:#6b7280;font-weight:400;">Buchungsübersicht & Stornierung</div></div>
                 </a>
                 <div style="height:1px;background:#e5e7eb;margin:8px 0;"></div>
-                <a href="tel:03837822022" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <a href="tel:+493837822022" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                     <span style="font-size:20px;">📞</span>
                     <div><div style="font-size:15px;">Anrufen</div><div style="font-size:11px;color:#6b7280;font-weight:400;">038378 22022</div></div>
                 </a>
@@ -665,8 +665,9 @@
                 </div>
                 <div class="vorbestellen-felder" id="vorbestellen-felder">
                     <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
-                    <select id="b-hour" onchange="onDateTimeChange()"></select>
-                    <select id="b-minute" onchange="onDateTimeChange()"></select>
+                    <input type="time" id="b-time" step="600" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
+                    <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
+                    <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
                 </div>
                 <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
                 <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
@@ -917,13 +918,13 @@
                 💡 Status jederzeit im <a href="kunden.html" style="color:#059669;font-weight:600;">Kundenportal</a> abrufen (Login mit Telefonnummer)
             </div>
             <div style="font-size:12px;color:#94a3b8;text-align:center;">
-                📞 <a href="tel:03837822022" style="color:#059669;">038378 22022</a>
+                📞 <a href="tel:+493837822022" style="color:#059669;">038378 22022</a>
             </div>
         </div>
 
         <!-- Info -->
         <div class="info-footer">
-            📞 <a href="tel:03837822022">038378 22022</a> ·
+            📞 <a href="tel:+493837822022">038378 22022</a> ·
             🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
             Funk Taxi Heringsdorf · Usedom · Bansin · Ahlbeck
         </div>
@@ -1467,7 +1468,7 @@
                 sofortBtn.style.background = '#ef4444';
                 sofortBtn.style.color = 'white';
                 sofortBtn.innerHTML = '📞 Anrufen<br><span style="font-size:11px;font-weight:400;">038378 / 22022</span><br><span style="font-size:10px;font-weight:400;opacity:0.8;">Bitte Abholort &amp; Zielort mitteilen</span>';
-                sofortBtn.onclick = function() { window.location.href = 'tel:03837822022'; };
+                sofortBtn.onclick = function() { window.location.href = 'tel:+493837822022'; };
             }
         }
 
@@ -1487,9 +1488,12 @@
             const isSofort = wannModus === 'sofort';
             const hideEverything = isSofort && noTaxi;
 
+            // 🆕 v6.41.63: Booking-Card (TAXI BUCHEN + Alles neu Header) mit verstecken
+            const bookingCard = document.getElementById('booking-card');
             if (hideEverything) {
                 if (fields) fields.style.display = 'none';
                 if (liveCard) liveCard.style.display = 'none';
+                if (bookingCard) bookingCard.style.display = 'none';
                 if (callBox) {
                     callBox.style.display = 'block';
                     callBox.innerHTML = `
@@ -1499,11 +1503,11 @@
                                 Aktuell ist kein Taxi für eine Sofortfahrt im Dienst.<br>
                                 Bitte rufen Sie uns an:
                             </div>
-                            <a href="tel:03837822022" style="display:inline-block;padding:16px 30px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;border-radius:14px;font-size:20px;font-weight:800;text-decoration:none;box-shadow:0 8px 22px rgba(220,38,38,0.35);letter-spacing:0.3px;">
-                                038378 22022
+                            <a href="tel:+493837822022" style="display:inline-block;padding:16px 30px;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;border-radius:14px;font-size:20px;font-weight:800;text-decoration:none;box-shadow:0 8px 22px rgba(220,38,38,0.35);letter-spacing:0.3px;">
+                                +49 38378 22022
                             </a>
                             <div style="font-size:13px;color:#94a3b8;margin-top:18px;">
-                                oder nutzen Sie <b style="color:#059669;">📅 Vorbestellen</b> für später
+                                oder <button onclick="setWann('vorbestellen')" style="background:white;border:1px solid #a7f3d0;color:#059669;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">📅 Vorbestellen</button> für später
                             </div>
                         </div>
                     `;
@@ -1511,6 +1515,7 @@
             } else {
                 if (fields) fields.style.display = '';
                 if (liveCard) liveCard.style.display = '';
+                if (bookingCard) bookingCard.style.display = '';
                 if (callBox) callBox.style.display = 'none';
             }
         }
@@ -1806,6 +1811,39 @@
                     minuteSelect.value = '00';
                 }
             }
+            // 🆕 v6.41.63: neuer Time-Input mit Anfangswert syncen
+            const timeInput = document.getElementById('b-time');
+            if (timeInput) {
+                timeInput.value = (hourSelect.value || '00') + ':' + (minuteSelect.value || '00');
+                if (isSelectedToday) timeInput.min = String(Math.max(0, now.getHours() + 1)).padStart(2,'0') + ':00';
+                else timeInput.removeAttribute('min');
+            }
+        }
+
+        // 🆕 v6.41.63: Syncs b-time → b-hour + b-minute damit Legacy-Code weiter funktioniert
+        function syncTimeToLegacyDropdowns() {
+            const tVal = document.getElementById('b-time')?.value;
+            if (!tVal || !tVal.includes(':')) return;
+            const [h, m] = tVal.split(':');
+            const hourSelect = document.getElementById('b-hour');
+            const minuteSelect = document.getElementById('b-minute');
+            if (hourSelect) {
+                if (!Array.from(hourSelect.options).some(o => o.value === h)) {
+                    const opt = document.createElement('option');
+                    opt.value = h; opt.textContent = h + ' Uhr';
+                    hourSelect.appendChild(opt);
+                }
+                hourSelect.value = h;
+            }
+            if (minuteSelect) {
+                const mRounded = String(Math.round(parseInt(m) / 5) * 5).padStart(2, '0');
+                if (!Array.from(minuteSelect.options).some(o => o.value === mRounded)) {
+                    const opt = document.createElement('option');
+                    opt.value = mRounded; opt.textContent = ':' + mRounded;
+                    minuteSelect.appendChild(opt);
+                }
+                minuteSelect.value = mRounded;
+            }
         }
 
         function getPickupTimestamp() {
@@ -1880,7 +1918,7 @@
                         ? `<span style="color:#ef4444;">❌ ${zeitText} — alle Fahrzeuge ausgebucht</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Bitte andere Zeit wählen oder anrufen</span>`
                         : `<span style="color:#ef4444;">🌙 Kein Fahrer im Dienst um ${_hNow}:${_mNow} Uhr</span><br><span style="font-size:11px;color:#64748b;font-weight:400;">Bitte andere Zeit wählen oder direkt anrufen</span>`;
                     if (infoEl) {
-                        infoEl.innerHTML = `${reasonHtml}<br><a href="tel:03837822022" style="display:inline-block;margin-top:8px;padding:8px 16px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📞 038378 22022 anrufen</a>`;
+                        infoEl.innerHTML = `${reasonHtml}<br><a href="tel:+493837822022" style="display:inline-block;margin-top:8px;padding:8px 16px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">📞 038378 22022 anrufen</a>`;
                         infoEl.style.display = '';
                         infoEl.style.background = '#fef2f2';
                         infoEl.style.borderColor = '#fecaca';
@@ -2440,7 +2478,7 @@
             if (anyCount === 0) {
                 // Überhaupt kein Fahrzeug im Dienst
                 el.className = 'availability-card unavailable';
-                el.innerHTML = `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:03837822022">038378 22022</a>`;
+                el.innerHTML = `⚠️ <strong>Kein Fahrzeug im Dienst</strong> zu dieser Zeit.<br>Bitte andere Zeit wählen oder anrufen: <a href="tel:+493837822022">038378 22022</a>`;
                 isAvailable = false;
                 logBuchen('❌', `ERGEBNIS: Kein Fahrzeug im Dienst (${dateStr} ${timeStr})`);
                 updateBookButton();
@@ -2449,7 +2487,7 @@
             if (passengers >= 5 && fitCount === 0) {
                 // Taxis da, aber kein Großraumtaxi → Anrufen erforderlich
                 el.className = 'availability-card unavailable';
-                el.innerHTML = `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen geplant</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:03837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`;
+                el.innerHTML = `⚠️ <strong>Kein Großraumtaxi für ${passengers} Personen geplant</strong> zu dieser Zeit.<br>Bitte anrufen: <a href="tel:+493837822022" style="color:#92400e;font-weight:700;">038378 22022</a>`;
                 isAvailable = false;
                 logBuchen('⚠️', `ERGEBNIS: Kein Grossraumtaxi fuer ${passengers} Pers.`);
                 updateBookButton();
@@ -2601,7 +2639,7 @@
                     el.className = 'availability-card unavailable';
                     el.style.display = '';
                     const fahrtInfo = routeData ? ` (Ihre Fahrt: ca. ${routeData.min} Min + Rückfahrt)` : '';
-                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${nextFreeMsg}<br><br><a href="tel:03837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
+                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
                     isAvailable = false;
                     updateBookButton();
                 }

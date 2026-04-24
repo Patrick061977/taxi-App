@@ -117,6 +117,11 @@
         #live-taxi-card.is-mini #map-price-overlay #map-price-meta,
         #live-taxi-card.is-mini #map-price-overlay #map-price-diff,
         #live-taxi-card.is-mini #map-price-overlay #map-price-label { display: none !important; }
+        #live-taxi-card.is-mini #map-termin-overlay {
+            top: 4px !important; left: 4px !important; padding: 4px 8px !important;
+        }
+        #live-taxi-card.is-mini #map-termin-overlay #map-termin-day { font-size: 11px !important; }
+        #live-taxi-card.is-mini #map-termin-overlay #map-termin-time { font-size: 14px !important; }
 
         /* 🆕 v6.41.46: Mobile-first kompakt — alles auf einen Screen ohne Scrollen */
         @media (max-width: 600px) {
@@ -691,6 +696,12 @@
             </div>
             <div style="position:relative;">
                 <div id="live-taxi-map" style="width:100%;height:28vh;min-height:180px;max-height:260px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;"></div>
+                <!-- 🆕 v6.41.62: Termin-Overlay OBEN LINKS — zeigt gewählten Termin prominent -->
+                <div id="map-termin-overlay" style="display:none;position:absolute;top:10px;left:10px;z-index:500;background:linear-gradient(135deg,rgba(5,150,105,0.97),rgba(4,120,87,0.97));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(5,150,105,0.35);border:1px solid rgba(255,255,255,0.4);color:white;max-width:180px;">
+                    <div style="font-size:9px;opacity:0.9;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">📅 Abfahrt</div>
+                    <div id="map-termin-day" style="font-size:15px;font-weight:800;line-height:1.15;letter-spacing:-0.3px;">—</div>
+                    <div id="map-termin-time" style="font-size:22px;font-weight:800;line-height:1;letter-spacing:-0.5px;margin-top:2px;">— Uhr</div>
+                </div>
                 <!-- 🆕 v6.41.45: Preis-Overlay IN der Karte (schwebend, Glass-Look) -->
                 <div id="map-price-overlay" style="display:none;position:absolute;top:10px;right:10px;z-index:500;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.8);min-width:110px;">
                     <div id="map-price-label" style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis</div>
@@ -1052,11 +1063,13 @@
                 hintEl.style.display = 'none';
                 return;
             }
+            // 🆕 v6.41.62: Termin-Overlay auf Karte pflegen (parallel zum Hint)
+            try { updateTerminOverlay(); } catch(e) {}
             // Vorbestellung: Zeit muss in der Zukunft liegen UND ≥ 60 Min Vorlauf
             if (wannModus === 'vorbestellen') {
                 const ts = getPickupTimestamp();
                 if (ts <= Date.now() + 60 * 60000) {
-                    hintEl.innerHTML = '📅 <b>Schritt 1:</b> Datum und Uhrzeit wählen (mindestens 1 Std. Vorlauf)';
+                    hintEl.innerHTML = '📅 <b>Jetzt wählen:</b> Datum und Uhrzeit (mindestens 1 Std. Vorlauf)';
                     hintEl.style.display = '';
                     return;
                 }
@@ -1089,8 +1102,35 @@
                 hintEl.style.display = '';
                 return;
             }
-            hintEl.innerHTML = '🚕 <b>Bereit:</b> Auf „Jetzt Taxi buchen" tippen';
-            hintEl.style.display = '';
+            // 🆕 v6.41.62: "Bereit"-Hint weg — Button ist offensichtlich genug
+            hintEl.style.display = 'none';
+        }
+
+        // 🆕 v6.41.62: Termin-Badge oben links auf der Karte
+        function updateTerminOverlay() {
+            const ov = document.getElementById('map-termin-overlay');
+            const dayEl = document.getElementById('map-termin-day');
+            const timeEl = document.getElementById('map-termin-time');
+            if (!ov || !dayEl || !timeEl) return;
+            if (wannModus !== 'vorbestellen') { ov.style.display = 'none'; return; }
+            const dateVal = document.getElementById('b-date')?.value;
+            const hourVal = document.getElementById('b-hour')?.value;
+            const minVal = document.getElementById('b-minute')?.value;
+            if (!dateVal || !hourVal || !minVal) { ov.style.display = 'none'; return; }
+            const ts = getPickupTimestamp();
+            if (ts <= Date.now() + 60 * 60000) { ov.style.display = 'none'; return; }
+            const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            const dt = new Date(dateVal + 'T00:00:00');
+            const today = new Date(); today.setHours(0,0,0,0);
+            const pickupDay = new Date(dateVal + 'T00:00:00');
+            const diffDays = Math.round((pickupDay - today) / 86400000);
+            let label;
+            if (diffDays === 0) label = 'Heute';
+            else if (diffDays === 1) label = 'Morgen';
+            else label = `${dayNames[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.`;
+            dayEl.textContent = label;
+            timeEl.textContent = `${hourVal}:${minVal} Uhr`;
+            ov.style.display = 'block';
         }
 
         function updateBookButton() {
@@ -1530,6 +1570,8 @@
             // 🔧 v6.41.51: Kompletter Reset — auch neue Elemente ab v6.41.40+
             const mpOverlay = document.getElementById('map-price-overlay');
             if (mpOverlay) mpOverlay.style.display = 'none';
+            const mtOverlay = document.getElementById('map-termin-overlay');
+            if (mtOverlay) mtOverlay.style.display = 'none';
             const twoPrice = document.getElementById('two-price-display');
             if (twoPrice) twoPrice.style.display = 'none';
             const paxHint = document.getElementById('pax-groupsize-hint');
@@ -1626,6 +1668,8 @@
             // 🆕 v6.41.45: Preis-Overlay auf der Karte + Zwei-Preis-Display ausblenden
             const mpOverlay = document.getElementById('map-price-overlay');
             if (mpOverlay) mpOverlay.style.display = 'none';
+            const mtOverlay = document.getElementById('map-termin-overlay');
+            if (mtOverlay) mtOverlay.style.display = 'none';
             const twoPrice = document.getElementById('two-price-display');
             if (twoPrice) twoPrice.style.display = 'none';
             // Route-Layer auf der Live-Karte leeren

@@ -3037,12 +3037,30 @@
             });
             L.marker([destCoords.lat, destCoords.lon], { icon: destIcon }).addTo(routeLayer).bindPopup('🎯 Zielort');
 
-            // Karte fitet zu Route-Bounds
-            const bounds = [[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]];
-            if (stoppCoords) bounds.push([stoppCoords.lat, stoppCoords.lon]);
+            // 🆕 v6.41.57: Bounds = Route + Abhol/Ziel + NÄCHSTES Taxi (damit zugeordnetes Fahrzeug sichtbar)
+            const rlBounds = L.latLngBounds([[pickupCoords.lat, pickupCoords.lon], [destCoords.lat, destCoords.lon]]);
+            if (stoppCoords) rlBounds.extend([stoppCoords.lat, stoppCoords.lon]);
+            // Nächstes Online-Taxi finden und einbeziehen → so bleibt es immer im Bild
+            if (window._taxiMarkers) {
+                let nearest = null, nearestDist = Infinity;
+                Object.values(window._taxiMarkers).forEach(m => {
+                    try {
+                        const ll = m.getLatLng();
+                        const dx = ll.lat - pickupCoords.lat;
+                        const dy = ll.lng - pickupCoords.lon;
+                        const d = dx*dx + dy*dy;
+                        if (d < nearestDist) { nearestDist = d; nearest = ll; }
+                    } catch(e) {}
+                });
+                if (nearest) rlBounds.extend(nearest);
+            }
+            window._lastMapBounds = rlBounds;
             try {
-                liveMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-                setTimeout(() => { try { liveMap.invalidateSize(); } catch(e){} }, 100);
+                liveMap.fitBounds(rlBounds, { padding: [40, 40], maxZoom: 15, animate: false });
+                // Nach dem Rendern + nach 300ms + nach 800ms nochmal invalidateSize+refit
+                // (Container kann durch Progressive Disclosure erst nachträglich final sein)
+                setTimeout(() => { try { liveMap.invalidateSize(); liveMap.fitBounds(rlBounds, { padding: [40, 40], maxZoom: 15, animate: false }); } catch(e){} }, 300);
+                setTimeout(() => { try { liveMap.invalidateSize(); liveMap.fitBounds(rlBounds, { padding: [40, 40], maxZoom: 15, animate: false }); } catch(e){} }, 800);
             } catch(e) { console.warn('Map fitBounds error:', e.message); }
         }
 
@@ -3535,6 +3553,28 @@
             // Layer für Route-Zeichnung (wird in showRouteMap() befüllt, Taxis bleiben unberührt)
             window.liveTaxiRouteLayer = L.layerGroup().addTo(liveMap);
 
+            // 🆕 v6.41.57: Auto-Centering & Resize-Handling damit Taxi/Route NIE aus dem Bild rutschen
+            // Flag setzt User-Move nur wenn Nutzer wirklich dragged/zoomed — Resize/Programmatic zählt nicht
+            window._userMovedMap = false;
+            liveMap.on('dragstart zoomstart', (e) => {
+                if (e && e.hard !== true) window._userMovedMap = true;
+            });
+            // Doppelklick auf Karte → Auto-Center wieder an
+            mapEl.addEventListener('dblclick', () => { window._userMovedMap = false; });
+            // ResizeObserver: bei jeder Größen-Änderung der Karte (Mini-Modus, Viewport-Resize)
+            // → invalidateSize + zurück auf letzte Bounds fitten
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    try {
+                        liveMap.invalidateSize();
+                        if (window._lastMapBounds && window._lastMapBounds.isValid && window._lastMapBounds.isValid()) {
+                            liveMap.fitBounds(window._lastMapBounds, { padding: [40, 40], maxZoom: 15, animate: false });
+                        }
+                    } catch(e) {}
+                });
+                ro.observe(mapEl);
+            }
+
             // Icon-Factories
             function makeIcon(color) {
                 return L.divIcon({
@@ -3548,6 +3588,7 @@
             const iconBusy  = makeIcon('#f59e0b'); // orange
 
             const taxiMarkers = {}; // vehicleId → {marker, isFree, etaMin}
+            window._taxiMarkers = taxiMarkers; // 🆕 v6.41.57: exposed damit showRouteMap nearest-Taxi findet
             let latestVehicles = {};
             let latestRides = {};
 
@@ -3625,6 +3666,20 @@
                 } else {
                     if (countEl) countEl.innerHTML = `<span style="color:#047857;">🟢 ${freeCount} frei</span> · <span style="color:#b45309;">🟡 ${onlineCount - freeCount} besetzt</span>`;
                     if (statusEl) statusEl.textContent = `Position aktualisiert sich live — auf 🚕 tippen für Details`;
+                }
+
+                // 🆕 v6.41.57: Auto-Centering — nur wenn User nicht gedragged hat UND keine Route aktiv
+                const hasRoute = window.liveTaxiRouteLayer && window.liveTaxiRouteLayer.getLayers().length > 0;
+                if (!window._userMovedMap && !hasRoute && seen.size > 0) {
+                    try {
+                        const taxiLatLngs = Array.from(seen).map(vid => taxiMarkers[vid].getLatLng());
+                        const bounds = L.latLngBounds(taxiLatLngs);
+                        bounds.extend(HERINGSDORF); // Heringsdorf als Anker damit Zoom nicht zu nah wird
+                        window._lastMapBounds = bounds;
+                        if (bounds.isValid()) {
+                            liveMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: false });
+                        }
+                    } catch(e) {}
                 }
             }
 

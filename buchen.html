@@ -2013,12 +2013,14 @@
             // (Button versteckt ohne Erklärung, weil minHour=24 → leerer Stunden-Dropdown → 00:05-Chaos).
             let selectedDate = dateInput.value;
             let isSelectedToday = selectedDate === today;
+            let _rolledOverToTomorrow = false;
             if (isSelectedToday && (now.getHours() + 1) >= 24 && !window._dateTimeInitDone) {
                 const tomorrow = new Date(now);
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 dateInput.value = berlinDateStr(tomorrow);
                 selectedDate = dateInput.value;
                 isSelectedToday = false;
+                _rolledOverToTomorrow = true;
             }
             // 🔧 v6.39.1: Stunden-Dropdown dynamisch — vergangene Stunden ausblenden wenn heute
             // Heute: mindestens 1 Stunde Vorlauf (z.B. 08:36 → frühestens 10:00)
@@ -2034,7 +2036,13 @@
             // 🔧 v6.39.1: Default immer jetzt +1h aufgerundet auf 5 Min (heute)
             if (!window._dateTimeInitDone) {
                 window._dateTimeInitDone = true;
-                {
+                if (_rolledOverToTomorrow) {
+                    // 🆕 v6.41.81: Bei Rollover auf Morgen NICHT jetzt+1h nehmen (landet bei 01:00),
+                    // sondern 09:00 als sichere Default-Zeit — liegt garantiert im Schichtplan
+                    // aller Fahrzeuge und im buchbaren Slot-Fenster (ab 06:00).
+                    hourSelect.value = '09';
+                    window._defaultMinute = '00';
+                } else {
                     const defaultTime = new Date(now.getTime() + 60 * 60000);
                     const roundedMin = Math.ceil(defaultTime.getMinutes() / 5) * 5;
                     let defH = defaultTime.getHours();

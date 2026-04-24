@@ -1322,10 +1322,11 @@
             if (!btn) return;
             const hasInput = pickupCoords && destCoords;
 
-            // 🆕 v6.41.53: Progressive Disclosure — Name + Personen erscheinen wenn Route vorhanden
+            // 🆕 v6.41.53: Progressive Disclosure — Name + Personen erscheinen sobald beide Adressen gesetzt
+            // 🆕 v6.41.73: KEIN Warten auf routeData mehr → Felder erscheinen sofort (keine gefühlte Verzögerung)
             const stepPersonen = document.getElementById('step-personen');
             if (stepPersonen) {
-                if (hasInput && routeData) stepPersonen.classList.add('revealed');
+                if (hasInput) stepPersonen.classList.add('revealed');
                 else stepPersonen.classList.remove('revealed');
             }
 
@@ -3225,6 +3226,8 @@
             }
             if (inputId === 'b-destination') destCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
             if (inputId === 'b-stopp') stoppCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+            // 🆕 v6.41.73: UI SOFORT aktualisieren (Chips, step-personen), Route-Berechnung läuft async im Hintergrund
+            try { updateBookButton(); } catch(e) {}
             checkRoute();
         }
 

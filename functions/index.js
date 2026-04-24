@@ -17084,21 +17084,40 @@ async function getDriverChatId(vehicleId) {
         // 2. Chat-ID direkt am Fahrzeug
         if (driverData && driverData.telegramChatId) return driverData.telegramChatId;
 
+        // 🆕 v6.41.75: Aktive Schicht — vehicles/{id}/shift.driverUid → users/{uid}/telegramChatId.
+        // Grund: Beim Schichtstart schreibt die Fahrer-App die driverUid in shift (siehe index.html:startShift).
+        if (driverData && driverData.shift && driverData.shift.driverUid) {
+            try {
+                const sUserSnap = await db.ref('users/' + driverData.shift.driverUid + '/telegramChatId').once('value');
+                if (sUserSnap.val()) {
+                    console.log(`🔗 getDriverChatId: Fahrer für ${vehicleId} via shift.driverUid gefunden`);
+                    return sUserSnap.val();
+                }
+            } catch(_) { /* weiter zu Email-Fallback */ }
+        }
+
         // 🆕 v6.40.33: Fallback — Users-Query über vehicleId / assignedVehicle / assignedVehicleId.
         // Grund: vehicles/{id}.userId fehlt oft (Fahrer war noch nicht eingeloggt als Fahrzeug angelegt wurde).
+        // 🆕 v6.41.75: Zusätzlich Email-Match (vehicles/{id}.shift.driverEmail bzw. vehicles/{id}.driverEmail).
         try {
+            const shiftEmail = (driverData && driverData.shift && driverData.shift.driverEmail) || (driverData && driverData.driverEmail) || null;
             const allUsersSnap = await db.ref('users').once('value');
             if (allUsersSnap.exists()) {
                 let found = null;
+                let foundReason = '';
                 allUsersSnap.forEach(c => {
                     const u = c.val() || {};
                     if (found) return;
                     if (u.role !== 'driver') return;
-                    const linked = u.vehicleId === vehicleId || u.assignedVehicle === vehicleId || u.assignedVehicleId === vehicleId;
-                    if (linked && u.telegramChatId) { found = u.telegramChatId; }
+                    const linkedByVehicle = u.vehicleId === vehicleId || u.assignedVehicle === vehicleId || u.assignedVehicleId === vehicleId;
+                    const linkedByEmail = shiftEmail && u.email && String(u.email).toLowerCase() === String(shiftEmail).toLowerCase();
+                    if ((linkedByVehicle || linkedByEmail) && u.telegramChatId) {
+                        found = u.telegramChatId;
+                        foundReason = linkedByVehicle ? 'vehicleId-Link' : 'email-Match';
+                    }
                 });
                 if (found) {
-                    console.log(`🔗 getDriverChatId Fallback: Fahrer für ${vehicleId} via users-Query gefunden`);
+                    console.log(`🔗 getDriverChatId Fallback (${foundReason}): Fahrer für ${vehicleId} gefunden`);
                     return found;
                 }
             }

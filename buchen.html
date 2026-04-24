@@ -2036,21 +2036,23 @@
             // 🔧 v6.39.1: Default immer jetzt +1h aufgerundet auf 5 Min (heute)
             if (!window._dateTimeInitDone) {
                 window._dateTimeInitDone = true;
+                let defH, defM;
                 if (_rolledOverToTomorrow) {
-                    // 🆕 v6.41.81: Bei Rollover auf Morgen NICHT jetzt+1h nehmen (landet bei 01:00),
-                    // sondern 07:00 als Default-Zeit — liegt im Schichtplan (Tesla ab 06:00),
-                    // mit etwas Vorlauf zum Tagesstart. Betreiber-Wunsch.
-                    hourSelect.value = '07';
-                    window._defaultMinute = '00';
+                    // 🆕 v6.41.81: Bei Rollover auf Morgen direkt 07:00 (betreiber-gewünscht)
+                    defH = 7; defM = 0;
                 } else {
                     const defaultTime = new Date(now.getTime() + 60 * 60000);
                     const roundedMin = Math.ceil(defaultTime.getMinutes() / 5) * 5;
-                    let defH = defaultTime.getHours();
-                    let defM = roundedMin;
+                    defH = defaultTime.getHours();
+                    defM = roundedMin;
                     if (defM >= 60) { defH++; defM = 0; }
-                    hourSelect.value = String(Math.max(defH, minHour)).padStart(2, '0');
-                    window._defaultMinute = String(defM).padStart(2, '0');
+                    // 🆕 v6.41.82: Nach Mitternacht-Fall (z.B. 00:30 → jetzt+1h=01:30) würde
+                    // der Default außerhalb jeder Schicht landen (erste Schicht ab 06:00).
+                    // → Auf 07:00 hochziehen, wenn Default-Stunde <6.
+                    if (defH < 6) { defH = 7; defM = 0; }
                 }
+                hourSelect.value = String(Math.max(defH, minHour)).padStart(2, '0');
+                window._defaultMinute = String(defM).padStart(2, '0');
             } else if (prevValue && parseInt(prevValue) >= minHour) {
                 hourSelect.value = prevValue;
             } else {

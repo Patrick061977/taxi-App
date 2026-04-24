@@ -2038,9 +2038,9 @@
                 window._dateTimeInitDone = true;
                 if (_rolledOverToTomorrow) {
                     // 🆕 v6.41.81: Bei Rollover auf Morgen NICHT jetzt+1h nehmen (landet bei 01:00),
-                    // sondern 09:00 als sichere Default-Zeit — liegt garantiert im Schichtplan
-                    // aller Fahrzeuge und im buchbaren Slot-Fenster (ab 06:00).
-                    hourSelect.value = '09';
+                    // sondern 07:00 als Default-Zeit — liegt im Schichtplan (Tesla ab 06:00),
+                    // mit etwas Vorlauf zum Tagesstart. Betreiber-Wunsch.
+                    hourSelect.value = '07';
                     window._defaultMinute = '00';
                 } else {
                     const defaultTime = new Date(now.getTime() + 60 * 60000);

@@ -659,11 +659,16 @@
 
         <!-- 🆕 v6.41.55: Wann-Card oben — erste Entscheidung des Kunden (Sofort/Vorbestellen) -->
         <div class="card" id="wann-card" style="padding:12px;">
-            <div class="input-group" style="margin-bottom:0;">
+<div class="input-group" style="margin-bottom:0;">
                 <label style="margin-bottom:6px;">🕐 Wann?</label>
-                <div class="wann-toggle">
+                <div class="wann-toggle" id="wann-toggle">
                     <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
                     <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
+                </div>
+                <!-- 🆕 v6.41.66: Kompakter "Termin gewählt" Streifen — nach Slot-Wahl statt voller Felder -->
+                <div id="termin-compact" style="display:none;margin-top:8px;padding:8px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;align-items:center;justify-content:space-between;gap:8px;">
+                    <div style="font-size:13px;color:#065f46;font-weight:600;" id="termin-compact-text">📅 — —</div>
+                    <button type="button" onclick="expandVorbestellFelder()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ Ändern</button>
                 </div>
                 <div class="vorbestellen-felder" id="vorbestellen-felder">
                     <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
@@ -1168,12 +1173,56 @@
             const pickupDay = new Date(dateVal + 'T00:00:00');
             const diffDays = Math.round((pickupDay - today) / 86400000);
             let label;
-            if (diffDays === 0) label = 'Heute';
-            else if (diffDays === 1) label = 'Morgen';
+            if (diffDays === 0) label = 'Heute ' + String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.';
+            else if (diffDays === 1) label = 'Morgen ' + String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.';
             else label = `${dayNames[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.`;
             dayEl.textContent = label;
             timeEl.textContent = `${hourVal}:${minVal} Uhr`;
             ov.style.display = 'block';
+            // 🆕 v6.41.66: Badge klickbar → expand + scroll zur Wann-Card
+            ov.style.cursor = 'pointer';
+            ov.title = 'Termin ändern';
+            ov.onclick = () => { expandVorbestellFelder(); };
+        }
+
+        // 🆕 v6.41.66: Nach erfolgreicher Zeitwahl alles einklappen (Datum/Uhrzeit-Felder + Kalender)
+        function collapseVorbestellFelder() {
+            if (wannModus !== 'vorbestellen') return;
+            if (!_slotIsFree || !_selectedSlot) return;
+            const felder = document.getElementById('vorbestellen-felder');
+            const kalender = document.getElementById('vorbestellen-kalender');
+            const compact = document.getElementById('termin-compact');
+            const compactText = document.getElementById('termin-compact-text');
+            if (felder) felder.style.display = 'none';
+            if (kalender) kalender.style.display = 'none';
+            if (compact && compactText) {
+                const dateVal = document.getElementById('b-date')?.value;
+                const hourVal = document.getElementById('b-hour')?.value;
+                const minVal = document.getElementById('b-minute')?.value;
+                const dt = new Date(dateVal + 'T00:00:00');
+                const today = new Date(); today.setHours(0,0,0,0);
+                const diffDays = Math.round((dt - today) / 86400000);
+                const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                let label;
+                if (diffDays === 0) label = 'Heute';
+                else if (diffDays === 1) label = 'Morgen';
+                else label = dayNames[dt.getDay()] + ' ' + String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.';
+                compactText.textContent = `📅 ${label} um ${hourVal}:${minVal} Uhr gewählt`;
+                compact.style.display = 'flex';
+            }
+        }
+
+        // 🆕 v6.41.66: Felder wieder ausklappen (über "Ändern"-Button oder Termin-Badge)
+        function expandVorbestellFelder() {
+            const felder = document.getElementById('vorbestellen-felder');
+            const kalender = document.getElementById('vorbestellen-kalender');
+            const compact = document.getElementById('termin-compact');
+            if (felder) felder.style.display = 'flex';
+            if (kalender && routeData) kalender.style.display = '';
+            if (compact) compact.style.display = 'none';
+            // Scroll zur Wann-Card
+            const wannCard = document.getElementById('wann-card');
+            if (wannCard) wannCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function updateBookButton() {
@@ -1801,6 +1850,9 @@
                 if (twoPrice) twoPrice.style.display = 'none';
                 const slotHint = document.getElementById('slot-route-hint');
                 if (slotHint) slotHint.style.display = 'none';
+                // 🆕 v6.41.66: Compact-Streifen bei Sofort verstecken
+                const compact = document.getElementById('termin-compact');
+                if (compact) compact.style.display = 'none';
             }
             updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);
             updateStatusBar();
@@ -2456,6 +2508,8 @@
             const infoEl = document.getElementById('slot-selected-info');
             if (infoEl) infoEl.style.display = 'none';
             updateBookButton();
+            // 🆕 v6.41.66: Nach Wahl → Vorbestell-Felder + Kalender einklappen
+            try { collapseVorbestellFelder(); } catch(e) {}
             logBuchen('📅', `Zeitfenster gewählt: ${dateStr} ${timeStr}`);
         }
 

@@ -3957,10 +3957,12 @@
                 const statusEl = document.getElementById('live-taxi-status');
                 if (onlineCount === 0) {
                     if (countEl) countEl.innerHTML = '<span style="color:#dc2626;">Kein Taxi online</span>';
-                    if (statusEl) statusEl.innerHTML = '📞 Bitte anrufen: <a href="tel:+49383782022" style="color:#059669;font-weight:600;">038378/22022</a>';
+                    // 🆕 v6.41.67: "Bitte anrufen" unter der Karte weg (User-Wunsch)
+                    if (statusEl) { statusEl.innerHTML = ''; statusEl.style.display = 'none'; }
                 } else {
                     if (countEl) countEl.innerHTML = `<span style="color:#047857;">🟢 ${freeCount} frei</span> · <span style="color:#b45309;">🟡 ${onlineCount - freeCount} besetzt</span>`;
-                    if (statusEl) statusEl.textContent = `Position aktualisiert sich live — auf 🚕 tippen für Details`;
+                    // 🆕 v6.41.67: Zeilenfüller unter Karte auch weg — Karte + Overlays sprechen für sich
+                    if (statusEl) { statusEl.innerHTML = ''; statusEl.style.display = 'none'; }
                 }
 
                 // 🆕 v6.41.57: Auto-Centering — nur wenn User nicht gedragged hat UND keine Route aktiv

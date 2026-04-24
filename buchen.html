@@ -713,11 +713,10 @@
 
             <!-- Buchungsformular-Felder (ausgeblendet wenn Sofort + kein GPS) -->
             <div id="booking-fields">
-                <!-- Abholort -->
+                <!-- Abholort — v6.41.60: Icon im Feld + "z.B. ..." Placeholder raus (doppelt gemoppelt) -->
                 <div class="input-group">
-                    <label>📍 Abholort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
-                    <span class="input-icon">📍</span>
-                    <input type="text" id="b-pickup" placeholder="z.B. Seestraße 12, Heringsdorf" autocomplete="off" style="padding-right:70px;">
+                    <label>📍 Abholort</label>
+                    <input type="text" id="b-pickup" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:70px;">
                     <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                     <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
                     <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
@@ -732,9 +731,8 @@
                 </div>
                 <div class="input-group" id="b-stopp-box" style="display:none;">
                     <label>📍 Zwischenstopp</label>
-                    <span class="input-icon">📍</span>
                     <div style="display:flex;gap:6px;">
-                        <input type="text" id="b-stopp" placeholder="z.B. Lidl Bansin, Hotel Ahlbeck..." autocomplete="off" style="flex:1;padding:12px 14px 12px 38px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
+                        <input type="text" id="b-stopp" placeholder="Adresse eingeben…" autocomplete="off" style="flex:1;padding:12px 14px;border:2px solid #f59e0b;border-radius:10px;font-size:16px;background:#fffbeb;">
                         <button onclick="clearZwischenstopp()" style="width:44px;height:44px;border:2px solid #ef4444;border-radius:10px;background:white;cursor:pointer;font-size:18px;color:#ef4444;flex-shrink:0;display:flex;align-items:center;justify-content:center;">&times;</button>
                     </div>
                     <div class="autocomplete-dropdown" id="b-stopp-dropdown" style="border-color:#f59e0b;"></div>
@@ -745,11 +743,10 @@
                     <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;" title="Abholort und Zielort tauschen">🔄</button>
                 </div>
 
-                <!-- Zielort -->
+                <!-- Zielort — v6.41.60: Icon im Feld + "z.B. ..." Placeholder raus -->
                 <div class="input-group">
-                    <label>🎯 Zielort <span style="color:#94a3b8;font-weight:400;font-size:12px;">Vorschlag aus der Liste wählen</span></label>
-                    <span class="input-icon">🎯</span>
-                    <input type="text" id="b-destination" placeholder="z.B. Bahnhof Heringsdorf" autocomplete="off" style="padding-right:40px;">
+                    <label>🎯 Zielort</label>
+                    <input type="text" id="b-destination" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:40px;">
                     <button onclick="clearAddressField('destination')" title="Zielort löschen" style="position:absolute;right:10px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                     <div class="autocomplete-dropdown" id="b-destination-dropdown"></div>
                     <div id="dest-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">

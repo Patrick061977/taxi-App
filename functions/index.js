@@ -19159,6 +19159,15 @@ exports.shiftHeartbeatPing = onRequest(
         const lon = lonStr ? parseFloat(lonStr) : null;
         const acc = accStr ? parseFloat(accStr) : null;
 
+        // 🆕 v6.41.76: Power-/Service-Status vom Native-Service (für Diagnose-UI)
+        const powerStatus = {
+            wakeLock: String(req.query.wakeLock || '') === '1',
+            batteryOpt: String(req.query.batteryOpt || '') === '1',
+            gpsIntervalMs: req.query.gpsInt ? parseInt(req.query.gpsInt, 10) : null,
+            heartbeatIntervalSec: req.query.hbInt ? parseInt(req.query.hbInt, 10) : null,
+            svcVersion: (req.query.svcVer || '').toString() || null
+        };
+
         try {
             const vSnap = await db.ref('vehicles/' + vehicleId).once('value');
             const v = vSnap.val();
@@ -19193,7 +19202,8 @@ exports.shiftHeartbeatPing = onRequest(
                 lat: hasGps ? lat : null,
                 lon: hasGps ? lon : null,
                 acc: (acc !== null && !isNaN(acc)) ? acc : null,
-                ua: (req.get('user-agent') || '').substring(0, 80)
+                ua: (req.get('user-agent') || '').substring(0, 80),
+                powerStatus: powerStatus
             };
             updates['gpsHealth/' + vehicleId + '/latest'] = diag;
             updates['gpsHealth/' + vehicleId + '/history/' + now] = diag;

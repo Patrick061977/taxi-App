@@ -647,6 +647,9 @@
 
     <!-- Buchungsformular -->
     <div class="main">
+        <!-- 🆕 v6.41.61: Kleiner Assistent — zeigt immer den NÄCHSTEN Schritt -->
+        <div id="step-hint" style="display:none;background:linear-gradient(90deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;color:#065f46;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:10px;text-align:center;box-shadow:0 2px 6px rgba(16,185,129,0.08);"></div>
+
         <!-- 🆕 v6.41.55: Wann-Card oben — erste Entscheidung des Kunden (Sofort/Vorbestellen) -->
         <div class="card" id="wann-card" style="padding:12px;">
             <div class="input-group" style="margin-bottom:0;">
@@ -760,7 +763,7 @@
                     <div class="input-group">
                         <label>👤 Ihr Name</label>
                         <span class="input-icon">👤</span>
-                        <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" style="padding-left: 36px;">
+                        <input type="text" id="b-name" placeholder="Vor- und Nachname" autocomplete="name" oninput="updateStepHint()" style="padding-left: 36px;">
                     </div>
 
                     <!-- Personen -->
@@ -1039,6 +1042,57 @@
         let _gpsOnlineVehicles = {}; // 🆕 v6.38.95: GPS-online Fahrzeuge (live via Firebase)
 
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
+        // 🆕 v6.41.61: Assistent — ermittelt was der Kunde als Nächstes tun muss
+        function updateStepHint() {
+            const hintEl = document.getElementById('step-hint');
+            if (!hintEl) return;
+            const noTaxi = _lastGpsOnlineCount === 0;
+            // Sofort + kein Taxi → nur Anrufen-Box — Hint nicht relevant
+            if (wannModus === 'sofort' && noTaxi) {
+                hintEl.style.display = 'none';
+                return;
+            }
+            // Vorbestellung: Zeit muss in der Zukunft liegen UND ≥ 60 Min Vorlauf
+            if (wannModus === 'vorbestellen') {
+                const ts = getPickupTimestamp();
+                if (ts <= Date.now() + 60 * 60000) {
+                    hintEl.innerHTML = '📅 <b>Schritt 1:</b> Datum und Uhrzeit wählen (mindestens 1 Std. Vorlauf)';
+                    hintEl.style.display = '';
+                    return;
+                }
+            }
+            if (!pickupCoords) {
+                hintEl.innerHTML = '📍 <b>Nächster Schritt:</b> Abholort aus der Vorschlagsliste wählen';
+                hintEl.style.display = '';
+                return;
+            }
+            if (!destCoords) {
+                hintEl.innerHTML = '🎯 <b>Nächster Schritt:</b> Zielort aus der Vorschlagsliste wählen';
+                hintEl.style.display = '';
+                return;
+            }
+            const nameVal = (document.getElementById('b-name')?.value || '').trim();
+            if (!nameVal || nameVal.length < 2) {
+                hintEl.innerHTML = '👤 <b>Nächster Schritt:</b> Ihren Namen eingeben';
+                hintEl.style.display = '';
+                return;
+            }
+            const stepPhoneVisible = document.getElementById('step-phone')?.classList.contains('revealed');
+            const stepSmsVisible = document.getElementById('step-sms')?.classList.contains('revealed');
+            if (stepSmsVisible) {
+                hintEl.innerHTML = '📟 <b>Letzter Schritt:</b> SMS-Code eingeben und bestätigen';
+                hintEl.style.display = '';
+                return;
+            }
+            if (stepPhoneVisible) {
+                hintEl.innerHTML = '📱 <b>Nächster Schritt:</b> Handynummer eingeben und Code anfordern';
+                hintEl.style.display = '';
+                return;
+            }
+            hintEl.innerHTML = '🚕 <b>Bereit:</b> Auf „Jetzt Taxi buchen" tippen';
+            hintEl.style.display = '';
+        }
+
         function updateBookButton() {
             const btn = document.getElementById('btn-book');
             const cancelBtn = document.getElementById('btn-cancel');
@@ -1051,6 +1105,9 @@
                 if (hasInput && routeData) stepPersonen.classList.add('revealed');
                 else stepPersonen.classList.remove('revealed');
             }
+
+            // 🆕 v6.41.61: Step-Assistant bei jedem State-Wechsel aktualisieren
+            try { updateStepHint(); } catch(e) {}
 
             if (wannModus === 'vorbestellen') {
                 // 🔧 v6.39.1: Vorbestellen — btn-book IMMER verstecken
@@ -2191,10 +2248,14 @@
                     block.onmouseout = () => { if (!block.classList.contains('sel')) block.style.background = '#d1fae5'; };
                     block.onclick = () => selectSlot(dateStr, slotTimeStr, slotH, slotM);
                 } else if (!isPast && !tooSoon && vehiclesInShift > 0 && freeVehicles === 0) {
-                    // 🔧 v6.39.1: Belegter Slot — zeige Grund bei Klick
+                    // 🔧 v6.41.61: Belegter Slot — detaillierte Diagnose bei Klick
                     const _blockedRides = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol);
+                    // Welche Fahrzeuge sind im Dienst aber NICHT blockiert?
+                    const _vehiclesInShiftList = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, dateStr, slotTimeStr));
+                    const _blockedVids = Array.from(overlappingVehicles).filter(v => !String(v).startsWith('unknown_'));
+                    const _freeVidsInShift = _vehiclesInShiftList.filter(v => !_blockedVids.includes(v));
                     const _reason = _blockedRides.length > 0
-                        ? `${slotTimeStr} Uhr belegt: ${_blockedRides.length} Fahrt(en) blockieren diesen Zeitraum.\nFahrzeuge im Dienst: ${vehiclesInShift}\n\nNächster freier Slot wird grün angezeigt.`
+                        ? `${slotTimeStr} belegt — ${overlapping}/${vehiclesInShift} Fzg blockiert.\nBlocker: ${_blockedVids.join(', ') || '(unzugeordnet)'}\nNoch frei im Dienst: ${_freeVidsInShift.join(', ') || 'keine'}`
                         : `${slotTimeStr} Uhr: Fahrer schafft es nicht rechtzeitig nach vorheriger Fahrt.`;
                     block.onclick = () => showToast(_reason.split('\n')[0]);
                 } else if (!isPast && !tooSoon && vehiclesInShift === 0) {

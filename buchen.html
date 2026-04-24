@@ -1188,8 +1188,18 @@
         function updateStepHint() {
             const hintEl = document.getElementById('step-hint');
             if (!hintEl) return;
+            // 🆕 v6.41.71: Step-Hint komplett ausgeblendet — Zeitleiste oben reicht
+            // User: "dann brauchst du die Schritte nicht mehr erklären"
+            hintEl.style.display = 'none';
+            // Trotzdem Termin-Overlay + Progress-Strip aktualisieren
+            try { updateTerminOverlay(); } catch(e) {}
+            try { updateStepProgress(); } catch(e) {}
+        }
+
+        function updateStepHintOld_unused() {
+            const hintEl = document.getElementById('step-hint');
+            if (!hintEl) return;
             const noTaxi = _lastGpsOnlineCount === 0;
-            // Sofort + kein Taxi → nur Anrufen-Box — Hint nicht relevant
             if (wannModus === 'sofort' && noTaxi) {
                 hintEl.style.display = 'none';
                 return;
@@ -1895,10 +1905,14 @@
                 if (mode === 'sofort' && b.textContent.includes('Sofort')) b.classList.add('active');
                 if (mode === 'vorbestellen' && b.textContent.includes('Vorbestellen')) b.classList.add('active');
             });
+            // 🆕 v6.41.71: Wann-Card IMMER wieder sichtbar machen (war ggf. durch collapseVorbestellFelder versteckt)
+            const wannCard = document.getElementById('wann-card');
+            if (wannCard) wannCard.style.display = '';
             const felder = document.getElementById('vorbestellen-felder');
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
+                felder.style.display = 'flex';
                 initDateTimePickers();
                 // Kalender erst zeigen wenn Route berechnet ist
                 if (routeData) {
@@ -1911,6 +1925,7 @@
             } else {
                 // 🔧 v6.41.52: Sofort — komplett alle Vorbestell-Elemente ausblenden
                 felder.classList.remove('active');
+                felder.style.display = 'none';
                 kalender.style.display = 'none';
                 _selectedSlot = null;
                 _slotIsFree = false;
@@ -1924,6 +1939,14 @@
                 // 🆕 v6.41.66: Compact-Streifen bei Sofort verstecken
                 const compact = document.getElementById('termin-compact');
                 if (compact) compact.style.display = 'none';
+                // 🆕 v6.41.71: Termin-Badge + Datums-Input zurücksetzen damit "09:40" etc. nicht mehr zu sehen ist
+                const terminOv = document.getElementById('map-termin-overlay');
+                if (terminOv) terminOv.style.display = 'none';
+                const dInput = document.getElementById('b-date');
+                if (dInput) dInput.value = '';
+                const tInput = document.getElementById('b-time');
+                if (tInput) tInput.value = '';
+                window._dateTimeInitDone = false;
             }
             updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);
             updateStatusBar();

@@ -6,12 +6,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
@@ -71,6 +73,10 @@ public class ShiftForegroundService extends Service {
     private volatile Double lastLat = null;
     private volatile Double lastLon = null;
     private volatile Float lastAccuracy = null;
+
+    // 🆕 v6.41.76: WakeLock hält CPU wach während Schicht (sonst drosselt Android bei Screen-off)
+    private PowerManager.WakeLock wakeLock = null;
+    private static final String WAKE_LOCK_TAG = "TaxiHeringsdorf::ShiftGpsWakeLock";
 
     public static boolean isRunning() {
         return running;
@@ -139,6 +145,7 @@ public class ShiftForegroundService extends Service {
         startForeground(NOTIFICATION_ID, notification);
         running = true;
 
+        acquireWakeLock();
         startHeartbeat();
         startGpsTracking();
 
@@ -150,7 +157,56 @@ public class ShiftForegroundService extends Service {
         running = false;
         stopHeartbeat();
         stopGpsTracking();
+        releaseWakeLock();
         super.onDestroy();
+    }
+
+    // 🆕 v6.41.76: WakeLock — verhindert dass Android die CPU schlafen legt wenn Screen aus ist.
+    // Ohne WakeLock drosselt FusedLocationProvider bei Screen-off auf ~60s-Intervalle und
+    // ScheduledExecutorService kann verspätet feuern.
+    private void acquireWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) return;
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm == null) {
+                Log.w(TAG, "🔋 PowerManager nicht verfügbar — kein WakeLock");
+                return;
+            }
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG);
+            wakeLock.setReferenceCounted(false);
+            wakeLock.acquire();
+            Log.i(TAG, "🔋 WakeLock acquired (PARTIAL)");
+        } catch (Exception e) {
+            Log.w(TAG, "🔋 WakeLock acquire fehlgeschlagen: " + e.getMessage());
+        }
+    }
+
+    private void releaseWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                wakeLock.release();
+                Log.i(TAG, "🔋 WakeLock released");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "🔋 WakeLock release fehlgeschlagen: " + e.getMessage());
+        } finally {
+            wakeLock = null;
+        }
+    }
+
+    private boolean isWakeLockHeld() {
+        try { return wakeLock != null && wakeLock.isHeld(); } catch (Exception e) { return false; }
+    }
+
+    private boolean isBatteryOptimizationIgnored() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm == null) return false;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true; // irrelevant vor M
+            return pm.isIgnoringBatteryOptimizations(getPackageName());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -221,6 +277,12 @@ public class ShiftForegroundService extends Service {
                 url.append("&lon=").append(lon);
                 if (acc != null) url.append("&acc=").append(acc);
             }
+            // 🆕 v6.41.76: Power-/Service-Status mitsenden (für Diagnose-UI in Fahrer-App)
+            url.append("&wakeLock=").append(isWakeLockHeld() ? "1" : "0");
+            url.append("&batteryOpt=").append(isBatteryOptimizationIgnored() ? "1" : "0");
+            url.append("&gpsInt=").append(GPS_INTERVAL_MS);
+            url.append("&hbInt=").append(HEARTBEAT_INTERVAL_SEC);
+            url.append("&svcVer=").append("6.41.76");
 
             URL u = new URL(url.toString());
             conn = (HttpURLConnection) u.openConnection();
@@ -253,8 +315,12 @@ public class ShiftForegroundService extends Service {
         }
         try {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+            // 🆕 v6.41.76: setMaxUpdateDelayMillis = Intervall → Android darf GPS-Updates NICHT batchen.
+            //               setMinUpdateDistanceMeters(0) → auch bei Stillstand weiterhin Updates.
             LocationRequest req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, GPS_INTERVAL_MS)
                     .setMinUpdateIntervalMillis(GPS_MIN_INTERVAL_MS)
+                    .setMaxUpdateDelayMillis(GPS_INTERVAL_MS)
+                    .setMinUpdateDistanceMeters(0)
                     .setWaitForAccurateLocation(false)
                     .build();
             locationCallback = new LocationCallback() {

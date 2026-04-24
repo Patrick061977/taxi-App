@@ -17084,21 +17084,40 @@ async function getDriverChatId(vehicleId) {
         // 2. Chat-ID direkt am Fahrzeug
         if (driverData && driverData.telegramChatId) return driverData.telegramChatId;
 
+        // 🆕 v6.41.75: Aktive Schicht — vehicles/{id}/shift.driverUid → users/{uid}/telegramChatId.
+        // Grund: Beim Schichtstart schreibt die Fahrer-App die driverUid in shift (siehe index.html:startShift).
+        if (driverData && driverData.shift && driverData.shift.driverUid) {
+            try {
+                const sUserSnap = await db.ref('users/' + driverData.shift.driverUid + '/telegramChatId').once('value');
+                if (sUserSnap.val()) {
+                    console.log(`🔗 getDriverChatId: Fahrer für ${vehicleId} via shift.driverUid gefunden`);
+                    return sUserSnap.val();
+                }
+            } catch(_) { /* weiter zu Email-Fallback */ }
+        }
+
         // 🆕 v6.40.33: Fallback — Users-Query über vehicleId / assignedVehicle / assignedVehicleId.
         // Grund: vehicles/{id}.userId fehlt oft (Fahrer war noch nicht eingeloggt als Fahrzeug angelegt wurde).
+        // 🆕 v6.41.75: Zusätzlich Email-Match (vehicles/{id}.shift.driverEmail bzw. vehicles/{id}.driverEmail).
         try {
+            const shiftEmail = (driverData && driverData.shift && driverData.shift.driverEmail) || (driverData && driverData.driverEmail) || null;
             const allUsersSnap = await db.ref('users').once('value');
             if (allUsersSnap.exists()) {
                 let found = null;
+                let foundReason = '';
                 allUsersSnap.forEach(c => {
                     const u = c.val() || {};
                     if (found) return;
                     if (u.role !== 'driver') return;
-                    const linked = u.vehicleId === vehicleId || u.assignedVehicle === vehicleId || u.assignedVehicleId === vehicleId;
-                    if (linked && u.telegramChatId) { found = u.telegramChatId; }
+                    const linkedByVehicle = u.vehicleId === vehicleId || u.assignedVehicle === vehicleId || u.assignedVehicleId === vehicleId;
+                    const linkedByEmail = shiftEmail && u.email && String(u.email).toLowerCase() === String(shiftEmail).toLowerCase();
+                    if ((linkedByVehicle || linkedByEmail) && u.telegramChatId) {
+                        found = u.telegramChatId;
+                        foundReason = linkedByVehicle ? 'vehicleId-Link' : 'email-Match';
+                    }
                 });
                 if (found) {
-                    console.log(`🔗 getDriverChatId Fallback: Fahrer für ${vehicleId} via users-Query gefunden`);
+                    console.log(`🔗 getDriverChatId Fallback (${foundReason}): Fahrer für ${vehicleId} gefunden`);
                     return found;
                 }
             }
@@ -19140,6 +19159,15 @@ exports.shiftHeartbeatPing = onRequest(
         const lon = lonStr ? parseFloat(lonStr) : null;
         const acc = accStr ? parseFloat(accStr) : null;
 
+        // 🆕 v6.41.76: Power-/Service-Status vom Native-Service (für Diagnose-UI)
+        const powerStatus = {
+            wakeLock: String(req.query.wakeLock || '') === '1',
+            batteryOpt: String(req.query.batteryOpt || '') === '1',
+            gpsIntervalMs: req.query.gpsInt ? parseInt(req.query.gpsInt, 10) : null,
+            heartbeatIntervalSec: req.query.hbInt ? parseInt(req.query.hbInt, 10) : null,
+            svcVersion: (req.query.svcVer || '').toString() || null
+        };
+
         try {
             const vSnap = await db.ref('vehicles/' + vehicleId).once('value');
             const v = vSnap.val();
@@ -19151,9 +19179,10 @@ exports.shiftHeartbeatPing = onRequest(
             const now = Date.now();
             const updates = {};
             updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
+            const hasGps = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
+            const inBox = hasGps && lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0;
             // GPS mitsenden wenn angegeben + plausibel (Usedom-Bereich grob gefiltert)
-            if (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon) &&
-                lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0) {
+            if (inBox) {
                 updates['vehicles/' + vehicleId + '/lat'] = lat;
                 updates['vehicles/' + vehicleId + '/lon'] = lon;
                 updates['vehicles/' + vehicleId + '/timestamp'] = now;
@@ -19163,13 +19192,42 @@ exports.shiftHeartbeatPing = onRequest(
                     updates['vehicles/' + vehicleId + '/accuracy'] = acc;
                 }
             }
+
+            // 🆕 v6.41.76: GPS-Health-Diagnose — damit ohne adb logcat sichtbar ist ob der Native-Service
+            // lebt und GPS liefert. `latest` wird bei jedem Heartbeat überschrieben; `history/{ts}` ist Ringbuffer.
+            const diag = {
+                ts: now,
+                hasGps: hasGps,
+                inBox: inBox,
+                lat: hasGps ? lat : null,
+                lon: hasGps ? lon : null,
+                acc: (acc !== null && !isNaN(acc)) ? acc : null,
+                ua: (req.get('user-agent') || '').substring(0, 80),
+                powerStatus: powerStatus
+            };
+            updates['gpsHealth/' + vehicleId + '/latest'] = diag;
+            updates['gpsHealth/' + vehicleId + '/history/' + now] = diag;
+
             await db.ref().update(updates);
+
+            // Fire-and-forget: History auf letzte 2 Stunden beschneiden (verhindert unbegrenztes Wachstum)
+            db.ref('gpsHealth/' + vehicleId + '/history')
+                .orderByKey().endAt(String(now - 2 * 60 * 60 * 1000)).once('value')
+                .then(snap => {
+                    if (!snap.exists()) return;
+                    const del = {};
+                    snap.forEach(c => { del['gpsHealth/' + vehicleId + '/history/' + c.key] = null; });
+                    return db.ref().update(del);
+                })
+                .catch(() => {});
 
             res.status(200).json({
                 ok: true,
                 vehicleId: vehicleId,
                 lastHeartbeat: now,
-                gpsWritten: (lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)),
+                gpsWritten: inBox,
+                hasGps: hasGps,
+                inBox: inBox,
                 source: 'native-service'
             });
         } catch(e) {

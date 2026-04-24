@@ -2292,6 +2292,11 @@
             const now = berlinNow();
             tabsEl.innerHTML = '';
             const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            // 🆕 v6.41.80: Bereits gesetztes Datum respektieren (wurde evtl. von
+            // initDateTimePickers auf Morgen vorgerückt, wenn nach 22 Uhr). Vorher hat
+            // dieser Block das Datum stumm auf Heute zurückgesetzt → K2-Fix kaputt.
+            const preSelectedDate = document.getElementById('b-date')?.value;
+            const todayStr = berlinDateStr(now);
             // 7 Tage anzeigen
             for (let i = 0; i < 7; i++) {
                 const d = new Date(now);
@@ -2299,7 +2304,8 @@
                 const ds = berlinDateStr(d);
                 const label = i === 0 ? 'Heute' : i === 1 ? 'Morgen' : dayNames[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
                 const tab = document.createElement('div');
-                tab.className = 'day-tab' + (i === 0 ? ' active' : '');
+                const isActive = preSelectedDate ? (ds === preSelectedDate) : (i === 0);
+                tab.className = 'day-tab' + (isActive ? ' active' : '');
                 tab.textContent = label;
                 tab._dateStr = ds; // für onDateTimeChange
                 tab.onclick = () => {
@@ -2317,8 +2323,8 @@
                 };
                 tabsEl.appendChild(tab);
             }
-            // Ersten Tag laden
-            const firstDate = berlinDateStr(now);
+            // Ersten Tag laden — preSelectedDate hat Vorrang (sonst Heute)
+            const firstDate = preSelectedDate || todayStr;
             _slotCalendarDate = firstDate;
             document.getElementById('b-date').value = firstDate;
             renderSlotTimeline(firstDate);

@@ -56,3 +56,39 @@ jobs:
           name: strato-deploy
           path: strato-deploy.zip
           retention-days: 30
+
+      # 🆕 v6.41.80: Automatischer FTP-Upload auf Strato.
+      # Läuft nur, wenn alle drei Secrets gesetzt sind — so bleibt der Workflow funktionsfähig
+      # auch solange die Zugangsdaten noch PLACEHOLDER sind. Sobald die Secrets echte Werte
+      # haben, greift der Upload beim nächsten Push automatisch (wie Firebase Hosting).
+      - name: Prüfen ob Strato-Secrets gesetzt sind
+        id: check-secrets
+        run: |
+          if [ -n "${{ secrets.STRATO_FTP_HOST }}" ] \
+             && [ "${{ secrets.STRATO_FTP_HOST }}" != "PLACEHOLDER_UPDATE_ME" ] \
+             && [ -n "${{ secrets.STRATO_FTP_USER }}" ] \
+             && [ "${{ secrets.STRATO_FTP_USER }}" != "PLACEHOLDER_UPDATE_ME" ] \
+             && [ -n "${{ secrets.STRATO_FTP_PASSWORD }}" ] \
+             && [ "${{ secrets.STRATO_FTP_PASSWORD }}" != "PLACEHOLDER_UPDATE_ME" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+            echo "✅ Strato-Secrets gesetzt — FTP-Upload aktiv"
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Strato-Secrets fehlen oder sind PLACEHOLDER — FTP-Upload übersprungen"
+            echo "   (ZIP liegt als Artifact zum manuellen Upload bereit)"
+          fi
+
+      - name: FTP-Upload auf Strato
+        if: steps.check-secrets.outputs.ready == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.STRATO_FTP_HOST }}
+          username: ${{ secrets.STRATO_FTP_USER }}
+          password: ${{ secrets.STRATO_FTP_PASSWORD }}
+          local-dir: ./strato-upload/
+          server-dir: /
+          # Safe: nichts löschen was auf dem Server liegt aber nicht im Upload ist
+          dangerous-clean-slate: false
+          # Nur geänderte Dateien hochladen (SHA256-Vergleich via .ftp-deploy-sync-state.json)
+          state-name: .ftp-deploy-sync-state.json
+          log-level: minimal

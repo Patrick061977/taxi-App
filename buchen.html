@@ -81,6 +81,15 @@
             pointer-events: none !important;
             transition: all 0.3s ease;
         }
+        /* 🆕 v6.41.72: Aktueller Schritt-Chip pulsiert sanft → Aufmerksamkeit auf nächstes Feld */
+        @keyframes step-pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(5,150,105,0.55); }
+            70%  { box-shadow: 0 0 0 8px rgba(5,150,105,0);   }
+            100% { box-shadow: 0 0 0 0 rgba(5,150,105,0);     }
+        }
+        #step-progress .step-current {
+            animation: step-pulse 1.6s infinite;
+        }
         /* 🆕 v6.41.54: Uber-Style — Buchungs-Card schiebt sich VON UNTEN in die Karte (overlap,
            keine position:fixed — damit keine Scroll-Bugs wie v6.41.47). */
         #live-taxi-card {
@@ -684,7 +693,7 @@
                 </div>
                 <div class="vorbestellen-felder" id="vorbestellen-felder">
                     <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
-                    <input type="time" id="b-time" step="600" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
+                    <input type="time" id="b-time" step="600" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
                 </div>
@@ -1099,7 +1108,7 @@
             }
             steps.push({ key: 'book',   label: '🚕 Buchen',   done: false });
 
-            // Nächsten offenen Schritt als "current" markieren
+            // Nächsten offenen Schritt als "current" markieren (mit Pulse-Animation + "👈" Pointer)
             const firstOpenIdx = steps.findIndex(s => !s.done);
             strip.innerHTML = steps.map((s, i) => {
                 const isCurrent = i === firstOpenIdx;
@@ -1107,8 +1116,9 @@
                 const color = s.done ? '#065f46' : (isCurrent ? 'white' : '#94a3b8');
                 const border = s.done ? '#a7f3d0' : (isCurrent ? '#059669' : '#e5e7eb');
                 const mark = s.done ? '✓ ' : '';
+                const cls = isCurrent ? 'step-current ' : '';
                 const clickable = s.done || isCurrent ? `onclick="expandStep('${s.key}')" style="cursor:pointer;` : 'style="';
-                return `<span ${clickable}display:inline-block;background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:14px;flex-shrink:0;user-select:none;">${mark}${s.label}</span>`;
+                return `<span class="${cls}"${clickable}display:inline-block;background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:14px;flex-shrink:0;user-select:none;font-weight:${isCurrent ? '700' : '600'};">${mark}${s.label}${isCurrent ? ' 👈' : ''}</span>`;
             }).join('<span style="color:#cbd5e1;align-self:center;">→</span>');
             strip.style.display = 'flex';
 
@@ -1727,6 +1737,19 @@
             destCoords = null;
             stoppCoords = null;
             routeData = null;
+            // 🆕 v6.41.72: Datum + Uhrzeit auch zurücksetzen (User-Wunsch)
+            const dInp = document.getElementById('b-date');
+            if (dInp) dInp.value = '';
+            const tInp = document.getElementById('b-time');
+            if (tInp) tInp.value = '';
+            const hSel = document.getElementById('b-hour');
+            if (hSel) hSel.value = '';
+            const mSel = document.getElementById('b-minute');
+            if (mSel) mSel.value = '';
+            window._dateTimeInitDone = false;
+            _selectedSlot = null;
+            _slotIsFree = false;
+            _slotCalendarDate = null;
             // Zwischenstopp zurücksetzen
             const stoppBox = document.getElementById('b-stopp-box');
             const stoppBtnBox = document.getElementById('b-stopp-btn-box');

@@ -808,7 +808,79 @@
                 <!-- 🔧 v6.39.1: Buchungsübersicht + Button ganz unten (nach allen Feldern) -->
                 <div id="slot-selected-info" style="display:none;margin-top:12px;padding:14px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;font-size:14px;font-weight:700;color:#1f2937;"></div>
 
-                <!-- Buchen Button (für Sofort-Modus) -->
+                <!-- 🆕 v6.41.58: Handynr als Progressive Step — kein Screen-Wechsel -->
+                <div id="step-phone" class="progressive-step">
+                    <div class="input-group" style="margin-top:4px;">
+                        <label>📱 Mobilnummer für SMS-Bestätigung</label>
+                        <div class="phone-input-group">
+                            <select id="b-phone-country">
+                                <optgroup label="Häufig">
+                                <option value="+49">🇩🇪 +49</option>
+                                <option value="+48">🇵🇱 +48</option>
+                                <option value="+43">🇦🇹 +43</option>
+                                <option value="+41">🇨🇭 +41</option>
+                                </optgroup>
+                                <optgroup label="Europa">
+                                <option value="+44">🇬🇧 +44</option>
+                                <option value="+33">🇫🇷 +33</option>
+                                <option value="+39">🇮🇹 +39</option>
+                                <option value="+34">🇪🇸 +34</option>
+                                <option value="+31">🇳🇱 +31</option>
+                                <option value="+32">🇧🇪 +32</option>
+                                <option value="+45">🇩🇰 +45</option>
+                                <option value="+46">🇸🇪 +46</option>
+                                <option value="+47">🇳🇴 +47</option>
+                                <option value="+358">🇫🇮 +358</option>
+                                <option value="+420">🇨🇿 +420</option>
+                                <option value="+421">🇸🇰 +421</option>
+                                <option value="+36">🇭🇺 +36</option>
+                                <option value="+40">🇷🇴 +40</option>
+                                <option value="+359">🇧🇬 +359</option>
+                                <option value="+385">🇭🇷 +385</option>
+                                <option value="+386">🇸🇮 +386</option>
+                                <option value="+381">🇷🇸 +381</option>
+                                <option value="+30">🇬🇷 +30</option>
+                                <option value="+351">🇵🇹 +351</option>
+                                <option value="+353">🇮🇪 +353</option>
+                                <option value="+352">🇱🇺 +352</option>
+                                <option value="+370">🇱🇹 +370</option>
+                                <option value="+371">🇱🇻 +371</option>
+                                <option value="+372">🇪🇪 +372</option>
+                                <option value="+380">🇺🇦 +380</option>
+                                <option value="+7">🇷🇺 +7</option>
+                                <option value="+90">🇹🇷 +90</option>
+                                </optgroup>
+                                <optgroup label="Weitere">
+                                <option value="+1">🇺🇸 +1</option>
+                                <option value="+86">🇨🇳 +86</option>
+                                <option value="+81">🇯🇵 +81</option>
+                                <option value="+82">🇰🇷 +82</option>
+                                <option value="+91">🇮🇳 +91</option>
+                                <option value="+61">🇦🇺 +61</option>
+                                <option value="+55">🇧🇷 +55</option>
+                                <option value="+971">🇦🇪 +971</option>
+                                <option value="+966">🇸🇦 +966</option>
+                                <option value="+972">🇮🇱 +972</option>
+                                <option value="+27">🇿🇦 +27</option>
+                                </optgroup>
+                            </select>
+                            <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel">
+                        </div>
+                        <div style="font-size:11px;color:#64748b;margin-top:4px;">Sie erhalten einen 6-stelligen Bestätigungscode per SMS (kostenlos).</div>
+                    </div>
+                </div>
+
+                <!-- 🆕 v6.41.58: SMS-Code als Progressive Step -->
+                <div id="step-sms" class="progressive-step">
+                    <div class="input-group" style="margin-top:4px;">
+                        <label>📟 Code aus der SMS (6-stellig)</label>
+                        <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • • • •" maxlength="6" inputmode="numeric" style="letter-spacing:6px;text-align:center;font-size:22px;font-weight:700;">
+                        <div id="sms-info" style="font-size:11px;color:#64748b;margin-top:4px;text-align:center;">Code wurde an Ihre Nummer gesendet</div>
+                        <button type="button" onclick="sendSmsCode()" style="margin-top:6px;padding:6px 12px;background:none;border:none;color:#059669;cursor:pointer;font-size:12px;width:100%;">📨 Code erneut senden</button>
+                    </div>
+                </div>
+
+                <!-- Buchen Button — Text+Handler ändern sich je nach Phase -->
                 <button class="btn-book" id="btn-book" onclick="startBooking()" style="display:none;">
                     🚕 Jetzt Taxi buchen
                 </button>
@@ -822,83 +894,7 @@
             </div>
         </div>
 
-        <!-- Telefon eingeben -->
-        <div class="card" style="display:none;" id="phone-card">
-            <div style="text-align:center;">
-                <div style="font-size:48px;margin-bottom:12px;">📱</div>
-                <h3 style="margin-bottom:8px;">Telefonnummer eingeben</h3>
-                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Sie erhalten einen Bestätigungscode per SMS (kostenlos)</p>
-                <div class="phone-input-group">
-                    <select id="b-phone-country">
-                        <optgroup label="Häufig">
-                        <option value="+49">🇩🇪 +49</option>
-                        <option value="+48">🇵🇱 +48</option>
-                        <option value="+43">🇦🇹 +43</option>
-                        <option value="+41">🇨🇭 +41</option>
-                        </optgroup>
-                        <optgroup label="Europa">
-                        <option value="+44">🇬🇧 +44</option>
-                        <option value="+33">🇫🇷 +33</option>
-                        <option value="+39">🇮🇹 +39</option>
-                        <option value="+34">🇪🇸 +34</option>
-                        <option value="+31">🇳🇱 +31</option>
-                        <option value="+32">🇧🇪 +32</option>
-                        <option value="+45">🇩🇰 +45</option>
-                        <option value="+46">🇸🇪 +46</option>
-                        <option value="+47">🇳🇴 +47</option>
-                        <option value="+358">🇫🇮 +358</option>
-                        <option value="+420">🇨🇿 +420</option>
-                        <option value="+421">🇸🇰 +421</option>
-                        <option value="+36">🇭🇺 +36</option>
-                        <option value="+40">🇷🇴 +40</option>
-                        <option value="+359">🇧🇬 +359</option>
-                        <option value="+385">🇭🇷 +385</option>
-                        <option value="+386">🇸🇮 +386</option>
-                        <option value="+381">🇷🇸 +381</option>
-                        <option value="+30">🇬🇷 +30</option>
-                        <option value="+351">🇵🇹 +351</option>
-                        <option value="+353">🇮🇪 +353</option>
-                        <option value="+352">🇱🇺 +352</option>
-                        <option value="+370">🇱🇹 +370</option>
-                        <option value="+371">🇱🇻 +371</option>
-                        <option value="+372">🇪🇪 +372</option>
-                        <option value="+380">🇺🇦 +380</option>
-                        <option value="+7">🇷🇺 +7</option>
-                        <option value="+90">🇹🇷 +90</option>
-                        </optgroup>
-                        <optgroup label="Weitere">
-                        <option value="+1">🇺🇸 +1</option>
-                        <option value="+86">🇨🇳 +86</option>
-                        <option value="+81">🇯🇵 +81</option>
-                        <option value="+82">🇰🇷 +82</option>
-                        <option value="+91">🇮🇳 +91</option>
-                        <option value="+61">🇦🇺 +61</option>
-                        <option value="+55">🇧🇷 +55</option>
-                        <option value="+971">🇦🇪 +971</option>
-                        <option value="+966">🇸🇦 +966</option>
-                        <option value="+972">🇮🇱 +972</option>
-                        <option value="+27">🇿🇦 +27</option>
-                        </optgroup>
-                    </select>
-                    <input type="tel" id="b-phone" class="phone-input" placeholder="176 12345678" autocomplete="tel">
-                </div>
-                <div id="recaptcha-container" style="margin:16px auto;display:flex;justify-content:center;"></div>
-                <button class="btn-book" id="btn-send-code" onclick="sendSmsCode()">📨 Code senden</button>
-                <button onclick="document.getElementById('phone-card').style.display='none';document.getElementById('booking-card').style.display='block';" style="margin-top:12px;padding:10px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;">← Zurück</button>
-            </div>
-        </div>
-
-        <!-- SMS-Code eingeben -->
-        <div class="card" style="display:none;" id="sms-card">
-            <div style="text-align:center;">
-                <div style="font-size:48px;margin-bottom:12px;">🔐</div>
-                <h3 style="margin-bottom:8px;">SMS-Code eingeben</h3>
-                <p style="font-size:13px;color:#64748b;" id="sms-info">Code wurde an Ihre Nummer gesendet</p>
-                <input type="text" id="b-sms-code" class="sms-input" placeholder="• • • • • •" maxlength="6" inputmode="numeric">
-                <button class="btn-book" onclick="verifyAndBook()">✅ Bestätigen & Buchen</button>
-                <button onclick="sendSmsCode()" style="margin-top:10px;padding:10px;background:none;border:none;color:#059669;cursor:pointer;font-size:13px;">📨 Code erneut senden</button>
-            </div>
-        </div>
+        <!-- v6.41.58: phone-card + sms-card entfernt — Felder jetzt inline in #step-phone / #step-sms -->
 
         <!-- Erfolg -->
         <div class="card success-card" id="success-card">
@@ -1473,10 +1469,11 @@
             // Buchungs-Cards wieder sichtbar falls nach Buchung versteckt
             const bookingCard = document.getElementById('booking-card');
             if (bookingCard) bookingCard.style.display = '';
-            const phoneCard = document.getElementById('phone-card');
-            if (phoneCard) phoneCard.style.display = 'none';
-            const smsCard = document.getElementById('sms-card');
-            if (smsCard) smsCard.style.display = 'none';
+            // 🆕 v6.41.58: Wann-Card + Live-Karte ebenfalls wieder zeigen (nach Success)
+            const wannCard = document.getElementById('wann-card');
+            if (wannCard) wannCard.style.display = '';
+            const liveCard = document.getElementById('live-taxi-card');
+            if (liveCard) liveCard.style.display = '';
             const successCard = document.getElementById('success-card');
             if (successCard) successCard.style.display = 'none';
             // "Adressen löschen" Button verstecken
@@ -1497,6 +1494,15 @@
             // 🆕 v6.41.53: Progressive Disclosure — Name/Personen-Schritt wieder verstecken
             const stepPersonen = document.getElementById('step-personen');
             if (stepPersonen) stepPersonen.classList.remove('revealed');
+            // 🆕 v6.41.58: Auch step-phone/step-sms schließen + Felder leeren
+            ['step-phone', 'step-sms'].forEach(id => {
+                const s = document.getElementById(id);
+                if (s) s.classList.remove('revealed');
+            });
+            const phoneEl = document.getElementById('b-phone');
+            if (phoneEl) phoneEl.value = '';
+            const smsCodeEl = document.getElementById('b-sms-code');
+            if (smsCodeEl) smsCodeEl.value = '';
             updateStatusBar();
             // Scroll nach oben (ohne smooth um Flackern zu vermeiden)
             window.scrollTo({ top: 0, behavior: 'instant' in Element.prototype ? 'instant' : 'auto' });
@@ -3150,10 +3156,17 @@
                 return;
             }
 
-            // Zur Telefonnummer-Eingabe wechseln
-            document.getElementById('booking-card').style.display = 'none';
-            document.getElementById('phone-card').style.display = 'block';
-            document.getElementById('b-phone').focus();
+            // 🆕 v6.41.58: KEIN Screen-Wechsel mehr — step-phone fadet inline ein
+            // Buchen-Button wird zum "Code senden"-Button
+            const stepPhone = document.getElementById('step-phone');
+            if (stepPhone) stepPhone.classList.add('revealed');
+            const btn = document.getElementById('btn-book');
+            if (btn) {
+                btn.innerHTML = '📨 Code per SMS senden';
+                btn.onclick = sendSmsCode;
+                btn.disabled = false;
+            }
+            setTimeout(() => { document.getElementById('b-phone')?.focus(); }, 200);
             initRecaptcha();
         }
 
@@ -3165,19 +3178,29 @@
 
             logBuchen('📱', 'SMS-Code angefordert: ' + customerPhone);
 
-            const btn = document.getElementById('btn-send-code');
-            btn.disabled = true;
-            btn.textContent = '⏳ Code wird gesendet...';
+            // 🆕 v6.41.58: btn-book ist jetzt der kombinierte Button
+            const btn = document.getElementById('btn-book');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Code wird gesendet...';
+            }
 
             initRecaptcha();
             try {
                 logBuchen('🔐', 'reCAPTCHA + signInWithPhoneNumber gestartet...');
                 confirmationResult = await auth.signInWithPhoneNumber(customerPhone, recaptchaVerifier);
                 logBuchen('✅', 'SMS-Code gesendet an ' + customerPhone);
-                document.getElementById('phone-card').style.display = 'none';
-                document.getElementById('sms-card').style.display = 'block';
-                document.getElementById('sms-info').textContent = `Code per SMS an ${customerPhone} gesendet`;
-                document.getElementById('b-sms-code').focus();
+                // step-sms inline einfaden
+                const stepSms = document.getElementById('step-sms');
+                if (stepSms) stepSms.classList.add('revealed');
+                const smsInfo = document.getElementById('sms-info');
+                if (smsInfo) smsInfo.textContent = `Code per SMS an ${customerPhone} gesendet`;
+                setTimeout(() => { document.getElementById('b-sms-code')?.focus(); }, 200);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '✅ Bestätigen & Buchen';
+                    btn.onclick = verifyAndBook;
+                }
                 showToast('📨 SMS-Code gesendet!');
             } catch(e) {
                 console.error('Phone Auth Fehler:', e);
@@ -3189,8 +3212,10 @@
                 } else {
                     showToast('SMS-Fehler — bitte anrufen: 038378 22022');
                 }
-                btn.disabled = false;
-                btn.textContent = '📨 Code senden';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '📨 Code per SMS senden';
+                }
                 recaptchaVerifier = null;
                 initRecaptcha();
             }
@@ -3279,11 +3304,13 @@
 
                 document.getElementById('booking-card').style.display = 'none';
                 document.getElementById('success-card').style.display = 'block';
-                // 🔧 v6.39.1: SMS-Card und Phone-Card nach Buchung ausblenden
-                const _smsCard = document.getElementById('sms-card');
-                if (_smsCard) _smsCard.style.display = 'none';
-                const _phoneCard = document.getElementById('phone-card');
-                if (_phoneCard) _phoneCard.style.display = 'none';
+                // 🆕 v6.41.58: Wann-Card + Live-Karte auch ausblenden damit nur Success sichtbar
+                const wannC = document.getElementById('wann-card');
+                if (wannC) wannC.style.display = 'none';
+                const liveC = document.getElementById('live-taxi-card');
+                if (liveC) liveC.style.display = 'none';
+                const scb = document.getElementById('sofort-call-box');
+                if (scb) scb.style.display = 'none';
 
                 // Erfolgs-Icon + Titel je nach Modus
                 const _successIcon = document.querySelector('#success-card .icon');

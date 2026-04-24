@@ -1024,6 +1024,20 @@
         let bookingMap = null;
         let wannModus = 'sofort'; // 'sofort' oder 'vorbestellen'
         let shiftsData = {};
+        // 🆕 v6.41.59: Live-Listener auf /vehicleShifts — Änderungen im Admin-Panel
+        // wirken sofort auch in buchen.html (vorher once() → Race + veraltete Daten)
+        try {
+            db.ref('vehicleShifts').on('value', snap => {
+                shiftsData = snap.val() || {};
+                // Status-Bar + Kalender re-rendern falls offen
+                try { if (typeof updateStatusBar === 'function') updateStatusBar(); } catch(e){}
+                try {
+                    if (_slotCalendarDate && wannModus === 'vorbestellen' && typeof renderSlotTimeline === 'function') {
+                        renderSlotTimeline(_slotCalendarDate);
+                    }
+                } catch(e){}
+            });
+        } catch(e) { console.warn('Shift-Listener Fehler:', e); }
         let isAvailable = false;
         let _gpsOnlineVehicles = {}; // 🆕 v6.38.95: GPS-online Fahrzeuge (live via Firebase)
 
@@ -1207,8 +1221,12 @@
 
         async function updateStatusBar() {
             try {
-                const snap = await db.ref('vehicleShifts').once('value');
-                shiftsData = snap.val() || {};
+                // 🆕 v6.41.59: shiftsData wird durch Live-Listener aktuell gehalten —
+                // kein once() mehr nötig. Fallback nur wenn Listener noch nicht eingehängt:
+                if (!shiftsData || Object.keys(shiftsData).length === 0) {
+                    const snap = await db.ref('vehicleShifts').once('value');
+                    shiftsData = snap.val() || {};
+                }
                 const now = berlinNow();
                 const dateStr0 = berlinDateStr(now), timeStr0 = berlinTimeStr(now);
                 // Prüfe: Ist überhaupt IRGENDEIN Fahrzeug im Dienst?

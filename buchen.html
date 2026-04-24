@@ -3653,6 +3653,17 @@
                 rideData.id = ref.key;
                 await ref.set(rideData);
 
+                // 🆕 v6.41.74: Aktive Buchung in localStorage speichern damit sie bei Page-Reload
+                // NICHT verloren geht. Sonst landet Kunde wieder auf "Jetzt buchen" und bucht doppelt!
+                try {
+                    localStorage.setItem('activeBooking', JSON.stringify({
+                        rideId: ref.key,
+                        createdAt: now,
+                        pickupTs: pickupTs,
+                        isVorbestellt: isVorbestellt
+                    }));
+                } catch(e) { console.warn('localStorage activeBooking:', e); }
+
                 // Erfolg anzeigen — unterschiedlich für Sofort vs. Vorbestellung
                 const trackingUrl = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${ref.key}`;
                 logBuchen('✅', 'FAHRT ERSTELLT: ' + ref.key + ' | ' + pickup + ' → ' + destination + ' | ' + (isVorbestellt ? 'Vorbestellt' : 'Sofort'));
@@ -3853,6 +3864,8 @@
                     const actionBtns = box.parentElement?.querySelector('[style*="display:flex"][style*="gap:6px"]');
                     if (actionBtns && ['completed','cancelled','storniert'].includes(r.status)) {
                         actionBtns.style.display = 'none';
+                        // 🆕 v6.41.74: Finaler Status → localStorage aufräumen damit nächster Reload wieder "Neu buchen" zeigt
+                        try { localStorage.removeItem('activeBooking'); } catch(e) {}
                     }
                     // Tracking nur zeigen wenn Fahrer angenommen hat
                     const trackBtn = box.parentElement?.querySelector('a[href*="track"]');
@@ -4118,6 +4131,102 @@
             } catch(e) {
                 console.warn('Live-Taxi-Map Listener-Fehler:', e.message);
             }
+        })();
+
+        // 🆕 v6.41.74: Aktive Buchung nach Page-Reload wiederherstellen
+        // Sonst landet der Kunde wieder auf "Jetzt buchen" und könnte versehentlich doppelt buchen.
+        (function restoreActiveBooking() {
+            let saved;
+            try { saved = JSON.parse(localStorage.getItem('activeBooking') || 'null'); } catch(e) { return; }
+            if (!saved || !saved.rideId) return;
+            // Älter als 4h? Vergiss es.
+            if (Date.now() - (saved.createdAt || 0) > 4 * 3600 * 1000) {
+                localStorage.removeItem('activeBooking');
+                return;
+            }
+            db.ref('rides/' + saved.rideId).once('value').then(snap => {
+                const r = snap.val();
+                if (!r) { localStorage.removeItem('activeBooking'); return; }
+                // Finaler Status? Nicht wiederherstellen.
+                if (['completed','cancelled','storniert'].includes(r.status)) {
+                    localStorage.removeItem('activeBooking');
+                    return;
+                }
+                // Aktive Fahrt existiert → Success-Card zeigen, Booking-Card verstecken
+                logBuchen('♻️', `AKTIVE FAHRT WIEDERHERGESTELLT: ${saved.rideId} (Status: ${r.status})`);
+                const bookingCard = document.getElementById('booking-card');
+                if (bookingCard) bookingCard.style.display = 'none';
+                const wannC = document.getElementById('wann-card');
+                if (wannC) wannC.style.display = 'none';
+                const scb = document.getElementById('sofort-call-box');
+                if (scb) scb.style.display = 'none';
+                const stepProg = document.getElementById('step-progress');
+                if (stepProg) stepProg.style.display = 'none';
+                const successCard = document.getElementById('success-card');
+                if (successCard) {
+                    successCard.style.display = 'block';
+                    const _pickupDate = new Date(new Date(saved.pickupTs || r.pickupTimestamp).toLocaleString('en-US',{timeZone:'Europe/Berlin'}));
+                    const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+                    const _pickupTimeStr2 = _pickupDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+                    const _successIcon = document.querySelector('#success-card .icon');
+                    const _successTitle = document.querySelector('#success-card h2');
+                    const _successSubtitle = document.querySelector('#success-card p');
+                    if (saved.isVorbestellt) {
+                        if (_successIcon) _successIcon.textContent = '📅';
+                        if (_successTitle) { _successTitle.textContent = 'Vorbestellung bestätigt!'; _successTitle.style.color = '#3b82f6'; }
+                        if (_successSubtitle) _successSubtitle.textContent = `Ihr Taxi ist für ${_pickupDateStr} um ${_pickupTimeStr2} Uhr vorgemerkt.`;
+                    } else {
+                        if (_successIcon) _successIcon.textContent = '🚕';
+                        if (_successTitle) { _successTitle.textContent = 'Taxi ist gebucht!'; _successTitle.style.color = '#059669'; }
+                        if (_successSubtitle) _successSubtitle.textContent = 'Aktueller Status siehe unten.';
+                    }
+                    const detEl = document.getElementById('success-details');
+                    if (detEl) {
+                        detEl.innerHTML = `
+                            <div style="font-size:12px;line-height:1.6;">
+                                <div>📍 ${r.pickup || ''}</div>
+                                <div>🎯 ${r.destination || ''}</div>
+                                <div>👥 ${r.passengers || 1} Pers. ${r.price ? '· 💰 ca. ' + r.price + '€' : ''}</div>
+                            </div>
+                            <div id="live-status-box" style="background:#f0fdf4;border:1px solid #10b981;border-radius:8px;padding:8px;text-align:center;margin-top:8px;">
+                                <div id="live-status-text" style="font-weight:700;font-size:13px;color:#059669;">⏳ Status wird geladen…</div>
+                                <div id="live-status-detail" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
+                            </div>
+                            <div style="display:flex;gap:6px;margin-top:8px;">
+                                <a href="/Taxi-App/track.html?ride=${saved.rideId}" target="_blank" style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">
+                                    🗺️ Tracking
+                                </a>
+                                <button onclick="cancelWebBooking('${saved.rideId}')" style="flex:1;padding:10px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">
+                                    ❌ Stornieren
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+                // Live-Listener anhängen damit Status-Updates kommen
+                db.ref('rides/' + saved.rideId).on('value', snap2 => {
+                    const r2 = snap2.val();
+                    if (!r2) return;
+                    const txt = document.getElementById('live-status-text');
+                    if (!txt) return;
+                    const statusMap = {
+                        'new': '⏳ Warte auf Fahrer…',
+                        'sofort': '⚡ Sofortfahrt — Fahrer wird benachrichtigt…',
+                        'vorbestellt': '📅 Vorbestellung bestätigt',
+                        'assigned': '🚕 Fahrer zugewiesen!',
+                        'accepted': '✅ Fahrer hat angenommen!',
+                        'on_way': '🚗 Fahrer ist unterwegs!',
+                        'picked_up': '🎉 Sie wurden abgeholt!',
+                        'completed': '🏁 Fahrt abgeschlossen!',
+                        'cancelled': '❌ Fahrt storniert',
+                        'storniert': '❌ Fahrt storniert'
+                    };
+                    txt.textContent = statusMap[r2.status] || r2.status;
+                    if (['completed','cancelled','storniert'].includes(r2.status)) {
+                        try { localStorage.removeItem('activeBooking'); } catch(e) {}
+                    }
+                });
+            }).catch(e => console.warn('restoreActiveBooking failed:', e));
         })();
     </script>
 </body>

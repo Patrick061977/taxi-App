@@ -653,7 +653,9 @@
     <!-- Buchungsformular -->
     <div class="main">
         <!-- 🆕 v6.41.61: Kleiner Assistent — zeigt immer den NÄCHSTEN Schritt -->
-        <div id="step-hint" style="display:none;background:linear-gradient(90deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;color:#065f46;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:10px;text-align:center;box-shadow:0 2px 6px rgba(16,185,129,0.08);"></div>
+        <div id="step-hint" style="display:none;background:linear-gradient(90deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;color:#065f46;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:6px;text-align:center;box-shadow:0 2px 6px rgba(16,185,129,0.08);"></div>
+        <!-- 🆕 v6.41.65: Fortschritts-Strip — persistent sichtbar, zeigt ALLE Schritte mit Status -->
+        <div id="step-progress" style="display:none;gap:4px;padding:6px 8px;margin-bottom:10px;background:white;border:1px solid #e5e7eb;border-radius:10px;overflow-x:auto;white-space:nowrap;font-size:11px;font-weight:600;"></div>
 
         <!-- 🆕 v6.41.55: Wann-Card oben — erste Entscheidung des Kunden (Sofort/Vorbestellen) -->
         <div class="card" id="wann-card" style="padding:12px;">
@@ -1054,6 +1056,44 @@
         let _gpsOnlineVehicles = {}; // 🆕 v6.38.95: GPS-online Fahrzeuge (live via Firebase)
 
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
+        // 🆕 v6.41.65: Progress-Strip — persistenter Fortschritts-Indikator
+        function updateStepProgress() {
+            const strip = document.getElementById('step-progress');
+            if (!strip) return;
+            const noTaxi = _lastGpsOnlineCount === 0;
+            if (wannModus === 'sofort' && noTaxi) { strip.style.display = 'none'; return; }
+
+            const nameVal = (document.getElementById('b-name')?.value || '').trim();
+            const phoneDone = !!(document.getElementById('step-sms')?.classList.contains('revealed'));
+            const phoneCurrent = !!(document.getElementById('step-phone')?.classList.contains('revealed')) && !phoneDone;
+
+            const steps = [];
+            if (wannModus === 'vorbestellen') {
+                const ts = getPickupTimestamp();
+                const timeOk = ts > Date.now() + 60 * 60000;
+                steps.push({ key: 'time', label: '📅 Zeit', done: timeOk });
+            }
+            steps.push({ key: 'pickup', label: '📍 Abholort', done: !!pickupCoords });
+            steps.push({ key: 'dest',   label: '🎯 Ziel',     done: !!destCoords });
+            steps.push({ key: 'name',   label: '👤 Name',     done: nameVal.length >= 2 });
+            if (phoneCurrent || phoneDone) {
+                steps.push({ key: 'phone', label: '📱 SMS',     done: phoneDone });
+            }
+            steps.push({ key: 'book',   label: '🚕 Buchen',   done: false });
+
+            // Nächsten offenen Schritt als "current" markieren
+            const firstOpenIdx = steps.findIndex(s => !s.done);
+            strip.innerHTML = steps.map((s, i) => {
+                const isCurrent = i === firstOpenIdx;
+                const bg = s.done ? '#d1fae5' : (isCurrent ? '#059669' : '#f1f5f9');
+                const color = s.done ? '#065f46' : (isCurrent ? 'white' : '#94a3b8');
+                const border = s.done ? '#a7f3d0' : (isCurrent ? '#059669' : '#e5e7eb');
+                const mark = s.done ? '✓ ' : '';
+                return `<span style="display:inline-block;background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:14px;flex-shrink:0;">${mark}${s.label}</span>`;
+            }).join('<span style="color:#cbd5e1;align-self:center;">→</span>');
+            strip.style.display = 'flex';
+        }
+
         // 🆕 v6.41.61: Assistent — ermittelt was der Kunde als Nächstes tun muss
         function updateStepHint() {
             const hintEl = document.getElementById('step-hint');
@@ -1066,6 +1106,8 @@
             }
             // 🆕 v6.41.62: Termin-Overlay auf Karte pflegen (parallel zum Hint)
             try { updateTerminOverlay(); } catch(e) {}
+            // 🆕 v6.41.65: Progress-Strip parallel aktualisieren
+            try { updateStepProgress(); } catch(e) {}
             // Vorbestellung: Zeit muss in der Zukunft liegen UND ≥ 60 Min Vorlauf
             if (wannModus === 'vorbestellen') {
                 const ts = getPickupTimestamp();
@@ -1151,10 +1193,20 @@
             try { updateStepHint(); } catch(e) {}
 
             if (wannModus === 'vorbestellen') {
-                // 🔧 v6.39.1: Vorbestellen — btn-book IMMER verstecken
-                // selectSlot() rendert den Button in slot-selected-info
-                btn.style.display = 'none';
-                if (cancelBtn) cancelBtn.style.display = 'none';
+                // 🆕 v6.41.65: Vorbestellen — btn-book zeigen wenn Route + gültige Zeit
+                const ts = getPickupTimestamp();
+                const zeitOk = ts > Date.now() + 60 * 60000;
+                if (hasInput && zeitOk && _slotIsFree) {
+                    btn.style.display = '';
+                    btn.disabled = false;
+                    btn.className = 'btn-book';
+                    btn.innerHTML = '📅 Vorbestellung buchen';
+                    btn.onclick = startBooking;
+                    if (cancelBtn) cancelBtn.style.display = '';
+                } else {
+                    btn.style.display = 'none';
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                }
             } else if (isAvailable && hasInput) {
                 // Sofort: Route berechnet + Taxi da → grüner Buchen-Button
                 btn.style.display = '';
@@ -2370,77 +2422,39 @@
         }
 
         function selectSlot(dateStr, timeStr, h, m) {
+            // 🆕 v6.41.65: Slot-Klick ist NUR Zeit-Wahl — keine Buchungs-Auslösung mehr.
+            // Die Timeline ist nur Visualisierung (frei/belegt). Buchen läuft über btn-book.
             _selectedSlot = timeStr + '_' + dateStr;
-            // Interne Felder setzen
+            // Felder setzen
             document.getElementById('b-date').value = dateStr;
             const hourSel = document.getElementById('b-hour');
             const minSel = document.getElementById('b-minute');
-            // Sicherstellen dass Options existieren
             initDateTimePickers();
             hourSel.value = String(h).padStart(2,'0');
             minSel.value = String(m).padStart(2,'0');
-
-            // Info anzeigen
-            const infoEl = document.getElementById('slot-selected-info');
-            const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-            const dt = new Date(dateStr + 'T00:00:00');
-            infoEl.textContent = `${dayNames[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}. um ${timeStr} Uhr`;
-            infoEl.style.display = '';
+            // 🆕 v6.41.65: NEU — auch den Time-Input oben syncen
+            const tInput = document.getElementById('b-time');
+            if (tInput) tInput.value = timeStr;
 
             // Timeline neu rendern (Selection-Highlight)
             renderSlotTimeline(dateStr);
-
-            // 🔧 v6.39.1: FIX — Slot wurde angeklickt = ist definitiv frei!
-            // onDateTimeChange() NICHT aufrufen — die überschreibt _slotIsFree
-            // weil das DOM noch nicht aktualisiert ist (Race Condition)
             _slotIsFree = true;
             isAvailable = true;
 
-            // 🆕 v6.41.43: Preis sofort neu berechnen mit dem neuen Timestamp
-            // (ohne OSRM-Call — wir haben km schon in routeData). Löst den Bug:
-            // 'Preis wechselt erst wenn ich was anderes ändere'.
+            // Preis sofort neu berechnen mit dem neuen Timestamp
             if (routeData && routeData.km && typeof calculatePrice === 'function') {
                 try {
                     const newPricing = calculatePrice(parseFloat(routeData.km), getPickupTimestamp());
                     routeData.price = newPricing.total;
-                    // Zwei-Preis-Display neu rendern falls vorhanden (ruft intern checkRoute)
                     if (pickupCoords && destCoords && typeof checkRoute === 'function') {
                         checkRoute();
                     }
                 } catch(e) { console.warn('Preis-Recalc nach Slot-Wahl fehlgeschlagen:', e.message); }
             }
 
-            // Info direkt anzeigen (ohne onDateTimeChange Umweg)
-            const infoEl2 = document.getElementById('slot-selected-info');
-            if (infoEl2 && routeData) {
-                const dayNames2 = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-                const dt2 = new Date(dateStr + 'T00:00:00');
-                const zeitText2 = `${dayNames2[dt2.getDay()]}, ${String(dt2.getDate()).padStart(2,'0')}.${String(dt2.getMonth()+1).padStart(2,'0')}. um ${timeStr} Uhr`;
-                const nameVal2 = (document.getElementById('b-name')?.value || '').trim();
-                const nameHint2 = !nameVal2 ? '<div style="font-size:11px;color:#f59e0b;margin-bottom:6px;">👤 Bitte noch Name eingeben ↓</div>' : '';
-                // 🔧 v6.39.5: Vollständige Adressen statt split(',')[0]
-                const pickup2 = (document.getElementById('b-pickup')?.value || '').trim();
-                const dest2 = (document.getElementById('b-destination')?.value || '').trim();
-                infoEl2.innerHTML = `
-                    <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📋 Ihre Buchung</div>
-                    <div style="text-align:left;font-size:13px;line-height:1.6;color:#1f2937;">
-                        <div style="margin-bottom:4px;">📅 <strong>${zeitText2}</strong></div>
-                        <div style="margin-bottom:4px;">📍 ${pickup2 || 'Abholort'}</div>
-                        <div style="margin-bottom:4px;">🎯 ${dest2 || 'Zielort'}</div>
-                        <div>👥 ${document.querySelector('.pax-btn.active')?.textContent || '1'} Person${document.querySelector('.pax-btn.active')?.textContent !== '1' ? 'en' : ''} · 💰 <strong>${routeData.price}€</strong> · ${routeData.km} km · ~${routeData.min} Min</div>
-                    </div>
-                    ${nameHint2}
-                    <button onclick="startBooking()" style="width:100%;padding:14px;margin-top:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
-                        📅 Jetzt vorbestellen
-                    </button>
-                    <button onclick="resetBookingForm()" style="width:100%;padding:10px;margin-top:6px;background:none;color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;cursor:pointer;">
-                        ✕ Abbrechen
-                    </button>`;
-                infoEl2.style.display = '';
-                infoEl2.style.background = '#f8fafc';
-                infoEl2.style.borderColor = '#e2e8f0';
-                infoEl2.style.color = '#1f2937';
-            }
+            // 🆕 v6.41.65: slot-selected-info bleibt versteckt — Termin-Badge auf Karte + btn-book zeigen alles
+            const infoEl = document.getElementById('slot-selected-info');
+            if (infoEl) infoEl.style.display = 'none';
             updateBookButton();
             logBuchen('📅', `Zeitfenster gewählt: ${dateStr} ${timeStr}`);
         }
@@ -3741,9 +3755,40 @@
             const mapEl = document.getElementById('live-taxi-map');
             if (!mapEl || typeof L === 'undefined') return;
 
-            const liveMap = L.map('live-taxi-map', { zoomControl: false, attributionControl: false }).setView(HERINGSDORF, 13);
+            // 🆕 v6.41.65: tap:false + dragging initial aus — nur mit 2 Fingern draggen
+            const liveMap = L.map('live-taxi-map', {
+                zoomControl: false, attributionControl: false,
+                tap: false,
+                touchZoom: true,  // Pinch mit 2 Fingern bleibt
+                dragging: !L.Browser.mobile  // Desktop: normal dragbar, Mobile: initial aus
+            }).setView(HERINGSDORF, 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(liveMap);
             L.control.zoom({ position: 'bottomright' }).addTo(liveMap);
+            // 🆕 v6.41.65: Mobile — dragging nur mit 2 Fingern aktivieren
+            if (L.Browser.mobile) {
+                mapEl.addEventListener('touchstart', (e) => {
+                    if (e.touches.length >= 2) liveMap.dragging.enable();
+                    else liveMap.dragging.disable();
+                }, { passive: true });
+                mapEl.addEventListener('touchend', (e) => {
+                    if (e.touches.length < 2) liveMap.dragging.disable();
+                }, { passive: true });
+                mapEl.addEventListener('touchcancel', () => liveMap.dragging.disable(), { passive: true });
+                // Hinweis-Layer der kurz einblendet wenn 1-Finger-Touch
+                const hint = L.DomUtil.create('div', '', mapEl);
+                hint.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.7);color:white;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:opacity 0.25s;pointer-events:none;z-index:600;white-space:nowrap;';
+                hint.textContent = '🖐️ Mit 2 Fingern verschieben';
+                let hintTimer = null;
+                mapEl.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) {
+                        hint.style.opacity = '1';
+                        clearTimeout(hintTimer);
+                        hintTimer = setTimeout(() => { hint.style.opacity = '0'; }, 900);
+                    } else {
+                        hint.style.opacity = '0';
+                    }
+                }, { passive: true });
+            }
             // 🆕 v6.41.44: Map-Instance global exposed — damit showRouteMap() drauf zugreifen kann
             window.liveTaxiMap = liveMap;
             // Layer für Route-Zeichnung (wird in showRouteMap() befüllt, Taxis bleiben unberührt)

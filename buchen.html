@@ -3074,6 +3074,14 @@
                     const clearBtn = document.getElementById('btn-clear-addr');
                     if (clearBtn) clearBtn.style.display = '';
                     logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
+                    // 🆕 v6.41.64: Debug — Tarif-Auswahl loggen (zum 1,50€-Diff-Bug)
+                    if (isVorbestellungNow && pricingJetzt) {
+                        const _termDt = new Date(pricingTimestamp);
+                        const _jtzDt = new Date();
+                        logBuchen('💰', `PREIS-VERGLEICH
+                          Termin: ${_termDt.toLocaleString('de-DE',{timeZone:'Europe/Berlin'})} → ${pricing.total}€ ${pricing.hinweise.join('/')||'(Tagestarif)'}
+                          Jetzt:  ${_jtzDt.toLocaleString('de-DE',{timeZone:'Europe/Berlin'})} → ${pricingJetzt.total}€ ${pricingJetzt.hinweise.join('/')||'(Tagestarif)'}`);
+                    }
 
                     // Kalender einblenden + rendern wenn Vorbestellen
                     if (wannModus === 'vorbestellen') {
@@ -3106,20 +3114,23 @@
                     const mpDiff = document.getElementById('map-price-diff');
                     if (mpOverlay && mpAmount) {
                         mpOverlay.style.display = 'block';
+                        // 🆕 v6.41.64: Tarif-Bezeichnung im Meta zeigen (Tages-/Nacht-/Sonntags-/Feiertagstarif)
+                        const _tarifTermin = pricing.hinweise.filter(h => /tarif/i.test(h)).join(', ') || 'Tagestarif';
                         if (isVorbestellungNow && pricingJetzt) {
                             // Vorbestellung: Termin-Preis im Overlay + Differenz-Badge
                             mpLabel.textContent = '📅 Zum Termin';
                             mpAmount.textContent = pricing.total + '€';
                             mpAmount.style.color = pricing.total > pricingJetzt.total ? '#b45309' : (pricing.total < pricingJetzt.total ? '#0369a1' : '#047857');
-                            mpMeta.textContent = km + ' km · ' + min + ' Min';
+                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
                             const diff = pricing.total - pricingJetzt.total;
                             if (Math.abs(diff) > 0.01) {
                                 mpDiff.style.display = 'block';
+                                const _tarifJetzt = pricingJetzt.hinweise.filter(h => /tarif/i.test(h)).join(', ') || 'Tagestarif';
                                 if (diff > 0) {
-                                    mpDiff.innerHTML = '⬆ +' + diff.toFixed(2) + '€ vs. jetzt';
+                                    mpDiff.innerHTML = '⬆ +' + diff.toFixed(2) + '€ vs. jetzt <span style="font-size:8px;opacity:0.75;">(' + _tarifJetzt + ')</span>';
                                     mpDiff.style.background = '#fef3c7'; mpDiff.style.color = '#92400e';
                                 } else {
-                                    mpDiff.innerHTML = '⬇ ' + diff.toFixed(2) + '€ vs. jetzt';
+                                    mpDiff.innerHTML = '⬇ ' + diff.toFixed(2) + '€ vs. jetzt <span style="font-size:8px;opacity:0.75;">(' + _tarifJetzt + ')</span>';
                                     mpDiff.style.background = '#dbeafe'; mpDiff.style.color = '#1e40af';
                                 }
                             } else {
@@ -3130,7 +3141,7 @@
                             mpLabel.textContent = 'Preis';
                             mpAmount.textContent = pricing.total + '€';
                             mpAmount.style.color = '#047857';
-                            mpMeta.textContent = km + ' km · ' + min + ' Min';
+                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
                             mpDiff.style.display = 'none';
                         }
                     }

@@ -70,6 +70,17 @@
             max-height: 1200px;
             pointer-events: auto;
         }
+        /* 🆕 v6.41.68: Erledigtes Adressfeld kollabieren (nur Progress-Chip zeigt es noch) */
+        .input-group[data-collapsed="true"] {
+            max-height: 0 !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: all 0.3s ease;
+        }
         /* 🆕 v6.41.54: Uber-Style — Buchungs-Card schiebt sich VON UNTEN in die Karte (overlap,
            keine position:fixed — damit keine Scroll-Bugs wie v6.41.47). */
         #live-taxi-card {
@@ -761,7 +772,7 @@
                 </div>
 
                 <!-- 🔧 v6.39.1: Tauschen-Button (Abholort ↔ Zielort) -->
-                <div style="text-align:center;margin:-4px 0 4px;">
+                <div id="swap-btn-box" style="text-align:center;margin:-4px 0 4px;">
                     <button onclick="swapPickupDest()" style="padding:4px 16px;background:white;color:#6b7280;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;" title="Abholort und Zielort tauschen">🔄</button>
                 </div>
 
@@ -1062,6 +1073,7 @@
 
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
         // 🆕 v6.41.65: Progress-Strip — persistenter Fortschritts-Indikator
+        // 🆕 v6.41.68: Chips sind klickbar → "Zeitleiste" zum Zurückspulen (erledigte Felder re-editieren)
         function updateStepProgress() {
             const strip = document.getElementById('step-progress');
             if (!strip) return;
@@ -1094,9 +1106,81 @@
                 const color = s.done ? '#065f46' : (isCurrent ? 'white' : '#94a3b8');
                 const border = s.done ? '#a7f3d0' : (isCurrent ? '#059669' : '#e5e7eb');
                 const mark = s.done ? '✓ ' : '';
-                return `<span style="display:inline-block;background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:14px;flex-shrink:0;">${mark}${s.label}</span>`;
+                const clickable = s.done || isCurrent ? `onclick="expandStep('${s.key}')" style="cursor:pointer;` : 'style="';
+                return `<span ${clickable}display:inline-block;background:${bg};color:${color};border:1px solid ${border};padding:4px 10px;border-radius:14px;flex-shrink:0;user-select:none;">${mark}${s.label}</span>`;
             }).join('<span style="color:#cbd5e1;align-self:center;">→</span>');
             strip.style.display = 'flex';
+
+            // 🆕 v6.41.68: Auto-collapse erledigter Adressfelder
+            collapseCompletedFields();
+        }
+
+        // 🆕 v6.41.68: Erledigte Felder einklappen (User sieht nur noch das nächste offene Feld)
+        function collapseCompletedFields() {
+            // Abholort: ausfüllen & ausblenden wenn gesetzt + Ziel dabei oder erledigt
+            const pickupGroup = document.getElementById('b-pickup')?.closest('.input-group');
+            const destGroup   = document.getElementById('b-destination')?.closest('.input-group');
+            const stoppBtnBox = document.getElementById('b-stopp-btn-box');
+            const swapBtnBox = document.getElementById('swap-btn-box');
+            if (pickupCoords && destCoords) {
+                if (pickupGroup) pickupGroup.dataset.collapsed = 'true';
+                if (destGroup)   destGroup.dataset.collapsed   = 'true';
+                if (stoppBtnBox) stoppBtnBox.style.display = 'none';
+                if (swapBtnBox)  swapBtnBox.style.display = 'none';
+            } else {
+                if (pickupGroup) delete pickupGroup.dataset.collapsed;
+                if (destGroup)   delete destGroup.dataset.collapsed;
+                if (stoppBtnBox) stoppBtnBox.style.display = '';
+                if (swapBtnBox)  swapBtnBox.style.display = '';
+            }
+        }
+
+        // 🆕 v6.41.68: Klick auf Progress-Chip → zum entsprechenden Schritt zurück
+        function expandStep(key) {
+            if (key === 'time') {
+                expandVorbestellFelder();
+                return;
+            }
+            if (key === 'pickup') {
+                const g = document.getElementById('b-pickup')?.closest('.input-group');
+                if (g) {
+                    delete g.dataset.collapsed;
+                    const input = document.getElementById('b-pickup');
+                    input?.focus();
+                    g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            if (key === 'dest') {
+                const g = document.getElementById('b-destination')?.closest('.input-group');
+                if (g) {
+                    delete g.dataset.collapsed;
+                    const input = document.getElementById('b-destination');
+                    input?.focus();
+                    g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            if (key === 'name') {
+                const input = document.getElementById('b-name');
+                if (input) {
+                    input.focus();
+                    input.closest('.input-group')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            if (key === 'phone') {
+                const input = document.getElementById('b-phone');
+                if (input) {
+                    input.focus();
+                    input.closest('.input-group')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            if (key === 'book') {
+                document.getElementById('btn-book')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
         }
 
         // 🆕 v6.41.61: Assistent — ermittelt was der Kunde als Nächstes tun muss

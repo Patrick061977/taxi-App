@@ -654,15 +654,23 @@ async function autoAssignRide(rideId, rideData) {
             }
 
             // 🆕 v6.26.0: Schichtende-Prüfung — Fahrtende darf Schicht nicht überschreiten
+            // 🔧 v6.41.78: Bei manuell gestarteter Schicht (shift.status='active') überspringen.
+            // Sonst blockiert der Wochenplan-Schichtende eine aktive Überstunden-Schicht:
+            // Fahrer arbeitet länger als geplant → Fahrtende > Plan-Ende → trotz aktiver Schicht
+            // "übersprungen". Der manuelle Schichtstart override'd oben bereits den Plan-Schicht-
+            // Check; ohne denselben Override hier bleibt das Fahrzeug unerreichbar.
             const _rideDurMin = rideData.duration || rideData.estimatedDuration || 20;
             const _rideEndMs = rideData.pickupTimestamp + _rideDurMin * 60000;
             const _rideEndBerlin = new Date(new Date(_rideEndMs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
             const _rideEndTimeStr = String(_rideEndBerlin.getHours()).padStart(2,'0') + ':' + String(_rideEndBerlin.getMinutes()).padStart(2,'0');
             const _shiftEnd = getShiftEndTime(vehicleId, shiftsData, dateStr, timeStr);
-            if (_shiftEnd && _rideEndTimeStr > _shiftEnd) {
+            if (_shiftEnd && _rideEndTimeStr > _shiftEnd && !_isShiftActive) {
                 console.log(`   ❌ ${info.name}: Fahrtende ${_rideEndTimeStr} > Schichtende ${_shiftEnd} → übersprungen`);
                 vehicleScores[vehicleId] = { status: 'shift-end', reason: `Fahrtende ${_rideEndTimeStr} > Schichtende ${_shiftEnd}`, check: 'shift-end', shiftEnd: _shiftEnd, rideEndTime: _rideEndTimeStr, overMinutes: Math.round((_rideEndMs - new Date(dateStr + 'T' + _shiftEnd + ':00').getTime()) / 60000) };
                 continue;
+            }
+            if (_shiftEnd && _rideEndTimeStr > _shiftEnd && _isShiftActive) {
+                console.log(`   ⚠️ ${info.name}: Fahrtende ${_rideEndTimeStr} > Plan-Schichtende ${_shiftEnd}, aber Fahrer hat Schicht aktiv → erlaubt`);
             }
 
             // 🔧 v6.38.50 BUG-05 FIX: accepted + on_way + picked_up blockieren!

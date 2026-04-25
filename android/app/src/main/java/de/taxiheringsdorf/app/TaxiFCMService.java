@@ -72,8 +72,10 @@ public class TaxiFCMService extends FirebaseMessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Sound + Vibration (laut)
-        Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        // Sound + Vibration (LAUT) — v6.41.98: TYPE_RINGTONE statt TYPE_NOTIFICATION,
+        // weil RingTone länger + lauter spielt + Samsung's 'still silent'-Override eher umgeht.
+        Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -108,17 +110,22 @@ public class TaxiFCMService extends FirebaseMessagingService {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
+        // v6.41.98: IMPORTANCE_HIGH ist max programmatisch — User kann's in Settings auf MAX setzen.
         NotificationChannel channel = new NotificationChannel(
             CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH
         );
-        channel.setDescription("Benachrichtigungen über neue Fahrt-Aufträge");
+        channel.setDescription("Benachrichtigungen über neue Fahrt-Aufträge — HOCH wichtig, Sound + Vibration");
         channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 500});
+        channel.setVibrationPattern(new long[]{0, 800, 300, 800, 300, 800, 300, 800});
+        // RingTone (länger + lauter als Notification-Sound) statt TYPE_NOTIFICATION
         AudioAttributes audioAttrs = new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
             .build();
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), audioAttrs);
+        Uri channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        channel.setSound(channelSound, audioAttrs);
+        channel.setBypassDnd(true); // wichtig: durch Nicht-Stören-Modus durchbrechen für Aufträge
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         nm.createNotificationChannel(channel);
     }

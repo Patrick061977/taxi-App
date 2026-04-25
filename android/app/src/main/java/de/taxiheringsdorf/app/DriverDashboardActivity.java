@@ -177,13 +177,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void onRidesUpdate(DataSnapshot s) {
         List<Ride> active = new ArrayList<>();
+        // v6.42.4: Auch deutsche Status-Werte filtern + nur heute/zukünftig anzeigen
+        long startOfToday = System.currentTimeMillis() - 12L * 3600L * 1000L; // ab 12h zurück (laufende Schicht)
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null) continue;
-            // Nur aktive (nicht completed/cancelled/storniert/deleted)
             if (r.status == null) continue;
-            if (r.status.equals("completed") || r.status.equals("cancelled") ||
-                r.status.equals("storniert") || r.status.equals("deleted")) continue;
+            String st = r.status.toLowerCase();
+            // Filter: abgeschlossen / storniert / gelöscht — DE + EN Varianten
+            if (st.equals("completed") || st.equals("abgeschlossen") ||
+                st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
+                st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
+                st.equals("done")) continue;
+            // Filter: alte Aufträge (vor heute morgen) raus
+            if (r.pickupTimestamp != null && r.pickupTimestamp < startOfToday) continue;
             active.add(r);
         }
         // Sortieren: assigned/new oben, accepted/on_way/picked_up unten

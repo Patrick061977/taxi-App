@@ -20997,7 +20997,24 @@ exports.claudeBotWebhook = onRequest(
                 read: false,
                 source: 'claudeBot'
             });
-            await sendClaudeBotMessage(chatId, `📥 In Posteingang gepusht (#${ts}).`);
+            // 🆕 v6.41.92: Auto-Antwort je nach Heartbeat — wenn Claude offline (>60s seit
+            // letztem Heartbeat), sagen wir das ehrlich, damit Patrick nicht auf Antwort wartet.
+            try {
+                const hbSnap = await db.ref('claudeBridge/heartbeat').once('value');
+                const hb = hbSnap.val() || {};
+                const ageSec = hb.ts ? Math.round((Date.now() - hb.ts) / 1000) : 999;
+                if (ageSec <= 60) {
+                    await sendClaudeBotMessage(chatId, `📥 In Posteingang (#${ts}). Claude ist online — Antwort kommt gleich.`);
+                } else {
+                    const lastSeen = hb.ts ? new Date(hb.ts).toLocaleString('de-DE',{ timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : 'noch nie';
+                    await sendClaudeBotMessage(chatId,
+                        `📥 Notiz gespeichert (#${ts}).\n` +
+                        `⏸️ <b>Claude ist gerade offline</b> (zuletzt aktiv: ${lastSeen}).\n` +
+                        `Sobald er wieder am Rechner ist, arbeitet er deine Notizen ab.`);
+                }
+            } catch(_) {
+                await sendClaudeBotMessage(chatId, `📥 In Posteingang gepusht (#${ts}).`);
+            }
             res.status(200).send('OK');
         } catch (err) {
             console.error('❌ claudeBotWebhook Fehler:', err.message);

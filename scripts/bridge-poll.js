@@ -55,8 +55,11 @@ function poll() {
         const v = root[k];
         const time = new Date(v.ts || Number(k)).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         const from = v.fromName || 'admin';
-        const src = v.source === 'claudeBot' ? '🤖' : '📱';
-        const msg = (v.message || '').replace(/\n/g, ' ↵ ').slice(0, 500);
+        // claudeBot, claudeBot+voice, claudeBot+audio → 🤖. Alles andere → 📱.
+        const src = (v.source || '').startsWith('claudeBot') ? '🤖' : '📱';
+        // Photos/Voice können lang sein — bei photo/audio mehr Zeichen zeigen
+        const limit = (v.source || '').includes('photo') ? 2000 : (v.source || '').includes('voice') ? 1000 : 500;
+        const msg = (v.message || '').replace(/\n/g, ' ↵ ').slice(0, limit);
         console.log(`${src} [${time}] ${from} (#${k}): ${msg}`);
         // Best-effort als read markieren — wenn's failt, schützt das Set davor dass wir
         // dieselbe Nachricht doppelt emittieren in dieser Session.

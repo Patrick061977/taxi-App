@@ -177,8 +177,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void onRidesUpdate(DataSnapshot s) {
         List<Ride> active = new ArrayList<>();
-        // v6.42.4: Auch deutsche Status-Werte filtern + nur heute/zukünftig anzeigen
-        long startOfToday = System.currentTimeMillis() - 12L * 3600L * 1000L; // ab 12h zurück (laufende Schicht)
+        // v6.42.5: Zeitfenster eng halten — Vorbestellungen erst 90 Min vor Pickup zeigen.
+        long now = System.currentTimeMillis();
+        long windowPast = now - 12L * 3600L * 1000L; // 12h zurück (laufende Schicht)
+        long windowFuture = now + 90L * 60L * 1000L; // 90 Min voraus (Vorbereitung)
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null) continue;
@@ -189,8 +191,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
                 st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
                 st.equals("done")) continue;
-            // Filter: alte Aufträge (vor heute morgen) raus
-            if (r.pickupTimestamp != null && r.pickupTimestamp < startOfToday) continue;
+            // Aktive Aufträge IMMER zeigen (accepted/on_way/picked_up/arrived) — egal wann
+            boolean isActive = st.equals("accepted") || st.equals("on_way") ||
+                    st.equals("picked_up") || st.equals("arrived");
+            if (!isActive) {
+                // Zeitfenster anwenden — Aufträge ohne Pickup-Zeit zeigen wenn unmittelbar offen (new/sofort)
+                if (r.pickupTimestamp == null) {
+                    if (!st.equals("new") && !st.equals("sofort") && !st.equals("assigned")) continue;
+                } else {
+                    if (r.pickupTimestamp < windowPast) continue;
+                    if (r.pickupTimestamp > windowFuture) continue;
+                }
+            }
             active.add(r);
         }
         // Sortieren: assigned/new oben, accepted/on_way/picked_up unten

@@ -18718,14 +18718,14 @@ exports.onRideUpdated = onValueUpdated(
             await addRideLog(rideId, '🚗', `Fahrzeug: ${_oldVName} → ${_newVName}`, { von: _oldVName, nach: _newVName, assignedBy: after.assignedBy || '?', quelle: 'onRideUpdated' });
 
             // 🆕 v6.41.96: Native FCM-Push an die APK des zugewiesenen Fahrzeugs.
-            // Funktioniert auch wenn die WebView tot ist — Android FCM-Service zeigt
-            // Notification mit Sound + Vibration + FullScreenIntent. Der Fahrer kriegt
-            // den Auftrag mit, selbst wenn das Handy gerade in der Hosentasche liegt.
+            // 🔧 v6.41.99: vehicleId mitschicken damit RideActionReceiver das Annehmen/Ablehnen
+            // korrekt mit der Vehicle-ID an rideAction Cloud Function senden kann.
             try {
                 const _pickupLabel = after.pickupTime || 'Sofort';
                 await sendFCMToVehicle(newVehicle, {
                     type: 'new_ride',
                     rideId,
+                    vehicleId: newVehicle,
                     pickup: after.pickup || '',
                     destination: after.destination || '',
                     pickupTime: _pickupLabel,
@@ -21102,6 +21102,67 @@ exports.onDebugErrorForwardToBridge = onValueCreated(
             console.log(`✅ debugError ${errorId} an Bridge weitergeleitet`);
         } catch (err) {
             console.error('❌ onDebugErrorForwardToBridge Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.41.99: rideAction — HTTP-Endpoint für Annehmen/Ablehnen-Buttons aus der
+// Native-FCM-Notification. Authentifiziert über den FCM-Token (der ist Geräte-eindeutig).
+// POST { rideId, action: 'accept'|'reject', vehicleId, fcmToken }
+// → Updated /rides/{rideId}/{status,acceptedAt,rejectedAt,acceptedVia}
+exports.rideAction = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 30, memory: '256MiB', minInstances: 0, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).send('Method not allowed'); return; }
+        try {
+            const { rideId, action, vehicleId, fcmToken } = req.body || {};
+            if (!rideId || !action) { res.status(400).json({ error: 'rideId+action required' }); return; }
+
+            // 1. FCM-Token-Auth: Token muss zum Vehicle gespeichert sein
+            if (vehicleId && fcmToken) {
+                const tokSnap = await db.ref(`vehicles/${vehicleId}/fcmToken/token`).once('value');
+                if (tokSnap.val() !== fcmToken) {
+                    console.warn(`rideAction: FCM-Token Mismatch für ${vehicleId}`);
+                    res.status(403).json({ error: 'token mismatch' });
+                    return;
+                }
+            }
+
+            // 2. Ride-Status auf accept oder reject setzen
+            const now = Date.now();
+            if (action === 'accept') {
+                await db.ref(`rides/${rideId}`).update({
+                    status: 'accepted',
+                    acceptedAt: now,
+                    acceptedVia: 'fcm-notification-action',
+                    acceptedByVehicle: vehicleId || null,
+                    updatedAt: now
+                });
+                console.log(`✅ rideAction: ${rideId} → accepted via FCM-Action (vehicle ${vehicleId})`);
+                try { await addRideLog(rideId, '✅', `Auftrag via FCM-Notification angenommen`, { quelle: 'rideAction' }); } catch(_) {}
+                res.status(200).json({ ok: true, action: 'accepted' });
+            } else if (action === 'reject') {
+                await db.ref(`rides/${rideId}`).update({
+                    assignedVehicle: null,
+                    vehicleId: null,
+                    vehicle: null,
+                    status: 'new',
+                    rejectedBy: vehicleId || null,
+                    rejectedAt: now,
+                    rejectedVia: 'fcm-notification-action',
+                    updatedAt: now
+                });
+                console.log(`❌ rideAction: ${rideId} → rejected by ${vehicleId}, zurück in den Pool`);
+                try { await addRideLog(rideId, '❌', `Auftrag via FCM-Notification abgelehnt`, { quelle: 'rideAction' }); } catch(_) {}
+                res.status(200).json({ ok: true, action: 'rejected' });
+            } else {
+                res.status(400).json({ error: 'unknown action' });
+            }
+        } catch (e) {
+            console.error('rideAction Fehler:', e.message);
+            res.status(500).json({ error: e.message });
         }
     }
 );

@@ -3570,6 +3570,159 @@
             }
         });
 
+        // 🆕 v6.41.87: Live-Status-Listener für die Success-Card. Wird sowohl von createBooking
+        //              (frische Buchung) als auch von restoreActiveBooking (Page-Reload) aufgerufen,
+        //              damit beide Pfade dieselben Status-Updates + Tracking-Aktivierung + ETA bekommen.
+        //              Vorher waren die Listener dupliziert und der Reload-Pfad hatte alte UX (sofort
+        //              blauer Tracking-Button statt grau-deaktiviert).
+        function setupSuccessCardListener(rideId, pickupLat, pickupLon) {
+            let _lastLoggedStatus = '';
+            let _assignedVehicleId = null;
+            let _assignedVehicleListener = null;
+            let _assignedEtaMin = null;
+            let _lastEtaFetch = 0;
+            async function _fetchDriverEta(vLat, vLon) {
+                try {
+                    const url = `https://router.project-osrm.org/route/v1/driving/${vLon},${vLat};${pickupLon},${pickupLat}?overview=false`;
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                        return Math.max(1, Math.round(data.routes[0].duration / 60));
+                    }
+                } catch(e) { /* Fallback unten */ }
+                const toRad = d => d * Math.PI / 180;
+                const dLat = toRad(pickupLat - vLat), dLon = toRad(pickupLon - vLon);
+                const a = Math.sin(dLat/2)**2 + Math.cos(toRad(vLat)) * Math.cos(toRad(pickupLat)) * Math.sin(dLon/2)**2;
+                const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return Math.max(2, Math.round(distKm * 1.5 + 1));
+            }
+            function _updateDriverEtaDisplay() {
+                const detailEl = document.getElementById('live-status-detail');
+                if (!detailEl) return;
+                const parts = [];
+                const vName = detailEl.dataset.vehicleName;
+                if (vName) parts.push('🚕 ' + vName);
+                if (_assignedEtaMin !== null) parts.push('ca. ' + _assignedEtaMin + ' Min bis zu Ihnen');
+                const extra = detailEl.dataset.extra || '';
+                detailEl.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
+            }
+            function _attachVehicleListener(vid) {
+                if (_assignedVehicleId === vid) return;
+                if (_assignedVehicleListener) {
+                    try { _assignedVehicleListener.ref.off('value', _assignedVehicleListener.handler); } catch(_) {}
+                    _assignedVehicleListener = null;
+                }
+                _assignedVehicleId = vid;
+                _assignedEtaMin = null;
+                if (!vid) return;
+                const vRef = db.ref('vehicles/' + vid);
+                const handler = async snap => {
+                    const v = snap.val();
+                    if (!v || typeof v.lat !== 'number' || typeof v.lon !== 'number') return;
+                    const nowMs = Date.now();
+                    if (nowMs - _lastEtaFetch < 20000 && _assignedEtaMin !== null) return;
+                    _lastEtaFetch = nowMs;
+                    const eta = await _fetchDriverEta(v.lat, v.lon);
+                    _assignedEtaMin = eta;
+                    _updateDriverEtaDisplay();
+                };
+                vRef.on('value', handler);
+                _assignedVehicleListener = { ref: vRef, handler };
+            }
+            db.ref('rides/' + rideId).on('value', snap => {
+                const r = snap.val();
+                if (!r) return;
+                const box = document.getElementById('live-status-box');
+                const text = document.getElementById('live-status-text');
+                const detail = document.getElementById('live-status-detail');
+                if (!box || !text) return;
+
+                if (r.status !== _lastLoggedStatus) {
+                    _lastLoggedStatus = r.status;
+                    if (typeof logBuchen === 'function') logBuchen('👁️', `KUNDE SIEHT: ${r.status.toUpperCase()}${r.vehicle ? ' | Fahrzeug: ' + r.vehicle : ''}`);
+                }
+
+                const showEtaStatuses = ['assigned', 'accepted', 'on_way'];
+                const vid = r.vehicleId || r.assignedVehicle;
+                if (showEtaStatuses.includes(r.status) && vid && pickupLat && pickupLon) {
+                    _attachVehicleListener(vid);
+                } else {
+                    _attachVehicleListener(null);
+                }
+
+                const statusMap = {
+                    'new':         { emoji: '⏳', text: 'Warte auf Fahrer...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                    'sofort':      { emoji: '⚡', text: 'Sofortfahrt — Fahrer wird benachrichtigt...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                    'vorbestellt': { emoji: '📅', text: 'Vorbestellung vorgemerkt — Fahrer wird ca. 60 Min vor Abfahrt zugewiesen', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                    'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen — wartet auf Bestätigung', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                    'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen — kommt zur vereinbarten Zeit', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+                    'on_way':      { emoji: '🚗', text: 'Fahrer ist unterwegs zu Ihnen!', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+                    'picked_up':   { emoji: '🎉', text: 'Sie wurden abgeholt!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+                    'completed':   { emoji: '🏁', text: 'Fahrt abgeschlossen!', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+                    'cancelled':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+                    'storniert':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+                };
+                const s = statusMap[r.status] || { emoji: '❓', text: r.status, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+                box.style.background = s.bg;
+                box.style.borderColor = s.border;
+                const emojiSpan = box.querySelector('div');
+                if (emojiSpan) emojiSpan.textContent = s.emoji;
+                text.textContent = s.text;
+                text.style.color = s.color;
+
+                if (detail) {
+                    detail.dataset.vehicleName = r.vehicle || '';
+                    let extra = '';
+                    if (r.status === 'on_way') extra = '— Bitte bereithalten!';
+                    if (r.status === 'completed' && (r.finalPrice || r.price)) extra = '— ' + (r.finalPrice || r.price) + '€';
+                    detail.dataset.extra = extra;
+                    if (!['assigned','accepted','on_way'].includes(r.status)) {
+                        _assignedEtaMin = null;
+                        const parts = [];
+                        if (r.vehicle) parts.push('🚕 ' + r.vehicle);
+                        detail.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
+                    } else {
+                        _updateDriverEtaDisplay();
+                    }
+                }
+
+                const actionBtns = document.getElementById('success-action-buttons');
+                const trackBtn = document.getElementById('success-track-btn');
+                const cancelBtnEl = document.getElementById('success-cancel-btn');
+                const finalStatuses = ['completed','cancelled','storniert'];
+                const trackingActiveStatuses = ['accepted','on_way','picked_up'];
+                const drivingStatuses = ['on_way','picked_up'];
+                if (actionBtns && finalStatuses.includes(r.status)) {
+                    actionBtns.style.display = 'none';
+                    try { localStorage.removeItem('activeBooking'); } catch(e) {}
+                } else if (actionBtns) {
+                    actionBtns.style.display = '';
+                }
+                if (trackBtn) {
+                    if (trackingActiveStatuses.includes(r.status)) {
+                        trackBtn.style.background = 'linear-gradient(135deg,#3b82f6,#1d4ed8)';
+                        trackBtn.style.color = 'white';
+                        trackBtn.style.pointerEvents = '';
+                        trackBtn.style.cursor = '';
+                        trackBtn.removeAttribute('title');
+                        trackBtn.innerHTML = '🗺️ Tracking';
+                    } else {
+                        trackBtn.style.background = '#e2e8f0';
+                        trackBtn.style.color = '#64748b';
+                        trackBtn.style.pointerEvents = 'none';
+                        trackBtn.style.cursor = 'not-allowed';
+                        trackBtn.title = 'Tracking wird aktiviert sobald Ihr Fahrer losfährt';
+                        trackBtn.innerHTML = '🗺️ Tracking <span style="font-weight:400;font-size:10px;opacity:0.7;">(noch nicht aktiv)</span>';
+                    }
+                }
+                if (cancelBtnEl) {
+                    if (drivingStatuses.includes(r.status)) {
+                        cancelBtnEl.outerHTML = `<a id="success-cancel-btn" href="tel:+493837822022" style="flex:1;padding:10px;background:white;color:#059669;border:2px solid #059669;border-radius:8px;font-weight:700;text-decoration:none;font-size:13px;text-align:center;">📞 Anrufen</a>`;
+                    }
+                }
+            });
+        }
+
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             const nameVal = (document.getElementById('b-name')?.value || '').trim();
@@ -3820,168 +3973,10 @@
                     });
                 }
 
-                // 🆕 v6.38.95: Live-Status Updates + Logging was Kunde sieht
-                let _lastLoggedStatus = '';
-                // 🆕 v6.40.30: Live-ETA-Tracking vom zugewiesenen Fahrer
-                let _assignedVehicleId = null;
-                let _assignedVehicleListener = null;
-                let _assignedEtaMin = null;
-                let _lastEtaFetch = 0;
-                const _pickupLat = pickupCoords.lat, _pickupLon = pickupCoords.lon;
-                async function _fetchDriverEta(vLat, vLon) {
-                    try {
-                        const url = `https://router.project-osrm.org/route/v1/driving/${vLon},${vLat};${_pickupLon},${_pickupLat}?overview=false`;
-                        const resp = await fetch(url);
-                        const data = await resp.json();
-                        if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                            return Math.max(1, Math.round(data.routes[0].duration / 60));
-                        }
-                    } catch(e) { /* Fallback unten */ }
-                    // Fallback: Luftlinie × 1.5 + 1
-                    const toRad = d => d * Math.PI / 180;
-                    const dLat = toRad(_pickupLat - vLat), dLon = toRad(_pickupLon - vLon);
-                    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(vLat)) * Math.cos(toRad(_pickupLat)) * Math.sin(dLon/2)**2;
-                    const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    return Math.max(2, Math.round(distKm * 1.5 + 1));
-                }
-                function _updateDriverEtaDisplay() {
-                    const detailEl = document.getElementById('live-status-detail');
-                    if (!detailEl) return;
-                    const parts = [];
-                    const vName = detailEl.dataset.vehicleName;
-                    if (vName) parts.push('🚕 ' + vName);
-                    if (_assignedEtaMin !== null) parts.push('ca. ' + _assignedEtaMin + ' Min bis zu Ihnen');
-                    const extra = detailEl.dataset.extra || '';
-                    detailEl.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
-                }
-                function _attachVehicleListener(vid) {
-                    if (_assignedVehicleId === vid) return;
-                    if (_assignedVehicleListener) {
-                        try { _assignedVehicleListener.ref.off('value', _assignedVehicleListener.handler); } catch(_) {}
-                        _assignedVehicleListener = null;
-                    }
-                    _assignedVehicleId = vid;
-                    _assignedEtaMin = null;
-                    if (!vid) return;
-                    const vRef = db.ref('vehicles/' + vid);
-                    const handler = async snap => {
-                        const v = snap.val();
-                        if (!v || typeof v.lat !== 'number' || typeof v.lon !== 'number') return;
-                        // Throttle: max alle 20s neu OSRM anfragen
-                        const nowMs = Date.now();
-                        if (nowMs - _lastEtaFetch < 20000 && _assignedEtaMin !== null) return;
-                        _lastEtaFetch = nowMs;
-                        const eta = await _fetchDriverEta(v.lat, v.lon);
-                        _assignedEtaMin = eta;
-                        _updateDriverEtaDisplay();
-                    };
-                    vRef.on('value', handler);
-                    _assignedVehicleListener = { ref: vRef, handler };
-                }
-                db.ref('rides/' + ref.key).on('value', snap => {
-                    const r = snap.val();
-                    if (!r) return;
-                    const box = document.getElementById('live-status-box');
-                    const text = document.getElementById('live-status-text');
-                    const detail = document.getElementById('live-status-detail');
-                    if (!box || !text) return;
-
-                    // Status-Wechsel loggen (was der Kunde auf dem Bildschirm sieht)
-                    if (r.status !== _lastLoggedStatus) {
-                        _lastLoggedStatus = r.status;
-                        logBuchen('👁️', `KUNDE SIEHT: ${r.status.toUpperCase()}${r.vehicle ? ' | Fahrzeug: ' + r.vehicle : ''}`);
-                    }
-
-                    // 🆕 v6.40.30: Vehicle-Listener aufbauen/abbauen je nach Status
-                    const showEtaStatuses = ['assigned', 'accepted', 'on_way'];
-                    const vid = r.vehicleId || r.assignedVehicle;
-                    if (showEtaStatuses.includes(r.status) && vid) {
-                        _attachVehicleListener(vid);
-                    } else {
-                        _attachVehicleListener(null);
-                    }
-
-                    // 🔧 v6.41.86: Klarere Texte — vorbestellt erklärt was passiert,
-                    // accepted unterscheidet sich von on_way (Fahrer akzeptiert ≠ Fahrer fährt schon).
-                    const statusMap = {
-                        'new':         { emoji: '⏳', text: 'Warte auf Fahrer...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
-                        'sofort':      { emoji: '⚡', text: 'Sofortfahrt — Fahrer wird benachrichtigt...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
-                        'vorbestellt': { emoji: '📅', text: 'Vorbestellung vorgemerkt — Fahrer wird ca. 60 Min vor Abfahrt zugewiesen', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-                        'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen — wartet auf Bestätigung', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-                        'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen — kommt zur vereinbarten Zeit', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
-                        'on_way':      { emoji: '🚗', text: 'Fahrer ist unterwegs zu Ihnen!', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
-                        'picked_up':   { emoji: '🎉', text: 'Sie wurden abgeholt!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
-                        'completed':   { emoji: '🏁', text: 'Fahrt abgeschlossen!', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-                        'cancelled':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
-                        'storniert':   { emoji: '❌', text: 'Fahrt storniert', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
-                    };
-                    const s = statusMap[r.status] || { emoji: '❓', text: r.status, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
-                    box.style.background = s.bg;
-                    box.style.borderColor = s.border;
-                    box.querySelector('div').textContent = s.emoji;
-                    text.textContent = s.text;
-                    text.style.color = s.color;
-
-                    // 🆕 v6.40.30: Detail-Text über dataset zusammensetzen damit ETA-Update reinpasst
-                    if (detail) {
-                        detail.dataset.vehicleName = r.vehicle || '';
-                        let extra = '';
-                        if (r.status === 'on_way') extra = '— Bitte bereithalten!';
-                        if (r.status === 'completed' && (r.finalPrice || r.price)) extra = '— ' + (r.finalPrice || r.price) + '€';
-                        detail.dataset.extra = extra;
-                        // Bei Status ohne ETA: Fahrer-Name + extra zeigen
-                        if (!['assigned','accepted','on_way'].includes(r.status)) {
-                            _assignedEtaMin = null;
-                            const parts = [];
-                            if (r.vehicle) parts.push('🚕 ' + r.vehicle);
-                            detail.textContent = parts.join(' — ') + (extra ? ' ' + extra : '');
-                        } else {
-                            _updateDriverEtaDisplay();
-                        }
-                    }
-
-                    // 🔧 v6.38.97: Tracking/Stornieren Buttons ausblenden bei Abschluss/Stornierung
-                    // 🔧 v6.41.86: Drei klare Phasen — deaktiviert / aktiv / versteckt — und Stornieren wird
-                    //              bei laufender Fahrt zu Anrufen (Storno ergibt nichts mehr wenn der Fahrer
-                    //              schon unterwegs ist).
-                    const actionBtns = document.getElementById('success-action-buttons');
-                    const trackBtn = document.getElementById('success-track-btn');
-                    const cancelBtnEl = document.getElementById('success-cancel-btn');
-                    const finalStatuses = ['completed','cancelled','storniert'];
-                    const trackingActiveStatuses = ['accepted','on_way','picked_up'];
-                    const drivingStatuses = ['on_way','picked_up'];
-                    if (actionBtns && finalStatuses.includes(r.status)) {
-                        actionBtns.style.display = 'none';
-                        // 🆕 v6.41.74: Finaler Status → localStorage aufräumen damit nächster Reload wieder "Neu buchen" zeigt
-                        try { localStorage.removeItem('activeBooking'); } catch(e) {}
-                    } else if (actionBtns) {
-                        actionBtns.style.display = '';
-                    }
-                    // Tracking-Phasen: aktiv sobald Fahrer angenommen hat, sonst grau mit Erklärtext
-                    if (trackBtn) {
-                        if (trackingActiveStatuses.includes(r.status)) {
-                            trackBtn.style.background = 'linear-gradient(135deg,#3b82f6,#1d4ed8)';
-                            trackBtn.style.color = 'white';
-                            trackBtn.style.pointerEvents = '';
-                            trackBtn.style.cursor = '';
-                            trackBtn.removeAttribute('title');
-                            trackBtn.innerHTML = '🗺️ Tracking';
-                        } else {
-                            trackBtn.style.background = '#e2e8f0';
-                            trackBtn.style.color = '#64748b';
-                            trackBtn.style.pointerEvents = 'none';
-                            trackBtn.style.cursor = 'not-allowed';
-                            trackBtn.title = 'Tracking wird aktiviert sobald Ihr Fahrer losfährt';
-                            trackBtn.innerHTML = '🗺️ Tracking <span style="font-weight:400;font-size:10px;opacity:0.7;">(noch nicht aktiv)</span>';
-                        }
-                    }
-                    // Stornieren → Anrufen sobald Fahrer schon fährt
-                    if (cancelBtnEl) {
-                        if (drivingStatuses.includes(r.status)) {
-                            cancelBtnEl.outerHTML = `<a id="success-cancel-btn" href="tel:+493837822022" style="flex:1;padding:10px;background:white;color:#059669;border:2px solid #059669;border-radius:8px;font-weight:700;text-decoration:none;font-size:13px;text-align:center;">📞 Anrufen</a>`;
-                        }
-                    }
-                });
+                // 🔧 v6.41.87: Listener-Setup ausgelagert in setupSuccessCardListener.
+                //              Identische Status-Updates + Tracking-Aktivierung + ETA für
+                //              createBooking UND restoreActiveBooking (Page-Reload).
+                setupSuccessCardListener(ref.key, pickupCoords.lat, pickupCoords.lon);
 
                 showToast('🎉 Buchung erfolgreich!');
                 logBuchen('🎉', `BUCHUNG ERSTELLT: ${pickup}${stopp ? ' → ' + stopp : ''} → ${destination} | ${passengers} Pers. | ${wannModus}`);
@@ -4289,6 +4284,9 @@
                     }
                     const detEl = document.getElementById('success-details');
                     if (detEl) {
+                        // 🔧 v6.41.87: Gleiche Template-Struktur wie createBooking — IDs +
+                        // grau-deaktivierter Tracking-Button initial. Der Listener setzt das richtig.
+                        const trackingUrl = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${saved.rideId}`;
                         detEl.innerHTML = `
                             <div style="font-size:12px;line-height:1.6;">
                                 <div>📍 ${r.pickup || ''}</div>
@@ -4299,40 +4297,22 @@
                                 <div id="live-status-text" style="font-weight:700;font-size:13px;color:#059669;">⏳ Status wird geladen…</div>
                                 <div id="live-status-detail" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
                             </div>
-                            <div style="display:flex;gap:6px;margin-top:8px;">
-                                <a href="/Taxi-App/track.html?ride=${saved.rideId}" target="_blank" style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">
-                                    🗺️ Tracking
+                            <div style="display:flex;gap:6px;margin-top:8px;" id="success-action-buttons">
+                                <a id="success-track-btn" href="${trackingUrl}" target="_blank" data-track-url="${trackingUrl}"
+                                   style="flex:1;padding:10px;background:#e2e8f0;color:#64748b;text-align:center;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;pointer-events:none;cursor:not-allowed;"
+                                   title="Tracking wird aktiviert sobald Ihr Fahrer losfährt">
+                                    🗺️ Tracking <span style="font-weight:400;font-size:10px;opacity:0.7;">(noch nicht aktiv)</span>
                                 </a>
-                                <button onclick="cancelWebBooking('${saved.rideId}')" style="flex:1;padding:10px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">
+                                <button id="success-cancel-btn" onclick="cancelWebBooking('${saved.rideId}')" style="flex:1;padding:10px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">
                                     ❌ Stornieren
                                 </button>
                             </div>
                         `;
                     }
                 }
-                // Live-Listener anhängen damit Status-Updates kommen
-                db.ref('rides/' + saved.rideId).on('value', snap2 => {
-                    const r2 = snap2.val();
-                    if (!r2) return;
-                    const txt = document.getElementById('live-status-text');
-                    if (!txt) return;
-                    const statusMap = {
-                        'new': '⏳ Warte auf Fahrer…',
-                        'sofort': '⚡ Sofortfahrt — Fahrer wird benachrichtigt…',
-                        'vorbestellt': '📅 Vorbestellung bestätigt',
-                        'assigned': '🚕 Fahrer zugewiesen!',
-                        'accepted': '✅ Fahrer hat angenommen!',
-                        'on_way': '🚗 Fahrer ist unterwegs!',
-                        'picked_up': '🎉 Sie wurden abgeholt!',
-                        'completed': '🏁 Fahrt abgeschlossen!',
-                        'cancelled': '❌ Fahrt storniert',
-                        'storniert': '❌ Fahrt storniert'
-                    };
-                    txt.textContent = statusMap[r2.status] || r2.status;
-                    if (['completed','cancelled','storniert'].includes(r2.status)) {
-                        try { localStorage.removeItem('activeBooking'); } catch(e) {}
-                    }
-                });
+                // 🔧 v6.41.87: Gleicher Listener wie nach frischer Buchung — Tracking aktiviert
+                // sich erst bei accepted/on_way/picked_up, ETA wird live aus Vehicle-Position berechnet.
+                setupSuccessCardListener(saved.rideId, r.pickupLat, r.pickupLon);
             }).catch(e => console.warn('restoreActiveBooking failed:', e));
         })();
     </script>

@@ -1345,6 +1345,56 @@ async function ensureClaudeBotWebhookSecret() {
     await db.ref('settings/telegram/claudeBotWebhookSecret').set(secret);
     return secret;
 }
+// 🆕 v6.41.92: Wiederverwendbare Whisper-Transkription für beide Bots.
+// Nimmt einen Bot-Token + file_id, lädt die Audio-Datei via Telegram-File-API,
+// schickt sie an OpenAI Whisper, gibt Transkript-Text zurück (oder null bei Fehler).
+async function transcribeAudio(botTokenForFile, fileId, contextHint = '') {
+    try {
+        const openaiKey = await getOpenAiApiKey();
+        if (!openaiKey) { console.error('transcribeAudio: kein OpenAI API Key'); return null; }
+        // Datei-Pfad bei Telegram holen
+        const fileResp = await fetch(`https://api.telegram.org/bot${botTokenForFile}/getFile`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) return null;
+        const fileUrl = `https://api.telegram.org/file/bot${botTokenForFile}/${fileData.result.file_path}`;
+        const audioResp = await fetch(fileUrl);
+        if (!audioResp.ok) return null;
+        const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+        // Whisper Multipart-Body bauen
+        const boundary = '----WhisperBoundary' + Date.now();
+        const formParts = [];
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
+        if (contextHint) {
+            formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${contextHint}`);
+        }
+        const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="voice.ogg"\r\nContent-Type: audio/ogg\r\n\r\n`;
+        const fileFooter = `\r\n--${boundary}--\r\n`;
+        const textParts = formParts.join('\r\n') + '\r\n';
+        const textBefore = Buffer.from(textParts + fileHeader);
+        const textAfter = Buffer.from(fileFooter);
+        const bodyBuffer = Buffer.concat([textBefore, audioBuffer, textAfter]);
+        const transcribeResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+            body: bodyBuffer
+        });
+        if (!transcribeResp.ok) {
+            const errData = await transcribeResp.json().catch(() => ({}));
+            console.error('transcribeAudio Whisper-Fehler:', errData.error?.message || transcribeResp.status);
+            return null;
+        }
+        const transcribeResult = await transcribeResp.json();
+        return (transcribeResult.text || '').trim() || null;
+    } catch (e) {
+        console.error('transcribeAudio Exception:', e.message);
+        return null;
+    }
+}
+
 async function sendClaudeBotMessage(chatId, text, extraParams = {}) {
     const token = await loadClaudeBotToken();
     if (!token) { console.error('Kein Claude-Bot-Token!'); return null; }
@@ -20938,13 +20988,55 @@ exports.claudeBotWebhook = onRequest(
         try {
             const update = req.body;
             const msg = update?.message;
-            if (!msg || !msg.text) {
+            if (!msg) { res.status(200).send('OK'); return; }
+            const chatId = msg.from?.id || msg.chat?.id;
+            const fromName = msg.from?.first_name || msg.from?.username || 'admin';
+
+            // 🆕 v6.41.92: Sprachnachricht / Audio-Datei → Whisper-Transkription → in Inbox
+            const isAudioDoc = msg.document && /^(audio\/|video\/ogg|application\/ogg)/.test(msg.document.mime_type || '') ;
+            const audioFileId = msg.voice?.file_id || msg.audio?.file_id || (isAudioDoc ? msg.document.file_id : null);
+            if (audioFileId) {
+                if (!await isTelegramAdmin(chatId)) {
+                    await sendClaudeBotMessage(chatId, `🤖 Sprachnachrichten nur für Admins. Bitte schreibe als Text oder ruf an: 038378/22022`);
+                    res.status(200).send('OK');
+                    return;
+                }
+                await sendClaudeBotMessage(chatId, '🎙️ <i>Sprachnachricht wird transkribiert…</i>');
+                const claudeToken = await loadClaudeBotToken();
+                const transcript = await transcribeAudio(claudeToken, audioFileId, 'Patrick spricht über Taxi-App-Themen: Buchungen, Schichten, Fahrer, Crashes, Bugs, Code-Änderungen.');
+                if (!transcript) {
+                    await sendClaudeBotMessage(chatId, '⚠️ Konnte nichts erkennen. Bitte als Text senden.');
+                    res.status(200).send('OK');
+                    return;
+                }
+                const ts = Date.now();
+                await db.ref(`claudeBridge/inbox/${ts}`).set({
+                    ts,
+                    fromChatId: chatId,
+                    fromName,
+                    message: transcript.slice(0, 4000),
+                    read: false,
+                    source: 'claudeBot+voice'
+                });
+                // Heartbeat-Antwort wie bei Text
+                let onlineHint = '';
+                try {
+                    const hb = (await db.ref('claudeBridge/heartbeat').once('value')).val() || {};
+                    const ageSec = hb.ts ? Math.round((Date.now() - hb.ts)/1000) : 999;
+                    onlineHint = ageSec <= 60 ? '\n✅ Claude online — antwortet gleich.' : '\n⏸️ Claude offline — arbeitet ab sobald wieder am Rechner.';
+                } catch(_) {}
+                await sendClaudeBotMessage(chatId,
+                    `🎙️ <b>Transkribiert:</b>\n<i>"${transcript.slice(0,1000)}"</i>\n\n📥 In Posteingang (#${ts}).${onlineHint}`);
                 res.status(200).send('OK');
                 return;
             }
-            const chatId = msg.from?.id || msg.chat?.id;
+
+            // Ab hier nur noch Text-Nachrichten
+            if (!msg.text) {
+                res.status(200).send('OK');
+                return;
+            }
             const text = (msg.text || '').trim();
-            const fromName = msg.from?.first_name || msg.from?.username || 'admin';
 
             // Spezielle Slash-Commands für den Claude-Bot
             if (text === '/start' || text === '/start@' || text.startsWith('/start ')) {

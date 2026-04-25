@@ -16428,8 +16428,10 @@ exports.autoResolveConflicts = onSchedule(
                 if (['accepted','picked_up','on_way','completed','deleted','cancelled','storniert'].includes(ride.status)) continue;
 
                 // Prüfe ALLE anderen Fahrzeuge ob eines besser wäre (kürzere Anfahrt, kein Konflikt)
+                // 🔧 v6.41.93: Bug-Fix — Variable heißt shiftsData, nicht vehicleShifts.
+                // Seit 10 Tagen 887 ReferenceErrors, autoResolveConflicts hat NICHT gelaufen.
                 let shouldRelease = false;
-                for (const altVid of Object.keys(vehicleShifts || {})) {
+                for (const altVid of Object.keys(shiftsData || {})) {
                     if (altVid === ride.assignedVehicle) continue; // Aktuelles überspringen
                     // Hat dieses Fahrzeug einen Konflikt mit der Fahrt?
                     const altRides = allRides.filter(r =>

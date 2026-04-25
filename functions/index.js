@@ -15668,6 +15668,36 @@ exports.telegramWebhook = onRequest(
                     // 🆕 v6.16.2: Daten aus Telegram Web App (Datetime-Picker etc.)
                     await handleWebAppData(update.message);
                 } else if (update.message.text) {
+                    // 🆕 v6.41.91: Claude-Bridge — Admin-Nachrichten mit Prefix 'claude:' oder
+                    // 'c:' werden in /claudeBridge/inbox gepusht statt vom normalen Bot-Handler
+                    // verarbeitet. Erlaubt dem Betreiber, vom Handy aus Notizen / Aufträge an
+                    // Claude weiterzuleiten — Claude liest beim nächsten 'lies bridge' den Inbox.
+                    const _bridgeText = update.message.text.trim();
+                    const _bridgePrefix = _bridgeText.match(/^(claude:|c:)\s*/i);
+                    if (_bridgePrefix) {
+                        const _bridgeChatId = update.message.from?.id || update.message.chat?.id;
+                        if (await isTelegramAdmin(_bridgeChatId)) {
+                            const _bridgeMsg = _bridgeText.slice(_bridgePrefix[0].length).trim();
+                            const _bridgeTs = Date.now();
+                            await db.ref(`claudeBridge/inbox/${_bridgeTs}`).set({
+                                ts: _bridgeTs,
+                                fromChatId: _bridgeChatId,
+                                fromName: update.message.from?.first_name || update.message.from?.username || 'admin',
+                                message: _bridgeMsg,
+                                read: false,
+                                source: 'telegram'
+                            });
+                            // Acknowledge
+                            try {
+                                await sendTelegramMessage(_bridgeChatId,
+                                    `📥 In Claude-Posteingang gepusht (#${_bridgeTs}).\n` +
+                                    `Du kannst weitere Notizen senden — Claude liest beim nächsten "lies bridge" alles aus.`);
+                            } catch(_) {}
+                            res.status(200).send('OK');
+                            return;
+                        }
+                        // Kein Admin → fällt durch in normalen Handler (oder ignorieren)
+                    }
                     await handleMessage(update.message);
                 }
             }
@@ -20786,6 +20816,37 @@ exports.onAnfrageCreated = onValueCreated(
             console.log(`✅ Anfrage-Telegram gesendet: ${anfrageId}`);
         } catch (err) {
             console.error('❌ onAnfrageCreated Fehler:', err.message);
+        }
+    }
+);
+
+// 🆕 v6.41.91: Claude-Bridge Outbox-Trigger
+// Wenn Claude (lokal über Browser-Session oder anderswo) was zurück an Telegram sagen will,
+// schreibt es nach /claudeBridge/outbox/{ts} und dieser Trigger sendet es als Bot-Message
+// an die targetChatId. Daten: { message, targetChatId, ts, sent? }.
+// Defaults: wenn keine targetChatId angegeben → an alle Admins.
+exports.onClaudeBridgeOutbox = onValueCreated(
+    {
+        ref: '/claudeBridge/outbox/{outboxId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const outboxId = event.params.outboxId;
+        const data = event.data.val();
+        if (!data || data.sent || !data.message) return;
+        try {
+            const text = '🤖 ' + String(data.message).slice(0, 3500);
+            if (data.targetChatId) {
+                await sendTelegramMessage(data.targetChatId, text);
+            } else {
+                await sendToAllAdmins(text);
+            }
+            await event.data.ref.update({ sent: true, sentAt: Date.now() });
+            console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} gesendet`);
+        } catch (err) {
+            console.error('❌ onClaudeBridgeOutbox Fehler:', err.message);
+            try { await event.data.ref.update({ error: err.message, errorAt: Date.now() }); } catch(_) {}
         }
     }
 );

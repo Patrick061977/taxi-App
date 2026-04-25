@@ -19,4 +19,15 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
+
+    <!-- v6.42.2: Material-Components-Theme für die native DriverDashboardActivity.
+         Vorher hatte sie Theme.SplashScreen geerbt — AppCompatActivity + MaterialButton
+         crashen damit beim Layout-Inflate ("You need to use a Theme.MaterialComponents theme").
+         Das war der Crash-on-Launch von v6.42.0/.1. -->
+    <style name="AppTheme.Driver" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:statusBarColor">#1E293B</item>
+    </style>
 </resources>

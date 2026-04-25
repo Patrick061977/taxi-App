@@ -1345,6 +1345,57 @@ async function ensureClaudeBotWebhookSecret() {
     await db.ref('settings/telegram/claudeBotWebhookSecret').set(secret);
     return secret;
 }
+// 🆕 v6.41.94: Bild → Text-Beschreibung für die Claude-Bridge.
+// Nimmt ein Foto vom Claude-Bot, schickt's an Claude Vision, gibt eine Beschreibung
+// im Plain-Text zurück (gesamter sichtbarer Text + UI-Elemente + Buttons + Fehlermeldungen).
+// Damit ich (Claude in der Terminal-Session) ohne lokalen Bilddownload sehen kann was auf
+// dem Screenshot drauf ist.
+async function describeImageForClaudeBridge(botTokenForFile, fileId, caption = '') {
+    try {
+        const anthropicKey = await getAnthropicApiKey();
+        if (!anthropicKey) return '⚠️ Kein Anthropic API Key konfiguriert — Bild kann nicht analysiert werden.';
+        // Datei-Pfad bei Telegram holen
+        const fileResp = await fetch(`https://api.telegram.org/bot${botTokenForFile}/getFile`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId })
+        });
+        const fileData = await fileResp.json();
+        if (!fileData.ok || !fileData.result?.file_path) return '⚠️ Bild-Datei konnte nicht abgerufen werden.';
+        const fileUrl = `https://api.telegram.org/file/bot${botTokenForFile}/${fileData.result.file_path}`;
+        const imgResp = await fetch(fileUrl);
+        if (!imgResp.ok) return '⚠️ Bild-Download fehlgeschlagen.';
+        const base64 = Buffer.from(await imgResp.arrayBuffer()).toString('base64');
+        const fp = fileData.result.file_path || '';
+        const mediaType = fp.endsWith('.png') ? 'image/png' : fp.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+
+        const prompt = `Beschreibe dieses Bild für einen Entwickler-Assistenten der den Code des Taxi-Apps weiterentwickelt.
+${caption ? `Zusatz-Text vom Sender: "${caption}"\n` : ''}
+Lies ALLEN sichtbaren Text wortgenau. Beschreibe:
+- Was für ein Bildschirm/App das ist (Firebase Console, Telegram, Browser, Fahrer-App, etc.)
+- Welcher Bereich/Tab/Menü
+- Sichtbare Buttons (mit Text)
+- Fehlermeldungen, Stack-Traces, Code-Zeilen WORTGENAU
+- Tabellen-Inhalte zeilenweise
+- Status-Anzeigen, Zähler, Warnungen
+- Visuelle Auffälligkeiten
+
+Antworte als reine Beschreibung in Deutsch, knapp aber vollständig. Maximal 1500 Zeichen.`;
+
+        const visionResp = await callAnthropicAPI(anthropicKey, 'claude-haiku-4-5-20251001', 1500, [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                { type: 'text', text: prompt }
+            ]
+        }]);
+        const text = (visionResp.content?.[0]?.text || '').trim();
+        return text || '⚠️ Vision-API gab keine Beschreibung zurück.';
+    } catch (e) {
+        console.error('describeImageForClaudeBridge:', e.message);
+        return `⚠️ Fehler bei Bildanalyse: ${e.message}`;
+    }
+}
+
 // 🆕 v6.41.92: Wiederverwendbare Whisper-Transkription für beide Bots.
 // Nimmt einen Bot-Token + file_id, lädt die Audio-Datei via Telegram-File-API,
 // schickt sie an OpenAI Whisper, gibt Transkript-Text zurück (oder null bei Fehler).
@@ -20993,6 +21044,40 @@ exports.claudeBotWebhook = onRequest(
             if (!msg) { res.status(200).send('OK'); return; }
             const chatId = msg.from?.id || msg.chat?.id;
             const fromName = msg.from?.first_name || msg.from?.username || 'admin';
+
+            // 🆕 v6.41.94: Foto / Screenshot → Claude Vision → Beschreibung in Inbox
+            if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+                if (!await isTelegramAdmin(chatId)) {
+                    await sendClaudeBotMessage(chatId, '🤖 Bilder nur für Admins.');
+                    res.status(200).send('OK');
+                    return;
+                }
+                await sendClaudeBotMessage(chatId, '🖼️ <i>Bild wird analysiert…</i>');
+                const claudeToken = await loadClaudeBotToken();
+                const bestPhoto = msg.photo[msg.photo.length - 1]; // höchste Auflösung
+                const description = await describeImageForClaudeBridge(claudeToken, bestPhoto.file_id, msg.caption || '');
+                const ts = Date.now();
+                const inboxMsg = (msg.caption ? `[Bildunterschrift: "${msg.caption}"]\n\n` : '') +
+                    `[Bild-Beschreibung]\n${description}`;
+                await db.ref(`claudeBridge/inbox/${ts}`).set({
+                    ts,
+                    fromChatId: chatId,
+                    fromName,
+                    message: inboxMsg.slice(0, 4000),
+                    read: false,
+                    source: 'claudeBot+photo'
+                });
+                let onlineHint = '';
+                try {
+                    const hb = (await db.ref('claudeBridge/heartbeat').once('value')).val() || {};
+                    const ageSec = hb.ts ? Math.round((Date.now() - hb.ts)/1000) : 999;
+                    onlineHint = ageSec <= 60 ? '\n✅ Claude online.' : '\n⏸️ Claude offline.';
+                } catch(_) {}
+                await sendClaudeBotMessage(chatId,
+                    `🖼️ <b>Bild analysiert:</b>\n<i>"${description.slice(0, 800)}"</i>\n\n📥 Posteingang #${ts}.${onlineHint}`);
+                res.status(200).send('OK');
+                return;
+            }
 
             // 🆕 v6.41.92: Sprachnachricht / Audio-Datei → Whisper-Transkription → in Inbox
             const isAudioDoc = msg.document && /^(audio\/|video\/ogg|application\/ogg)/.test(msg.document.mime_type || '') ;

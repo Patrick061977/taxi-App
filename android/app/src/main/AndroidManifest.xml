@@ -24,7 +24,7 @@
         <activity
             android:name=".DriverDashboardActivity"
             android:label="@string/title_activity_main"
-            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:theme="@style/AppTheme.Driver"
             android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>

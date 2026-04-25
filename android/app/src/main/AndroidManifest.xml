@@ -9,26 +9,21 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- v6.42.1: MainActivity ist die WebView (CRM/Admin) — KEIN Launcher mehr.
+             User öffnet sie nur indirekt aus der DriverDashboardActivity über den FAB. -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="true">
+            android:exported="true" />
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-        </activity>
-
-        <!-- v6.42.0: Native Fahrer-Dashboard — zweites Launcher-Icon "Funk Taxi Fahrer".
-             Pure native UI ohne WebView-Abhängigkeit für stabilen Auftrag-Empfang. -->
+        <!-- v6.42.0/1: Native Driver-Dashboard ist jetzt der EINZIGE Launcher.
+             Patrick öffnet App → sofort native UI. WebView nur über FAB erreichbar. -->
         <activity
             android:name=".DriverDashboardActivity"
-            android:label="Funk Taxi — Fahrer"
+            android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">

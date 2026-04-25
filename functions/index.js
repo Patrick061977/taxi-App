@@ -15668,17 +15668,34 @@ exports.telegramWebhook = onRequest(
                     // 🆕 v6.16.2: Daten aus Telegram Web App (Datetime-Picker etc.)
                     await handleWebAppData(update.message);
                 } else if (update.message.text) {
-                    // 🆕 v6.41.91: Claude-Bridge — Admin-Nachrichten mit Prefix 'claude:' oder
-                    // 'c:' werden in /claudeBridge/inbox gepusht statt vom normalen Bot-Handler
-                    // verarbeitet. Erlaubt dem Betreiber, vom Handy aus Notizen / Aufträge an
-                    // Claude weiterzuleiten — Claude liest beim nächsten 'lies bridge' den Inbox.
+                    // 🆕 v6.41.91 / 🔧 v6.41.92: Claude-Bridge — Admin schickt /c oder /claude
+                    // (Telegram-Slash-Befehl, im Menü sichtbar) ODER als Prefix vor einem Text.
+                    // Beispiel: '/c bug XY in CRM nachschauen' ODER '/claude noch was wichtiges'.
+                    // Vorher gabs nur 'claude:' und 'c:' Prefixe — die wurden zu leicht versehentlich
+                    // weggelassen oder auto-korrigiert. Slash-Befehl ist eindeutig.
                     const _bridgeText = update.message.text.trim();
-                    const _bridgePrefix = _bridgeText.match(/^(claude:|c:)\s*/i);
-                    if (_bridgePrefix) {
+                    // Slash-Command (mit oder ohne @botname): '/c' oder '/claude' am Anfang
+                    // ODER alter Prefix-Stil 'claude:' / 'c:' (zur Abwärtskompatibilität)
+                    const _bridgeMatch = _bridgeText.match(/^(\/c(laude)?(@\w+)?|claude:|c:)\s*/i);
+                    if (_bridgeMatch) {
                         const _bridgeChatId = update.message.from?.id || update.message.chat?.id;
                         if (await isTelegramAdmin(_bridgeChatId)) {
-                            const _bridgeMsg = _bridgeText.slice(_bridgePrefix[0].length).trim();
+                            const _bridgeMsg = _bridgeText.slice(_bridgeMatch[0].length).trim();
                             const _bridgeTs = Date.now();
+                            // Leere Nachrichten (nur '/c' ohne Text) → Hilfetext statt Inbox-Push
+                            if (!_bridgeMsg) {
+                                try {
+                                    await sendTelegramMessage(_bridgeChatId,
+                                        `📥 <b>Claude-Bridge</b>\n\n` +
+                                        `Schick mir Notizen mit:\n` +
+                                        `<code>/c bug XY in CRM</code>\n` +
+                                        `<code>/claude lange Nachricht...</code>\n\n` +
+                                        `Claude liest beim nächsten "lies bridge" alles aus.`,
+                                        { parse_mode: 'HTML' });
+                                } catch(_) {}
+                                res.status(200).send('OK');
+                                return;
+                            }
                             await db.ref(`claudeBridge/inbox/${_bridgeTs}`).set({
                                 ts: _bridgeTs,
                                 fromChatId: _bridgeChatId,
@@ -15687,7 +15704,6 @@ exports.telegramWebhook = onRequest(
                                 read: false,
                                 source: 'telegram'
                             });
-                            // Acknowledge
                             try {
                                 await sendTelegramMessage(_bridgeChatId,
                                     `📥 In Claude-Posteingang gepusht (#${_bridgeTs}).\n` +
@@ -15834,7 +15850,10 @@ exports.setupBotCommands = onRequest(
                 { command: 'abbrechen', description: '❌ Aktuelle Buchung abbrechen' },
                 { command: 'profil', description: '👤 Mein Profil' },
                 { command: 'abmelden', description: '🔓 Konto abmelden & Daten löschen' },
-                { command: 'start', description: '👋 Bot neu starten' }
+                { command: 'start', description: '👋 Bot neu starten' },
+                // 🆕 v6.41.92: Claude-Bridge Slash-Commands (für Admins)
+                { command: 'c', description: '🤖 Notiz an Claude (z.B. /c Bug XY)' },
+                { command: 'claude', description: '🤖 Notiz an Claude (lange Form)' }
             ];
 
             const resp = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {

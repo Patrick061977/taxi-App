@@ -506,6 +506,41 @@ function getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr) {
     return { hasShiftEntry: true, reason: inShift ? `Im Dienst (${shiftTimes})` : `Außerhalb Schicht (${shiftTimes})`, dayActive: true, daySource, shiftTimes, inShift };
 }
 
+// 🆕 v6.41.96: FCM-Push an einen Fahrer/Fahrzeug. Liest fcmToken aus
+// /vehicles/{vid}/fcmToken/token, sendet hochpriore Native-Notification.
+// Wird auch dann zugestellt wenn die WebView tot ist — über Android FCM-Service.
+async function sendFCMToVehicle(vehicleId, payload) {
+    if (!vehicleId) return false;
+    try {
+        const tokenSnap = await db.ref(`vehicles/${vehicleId}/fcmToken/token`).once('value');
+        const token = tokenSnap.val();
+        if (!token) {
+            console.log(`📵 sendFCMToVehicle: Kein FCM-Token für ${vehicleId} (App nicht geöffnet seit Update?)`);
+            return false;
+        }
+        const message = {
+            token,
+            // KEIN notification-Block — wir bauen die Notification nativ in TaxiFCMService damit
+            // Sound/Vibration/FullScreenIntent kontrollierbar sind. Nur Daten schicken.
+            data: Object.fromEntries(Object.entries(payload || {}).map(([k, v]) => [k, String(v == null ? '' : v)])),
+            android: {
+                priority: 'high',
+                ttl: 60_000 // 60 Sek — wenn nicht zugestellt verfällt der Push
+            }
+        };
+        const result = await admin.messaging().send(message);
+        console.log(`✅ FCM gesendet an ${vehicleId}: ${result}`);
+        return true;
+    } catch (e) {
+        console.error(`❌ sendFCMToVehicle ${vehicleId} fehlgeschlagen:`, e.message);
+        // Wenn Token ungültig (UNREGISTERED/INVALID_ARGUMENT) → entfernen
+        if (e.code === 'messaging/registration-token-not-registered' || e.code === 'messaging/invalid-registration-token') {
+            try { await db.ref(`vehicles/${vehicleId}/fcmToken`).remove(); } catch (_) {}
+        }
+        return false;
+    }
+}
+
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
@@ -18681,6 +18716,25 @@ exports.onRideUpdated = onValueUpdated(
             const _newVName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || newVehicle;
             const _oldVName = oldVehicle ? ((OFFICIAL_VEHICLES[oldVehicle] || {}).name || before.vehicle || oldVehicle) : 'keins';
             await addRideLog(rideId, '🚗', `Fahrzeug: ${_oldVName} → ${_newVName}`, { von: _oldVName, nach: _newVName, assignedBy: after.assignedBy || '?', quelle: 'onRideUpdated' });
+
+            // 🆕 v6.41.96: Native FCM-Push an die APK des zugewiesenen Fahrzeugs.
+            // Funktioniert auch wenn die WebView tot ist — Android FCM-Service zeigt
+            // Notification mit Sound + Vibration + FullScreenIntent. Der Fahrer kriegt
+            // den Auftrag mit, selbst wenn das Handy gerade in der Hosentasche liegt.
+            try {
+                const _pickupLabel = after.pickupTime || 'Sofort';
+                await sendFCMToVehicle(newVehicle, {
+                    type: 'new_ride',
+                    rideId,
+                    pickup: after.pickup || '',
+                    destination: after.destination || '',
+                    pickupTime: _pickupLabel,
+                    customerName: after.customerName || 'Kunde',
+                    isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false'
+                });
+            } catch (_fcmErr) {
+                console.warn('FCM-Push fehlgeschlagen:', _fcmErr.message);
+            }
 
             // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)
             if (after.assignedBy !== 'cloud-auto-assign' && after.assignedBy !== 'cloud-auto-replan' && after.assignedBy !== 'cloud-auto-optimize' && after.assignedBy !== 'cloud-scheduled-auto-assign') {

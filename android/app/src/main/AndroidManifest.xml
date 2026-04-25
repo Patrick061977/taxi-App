@@ -24,6 +24,20 @@
 
         </activity>
 
+        <!-- v6.42.0: Native Fahrer-Dashboard — zweites Launcher-Icon "Funk Taxi Fahrer".
+             Pure native UI ohne WebView-Abhängigkeit für stabilen Auftrag-Empfang. -->
+        <activity
+            android:name=".DriverDashboardActivity"
+            android:label="Funk Taxi — Fahrer"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

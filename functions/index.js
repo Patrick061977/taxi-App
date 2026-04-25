@@ -21016,6 +21016,42 @@ exports.onClaudeBridgeOutbox = onValueCreated(
     }
 );
 
+// 🆕 v6.41.95: Auto-Forward von /debugErrors → /claudeBridge/inbox.
+// Wenn der JS-Crash-Logger einen neuen Eintrag schreibt (Window-Error,
+// Unhandled-Rejection, console.error, native Crash via __reportNativeCrash),
+// landet der zusätzlich in der Claude-Bridge — ich sehe ihn live im Polling
+// statt manuell zu suchen.
+// 🛡️ Filter: nur Einträge mit 'kind' aus echten Fehlerklassen (kein 'battery_check' o.ä.).
+exports.onDebugErrorForwardToBridge = onValueCreated(
+    {
+        ref: '/debugErrors/{errorId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const errorId = event.params.errorId;
+        const data = event.data.val();
+        if (!data || !data.kind) return;
+        const realErrorKinds = ['window.error', 'unhandledrejection', 'console.error', 'native'];
+        if (!realErrorKinds.includes(data.kind)) return; // battery_check etc. nicht spammen
+        try {
+            const ts = Date.now();
+            const summary = `🚨 JS-Crash: ${data.kind} | ${(data.message || '').slice(0, 200)} | App ${data.appVersion || '?'} | Vehicle ${data.vehicleId || '?'} | Akku ${data.battery_level || '?'}%`;
+            await db.ref(`claudeBridge/inbox/${ts}`).set({
+                ts,
+                fromName: 'system',
+                message: summary + (data.stack ? `\n\nStack:\n${(data.stack || '').slice(0, 1500)}` : ''),
+                read: false,
+                source: 'auto-debugError',
+                originalRef: `/debugErrors/${errorId}`
+            });
+            console.log(`✅ debugError ${errorId} an Bridge weitergeleitet`);
+        } catch (err) {
+            console.error('❌ onDebugErrorForwardToBridge Fehler:', err.message);
+        }
+    }
+);
+
 // 🆕 v6.41.92: Webhook für separaten Claude-Bot.
 // JEDE Admin-Nachricht hier landet im /claudeBridge/inbox — kein Prefix nötig.
 // Non-Admin → höfliche Abweisung (Bot ist nur für Betreiber).

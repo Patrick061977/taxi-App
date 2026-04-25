@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 🛡️ v6.41.85: reCAPTCHA-Badge ausblenden (User-Wunsch — soll für Kunde nicht sichtbar sein).
+           Google verlangt stattdessen einen Text-Hinweis irgendwo auf der Seite — ist im Footer ergänzt. */
+        .grecaptcha-badge { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background: #f0f4f8;
@@ -955,6 +958,12 @@
             📞 <a href="tel:+493837822022">038378 22022</a> ·
             🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
             Funk Taxi Heringsdorf · Usedom · Bansin · Ahlbeck
+            <!-- 🛡️ v6.41.85: reCAPTCHA-Hinweis (Google ToS verlangt diesen Text, wenn Badge ausgeblendet) -->
+            <div style="font-size:9px;color:#94a3b8;margin-top:6px;line-height:1.3;">
+                Geschützt durch reCAPTCHA —
+                <a href="https://policies.google.com/privacy" target="_blank" style="color:#94a3b8;">Datenschutz</a> ·
+                <a href="https://policies.google.com/terms" target="_blank" style="color:#94a3b8;">AGB</a>
+            </div>
         </div>
     </div>
 

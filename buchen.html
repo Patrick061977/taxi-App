@@ -1337,8 +1337,12 @@
                 // 🆕 v6.41.65: Vorbestellen — btn-book zeigen wenn Route + gültige Zeit
                 // 🔧 v6.41.79: Button bei unvollständiger Auswahl SICHTBAR aber disabled —
                 // sonst verliert der Kunde die Orientierung (Button verschwindet ohne Grund).
+                // 🛡️ v6.41.84: Wenn SMS-Flow läuft (step-phone revealed), Button-Text/onclick
+                // NICHT mehr überschreiben — sonst wird sendSmsCode/verifyAndBook abgewürgt
+                // und der Kunde kann die Vorbestellung nie abschließen (Bug-Report 25.04.2026).
                 const ts = getPickupTimestamp();
                 const zeitOk = ts > Date.now() + 60 * 60000;
+                const smsFlowActive = document.getElementById('step-phone')?.classList.contains('revealed');
                 if (!hasInput) {
                     // Adressen fehlen → Button macht noch keinen Sinn
                     btn.style.display = 'none';
@@ -1347,9 +1351,12 @@
                     btn.style.display = '';
                     btn.disabled = false;
                     btn.className = 'btn-book';
-                    btn.innerHTML = '📅 Vorbestellung buchen';
-                    btn.onclick = startBooking;
                     if (cancelBtn) cancelBtn.style.display = '';
+                    // SMS-Flow läuft → Button gehört sendSmsCode/verifyAndBook, nicht uns
+                    if (!smsFlowActive) {
+                        btn.innerHTML = '📅 Vorbestellung buchen';
+                        btn.onclick = startBooking;
+                    }
                 } else {
                     // Adressen da, aber Zeit/Slot fehlen — disabled anzeigen mit Grund
                     btn.style.display = '';
@@ -1370,12 +1377,16 @@
                 }
             } else if (isAvailable && hasInput) {
                 // Sofort: Route berechnet + Taxi da → grüner Buchen-Button
+                // 🛡️ v6.41.84: SMS-Flow nicht abwürgen (gleiche Schutzlogik wie Vorbestell-Pfad)
+                const smsFlowActive2 = document.getElementById('step-phone')?.classList.contains('revealed');
                 btn.style.display = '';
                 btn.disabled = false;
                 btn.className = 'btn-book';
-                btn.innerHTML = '🚕 Jetzt Taxi buchen';
-                btn.onclick = startBooking;
                 if (cancelBtn) cancelBtn.style.display = '';
+                if (!smsFlowActive2) {
+                    btn.innerHTML = '🚕 Jetzt Taxi buchen';
+                    btn.onclick = startBooking;
+                }
             } else if (!hasInput) {
                 btn.style.display = 'none';
                 if (cancelBtn) cancelBtn.style.display = 'none';

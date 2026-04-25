@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 🛡️ v6.41.85: reCAPTCHA-Badge ausblenden (User-Wunsch — soll für Kunde nicht sichtbar sein).
+           Google verlangt stattdessen einen Text-Hinweis irgendwo auf der Seite — ist im Footer ergänzt. */
+        .grecaptcha-badge { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background: #f0f4f8;
@@ -955,6 +958,12 @@
             📞 <a href="tel:+493837822022">038378 22022</a> ·
             🌐 <a href="https://www.funk-taxi-heringsdorf.de">funk-taxi-heringsdorf.de</a><br>
             Funk Taxi Heringsdorf · Usedom · Bansin · Ahlbeck
+            <!-- 🛡️ v6.41.85: reCAPTCHA-Hinweis (Google ToS verlangt diesen Text, wenn Badge ausgeblendet) -->
+            <div style="font-size:9px;color:#94a3b8;margin-top:6px;line-height:1.3;">
+                Geschützt durch reCAPTCHA —
+                <a href="https://policies.google.com/privacy" target="_blank" style="color:#94a3b8;">Datenschutz</a> ·
+                <a href="https://policies.google.com/terms" target="_blank" style="color:#94a3b8;">AGB</a>
+            </div>
         </div>
     </div>
 
@@ -3777,11 +3786,15 @@
                         <div id="live-status-text" style="font-weight:700;font-size:13px;color:${isVorbestellt ? '#3b82f6' : '#059669'};">${isVorbestellt ? '📅 Vorbestellung vorgemerkt' : '⏳ Warte auf Fahrer...'}</div>
                         <div id="live-status-detail" style="font-size:11px;color:#6b7280;margin-top:2px;"></div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;">
-                        <a href="${trackingUrl}" target="_blank" style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;text-align:center;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">
-                            🗺️ Tracking
+                    <div style="display:flex;gap:6px;margin-top:8px;" id="success-action-buttons">
+                        <!-- 🆕 v6.41.86: Tracking startet GRAU/DEAKTIVIERT und wird vom Status-Listener
+                             aktiviert sobald Fahrer unterwegs ist. Hinweistext erklärt warum. -->
+                        <a id="success-track-btn" href="${trackingUrl}" target="_blank" data-track-url="${trackingUrl}"
+                           style="flex:1;padding:10px;background:#e2e8f0;color:#64748b;text-align:center;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;pointer-events:none;cursor:not-allowed;"
+                           title="Tracking wird aktiviert sobald Ihr Fahrer losfährt">
+                            🗺️ Tracking <span style="font-weight:400;font-size:10px;opacity:0.7;">(noch nicht aktiv)</span>
                         </a>
-                        <button onclick="cancelWebBooking('${_rideId}')" style="flex:1;padding:10px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">
+                        <button id="success-cancel-btn" onclick="cancelWebBooking('${_rideId}')" style="flex:1;padding:10px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">
                             ❌ Stornieren
                         </button>
                     </div>
@@ -3888,12 +3901,14 @@
                         _attachVehicleListener(null);
                     }
 
+                    // 🔧 v6.41.86: Klarere Texte — vorbestellt erklärt was passiert,
+                    // accepted unterscheidet sich von on_way (Fahrer akzeptiert ≠ Fahrer fährt schon).
                     const statusMap = {
                         'new':         { emoji: '⏳', text: 'Warte auf Fahrer...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
                         'sofort':      { emoji: '⚡', text: 'Sofortfahrt — Fahrer wird benachrichtigt...', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
-                        'vorbestellt': { emoji: '📅', text: 'Vorbestellung bestätigt', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-                        'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen!', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-                        'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
+                        'vorbestellt': { emoji: '📅', text: 'Vorbestellung vorgemerkt — Fahrer wird ca. 60 Min vor Abfahrt zugewiesen', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                        'assigned':    { emoji: '🚕', text: 'Fahrer zugewiesen — wartet auf Bestätigung', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+                        'accepted':    { emoji: '✅', text: 'Fahrer hat angenommen — kommt zur vereinbarten Zeit', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
                         'on_way':      { emoji: '🚗', text: 'Fahrer ist unterwegs zu Ihnen!', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
                         'picked_up':   { emoji: '🎉', text: 'Sie wurden abgeholt!', color: '#10b981', bg: '#f0fdf4', border: '#a7f3d0' },
                         'completed':   { emoji: '🏁', text: 'Fahrt abgeschlossen!', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
@@ -3926,18 +3941,45 @@
                     }
 
                     // 🔧 v6.38.97: Tracking/Stornieren Buttons ausblenden bei Abschluss/Stornierung
-                    const actionBtns = box.parentElement?.querySelector('[style*="display:flex"][style*="gap:6px"]');
-                    if (actionBtns && ['completed','cancelled','storniert'].includes(r.status)) {
+                    // 🔧 v6.41.86: Drei klare Phasen — deaktiviert / aktiv / versteckt — und Stornieren wird
+                    //              bei laufender Fahrt zu Anrufen (Storno ergibt nichts mehr wenn der Fahrer
+                    //              schon unterwegs ist).
+                    const actionBtns = document.getElementById('success-action-buttons');
+                    const trackBtn = document.getElementById('success-track-btn');
+                    const cancelBtnEl = document.getElementById('success-cancel-btn');
+                    const finalStatuses = ['completed','cancelled','storniert'];
+                    const trackingActiveStatuses = ['accepted','on_way','picked_up'];
+                    const drivingStatuses = ['on_way','picked_up'];
+                    if (actionBtns && finalStatuses.includes(r.status)) {
                         actionBtns.style.display = 'none';
                         // 🆕 v6.41.74: Finaler Status → localStorage aufräumen damit nächster Reload wieder "Neu buchen" zeigt
                         try { localStorage.removeItem('activeBooking'); } catch(e) {}
+                    } else if (actionBtns) {
+                        actionBtns.style.display = '';
                     }
-                    // Tracking nur zeigen wenn Fahrer angenommen hat
-                    const trackBtn = box.parentElement?.querySelector('a[href*="track"]');
-                    if (trackBtn && ['new','sofort'].includes(r.status)) {
-                        trackBtn.style.display = 'none';
-                    } else if (trackBtn && ['accepted','on_way','picked_up'].includes(r.status)) {
-                        trackBtn.style.display = '';
+                    // Tracking-Phasen: aktiv sobald Fahrer angenommen hat, sonst grau mit Erklärtext
+                    if (trackBtn) {
+                        if (trackingActiveStatuses.includes(r.status)) {
+                            trackBtn.style.background = 'linear-gradient(135deg,#3b82f6,#1d4ed8)';
+                            trackBtn.style.color = 'white';
+                            trackBtn.style.pointerEvents = '';
+                            trackBtn.style.cursor = '';
+                            trackBtn.removeAttribute('title');
+                            trackBtn.innerHTML = '🗺️ Tracking';
+                        } else {
+                            trackBtn.style.background = '#e2e8f0';
+                            trackBtn.style.color = '#64748b';
+                            trackBtn.style.pointerEvents = 'none';
+                            trackBtn.style.cursor = 'not-allowed';
+                            trackBtn.title = 'Tracking wird aktiviert sobald Ihr Fahrer losfährt';
+                            trackBtn.innerHTML = '🗺️ Tracking <span style="font-weight:400;font-size:10px;opacity:0.7;">(noch nicht aktiv)</span>';
+                        }
+                    }
+                    // Stornieren → Anrufen sobald Fahrer schon fährt
+                    if (cancelBtnEl) {
+                        if (drivingStatuses.includes(r.status)) {
+                            cancelBtnEl.outerHTML = `<a id="success-cancel-btn" href="tel:+493837822022" style="flex:1;padding:10px;background:white;color:#059669;border:2px solid #059669;border-radius:8px;font-weight:700;text-decoration:none;font-size:13px;text-align:center;">📞 Anrufen</a>`;
+                        }
                     }
                 });
 

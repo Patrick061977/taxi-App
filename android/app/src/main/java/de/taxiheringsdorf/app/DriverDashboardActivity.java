@@ -71,6 +71,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rideAdapter = new RideAdapter();
         rvRides.setAdapter(rideAdapter);
 
+        // v6.42.3: Optionaler Intent-Extra (für ADB-Setup ohne WebView-Login):
+        // adb shell am start -n de.taxiheringsdorf.app/.DriverDashboardActivity --es setVehicleId pw-my-222-e
+        String intentVehicleId = getIntent() != null ? getIntent().getStringExtra("setVehicleId") : null;
+        if (intentVehicleId != null && !intentVehicleId.isEmpty()) {
+            getSharedPreferences("driver", MODE_PRIVATE).edit().putString("vehicleId", intentVehicleId).apply();
+            getSharedPreferences("fcm", MODE_PRIVATE).edit().putString("vehicleId", intentVehicleId).apply();
+            Log.i(TAG, "vehicleId via Intent-Extra gesetzt: " + intentVehicleId);
+        }
+
         // Vehicle-ID aus SharedPreferences lesen (wird vom WebView/JS gesetzt)
         SharedPreferences prefs = getSharedPreferences("driver", MODE_PRIVATE);
         currentVehicleId = prefs.getString("vehicleId", null);

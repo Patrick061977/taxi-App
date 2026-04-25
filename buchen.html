@@ -823,6 +823,15 @@
                             <button class="pax-btn" onclick="setPax(8)">8</button>
                         </div>
                     </div>
+
+                    <!-- 🆕 v6.41.89: Optionales Notiz-Feld direkt beim Buchen.
+                         Vorher musste der Kunde erst buchen, dann ins Kundenportal um Notiz hinzuzufügen. -->
+                    <div class="input-group">
+                        <label>📝 Bemerkung <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+                        <textarea id="b-note" placeholder="z.B. Kindersitz, viel Gepäck, Hotel-Eingang Nordseite…"
+                                  style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;min-height:48px;"
+                                  rows="2" maxlength="200"></textarea>
+                    </div>
                 </div>
 
                 <!-- Verfügbarkeit — ausgeblendet, Status-Bar oben reicht -->
@@ -3839,9 +3848,12 @@
                 .toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
 
             const stopp = document.getElementById('b-stopp')?.value || '';
+            // 🆕 v6.41.89: Notiz aus Bemerkungs-Feld (optional, erscheint im Fahrer-Display + CRM)
+            const customerNote = (document.getElementById('b-note')?.value || '').trim();
             const rideData = {
                 pickup,
                 destination,
+                ...(customerNote && { note: customerNote, customerNote: customerNote }),
                 pickupLat: pickupCoords.lat,
                 pickupLon: pickupCoords.lon,
                 pickupCoords: { lat: pickupCoords.lat, lon: pickupCoords.lon },
@@ -4237,7 +4249,16 @@
 
         // 🆕 v6.41.74: Aktive Buchung nach Page-Reload wiederherstellen
         // Sonst landet der Kunde wieder auf "Jetzt buchen" und könnte versehentlich doppelt buchen.
+        // 🛡️ v6.41.89: Wenn der Kunde explizit "Neue Fahrt buchen" geklickt hat (?new=1 im URL),
+        //              alte Buchung NICHT wiederherstellen — sonst bleibt er auf der Erfolgs-Card hängen.
         (function restoreActiveBooking() {
+            try {
+                const url = new URL(window.location.href);
+                if (url.searchParams.get('new') === '1') {
+                    try { localStorage.removeItem('activeBooking'); } catch(_) {}
+                    return;
+                }
+            } catch(_) {}
             let saved;
             try { saved = JSON.parse(localStorage.getItem('activeBooking') || 'null'); } catch(e) { return; }
             if (!saved || !saved.rideId) return;

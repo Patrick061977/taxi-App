@@ -462,7 +462,9 @@
         <div id="rides-screen">
             <!-- 🆕 v6.38.97: Navigation Header -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <a href="buchen.html" style="flex:1;padding:10px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-align:center;">
+                <!-- 🛡️ v6.41.89: ?new=1 verhindert dass restoreActiveBooking auf buchen.html
+                     den alten Erfolgs-Bildschirm zeigt — der Kunde will JA eine neue Buchung. -->
+                <a href="buchen.html?new=1" style="flex:1;padding:10px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-align:center;">
                     🚕 Neue Fahrt buchen
                 </a>
                 <a href="buchen.html" style="padding:10px 16px;background:#f3f4f6;color:#374151;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;text-align:center;">
@@ -489,7 +491,7 @@
 
             <!-- Neue Fahrt buchen -->
             <div style="margin-top:16px;text-align:center;">
-                <a href="buchen.html" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
+                <a href="buchen.html?new=1" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#059669,#047857);color:white;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">
                     🚕 Neue Fahrt buchen
                 </a>
             </div>
@@ -1192,7 +1194,9 @@
             if (!ride) return;
 
             // 🔧 v6.38.97: Zu buchen.html statt index.html (leichte Buchungsseite)
+            // 🛡️ v6.41.89: new=1 sorgt dafür dass restoreActiveBooking nicht den alten Success-Screen zeigt.
             const params = new URLSearchParams({
+                new: '1',
                 from: ride.pickup || '',
                 to: ride.destination || '',
                 passengers: ride.passengers || '1',

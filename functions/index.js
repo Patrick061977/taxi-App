@@ -1327,6 +1327,42 @@ async function loadBotToken() {
     return botToken;
 }
 
+// 🆕 v6.41.92: Claude-Bot — zweiter Telegram-Bot ausschließlich für Admin↔Claude
+// Trennt Buchungs-Workflow vom Claude-Notiz-Kanal. Token in
+// settings/telegram/claudeBotToken, Webhook-Secret in claudeBotWebhookSecret.
+let claudeBotToken = null;
+async function loadClaudeBotToken() {
+    if (claudeBotToken) return claudeBotToken;
+    const snap = await db.ref('settings/telegram/claudeBotToken').once('value');
+    claudeBotToken = snap.val();
+    return claudeBotToken;
+}
+async function ensureClaudeBotWebhookSecret() {
+    const snap = await db.ref('settings/telegram/claudeBotWebhookSecret').once('value');
+    if (snap.val()) return snap.val();
+    const { randomBytes } = await import('crypto');
+    const secret = randomBytes(32).toString('hex');
+    await db.ref('settings/telegram/claudeBotWebhookSecret').set(secret);
+    return secret;
+}
+async function sendClaudeBotMessage(chatId, text, extraParams = {}) {
+    const token = await loadClaudeBotToken();
+    if (!token) { console.error('Kein Claude-Bot-Token!'); return null; }
+    try {
+        const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', ...extraParams })
+        });
+        const data = await resp.json();
+        if (!data.ok) console.error('Claude-Bot sendMessage Fehler:', data.description);
+        return data.ok ? data.result : null;
+    } catch (e) {
+        console.error('Claude-Bot sendMessage Exception:', e.message);
+        return null;
+    }
+}
+
 async function ensureWebhookSecret() {
     const snap = await db.ref('settings/telegram/webhookSecret').once('value');
     if (snap.val()) return snap.val();
@@ -20842,8 +20878,9 @@ exports.onAnfrageCreated = onValueCreated(
 // 🆕 v6.41.91: Claude-Bridge Outbox-Trigger
 // Wenn Claude (lokal über Browser-Session oder anderswo) was zurück an Telegram sagen will,
 // schreibt es nach /claudeBridge/outbox/{ts} und dieser Trigger sendet es als Bot-Message
-// an die targetChatId. Daten: { message, targetChatId, ts, sent? }.
+// an die targetChatId. Daten: { message, targetChatId, ts, sent?, via? }.
 // Defaults: wenn keine targetChatId angegeben → an alle Admins.
+// 🔧 v6.41.92: Optional 'via: claude' → nutzt den separaten Claude-Bot statt Hauptbot.
 exports.onClaudeBridgeOutbox = onValueCreated(
     {
         ref: '/claudeBridge/outbox/{outboxId}',
@@ -20856,16 +20893,170 @@ exports.onClaudeBridgeOutbox = onValueCreated(
         if (!data || data.sent || !data.message) return;
         try {
             const text = '🤖 ' + String(data.message).slice(0, 3500);
+            const useClaudeBot = data.via === 'claude' || data.source === 'claudeBot';
             if (data.targetChatId) {
-                await sendTelegramMessage(data.targetChatId, text);
+                if (useClaudeBot) {
+                    await sendClaudeBotMessage(data.targetChatId, text);
+                } else {
+                    await sendTelegramMessage(data.targetChatId, text);
+                }
             } else {
+                // ohne Target → Hauptbot an alle Admins (Claude-Bot hat keine "alle"-Liste)
                 await sendToAllAdmins(text);
             }
             await event.data.ref.update({ sent: true, sentAt: Date.now() });
-            console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} gesendet`);
+            console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} (${useClaudeBot ? 'Claude-Bot' : 'Hauptbot'}) gesendet`);
         } catch (err) {
             console.error('❌ onClaudeBridgeOutbox Fehler:', err.message);
             try { await event.data.ref.update({ error: err.message, errorAt: Date.now() }); } catch(_) {}
+        }
+    }
+);
+
+// 🆕 v6.41.92: Webhook für separaten Claude-Bot.
+// JEDE Admin-Nachricht hier landet im /claudeBridge/inbox — kein Prefix nötig.
+// Non-Admin → höfliche Abweisung (Bot ist nur für Betreiber).
+exports.claudeBotWebhook = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB', minInstances: 0, invoker: 'public' },
+    async (req, res) => {
+        if (req.method === 'GET') {
+            res.set('Access-Control-Allow-Origin', '*');
+            res.json({ name: 'claudeBotWebhook', status: 'ok' });
+            return;
+        }
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(200).send('Claude-Bot Webhook'); return; }
+
+        // Webhook-Secret validieren (eigenes Secret, nicht das vom Hauptbot)
+        const expectedSecret = await ensureClaudeBotWebhookSecret();
+        const incoming = req.headers['x-telegram-bot-api-secret-token'];
+        if (!incoming || incoming !== expectedSecret) {
+            res.status(403).send('Forbidden');
+            return;
+        }
+
+        try {
+            const update = req.body;
+            const msg = update?.message;
+            if (!msg || !msg.text) {
+                res.status(200).send('OK');
+                return;
+            }
+            const chatId = msg.from?.id || msg.chat?.id;
+            const text = (msg.text || '').trim();
+            const fromName = msg.from?.first_name || msg.from?.username || 'admin';
+
+            // Spezielle Slash-Commands für den Claude-Bot
+            if (text === '/start' || text === '/start@' || text.startsWith('/start ')) {
+                await sendClaudeBotMessage(chatId,
+                    `🤖 <b>Claude-Bot aktiv</b>\n\n` +
+                    `Du kannst hier <b>direkt drauflos schreiben</b> — alles geht in meinen Posteingang. ` +
+                    `Kein Prefix nötig.\n\n` +
+                    `Antworten kommen über diesen Chat zurück.\n\n` +
+                    (await isTelegramAdmin(chatId)
+                        ? `✅ Du bist als Admin erkannt (chatId: ${chatId}).`
+                        : `⚠️ Deine Chat-ID (${chatId}) ist NICHT in den Admin-Liste. Bitte in /settings/telegram/adminChats eintragen.`));
+                res.status(200).send('OK');
+                return;
+            }
+            if (text === '/help' || text === '/hilfe') {
+                await sendClaudeBotMessage(chatId,
+                    `🤖 Schreib einfach drauflos — jede Nachricht geht direkt an Claude.\n\n` +
+                    `Befehle:\n` +
+                    `/start — Begrüßung + Status\n` +
+                    `/help — diese Hilfe\n` +
+                    `/inbox — wie viele ungelesene Nachrichten warten`);
+                res.status(200).send('OK');
+                return;
+            }
+            if (text === '/inbox') {
+                const inboxSnap = await db.ref('claudeBridge/inbox').once('value');
+                let unread = 0, total = 0;
+                inboxSnap.forEach(c => { total++; if (!c.val()?.read) unread++; });
+                await sendClaudeBotMessage(chatId, `📥 Posteingang: ${unread} ungelesen / ${total} gesamt.`);
+                res.status(200).send('OK');
+                return;
+            }
+
+            // Admin-Check — alles andere wird abgewiesen
+            if (!await isTelegramAdmin(chatId)) {
+                await sendClaudeBotMessage(chatId,
+                    `🤖 Hallo ${fromName}! Dieser Bot ist nur für den Betreiber von Funk Taxi Heringsdorf.\n\n` +
+                    `Für Buchungen wende dich bitte an den Buchungs-Bot oder ruf an: 038378/22022`);
+                res.status(200).send('OK');
+                return;
+            }
+
+            // Admin-Nachricht → direkt in den Posteingang
+            const ts = Date.now();
+            await db.ref(`claudeBridge/inbox/${ts}`).set({
+                ts,
+                fromChatId: chatId,
+                fromName,
+                message: text.slice(0, 4000),
+                read: false,
+                source: 'claudeBot'
+            });
+            await sendClaudeBotMessage(chatId, `📥 In Posteingang gepusht (#${ts}).`);
+            res.status(200).send('OK');
+        } catch (err) {
+            console.error('❌ claudeBotWebhook Fehler:', err.message);
+            res.status(200).send('OK'); // Telegram nicht retry-en
+        }
+    }
+);
+
+// 🆕 v6.41.92: Setup-Endpoint — User legt Claude-Bot-Token + registriert Webhook in einem Schritt.
+// Aufruf: GET https://...setupClaudeBot?token=BOTFATHER_TOKEN
+// Speichert Token, generiert Webhook-Secret, ruft Telegram setWebhook auf.
+exports.setupClaudeBot = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const token = req.query.token || req.body?.token;
+        if (!token || !/^\d+:[A-Za-z0-9_-]{30,}$/.test(token)) {
+            res.status(400).send('❌ Token fehlt oder ist ungültig. Aufruf: setupClaudeBot?token=DEIN_BOT_TOKEN');
+            return;
+        }
+        try {
+            // 1. Token speichern
+            await db.ref('settings/telegram/claudeBotToken').set(token);
+            claudeBotToken = token; // Cache
+            // 2. Webhook-Secret generieren
+            const secret = await ensureClaudeBotWebhookSecret();
+            // 3. Webhook bei Telegram registrieren
+            const webhookUrl = `https://europe-west1-taxi-heringsdorf.cloudfunctions.net/claudeBotWebhook`;
+            const resp = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    url: webhookUrl,
+                    secret_token: secret,
+                    drop_pending_updates: true,
+                    allowed_updates: ['message']
+                })
+            });
+            const data = await resp.json();
+            if (!data.ok) {
+                res.status(500).send(`❌ Telegram setWebhook fehlgeschlagen: ${data.description}`);
+                return;
+            }
+            // 4. Bot-Commands setzen damit /start, /help, /inbox im Telegram-Menü erscheinen
+            await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    commands: [
+                        { command: 'start', description: '👋 Bot starten' },
+                        { command: 'help', description: 'ℹ️ Hilfe' },
+                        { command: 'inbox', description: '📥 Posteingang-Status' }
+                    ]
+                })
+            }).catch(() => {});
+            res.status(200).send(`✅ Claude-Bot eingerichtet!\n\nWebhook: ${webhookUrl}\n\nÖffne deinen neuen Bot in Telegram und schreibe /start.`);
+        } catch (e) {
+            res.status(500).send(`❌ Fehler: ${e.message}`);
         }
     }
 );

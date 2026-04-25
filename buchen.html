@@ -14,6 +14,16 @@
         /* 🛡️ v6.41.85: reCAPTCHA-Badge ausblenden (User-Wunsch — soll für Kunde nicht sichtbar sein).
            Google verlangt stattdessen einen Text-Hinweis irgendwo auf der Seite — ist im Footer ergänzt. */
         .grecaptcha-badge { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+        /* 🆕 v6.41.91: Aktive Buchung — alle Eingabe-Cards verstecken, nur Success-Card sichtbar.
+           Vorher waren booking-card + success-card teilweise gleichzeitig sichtbar (UX-Bug aus
+           dem Live-Test 25.04.: 'werden die cards sauber von einander getrennt'). */
+        body.has-active-booking #booking-card,
+        body.has-active-booking #wann-card,
+        body.has-active-booking #live-taxi-card,
+        body.has-active-booking #sofort-call-box,
+        body.has-active-booking #step-progress,
+        body.has-active-booking #termin-compact { display: none !important; }
+        body.has-active-booking #success-card { display: block !important; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background: #f0f4f8;
@@ -1866,14 +1876,8 @@
             if (window.liveTaxiRouteLayer && typeof window.liveTaxiRouteLayer.clearLayers === 'function') {
                 try { window.liveTaxiRouteLayer.clearLayers(); } catch(e){}
             }
-            // Buchungs-Cards wieder sichtbar falls nach Buchung versteckt
-            const bookingCard = document.getElementById('booking-card');
-            if (bookingCard) bookingCard.style.display = '';
-            // 🆕 v6.41.58: Wann-Card + Live-Karte ebenfalls wieder zeigen (nach Success)
-            const wannCard = document.getElementById('wann-card');
-            if (wannCard) wannCard.style.display = '';
-            const liveCard = document.getElementById('live-taxi-card');
-            if (liveCard) liveCard.style.display = '';
+            // 🆕 v6.41.91: has-active-booking Klasse abräumen — alles wieder im Eingabe-Modus
+            document.body.classList.remove('has-active-booking');
             const successCard = document.getElementById('success-card');
             if (successCard) successCard.style.display = 'none';
             // "Adressen löschen" Button verstecken
@@ -3937,15 +3941,10 @@
                 const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
                 const _pickupTimeStr2 = _pickupDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 
-                document.getElementById('booking-card').style.display = 'none';
-                document.getElementById('success-card').style.display = 'block';
-                // 🆕 v6.41.58: Wann-Card + Live-Karte auch ausblenden damit nur Success sichtbar
-                const wannC = document.getElementById('wann-card');
-                if (wannC) wannC.style.display = 'none';
-                const liveC = document.getElementById('live-taxi-card');
-                if (liveC) liveC.style.display = 'none';
-                const scb = document.getElementById('sofort-call-box');
-                if (scb) scb.style.display = 'none';
+                // 🆕 v6.41.91: CSS-Klasse statt verstreuter inline-displays — verhindert dass
+                // periodische Render-Funktionen (z.B. updateBookButton, updateAvailability) die
+                // Cards versehentlich wieder einblenden während die Success-Card aktiv ist.
+                document.body.classList.add('has-active-booking');
 
                 // Erfolgs-Icon + Titel je nach Modus
                 const _successIcon = document.querySelector('#success-card .icon');
@@ -4301,19 +4300,11 @@
                     localStorage.removeItem('activeBooking');
                     return;
                 }
-                // Aktive Fahrt existiert → Success-Card zeigen, Booking-Card verstecken
+                // Aktive Fahrt existiert → CSS-Klasse setzt success-card frei, alles andere ausgeblendet
                 logBuchen('♻️', `AKTIVE FAHRT WIEDERHERGESTELLT: ${saved.rideId} (Status: ${r.status})`);
-                const bookingCard = document.getElementById('booking-card');
-                if (bookingCard) bookingCard.style.display = 'none';
-                const wannC = document.getElementById('wann-card');
-                if (wannC) wannC.style.display = 'none';
-                const scb = document.getElementById('sofort-call-box');
-                if (scb) scb.style.display = 'none';
-                const stepProg = document.getElementById('step-progress');
-                if (stepProg) stepProg.style.display = 'none';
+                document.body.classList.add('has-active-booking');
                 const successCard = document.getElementById('success-card');
                 if (successCard) {
-                    successCard.style.display = 'block';
                     const _pickupDate = new Date(new Date(saved.pickupTs || r.pickupTimestamp).toLocaleString('en-US',{timeZone:'Europe/Berlin'}));
                     const _pickupDateStr = _pickupDate.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
                     const _pickupTimeStr2 = _pickupDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});

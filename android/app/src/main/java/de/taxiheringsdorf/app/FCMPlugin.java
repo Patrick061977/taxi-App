@@ -32,6 +32,26 @@ public class FCMPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setVehicleId(PluginCall call) {
+        // v6.42.0: JS speichert die aktuelle vehicleId in SharedPreferences damit
+        // DriverDashboardActivity + RideActionReceiver sie auch ohne JS finden.
+        String vehicleId = call.getString("vehicleId");
+        if (vehicleId == null || vehicleId.isEmpty()) {
+            call.reject("vehicleId required");
+            return;
+        }
+        try {
+            getContext().getSharedPreferences("driver", android.content.Context.MODE_PRIVATE).edit()
+                .putString("vehicleId", vehicleId).apply();
+            getContext().getSharedPreferences("fcm", android.content.Context.MODE_PRIVATE).edit()
+                .putString("vehicleId", vehicleId).apply();
+            call.resolve();
+        } catch (Throwable t) {
+            call.reject("setVehicleId failed: " + t.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void deleteToken(PluginCall call) {
         // Bei Logout — entfernt den Token vom Gerät
         try {

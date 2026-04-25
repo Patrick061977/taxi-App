@@ -13,6 +13,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppUpdatePlugin.class);
         // v6.40.31: Plugin für SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden)
         registerPlugin(SmsSenderPlugin.class);
+        // v6.41.91: Crashlytics-Brücke — JS kann Custom Keys/User/Log/Error setzen
+        registerPlugin(CrashlyticsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

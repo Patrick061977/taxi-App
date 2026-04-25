@@ -19429,6 +19429,9 @@ exports.shiftHeartbeatPing = onRequest(
             const now = Date.now();
             const updates = {};
             updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
+            // v6.42.6: online-Flag automatisch setzen wenn nativer Service Heartbeat schickt
+            // (vorher nur durch WebView-JS — bei Native-Only blieb online=false)
+            updates['vehicles/' + vehicleId + '/online'] = true;
             const hasGps = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
             const inBox = hasGps && lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0;
             // GPS mitsenden wenn angegeben + plausibel (Usedom-Bereich grob gefiltert)

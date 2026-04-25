@@ -15,6 +15,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SmsSenderPlugin.class);
         // v6.41.91: Crashlytics-Brücke — JS kann Custom Keys/User/Log/Error setzen
         registerPlugin(CrashlyticsPlugin.class);
+        // v6.41.95: Akku-Optimierung — Whitelist-Status prüfen + Whitelist anfordern
+        registerPlugin(BatteryOptimizationPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

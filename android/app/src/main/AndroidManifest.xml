@@ -57,4 +57,9 @@
 
     <!-- v6.40.31: SMS-Versand über Fahrer-SIM (Tracking-Link an Kunden) -->
     <uses-permission android:name="android.permission.SEND_SMS" />
+
+    <!-- v6.41.95: Akku-Optimierung-Whitelist anfordern damit Samsung/Android die App
+         im Hintergrund (Schicht aktiv) nicht killt. Nötig da Doze-Mode + One UI sonst
+         den ShiftForegroundService nach 15-60 Min stoppen — Heartbeat-Timeout-Crashes. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

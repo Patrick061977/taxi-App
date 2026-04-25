@@ -17,6 +17,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(CrashlyticsPlugin.class);
         // v6.41.95: Akku-Optimierung — Whitelist-Status prüfen + Whitelist anfordern
         registerPlugin(BatteryOptimizationPlugin.class);
+        // v6.41.96: FCM — Token-Abruf für Push-Notifications bei neuen Aufträgen
+        registerPlugin(FCMPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

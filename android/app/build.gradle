@@ -10,8 +10,8 @@ android {
         // v6.41.91: + Firebase Crashlytics für native Crash-Diagnose (heute Heartbeat-Timeout
         // gesehen — JS-Logger fing nichts, also nativer Prozess-Tod. Crashlytics liefert Stacktrace).
         // versionCode-Format: Major*1_000_000 + Minor*1_000 + Patch → 6.41.91 = 6_041_091
-        versionCode 6041095
-        versionName "6.41.95"
+        versionCode 6041096
+        versionName "6.41.96"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -57,9 +57,12 @@ dependencies {
     // v6.41.19: FusedLocationProviderClient für nativen GPS-Tracker im Foreground-Service
     implementation 'com.google.android.gms:play-services-location:21.3.0'
     // v6.41.91: Firebase Crashlytics — Native Crash-Reports automatisch in Firebase Console
+    // v6.41.96: + Firebase Messaging (FCM) für native Push-Notifications bei neuen Aufträgen
+    //           — funktioniert auch wenn WebView tot ist / App im Hintergrund / Bildschirm aus.
     implementation platform('com.google.firebase:firebase-bom:33.5.1')
     implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-messaging'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

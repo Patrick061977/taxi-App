@@ -39,6 +39,16 @@
             </intent-filter>
         </service>
 
+        <!-- v6.41.99: Receiver für Annehmen/Ablehnen-Buttons in der FCM-Notification -->
+        <receiver
+            android:name=".RideActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="de.taxiheringsdorf.app.ACTION_ACCEPT_RIDE" />
+                <action android:name="de.taxiheringsdorf.app.ACTION_REJECT_RIDE" />
+            </intent-filter>
+        </receiver>
+
         <!-- v6.41.96: Standard-Channel-ID + Icon für FCM-Notifications -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

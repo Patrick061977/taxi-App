@@ -68,9 +68,31 @@ public class TaxiFCMService extends FirebaseMessagingService {
         appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (rideId != null) appIntent.putExtra("rideId", rideId);
         PendingIntent pendingIntent = PendingIntent.getActivity(
-            this, 0, appIntent,
+            this, rideId != null ? rideId.hashCode() : 0, appIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
+
+        // v6.41.99: Action-Buttons für Annehmen/Ablehnen direkt in der Notification
+        String vehicleId = data.get("vehicleId"); // Cloud Function muss das mitschicken
+        int notificationId = NOTIFICATION_ID_BASE + (rideId != null ? rideId.hashCode() & 0x7FFF : (int) (System.currentTimeMillis() % 10000));
+        PendingIntent acceptIntent = null, rejectIntent = null;
+        if ("new_ride".equals(type) && rideId != null) {
+            Intent acceptI = new Intent(this, RideActionReceiver.class);
+            acceptI.setAction(RideActionReceiver.ACTION_ACCEPT);
+            acceptI.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
+            acceptI.putExtra(RideActionReceiver.EXTRA_NOTIFICATION_ID, notificationId);
+            acceptI.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
+            acceptIntent = PendingIntent.getBroadcast(this, ("a"+rideId).hashCode(), acceptI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            Intent rejectI = new Intent(this, RideActionReceiver.class);
+            rejectI.setAction(RideActionReceiver.ACTION_REJECT);
+            rejectI.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
+            rejectI.putExtra(RideActionReceiver.EXTRA_NOTIFICATION_ID, notificationId);
+            rejectI.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
+            rejectIntent = PendingIntent.getBroadcast(this, ("r"+rideId).hashCode(), rejectI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        }
 
         // Sound + Vibration (LAUT) — v6.41.98: TYPE_RINGTONE statt TYPE_NOTIFICATION,
         // weil RingTone länger + lauter spielt + Samsung's 'still silent'-Override eher umgeht.
@@ -86,12 +108,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setCategory(NotificationCompat.CATEGORY_CALL) // hohe Priorität → Heads-Up
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(sound)
-            .setVibrate(new long[]{0, 500, 200, 500, 200, 500})
+            .setVibrate(new long[]{0, 800, 300, 800, 300, 800, 300, 800})
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setFullScreenIntent(pendingIntent, true); // weckt Bildschirm bei lock-screen
 
-        int notificationId = NOTIFICATION_ID_BASE + (rideId != null ? rideId.hashCode() & 0x7FFF : (int) (System.currentTimeMillis() % 10000));
+        // v6.41.99: Action-Buttons direkt in der Notification — Annehmen/Ablehnen ohne App zu öffnen
+        if (acceptIntent != null) builder.addAction(android.R.drawable.ic_menu_add, "✅ Annehmen", acceptIntent);
+        if (rejectIntent != null) builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "❌ Ablehnen", rejectIntent);
+
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());
     }
@@ -99,10 +124,12 @@ public class TaxiFCMService extends FirebaseMessagingService {
     @Override
     public void onNewToken(String token) {
         Log.d(TAG, "Neuer FCM-Token: " + token.substring(0, 16) + "...");
-        // Token-Persistierung nach Firebase macht der JS-Code beim App-Start
-        // (FCMPlugin.getToken). Wir speichern hier nur ein Pending-Flag damit
-        // die UI weiß sie soll den Token holen.
-        getSharedPreferences("fcm", MODE_PRIVATE).edit().putString("pending_token", token).apply();
+        // v6.41.99: Token in SharedPreferences damit RideActionReceiver ihn auch ohne
+        // JS-Bridge findet — wichtig wenn die App tot ist und nur die Notification-Buttons getippt werden.
+        getSharedPreferences("fcm", MODE_PRIVATE).edit()
+            .putString("current_token", token)
+            .putString("pending_token", token)
+            .apply();
     }
 
     private void ensureNotificationChannel() {

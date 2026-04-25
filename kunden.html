@@ -578,6 +578,28 @@
         });
         const db = firebase.database();
 
+        // 🆕 v6.41.90: Crash-Logger nach /debugErrors (siehe buchen.html / index.html)
+        (function setupCrashLogger() {
+            function _write(kind, payload) {
+                try {
+                    const ts = Date.now();
+                    db.ref('debugErrors/' + ts).set(Object.assign({
+                        ts, kind, app: 'kunden.html',
+                        userAgent: (navigator.userAgent || '').slice(0,200),
+                        url: location.href.slice(0,200), online: navigator.onLine
+                    }, payload));
+                } catch(_) {}
+            }
+            window.addEventListener('error', e => _write('window.error', {
+                message: (e.message||'').slice(0,500), source: (e.filename||'').slice(0,200),
+                line: e.lineno, col: e.colno, stack: (e.error&&e.error.stack||'').slice(0,1500)
+            }));
+            window.addEventListener('unhandledrejection', e => {
+                const r = e.reason || {};
+                _write('unhandledrejection', { message: (r.message||String(r)).slice(0,500), stack: (r.stack||'').slice(0,1500) });
+            });
+        })();
+
         // State
         let verifiedPhone = '';
         let verificationCode = '';

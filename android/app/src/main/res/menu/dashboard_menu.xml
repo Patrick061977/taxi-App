@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_shift_toggle" android:title="▶ Schicht starten" />
+    <item android:id="@+id/menu_online_toggle" android:title="🟢 Online / ⏸ Pause" />
+    <item android:id="@+id/menu_stats" android:title="📊 Statistik" />
+    <item android:id="@+id/menu_webapp" android:title="🌐 Web-App öffnen" />
+    <item android:id="@+id/menu_change_vehicle" android:title="🚗 Fahrzeug wechseln" />
+    <item android:id="@+id/menu_logout" android:title="🚪 Abmelden" />
+</menu>

@@ -13,131 +13,109 @@
         android:background="#1E293B"
         app:elevation="0dp">
 
+        <!-- v6.47.0: Schlanke Toolbar — Hamburger links, Titel + Status, Schicht-Stats kompakt -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="10dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_menu"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="☰"
+                android:textColor="#F8FAFC"
+                android:textSize="26sp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_app_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🚕 Funk Taxi — Fahrer"
+                    android:textColor="#F8FAFC"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_vehicle_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:text="Fahrzeug…"
+                    android:textColor="#94A3B8"
+                    android:textSize="11sp" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/tv_app_title"
-                android:layout_width="match_parent"
+                android:id="@+id/tv_shift_status"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🚕 Funk Taxi — Fahrer"
+                android:background="#475569"
+                android:paddingStart="8dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="4dp"
+                android:text="⏸ Aus"
                 android:textColor="#F8FAFC"
-                android:textSize="20sp"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- v6.47.0: Schmales Schicht-Detail-Banner — nur eine Zeile (Timer + Verdienst) wenn aktiv -->
+        <LinearLayout
+            android:id="@+id/shift_stats_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#0F172A"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_shift_timer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⏱ 00:00:00"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_vehicle_info"
-                android:layout_width="match_parent"
+                android:id="@+id/tv_today_earnings"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Lade Fahrzeug…"
+                android:text="💰 0,00 €"
+                android:textColor="#10B981"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_shift_detail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:text=""
                 android:textColor="#94A3B8"
-                android:textSize="13sp" />
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="#0F172A"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tv_shift_status"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="⏸️ Schicht beendet"
-                                android:textColor="#F8FAFC"
-                                android:textSize="16sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tv_shift_detail"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="Tippe Start zum Beginnen"
-                                android:textColor="#94A3B8"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btn_shift_toggle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:minWidth="120dp"
-                            android:text="▶ Start"
-                            android:textColor="#FFFFFF"
-                            app:backgroundTint="#10B981"
-                            app:cornerRadius="10dp" />
-                    </LinearLayout>
-
-                    <!-- v6.43.0: Schicht-Stats — Timer + Verdienst + Online-Toggle -->
-                    <LinearLayout
-                        android:id="@+id/shift_stats_row"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:visibility="gone">
-
-                        <TextView
-                            android:id="@+id/tv_shift_timer"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="⏱ 00:00"
-                            android:textColor="#F8FAFC"
-                            android:textSize="14sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tv_today_earnings"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="💰 0,00 €"
-                            android:textColor="#10B981"
-                            android:textSize="14sp"
-                            android:textStyle="bold" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btn_online_toggle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="36dp"
-                            android:minWidth="0dp"
-                            android:paddingStart="14dp"
-                            android:paddingEnd="14dp"
-                            android:text="🟢 Online"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12sp"
-                            app:backgroundTint="#10B981"
-                            app:cornerRadius="18dp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                android:textSize="11sp" />
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -147,7 +125,7 @@
         android:layout_height="match_parent"
         android:padding="12dp"
         android:clipToPadding="false"
-        android:paddingBottom="200dp"
+        android:paddingBottom="180dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <LinearLayout
@@ -180,54 +158,45 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:gravity="center"
-            android:text="Wenn ein Auftrag reinkommt, hörst du einen lauten Ton + Notification."
+            android:text="Schicht via ☰ Menü starten."
             android:textColor="#94A3B8"
             android:textSize="13sp" />
     </LinearLayout>
 
-    <!-- v6.43.0: EINSTEIGER-Button + v6.46.0: Anrufliste-Button -->
+    <!-- Bottom-Aktion-Bar: Anrufliste + EINSTEIGER -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="84dp"
-        android:orientation="horizontal">
+        android:background="#1E293B"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="14dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_call_log"
             android:layout_width="64dp"
-            android:layout_height="60dp"
+            android:layout_height="56dp"
             android:layout_marginEnd="6dp"
             android:text="📞"
             android:textSize="22sp"
             app:backgroundTint="#3B82F6"
-            app:cornerRadius="16dp" />
+            app:cornerRadius="14dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_einsteiger"
             android:layout_width="0dp"
-            android:layout_height="60dp"
+            android:layout_height="56dp"
             android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:text="🚖 EINSTEIGER"
             android:textColor="#FFFFFF"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             app:backgroundTint="#F97316"
-            app:cornerRadius="16dp" />
+            app:cornerRadius="14dp" />
     </LinearLayout>
-
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab_open_webview"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:text="🌐 Web-App"
-        android:textColor="#FFFFFF"
-        app:backgroundTint="#475569"
-        app:cornerRadius="14dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -24,7 +25,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -49,7 +50,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static final String TRACKING_BASE = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=";
 
     private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
-    private MaterialButton btnShiftToggle, btnOnlineToggle, btnEinsteiger, btnCallLog;
+    private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     private LinearLayout shiftStatsRow;
     private RecyclerView rvRides;
     private LinearLayout emptyState;
@@ -101,8 +102,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvShiftDetail = findViewById(R.id.tv_shift_detail);
         tvShiftTimer = findViewById(R.id.tv_shift_timer);
         tvTodayEarnings = findViewById(R.id.tv_today_earnings);
-        btnShiftToggle = findViewById(R.id.btn_shift_toggle);
-        btnOnlineToggle = findViewById(R.id.btn_online_toggle);
+        btnMenu = findViewById(R.id.btn_menu);
         btnEinsteiger = findViewById(R.id.btn_einsteiger);
         btnCallLog = findViewById(R.id.btn_call_log);
         shiftStatsRow = findViewById(R.id.shift_stats_row);
@@ -130,12 +130,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvVehicleInfo.setText(vehicleName != null ? vehicleName + " (" + currentVehicleId + ")" : "Fahrzeug: " + currentVehicleId);
         connectFirebase();
 
-        btnShiftToggle.setOnClickListener(v -> toggleShift());
-        btnOnlineToggle.setOnClickListener(v -> toggleOnline());
+        btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
         btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
-        ExtendedFloatingActionButton fab = findViewById(R.id.fab_open_webview);
-        fab.setOnClickListener(v -> openWebView());
     }
 
     private void connectFirebase() {
@@ -198,31 +195,63 @@ public class DriverDashboardActivity extends AppCompatActivity {
         shiftActive = "active".equals(status);
         shiftStartTime = startTime;
 
-        // Online-State syncen
         if (onlineObj instanceof Boolean) onlineState = (Boolean) onlineObj;
 
+        // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)
         if (shiftActive) {
-            tvShiftStatus.setText("🟢 Schicht aktiv");
-            String detail = "Heartbeat OK";
+            tvShiftStatus.setText(onlineState ? "🟢 Aktiv" : "⏸ Pause");
+            tvShiftStatus.setBackgroundColor(onlineState ? Color.parseColor("#10B981") : Color.parseColor("#F59E0B"));
+            String detail = "";
             if (lastHb != null) {
                 long ageSec = (System.currentTimeMillis() - lastHb) / 1000;
-                detail = "Letzter GPS-Update vor " + ageSec + "s";
+                detail = "GPS vor " + ageSec + "s";
             }
             tvShiftDetail.setText(detail);
-            btnShiftToggle.setText("⏹ Stopp");
-            btnShiftToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EF4444")));
             shiftStatsRow.setVisibility(View.VISIBLE);
-            updateOnlineButton();
             timerHandler.removeCallbacks(timerTick);
             timerHandler.post(timerTick);
         } else {
-            tvShiftStatus.setText("⏸️ Schicht " + ("auto-ended".equals(status) ? "auto-beendet" : "beendet"));
-            tvShiftDetail.setText("auto-ended".equals(status) ? "Letzter Crash hat Schicht beendet — neu starten" : "Tippe Start zum Beginnen");
-            btnShiftToggle.setText("▶ Start");
-            btnShiftToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#10B981")));
+            tvShiftStatus.setText("auto-ended".equals(status) ? "⚠ Auto-Ende" : "⏸ Aus");
+            tvShiftStatus.setBackgroundColor("auto-ended".equals(status) ? Color.parseColor("#EF4444") : Color.parseColor("#475569"));
+            tvShiftDetail.setText("");
             shiftStatsRow.setVisibility(View.GONE);
             timerHandler.removeCallbacks(timerTick);
         }
+    }
+
+    // v6.47.0: Hamburger-Menu mit allen Schicht-/Account-Aktionen
+    private void showHamburgerMenu(View anchor) {
+        PopupMenu p = new PopupMenu(this, anchor);
+        p.getMenuInflater().inflate(R.menu.dashboard_menu, p.getMenu());
+
+        // Dynamische Texte je nach Status
+        p.getMenu().findItem(R.id.menu_shift_toggle).setTitle(shiftActive ? "⏹ Schicht stoppen" : "▶ Schicht starten");
+        p.getMenu().findItem(R.id.menu_online_toggle).setTitle(onlineState ? "⏸ Pause / Offline" : "🟢 Online schalten");
+
+        p.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.menu_shift_toggle)   { toggleShift(); return true; }
+            if (id == R.id.menu_online_toggle)  { toggleOnline(); return true; }
+            if (id == R.id.menu_stats)          { startActivity(new Intent(this, StatsActivity.class)); return true; }
+            if (id == R.id.menu_webapp)         { openWebView(); return true; }
+            if (id == R.id.menu_change_vehicle) {
+                getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
+                startActivity(new Intent(this, VehiclePickerActivity.class));
+                finish();
+                return true;
+            }
+            if (id == R.id.menu_logout)         { doLogout(); return true; }
+            return false;
+        });
+        p.show();
+    }
+
+    private void doLogout() {
+        try { FirebaseAuth.getInstance().signOut(); } catch (Throwable _t) {}
+        getSharedPreferences("driver", MODE_PRIVATE).edit().clear().apply();
+        // FCM-Token NICHT löschen — bleibt für Push-Empfang nach Re-Login
+        startActivity(new Intent(this, LoginActivity.class));
+        finish();
     }
 
     private void updateShiftTimer() {
@@ -234,24 +263,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvShiftTimer.setText(String.format(Locale.GERMANY, "⏱ %02d:%02d:%02d", h, m, sec));
     }
 
-    private void updateOnlineButton() {
-        if (onlineState) {
-            btnOnlineToggle.setText("🟢 Online");
-            btnOnlineToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#10B981")));
-        } else {
-            btnOnlineToggle.setText("⏸ Pause");
-            btnOnlineToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#64748B")));
-        }
-    }
-
     private void toggleOnline() {
         if (db == null || currentVehicleId == null) return;
         onlineState = !onlineState;
-        updateOnlineButton();
+        // UI-Update kommt automatisch via onVehicleUpdate-Listener wenn Firebase write durchgeht
         Map<String, Object> u = new HashMap<>();
         u.put("online", onlineState);
         u.put("dispatchStatus", onlineState ? "online" : "offline");
         db.getReference("vehicles/" + currentVehicleId).updateChildren(u);
+        Toast.makeText(this, onlineState ? "🟢 Online" : "⏸ Pause", Toast.LENGTH_SHORT).show();
     }
 
     private void calcTodayEarnings(DataSnapshot s) {

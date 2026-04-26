@@ -60,6 +60,14 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.47.0: StatsActivity — Tag/Woche/Monat-Verdienst -->
+        <activity
+            android:name=".StatsActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

@@ -30,7 +30,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.widget.Autocomplete;
+import com.google.android.libraries.places.widget.AutocompleteActivity;
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
+import com.google.android.gms.common.api.Status;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -65,9 +67,23 @@ public class CallLogActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> placesLauncher = registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
         result -> {
-            if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+            // v6.53.3: Patrick: 'da geht es wieder weg' — bisher kein Error-Feedback bei
+            // RESULT_ERROR oder RESULT_CANCELED. Jetzt: Toast mit konkretem Status-Text damit
+            // wir API-Key-Restrictions / Quota / etc. sofort diagnostizieren können.
+            int rc = result.getResultCode();
+            Intent data = result.getData();
+            if (rc == AutocompleteActivity.RESULT_ERROR && data != null) {
+                Status status = Autocomplete.getStatusFromIntent(data);
+                String msg = status != null ? (status.getStatusCode() + ": " + status.getStatusMessage()) : "unbekannter Status";
+                Toast.makeText(this, "❌ Places-Fehler — " + msg + " (vermutlich API-Key-Restriction in Cloud-Console)", Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (rc != RESULT_OK || data == null) {
+                // RESULT_CANCELED ist OK (User hat Abbrechen getippt) — keine Toast.
+                return;
+            }
             try {
-                Place place = Autocomplete.getPlaceFromIntent(result.getData());
+                Place place = Autocomplete.getPlaceFromIntent(data);
                 String label = place.getName() != null ? place.getName() : place.getAddress();
                 if (place.getAddress() != null && !place.getAddress().equals(place.getName())) {
                     label = place.getName() + " — " + place.getAddress();
@@ -78,7 +94,7 @@ public class CallLogActivity extends AppCompatActivity {
                     pendingPlaceCoords[1] = place.getLatLng().longitude;
                 }
             } catch (Throwable t) {
-                Toast.makeText(this, "Places-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Places-Parse-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
     );

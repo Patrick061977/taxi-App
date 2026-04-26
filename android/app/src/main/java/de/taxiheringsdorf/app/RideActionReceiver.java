@@ -67,8 +67,8 @@ public class RideActionReceiver extends BroadcastReceiver {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(finalText))
                 .setAutoCancel(true)
                 .setTimeoutAfter(10_000);
-            // Tipp öffnet App
-            Intent openIntent = new Intent(context, MainActivity.class);
+            // v6.43.2: Tipp auf Bestätigungs-Notification öffnet DriverDashboardActivity (nicht WebView).
+            Intent openIntent = new Intent(context, DriverDashboardActivity.class);
             openIntent.putExtra("rideId", rideId);
             openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             android.app.PendingIntent pi = android.app.PendingIntent.getActivity(context, 0, openIntent,

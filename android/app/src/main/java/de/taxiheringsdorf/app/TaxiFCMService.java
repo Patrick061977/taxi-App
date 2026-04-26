@@ -63,8 +63,9 @@ public class TaxiFCMService extends FirebaseMessagingService {
             body = n != null && n.getBody() != null ? n.getBody() : "Neue Nachricht";
         }
 
-        // Intent: App öffnen + RideId als Extra mitgeben
-        Intent appIntent = new Intent(this, MainActivity.class);
+        // v6.43.2: Notification-Tap öffnet DriverDashboardActivity (nicht MainActivity/WebView).
+        // Patrick erlebte: Power-Button-Wakeup → Tippen auf Notification → Login-Screen statt Dashboard.
+        Intent appIntent = new Intent(this, DriverDashboardActivity.class);
         appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (rideId != null) appIntent.putExtra("rideId", rideId);
         PendingIntent pendingIntent = PendingIntent.getActivity(

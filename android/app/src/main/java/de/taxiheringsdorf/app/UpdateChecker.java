@@ -61,8 +61,14 @@ public final class UpdateChecker {
             final String fLatest = latestTag;
             final String fUrl = dlUrl;
             activity.runOnUiThread(() -> {
+                // v6.53.1: 2-Schritt-UX — Patrick: 'Lade und Installieren in einem Button verwirrt.
+                // Normalerweise lädt man erst herunter, dann installiert man'.
+                // Schritt 1: Button 'Herunterladen' → startDownload
+                // Schritt 2: nach Download-Complete → Button 'Installieren' → Install-Intent
                 bannerText.setText("📥 Update v" + fLatest + " verfügbar");
-                bannerBtn.setOnClickListener(v -> downloadAndInstall(activity, banner, bannerText, bannerBtn, fUrl, fLatest));
+                bannerBtn.setText("Herunterladen");
+                bannerBtn.setEnabled(true);
+                bannerBtn.setOnClickListener(v -> startDownload(activity, banner, bannerText, bannerBtn, fUrl, fLatest));
                 banner.setVisibility(View.VISIBLE);
             });
         } catch (Throwable t) {
@@ -96,9 +102,12 @@ public final class UpdateChecker {
         return 0;
     }
 
-    private static void downloadAndInstall(Activity activity, LinearLayout banner, TextView bannerText, MaterialButton bannerBtn, String url, String version) {
+    // v6.53.1: 2-Schritt-Update — Schritt 1: Download starten, Button disabled,
+    // Status-Text 'Lade…'. Bei Complete: Button 'Installieren' wird aktiv.
+    private static void startDownload(Activity activity, LinearLayout banner, TextView bannerText, MaterialButton bannerBtn, String url, String version) {
         try {
             bannerText.setText("⏳ Lade v" + version + "…");
+            bannerBtn.setText("Lädt…");
             bannerBtn.setEnabled(false);
             DownloadManager dm = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
@@ -117,16 +126,19 @@ public final class UpdateChecker {
                     if (!apk.exists()) {
                         activity.runOnUiThread(() -> {
                             bannerText.setText("❌ Download-Fehler");
+                            bannerBtn.setText("Erneut versuchen");
                             bannerBtn.setEnabled(true);
+                            bannerBtn.setOnClickListener(_v -> startDownload(activity, banner, bannerText, bannerBtn, url, version));
                         });
                         return;
                     }
-                    Uri apkUri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apk);
-                    Intent install = new Intent(Intent.ACTION_VIEW);
-                    install.setDataAndType(apkUri, "application/vnd.android.package-archive");
-                    install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    try { activity.startActivity(install); }
-                    catch (Throwable t) { Toast.makeText(ctx, "Install-Intent: " + t.getMessage(), Toast.LENGTH_LONG).show(); }
+                    // Schritt 2: Button wechselt zu 'Installieren' — User entscheidet wann
+                    activity.runOnUiThread(() -> {
+                        bannerText.setText("✓ v" + version + " bereit");
+                        bannerBtn.setText("Installieren");
+                        bannerBtn.setEnabled(true);
+                        bannerBtn.setOnClickListener(_v -> launchInstallIntent(activity, apk));
+                    });
                 }
             };
             IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
@@ -138,6 +150,18 @@ public final class UpdateChecker {
         } catch (Throwable t) {
             Toast.makeText(activity, "Update-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
             banner.setVisibility(View.GONE);
+        }
+    }
+
+    private static void launchInstallIntent(Activity activity, File apk) {
+        try {
+            Uri apkUri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apk);
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.startActivity(install);
+        } catch (Throwable t) {
+            Toast.makeText(activity, "Install-Intent: " + t.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 }

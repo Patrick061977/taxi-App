@@ -140,4 +140,7 @@
          Öffnen der CallLogActivity nach Erlaubnis gefragt. -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- v6.50.0: APK-Install via Native-Update-Banner ohne WebView-Detour. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

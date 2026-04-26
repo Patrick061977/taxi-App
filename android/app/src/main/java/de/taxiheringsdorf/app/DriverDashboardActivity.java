@@ -51,6 +51,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
+    // v6.50.0: Update-Banner
+    private LinearLayout updateBanner;
+    private TextView updateBannerText;
+    private MaterialButton updateBannerBtn;
     private LinearLayout shiftStatsRow;
     private RecyclerView rvRides;
     private LinearLayout emptyState;
@@ -108,6 +112,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         shiftStatsRow = findViewById(R.id.shift_stats_row);
         rvRides = findViewById(R.id.rv_rides);
         emptyState = findViewById(R.id.empty_state);
+        updateBanner = findViewById(R.id.update_banner);
+        updateBannerText = findViewById(R.id.update_banner_text);
+        updateBannerBtn = findViewById(R.id.update_banner_btn);
 
         rvRides.setLayoutManager(new LinearLayoutManager(this));
         rideAdapter = new RideAdapter();
@@ -133,6 +140,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
         btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
+
+        // v6.50.0: Update-Check beim Start
+        new Thread(this::checkForUpdate).start();
     }
 
     private void connectFirebase() {
@@ -246,6 +256,118 @@ public class DriverDashboardActivity extends AppCompatActivity {
             return false;
         });
         p.show();
+    }
+
+    // v6.50.0: Native Update-Banner — pollt GitHub-Releases beim App-Start, zeigt Banner
+    // wenn neuere Version. Tap → Download via DownloadManager + Install-Intent.
+    // Patrick-Vorgabe: kein WebView-Detour mehr für Updates.
+    private void checkForUpdate() {
+        try {
+            java.net.URL url = new java.net.URL("https://api.github.com/repos/Patrick061977/taxi-App/releases/latest");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setRequestMethod("GET");
+            if (conn.getResponseCode() != 200) return;
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            String json = sb.toString();
+            // Sehr einfaches Parsing — wir wollen nur tag_name und browser_download_url
+            String latestTag = extractJsonField(json, "tag_name");
+            if (latestTag == null) return;
+            if (latestTag.startsWith("v")) latestTag = latestTag.substring(1);
+            String currentVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            if (compareVersions(latestTag, currentVer) <= 0) return;  // Aktuelle ist neuer oder gleich
+            // Download-URL: erstes browser_download_url
+            String dlUrl = extractJsonField(json, "browser_download_url");
+            if (dlUrl == null) return;
+            final String fLatest = latestTag;
+            final String fUrl = dlUrl;
+            runOnUiThread(() -> {
+                updateBannerText.setText("📥 Update v" + fLatest + " verfügbar");
+                updateBannerBtn.setOnClickListener(v -> downloadAndInstall(fUrl, fLatest));
+                updateBanner.setVisibility(View.VISIBLE);
+            });
+        } catch (Throwable t) {
+            Log.w(TAG, "Update-Check fehlgeschlagen: " + t.getMessage());
+        }
+    }
+
+    private static String extractJsonField(String json, String field) {
+        String key = "\"" + field + "\"";
+        int idx = json.indexOf(key);
+        if (idx < 0) return null;
+        int colon = json.indexOf(":", idx);
+        if (colon < 0) return null;
+        int start = json.indexOf("\"", colon + 1);
+        if (start < 0) return null;
+        int end = json.indexOf("\"", start + 1);
+        if (end < 0) return null;
+        return json.substring(start + 1, end);
+    }
+
+    private static int compareVersions(String a, String b) {
+        String[] aP = a.split("\\.");
+        String[] bP = b.split("\\.");
+        int n = Math.max(aP.length, bP.length);
+        for (int i = 0; i < n; i++) {
+            int ai = 0, bi = 0;
+            try { ai = i < aP.length ? Integer.parseInt(aP[i]) : 0; } catch (Throwable _t) {}
+            try { bi = i < bP.length ? Integer.parseInt(bP[i]) : 0; } catch (Throwable _t) {}
+            if (ai != bi) return Integer.compare(ai, bi);
+        }
+        return 0;
+    }
+
+    private void downloadAndInstall(String url, String version) {
+        try {
+            updateBannerText.setText("⏳ Lade v" + version + "…");
+            updateBannerBtn.setEnabled(false);
+            android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            android.app.DownloadManager.Request req = new android.app.DownloadManager.Request(android.net.Uri.parse(url));
+            req.setTitle("Funk Taxi App v" + version);
+            req.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE);
+            req.setDestinationInExternalFilesDir(this, null, "taxi-app-update.apk");
+            req.setMimeType("application/vnd.android.package-archive");
+            long downloadId = dm.enqueue(req);
+            // Bei Download-Complete → Install-Intent
+            android.content.BroadcastReceiver onComplete = new android.content.BroadcastReceiver() {
+                @Override
+                public void onReceive(android.content.Context ctx, Intent intent) {
+                    long id = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                    if (id != downloadId) return;
+                    try { ctx.unregisterReceiver(this); } catch (Throwable _e) {}
+                    java.io.File apk = new java.io.File(getExternalFilesDir(null), "taxi-app-update.apk");
+                    if (!apk.exists()) {
+                        runOnUiThread(() -> {
+                            updateBannerText.setText("❌ Download-Fehler");
+                            updateBannerBtn.setEnabled(true);
+                        });
+                        return;
+                    }
+                    android.net.Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
+                        DriverDashboardActivity.this,
+                        getPackageName() + ".fileprovider", apk);
+                    Intent install = new Intent(Intent.ACTION_VIEW);
+                    install.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                    install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivity(install); }
+                    catch (Throwable t) { Toast.makeText(ctx, "Install-Intent: " + t.getMessage(), Toast.LENGTH_LONG).show(); }
+                }
+            };
+            android.content.IntentFilter filter = new android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(onComplete, filter, RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(onComplete, filter);
+            }
+        } catch (Throwable t) {
+            Toast.makeText(this, "Update-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            updateBanner.setVisibility(View.GONE);
+        }
     }
 
     private void doLogout() {

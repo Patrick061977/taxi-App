@@ -5,6 +5,8 @@
     <item android:id="@+id/menu_shift_toggle" android:title="▶ Schicht starten" />
     <item android:id="@+id/menu_online_toggle" android:title="🟢 Online / ⏸ Pause" />
     <item android:id="@+id/menu_stats" android:title="📊 Statistik" />
+    <!-- v6.57.0: Direkter CRM-Zugang -->
+    <item android:id="@+id/menu_crm" android:title="📋 CRM-Suche" />
     <item android:id="@+id/menu_webapp" android:title="🌐 Web-App öffnen" />
     <item android:id="@+id/menu_change_vehicle" android:title="🚗 Fahrzeug wechseln" />
     <item android:id="@+id/menu_logout" android:title="🚪 Abmelden" />

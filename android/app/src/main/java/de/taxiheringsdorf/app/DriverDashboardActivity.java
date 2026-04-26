@@ -316,6 +316,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (id == R.id.menu_shift_toggle)   { toggleShift(); return true; }
             if (id == R.id.menu_online_toggle)  { toggleOnline(); return true; }
             if (id == R.id.menu_stats)          { startActivity(new Intent(this, StatsActivity.class)); return true; }
+            if (id == R.id.menu_crm)            { startActivity(new Intent(this, CrmSearchActivity.class)); return true; }
             if (id == R.id.menu_webapp)         { openWebView(); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();

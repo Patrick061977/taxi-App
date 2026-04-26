@@ -157,9 +157,11 @@ public class CallLogActivity extends AppCompatActivity {
             String[] options = admin
                 ? new String[]{ "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" }
                 : new String[]{ "🚖 EINSTEIGER (mit CRM-Adresse als Pickup)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" };
+            // v6.52.3: setMessage + setItems = Android-Bug (Items unsichtbar). Info in Titel packen.
+            String title = "📞 " + crm.name + " — " + e.number;
+            if (crm.address != null) title += "\n📍 " + crm.address;
             new AlertDialog.Builder(this)
-                .setTitle("📞 " + crm.name)
-                .setMessage(e.number + (crm.address != null ? "\n📍 " + crm.address : ""))
+                .setTitle(title)
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {
@@ -178,9 +180,9 @@ public class CallLogActivity extends AppCompatActivity {
             String[] options = admin
                 ? new String[]{ "👤 Als CRM-Kunde anlegen", "📅 Vorbestellung erstellen", "Abbrechen" }
                 : new String[]{ "👤 Als CRM-Kunde anlegen", "🚖 EINSTEIGER (nur mit Nummer)", "📅 Vorbestellung erstellen", "Abbrechen" };
+            // v6.52.3: setMessage + setItems = Android-Bug (Items unsichtbar). Info in Titel packen.
             new AlertDialog.Builder(this)
-                .setTitle("❓ " + e.number)
-                .setMessage("Nummer nicht im CRM")
+                .setTitle("❓ " + e.number + " — nicht im CRM")
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {

@@ -831,12 +831,50 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void renderPaymentDialog(Ride r, String hotelName, boolean hasAuftraggeber) {
-        double amount = r.price != null ? r.price : 0.0;
+        // v6.59.0: Patrick-Wunsch — vor der Bezahlart-Wahl Preis-Modal mit Edit-Möglichkeit
+        // (wie im Web-CRM: completeRide → Preis-Input → showCheckoutScreen → Bezahlart-Buttons)
+        showPriceStage(r, hotelName, hasAuftraggeber);
+    }
+
+    private void showPriceStage(Ride r, String hotelName, boolean hasAuftraggeber) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        layout.setPadding(pad, pad, pad, pad);
+        TextView lbl = new TextView(this);
+        lbl.setText("💰 Preis (Taxameter oder Schätzung)");
+        lbl.setPadding(0, 0, 0, pad / 2);
+        layout.addView(lbl);
+        EditText etPrice = new EditText(this);
+        etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        double estimated = r.price != null ? r.price : 0.0;
+        etPrice.setText(String.format(Locale.GERMANY, "%.2f", estimated));
+        etPrice.setSelectAllOnFocus(true);
+        layout.addView(etPrice);
+        new AlertDialog.Builder(this)
+            .setTitle("💰 Fahrt abschließen — " + (r.customerName != null ? r.customerName : "?"))
+            .setView(layout)
+            .setPositiveButton("Weiter →", (d, w) -> {
+                double price = estimated;
+                try { price = Double.parseDouble(etPrice.getText().toString().trim().replace(',', '.')); } catch (Throwable _t) {}
+                if (price <= 0) {
+                    Toast.makeText(this, "Gültigen Preis eingeben", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                showPaymentMethodStage(r, price, hotelName, hasAuftraggeber);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void showPaymentMethodStage(Ride r, double amount, String hotelName, boolean hasAuftraggeber) {
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
         List<String> options = new ArrayList<>();
         List<String> methods = new ArrayList<>();
         options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
         options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");
+        // v6.59.0: Stripe-QR-Option (ruft Cloud Function createStripeCheckout)
+        options.add("📱 Stripe-QR (" + amountStr + ")");                  methods.add("stripe");
         if (hasAuftraggeber) {
             options.add("🏨 An " + (hotelName != null ? hotelName : "Auftraggeber") + " abrechnen");
             methods.add("invoice_auftraggeber");
@@ -851,6 +889,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 switch (m) {
                     case "cash":        markCompleted(r.id, "cash", amount, null); break;
                     case "izettle":     payViaZettle(r.id, amount); break;
+                    case "stripe":      showStripeQrStage(r, amount); break;
                     case "invoice_auftraggeber":
                                         markCompleted(r.id, "invoice_auftraggeber", amount, hotelName); break;
                     case "invoice_email":
@@ -860,6 +899,106 @@ public class DriverDashboardActivity extends AppCompatActivity {
             })
             .setOnCancelListener(d -> {/* nichts */})
             .show();
+    }
+
+    // v6.59.0: Stripe-QR-Stage — ruft createStripeCheckout Cloud Function, zeigt QR-Code
+    private void showStripeQrStage(Ride r, double amount) {
+        Toast.makeText(this, "⏳ Stripe-Checkout wird erstellt…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String invoiceNumber = "RIDE-" + r.id.substring(Math.max(0, r.id.length() - 8));
+                org.json.JSONObject body = new org.json.JSONObject();
+                body.put("invoiceNumber", invoiceNumber);
+                body.put("amount", amount);
+                body.put("customerName", r.customerName != null ? r.customerName : "Kunde");
+                body.put("description", "Funk Taxi Heringsdorf — Fahrt " + (r.pickup != null ? r.pickup : ""));
+                java.net.URL url = new java.net.URL("https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                conn.getOutputStream().write(body.toString().getBytes("UTF-8"));
+                int code = conn.getResponseCode();
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream()));
+                StringBuilder sb = new StringBuilder();
+                String line; while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                org.json.JSONObject resp = new org.json.JSONObject(sb.toString());
+                if (code < 200 || code >= 300) {
+                    String err = resp.optString("error", "HTTP " + code);
+                    runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: " + err, Toast.LENGTH_LONG).show());
+                    return;
+                }
+                String checkoutUrl = resp.optString("url", null);
+                if (checkoutUrl == null || checkoutUrl.isEmpty()) {
+                    runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: keine Checkout-URL erhalten", Toast.LENGTH_LONG).show());
+                    return;
+                }
+                runOnUiThread(() -> renderStripeQrDialog(r, amount, checkoutUrl));
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Stripe-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void renderStripeQrDialog(Ride r, double amount, String checkoutUrl) {
+        try {
+            // QR-Bitmap erzeugen mit ZXing
+            com.google.zxing.qrcode.QRCodeWriter writer = new com.google.zxing.qrcode.QRCodeWriter();
+            int size = (int) (getResources().getDisplayMetrics().density * 220);
+            com.google.zxing.common.BitMatrix matrix = writer.encode(checkoutUrl, com.google.zxing.BarcodeFormat.QR_CODE, size, size);
+            android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888);
+            for (int x = 0; x < size; x++) {
+                for (int y = 0; y < size; y++) {
+                    bmp.setPixel(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
+                }
+            }
+            LinearLayout layout = new LinearLayout(this);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int) (getResources().getDisplayMetrics().density * 16);
+            layout.setPadding(pad, pad, pad, pad);
+            layout.setGravity(android.view.Gravity.CENTER);
+
+            TextView title = new TextView(this);
+            title.setText(String.format(Locale.GERMANY, "📱 Kunde scannt QR-Code\nzu zahlen: %.2f €", amount));
+            title.setTextSize(15);
+            title.setGravity(android.view.Gravity.CENTER);
+            layout.addView(title);
+
+            android.widget.ImageView img = new android.widget.ImageView(this);
+            img.setImageBitmap(bmp);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+            lp.topMargin = pad;
+            lp.bottomMargin = pad;
+            img.setLayoutParams(lp);
+            layout.addView(img);
+
+            TextView hint = new TextView(this);
+            hint.setText("Sobald der Kunde gescannt + bezahlt hat → 'Als bezahlt markieren'.\nLink für Email/SMS:\n" + checkoutUrl);
+            hint.setTextSize(11);
+            hint.setGravity(android.view.Gravity.CENTER);
+            layout.addView(hint);
+
+            new AlertDialog.Builder(this)
+                .setTitle("📱 Stripe-Online-Zahlung")
+                .setView(layout)
+                .setPositiveButton("✅ Als bezahlt markieren", (d, w) ->
+                    markCompleted(r.id, "stripe", amount, checkoutUrl))
+                .setNeutralButton("📋 Link kopieren", (d, w) -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Stripe", checkoutUrl));
+                        Toast.makeText(this, "Link kopiert", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+        } catch (Throwable t) {
+            Toast.makeText(this, "QR-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void markCompleted(String rideId, String paymentMethod, double amount, String note) {

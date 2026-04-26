@@ -67,6 +67,16 @@ public class LoginActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
 
+        // v6.52.1: Update-Banner auch auf dem Login-Bildschirm sichtbar machen,
+        // BEVOR weitergeleitet wird. So kann Patrick auch dann updaten wenn er
+        // gerade nicht eingeloggt ist (Login defekt → Update-Pfad blockiert).
+        LinearLayout updateBanner = findViewById(R.id.login_update_banner);
+        TextView updateBannerText = findViewById(R.id.login_update_banner_text);
+        com.google.android.material.button.MaterialButton updateBannerBtn = findViewById(R.id.login_update_banner_btn);
+        if (updateBanner != null && updateBannerText != null && updateBannerBtn != null) {
+            UpdateChecker.checkAsync(this, updateBanner, updateBannerText, updateBannerBtn);
+        }
+
         // Wenn schon eingeloggt UND vehicleId schon gewählt → direkt Dashboard
         String existingVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (auth.getCurrentUser() != null && existingVid != null && !existingVid.isEmpty()) {

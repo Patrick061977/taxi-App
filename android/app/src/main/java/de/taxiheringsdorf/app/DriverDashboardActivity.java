@@ -60,9 +60,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private DatabaseReference vehicleRef;
     private Query ridesQuery;
     private Query todayCompletedQuery;
+    private DatabaseReference openRidesRef;
     private ValueEventListener shiftListener;
     private ValueEventListener ridesListener;
     private ValueEventListener todayCompletedListener;
+    private ValueEventListener openRidesListener;
+    // v6.43.1: Cache der zugewiesenen + offenen Fahrten getrennt → mergen vor Anzeige
+    private List<Ride> myAssignedRides = new ArrayList<>();
+    private List<Ride> openUnassignedRides = new ArrayList<>();
 
     private boolean shiftActive = false;
     private boolean onlineState = true;
@@ -155,6 +160,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
             };
             // gleicher Query — nutzt Cache
             todayCompletedQuery.addValueEventListener(todayCompletedListener);
+
+            // v6.43.1: Listener für unzugewiesene offene Fahrten (warteschlange/new/sofort)
+            // → Fahrer kann sie selbst greifen wenn Auto-Disposition versagt hat.
+            openRidesRef = db.getReference("rides");
+            openRidesListener = new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) { onOpenRidesUpdate(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "OpenRides: " + error.getMessage()); }
+            };
+            openRidesRef.addValueEventListener(openRidesListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -274,11 +288,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void onRidesUpdate(DataSnapshot s) {
-        List<Ride> active = new ArrayList<>();
         // v6.42.7: Vorbestellungen erst 20 Min vor Pickup zeigen
         long now = System.currentTimeMillis();
         long windowPast = now - 12L * 3600L * 1000L;
         long windowFuture = now + 20L * 60L * 1000L;
+        List<Ride> assigned = new ArrayList<>();
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null) continue;
@@ -298,19 +312,68 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (r.pickupTimestamp > windowFuture) continue;
                 }
             }
-            active.add(r);
+            assigned.add(r);
         }
-        // Aktive zuerst, dann nach pickupTimestamp aufsteigend
-        active.sort((a, b) -> {
-            int aRank = isActiveStatus(a.status) ? 0 : 1;
-            int bRank = isActiveStatus(b.status) ? 0 : 1;
+        myAssignedRides = assigned;
+        renderRides();
+    }
+
+    // v6.43.1: zweiter Listener — alle UNZUGEWIESENEN offenen Fahrten (kein vehicleId).
+    // So sieht der Fahrer auch Sofortfahrten/Warteschlange-Fahrten die noch keinen Fahrer haben
+    // und kann sie selbst greifen.
+    private void onOpenRidesUpdate(DataSnapshot s) {
+        long now = System.currentTimeMillis();
+        long windowFuture = now + 20L * 60L * 1000L;
+        List<Ride> open = new ArrayList<>();
+        for (DataSnapshot child : s.getChildren()) {
+            Ride r = Ride.fromSnap(child);
+            if (r == null || r.status == null) continue;
+            // Nur unzugewiesene
+            String vid = child.child("vehicleId").getValue(String.class);
+            String aVid = child.child("assignedVehicle").getValue(String.class);
+            String dId = child.child("driverId").getValue(String.class);
+            if (vid != null && !vid.isEmpty()) continue;
+            if (aVid != null && !aVid.isEmpty()) continue;
+            if (dId != null && !dId.isEmpty()) continue;
+            String st = r.status.toLowerCase();
+            // Nur greifbare offene Stati
+            if (!st.equals("warteschlange") && !st.equals("sofort") && !st.equals("new")) continue;
+            // Zeitfenster: -2h (für hängende warteschlange) bis +20 min
+            if (r.pickupTimestamp != null) {
+                if (r.pickupTimestamp < now - 2L * 3600L * 1000L) continue;
+                if (r.pickupTimestamp > windowFuture) continue;
+            }
+            open.add(r);
+        }
+        openUnassignedRides = open;
+        renderRides();
+    }
+
+    private void renderRides() {
+        List<Ride> all = new ArrayList<>();
+        all.addAll(myAssignedRides);
+        // Verhindere Duplikate (rides die in beiden Listen wären — sollte nicht vorkommen aber safe)
+        for (Ride o : openUnassignedRides) {
+            boolean dup = false;
+            for (Ride a : all) if (a.id != null && a.id.equals(o.id)) { dup = true; break; }
+            if (!dup) all.add(o);
+        }
+        all.sort((a, b) -> {
+            int aRank = isActiveStatus(a.status) ? 0 : (isOpenStatus(a.status) ? 2 : 1);
+            int bRank = isActiveStatus(b.status) ? 0 : (isOpenStatus(b.status) ? 2 : 1);
             if (aRank != bRank) return Integer.compare(aRank, bRank);
             return Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,
                                 b.pickupTimestamp != null ? b.pickupTimestamp : 0);
         });
-        rideAdapter.setRides(active);
-        emptyState.setVisibility(active.isEmpty() ? View.VISIBLE : View.GONE);
-        rvRides.setVisibility(active.isEmpty() ? View.GONE : View.VISIBLE);
+        rideAdapter.setRides(all);
+        emptyState.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
+        rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private static boolean isOpenStatus(String s) {
+        if (s == null) return false;
+        String st = s.toLowerCase();
+        return st.equals("warteschlange") || st.equals("sofort") || st.equals("new");
     }
 
     private static boolean isActiveStatus(String s) {
@@ -587,6 +650,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
+        if (openRidesRef != null && openRidesListener != null) openRidesRef.removeEventListener(openRidesListener);
     }
 
     static class Ride {
@@ -662,28 +726,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String s = r.status != null ? r.status : "?";
                 String badge; int bgColor;
                 switch (s.toLowerCase()) {
-                    case "new":         badge = "🆕 NEU"; bgColor = Color.parseColor("#F59E0B"); break;
-                    case "sofort":      badge = "⚡ SOFORT"; bgColor = Color.parseColor("#F59E0B"); break;
-                    case "vorbestellt": badge = "📅 VORBESTELLT"; bgColor = Color.parseColor("#3B82F6"); break;
-                    case "assigned":    badge = "🎯 ZUGEWIESEN"; bgColor = Color.parseColor("#3B82F6"); break;
-                    case "accepted":    badge = "✅ ANGENOMMEN"; bgColor = Color.parseColor("#10B981"); break;
-                    case "on_way":      badge = "🚗 UNTERWEGS"; bgColor = Color.parseColor("#F59E0B"); break;
-                    case "arrived":     badge = "📍 BIN DA"; bgColor = Color.parseColor("#3B82F6"); break;
-                    case "picked_up":   badge = "🎉 ABGEHOLT"; bgColor = Color.parseColor("#10B981"); break;
-                    default:            badge = s.toUpperCase(); bgColor = Color.parseColor("#64748B");
+                    case "new":           badge = "🆕 NEU"; bgColor = Color.parseColor("#F59E0B"); break;
+                    case "sofort":        badge = "⚡ SOFORT"; bgColor = Color.parseColor("#F59E0B"); break;
+                    case "warteschlange": badge = "🆘 OFFEN"; bgColor = Color.parseColor("#EF4444"); break;
+                    case "vorbestellt":   badge = "📅 VORBESTELLT"; bgColor = Color.parseColor("#3B82F6"); break;
+                    case "assigned":      badge = "🎯 ZUGEWIESEN"; bgColor = Color.parseColor("#3B82F6"); break;
+                    case "accepted":      badge = "✅ ANGENOMMEN"; bgColor = Color.parseColor("#10B981"); break;
+                    case "on_way":        badge = "🚗 UNTERWEGS"; bgColor = Color.parseColor("#F59E0B"); break;
+                    case "arrived":       badge = "📍 BIN DA"; bgColor = Color.parseColor("#3B82F6"); break;
+                    case "picked_up":     badge = "🎉 ABGEHOLT"; bgColor = Color.parseColor("#10B981"); break;
+                    default:              badge = s.toUpperCase(); bgColor = Color.parseColor("#64748B");
                 }
                 tvBadge.setText(badge);
                 tvBadge.setBackgroundColor(bgColor);
 
                 String stl = s.toLowerCase();
-                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt");
+                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange");
                 boolean isActive = isActiveStatus(s);
 
                 actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
                 if (canAcceptReject) {
-                    btnAccept.setOnClickListener(v -> updateStatus(r.id, "accepted"));
+                    btnAccept.setOnClickListener(v -> acceptRide(r.id));
                     btnReject.setOnClickListener(v -> rejectRide(r.id));
                 }
                 if (isActive) {
@@ -715,6 +780,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
         u.put("acceptedAt", System.currentTimeMillis());
         u.put("acceptedVia", "native_dashboard");
         u.put("updatedAt", System.currentTimeMillis());
+        db.getReference("rides/" + rideId).updateChildren(u);
+    }
+
+    // v6.43.1: Annehmen — bei unzugewiesenen Aufträgen (warteschlange/sofort/new)
+    // muss zusätzlich vehicleId + assignedBy gesetzt werden, damit die Fahrt wirklich
+    // an den Fahrer geht und der Cloud-Watchdog Ruhe gibt.
+    private void acceptRide(String rideId) {
+        if (db == null || rideId == null || currentVehicleId == null) return;
+        Map<String, Object> u = new HashMap<>();
+        u.put("status", "accepted");
+        u.put("vehicleId", currentVehicleId);
+        u.put("assignedVehicle", currentVehicleId);
+        u.put("assignedAt", System.currentTimeMillis());
+        u.put("assignedBy", "native_dashboard_grab");
+        u.put("acceptedAt", System.currentTimeMillis());
+        u.put("acceptedVia", "native_dashboard");
+        u.put("updatedAt", System.currentTimeMillis());
+        u.put("openRideWarned", null);  // Watchdog reset
         db.getReference("rides/" + rideId).updateChildren(u);
     }
 

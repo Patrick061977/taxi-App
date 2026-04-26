@@ -17,6 +17,7 @@ import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
@@ -403,9 +404,109 @@ public class CallLogActivity extends AppCompatActivity {
             .setNegativeButton("Abbrechen", null).show();
     }
 
+    // v6.55.0: Native CRM-Edit-Modal — Patrick: 'wie das normale CRM bauen damit man
+    // sich nicht umgewöhnen muss'. Volle Felder: Name, Phone, Mobile, Email, Adresse
+    // mit Places-Autocomplete, CustomerKind. Speichert per update auf /customers/{id}.
     private void showCrmEditDialog(CrmCustomer crm) {
-        Toast.makeText(this, "CRM-Edit: vorerst über Web-App", Toast.LENGTH_SHORT).show();
-        // TODO später: vollständiges Edit-Modal mit allen Feldern
+        if (crm == null || crm.id == null) {
+            Toast.makeText(this, "Kein CRM-Eintrag — kann nicht bearbeiten", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        layout.setPadding(pad, pad, pad, pad);
+        scroll.addView(layout);
+
+        EditText etName = new EditText(this);
+        etName.setHint("Name (Pflicht)");
+        etName.setText(crm.name != null ? crm.name : "");
+        layout.addView(etName);
+
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("Telefon (Festnetz)");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        etPhone.setText(crm.phone != null ? crm.phone : "");
+        layout.addView(etPhone);
+
+        EditText etMobile = new EditText(this);
+        etMobile.setHint("Mobil");
+        etMobile.setInputType(InputType.TYPE_CLASS_PHONE);
+        etMobile.setText(crm.mobilePhone != null ? crm.mobilePhone : "");
+        layout.addView(etMobile);
+
+        EditText etEmail = new EditText(this);
+        etEmail.setHint("Email");
+        etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        // Email lese ich nicht aus crm.* (wir laden im Cache nicht alle Felder) — bleibt initial leer
+        layout.addView(etEmail);
+
+        // Adresse mit Places-Autocomplete (TextView-Button öffnet Places-Overlay)
+        final double[] addrCoords = {
+            crm.lat != null ? crm.lat : Double.NaN,
+            crm.lon != null ? crm.lon : Double.NaN
+        };
+        TextView tvAddress = new TextView(this);
+        tvAddress.setText(crm.address != null && !crm.address.isEmpty() ? "📍 " + crm.address : "📍 Adresse wählen…");
+        tvAddress.setPadding(pad / 2, pad, pad / 2, pad);
+        tvAddress.setOnClickListener(_v -> launchPlaces(tvAddress, addrCoords));
+        layout.addView(tvAddress);
+
+        // CustomerKind als TextView (Tap zyklisch durch Optionen)
+        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
+        final int[] kindIdx = { java.util.Arrays.asList(kinds).indexOf(crm.customerKind != null ? crm.customerKind : "Stammkunde") };
+        if (kindIdx[0] < 0) kindIdx[0] = 0;
+        TextView tvKind = new TextView(this);
+        tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
+        tvKind.setPadding(pad / 2, pad, pad / 2, pad);
+        tvKind.setOnClickListener(_v -> {
+            kindIdx[0] = (kindIdx[0] + 1) % kinds.length;
+            tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
+        });
+        layout.addView(tvKind);
+
+        new AlertDialog.Builder(this)
+            .setTitle("📋 " + (crm.name != null ? crm.name : "CRM-Kunde") + " bearbeiten")
+            .setView(scroll)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String name = etName.getText().toString().trim();
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Name ist Pflicht", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("name", name);
+                String phone = etPhone.getText().toString().trim();
+                String mobile = etMobile.getText().toString().trim();
+                String email = etEmail.getText().toString().trim();
+                if (!phone.isEmpty()) updates.put("phone", phone);
+                if (!mobile.isEmpty()) updates.put("mobilePhone", mobile);
+                if (!email.isEmpty()) updates.put("email", email);
+                String addr = tvAddress.getText().toString().replaceFirst("^📍 ", "").trim();
+                if (!addr.isEmpty() && !addr.endsWith("wählen…")) {
+                    updates.put("address", addr);
+                    if (!Double.isNaN(addrCoords[0])) {
+                        updates.put("addressLat", addrCoords[0]);
+                        updates.put("addressLon", addrCoords[1]);
+                    }
+                }
+                updates.put("customerKind", kinds[kindIdx[0]]);
+                updates.put("updatedAt", System.currentTimeMillis());
+                updates.put("updatedVia", "native_crm_edit");
+
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + crm.id)
+                    .updateChildren(updates)
+                    .addOnSuccessListener(_v -> {
+                        Toast.makeText(this, "✅ " + name + " gespeichert", Toast.LENGTH_SHORT).show();
+                        loadCrmCache();
+                    })
+                    .addOnFailureListener(ex ->
+                        Toast.makeText(this, "❌ Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     private void showPrebookingDialog(CallEntry e, CrmCustomer crm) {

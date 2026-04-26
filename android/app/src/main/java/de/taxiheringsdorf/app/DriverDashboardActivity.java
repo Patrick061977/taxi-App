@@ -598,22 +598,176 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void advanceStatus(Ride r) {
         String next = nextStatus(r.status);
         if (next == null) return;
+
+        // v6.44.0: Vor Status=completed → erst Bezahl-Dialog zeigen
+        if (next.equals("completed")) {
+            showPaymentDialog(r);
+            return;
+        }
+
         Map<String, Object> u = new HashMap<>();
         u.put("status", next);
         u.put("updatedAt", System.currentTimeMillis());
         if (next.equals("on_way")) u.put("onWayAt", System.currentTimeMillis());
         else if (next.equals("arrived")) u.put("arrivedAt", System.currentTimeMillis());
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
-        else if (next.equals("completed")) u.put("completedAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
 
         // v6.43.2: Auto-SMS-Tracking-Link bei 'Losfahren' (Status accepted → on_way).
-        // Patrick will keinen extra Tap dafür — sobald er losfährt soll Kunde den Link bekommen.
         if (next.equals("on_way")) {
             resolvePhoneAndAct(r, phone -> {
                 if (phone != null && !phone.isEmpty()) sendTrackingSMS(r.id, phone);
             });
         }
+    }
+
+    // v6.44.0: Bezahl-Dialog nach "Fahrt fertig" — Bar/iZettle/Hotel/Mail
+    private static final int REQ_ZETTLE = 4711;
+    private String pendingZettleRideId = null;
+    private double pendingZettleAmount = 0.0;
+
+    private void showPaymentDialog(Ride r) {
+        if (db == null || r.id == null) return;
+        // Hotel-Auftraggeber-Check — wenn Hotel/Firma als Auftraggeber gesetzt → eigener Button
+        DatabaseReference rideRef = db.getReference("rides/" + r.id);
+        rideRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot s) {
+                String auftraggeberName = firstNonEmpty(
+                    s.child("auftraggeberName").getValue(String.class),
+                    s.child("_auftraggeberName").getValue(String.class),
+                    s.child("auftraggeber").getValue(String.class)
+                );
+                Boolean isAuftraggeberBooking = s.child("_isAuftraggeberBooking").getValue(Boolean.class);
+                boolean hasAuftraggeber = (isAuftraggeberBooking != null && isAuftraggeberBooking) ||
+                        (auftraggeberName != null && !auftraggeberName.trim().isEmpty());
+                String hotelName = (auftraggeberName != null && !auftraggeberName.trim().isEmpty())
+                        ? auftraggeberName.trim() : null;
+                renderPaymentDialog(r, hotelName, hasAuftraggeber);
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) {
+                renderPaymentDialog(r, null, false);
+            }
+        });
+    }
+
+    private void renderPaymentDialog(Ride r, String hotelName, boolean hasAuftraggeber) {
+        double amount = r.price != null ? r.price : 0.0;
+        String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
+        List<String> options = new ArrayList<>();
+        List<String> methods = new ArrayList<>();
+        options.add("💵 Bar (" + amountStr + ")");                        methods.add("cash");
+        options.add("💳 iZettle Karte (" + amountStr + ")");              methods.add("izettle");
+        if (hasAuftraggeber) {
+            options.add("🏨 An " + (hotelName != null ? hotelName : "Auftraggeber") + " abrechnen");
+            methods.add("invoice_auftraggeber");
+        }
+        options.add("✉ Email-Rechnung");                                  methods.add("invoice_email");
+        options.add("✗ Abbrechen (Fahrt offen lassen)");                  methods.add("cancel");
+
+        new AlertDialog.Builder(this)
+            .setTitle("💰 Bezahlung — wie?")
+            .setItems(options.toArray(new String[0]), (d, which) -> {
+                String m = methods.get(which);
+                switch (m) {
+                    case "cash":        markCompleted(r.id, "cash", amount, null); break;
+                    case "izettle":     payViaZettle(r.id, amount); break;
+                    case "invoice_auftraggeber":
+                                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName); break;
+                    case "invoice_email":
+                                        showMailInvoiceDialog(r, amount); break;
+                    case "cancel":      /* nichts tun, Status bleibt picked_up */ break;
+                }
+            })
+            .setOnCancelListener(d -> {/* nichts */})
+            .show();
+    }
+
+    private void markCompleted(String rideId, String paymentMethod, double amount, String note) {
+        Map<String, Object> u = new HashMap<>();
+        u.put("status", "completed");
+        u.put("completedAt", System.currentTimeMillis());
+        u.put("updatedAt", System.currentTimeMillis());
+        u.put("paymentMethod", paymentMethod);
+        u.put("paymentAmount", amount);
+        if (note != null) u.put("paymentNote", note);
+        db.getReference("rides/" + rideId).updateChildren(u);
+        Toast.makeText(this, "✅ Fahrt abgeschlossen — " + paymentMethod, Toast.LENGTH_SHORT).show();
+    }
+
+    private void payViaZettle(String rideId, double amount) {
+        if (amount <= 0) {
+            Toast.makeText(this, "Kein Preis hinterlegt — Betrag eingeben", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingZettleRideId = rideId;
+        pendingZettleAmount = amount;
+        try {
+            // iZettle App-to-App Intent
+            Intent i = new Intent("com.izettle.android.action.START_PAYMENT");
+            i.setPackage("com.izettle.android");
+            i.putExtra("amount", (int) Math.round(amount * 100));  // Cent
+            i.putExtra("currency", "EUR");
+            i.putExtra("reference", rideId);
+            i.putExtra("enableTipping", false);
+            i.putExtra("enableInstallments", false);
+            try {
+                startActivityForResult(i, REQ_ZETTLE);
+            } catch (android.content.ActivityNotFoundException _e) {
+                // Fallback: Open Zettle App directly
+                Intent launch = getPackageManager().getLaunchIntentForPackage("com.izettle.android");
+                if (launch != null) {
+                    Toast.makeText(this, "iZettle Intent nicht verfügbar — App geöffnet, manuell abrechnen", Toast.LENGTH_LONG).show();
+                    startActivity(launch);
+                } else {
+                    Toast.makeText(this, "iZettle-App nicht installiert", Toast.LENGTH_LONG).show();
+                }
+            }
+        } catch (Throwable t) {
+            Toast.makeText(this, "iZettle-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_ZETTLE && pendingZettleRideId != null) {
+            if (resultCode == RESULT_OK) {
+                markCompleted(pendingZettleRideId, "izettle", pendingZettleAmount, "App-to-App Intent OK");
+            } else {
+                Toast.makeText(this, "iZettle: Bezahlung abgebrochen oder fehlgeschlagen", Toast.LENGTH_LONG).show();
+            }
+            pendingZettleRideId = null;
+            pendingZettleAmount = 0;
+        }
+    }
+
+    private void showMailInvoiceDialog(Ride r, double amount) {
+        EditText et = new EditText(this);
+        et.setHint("Email-Adresse");
+        et.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        new AlertDialog.Builder(this)
+            .setTitle("✉ Email-Rechnung")
+            .setMessage("An welche Email senden? (Rechnung wird Cloud-seitig generiert)")
+            .setView(et)
+            .setPositiveButton("Senden", (d, w) -> {
+                String email = et.getText().toString().trim();
+                if (email.isEmpty() || !email.contains("@")) {
+                    Toast.makeText(this, "Ungültige Email", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "completed");
+                u.put("completedAt", System.currentTimeMillis());
+                u.put("updatedAt", System.currentTimeMillis());
+                u.put("paymentMethod", "invoice_email");
+                u.put("paymentAmount", amount);
+                u.put("invoiceEmail", email);
+                u.put("invoiceRequested", true); // Cloud Function reagiert auf Flag
+                db.getReference("rides/" + r.id).updateChildren(u);
+                Toast.makeText(this, "✅ Rechnung beauftragt", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     private void resolvePhoneAndAct(Ride r, java.util.function.Consumer<String> onPhone) {

@@ -312,6 +312,9 @@ public class CallLogActivity extends AppCompatActivity {
                 ref.setValue(c).addOnSuccessListener(_v -> {
                     Toast.makeText(this, "✅ " + name + " als CRM-Kunde gespeichert", Toast.LENGTH_SHORT).show();
                     loadCrmCache(); // Cache aktualisieren
+                }).addOnFailureListener(ex -> {
+                    // v6.52.2: Patrick: 'CRM-übernehmen funktioniert nicht'. Silent-Fail beseitigt.
+                    Toast.makeText(this, "❌ CRM-Speichern fehlgeschlagen: " + ex.getMessage(), Toast.LENGTH_LONG).show();
                 });
             })
             .setNegativeButton("Abbrechen", null).show();

@@ -12,6 +12,7 @@ import android.view.WindowManager;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.google.android.material.button.MaterialButton;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -42,6 +43,11 @@ public class VehiclePickerActivity extends AppCompatActivity {
     private ProgressBar progress;
     private TextView tvLoggedInAs;
     private VehicleAdapter adapter;
+    // v6.51.0: Admin-Modus für Patrick auf S9+ (oder anderen Admin-Geräten)
+    private MaterialButton btnAdminMode;
+    private static final String[] ADMIN_EMAILS = new String[] {
+        "patrick061977@gmail.com", "admin@taxi-heringsdorf.de", "taxiwydra@googlemail.com"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +58,7 @@ public class VehiclePickerActivity extends AppCompatActivity {
         rv = findViewById(R.id.rv_vehicles);
         progress = findViewById(R.id.vehicle_progress);
         tvLoggedInAs = findViewById(R.id.tv_logged_in_as);
+        btnAdminMode = findViewById(R.id.btn_admin_mode);
         rv.setLayoutManager(new LinearLayoutManager(this));
         adapter = new VehicleAdapter();
         rv.setAdapter(adapter);
@@ -60,6 +67,20 @@ public class VehiclePickerActivity extends AppCompatActivity {
         if (u != null) {
             String label = u.getEmail() != null ? u.getEmail() : (u.getPhoneNumber() != null ? u.getPhoneNumber() : "Nutzer " + u.getUid());
             tvLoggedInAs.setText("Angemeldet als " + label);
+            // v6.51.0: Admin-Button nur sichtbar für Admin-Emails
+            if (u.getEmail() != null) {
+                String email = u.getEmail().toLowerCase();
+                for (String adm : ADMIN_EMAILS) {
+                    if (adm.equalsIgnoreCase(email)) {
+                        btnAdminMode.setVisibility(View.VISIBLE);
+                        btnAdminMode.setOnClickListener(_v -> {
+                            startActivity(new Intent(this, AdminDashboardActivity.class));
+                            finish();
+                        });
+                        break;
+                    }
+                }
+            }
         }
 
         loadVehicles();

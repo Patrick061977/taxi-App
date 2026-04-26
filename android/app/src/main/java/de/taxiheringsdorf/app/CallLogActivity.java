@@ -143,40 +143,56 @@ public class CallLogActivity extends AppCompatActivity {
         }).start();
     }
 
+    // v6.51.0: Admin-Modus — Patrick auf S9+ ohne Fahrzeug. EINSTEIGER macht keinen Sinn
+    // (Admin sitzt nicht im Auto), nur Vorbestellung. Erkennung via SharedPref-Flag,
+    // gesetzt von AdminDashboardActivity.
+    private boolean isAdminMode() {
+        return getSharedPreferences("admin", MODE_PRIVATE).getBoolean("isAdminMode", false);
+    }
+
     private void showActionDialog(CallEntry e) {
         CrmCustomer crm = lookupCrm(e.number);
+        boolean admin = isAdminMode();
         if (crm != null) {
-            // CRM-Match
+            String[] options = admin
+                ? new String[]{ "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" }
+                : new String[]{ "🚖 EINSTEIGER (mit CRM-Adresse als Pickup)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" };
             new AlertDialog.Builder(this)
                 .setTitle("📞 " + crm.name)
                 .setMessage(e.number + (crm.address != null ? "\n📍 " + crm.address : ""))
-                .setItems(new String[]{
-                    "🚖 EINSTEIGER (mit CRM-Adresse als Pickup)",
-                    "📅 Vorbestellung erstellen",
-                    "📋 CRM-Eintrag bearbeiten",
-                    "Abbrechen"
-                }, (d, which) -> {
-                    switch (which) {
-                        case 0: createEinsteigerCrm(e, crm); break;
-                        case 1: showPrebookingDialog(e, crm); break;
-                        case 2: showCrmEditDialog(crm); break;
+                .setItems(options, (d, which) -> {
+                    if (admin) {
+                        switch (which) {
+                            case 0: showPrebookingDialog(e, crm); break;
+                            case 1: showCrmEditDialog(crm); break;
+                        }
+                    } else {
+                        switch (which) {
+                            case 0: createEinsteigerCrm(e, crm); break;
+                            case 1: showPrebookingDialog(e, crm); break;
+                            case 2: showCrmEditDialog(crm); break;
+                        }
                     }
                 }).show();
         } else {
-            // Unbekannte Nummer
+            String[] options = admin
+                ? new String[]{ "👤 Als CRM-Kunde anlegen", "📅 Vorbestellung erstellen", "Abbrechen" }
+                : new String[]{ "👤 Als CRM-Kunde anlegen", "🚖 EINSTEIGER (nur mit Nummer)", "📅 Vorbestellung erstellen", "Abbrechen" };
             new AlertDialog.Builder(this)
                 .setTitle("❓ " + e.number)
                 .setMessage("Nummer nicht im CRM")
-                .setItems(new String[]{
-                    "👤 Als CRM-Kunde anlegen",
-                    "🚖 EINSTEIGER (nur mit Nummer)",
-                    "📅 Vorbestellung erstellen",
-                    "Abbrechen"
-                }, (d, which) -> {
-                    switch (which) {
-                        case 0: showCrmCreateDialog(e); break;
-                        case 1: createEinsteigerWithPhone(e); break;
-                        case 2: showPrebookingDialog(e, null); break;
+                .setItems(options, (d, which) -> {
+                    if (admin) {
+                        switch (which) {
+                            case 0: showCrmCreateDialog(e); break;
+                            case 1: showPrebookingDialog(e, null); break;
+                        }
+                    } else {
+                        switch (which) {
+                            case 0: showCrmCreateDialog(e); break;
+                            case 1: createEinsteigerWithPhone(e); break;
+                            case 2: showPrebookingDialog(e, null); break;
+                        }
                     }
                 }).show();
         }
@@ -307,8 +323,13 @@ public class CallLogActivity extends AppCompatActivity {
     }
 
     private void showPrebookingDialog(CallEntry e, CrmCustomer crm) {
+        // v6.51.0: Im Admin-Modus kein Fahrzeug nötig — Buchung landet in Warteschlange,
+        // Cloud-AutoAssign kümmert sich. Im Driver-Modus weiterhin Fahrzeug Pflicht.
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
-        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
+        if (vehicleId == null && !isAdminMode()) {
+            Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);

@@ -68,6 +68,14 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.51.0: AdminDashboardActivity — Admin-Modus ohne Fahrzeug für Patrick auf S9+ -->
+        <activity
+            android:name=".AdminDashboardActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

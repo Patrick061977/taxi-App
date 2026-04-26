@@ -606,6 +606,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         else if (next.equals("completed")) u.put("completedAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
+
+        // v6.43.2: Auto-SMS-Tracking-Link bei 'Losfahren' (Status accepted → on_way).
+        // Patrick will keinen extra Tap dafür — sobald er losfährt soll Kunde den Link bekommen.
+        if (next.equals("on_way")) {
+            resolvePhoneAndAct(r, phone -> {
+                if (phone != null && !phone.isEmpty()) sendTrackingSMS(r.id, phone);
+            });
+        }
     }
 
     private void resolvePhoneAndAct(Ride r, java.util.function.Consumer<String> onPhone) {

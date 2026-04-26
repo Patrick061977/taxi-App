@@ -120,7 +120,8 @@ public class ShiftForegroundService extends Service {
             }
         }
 
-        Intent launchIntent = new Intent(this, MainActivity.class);
+        // v6.43.2: Persistent Schicht-Notification öffnet DriverDashboardActivity (nicht WebView).
+        Intent launchIntent = new Intent(this, DriverDashboardActivity.class);
         launchIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         int pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT;

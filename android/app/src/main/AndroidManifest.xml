@@ -10,6 +10,8 @@
         android:theme="@style/AppTheme">
 
         <!-- v6.42.1: MainActivity ist die WebView (CRM/Admin) — KEIN Launcher mehr.
+             v6.42.7: taskAffinity entkoppelt — sonst öffnet das Launcher-Icon nach
+             Bildschirm-Aus die WebView statt das DriverDashboard.
              User öffnet sie nur indirekt aus der DriverDashboardActivity über den FAB. -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
@@ -17,6 +19,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:taskAffinity="de.taxiheringsdorf.app.webview"
             android:exported="true" />
 
         <!-- v6.42.0/1: Native Driver-Dashboard ist jetzt der EINZIGE Launcher.
@@ -95,4 +98,9 @@
          im Hintergrund (Schicht aktiv) nicht killt. Nötig da Doze-Mode + One UI sonst
          den ShiftForegroundService nach 15-60 Min stoppen — Heartbeat-Timeout-Crashes. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- v6.42.7: USE_FULL_SCREEN_INTENT — Android 14+ verwirft setFullScreenIntent()
+         stillschweigend wenn diese Permission fehlt. Ohne sie kommt nur eine normale
+         Notification, KEIN Bildschirm-Aufweck-Popup. Patrick erlebte genau das. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 </manifest>

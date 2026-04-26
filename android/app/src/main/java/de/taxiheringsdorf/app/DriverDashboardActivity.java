@@ -177,10 +177,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void onRidesUpdate(DataSnapshot s) {
         List<Ride> active = new ArrayList<>();
-        // v6.42.5: Zeitfenster eng halten — Vorbestellungen erst 90 Min vor Pickup zeigen.
+        // v6.42.7: Fahrer soll Vorbestellungen NICHT lange vorher sehen — sonst stört das
+        // die Auto-Disposition (Patrick: Fahrt wird erst 15-20 Min vorher zugewiesen).
         long now = System.currentTimeMillis();
         long windowPast = now - 12L * 3600L * 1000L; // 12h zurück (laufende Schicht)
-        long windowFuture = now + 90L * 60L * 1000L; // 90 Min voraus (Vorbereitung)
+        long windowFuture = now + 20L * 60L * 1000L; // 20 Min voraus (knapp vor Pickup)
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null) continue;

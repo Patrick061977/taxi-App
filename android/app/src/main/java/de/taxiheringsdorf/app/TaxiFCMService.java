@@ -96,7 +96,9 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         // Sound + Vibration (LAUT) — v6.41.98: TYPE_RINGTONE statt TYPE_NOTIFICATION,
         // weil RingTone länger + lauter spielt + Samsung's 'still silent'-Override eher umgeht.
-        Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        // v6.42.7: ALARM-URI als zusätzliche Eskalation — Patrick erlebte zu leisen Sound trotz Ringtone.
+        Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -144,12 +146,14 @@ public class TaxiFCMService extends FirebaseMessagingService {
         channel.setDescription("Benachrichtigungen über neue Fahrt-Aufträge — HOCH wichtig, Sound + Vibration");
         channel.enableVibration(true);
         channel.setVibrationPattern(new long[]{0, 800, 300, 800, 300, 800, 300, 800});
-        // RingTone (länger + lauter als Notification-Sound) statt TYPE_NOTIFICATION
+        // v6.42.7: USAGE_ALARM erzwingt MAX-Volume + ignoriert Notifications-Slider.
+        // ALARM-URI ist außerdem noch lauter/länger als Ringtone.
         AudioAttributes audioAttrs = new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+            .setUsage(AudioAttributes.USAGE_ALARM)
             .build();
-        Uri channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        Uri channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         if (channelSound == null) channelSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         channel.setSound(channelSound, audioAttrs);
         channel.setBypassDnd(true); // wichtig: durch Nicht-Stören-Modus durchbrechen für Aufträge

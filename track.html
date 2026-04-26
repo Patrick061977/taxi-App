@@ -67,6 +67,32 @@
         .status-warning { background: #f59e0b; }
         .status-error { background: #ef4444; }
 
+        /* v6.42.7: Close-Button — Kunde kann Tracking-Karte schließen */
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #4b5563;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .close-btn:hover, .close-btn:active {
+            background: #d1d5db;
+            color: #111827;
+        }
+
         /* 🔧 v6.39.5: Fahrt-Status-Badge mit Farbe je nach Status */
         #ride-status-badge {
             display: inline-block;
@@ -142,7 +168,8 @@
 </head>
 <body>
     <div id="info">
-        <div class="header">
+        <button class="close-btn" onclick="closeTracking()" title="Tracking schließen" aria-label="Schließen">✕</button>
+        <div class="header" style="padding-right:32px;">
             <h2>🚕 Ihr Taxi</h2>
             <div id="status-indicator" class="status-indicator"></div>
         </div>
@@ -423,6 +450,18 @@
             document.getElementById('location-info').innerHTML = `
                 <div class="warning-box">${msg}</div>
             `;
+        }
+
+        // v6.42.7: Tracking-Karte schließen — versucht window.close(), sonst History/Home
+        function closeTracking() {
+            try { window.close(); } catch (_e) {}
+            // window.close() funktioniert nur wenn Tab per JS geöffnet wurde — Fallback nach 100ms
+            setTimeout(() => {
+                if (history.length > 1) {
+                    try { history.back(); return; } catch (_e) {}
+                }
+                window.location.href = '/';
+            }, 100);
         }
 
         // 🔧 v6.39.5: Eigenen Standort auf der Karte anzeigen

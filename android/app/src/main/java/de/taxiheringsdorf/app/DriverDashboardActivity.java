@@ -561,6 +561,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
             ref.updateChildren(updates);
             // Online-Flag auf false (bei Schicht-End)
             db.getReference("vehicles/" + currentVehicleId + "/online").setValue(false);
+            // v6.53.2: ForegroundService aktiv stoppen — vorher schrieb der Toggle nur
+            // Firebase, der Service lief aber weiter (Notification-Icon blieb sichtbar,
+            // Heartbeat ging weiter ins Leere). Patrick: 'kann mich nicht abmelden'.
+            try {
+                Intent stopSvc = new Intent(this, ShiftForegroundService.class);
+                stopSvc.setAction(ShiftForegroundService.ACTION_STOP);
+                startService(stopSvc);
+                Log.i(TAG, "🛑 ShiftForegroundService STOP gesendet (Schicht-Ende)");
+            } catch (Throwable t) {
+                Log.w(TAG, "Service-Stop fehlgeschlagen: " + t.getMessage());
+            }
         } else {
             DatabaseReference ref = db.getReference("vehicles/" + currentVehicleId + "/shift");
             Map<String, Object> updates = new HashMap<>();

@@ -102,7 +102,11 @@ public class CallLogActivity extends AppCompatActivity {
     private void launchPlaces(TextView targetField, double[] coordsOut) {
         try {
             if (!Places.isInitialized()) {
-                Places.initialize(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+                // v6.53.4: Patrick's API-Key hat 'Places API (New)' aktiviert aber NICHT
+                // die Legacy-API. Diagnose via curl: legacy gibt REQUEST_DENIED, new API
+                // funktioniert + liefert Heringsdorf-Vorschläge. SDK muss daher die neue
+                // API nutzen — initializeWithNewPlacesApiEnabled forciert das.
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
             }
             pendingPlaceField = targetField;
             pendingPlaceCoords = coordsOut;

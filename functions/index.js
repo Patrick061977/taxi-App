@@ -16060,9 +16060,14 @@ exports.autoResolveConflicts = onSchedule(
         console.log('🔄 Auto-Konflikt-Prüfung gestartet...');
 
         try {
-            // Daten laden
+            // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
+            // Aufruf alle 5 Min (8.640x/Mo × 5MB = 43GB/Mo). Jetzt: nur Pickup-Timestamp
+            // im Bereich [-2h, +24h] — Konflikte können nur in diesem Fenster sein.
+            const _now = Date.now();
+            const _windowStart = _now - 2 * 60 * 60 * 1000;
+            const _windowEnd = _now + 24 * 60 * 60 * 1000;
             const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap, timeslotSnap] = await Promise.all([
-                db.ref('rides').once('value'),
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(_windowStart).endAt(_windowEnd).once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
                 db.ref('settings/vehiclePriorities').once('value'),
@@ -18998,10 +19003,18 @@ exports.scheduledOpenRideCheck = onSchedule(
     },
     async (event) => {
         try {
-            const ridesSnap = await db.ref('rides').once('value');
+            // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
+            // Aufruf (5MB × 43k Aufrufe/Mo = 215 GB/Mo Egress = ~200€/Mo).
+            // Jetzt: server-side gefiltert nur die nächsten 24h Pickup-Timestamps.
+            const now = Date.now();
+            const horizon = now + 24 * 60 * 60 * 1000;
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(now - 24 * 60 * 60 * 1000)
+                .endAt(horizon)
+                .once('value');
             if (!ridesSnap.val()) return;
 
-            const now = Date.now();
             const warnings = [];
 
             ridesSnap.forEach(child => {
@@ -19234,8 +19247,18 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
             const vehiclesSnap = await db.ref('vehicles').once('value');
             const vehicles = vehiclesSnap.val() || {};
 
-            const ridesSnap = await db.ref('rides').once('value');
-            const rides = ridesSnap.val() || {};
+            // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
+            // Aufruf alle 2 Min. Jetzt: nur status active/on_way/picked_up/accepted/arrived
+            // (nur die brauchen wir für die Schicht-Lebendcheck-Logik).
+            const activeStati = ['accepted', 'on_way', 'arrived', 'picked_up'];
+            const ridesPromises = activeStati.map(st =>
+                db.ref('rides').orderByChild('status').equalTo(st).once('value')
+            );
+            const ridesSnaps = await Promise.all(ridesPromises);
+            const rides = {};
+            for (const snap of ridesSnaps) {
+                snap.forEach(c => { rides[c.key] = c.val(); });
+            }
 
             // Map: vehicleId → hat laufende Fahrt?
             const vehicleHasActiveRide = {};

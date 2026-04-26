@@ -120,13 +120,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
 
         if (currentVehicleId == null) {
-            tvVehicleInfo.setText("⚠️ Kein Fahrzeug ausgewählt — bitte zuerst Web-App öffnen + Fahrer-Login");
-            btnShiftToggle.setEnabled(false);
-            btnEinsteiger.setEnabled(false);
-        } else {
-            tvVehicleInfo.setText("Fahrzeug: " + currentVehicleId);
-            connectFirebase();
+            // v6.45.0: Kein Fahrzeug → zu LoginActivity weiterleiten
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
         }
+        String vehicleName = prefs.getString("vehicleName", null);
+        tvVehicleInfo.setText(vehicleName != null ? vehicleName + " (" + currentVehicleId + ")" : "Fahrzeug: " + currentVehicleId);
+        connectFirebase();
 
         btnShiftToggle.setOnClickListener(v -> toggleShift());
         btnOnlineToggle.setOnClickListener(v -> toggleOnline());

@@ -36,6 +36,22 @@
             </intent-filter>
         </activity>
 
+        <!-- v6.45.0: Native LoginActivity (Email/Passwort + Telefon/SMS) -->
+        <activity
+            android:name=".LoginActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
+        <!-- v6.45.0: VehiclePickerActivity nach Login → Fahrzeugauswahl -->
+        <activity
+            android:name=".VehiclePickerActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

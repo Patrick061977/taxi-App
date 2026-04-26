@@ -18292,18 +18292,30 @@ exports.onRideCreated = onValueCreated(
 
         // 🔧 v6.38.46: Auto-Zuweisung für ALLE Fahrten (Sofort + Vorbestellung)
         // 🔧 v6.38.53: Frische Daten aus Firebase lesen (Race-Condition: Telegram-Flow koennte schon zugewiesen haben!)
+        // 🆕 v6.47.3: Race-Condition mit Geocoding gefixt — onRideCreated triggert oft VOR
+        // dem Geocoding-Write. Patrick erlebte mit Strandvillen-Buchung: Lifecycle zeigt
+        // 'Adressen aufgelöst' chronologisch vor 'Auto-Zuweisung übersprungen — keine
+        // Koordinaten' — aber zwischen Lifecycle-Write und onRideCreated-Trigger lag das
+        // Geocoding noch nicht in Firebase. Jetzt: bis zu 3 Retries mit 1.5s Delay.
         let _freshRide = ride;
-        try {
-            const _freshSnap = await db.ref('rides/' + rideId).once('value');
-            _freshRide = _freshSnap.val() || ride;
-        } catch(e) { /* Fallback auf Event-Daten */ }
+        let _pLat, _pLon, _dLat, _dLon;
+        const readCoords = (r) => {
+            _pLat = r.pickupLat || r.pickupCoords?.lat;
+            _pLon = r.pickupLon || r.pickupCoords?.lon;
+            _dLat = r.destinationLat || r.destinationCoords?.lat || r.destLat;
+            _dLon = r.destinationLon || r.destinationCoords?.lon || r.destLon;
+            return _pLat && _dLat;
+        };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const _freshSnap = await db.ref('rides/' + rideId).once('value');
+                _freshRide = _freshSnap.val() || ride;
+            } catch(e) { /* Fallback auf Event-Daten */ }
+            if (readCoords(_freshRide)) break;
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+        }
         if (!_freshRide.assignedVehicle && !_freshRide.vehicleId) {
-            // 🔧 v6.40.22: frische Daten verwenden (nicht stale Event-Daten) + nested coords als Fallback
-            const _pLat = _freshRide.pickupLat || _freshRide.pickupCoords?.lat;
-            const _pLon = _freshRide.pickupLon || _freshRide.pickupCoords?.lon;
-            const _dLat = _freshRide.destinationLat || _freshRide.destinationCoords?.lat || _freshRide.destLat;
-            const _dLon = _freshRide.destinationLon || _freshRide.destinationCoords?.lon || _freshRide.destLon;
-            const _hasCoords = _pLat && _dLat;
+            const _hasCoords = !!(_pLat && _dLat);
             // 🔧 v6.38.95: Vorbestellungen NICHT sofort zuweisen — erst 15 Min vorher (scheduledAutoAssign)
             const _isVorbestellung = !isSofort;
             if (_hasCoords && !_isVorbestellung) {
@@ -19150,22 +19162,23 @@ exports.scheduledOpenRideCheck = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 exports.onVehicleOnline = onValueUpdated(
     {
-        ref: '/vehicles/{vehicleId}',
+        // v6.47.3: KOSTEN-OPTIMIERUNG — vorher triggerte das bei JEDEM Vehicle-Field-Update
+        // (auch lat/lon/lastUpdate/heartbeat). 27.711x/Mo Aufrufe, ~99% returnten sofort
+        // weil nur online-Wechsel relevant. Jetzt direkt auf das online-Field gefiltert.
+        ref: '/vehicles/{vehicleId}/online',
         region: 'europe-west1',
         instance: 'taxi-heringsdorf-default-rtdb'
     },
     async (event) => {
         const vehicleId = event.params.vehicleId;
-        const before = event.data.before.val();
-        const after = event.data.after.val();
-        if (!after) return;
-
-        // Nur reagieren wenn Fahrzeug NEU online geht
-        const wasOnline = before && (before.online === true || before.status === 'online');
-        const isOnline = after.online === true || after.status === 'online';
+        const wasOnline = event.data.before.val() === true;
+        const isOnline = event.data.after.val() === true;
         if (wasOnline || !isOnline) return;
 
-        // Nicht reagieren wenn gerade busy oder in Pause
+        // Vehicle-Daten nachladen für Pause-Check + Folgelogik
+        const vSnap = await db.ref('vehicles/' + vehicleId).once('value');
+        const after = vSnap.val();
+        if (!after) return;
         if (after.shift && after.shift.status === 'paused') return;
 
         console.log(`🚕 v6.40.34: Fahrzeug ${vehicleId} ist online gegangen — prüfe unzugewiesene Sofort-Fahrten`);

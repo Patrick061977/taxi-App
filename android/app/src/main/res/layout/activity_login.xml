@@ -56,6 +56,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📱 Telefon" />
+            <!-- v6.52.0: Google Sign-In Tab — Patrick nutzt Google im Web -->
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="G Google" />
         </com.google.android.material.tabs.TabLayout>
 
         <!-- EMAIL TAB -->
@@ -183,6 +188,36 @@
                 android:textStyle="bold"
                 android:visibility="gone"
                 app:backgroundTint="#10B981"
+                app:cornerRadius="14dp" />
+        </LinearLayout>
+
+        <!-- v6.52.0: GOOGLE TAB -->
+        <LinearLayout
+            android:id="@+id/google_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:text="Login mit deinem Google-Konto.\nDieselbe Identität wie in der Web-App."
+                android:textColor="#94A3B8"
+                android:textSize="13sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_google_signin"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="G  Mit Google anmelden"
+                android:textColor="#1F2937"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="#FFFFFF"
                 app:cornerRadius="14dp" />
         </LinearLayout>
 

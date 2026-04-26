@@ -1220,7 +1220,11 @@ async function estimateWaitTime(pickupCoords) {
 }
 
 // 🆕 v6.11.4: KNOWN_PLACES synchronisiert mit index.html (vollständige Liste)
-const KNOWN_PLACES = {
+// 🚮 v6.48.0: DEPRECATED — Daten sind nach /pois in Firebase migriert + werden via
+// getKnownPlaces() dynamisch geladen. Const bleibt als leerer Stub für Backwards-Compat
+// falls noch eine Stelle Object.entries(KNOWN_PLACES) macht (returnt einfach []).
+// TODO: in v6.49 komplett rauswerfen wenn keine Reference mehr.
+const KNOWN_PLACES_LEGACY = {
     // Usedom Orte
     'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
     'ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
@@ -1319,6 +1323,40 @@ const KNOWN_PLACES = {
 };
 
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minuten
+
+// 🆕 v6.48.0: KNOWN_PLACES wird jetzt dynamisch aus /pois in Firebase geladen.
+// Patrick-Wunsch: alles dynamisch + editierbar in der Adressdatenbank-UI, nichts hardcoded.
+// In-Memory-Cache mit 5-Min-TTL um nicht bei jedem Geocode die DB zu hämmern.
+let _knownPlacesCache = null;
+let _knownPlacesCacheTs = 0;
+const KNOWN_PLACES_CACHE_TTL = 5 * 60 * 1000;
+async function getKnownPlaces() {
+    if (_knownPlacesCache && (Date.now() - _knownPlacesCacheTs) < KNOWN_PLACES_CACHE_TTL) {
+        return _knownPlacesCache;
+    }
+    try {
+        const snap = await db.ref('pois').once('value');
+        const data = snap.val() || {};
+        const result = {};
+        for (const [id, poi] of Object.entries(data)) {
+            if (!poi || !poi.name || typeof poi.lat !== 'number' || typeof poi.lon !== 'number') continue;
+            const key = poi.name.toLowerCase().trim();
+            if (!key) continue;
+            // erster Treffer behalten — Duplikat-Namen ignorieren
+            if (!result[key]) {
+                result[key] = { lat: poi.lat, lon: poi.lon, name: poi.name, type: poi.type || null };
+            }
+        }
+        _knownPlacesCache = result;
+        _knownPlacesCacheTs = Date.now();
+        console.log(`[KNOWN_PLACES] Cache aufgebaut: ${Object.keys(result).length} POIs aus /pois geladen`);
+        return result;
+    } catch (e) {
+        console.warn('[KNOWN_PLACES] DB-Load Fehler:', e.message);
+        // Fallback: alter Legacy-Code falls Firebase nicht erreichbar
+        return _knownPlacesCache || KNOWN_PLACES_LEGACY || {};
+    }
+}
 
 // Usedom-Region Bounding Box (großzügig: Usedom + Swinemünde + Wolgast + Anklam)
 const USEDOM_BOUNDS = { minLat: 53.75, maxLat: 54.20, minLon: 13.60, maxLon: 14.45 };
@@ -2410,7 +2448,9 @@ function isTelegramModifyQuery(text) {
 
 async function geocode(address) {
     const searchKey = address.toLowerCase().trim();
-    if (KNOWN_PLACES[searchKey]) return KNOWN_PLACES[searchKey];
+    // v6.48.0: KNOWN_PLACES kommt jetzt aus /pois (Firebase) statt Code
+    const _kp = await getKnownPlaces();
+    if (_kp[searchKey]) return _kp[searchKey];
 
     const cacheKey = 'geocodeCache/' + searchKey.replace(/[.#$/[\]]/g, '_');
 
@@ -2977,8 +3017,9 @@ async function searchNominatimForTelegram(query) {
         }
     } catch (e) { console.warn('POI-Suche Fehler:', e.message); }
 
-    // 1b) KNOWN_PLACES (hardcoded Bahnhöfe, Flughäfen etc. — Fallback bis in POIs gepflegt)
-    for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+    // 1b) KNOWN_PLACES — v6.48.0: kommt jetzt aus /pois (Firebase) statt Code (deduped via getKnownPlaces)
+    const _kpForSearch = await getKnownPlaces();
+    for (const [key, place] of Object.entries(_kpForSearch)) {
         const placeName = (place.name || '').toLowerCase();
         const isExact = wordBoundaryRegex.test(key) || wordBoundaryRegex.test(placeName);
         const isIncludes = key.includes(searchKey) || placeName.includes(searchKey);
@@ -4102,8 +4143,9 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                         return _levenshteinDist(fw, tw) <= maxD;
                     })).length;
                 };
-                // 1. KNOWN_PLACES
-                for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+                // 1. KNOWN_PLACES (v6.48.0 — aus /pois)
+                const _kpFuzzy = await getKnownPlaces();
+                for (const [key, place] of Object.entries(_kpFuzzy)) {
                     const pName = (place.name || '').toLowerCase();
                     const matchCount = _fuzzyWordCount(fuzzyWords, key + ' ' + pName);
                     if (matchCount > 0) {

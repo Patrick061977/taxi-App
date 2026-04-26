@@ -129,7 +129,9 @@ public class VehiclePickerActivity extends AppCompatActivity {
             });
     }
 
-    // v6.50.1: Tap-Handler — prüft activeDevice und entscheidet ob direkt oder Confirm
+    // v6.50.1/v6.51.3: Tap-Handler — Patrick hat 2 Geräte mit verschiedenen Auth-UIDs
+    // (Email vs Phone-Login). Bis Account-Linking steht, KEINE blockierende Übernahme-Logik.
+    // Wir zeigen den Lock-Status nur informativ. Tap → direkt selectVehicle (kein Confirm).
     private void onVehicleTap(Vehicle v) {
         FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
         String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
@@ -138,15 +140,12 @@ public class VehiclePickerActivity extends AppCompatActivity {
         boolean lockedByOther = v.lockedByUid != null && !v.lockedByUid.equals(myUid) && !lockStale;
 
         if (lockedByOther) {
-            String when = v.lockHeartbeat != null
-                ? android.text.format.DateUtils.getRelativeTimeSpanString(
-                    v.lockHeartbeat, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
-                : "unbekannt";
             String label = v.lockedByLabel != null ? v.lockedByLabel : "anderes Gerät";
+            // Soft-Info-Dialog — kein Block. Patrick wollte Banner statt Zwang.
             new AlertDialog.Builder(this)
-                .setTitle("🔒 Fahrzeug in Nutzung")
-                .setMessage(v.name + "\n\nGerade aktiv auf: " + label + "\nLetzter Heartbeat: " + when + "\n\nÜbernehmen? Das andere Handy verliert die Schicht.")
-                .setPositiveButton("Übernehmen", (d, _w) -> selectVehicle(v))
+                .setTitle("ℹ️ Fahrzeug evtl. auch woanders aktiv")
+                .setMessage(v.name + "\n\nLetzter Lock: " + label + "\n\nDu kannst trotzdem hier einloggen — das andere Gerät bleibt aktiv (Multi-Device-Modus).")
+                .setPositiveButton("OK, hier einloggen", (d, _w) -> selectVehicle(v))
                 .setNegativeButton("Abbrechen", null)
                 .show();
             return;

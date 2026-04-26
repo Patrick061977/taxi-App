@@ -251,6 +251,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         if (onlineObj instanceof Boolean) onlineState = (Boolean) onlineObj;
 
+        // v6.51.2: Schicht-Recovery — wenn Firebase 'aktiv' meldet aber Foreground-Service
+        // tot ist (App-Update, Force-Stop, OS-Kill), starte den Service neu damit GPS+Heartbeat
+        // und die Status-Notification (Icon oben in Statusleiste) wieder laufen.
+        // Patrick hat das nach v6.51.0-Install bemerkt: 'oben in der Startungsleiste ist die App nicht mehr zu sehen'.
+        if (shiftActive && !ShiftForegroundService.isRunning() && currentVehicleId != null) {
+            try {
+                Intent svc = new Intent(this, ShiftForegroundService.class);
+                svc.setAction(ShiftForegroundService.ACTION_START);
+                svc.putExtra(ShiftForegroundService.EXTRA_VEHICLE_ID, currentVehicleId);
+                svc.putExtra(ShiftForegroundService.EXTRA_CONTENT_TEXT, "Schicht aktiv (recovered nach App-Restart)");
+                startForegroundService(svc);
+                Log.i(TAG, "🔄 Schicht-Recovery: Foreground-Service neu gestartet");
+            } catch (Throwable t) {
+                Log.w(TAG, "🔄 Schicht-Recovery fehlgeschlagen: " + t.getMessage());
+            }
+        }
+
         // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)
         if (shiftActive) {
             tvShiftStatus.setText(onlineState ? "🟢 Aktiv" : "⏸ Pause");

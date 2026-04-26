@@ -48,6 +48,10 @@ public class VehiclePickerActivity extends AppCompatActivity {
     private static final String[] ADMIN_EMAILS = new String[] {
         "patrick061977@gmail.com", "admin@taxi-heringsdorf.de", "taxiwydra@googlemail.com"
     };
+    // v6.51.2: Admin-Erkennung auch über Phone-Login (Google Sign-In ist erst v6.52)
+    private static final String[] ADMIN_PHONES = new String[] {
+        "+4915127585179"  // Patrick Test/Admin-Nummer
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,19 +71,25 @@ public class VehiclePickerActivity extends AppCompatActivity {
         if (u != null) {
             String label = u.getEmail() != null ? u.getEmail() : (u.getPhoneNumber() != null ? u.getPhoneNumber() : "Nutzer " + u.getUid());
             tvLoggedInAs.setText("Angemeldet als " + label);
-            // v6.51.0: Admin-Button nur sichtbar für Admin-Emails
+            // v6.51.0/2: Admin-Button sichtbar für Admin-Emails ODER Admin-Phones
+            boolean isAdmin = false;
             if (u.getEmail() != null) {
                 String email = u.getEmail().toLowerCase();
                 for (String adm : ADMIN_EMAILS) {
-                    if (adm.equalsIgnoreCase(email)) {
-                        btnAdminMode.setVisibility(View.VISIBLE);
-                        btnAdminMode.setOnClickListener(_v -> {
-                            startActivity(new Intent(this, AdminDashboardActivity.class));
-                            finish();
-                        });
-                        break;
-                    }
+                    if (adm.equalsIgnoreCase(email)) { isAdmin = true; break; }
                 }
+            }
+            if (!isAdmin && u.getPhoneNumber() != null) {
+                for (String adm : ADMIN_PHONES) {
+                    if (adm.equals(u.getPhoneNumber())) { isAdmin = true; break; }
+                }
+            }
+            if (isAdmin) {
+                btnAdminMode.setVisibility(View.VISIBLE);
+                btnAdminMode.setOnClickListener(_v -> {
+                    startActivity(new Intent(this, AdminDashboardActivity.class));
+                    finish();
+                });
             }
         }
 

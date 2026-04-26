@@ -75,47 +75,29 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- v6.47.0: Schmales Schicht-Detail-Banner — nur eine Zeile (Timer + Verdienst) wenn aktiv -->
+        <!-- v6.47.8: Schicht-Stats-Banner KOMPLETT WEG - Patrick will den Platz für Aufträge.
+             Timer + Verdienst sind in StatsActivity (Hamburger-Menü → Statistik) zugänglich.
+             Felder bleiben als unsichtbare Keepalive für die Activity (sonst NPE). -->
         <LinearLayout
             android:id="@+id/shift_stats_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#0F172A"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingTop="6dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="6dp"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             android:visibility="gone">
 
             <TextView
                 android:id="@+id/tv_shift_timer"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="⏱ 00:00:00"
-                android:textColor="#F8FAFC"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
 
             <TextView
                 android:id="@+id/tv_today_earnings"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="💰 0,00 €"
-                android:textColor="#10B981"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:layout_height="wrap_content" />
 
             <TextView
                 android:id="@+id/tv_shift_detail"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:text=""
-                android:textColor="#94A3B8"
-                android:textSize="11sp" />
+                android:layout_height="wrap_content" />
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 

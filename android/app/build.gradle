@@ -10,8 +10,8 @@ android {
         // v6.41.91: + Firebase Crashlytics für native Crash-Diagnose (heute Heartbeat-Timeout
         // gesehen — JS-Logger fing nichts, also nativer Prozess-Tod. Crashlytics liefert Stacktrace).
         // versionCode-Format: Major*1_000_000 + Minor*1_000 + Patch → 6.41.91 = 6_041_091
-        versionCode 6052003
-        versionName "6.52.3"
+        versionCode 6053000
+        versionName "6.53.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -68,6 +68,8 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth'
     // v6.52.0: Google Sign-In für Native LoginActivity (Patrick nutzt Google im Web)
     implementation 'com.google.android.gms:play-services-auth:21.2.0'
+    // v6.53.0: Google Places SDK für Autocomplete in Vorbestellungs- + CRM-Adressfeldern
+    implementation 'com.google.android.libraries.places:places:3.5.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.cardview:cardview:1.0.0'

@@ -19,12 +19,18 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.widget.Autocomplete;
+import com.google.android.libraries.places.widget.model.AutocompleteActivityMode;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -32,6 +38,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +57,50 @@ public class CallLogActivity extends AppCompatActivity {
     private TextView permHint;
     private CallAdapter adapter;
     private Map<String, CrmCustomer> crmByPhone = new HashMap<>();
+
+    // v6.53.0: Google Places Autocomplete — eine Launcher-Instanz, mehrere Ziel-Felder.
+    // pendingPlaceField + pendingPlaceCoords werden VOR launch gesetzt, der Callback liest sie.
+    private TextView pendingPlaceField;
+    private double[] pendingPlaceCoords; // [lat, lon] — null wenn place keine Koords liefert
+    private final ActivityResultLauncher<Intent> placesLauncher = registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+            if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+            try {
+                Place place = Autocomplete.getPlaceFromIntent(result.getData());
+                String label = place.getName() != null ? place.getName() : place.getAddress();
+                if (place.getAddress() != null && !place.getAddress().equals(place.getName())) {
+                    label = place.getName() + " — " + place.getAddress();
+                }
+                if (pendingPlaceField != null) pendingPlaceField.setText(label);
+                if (pendingPlaceCoords != null && place.getLatLng() != null) {
+                    pendingPlaceCoords[0] = place.getLatLng().latitude;
+                    pendingPlaceCoords[1] = place.getLatLng().longitude;
+                }
+            } catch (Throwable t) {
+                Toast.makeText(this, "Places-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+    );
+
+    private void launchPlaces(TextView targetField, double[] coordsOut) {
+        try {
+            if (!Places.isInitialized()) {
+                Places.initialize(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+            }
+            pendingPlaceField = targetField;
+            pendingPlaceCoords = coordsOut;
+            List<Place.Field> fields = Arrays.asList(
+                Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG
+            );
+            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
+                .setCountries(Arrays.asList("DE"))
+                .build(this);
+            placesLauncher.launch(intent);
+        } catch (Throwable t) {
+            Toast.makeText(this, "Places-Init Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -284,17 +335,21 @@ public class CallLogActivity extends AppCompatActivity {
         if (e.name != null) etName.setText(e.name);
         layout.addView(etName);
 
-        EditText etAddress = new EditText(this);
-        etAddress.setHint("Adresse (optional)");
-        layout.addView(etAddress);
+        // v6.53.0: Adresse via Places-Autocomplete statt freitext-EditText.
+        // Speichert lat/lon in addressLat/addressLon — gleicher Schema wie Web-CRM.
+        final double[] addrCoords = { Double.NaN, Double.NaN };
+        TextView tvAddress = new TextView(this);
+        tvAddress.setText("📍 Adresse wählen… (optional)");
+        tvAddress.setPadding(pad / 2, pad, pad / 2, pad);
+        tvAddress.setOnClickListener(_v -> launchPlaces(tvAddress, addrCoords));
+        layout.addView(tvAddress);
 
         EditText etType = new EditText(this);
         etType.setHint("Typ (hotel/firma/privat — optional)");
         layout.addView(etType);
 
         new AlertDialog.Builder(this)
-            .setTitle("👤 Neuer CRM-Kunde")
-            .setMessage("Telefonnummer: " + e.number)
+            .setTitle("👤 Neuer CRM-Kunde — " + e.number)
             .setView(layout)
             .setPositiveButton("Speichern", (d, w) -> {
                 String name = etName.getText().toString().trim();
@@ -305,8 +360,14 @@ public class CallLogActivity extends AppCompatActivity {
                 c.put("name", name);
                 c.put("phone", e.number);
                 c.put("mobilePhone", e.number);
-                String addr = etAddress.getText().toString().trim();
-                if (!addr.isEmpty()) c.put("address", addr);
+                String addr = tvAddress.getText().toString().replaceFirst("^📍 ", "").trim();
+                if (!addr.isEmpty() && !addr.endsWith("wählen… (optional)")) {
+                    c.put("address", addr);
+                    if (!Double.isNaN(addrCoords[0])) {
+                        c.put("addressLat", addrCoords[0]);
+                        c.put("addressLon", addrCoords[1]);
+                    }
+                }
                 String type = etType.getText().toString().trim();
                 if (!type.isEmpty()) c.put("customerKind", type);
                 c.put("createdAt", now);
@@ -346,14 +407,25 @@ public class CallLogActivity extends AppCompatActivity {
         etName.setText(crm != null ? crm.name : (e.name != null ? e.name : ""));
         layout.addView(etName);
 
-        EditText etPickup = new EditText(this);
-        etPickup.setHint("Abholort");
-        if (crm != null && crm.address != null) etPickup.setText(crm.address);
-        layout.addView(etPickup);
+        // v6.53.0: Pickup + Destination als TextView-Buttons → öffnen Places-Autocomplete.
+        // Koords direkt aus Place gezogen, kein separates Geocoding mehr nötig.
+        final double[] pickupCoords = { Double.NaN, Double.NaN };
+        final double[] destCoords = { Double.NaN, Double.NaN };
+        TextView tvPickup = new TextView(this);
+        tvPickup.setText(crm != null && crm.address != null ? "📍 " + crm.address : "📍 Abholort wählen…");
+        tvPickup.setPadding(pad / 2, pad, pad / 2, pad);
+        tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
+        layout.addView(tvPickup);
+        // CRM-Koords als Vorbelegung wenn vorhanden
+        if (crm != null && crm.lat != null && crm.lon != null) {
+            pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
+        }
 
-        EditText etDest = new EditText(this);
-        etDest.setHint("Zielort");
-        layout.addView(etDest);
+        TextView tvDest = new TextView(this);
+        tvDest.setText("🎯 Zielort wählen…");
+        tvDest.setPadding(pad / 2, pad, pad / 2, pad);
+        tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
+        layout.addView(tvDest);
 
         EditText etPax = new EditText(this);
         etPax.setHint("Personen (Default 1)");
@@ -388,10 +460,11 @@ public class CallLogActivity extends AppCompatActivity {
             .setView(layout)
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();
-                String pickup = etPickup.getText().toString().trim();
-                String dest = etDest.getText().toString().trim();
-                if (name.isEmpty() || pickup.isEmpty() || dest.isEmpty()) {
-                    Toast.makeText(this, "Name + Abholort + Zielort Pflicht", Toast.LENGTH_LONG).show();
+                String pickup = tvPickup.getText().toString().replaceFirst("^📍 ", "").trim();
+                String dest = tvDest.getText().toString().replaceFirst("^🎯 ", "").trim();
+                if (name.isEmpty() || pickup.isEmpty() || pickup.endsWith("wählen…") ||
+                    dest.isEmpty() || dest.endsWith("wählen…")) {
+                    Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
                     return;
                 }
                 int pax = 1;
@@ -405,7 +478,13 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("customerMobile", e.number);
                 r.put("pickup", pickup);
                 r.put("destination", dest);
-                if (crm != null && crm.lat != null) { r.put("pickupLat", crm.lat); r.put("pickupLon", crm.lon); }
+                // v6.53.0: Koords aus Places-Pick (oder CRM-Vorbelegung) — keine String-Adressen mehr ohne lat/lon!
+                if (!Double.isNaN(pickupCoords[0])) {
+                    r.put("pickupLat", pickupCoords[0]); r.put("pickupLon", pickupCoords[1]);
+                }
+                if (!Double.isNaN(destCoords[0])) {
+                    r.put("destinationLat", destCoords[0]); r.put("destinationLon", destCoords[1]);
+                }
                 r.put("pickupTimestamp", datetime[0]);
                 r.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(datetime[0])));
                 r.put("status", "vorbestellt");

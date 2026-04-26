@@ -106,6 +106,15 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="taxi_heringsdorf_rides" />
 
+        <!-- v6.53.0: Google Places API Key — gleicher Key wie in der Web-App.
+             Falls Android-Calls fehlschlagen, in Google-Cloud-Console die
+             Application-Restrictions auf 'None' setzen ODER eine Android-Restriction
+             mit SHA1=5ce477821a5819214dabdc6d159626629281e407 + Package=de.taxiheringsdorf.app
+             hinzufügen. Places SDK liest diesen Key per Reflection. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

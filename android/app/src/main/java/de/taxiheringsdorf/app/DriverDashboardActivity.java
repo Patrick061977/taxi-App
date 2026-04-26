@@ -1,17 +1,24 @@
 package de.taxiheringsdorf.app;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,22 +31,26 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
-// v6.42.0: Native Fahrer-Dashboard — komplett ohne WebView. Liest Schicht + Aufträge
-// direkt aus Firebase Database SDK (nativ), zeigt sie als Material-Cards. Stabile UI
-// die nicht von WebView abhängt — wenn WebView gekillt wird, lebt diese Activity weiter.
+// v6.43.0: Phase 3a — Driver Dashboard mit allen wichtigen Aktionen.
+// Status-Workflow (accepted → on_way → arrived → picked_up → completed),
+// Navigation (Google Maps), Anruf, SMS-Tracking, Stornieren, EINSTEIGER (walk-in),
+// Online-Toggle, Schicht-Timer, Tagesverdienst.
 public class DriverDashboardActivity extends AppCompatActivity {
 
     private static final String TAG = "DriverDashboard";
     private static final String DB_INSTANCE_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
+    private static final String TRACKING_BASE = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=";
 
-    private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail;
-    private MaterialButton btnShiftToggle;
+    private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
+    private MaterialButton btnShiftToggle, btnOnlineToggle, btnEinsteiger;
+    private LinearLayout shiftStatsRow;
     private RecyclerView rvRides;
     private LinearLayout emptyState;
     private RideAdapter rideAdapter;
@@ -48,31 +59,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private String currentVehicleId;
     private DatabaseReference vehicleRef;
     private Query ridesQuery;
+    private Query todayCompletedQuery;
     private ValueEventListener shiftListener;
     private ValueEventListener ridesListener;
+    private ValueEventListener todayCompletedListener;
 
     private boolean shiftActive = false;
+    private boolean onlineState = true;
+    private Long shiftStartTime = null;
+    private double todayEarnings = 0.0;
+    private final Handler timerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable timerTick = new Runnable() {
+        @Override
+        public void run() {
+            updateShiftTimer();
+            timerHandler.postDelayed(this, 1000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Bildschirm wach halten solange Dashboard offen
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
 
-        tvVehicleInfo = findViewById(R.id.tv_vehicle_info);
-        tvShiftStatus = findViewById(R.id.tv_shift_status);
-        tvShiftDetail = findViewById(R.id.tv_shift_detail);
-        btnShiftToggle = findViewById(R.id.btn_shift_toggle);
-        rvRides = findViewById(R.id.rv_rides);
-        emptyState = findViewById(R.id.empty_state);
-
-        rvRides.setLayoutManager(new LinearLayoutManager(this));
-        rideAdapter = new RideAdapter();
-        rvRides.setAdapter(rideAdapter);
-
-        // v6.42.3: Optionaler Intent-Extra (für ADB-Setup ohne WebView-Login):
-        // adb shell am start -n de.taxiheringsdorf.app/.DriverDashboardActivity --es setVehicleId pw-my-222-e
+        // v6.42.3: Optionaler Intent-Extra für ADB-Setup ohne WebView-Login
         String intentVehicleId = getIntent() != null ? getIntent().getStringExtra("setVehicleId") : null;
         if (intentVehicleId != null && !intentVehicleId.isEmpty()) {
             getSharedPreferences("driver", MODE_PRIVATE).edit().putString("vehicleId", intentVehicleId).apply();
@@ -80,11 +91,24 @@ public class DriverDashboardActivity extends AppCompatActivity {
             Log.i(TAG, "vehicleId via Intent-Extra gesetzt: " + intentVehicleId);
         }
 
-        // Vehicle-ID aus SharedPreferences lesen (wird vom WebView/JS gesetzt)
+        tvVehicleInfo = findViewById(R.id.tv_vehicle_info);
+        tvShiftStatus = findViewById(R.id.tv_shift_status);
+        tvShiftDetail = findViewById(R.id.tv_shift_detail);
+        tvShiftTimer = findViewById(R.id.tv_shift_timer);
+        tvTodayEarnings = findViewById(R.id.tv_today_earnings);
+        btnShiftToggle = findViewById(R.id.btn_shift_toggle);
+        btnOnlineToggle = findViewById(R.id.btn_online_toggle);
+        btnEinsteiger = findViewById(R.id.btn_einsteiger);
+        shiftStatsRow = findViewById(R.id.shift_stats_row);
+        rvRides = findViewById(R.id.rv_rides);
+        emptyState = findViewById(R.id.empty_state);
+
+        rvRides.setLayoutManager(new LinearLayoutManager(this));
+        rideAdapter = new RideAdapter();
+        rvRides.setAdapter(rideAdapter);
+
         SharedPreferences prefs = getSharedPreferences("driver", MODE_PRIVATE);
         currentVehicleId = prefs.getString("vehicleId", null);
-
-        // Fallback: aus FCM-Prefs
         if (currentVehicleId == null) {
             SharedPreferences fcmPrefs = getSharedPreferences("fcm", MODE_PRIVATE);
             currentVehicleId = fcmPrefs.getString("vehicleId", null);
@@ -93,13 +117,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (currentVehicleId == null) {
             tvVehicleInfo.setText("⚠️ Kein Fahrzeug ausgewählt — bitte zuerst Web-App öffnen + Fahrer-Login");
             btnShiftToggle.setEnabled(false);
+            btnEinsteiger.setEnabled(false);
         } else {
             tvVehicleInfo.setText("Fahrzeug: " + currentVehicleId);
             connectFirebase();
         }
 
         btnShiftToggle.setOnClickListener(v -> toggleShift());
-
+        btnOnlineToggle.setOnClickListener(v -> toggleOnline());
+        btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
         ExtendedFloatingActionButton fab = findViewById(R.id.fab_open_webview);
         fab.setOnClickListener(v -> openWebView());
     }
@@ -108,32 +134,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
         try {
             db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
             vehicleRef = db.getReference("vehicles/" + currentVehicleId);
-            // Shift-Listener
             shiftListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot s) {
-                    onVehicleUpdate(s);
-                }
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "Vehicle-Listener cancelled: " + error.getMessage());
-                }
+                @Override public void onDataChange(@NonNull DataSnapshot s) { onVehicleUpdate(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "Vehicle: " + error.getMessage()); }
             };
             vehicleRef.addValueEventListener(shiftListener);
 
-            // Rides-Listener: alle Fahrten zugewiesen an dieses Fahrzeug
             ridesQuery = db.getReference("rides").orderByChild("vehicleId").equalTo(currentVehicleId);
             ridesListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot s) {
-                    onRidesUpdate(s);
-                }
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "Rides-Listener cancelled: " + error.getMessage());
-                }
+                @Override public void onDataChange(@NonNull DataSnapshot s) { onRidesUpdate(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "Rides: " + error.getMessage()); }
             };
             ridesQuery.addValueEventListener(ridesListener);
+
+            // Today-completed-Listener für Tagesverdienst
+            todayCompletedQuery = db.getReference("rides").orderByChild("vehicleId").equalTo(currentVehicleId);
+            todayCompletedListener = new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) { calcTodayEarnings(s); }
+                @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "Earnings: " + error.getMessage()); }
+            };
+            // gleicher Query — nutzt Cache
+            todayCompletedQuery.addValueEventListener(todayCompletedListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -143,11 +164,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void onVehicleUpdate(DataSnapshot s) {
         Object shiftObj = s.child("shift").getValue();
         Object onlineObj = s.child("online").getValue();
-        Object lastUpdateObj = s.child("lastUpdate").getValue();
-
-        // Shift-Status
         String status = "?";
         Long lastHb = null;
+        Long startTime = null;
         if (shiftObj instanceof java.util.Map) {
             java.util.Map<?, ?> m = (java.util.Map<?, ?>) shiftObj;
             Object st = m.get("status");
@@ -155,8 +174,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
             Object hb = m.get("lastHeartbeat");
             if (hb instanceof Long) lastHb = (Long) hb;
             else if (hb instanceof Number) lastHb = ((Number) hb).longValue();
+            Object stt = m.get("startTime");
+            if (stt instanceof Long) startTime = (Long) stt;
+            else if (stt instanceof Number) startTime = ((Number) stt).longValue();
         }
         shiftActive = "active".equals(status);
+        shiftStartTime = startTime;
+
+        // Online-State syncen
+        if (onlineObj instanceof Boolean) onlineState = (Boolean) onlineObj;
+
         if (shiftActive) {
             tvShiftStatus.setText("🟢 Schicht aktiv");
             String detail = "Heartbeat OK";
@@ -167,36 +194,103 @@ public class DriverDashboardActivity extends AppCompatActivity {
             tvShiftDetail.setText(detail);
             btnShiftToggle.setText("⏹ Stopp");
             btnShiftToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EF4444")));
+            shiftStatsRow.setVisibility(View.VISIBLE);
+            updateOnlineButton();
+            timerHandler.removeCallbacks(timerTick);
+            timerHandler.post(timerTick);
         } else {
             tvShiftStatus.setText("⏸️ Schicht " + ("auto-ended".equals(status) ? "auto-beendet" : "beendet"));
             tvShiftDetail.setText("auto-ended".equals(status) ? "Letzter Crash hat Schicht beendet — neu starten" : "Tippe Start zum Beginnen");
             btnShiftToggle.setText("▶ Start");
             btnShiftToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#10B981")));
+            shiftStatsRow.setVisibility(View.GONE);
+            timerHandler.removeCallbacks(timerTick);
         }
+    }
+
+    private void updateShiftTimer() {
+        if (!shiftActive || shiftStartTime == null) return;
+        long elapsed = (System.currentTimeMillis() - shiftStartTime) / 1000;
+        long h = elapsed / 3600;
+        long m = (elapsed % 3600) / 60;
+        long sec = elapsed % 60;
+        tvShiftTimer.setText(String.format(Locale.GERMANY, "⏱ %02d:%02d:%02d", h, m, sec));
+    }
+
+    private void updateOnlineButton() {
+        if (onlineState) {
+            btnOnlineToggle.setText("🟢 Online");
+            btnOnlineToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#10B981")));
+        } else {
+            btnOnlineToggle.setText("⏸ Pause");
+            btnOnlineToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#64748B")));
+        }
+    }
+
+    private void toggleOnline() {
+        if (db == null || currentVehicleId == null) return;
+        onlineState = !onlineState;
+        updateOnlineButton();
+        Map<String, Object> u = new HashMap<>();
+        u.put("online", onlineState);
+        u.put("dispatchStatus", onlineState ? "online" : "offline");
+        db.getReference("vehicles/" + currentVehicleId).updateChildren(u);
+    }
+
+    private void calcTodayEarnings(DataSnapshot s) {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        long dayStart = c.getTimeInMillis();
+        double sum = 0;
+        int count = 0;
+        for (DataSnapshot child : s.getChildren()) {
+            Object statusObj = child.child("status").getValue();
+            String st = statusObj != null ? String.valueOf(statusObj).toLowerCase() : "";
+            if (!st.equals("completed") && !st.equals("abgeschlossen") && !st.equals("done")) continue;
+            Object completedAtObj = child.child("completedAt").getValue();
+            long completedAt = 0;
+            if (completedAtObj instanceof Long) completedAt = (Long) completedAtObj;
+            else if (completedAtObj instanceof Number) completedAt = ((Number) completedAtObj).longValue();
+            if (completedAt < dayStart) {
+                // Fallback: pickupTimestamp
+                Object pickObj = child.child("pickupTimestamp").getValue();
+                long pickTs = 0;
+                if (pickObj instanceof Long) pickTs = (Long) pickObj;
+                else if (pickObj instanceof Number) pickTs = ((Number) pickObj).longValue();
+                if (pickTs < dayStart) continue;
+            }
+            Object pObj = child.child("price").getValue();
+            double price = 0;
+            if (pObj instanceof Number) price = ((Number) pObj).doubleValue();
+            else if (pObj instanceof String) try { price = Double.parseDouble((String) pObj); } catch (Throwable _t) {}
+            sum += price;
+            count++;
+        }
+        todayEarnings = sum;
+        tvTodayEarnings.setText(String.format(Locale.GERMANY, "💰 %.2f € (%d)", sum, count));
     }
 
     private void onRidesUpdate(DataSnapshot s) {
         List<Ride> active = new ArrayList<>();
-        // v6.42.7: Fahrer soll Vorbestellungen NICHT lange vorher sehen — sonst stört das
-        // die Auto-Disposition (Patrick: Fahrt wird erst 15-20 Min vorher zugewiesen).
+        // v6.42.7: Vorbestellungen erst 20 Min vor Pickup zeigen
         long now = System.currentTimeMillis();
-        long windowPast = now - 12L * 3600L * 1000L; // 12h zurück (laufende Schicht)
-        long windowFuture = now + 20L * 60L * 1000L; // 20 Min voraus (knapp vor Pickup)
+        long windowPast = now - 12L * 3600L * 1000L;
+        long windowFuture = now + 20L * 60L * 1000L;
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null) continue;
             if (r.status == null) continue;
             String st = r.status.toLowerCase();
-            // Filter: abgeschlossen / storniert / gelöscht — DE + EN Varianten
             if (st.equals("completed") || st.equals("abgeschlossen") ||
                 st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
                 st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
                 st.equals("done")) continue;
-            // Aktive Aufträge IMMER zeigen (accepted/on_way/picked_up/arrived) — egal wann
             boolean isActive = st.equals("accepted") || st.equals("on_way") ||
-                    st.equals("picked_up") || st.equals("arrived");
+                    st.equals("arrived") || st.equals("picked_up");
             if (!isActive) {
-                // Zeitfenster anwenden — Aufträge ohne Pickup-Zeit zeigen wenn unmittelbar offen (new/sofort)
                 if (r.pickupTimestamp == null) {
                     if (!st.equals("new") && !st.equals("sofort") && !st.equals("assigned")) continue;
                 } else {
@@ -206,34 +300,45 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
             active.add(r);
         }
-        // Sortieren: assigned/new oben, accepted/on_way/picked_up unten
-        active.sort((a, b) -> Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,
-                                          b.pickupTimestamp != null ? b.pickupTimestamp : 0));
+        // Aktive zuerst, dann nach pickupTimestamp aufsteigend
+        active.sort((a, b) -> {
+            int aRank = isActiveStatus(a.status) ? 0 : 1;
+            int bRank = isActiveStatus(b.status) ? 0 : 1;
+            if (aRank != bRank) return Integer.compare(aRank, bRank);
+            return Long.compare(a.pickupTimestamp != null ? a.pickupTimestamp : 0,
+                                b.pickupTimestamp != null ? b.pickupTimestamp : 0);
+        });
         rideAdapter.setRides(active);
         emptyState.setVisibility(active.isEmpty() ? View.VISIBLE : View.GONE);
         rvRides.setVisibility(active.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
+    private static boolean isActiveStatus(String s) {
+        if (s == null) return false;
+        String st = s.toLowerCase();
+        return st.equals("accepted") || st.equals("on_way") || st.equals("arrived") || st.equals("picked_up");
+    }
+
     private void toggleShift() {
         if (currentVehicleId == null) return;
         if (shiftActive) {
-            // Schicht beenden
             DatabaseReference ref = db.getReference("vehicles/" + currentVehicleId + "/shift");
-            java.util.Map<String, Object> updates = new java.util.HashMap<>();
+            Map<String, Object> updates = new HashMap<>();
             updates.put("status", "ended");
             updates.put("endedAt", System.currentTimeMillis());
             updates.put("endedReason", "manual_native_dashboard");
             ref.updateChildren(updates);
+            // Online-Flag auf false (bei Schicht-End)
+            db.getReference("vehicles/" + currentVehicleId + "/online").setValue(false);
         } else {
-            // Schicht starten
             DatabaseReference ref = db.getReference("vehicles/" + currentVehicleId + "/shift");
-            java.util.Map<String, Object> updates = new java.util.HashMap<>();
+            Map<String, Object> updates = new HashMap<>();
             updates.put("status", "active");
             updates.put("startTime", System.currentTimeMillis());
             updates.put("startedBy", "native_dashboard");
             updates.put("lastHeartbeat", System.currentTimeMillis());
             ref.updateChildren(updates);
-            // Foreground Service starten
+            db.getReference("vehicles/" + currentVehicleId + "/online").setValue(true);
             Intent svc = new Intent(this, ShiftForegroundService.class);
             svc.setAction(ShiftForegroundService.ACTION_START);
             svc.putExtra(ShiftForegroundService.EXTRA_VEHICLE_ID, currentVehicleId);
@@ -247,14 +352,243 @@ public class DriverDashboardActivity extends AppCompatActivity {
         startActivity(i);
     }
 
+    private void showEinsteigerDialog() {
+        if (currentVehicleId == null) return;
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        layout.setPadding(pad, pad, pad, pad);
+
+        EditText etPickup = new EditText(this);
+        etPickup.setHint("Abholort (optional)");
+        etPickup.setInputType(InputType.TYPE_CLASS_TEXT);
+        layout.addView(etPickup);
+
+        EditText etDest = new EditText(this);
+        etDest.setHint("Zielort");
+        etDest.setInputType(InputType.TYPE_CLASS_TEXT);
+        layout.addView(etDest);
+
+        EditText etPrice = new EditText(this);
+        etPrice.setHint("Preis € (z.B. 12.50)");
+        etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(etPrice);
+
+        EditText etPax = new EditText(this);
+        etPax.setHint("Personen (Default 1)");
+        etPax.setInputType(InputType.TYPE_CLASS_NUMBER);
+        layout.addView(etPax);
+
+        new AlertDialog.Builder(this)
+            .setTitle("🚖 EINSTEIGER-Fahrt")
+            .setMessage("Walk-In-Fahrgast — wird sofort als 'picked_up' angelegt.")
+            .setView(layout)
+            .setPositiveButton("Anlegen + Starten", (d, w) -> {
+                String pickup = etPickup.getText().toString().trim();
+                String dest = etDest.getText().toString().trim();
+                String priceStr = etPrice.getText().toString().trim();
+                String paxStr = etPax.getText().toString().trim();
+                createEinsteiger(pickup, dest, priceStr, paxStr);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void createEinsteiger(String pickup, String dest, String priceStr, String paxStr) {
+        if (db == null) return;
+        try {
+            DatabaseReference newRef = db.getReference("rides").push();
+            Map<String, Object> r = new HashMap<>();
+            r.put("customerName", "Einsteiger");
+            r.put("vehicleId", currentVehicleId);
+            r.put("status", "picked_up");
+            r.put("pickup", pickup.isEmpty() ? "Standort Fahrer" : pickup);
+            r.put("destination", dest);
+            long now = System.currentTimeMillis();
+            r.put("pickupTimestamp", now);
+            r.put("pickupTime", new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(now)));
+            r.put("createdAt", now);
+            r.put("updatedAt", now);
+            r.put("acceptedAt", now);
+            r.put("acceptedVia", "native_dashboard_einsteiger");
+            r.put("source", "native_einsteiger");
+            r.put("isInsteiger", true);
+            try {
+                if (!priceStr.isEmpty()) r.put("price", Double.parseDouble(priceStr.replace(',', '.')));
+            } catch (Throwable _t) {}
+            try {
+                int pax = paxStr.isEmpty() ? 1 : Integer.parseInt(paxStr);
+                r.put("passengers", pax);
+            } catch (Throwable _t) { r.put("passengers", 1); }
+            newRef.setValue(r).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) Toast.makeText(this, "✅ EINSTEIGER angelegt", Toast.LENGTH_SHORT).show();
+                else Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
+            });
+        } catch (Throwable t) {
+            Toast.makeText(this, "❌ EINSTEIGER-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void startNavigation(String address) {
+        if (address == null || address.isEmpty()) {
+            Toast.makeText(this, "Keine Adresse vorhanden", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            Uri uri = Uri.parse("google.navigation:q=" + Uri.encode(address) + "&mode=d");
+            Intent i = new Intent(Intent.ACTION_VIEW, uri);
+            i.setPackage("com.google.android.apps.maps");
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(i);
+            } catch (Throwable _t) {
+                // Fallback: ohne Maps-Package — Android fragt User welche App
+                Intent g = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(address)));
+                g.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(g);
+            }
+        } catch (Throwable t) {
+            Toast.makeText(this, "Navigation-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void callPhone(String number) {
+        if (number == null || number.isEmpty()) {
+            Toast.makeText(this, "Keine Telefonnummer vorhanden", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            Uri uri = Uri.parse("tel:" + number.replaceAll("[^+0-9]", ""));
+            Intent i = new Intent(Intent.ACTION_DIAL, uri);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Throwable t) {
+            Toast.makeText(this, "Anruf-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void sendTrackingSMS(String rideId, String phone) {
+        if (phone == null || phone.isEmpty()) {
+            Toast.makeText(this, "Keine Telefonnummer", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String url = TRACKING_BASE + rideId;
+        String body = "Ihr Funk Taxi Tracking: " + url;
+        try {
+            Uri uri = Uri.parse("smsto:" + phone.replaceAll("[^+0-9]", ""));
+            Intent i = new Intent(Intent.ACTION_SENDTO, uri);
+            i.putExtra("sms_body", body);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(i);
+        } catch (Throwable t) {
+            Toast.makeText(this, "SMS-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void cancelRide(String rideId) {
+        if (db == null || rideId == null) return;
+        String[] reasons = {
+            "Kunde nicht erschienen",
+            "Adresse falsch / nicht erreichbar",
+            "Fahrt nicht möglich (technisch)",
+            "Sonstiges"
+        };
+        new AlertDialog.Builder(this)
+            .setTitle("Fahrt stornieren — Grund?")
+            .setItems(reasons, (d, which) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "cancelled");
+                u.put("cancelledAt", System.currentTimeMillis());
+                u.put("cancelledBy", currentVehicleId);
+                u.put("cancelledVia", "native_dashboard");
+                u.put("cancelReason", reasons[which]);
+                u.put("updatedAt", System.currentTimeMillis());
+                db.getReference("rides/" + rideId).updateChildren(u);
+                Toast.makeText(this, "Fahrt storniert", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private static String nextStatus(String current) {
+        if (current == null) return null;
+        switch (current.toLowerCase()) {
+            case "accepted": return "on_way";
+            case "on_way":   return "arrived";
+            case "arrived":  return "picked_up";
+            case "picked_up":return "completed";
+            default: return null;
+        }
+    }
+
+    private static String nextStatusLabel(String current) {
+        if (current == null) return "▶ Weiter";
+        switch (current.toLowerCase()) {
+            case "accepted": return "▶ Bin unterwegs";
+            case "on_way":   return "📍 Bin da";
+            case "arrived":  return "👤 Eingestiegen";
+            case "picked_up":return "✓ Fahrt fertig";
+            default: return "▶ Weiter";
+        }
+    }
+
+    private void advanceStatus(Ride r) {
+        String next = nextStatus(r.status);
+        if (next == null) return;
+        Map<String, Object> u = new HashMap<>();
+        u.put("status", next);
+        u.put("updatedAt", System.currentTimeMillis());
+        if (next.equals("on_way")) u.put("onWayAt", System.currentTimeMillis());
+        else if (next.equals("arrived")) u.put("arrivedAt", System.currentTimeMillis());
+        else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
+        else if (next.equals("completed")) u.put("completedAt", System.currentTimeMillis());
+        db.getReference("rides/" + r.id).updateChildren(u);
+    }
+
+    private void resolvePhoneAndAct(Ride r, java.util.function.Consumer<String> onPhone) {
+        if (db == null || r.id == null) { onPhone.accept(null); return; }
+        DatabaseReference rideRef = db.getReference("rides/" + r.id);
+        rideRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot s) {
+                String phone = firstNonEmpty(
+                    s.child("customerMobile").getValue(String.class),
+                    s.child("customerPhone").getValue(String.class),
+                    s.child("mobilePhone").getValue(String.class),
+                    s.child("phone").getValue(String.class)
+                );
+                if (phone != null && !phone.isEmpty()) { onPhone.accept(phone); return; }
+                String customerId = s.child("customerId").getValue(String.class);
+                if (customerId == null || customerId.isEmpty()) { onPhone.accept(null); return; }
+                db.getReference("customers/" + customerId).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot c) {
+                        String p = firstNonEmpty(
+                            c.child("mobilePhone").getValue(String.class),
+                            c.child("phone").getValue(String.class),
+                            c.child("phoneNumber").getValue(String.class)
+                        );
+                        onPhone.accept(p);
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError e) { onPhone.accept(null); }
+                });
+            }
+            @Override public void onCancelled(@NonNull DatabaseError e) { onPhone.accept(null); }
+        });
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String v : values) if (v != null && !v.trim().isEmpty()) return v;
+        return null;
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        timerHandler.removeCallbacks(timerTick);
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
+        if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
     }
 
-    // === Datenmodell ===
     static class Ride {
         String id, customerName, pickup, destination, pickupTime, status;
         Double price, distance;
@@ -283,31 +617,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // === RecyclerView-Adapter ===
     class RideAdapter extends RecyclerView.Adapter<RideAdapter.VH> {
         private List<Ride> data = new ArrayList<>();
-        void setRides(List<Ride> list) {
-            this.data = list;
-            notifyDataSetChanged();
-        }
-        @NonNull
-        @Override
+        void setRides(List<Ride> list) { this.data = list; notifyDataSetChanged(); }
+        @NonNull @Override
         public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_ride_card, parent, false);
             return new VH(v);
         }
-        @Override
-        public void onBindViewHolder(@NonNull VH holder, int position) {
-            Ride r = data.get(position);
-            holder.bind(r);
-        }
-        @Override
-        public int getItemCount() { return data.size(); }
+        @Override public void onBindViewHolder(@NonNull VH holder, int position) { holder.bind(data.get(position)); }
+        @Override public int getItemCount() { return data.size(); }
 
         class VH extends RecyclerView.ViewHolder {
             TextView tvBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist;
-            MaterialButton btnAccept, btnReject;
-            LinearLayout actionRow;
+            MaterialButton btnAccept, btnReject, btnNavigate, btnCall, btnSmsTrack, btnStatusNext, btnCancelRide;
+            LinearLayout actionRow, activeToolbar;
             VH(View v) {
                 super(v);
                 tvBadge = v.findViewById(R.id.tv_status_badge);
@@ -319,6 +643,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 btnAccept = v.findViewById(R.id.btn_accept);
                 btnReject = v.findViewById(R.id.btn_reject);
                 actionRow = v.findViewById(R.id.action_row);
+                activeToolbar = v.findViewById(R.id.active_toolbar);
+                btnNavigate = v.findViewById(R.id.btn_navigate);
+                btnCall = v.findViewById(R.id.btn_call);
+                btnSmsTrack = v.findViewById(R.id.btn_sms_track);
+                btnStatusNext = v.findViewById(R.id.btn_status_next);
+                btnCancelRide = v.findViewById(R.id.btn_cancel_ride);
             }
             void bind(Ride r) {
                 tvName.setText(r.customerName != null ? r.customerName : "(Kunde)");
@@ -329,33 +659,58 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     r.price != null ? String.format(Locale.GERMANY, "%.2f", r.price) : "--",
                     r.distance != null ? String.format(Locale.GERMANY, "%.1f", r.distance) : "--");
                 tvPriceDist.setText(pd);
-                // Status-Badge Color + Text
                 String s = r.status != null ? r.status : "?";
                 String badge; int bgColor;
-                switch (s) {
-                    case "new": badge = "🆕 NEU"; bgColor = Color.parseColor("#F59E0B"); break;
-                    case "sofort": badge = "⚡ SOFORT"; bgColor = Color.parseColor("#F59E0B"); break;
+                switch (s.toLowerCase()) {
+                    case "new":         badge = "🆕 NEU"; bgColor = Color.parseColor("#F59E0B"); break;
+                    case "sofort":      badge = "⚡ SOFORT"; bgColor = Color.parseColor("#F59E0B"); break;
                     case "vorbestellt": badge = "📅 VORBESTELLT"; bgColor = Color.parseColor("#3B82F6"); break;
-                    case "assigned": badge = "🎯 ZUGEWIESEN"; bgColor = Color.parseColor("#3B82F6"); break;
-                    case "accepted": badge = "✅ ANGENOMMEN"; bgColor = Color.parseColor("#10B981"); break;
-                    case "on_way": badge = "🚗 UNTERWEGS"; bgColor = Color.parseColor("#F59E0B"); break;
-                    case "picked_up": badge = "🎉 ABGEHOLT"; bgColor = Color.parseColor("#10B981"); break;
-                    default: badge = s.toUpperCase(); bgColor = Color.parseColor("#64748B");
+                    case "assigned":    badge = "🎯 ZUGEWIESEN"; bgColor = Color.parseColor("#3B82F6"); break;
+                    case "accepted":    badge = "✅ ANGENOMMEN"; bgColor = Color.parseColor("#10B981"); break;
+                    case "on_way":      badge = "🚗 UNTERWEGS"; bgColor = Color.parseColor("#F59E0B"); break;
+                    case "arrived":     badge = "📍 BIN DA"; bgColor = Color.parseColor("#3B82F6"); break;
+                    case "picked_up":   badge = "🎉 ABGEHOLT"; bgColor = Color.parseColor("#10B981"); break;
+                    default:            badge = s.toUpperCase(); bgColor = Color.parseColor("#64748B");
                 }
                 tvBadge.setText(badge);
                 tvBadge.setBackgroundColor(bgColor);
-                // Accept/Reject nur bei new/assigned/sofort/vorbestellt
-                boolean canAct = s.equals("new") || s.equals("assigned") || s.equals("sofort") || s.equals("vorbestellt");
-                actionRow.setVisibility(canAct ? View.VISIBLE : View.GONE);
-                btnAccept.setOnClickListener(v -> updateStatus(r.id, "accepted"));
-                btnReject.setOnClickListener(v -> rejectRide(r.id));
+
+                String stl = s.toLowerCase();
+                boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt");
+                boolean isActive = isActiveStatus(s);
+
+                actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
+                activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
+
+                if (canAcceptReject) {
+                    btnAccept.setOnClickListener(v -> updateStatus(r.id, "accepted"));
+                    btnReject.setOnClickListener(v -> rejectRide(r.id));
+                }
+                if (isActive) {
+                    btnStatusNext.setText(nextStatusLabel(r.status));
+                    btnStatusNext.setOnClickListener(v -> advanceStatus(r));
+                    // Navigation: vor Pickup → pickup-Adresse, ab picked_up → destination
+                    String navAddr = (stl.equals("picked_up") || stl.equals("arrived"))
+                        ? (r.destination != null ? r.destination : r.pickup)
+                        : (r.pickup != null ? r.pickup : r.destination);
+                    btnNavigate.setOnClickListener(v -> startNavigation(navAddr));
+                    btnCall.setOnClickListener(v -> resolvePhoneAndAct(r, phone -> {
+                        if (phone == null) Toast.makeText(DriverDashboardActivity.this, "Keine Telefonnummer hinterlegt", Toast.LENGTH_SHORT).show();
+                        else callPhone(phone);
+                    }));
+                    btnSmsTrack.setOnClickListener(v -> resolvePhoneAndAct(r, phone -> {
+                        if (phone == null) Toast.makeText(DriverDashboardActivity.this, "Keine Telefonnummer für SMS", Toast.LENGTH_SHORT).show();
+                        else sendTrackingSMS(r.id, phone);
+                    }));
+                    btnCancelRide.setOnClickListener(v -> cancelRide(r.id));
+                }
             }
         }
     }
 
     private void updateStatus(String rideId, String newStatus) {
         if (db == null || rideId == null) return;
-        java.util.Map<String, Object> u = new java.util.HashMap<>();
+        Map<String, Object> u = new HashMap<>();
         u.put("status", newStatus);
         u.put("acceptedAt", System.currentTimeMillis());
         u.put("acceptedVia", "native_dashboard");
@@ -365,7 +720,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void rejectRide(String rideId) {
         if (db == null || rideId == null) return;
-        java.util.Map<String, Object> u = new java.util.HashMap<>();
+        Map<String, Object> u = new HashMap<>();
         u.put("vehicleId", null);
         u.put("assignedVehicle", null);
         u.put("vehicle", null);

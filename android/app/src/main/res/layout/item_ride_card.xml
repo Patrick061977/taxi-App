@@ -14,7 +14,6 @@
         android:orientation="vertical"
         android:padding="14dp">
 
-        <!-- Status + Zeit -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -49,7 +48,6 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Kundenname -->
         <TextView
             android:id="@+id/tv_customer_name"
             android:layout_width="match_parent"
@@ -60,7 +58,6 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <!-- Adressen -->
         <TextView
             android:id="@+id/tv_pickup"
             android:layout_width="match_parent"
@@ -79,7 +76,6 @@
             android:textColor="#CBD5E1"
             android:textSize="13sp" />
 
-        <!-- Preis + Distanz -->
         <TextView
             android:id="@+id/tv_price_distance"
             android:layout_width="match_parent"
@@ -89,13 +85,14 @@
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
-        <!-- Action-Buttons -->
+        <!-- Annehmen/Ablehnen — bei NEU/ZUGEWIESEN/SOFORT/VORBESTELLT -->
         <LinearLayout
             android:id="@+id/action_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:visibility="gone">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_reject"
@@ -118,6 +115,87 @@
                 android:textColor="#FFFFFF"
                 app:backgroundTint="#10B981"
                 app:cornerRadius="10dp" />
+        </LinearLayout>
+
+        <!-- v6.43.0: Aktive-Fahrt-Toolbar — bei accepted/on_way/arrived/picked_up -->
+        <LinearLayout
+            android:id="@+id/active_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_navigate"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="🧭"
+                    android:textSize="18sp"
+                    app:backgroundTint="#3B82F6"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_call"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="📞"
+                    android:textSize="18sp"
+                    app:backgroundTint="#10B981"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_sms_track"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="💬"
+                    android:textSize="18sp"
+                    app:backgroundTint="#F59E0B"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_status_next"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="3"
+                    android:text="▶ Bin unterwegs"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    app:backgroundTint="#10B981"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_cancel_ride"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="✗"
+                    android:textColor="#F8FAFC"
+                    android:textSize="16sp"
+                    app:backgroundTint="#EF4444"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

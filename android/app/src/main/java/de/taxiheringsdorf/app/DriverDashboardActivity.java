@@ -49,7 +49,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static final String TRACKING_BASE = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=";
 
     private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
-    private MaterialButton btnShiftToggle, btnOnlineToggle, btnEinsteiger;
+    private MaterialButton btnShiftToggle, btnOnlineToggle, btnEinsteiger, btnCallLog;
     private LinearLayout shiftStatsRow;
     private RecyclerView rvRides;
     private LinearLayout emptyState;
@@ -104,6 +104,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnShiftToggle = findViewById(R.id.btn_shift_toggle);
         btnOnlineToggle = findViewById(R.id.btn_online_toggle);
         btnEinsteiger = findViewById(R.id.btn_einsteiger);
+        btnCallLog = findViewById(R.id.btn_call_log);
         shiftStatsRow = findViewById(R.id.shift_stats_row);
         rvRides = findViewById(R.id.rv_rides);
         emptyState = findViewById(R.id.empty_state);
@@ -132,6 +133,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         btnShiftToggle.setOnClickListener(v -> toggleShift());
         btnOnlineToggle.setOnClickListener(v -> toggleOnline());
         btnEinsteiger.setOnClickListener(v -> showEinsteigerDialog());
+        btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
         ExtendedFloatingActionButton fab = findViewById(R.id.fab_open_webview);
         fab.setOnClickListener(v -> openWebView());
     }

@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,6 +27,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -86,6 +88,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
             timerHandler.postDelayed(this, 1000);
         }
     };
+    // v6.50.1: Vehicle-Lock — Heartbeat alle 60s in /vehicles/{vid}/activeDevice/lastHeartbeat
+    // damit andere Handys sehen dass dieses Fahrzeug aktiv ist. Ohne Heartbeat ist der
+    // Lock nach 5 Min veraltet (siehe VehiclePickerActivity.STALE_LOCK_MS).
+    private static final long LOCK_HEARTBEAT_MS = 60 * 1000L;
+    private final Handler lockHandler = new Handler(Looper.getMainLooper());
+    private boolean lockStolenDialogShown = false;
+    private final Runnable lockHeartbeatTick = new Runnable() {
+        @Override
+        public void run() {
+            sendLockHeartbeat();
+            lockHandler.postDelayed(this, LOCK_HEARTBEAT_MS);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,6 +158,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         // v6.50.0: Update-Check beim Start
         new Thread(this::checkForUpdate).start();
+
+        // v6.50.1: Lock direkt setzen (falls Activity ohne VehiclePicker geöffnet wird —
+        // z.B. nach App-Restart) und Heartbeat-Loop starten
+        sendLockHeartbeat();
+        lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
     }
 
     private void connectFirebase() {
@@ -188,6 +208,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void onVehicleUpdate(DataSnapshot s) {
+        // v6.50.1: Lock-Stolen-Check — wenn anderes Handy denselben vehicleId übernommen hat,
+        // beende diese Schicht & schick zurück zum VehiclePicker
+        DataSnapshot dev = s.child("activeDevice");
+        if (dev.exists() && !lockStolenDialogShown) {
+            String lockUid = dev.child("uid").getValue(String.class);
+            FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+            String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
+            if (lockUid != null && !lockUid.equals(myUid)) {
+                String otherLabel = dev.child("label").getValue(String.class);
+                lockStolenDialogShown = true;
+                runOnUiThread(() -> showLockStolenDialog(otherLabel));
+                return;
+            }
+        }
+
         Object shiftObj = s.child("shift").getValue();
         Object onlineObj = s.child("online").getValue();
         String status = "?";
@@ -371,11 +406,70 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void doLogout() {
+        clearVehicleLock();
         try { FirebaseAuth.getInstance().signOut(); } catch (Throwable _t) {}
         getSharedPreferences("driver", MODE_PRIVATE).edit().clear().apply();
         // FCM-Token NICHT löschen — bleibt für Push-Empfang nach Re-Login
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    // v6.50.1: Lock-Heartbeat — schreibt nur lastHeartbeat. uid/label bleiben wie gesetzt
+    // beim Picker (oder falls Lock fremd ist → ignoriere via Stolen-Check oben).
+    private void sendLockHeartbeat() {
+        if (db == null || currentVehicleId == null) {
+            try {
+                db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
+            } catch (Throwable _t) { return; }
+        }
+        if (currentVehicleId == null) return;
+        FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+        String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
+        String myLabel = VehiclePickerActivity.buildDeviceLabel(fu);
+        Map<String, Object> u = new HashMap<>();
+        u.put("uid", myUid);
+        u.put("label", myLabel);
+        u.put("lastHeartbeat", com.google.firebase.database.ServerValue.TIMESTAMP);
+        // claimedAt nicht überschreiben — bleibt vom Picker
+        db.getReference("vehicles/" + currentVehicleId + "/activeDevice").updateChildren(u);
+    }
+
+    // v6.50.1: Lock löschen beim Logout — andere Handys können dann sofort übernehmen
+    private void clearVehicleLock() {
+        if (db == null || currentVehicleId == null) return;
+        FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+        String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
+        // Nur löschen wenn der Lock noch uns gehört — sonst tippte schon jemand übernommen
+        db.getReference("vehicles/" + currentVehicleId + "/activeDevice")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    String currentUid = s.child("uid").getValue(String.class);
+                    if (currentUid == null || currentUid.equals(myUid)) {
+                        s.getRef().removeValue();
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {}
+            });
+    }
+
+    // v6.50.1: Wenn fremdes Handy übernommen hat → Modal-Dialog, nicht-abbrechbar.
+    // Nach OK → zurück zum LoginActivity, Schicht ist beendet auf diesem Gerät.
+    private void showLockStolenDialog(String otherLabel) {
+        try { lockHandler.removeCallbacks(lockHeartbeatTick); } catch (Throwable _t) {}
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⚠️ Schicht übernommen")
+            .setMessage("Das Fahrzeug wird jetzt auf einem anderen Gerät genutzt:\n" +
+                (otherLabel != null ? otherLabel : "anderes Handy") +
+                "\n\nDieses Handy wird abgemeldet.")
+            .setCancelable(false)
+            .setPositiveButton("OK", (d, _w) -> {
+                // KEIN clearVehicleLock — der neue Besitzer soll seinen Lock behalten
+                try { FirebaseAuth.getInstance().signOut(); } catch (Throwable _t) {}
+                getSharedPreferences("driver", MODE_PRIVATE).edit().clear().apply();
+                startActivity(new Intent(this, LoginActivity.class));
+                finish();
+            })
+            .show();
     }
 
     private void updateShiftTimer() {
@@ -956,6 +1050,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         timerHandler.removeCallbacks(timerTick);
+        // v6.50.1: Heartbeat-Loop stoppen, Lock NICHT automatisch löschen — wenn die App
+        // nur kurz geschlossen wird, soll der Lock nach STALE_LOCK_MS (5 Min) auslaufen.
+        // Beim expliziten Logout/Lock-Stolen wird der Lock anders gehandhabt.
+        try { lockHandler.removeCallbacks(lockHeartbeatTick); } catch (Throwable _t) {}
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);

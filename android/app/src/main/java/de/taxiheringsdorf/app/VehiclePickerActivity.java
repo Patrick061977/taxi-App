@@ -3,6 +3,7 @@ package de.taxiheringsdorf.app;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,6 +13,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -22,12 +24,19 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // v6.45.0: Fahrzeug-Auswahl nach Login. Zeigt alle aktiven Fahrzeuge aus /vehicles,
 // User wählt → SharedPreferences gesetzt + DriverDashboardActivity öffnen.
+// v6.50.1: Vehicle-Locking — /vehicles/{vid}/activeDevice. Pro Fahrzeug nur 1 Handy
+// gleichzeitig. Bei Übernahme von fremdem Handy → Confirm-Dialog. Lock veraltet
+// nach STALE_LOCK_MS ohne Heartbeat (Dashboard sendet alle 60s).
 public class VehiclePickerActivity extends AppCompatActivity {
     private static final String DB_INSTANCE_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
+    // v6.50.1: nach 5 Min ohne Heartbeat ist der Lock tot
+    private static final long STALE_LOCK_MS = 5 * 60 * 1000L;
 
     private RecyclerView rv;
     private ProgressBar progress;
@@ -89,6 +98,32 @@ public class VehiclePickerActivity extends AppCompatActivity {
             });
     }
 
+    // v6.50.1: Tap-Handler — prüft activeDevice und entscheidet ob direkt oder Confirm
+    private void onVehicleTap(Vehicle v) {
+        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+        String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
+        long now = System.currentTimeMillis();
+        boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
+        boolean lockedByOther = v.lockedByUid != null && !v.lockedByUid.equals(myUid) && !lockStale;
+
+        if (lockedByOther) {
+            String when = v.lockHeartbeat != null
+                ? android.text.format.DateUtils.getRelativeTimeSpanString(
+                    v.lockHeartbeat, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
+                : "unbekannt";
+            String label = v.lockedByLabel != null ? v.lockedByLabel : "anderes Gerät";
+            new AlertDialog.Builder(this)
+                .setTitle("🔒 Fahrzeug in Nutzung")
+                .setMessage(v.name + "\n\nGerade aktiv auf: " + label + "\nLetzter Heartbeat: " + when + "\n\nÜbernehmen? Das andere Handy verliert die Schicht.")
+                .setPositiveButton("Übernehmen", (d, _w) -> selectVehicle(v))
+                .setNegativeButton("Abbrechen", null)
+                .show();
+            return;
+        }
+        // Eigener Lock oder veraltet oder kein Lock → direkt
+        selectVehicle(v);
+    }
+
     private void selectVehicle(Vehicle v) {
         SharedPreferences.Editor e1 = getSharedPreferences("driver", MODE_PRIVATE).edit();
         e1.putString("vehicleId", v.id);
@@ -105,9 +140,31 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 .getReference("vehicles/" + v.id + "/fcmToken").setValue(token);
         }
 
+        // v6.50.1: Lock setzen — atomar als ein Map-Write
+        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+        String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
+        String myLabel = buildDeviceLabel(u);
+        Map<String, Object> lock = new HashMap<>();
+        lock.put("uid", myUid);
+        lock.put("label", myLabel);
+        lock.put("claimedAt", com.google.firebase.database.ServerValue.TIMESTAMP);
+        lock.put("lastHeartbeat", com.google.firebase.database.ServerValue.TIMESTAMP);
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+            .getReference("vehicles/" + v.id + "/activeDevice").setValue(lock);
+
         Toast.makeText(this, "✅ " + (v.name != null ? v.name : v.id) + " gewählt", Toast.LENGTH_SHORT).show();
         startActivity(new Intent(this, DriverDashboardActivity.class));
         finish();
+    }
+
+    // v6.50.1: Device-Label = "Patrick (SM-G780G)" — Auth-Email/Phone + Hardware-Modell
+    static String buildDeviceLabel(FirebaseUser u) {
+        String who;
+        if (u != null && u.getEmail() != null) who = u.getEmail();
+        else if (u != null && u.getPhoneNumber() != null) who = u.getPhoneNumber();
+        else who = "Anon";
+        String model = Build.MODEL != null ? Build.MODEL : "?";
+        return who + " (" + model + ")";
     }
 
     static class Vehicle {
@@ -116,6 +173,10 @@ public class VehiclePickerActivity extends AppCompatActivity {
         boolean deactivated;
         String shiftStatus;
         Boolean active;
+        // v6.50.1: Lock-Info
+        String lockedByUid;
+        String lockedByLabel;
+        Long lockHeartbeat;
 
         static Vehicle fromSnap(DataSnapshot s) {
             try {
@@ -131,6 +192,14 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 v.deactivated = (d != null && d) || (a != null && !a);
                 v.active = a;
                 v.shiftStatus = s.child("shift").child("status").getValue(String.class);
+                // v6.50.1: activeDevice
+                DataSnapshot dev = s.child("activeDevice");
+                if (dev.exists()) {
+                    v.lockedByUid = dev.child("uid").getValue(String.class);
+                    v.lockedByLabel = dev.child("label").getValue(String.class);
+                    Object hb = dev.child("lastHeartbeat").getValue();
+                    if (hb instanceof Number) v.lockHeartbeat = ((Number) hb).longValue();
+                }
                 return v;
             } catch (Throwable _t) { return null; }
         }
@@ -154,9 +223,19 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 tvStatus = v.findViewById(R.id.tv_vehicle_status);
             }
             void bind(Vehicle v) {
-                tvName.setText(v.name != null ? v.name : v.id);
+                FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+                String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
+                long now = System.currentTimeMillis();
+                boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
+                boolean lockedByOther = v.lockedByUid != null && !v.lockedByUid.equals(myUid) && !lockStale;
+
+                String prefix = lockedByOther ? "🔒 " : "";
+                tvName.setText(prefix + (v.name != null ? v.name : v.id));
                 String meta = v.id;
                 if (v.capacity != null) meta += " · " + v.capacity + " Pax";
+                if (lockedByOther && v.lockedByLabel != null) {
+                    meta += "\nIn Nutzung: " + v.lockedByLabel;
+                }
                 tvMeta.setText(meta);
                 String st = v.shiftStatus != null ? v.shiftStatus : "frei";
                 tvStatus.setText(st);
@@ -168,7 +247,7 @@ public class VehiclePickerActivity extends AppCompatActivity {
                     default:           color = Color.parseColor("#475569");
                 }
                 tvStatus.setBackgroundColor(color);
-                itemView.setOnClickListener(_v -> selectVehicle(v));
+                itemView.setOnClickListener(_v -> onVehicleTap(v));
             }
         }
     }

@@ -76,6 +76,14 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.57.0: CrmSearchActivity — direkter CRM-Zugriff ohne Anrufliste-Umweg -->
+        <activity
+            android:name=".CrmSearchActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

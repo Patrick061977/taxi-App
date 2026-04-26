@@ -10794,6 +10794,22 @@ async function handleCallback(callback) {
             }
 
             // 🔧 v6.38.34: PFLICHT — Route MUSS berechnet sein! Keine Fahrt ohne Routendaten!
+            // 🆕 v6.47.4: Last-Minute-Geocoding wenn Koordinaten fehlen (z.B. KI hat Adresse erkannt
+            // aber Adress-Confirmation-Flow für Zielort wurde übersprungen). Patrick erlebte 09:33
+            // 'Zielort ohne Koordinaten' obwohl Bahnhof Heringsdorf erkennbar war.
+            if (booking.pickup && !booking.pickupLat) {
+                try {
+                    const _g = await geocode(booking.pickup);
+                    if (_g && _g.lat) { booking.pickupLat = _g.lat; booking.pickupLon = _g.lon; }
+                } catch (e) { console.warn('Last-min pickup-geocode fail:', e.message); }
+            }
+            if (booking.destination && !booking.destinationLat) {
+                try {
+                    const _g = await geocode(booking.destination);
+                    if (_g && _g.lat) { booking.destinationLat = _g.lat; booking.destinationLon = _g.lon; }
+                } catch (e) { console.warn('Last-min destination-geocode fail:', e.message); }
+            }
+
             let telegramRoutePrice = pending.routePrice || null;
             if (!telegramRoutePrice && booking.pickupLat && booking.destinationLat) {
                 try { telegramRoutePrice = await calculateTelegramRoutePrice(booking); } catch (e) {

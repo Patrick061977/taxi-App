@@ -13,7 +13,7 @@
     "rides": {
       ".read": true,
       ".write": "auth != null",
-      ".indexOn": ["pickupTimestamp", "status"]
+      ".indexOn": ["pickupTimestamp", "status", "vehicleId", "completedAt", "createdAt"]
     },
 
     "drivers": {

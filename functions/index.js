@@ -18990,7 +18990,8 @@ exports.onRideDeleted = onValueDeleted(
 // ═══════════════════════════════════════════════════════════════
 exports.scheduledOpenRideCheck = onSchedule(
     {
-        schedule: 'every 1 minutes',
+        // v6.47.1: 1 → 2 Min — halbiert Cloud-Function-Aufrufe ohne Funktions-Verlust
+        schedule: 'every 2 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
@@ -19214,7 +19215,8 @@ exports.onVehicleOnline = onValueUpdated(
 
 exports.scheduledShiftHeartbeatCheck = onSchedule(
     {
-        schedule: 'every 1 minutes',
+        // v6.47.1: 1 → 2 Min — Heartbeat-Timeout ist 10 Min, 2-Min-Intervall reicht völlig
+        schedule: 'every 2 minutes',
         region: 'europe-west1',
         timeoutSeconds: 60,
         memory: '256MiB'
@@ -19466,8 +19468,10 @@ exports.shiftHeartbeatPing = onRequest(
             await db.ref().update(updates);
 
             // Fire-and-forget: History auf letzte 2 Stunden beschneiden (verhindert unbegrenztes Wachstum)
+            // v6.47.1: 2h → 30 Min — gpsHealth-History soll Diagnose, kein Langzeit-Archiv sein.
+            // Spart Storage + Realtime-DB-Bandwidth (jeder Heartbeat fragt komplette History ab).
             db.ref('gpsHealth/' + vehicleId + '/history')
-                .orderByKey().endAt(String(now - 2 * 60 * 60 * 1000)).once('value')
+                .orderByKey().endAt(String(now - 30 * 60 * 1000)).once('value')
                 .then(snap => {
                     if (!snap.exists()) return;
                     const del = {};

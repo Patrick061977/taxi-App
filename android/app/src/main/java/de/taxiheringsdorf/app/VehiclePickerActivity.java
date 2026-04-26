@@ -71,20 +71,11 @@ public class VehiclePickerActivity extends AppCompatActivity {
         if (u != null) {
             String label = u.getEmail() != null ? u.getEmail() : (u.getPhoneNumber() != null ? u.getPhoneNumber() : "Nutzer " + u.getUid());
             tvLoggedInAs.setText("Angemeldet als " + label);
-            // v6.51.0/2: Admin-Button sichtbar für Admin-Emails ODER Admin-Phones
-            boolean isAdmin = false;
-            if (u.getEmail() != null) {
-                String email = u.getEmail().toLowerCase();
-                for (String adm : ADMIN_EMAILS) {
-                    if (adm.equalsIgnoreCase(email)) { isAdmin = true; break; }
-                }
-            }
-            if (!isAdmin && u.getPhoneNumber() != null) {
-                for (String adm : ADMIN_PHONES) {
-                    if (adm.equals(u.getPhoneNumber())) { isAdmin = true; break; }
-                }
-            }
-            if (isAdmin) {
+            // v6.51.0/2/v6.56.0: Admin-Button sichtbar wenn /users/{uid}/role==='admin'
+            // ODER Legacy-Email/Phone-Whitelist (Fallback solange Web noch nicht alle Rollen vergeben hat).
+            // Rolle wird beim Login + Picker-Open async aus Firebase gezogen, hier nutzen wir den Cache.
+            PermissionsHelper.loadRoleAsync(this); // refresh cache
+            if (PermissionsHelper.isAdmin(this)) {
                 btnAdminMode.setVisibility(View.VISIBLE);
                 btnAdminMode.setOnClickListener(_v -> {
                     startActivity(new Intent(this, AdminDashboardActivity.class));

@@ -5241,6 +5241,31 @@ Nur gültiges JSON, kein Markdown:
         if (!booking.destination && !booking.missing.includes('destination')) booking.missing.push('destination');
         if (!booking.datetime && !booking.missing.includes('datetime')) booking.missing.push('datetime');
 
+        // 🆕 v6.47.6: Hotel/Auftraggeber-Anrufer → PICKUP IMMER aus CRM-Adresse setzen.
+        // Patrick-Vorgabe: 'Strandvillen ruft an, Gast wird vom Hotel abgeholt' = 95% Standard.
+        // Vermeidet Whisper-Hörfehler in Audio (z.B. 'Strandvillen' → 'Strandwellen').
+        // Wenn Patrick es anders will (Gast woanders abholen) → er kann es manuell ändern.
+        // 🔧 Override greift NUR bei Auto-Transkripten (isAudioTranscript=true) — nicht bei
+        //    manuellem Text-Input wo Patrick bewusst was anderes geschrieben hat.
+        if (options.isAudioTranscript && preselected && preselected.address) {
+            const _isAuftraggeberPreselect = isAuftraggeber(preselected.customerKind, preselected.type);
+            if (_isAuftraggeberPreselect) {
+                const _crmAddr = preselected.address;
+                const _crmLat = preselected.addressLat || preselected.lat;
+                const _crmLon = preselected.addressLon || preselected.lon;
+                if (_crmLat && _crmLon) {
+                    if (booking.pickup && booking.pickup !== _crmAddr) {
+                        await addTelegramLog('🔄', chatId, `Hotel-Anrufer Override: KI-Pickup '${booking.pickup}' → CRM-Adresse '${_crmAddr}'`);
+                    }
+                    booking.pickup = _crmAddr;
+                    booking.pickupLat = _crmLat;
+                    booking.pickupLon = _crmLon;
+                    booking._pickupConfirmedByCRM = true;
+                    booking.missing = booking.missing.filter(f => f !== 'pickup');
+                }
+            }
+        }
+
         // 🆕 v6.38.20: Stammkunden Auto-Fill — wenn genau Pickup ODER Destination fehlt,
         // Kundenadresse automatisch für das fehlende Feld einsetzen.
         // Beispiel: Ostseeblick ruft an, sagt "Abholen am Bahnhof 16:25" → Ziel = Ostseeblick-Adresse

@@ -215,11 +215,11 @@ public class CallLogActivity extends AppCompatActivity {
         }).start();
     }
 
-    // v6.51.0: Admin-Modus — Patrick auf S9+ ohne Fahrzeug. EINSTEIGER macht keinen Sinn
-    // (Admin sitzt nicht im Auto), nur Vorbestellung. Erkennung via SharedPref-Flag,
-    // gesetzt von AdminDashboardActivity.
+    // v6.51.0/v6.56.0: Admin-Modus — entweder explizit (AdminDashboardActivity hat
+    // SharedPref 'isAdminMode'=true gesetzt) ODER User hat Rolle 'admin' aus Firebase.
     private boolean isAdminMode() {
-        return getSharedPreferences("admin", MODE_PRIVATE).getBoolean("isAdminMode", false);
+        if (getSharedPreferences("admin", MODE_PRIVATE).getBoolean("isAdminMode", false)) return true;
+        return PermissionsHelper.isAdmin(this);
     }
 
     private void showActionDialog(CallEntry e) {

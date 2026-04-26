@@ -10794,19 +10794,26 @@ async function handleCallback(callback) {
             }
 
             // 🔧 v6.38.34: PFLICHT — Route MUSS berechnet sein! Keine Fahrt ohne Routendaten!
-            // 🆕 v6.47.4: Last-Minute-Geocoding wenn Koordinaten fehlen (z.B. KI hat Adresse erkannt
-            // aber Adress-Confirmation-Flow für Zielort wurde übersprungen). Patrick erlebte 09:33
-            // 'Zielort ohne Koordinaten' obwohl Bahnhof Heringsdorf erkennbar war.
+            // 🆕 v6.47.4 / v6.47.5: Last-Minute-Geocoding wenn Koordinaten fehlen (z.B. KI hat
+            // Adresse erkannt aber Adress-Confirmation-Flow für Zielort wurde übersprungen).
+            // Nutzt searchNominatimForTelegram weil das BEIDES versucht (Google Places + Nominatim),
+            // statt nur geocode() (= reines Nominatim).
             if (booking.pickup && !booking.pickupLat) {
                 try {
-                    const _g = await geocode(booking.pickup);
-                    if (_g && _g.lat) { booking.pickupLat = _g.lat; booking.pickupLon = _g.lon; }
+                    const _hits = await searchNominatimForTelegram(booking.pickup);
+                    if (_hits && _hits[0] && _hits[0].lat) {
+                        booking.pickupLat = _hits[0].lat; booking.pickupLon = _hits[0].lon;
+                        console.log(`[Last-Min Geocode] pickup '${booking.pickup}' → ${_hits[0].lat},${_hits[0].lon} (${_hits[0].source || 'nominatim'})`);
+                    }
                 } catch (e) { console.warn('Last-min pickup-geocode fail:', e.message); }
             }
             if (booking.destination && !booking.destinationLat) {
                 try {
-                    const _g = await geocode(booking.destination);
-                    if (_g && _g.lat) { booking.destinationLat = _g.lat; booking.destinationLon = _g.lon; }
+                    const _hits = await searchNominatimForTelegram(booking.destination);
+                    if (_hits && _hits[0] && _hits[0].lat) {
+                        booking.destinationLat = _hits[0].lat; booking.destinationLon = _hits[0].lon;
+                        console.log(`[Last-Min Geocode] destination '${booking.destination}' → ${_hits[0].lat},${_hits[0].lon} (${_hits[0].source || 'nominatim'})`);
+                    }
                 } catch (e) { console.warn('Last-min destination-geocode fail:', e.message); }
             }
 

@@ -65,6 +65,17 @@ for file in "${APP_FILES[@]}"; do
     fi
 done
 
+# v6.52.4: APP_BUILD-Stempel im DEPLOY-COPY auf JETZT setzen — Patrick: 'das Datum
+# in der Web-App ist veraltet'. Bisher wurde der Stempel nur manuell beim Commit
+# gesetzt und oft vergessen. Jetzt überschreibt der Strato-Deploy ihn automatisch
+# mit der aktuellen Build-Zeit (Berlin/CET). Source-Repo bleibt unverändert.
+if [ -f "$OUTPUT_DIR/Taxi-App/index.html" ]; then
+    BUILD_TS=$(TZ="Europe/Berlin" date +"%d.%m.%Y %H:%M")
+    sed -i.bak "s/const APP_BUILD = '[^']*'/const APP_BUILD = '$BUILD_TS'/" "$OUTPUT_DIR/Taxi-App/index.html"
+    rm -f "$OUTPUT_DIR/Taxi-App/index.html.bak"
+    echo "   -> APP_BUILD-Stempel auf '$BUILD_TS' gesetzt"
+fi
+
 # 5. Zusammenfassung
 echo ""
 echo "=========================================="

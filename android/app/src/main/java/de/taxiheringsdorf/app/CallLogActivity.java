@@ -185,59 +185,74 @@ public class CallLogActivity extends AppCompatActivity {
     private void createEinsteigerCrm(CallEntry e, CrmCustomer crm) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
-        DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
-        long now = System.currentTimeMillis();
-        Map<String, Object> r = new HashMap<>();
-        r.put("customerName", crm.name);
-        r.put("customerId", crm.id);
-        r.put("customerPhone", e.number);
-        r.put("customerMobile", crm.mobilePhone != null ? crm.mobilePhone : e.number);
-        r.put("vehicleId", vehicleId);
-        r.put("status", "picked_up");
-        r.put("pickup", crm.address != null ? crm.address : "Standort Fahrer");
-        if (crm.lat != null) { r.put("pickupLat", crm.lat); r.put("pickupLon", crm.lon); }
-        r.put("destination", "");
-        r.put("pickupTimestamp", now);
-        r.put("createdAt", now);
-        r.put("updatedAt", now);
-        r.put("acceptedAt", now);
-        r.put("acceptedVia", "native_einsteiger_calllog_crm");
-        r.put("source", "native_einsteiger_call_crm");
-        r.put("isInsteiger", true);
-        r.put("passengers", 1);
-        ref.setValue(r).addOnSuccessListener(_v -> {
-            Toast.makeText(this, "✅ EINSTEIGER angelegt: " + crm.name, Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(this, DriverDashboardActivity.class));
-            finish();
-        }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+        // v6.49.1: Bestätigungs-Dialog VOR Anlage — Patrick hat zu schnellen Tap erlebt
+        new AlertDialog.Builder(this)
+            .setTitle("🚖 EINSTEIGER anlegen?")
+            .setMessage("Kunde: " + crm.name + "\n📍 Pickup: " + (crm.address != null ? crm.address : "Standort Fahrer") + "\n📞 " + e.number + "\n\nFahrt wird sofort als 'abgeholt' eingetragen.")
+            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
+                DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", crm.name);
+                r.put("customerId", crm.id);
+                r.put("customerPhone", e.number);
+                r.put("customerMobile", crm.mobilePhone != null ? crm.mobilePhone : e.number);
+                r.put("vehicleId", vehicleId);
+                r.put("status", "picked_up");
+                r.put("pickup", crm.address != null ? crm.address : "Standort Fahrer");
+                if (crm.lat != null) { r.put("pickupLat", crm.lat); r.put("pickupLon", crm.lon); }
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("acceptedVia", "native_einsteiger_calllog_crm");
+                r.put("source", "native_einsteiger_call_crm");
+                r.put("isInsteiger", true);
+                r.put("passengers", 1);
+                ref.setValue(r).addOnSuccessListener(_v -> {
+                    Toast.makeText(this, "✅ EINSTEIGER angelegt: " + crm.name, Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, DriverDashboardActivity.class));
+                    finish();
+                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
     }
 
     private void createEinsteigerWithPhone(CallEntry e) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
-        DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
-        long now = System.currentTimeMillis();
-        Map<String, Object> r = new HashMap<>();
-        r.put("customerName", e.name != null && !e.name.isEmpty() ? e.name : "Einsteiger");
-        r.put("customerPhone", e.number);
-        r.put("customerMobile", e.number);
-        r.put("vehicleId", vehicleId);
-        r.put("status", "picked_up");
-        r.put("pickup", "Standort Fahrer");
-        r.put("destination", "");
-        r.put("pickupTimestamp", now);
-        r.put("createdAt", now);
-        r.put("updatedAt", now);
-        r.put("acceptedAt", now);
-        r.put("acceptedVia", "native_einsteiger_calllog");
-        r.put("source", "native_einsteiger_call");
-        r.put("isInsteiger", true);
-        r.put("passengers", 1);
-        ref.setValue(r).addOnSuccessListener(_v -> {
-            Toast.makeText(this, "✅ EINSTEIGER angelegt mit " + e.number, Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(this, DriverDashboardActivity.class));
-            finish();
-        }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+        // v6.49.1: Bestätigungs-Dialog VOR Anlage
+        String label = e.name != null && !e.name.isEmpty() ? e.name : "Einsteiger";
+        new AlertDialog.Builder(this)
+            .setTitle("🚖 EINSTEIGER anlegen?")
+            .setMessage("Kunde: " + label + "\n📞 " + e.number + "\n\nFahrt wird sofort als 'abgeholt' eingetragen (ohne CRM-Adresse).")
+            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
+                DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", label);
+                r.put("customerPhone", e.number);
+                r.put("customerMobile", e.number);
+                r.put("vehicleId", vehicleId);
+                r.put("status", "picked_up");
+                r.put("pickup", "Standort Fahrer");
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("acceptedVia", "native_einsteiger_calllog");
+                r.put("source", "native_einsteiger_call");
+                r.put("isInsteiger", true);
+                r.put("passengers", 1);
+                ref.setValue(r).addOnSuccessListener(_v -> {
+                    Toast.makeText(this, "✅ EINSTEIGER angelegt mit " + e.number, Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, DriverDashboardActivity.class));
+                    finish();
+                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
     }
 
     private void showCrmCreateDialog(CallEntry e) {

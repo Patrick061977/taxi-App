@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- v6.51.1: Version-Anzeige als 1. Menü-Eintrag (deaktiviert, nur Info) -->
+    <item android:id="@+id/menu_version" android:title="📱 Version" android:enabled="false" />
     <item android:id="@+id/menu_shift_toggle" android:title="▶ Schicht starten" />
     <item android:id="@+id/menu_online_toggle" android:title="🟢 Online / ⏸ Pause" />
     <item android:id="@+id/menu_stats" android:title="📊 Statistik" />

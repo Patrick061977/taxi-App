@@ -149,7 +149,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
             return;
         }
         String vehicleName = prefs.getString("vehicleName", null);
-        tvVehicleInfo.setText(vehicleName != null ? vehicleName + " (" + currentVehicleId + ")" : "Fahrzeug: " + currentVehicleId);
+        // v6.51.1: Version direkt unter dem Fahrzeug anzeigen — Patrick wollte sehen
+        // welche Version drauf ist ohne in Android-Settings graben zu müssen.
+        String appVer = "?";
+        try { appVer = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (Throwable _t) {}
+        String vText = (vehicleName != null ? vehicleName + " (" + currentVehicleId + ")" : "Fahrzeug: " + currentVehicleId)
+            + " · v" + appVer;
+        tvVehicleInfo.setText(vText);
         connectFirebase();
 
         btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
@@ -270,6 +277,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void showHamburgerMenu(View anchor) {
         PopupMenu p = new PopupMenu(this, anchor);
         p.getMenuInflater().inflate(R.menu.dashboard_menu, p.getMenu());
+
+        // v6.51.1: Version-Eintrag (deaktiviert, nur Anzeige)
+        try {
+            String ver = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            p.getMenu().findItem(R.id.menu_version).setTitle("📱 Version v" + ver);
+        } catch (Throwable _t) {}
 
         // Dynamische Texte je nach Status
         p.getMenu().findItem(R.id.menu_shift_toggle).setTitle(shiftActive ? "⏹ Schicht stoppen" : "▶ Schicht starten");

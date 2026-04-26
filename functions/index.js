@@ -3295,6 +3295,13 @@ async function searchNominatimForTelegram(query) {
         });
 
         allItems.sort((a, b) => {
+            // 🆕 v6.47.9: POI/KNOWN_PLACES priority IMMER zuerst — Patrick erlebte 'Bahnhof
+            // Heringsdorf' wurde zu 'Bahnhof Anklam' geocoded weil USEDOM_BOUNDS Anklam
+            // mit einschließt (53.85/13.70 in 53.75-54.20 / 13.60-14.45). POI-Match
+            // (priority 0) muss IMMER VOR Nominatim-Result kommen, egal welche Bounds.
+            const aPrio = (a.priority !== undefined) ? a.priority : 99;
+            const bPrio = (b.priority !== undefined) ? b.priority : 99;
+            if (aPrio !== bPrio) return aPrio - bPrio;
             const aUsedom = isNearUsedom(parseFloat(a.lat), parseFloat(a.lon)) ? 0 : 1;
             const bUsedom = isNearUsedom(parseFloat(b.lat), parseFloat(b.lon)) ? 0 : 1;
             if (aUsedom !== bUsedom) return aUsedom - bUsedom;

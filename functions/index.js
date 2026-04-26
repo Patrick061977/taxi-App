@@ -19007,8 +19007,10 @@ exports.scheduledOpenRideCheck = onSchedule(
                 const ride = child.val();
                 const rideId = child.key;
 
-                // Nur Fahrten ohne Fahrer prüfen
-                if (ride.status !== 'new' && ride.status !== 'vorbestellt') return;
+                // v6.43.1: 'warteschlange' MUSS auch geprüft werden — sonst gehen Sofortfahrten
+                // bei denen autoAssignRide nichts fand komplett unter (kein Admin-Push, keine
+                // Warnung). Patrick erlebte das mit Marion am 26.04.
+                if (ride.status !== 'new' && ride.status !== 'vorbestellt' && ride.status !== 'warteschlange') return;
                 if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
 
                 // Prüfe ob Abholzeit in <= 10 Minuten

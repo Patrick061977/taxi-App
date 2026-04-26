@@ -61,7 +61,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private DatabaseReference vehicleRef;
     private Query ridesQuery;
     private Query todayCompletedQuery;
-    private DatabaseReference openRidesRef;
+    private Query openRidesQuery;
     private ValueEventListener shiftListener;
     private ValueEventListener ridesListener;
     private ValueEventListener todayCompletedListener;
@@ -161,14 +161,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // gleicher Query — nutzt Cache
             todayCompletedQuery.addValueEventListener(todayCompletedListener);
 
-            // v6.43.1: Listener für unzugewiesene offene Fahrten (warteschlange/new/sofort)
-            // → Fahrer kann sie selbst greifen wenn Auto-Disposition versagt hat.
-            openRidesRef = db.getReference("rides");
+            // v6.47.1: Server-side Filter — nur status='warteschlange' (war vorher .getReference('rides')
+            // mit Client-side-Filter, das hat ALLE rides bei jedem Update gestreamt = ~5MB pro Update,
+            // bei 5 Fahrer-Handys × 100 Updates/Tag = 75GB/Monat = ~75€ unnötige Bandwidth.
+            // Jetzt: nur die warteschlange-Einträge — meistens 0-2 Stück.
+            openRidesQuery = db.getReference("rides").orderByChild("status").equalTo("warteschlange");
             openRidesListener = new ValueEventListener() {
                 @Override public void onDataChange(@NonNull DataSnapshot s) { onOpenRidesUpdate(s); }
                 @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "OpenRides: " + error.getMessage()); }
             };
-            openRidesRef.addValueEventListener(openRidesListener);
+            openRidesQuery.addValueEventListener(openRidesListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -835,7 +837,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
-        if (openRidesRef != null && openRidesListener != null) openRidesRef.removeEventListener(openRidesListener);
+        if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
     }
 
     static class Ride {

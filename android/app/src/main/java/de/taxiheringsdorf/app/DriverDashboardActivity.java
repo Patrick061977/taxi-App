@@ -931,12 +931,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 boolean canAcceptReject = stl.equals("new") || stl.equals("assigned") || stl.equals("sofort") || stl.equals("vorbestellt") || stl.equals("warteschlange");
                 boolean isActive = isActiveStatus(s);
 
+                // v6.47.7: Vergangene vorbestellt/assigned-Aufträge → 'Erledigt'/'Storno' statt
+                // 'Annehmen/Ablehnen'. Patrick erlebte: Hartmann 8:50 vorbei, konnte nicht abrechnen.
+                long nowMs = System.currentTimeMillis();
+                boolean isPast = canAcceptReject && r.pickupTimestamp != null && r.pickupTimestamp < nowMs - 5L * 60L * 1000L;
+
                 actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
                 if (canAcceptReject) {
-                    btnAccept.setOnClickListener(v -> acceptRide(r.id));
-                    btnReject.setOnClickListener(v -> rejectRide(r.id));
+                    if (isPast) {
+                        btnReject.setText("✗ Storno");
+                        btnAccept.setText("✓ Erledigt");
+                        btnReject.setOnClickListener(v -> cancelRide(r.id));
+                        btnAccept.setOnClickListener(v -> showPaymentDialog(r));
+                    } else {
+                        btnReject.setText("❌ Ablehnen");
+                        btnAccept.setText("✅ Annehmen");
+                        btnReject.setOnClickListener(v -> rejectRide(r.id));
+                        btnAccept.setOnClickListener(v -> acceptRide(r.id));
+                    }
                 }
                 if (isActive) {
                     btnStatusNext.setText(nextStatusLabel(r.status));

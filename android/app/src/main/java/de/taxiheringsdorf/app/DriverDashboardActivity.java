@@ -215,8 +215,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void onVehicleUpdate(DataSnapshot s) {
-        // v6.50.1: Lock-Stolen-Check — wenn anderes Handy denselben vehicleId übernommen hat,
-        // beende diese Schicht & schick zurück zum VehiclePicker
+        // v6.50.1/v6.51.3: Lock-Stolen-Check — Patrick hat berichtet dass er sich gegenseitig
+        // ausloggt weil seine 2 Geräte verschiedene Firebase-UIDs haben (Email-Login vs
+        // Phone-Login = 2 separate Auth-Identities für dieselbe Person). Bis Account-Linking
+        // in v6.52 steht, KEIN auto-Logout mehr — nur ein leichter Toast-Hinweis. Lock-Daten
+        // bleiben erhalten + werden im VehiclePicker angezeigt, aber keine Erzwingung.
         DataSnapshot dev = s.child("activeDevice");
         if (dev.exists() && !lockStolenDialogShown) {
             String lockUid = dev.child("uid").getValue(String.class);
@@ -225,8 +228,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (lockUid != null && !lockUid.equals(myUid)) {
                 String otherLabel = dev.child("label").getValue(String.class);
                 lockStolenDialogShown = true;
-                runOnUiThread(() -> showLockStolenDialog(otherLabel));
-                return;
+                runOnUiThread(() -> Toast.makeText(this,
+                    "⚠️ Tesla auch aktiv auf " + (otherLabel != null ? otherLabel : "anderem Gerät"),
+                    Toast.LENGTH_LONG).show());
+                // KEIN return — wir bleiben drauf
             }
         }
 

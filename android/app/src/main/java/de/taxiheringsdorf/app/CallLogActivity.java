@@ -26,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.libraries.places.api.Places;
@@ -136,6 +137,35 @@ public class CallLogActivity extends AppCompatActivity {
         adapter = new CallAdapter();
         rv.setAdapter(adapter);
 
+        // v6.58.0: Swipe-zum-Verstecken für Anrufliste — Patrick: 'Liste übersichtlicher,
+        // alte Anrufe rausswipen'. Eintrag wird LOKAL versteckt (SharedPrefs), Android-System-
+        // Anrufverlauf bleibt unverändert. Snackbar mit Rückgängig falls aus Versehen.
+        ItemTouchHelper.SimpleCallback swipe = new ItemTouchHelper.SimpleCallback(0,
+                ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView rv, @NonNull RecyclerView.ViewHolder vh1, @NonNull RecyclerView.ViewHolder vh2) {
+                return false;
+            }
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int direction) {
+                int pos = vh.getAdapterPosition();
+                if (pos < 0 || pos >= adapter.data.size()) return;
+                CallEntry removed = adapter.data.remove(pos);
+                adapter.notifyItemRemoved(pos);
+                addHiddenNumber(removed.number);
+                // Snackbar mit Rückgängig
+                com.google.android.material.snackbar.Snackbar
+                    .make(rv, "🗑 Anruf versteckt", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                    .setAction("Rückgängig", v -> {
+                        removeHiddenNumber(removed.number);
+                        adapter.data.add(pos, removed);
+                        adapter.notifyItemInserted(pos);
+                    })
+                    .show();
+            }
+        };
+        new ItemTouchHelper(swipe).attachToRecyclerView(rv);
+
         // CRM-Cache parallel laden
         loadCrmCache();
 
@@ -187,6 +217,7 @@ public class CallLogActivity extends AppCompatActivity {
 
     private void loadCalls() {
         progress.setVisibility(View.VISIBLE);
+        java.util.Set<String> hidden = getHiddenNumbers();
         new Thread(() -> {
             List<CallEntry> result = new ArrayList<>();
             try {
@@ -200,7 +231,10 @@ public class CallLogActivity extends AppCompatActivity {
                         e.date = c.getLong(2);
                         e.type = c.getInt(3);
                         e.durationSec = c.getLong(4);
-                        if (e.number != null && !e.number.isEmpty()) result.add(e);
+                        if (e.number == null || e.number.isEmpty()) continue;
+                        // v6.58.0: hidden-Filter
+                        if (hidden.contains(normalizePhone(e.number))) continue;
+                        result.add(e);
                     }
                     c.close();
                 }
@@ -210,9 +244,34 @@ public class CallLogActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 progress.setVisibility(View.GONE);
                 adapter.set(result);
-                if (result.isEmpty()) Toast.makeText(this, "Keine Anrufe gefunden", Toast.LENGTH_SHORT).show();
+                if (result.isEmpty()) Toast.makeText(this, "Keine Anrufe gefunden (oder alle versteckt)", Toast.LENGTH_SHORT).show();
             });
         }).start();
+    }
+
+    // v6.58.0: SharedPrefs-basiertes Hidden-Set für ausgeswipete Anrufe.
+    // Bleibt lokal pro Gerät (kein Firebase) — schneller, offline-tauglich.
+    private static final String PREFS_HIDDEN = "callLogHidden";
+    private static final String KEY_HIDDEN = "numbers";
+
+    private java.util.Set<String> getHiddenNumbers() {
+        java.util.Set<String> empty = new java.util.HashSet<>();
+        java.util.Set<String> stored = getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).getStringSet(KEY_HIDDEN, empty);
+        return new java.util.HashSet<>(stored);
+    }
+
+    private void addHiddenNumber(String phone) {
+        if (phone == null) return;
+        java.util.Set<String> set = getHiddenNumbers();
+        set.add(normalizePhone(phone));
+        getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN, set).apply();
+    }
+
+    private void removeHiddenNumber(String phone) {
+        if (phone == null) return;
+        java.util.Set<String> set = getHiddenNumbers();
+        set.remove(normalizePhone(phone));
+        getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN, set).apply();
     }
 
     // v6.51.0/v6.56.0: Admin-Modus — entweder explizit (AdminDashboardActivity hat
@@ -651,7 +710,8 @@ public class CallLogActivity extends AppCompatActivity {
     }
 
     class CallAdapter extends RecyclerView.Adapter<CallAdapter.VH> {
-        private List<CallEntry> data = new ArrayList<>();
+        // v6.58.0: package-private damit Swipe-Callback (in onCreate) die Liste manipulieren kann
+        List<CallEntry> data = new ArrayList<>();
         void set(List<CallEntry> e) { data = e; notifyDataSetChanged(); }
         @NonNull @Override
         public VH onCreateViewHolder(@NonNull ViewGroup p, int t) {

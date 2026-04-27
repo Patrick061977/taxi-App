@@ -21111,6 +21111,41 @@ async function validateRideConsistency(rideId, ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// v6.62.14: Claude-Bridge-Send-Helper — HTTP-Endpoint mit Shared-Secret damit
+// ich (Claude in der CLI) direkt Telegram-Nachrichten an Patrick schicken kann.
+// Aufruf: curl -X POST 'URL?key=SECRET' -d '{"message":"...","targetChatId":6229490043}'
+// ═══════════════════════════════════════════════════════════════
+exports.claudeBridgeSend = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const message = body.message;
+            const targetChatId = body.targetChatId || 6229490043;
+            if (!message) { res.status(400).json({ error: 'message required' }); return; }
+            const ts = Date.now();
+            await db.ref('claudeBridge/outbox/' + ts).set({
+                message: String(message).slice(0, 4000),
+                targetChatId,
+                via: 'claude',
+                ts,
+                source: 'claudeBridgeSend-v6.62.14'
+            });
+            res.json({ ok: true, ts, targetChatId, length: String(message).length });
+        } catch (err) {
+            console.error('claudeBridgeSend error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.62.10: NOTFALL-RIDE-FIX — Patrick stuck mit Fahrt, Handy schreibt nicht.
 // Aufruf: curl -X POST "URL?key=SECRET" -d '{"rideId":"X","status":"completed"}'
 // Setzt Status + acceptedAt/onWayAt/arrivedAt/pickedUpAt Timestamps + admin-bypass Lock.

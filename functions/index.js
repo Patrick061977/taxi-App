@@ -18812,18 +18812,27 @@ exports.onRideUpdated = onValueUpdated(
                 const _greet = _custFirstName ? _custFirstName + ', ' : '';
                 let _smsBody = null;
                 let _smsType = null;
-                // Warteschlange/Vorbestellt → assigned/accepted: Fahrer wurde gefunden
-                if ((oldStatus === 'warteschlange' || oldStatus === 'vorbestellt' || oldStatus === 'sofort' || oldStatus === 'new') &&
-                    (newStatus === 'assigned' || newStatus === 'accepted')) {
-                    const _eta = after.drivingTimeToPickup ? `Anfahrt ca. ${after.drivingTimeToPickup} Min` : 'Fahrer ist unterwegs';
-                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}wir haben einen Fahrer fuer Sie! ${_vehLabel}, ${_eta}. Live-Tracking: ${_trackingLink}`;
-                    _smsType = 'driver_assigned';
+                // v6.62.47: Patrick: 'Schritt 4 + 5 zusammenlegen'. Bei Sofortfahrten kommen
+                // accepted und on_way binnen Sekunden — zwei SMS sind zu viel. Nur EINE SMS:
+                // - Vorbestellung (>30 Min in Zukunft) → bei accepted ('Fahrer steht bereit')
+                // - Sofortfahrt (<=30 Min) → bei on_way ('Fahrer faehrt jetzt los')
+                const _minsUntil = after.pickupTimestamp ? (after.pickupTimestamp - Date.now()) / 60000 : 0;
+                const _isVorbestPlan = _minsUntil > 30;
+                const _eta = after.drivingTimeToPickup ? `Anfahrt ca. ${after.drivingTimeToPickup} Min` : 'Fahrer ist unterwegs';
+                if (_isVorbestPlan && (newStatus === 'assigned' || newStatus === 'accepted') &&
+                    (oldStatus === 'warteschlange' || oldStatus === 'vorbestellt' || oldStatus === 'sofort' || oldStatus === 'new')) {
+                    // Vorbestellung weit in Zukunft: Fahrer-Bestaetigung
+                    const _pickupBerlin = new Date(new Date(after.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                    const _pickupStr = _pickupBerlin.toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer fuer ${_pickupStr} Uhr ist bestaetigt: ${_vehLabel}. Live-Tracking ab Abfahrt: ${_trackingLink}`;
+                    _smsType = 'driver_assigned_vorbest';
                 }
-                // accepted → on_way: Fahrer faehrt los (zur Pickup-Stelle)
                 else if (oldStatus === 'accepted' && newStatus === 'on_way') {
-                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer faehrt jetzt los. Live-Tracking: ${_trackingLink}`;
+                    // Sofortfahrt-typisch: Fahrer faehrt JETZT los
+                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer faehrt jetzt los! ${_vehLabel}, ${_eta}. Live-Tracking: ${_trackingLink}`;
                     _smsType = 'driver_on_way';
                 }
+                // assigned/accepted bei Sofortfahrt → keine SMS (kommt gleich on_way)
                 if (_smsBody && _phoneOk) {
                     // SMS-Settings pruefen (gleicher Toggle wie initiale SMS)
                     const _smsSettingsSnap = await db.ref('settings/sms').once('value');

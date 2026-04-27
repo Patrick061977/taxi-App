@@ -120,28 +120,33 @@ public class VehiclePickerActivity extends AppCompatActivity {
             });
     }
 
-    // v6.50.1/v6.51.3: Tap-Handler — Patrick hat 2 Geräte mit verschiedenen Auth-UIDs
-    // (Email vs Phone-Login). Bis Account-Linking steht, KEINE blockierende Übernahme-Logik.
-    // Wir zeigen den Lock-Status nur informativ. Tap → direkt selectVehicle (kein Confirm).
+    // v6.50.1/v6.51.3/v6.60.1: Tap-Handler.
+    // v6.60.1: Patrick: 'wenn ein fahrzeug angemeldet ist dann kann kein 2ter user sich anmelden'.
+    // → HARTER BLOCK auf aktivem fremdem Lock. Kein 'trotzdem'-Override mehr.
+    // Ausnahmen:
+    //   - eigene DeviceID im Lock → reclaim (App-Crash + Restart desselben Handys)
+    //   - Lock veraltet (Heartbeat > 5 Min) → frei für jeden
+    //   - kein Lock → frei
     private void onVehicleTap(Vehicle v) {
-        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
-        String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
         long now = System.currentTimeMillis();
         boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
-        boolean lockedByOther = v.lockedByUid != null && !v.lockedByUid.equals(myUid) && !lockStale;
+        String myDeviceId = DeviceIdHelper.getOrCreate(this);
+        boolean ownDevice = v.lockedByDeviceId != null && v.lockedByDeviceId.equals(myDeviceId);
+        boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
 
         if (lockedByOther) {
             String label = v.lockedByLabel != null ? v.lockedByLabel : "anderes Gerät";
-            // Soft-Info-Dialog — kein Block. Patrick wollte Banner statt Zwang.
             new AlertDialog.Builder(this)
-                .setTitle("ℹ️ Fahrzeug evtl. auch woanders aktiv")
-                .setMessage(v.name + "\n\nLetzter Lock: " + label + "\n\nDu kannst trotzdem hier einloggen — das andere Gerät bleibt aktiv (Multi-Device-Modus).")
-                .setPositiveButton("OK, hier einloggen", (d, _w) -> selectVehicle(v))
-                .setNegativeButton("Abbrechen", null)
+                .setTitle("🔒 Fahrzeug ist gerade in Nutzung")
+                .setMessage(v.name + "\n\n" + label + " ist aktuell mit diesem Fahrzeug eingeloggt.\n\n"
+                    + "Bitte erst dort 'Schicht beenden' drücken, dann hier einloggen.\n\n"
+                    + "(Lock läuft nach 5 Min ohne Heartbeat automatisch ab.)")
+                .setPositiveButton("OK", null)
+                .setCancelable(true)
                 .show();
             return;
         }
-        // Eigener Lock oder veraltet oder kein Lock → direkt
+        // Eigene DeviceID, veralteter Lock oder kein Lock → direkt rein
         selectVehicle(v);
     }
 
@@ -207,6 +212,7 @@ public class VehiclePickerActivity extends AppCompatActivity {
         // v6.50.1: Lock-Info
         String lockedByUid;
         String lockedByLabel;
+        String lockedByDeviceId; // v6.60.1: per-Install-UUID — Patrick darf eigenes Gerät reclaimen
         Long lockHeartbeat;
 
         static Vehicle fromSnap(DataSnapshot s) {
@@ -228,6 +234,7 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 if (dev.exists()) {
                     v.lockedByUid = dev.child("uid").getValue(String.class);
                     v.lockedByLabel = dev.child("label").getValue(String.class);
+                    v.lockedByDeviceId = dev.child("deviceId").getValue(String.class);
                     Object hb = dev.child("lastHeartbeat").getValue();
                     if (hb instanceof Number) v.lockHeartbeat = ((Number) hb).longValue();
                 }
@@ -254,11 +261,11 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 tvStatus = v.findViewById(R.id.tv_vehicle_status);
             }
             void bind(Vehicle v) {
-                FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
-                String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
                 long now = System.currentTimeMillis();
                 boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
-                boolean lockedByOther = v.lockedByUid != null && !v.lockedByUid.equals(myUid) && !lockStale;
+                String myDeviceId = DeviceIdHelper.getOrCreate(VehiclePickerActivity.this);
+                boolean ownDevice = v.lockedByDeviceId != null && v.lockedByDeviceId.equals(myDeviceId);
+                boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
 
                 String prefix = lockedByOther ? "🔒 " : "";
                 tvName.setText(prefix + (v.name != null ? v.name : v.id));

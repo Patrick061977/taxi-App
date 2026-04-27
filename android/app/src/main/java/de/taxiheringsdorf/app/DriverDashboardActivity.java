@@ -1287,6 +1287,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
         return null;
     }
 
+    // v6.62.31: Patrick: 'Hasbargen-Auftrag angenommen, aber er erscheint nicht in meiner Liste,
+    // erst nach App-Neustart'. Root-Cause: RideActionReceiver launched mit CLEAR_TOP-Flag, ruft
+    // onNewIntent statt onCreate. Bestehende Activity hatte Firebase-Listener attached, aber
+    // nach App-Idle scheinbar 'silent' (keine Updates mehr). Reattach forciert Cache-Refresh.
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.i(TAG, "🔁 onNewIntent: Listener neu attachen (Push-Wakeup)");
+        try {
+            if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
+            if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
+            if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
+            if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
+        } catch (Throwable _t) {}
+        connectFirebase();
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();

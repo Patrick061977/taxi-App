@@ -109,6 +109,13 @@ public final class UpdateChecker {
             bannerText.setText("⏳ Lade v" + version + "…");
             bannerBtn.setText("Lädt…");
             bannerBtn.setEnabled(false);
+            // v6.59.5: Alte APKs löschen — sonst hängt DownloadManager '-1', '-2'... an,
+            // BroadcastReceiver greift dann auf den ORIGINAL-Pfad (alte Version) → INSTALL_FAILED_VERSION_DOWNGRADE.
+            File dir = activity.getExternalFilesDir(null);
+            if (dir != null) {
+                File[] olds = dir.listFiles((d, name) -> name.startsWith("taxi-app-update") && name.endsWith(".apk"));
+                if (olds != null) for (File o : olds) { try { o.delete(); } catch (Throwable _e) {} }
+            }
             DownloadManager dm = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
             req.setTitle("Funk Taxi App v" + version);

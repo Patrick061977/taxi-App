@@ -94,6 +94,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static final long LOCK_HEARTBEAT_MS = 60 * 1000L;
     private final Handler lockHandler = new Handler(Looper.getMainLooper());
     private boolean lockStolenDialogShown = false;
+    // v6.60.0: Wenn fremdes Gerät den Lock übernimmt, Heartbeat NICHT mehr schreiben —
+    // sonst würden wir den fremden Lock direkt wieder mit unseren Daten überschreiben (Loop).
+    private volatile boolean iOwnTheLock = true;
     private final Runnable lockHeartbeatTick = new Runnable() {
         @Override
         public void run() {
@@ -216,23 +219,37 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void onVehicleUpdate(DataSnapshot s) {
-        // v6.50.1/v6.51.3: Lock-Stolen-Check — Patrick hat berichtet dass er sich gegenseitig
-        // ausloggt weil seine 2 Geräte verschiedene Firebase-UIDs haben (Email-Login vs
-        // Phone-Login = 2 separate Auth-Identities für dieselbe Person). Bis Account-Linking
-        // in v6.52 steht, KEIN auto-Logout mehr — nur ein leichter Toast-Hinweis. Lock-Daten
-        // bleiben erhalten + werden im VehiclePicker angezeigt, aber keine Erzwingung.
+        // v6.50.1/v6.51.3/v6.60.0: Lock-Stolen-Check.
+        // v6.51.3 hatten wir Auto-Logout deaktiviert weil 2 Auth-UIDs (Email vs Phone) sich
+        // endlos rausschmissen. v6.60.0 nutzt jetzt deviceId (per-Install-UUID) statt UID:
+        // - Andere DeviceID im Lock → wirklich anderes Handy → Auto-Logout (richtig)
+        // - Gleiche DeviceID → wir selbst (egal welcher UID) → kein Kick
+        // - Lock ohne deviceId (Legacy-Build) → fall back auf UID-Vergleich, OHNE Logout
         DataSnapshot dev = s.child("activeDevice");
         if (dev.exists() && !lockStolenDialogShown) {
-            String lockUid = dev.child("uid").getValue(String.class);
-            FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
-            String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
-            if (lockUid != null && !lockUid.equals(myUid)) {
-                String otherLabel = dev.child("label").getValue(String.class);
-                lockStolenDialogShown = true;
-                runOnUiThread(() -> Toast.makeText(this,
-                    "⚠️ Tesla auch aktiv auf " + (otherLabel != null ? otherLabel : "anderem Gerät"),
-                    Toast.LENGTH_LONG).show());
-                // KEIN return — wir bleiben drauf
+            String lockDeviceId = dev.child("deviceId").getValue(String.class);
+            String myDeviceId = DeviceIdHelper.getOrCreate(this);
+            String otherLabel = dev.child("label").getValue(String.class);
+            if (lockDeviceId != null && !lockDeviceId.isEmpty()) {
+                if (!lockDeviceId.equals(myDeviceId)) {
+                    iOwnTheLock = false;
+                    lockStolenDialogShown = true;
+                    runOnUiThread(() -> showLockStolenDialog(otherLabel));
+                    return;
+                } else {
+                    iOwnTheLock = true;
+                }
+            } else {
+                // Legacy-Lock ohne deviceId → nur informativer Toast, kein Logout
+                String lockUid = dev.child("uid").getValue(String.class);
+                FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
+                String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
+                if (lockUid != null && !lockUid.equals(myUid)) {
+                    lockStolenDialogShown = true;
+                    runOnUiThread(() -> Toast.makeText(this,
+                        "ℹ️ Lock von älterer App-Version: " + (otherLabel != null ? otherLabel : "anderes Gerät"),
+                        Toast.LENGTH_LONG).show());
+                }
             }
         }
 
@@ -342,9 +359,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         finish();
     }
 
-    // v6.50.1: Lock-Heartbeat — schreibt nur lastHeartbeat. uid/label bleiben wie gesetzt
-    // beim Picker (oder falls Lock fremd ist → ignoriere via Stolen-Check oben).
+    // v6.50.1/v6.60.0: Lock-Heartbeat — schreibt uid/label/deviceId/lastHeartbeat.
+    // v6.60.0: Skip wenn iOwnTheLock=false (fremde DeviceID hat den Lock übernommen).
+    // Sonst würde der Heartbeat den fremden Lock direkt wieder überschreiben → Loop.
     private void sendLockHeartbeat() {
+        if (!iOwnTheLock) return;
         if (db == null || currentVehicleId == null) {
             try {
                 db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
@@ -354,9 +373,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         FirebaseUser fu = FirebaseAuth.getInstance().getCurrentUser();
         String myUid = fu != null ? fu.getUid() : "anon-" + Build.MODEL;
         String myLabel = VehiclePickerActivity.buildDeviceLabel(fu);
+        String myDeviceId = DeviceIdHelper.getOrCreate(this);
         Map<String, Object> u = new HashMap<>();
         u.put("uid", myUid);
         u.put("label", myLabel);
+        u.put("deviceId", myDeviceId);
         u.put("lastHeartbeat", com.google.firebase.database.ServerValue.TIMESTAMP);
         // claimedAt nicht überschreiben — bleibt vom Picker
         db.getReference("vehicles/" + currentVehicleId + "/activeDevice").updateChildren(u);

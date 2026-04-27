@@ -167,12 +167,17 @@ public class VehiclePickerActivity extends AppCompatActivity {
         }
 
         // v6.50.1: Lock setzen — atomar als ein Map-Write
+        // v6.60.0: + deviceId (per-Installation-UUID) — ersetzt UID-Vergleich, weil Patrick
+        // 2 Auth-Identitäten (Email+Phone) für dieselbe Person hat. DeviceID ist pro APK-Install
+        // eindeutig → kein Auto-Logout-Loop mehr.
         FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
         String myUid = u != null ? u.getUid() : "anon-" + Build.MODEL;
         String myLabel = buildDeviceLabel(u);
+        String myDeviceId = DeviceIdHelper.getOrCreate(this);
         Map<String, Object> lock = new HashMap<>();
         lock.put("uid", myUid);
         lock.put("label", myLabel);
+        lock.put("deviceId", myDeviceId);
         lock.put("claimedAt", com.google.firebase.database.ServerValue.TIMESTAMP);
         lock.put("lastHeartbeat", com.google.firebase.database.ServerValue.TIMESTAMP);
         FirebaseDatabase.getInstance(DB_INSTANCE_URL)

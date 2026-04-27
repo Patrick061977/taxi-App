@@ -108,7 +108,11 @@ public class CallLogActivity extends AppCompatActivity {
                 // die Legacy-API. Diagnose via curl: legacy gibt REQUEST_DENIED, new API
                 // funktioniert + liefert Heringsdorf-Vorschläge. SDK muss daher die neue
                 // API nutzen — initializeWithNewPlacesApiEnabled forciert das.
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+                // v6.62.15: Android-Key statt Browser-Key — Patrick: 'das hatten wir gestern schon
+                // das Problem' (9011 API-Key not authorized). Browser-Keys haben HTTP-Referrer-
+                // Restriction → für Android-SDK nicht zugelassen. Android-Key f7d12f86 hat
+                // androidKeyRestrictions + Places API enabled (siehe gcloud-Setup 2026-04-27).
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
             }
             pendingPlaceField = targetField;
             pendingPlaceCoords = coordsOut;

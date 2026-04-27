@@ -89,7 +89,8 @@ public class CrmSearchActivity extends AppCompatActivity {
     private void launchPlaces(TextView field, double[] coordsOut) {
         try {
             if (!Places.isInitialized()) {
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+                // v6.62.15: Android-Key statt Browser-Key (siehe CallLogActivity)
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
             }
             pendingPlaceField = field;
             pendingPlaceCoords = coordsOut;

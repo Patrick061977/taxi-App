@@ -18788,6 +18788,51 @@ exports.onRideUpdated = onValueUpdated(
             // 🆕 v6.38.31: Lifecycle-Log — Status-Änderung
             await addRideLog(rideId, '📊', `Status: ${oldStatus} → ${newStatus}`, { altStatus: oldStatus, neuStatus: newStatus, quelle: 'onRideUpdated' });
 
+            // v6.62.44: Patrick: 'Web-Kunde soll Handy weglegen koennen — wenn ich frei werde,
+            // klingelt sein Handy mit Fahrer-ist-unterwegs-SMS, dass er sich nicht mehr kuemmern muss'.
+            // Status-Wechsel-SMS bei warteschlange/vorbestellt → assigned/accepted (Fahrer-Zuweisung).
+            // Auch beim ersten on_way → 'Fahrer faehrt los'.
+            try {
+                const _custPhone = after.customerPhone || after.customerMobile || after.mobilePhone;
+                const _phoneOk = _custPhone && /^[+]?[0-9 \-\/]{6,}$/.test(_custPhone);
+                const _trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                const _vehLabel = after.vehicle ? after.vehicle + (after.vehiclePlate ? ` (${after.vehiclePlate})` : '') : 'Taxi';
+                const _custFirstName = (after.guestName || after.customerName || '').split(' ')[0];
+                const _greet = _custFirstName ? _custFirstName + ', ' : '';
+                let _smsBody = null;
+                let _smsType = null;
+                // Warteschlange/Vorbestellt → assigned/accepted: Fahrer wurde gefunden
+                if ((oldStatus === 'warteschlange' || oldStatus === 'vorbestellt' || oldStatus === 'sofort' || oldStatus === 'new') &&
+                    (newStatus === 'assigned' || newStatus === 'accepted')) {
+                    const _eta = after.drivingTimeToPickup ? `Anfahrt ca. ${after.drivingTimeToPickup} Min` : 'Fahrer ist unterwegs';
+                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}wir haben einen Fahrer fuer Sie! ${_vehLabel}, ${_eta}. Live-Tracking: ${_trackingLink}`;
+                    _smsType = 'driver_assigned';
+                }
+                // accepted → on_way: Fahrer faehrt los (zur Pickup-Stelle)
+                else if (oldStatus === 'accepted' && newStatus === 'on_way') {
+                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer faehrt jetzt los. Live-Tracking: ${_trackingLink}`;
+                    _smsType = 'driver_on_way';
+                }
+                if (_smsBody && _phoneOk) {
+                    // SMS-Settings pruefen (gleicher Toggle wie initiale SMS)
+                    const _smsSettingsSnap = await db.ref('settings/sms').once('value');
+                    const _smsSettings = _smsSettingsSnap.val() || {};
+                    if (_smsSettings.statusUpdatesEnabled !== false) { // Default ON, kann ueber Settings deaktiviert werden
+                        await db.ref('smsQueue').push({
+                            phone: _custPhone,
+                            text: _smsBody,
+                            rideId,
+                            type: _smsType,
+                            status: 'pending',
+                            createdAt: Date.now()
+                        });
+                        await addRideLog(rideId, '📲', `SMS-Status: ${_smsType}`, { phone: _custPhone });
+                    }
+                }
+            } catch (_smsStatusErr) {
+                console.warn('Status-SMS-Queue Fehler:', _smsStatusErr.message);
+            }
+
             let message = '';
             if (newStatus === 'accepted') {
                 message = `✅ <b>FAHRER ZUGEWIESEN!</b>\n` +

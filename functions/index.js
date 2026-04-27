@@ -18408,9 +18408,19 @@ exports.onRideCreated = onValueCreated(
                     const _smsDateStr = _pickupBerlin.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
                     const _smsTimeStr = _pickupBerlin.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                     const _smsPrice = ride.price ? `, ca. ${ride.price}€` : '';
-                    const _smsText = isSofort
-                        ? `Funk Taxi Heringsdorf: Ihr Taxi kommt! ${ride.pickup || '?'} → ${ride.destination || '?'}${_smsPrice}. Tel: 038378/22022`
-                        : `Funk Taxi Heringsdorf: Vorbestellung bestätigt! ${_smsDateStr} ${_smsTimeStr} Uhr, ${ride.pickup || '?'} → ${ride.destination || '?'}${_smsPrice}. Tel: 038378/22022`;
+                    // v6.62.45: Patrick: 'Tracking-Link in Initial-SMS ist Quatsch — kommt erst
+                    // wenn Fahrer da. Initial-SMS soll informativer sein, mit Wartezeit-Schaetzung
+                    // und Storno-Hinweis'. Tracking-Link wandert in Status-SMS (v6.62.44).
+                    const _stornoHint = ' Storno: 038378/22022';
+                    let _smsText;
+                    if (isSofort) {
+                        const _waitInfo = (typeof ride.estimatedWaitMinutes === 'number' && ride.estimatedWaitMinutes > 0)
+                            ? ` Aktuelle Wartezeit ca. ${ride.estimatedWaitMinutes} Min.`
+                            : '';
+                        _smsText = `Funk Taxi Heringsdorf: Ihre Sofortbuchung ist eingegangen!${_waitInfo} Sie werden benachrichtigt sobald ein Fahrer fuer Sie bestaetigt hat.${_stornoHint}`;
+                    } else {
+                        _smsText = `Funk Taxi Heringsdorf: Vorbestellung bestaetigt fuer ${_smsDateStr} ${_smsTimeStr} Uhr${_smsPrice}. Sie werden ca. 15 Min vor Abholung mit Fahrer-Info benachrichtigt.${_stornoHint}`;
+                    }
 
                     await db.ref('smsQueue').push({
                         phone: ride.customerPhone,

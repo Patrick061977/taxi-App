@@ -139,6 +139,26 @@
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- v6.62.26: Grosser Pause-Banner (nur sichtbar wenn auf Pause).
+         Klickbar zum direkten Online-Schalten — schneller als Hamburger-Menue. -->
+    <TextView
+        android:id="@+id/tv_pause_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="?attr/actionBarSize"
+        android:background="#F59E0B"
+        android:gravity="center"
+        android:padding="16dp"
+        android:text="⏸  DU BIST AUF PAUSE  —  Tippen zum Online schalten"
+        android:textColor="#1F2937"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"

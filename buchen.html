@@ -1706,6 +1706,9 @@
         });
 
         // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
+        // 🔧 v6.62.7: Patrick: 'Tesla ist besetzt aber buchen.html zeigt grün'.
+        //            Bug: Button prüfte nur GPS-online, nicht ob Fahrzeug FREI ist.
+        //            Jetzt: busyByVehicle-Set aus latestRides + nur freie Fahrzeuge zählen.
         function updateSofortToggle(gpsOnlineCount) {
             const sofortBtn = document.querySelector('.wann-btn[onclick*="sofort"]');
             if (!sofortBtn) return;
@@ -1717,11 +1720,36 @@
                 sofortBtn.onclick = function() { setWann('sofort'); };
                 return;
             }
-            if (gpsOnlineCount > 0) {
-                // GPS online → normaler Sofort-Button mit ETA
+            // v6.62.7: Welche Fahrzeuge sind aktuell BESETZT (auf aktiver Fahrt)?
+            const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned'];
+            const _busyVids = new Set();
+            const _busyEndTimes = {}; // vid → frühestes Ende
+            Object.values(latestRides || {}).forEach(r => {
+                if (!r) return;
+                if (!_activeStatuses.includes(r.status)) return;
+                const _vid = r.vehicleId || r.assignedVehicle;
+                if (!_vid) return;
+                _busyVids.add(_vid);
+                const _dur = parseInt(r.duration || r.estimatedDuration || 30);
+                if (r.pickupTimestamp) {
+                    const _endTs = r.pickupTimestamp + _dur * 60000;
+                    if (!_busyEndTimes[_vid] || _endTs > _busyEndTimes[_vid]) _busyEndTimes[_vid] = _endTs;
+                }
+            });
+            // Wirklich FREI = GPS online + GPS frisch + NICHT besetzt
+            let _freeCount = 0;
+            for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles || {})) {
+                if (!OFFICIAL_VEHICLES[vid]) continue;
+                if (vInfo.online === false || !vInfo.lat) continue;
+                const _gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
+                if (_gpsAge > 10) continue;
+                if (_busyVids.has(vid)) continue;
+                _freeCount++;
+            }
+            if (_freeCount > 0) {
+                // Mindestens 1 freies Fahrzeug → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';
                 sofortBtn.style.color = '';
-                // ETA berechnen wenn Pickup-Koordinaten vorhanden
                 let etaText = 'Sofort verfügbar';
                 if (pickupCoords && _gpsOnlineVehicles) {
                     let closestEta = null;
@@ -1730,6 +1758,7 @@
                         if (!vInfo.lat || !vInfo.lon) continue;
                         const gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
                         if (gpsAge > 10 || vInfo.online === false) continue;
+                        if (_busyVids.has(vid)) continue; // v6.62.7: nur freie Fahrzeuge für ETA
                         const dLat = (vInfo.lat - pickupCoords.lat) * Math.PI / 180;
                         const dLon = (vInfo.lon - pickupCoords.lon) * Math.PI / 180;
                         const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(pickupCoords.lat*Math.PI/180)*Math.cos(vInfo.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
@@ -1741,6 +1770,20 @@
                 }
                 sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
+            } else if (gpsOnlineCount > 0) {
+                // v6.62.7: GPS online aber ALLE besetzt → "JETZT BELEGT — frei ab X"
+                sofortBtn.style.background = '#fef3c7';
+                sofortBtn.style.color = '#92400e';
+                let _label = 'Aktuell alle Taxis besetzt';
+                const _ends = Object.values(_busyEndTimes).filter(x => x > Date.now()).sort((a,b)=>a-b);
+                if (_ends.length > 0) {
+                    const _earliestEnd = new Date(_ends[0]);
+                    const _h = String(_earliestEnd.getHours()).padStart(2,'0');
+                    const _m = String(_earliestEnd.getMinutes()).padStart(2,'0');
+                    _label = 'Frei ab ca. ' + _h + ':' + _m + ' Uhr';
+                }
+                sofortBtn.innerHTML = '🟡 JETZT BELEGT<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
+                sofortBtn.onclick = function() { setWann('sofort'); }; // weiterhin klickbar (Wartelistenmodus)
             } else {
                 // Kein GPS → Anruf-Button
                 sofortBtn.style.background = '#ef4444';

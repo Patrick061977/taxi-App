@@ -738,8 +738,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
         String url = TRACKING_BASE + rideId;
         String body = "Ihr Funk Taxi Tracking: " + url;
+        String cleanPhone = phone.replaceAll("[^+0-9]", "");
+        // v6.62.8: Patrick: 'können auch die SMS automatisch verschickt werden, ohne
+        // dass ich das mal bestätigen muss, weil das nervt'.
+        // Direct via SmsManager statt ACTION_SENDTO-Intent (das öffnet SMS-App + erfordert
+        // Tap auf 'Senden'). Voraussetzung: SEND_SMS Permission einmalig erteilt.
         try {
-            Uri uri = Uri.parse("smsto:" + phone.replaceAll("[^+0-9]", ""));
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.SEND_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                android.telephony.SmsManager smsMgr = android.telephony.SmsManager.getDefault();
+                java.util.ArrayList<String> parts = smsMgr.divideMessage(body);
+                if (parts.size() == 1) {
+                    smsMgr.sendTextMessage(cleanPhone, null, body, null, null);
+                } else {
+                    smsMgr.sendMultipartTextMessage(cleanPhone, null, parts, null, null);
+                }
+                Toast.makeText(this, "✅ SMS gesendet an " + cleanPhone, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // Permission noch nicht da → einmalig anfragen, danach Fallback auf Intent
+            androidx.core.app.ActivityCompat.requestPermissions(this,
+                new String[]{ android.Manifest.permission.SEND_SMS }, 5009);
+            // Bis Permission erteilt: Intent-Fallback
+            Uri uri = Uri.parse("smsto:" + cleanPhone);
             Intent i = new Intent(Intent.ACTION_SENDTO, uri);
             i.putExtra("sms_body", body);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

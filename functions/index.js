@@ -18591,42 +18591,6 @@ exports.onRideCreated = onValueCreated(
                     console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
                     await addRideLog(rideId, '❌', 'Cloud: Auto-Zuweisung Fehler', e.message);
                 }
-            } else if (!_hasCoords) {
-                // v6.62.3 STRICT ADDRESS VALIDATION — Patrick: 'es darf keine Fallbacks geben.
-                // Es gibt entweder nur richtig oder falsch'. Plus: 'wer soll denn die Adresse
-                // korrigieren wenn 100 Fahrten auf einmal reinkommen' → kein Admin-Alert-Spam,
-                // Kunde muss neu buchen mit gültiger Adresse.
-                // → Ride OHNE Koordinaten = HARTE REJECTION. Status='invalid', Kunde informiert,
-                //   keine Auto-Zuweisung, keine Geocode-Versuche, KEIN Admin-Alert.
-                const _missing = [];
-                if (!_pLat) _missing.push(`pickup="${_freshRide.pickup || '(leer)'}"`);
-                if (!_dLat) _missing.push(`destination="${_freshRide.destination || '(leer)'}"`);
-                console.warn(`❌ v6.62.3 STRICT REJECT: ${rideId} ohne Koordinaten — ${_missing.join(', ')}`);
-                await db.ref('rides/' + rideId).update({
-                    status: 'invalid',
-                    invalidReason: 'v6.62.3: Adresse ohne Koordinaten — Frontend muss Autocomplete nutzen',
-                    invalidAt: Date.now(),
-                    updatedAt: Date.now()
-                });
-                await addRideLog(rideId, '❌', 'STRICT VALIDATION: REJECTED — keine Koordinaten', {
-                    fehlend: _missing.join(', '),
-                    kunde: _freshRide.customerName || '?',
-                    quelle: _freshRide.source || 'unbekannt'
-                });
-                // Kunde benachrichtigen — der muss die Buchung erneut machen mit gültiger Adresse
-                try {
-                    const _custChat = await getCustomerChatId(_freshRide);
-                    if (_custChat) {
-                        await sendTelegramMessage(_custChat,
-                            `❌ <b>Buchung konnte nicht angelegt werden</b>\n\n` +
-                            `Bitte wählen Sie die Adresse aus der Vorschlagsliste — Freitext ohne Koordinaten ist nicht möglich.\n\n` +
-                            `📍 Von: ${_freshRide.pickup || '(leer)'}\n` +
-                            `🎯 Nach: ${_freshRide.destination || '(leer)'}\n\n` +
-                            `Bitte erneut versuchen oder anrufen: 038378 22022`);
-                    }
-                } catch(_) {}
-                // Kein Admin-Alert (kein Spam bei Frontend-Fehler) — silent log reicht
-                return; // ride wird nicht weiter verarbeitet
             } else {
                 // 🔧 v6.40.22: aussagekräftigeres Log mit ALLEN geprüften Feldern
                 console.log(`⚠️ Cloud: Keine Koordinaten für Auto-Zuweisung von ${rideId} (pLat=${_pLat}, dLat=${_dLat})`);
@@ -21103,10 +21067,16 @@ async function validateRideConsistency(rideId, ride) {
     }
 
     // 4. Koordinaten fehlen komplett
-    if (!ride.pickupLat && ride.pickup) {
+    // v6.62.4: Race-Condition-Fix — bei frisch erstellten Fahrten (<30s alt) Geocoding-Race
+    // tolerieren. Geocoder läuft async und schreibt lat/lon ~1-2s nach Erstellung.
+    // validateRideConsistency triggert direkt nach Create → sieht null → false-positive.
+    // Patrick: 'Inkonsistenz wurde gemeldet als ich gebucht habe' — exakt dieser Fall.
+    const _ageMs = ride.createdAt ? Date.now() - ride.createdAt : 999999;
+    const _coordsRaceWindow = _ageMs < 30000; // 30 Sekunden Toleranzfenster
+    if (!ride.pickupLat && ride.pickup && !_coordsRaceWindow) {
         issues.push('Abholort ohne Koordinaten: "' + ride.pickup + '"');
     }
-    if (!ride.destinationLat && ride.destination) {
+    if (!ride.destinationLat && ride.destination && !_coordsRaceWindow) {
         issues.push('Zielort ohne Koordinaten: "' + ride.destination + '"');
     }
 

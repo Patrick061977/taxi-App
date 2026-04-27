@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>📍 GPS-Diagnose — Funk Taxi Heringsdorf</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f172a;color:#f1f5f9}
+  #header{background:#1e293b;padding:12px 16px;border-bottom:1px solid #334155;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  #header h1{font-size:16px;flex:1;min-width:200px}
+  select,button{background:#334155;color:#f1f5f9;border:1px solid #475569;padding:6px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+  button:hover{background:#475569}
+  #map{width:100%;height:55vh;background:#0f172a}
+  #stats{padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;background:#1e293b;border-bottom:1px solid #334155}
+  .stat{background:#334155;padding:8px 12px;border-radius:6px}
+  .stat-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px}
+  .stat-value{font-size:18px;font-weight:700;margin-top:2px}
+  .stat-value.ok{color:#10b981}
+  .stat-value.warn{color:#f59e0b}
+  .stat-value.bad{color:#ef4444}
+  #timeline{padding:8px 16px;max-height:30vh;overflow-y:auto;font-size:12px;font-family:ui-monospace,monospace}
+  .hb-row{display:grid;grid-template-columns:60px 60px 1fr 80px;gap:8px;padding:3px 6px;border-bottom:1px solid #1e293b;align-items:center}
+  .hb-row:hover{background:#1e293b}
+  .hb-time{color:#cbd5e1}
+  .hb-gap{font-weight:700}
+  .hb-gap.ok{color:#10b981}
+  .hb-gap.warn{color:#f59e0b}
+  .hb-gap.bad{color:#ef4444}
+  .hb-coords{color:#94a3b8;font-size:11px}
+  .hb-flag{font-size:11px;text-align:right}
+  .legend{position:absolute;bottom:8px;left:8px;background:rgba(15,23,42,0.92);padding:8px 12px;border-radius:6px;font-size:11px;z-index:500;border:1px solid #334155}
+  .legend-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+  .legend-dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff}
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>📍 GPS-Diagnose</h1>
+  <select id="vehicle-select"></select>
+  <button id="refresh-btn">🔄 Neu laden</button>
+  <button id="auto-refresh-btn">⏸️ Auto-Refresh</button>
+</div>
+<div id="stats"></div>
+<div style="position:relative">
+  <div id="map"></div>
+  <div class="legend">
+    <div class="legend-row"><span class="legend-dot" style="background:#10b981"></span>Heartbeat sauber (&lt;35s)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#f59e0b"></span>Verzögert (35–60s)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#ef4444"></span>Lücke (&gt;60s)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#0ea5e9;border-color:#0ea5e9"></span>Aktuelle Position</div>
+  </div>
+</div>
+<div id="timeline"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+  authDomain: "taxi-heringsdorf.firebaseapp.com",
+  databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "taxi-heringsdorf",
+  storageBucket: "taxi-heringsdorf.firebasestorage.app",
+  messagingSenderId: "889033864088",
+  appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const HERINGSDORF = [53.95, 14.16];
+const map = L.map('map').setView(HERINGSDORF, 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+
+let routePolyline = null;
+let trackMarkers = [];
+let currentMarker = null;
+let autoRefreshHandle = null;
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin' });
+}
+
+function gapClass(gapSec) {
+  if (gapSec < 35) return 'ok';
+  if (gapSec < 60) return 'warn';
+  return 'bad';
+}
+function gapColor(gapSec) {
+  if (gapSec < 35) return '#10b981';
+  if (gapSec < 60) return '#f59e0b';
+  return '#ef4444';
+}
+
+async function loadVehicles() {
+  const snap = await db.ref('vehicles').once('value');
+  const v = snap.val() || {};
+  const sel = document.getElementById('vehicle-select');
+  sel.innerHTML = '';
+  Object.entries(v).filter(([id, data]) => data.lat || data.shift).forEach(([id, data]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = (data.name || id) + (data.shift?.status === 'active' ? ' 🟢' : '');
+    sel.appendChild(opt);
+  });
+  // Default: ?vehicleId=... oder erstes
+  const params = new URLSearchParams(location.search);
+  const want = params.get('vehicleId') || params.get('vid');
+  if (want && v[want]) sel.value = want;
+}
+
+async function render(vehicleId) {
+  // Clear bestehende Layer
+  if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+  trackMarkers.forEach(m => map.removeLayer(m));
+  trackMarkers = [];
+  if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
+
+  const histSnap = await db.ref('gpsHealth/' + vehicleId + '/history').once('value');
+  const data = histSnap.val() || {};
+  const entries = Object.values(data).filter(e => e && e.ts).sort((a,b) => a.ts - b.ts);
+
+  if (entries.length === 0) {
+    document.getElementById('stats').innerHTML = '<div class="stat"><div class="stat-label">Hinweis</div><div class="stat-value bad">Keine Daten</div></div>';
+    document.getElementById('timeline').innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8">Noch keine Heartbeats fuer dieses Fahrzeug. Schicht starten + warten.</div>';
+    return;
+  }
+
+  // Stats
+  const gaps = [];
+  for (let i = 1; i < entries.length; i++) gaps.push((entries[i].ts - entries[i-1].ts) / 1000);
+  const avgGap = gaps.length ? gaps.reduce((a,b) => a+b, 0) / gaps.length : 0;
+  const maxGap = gaps.length ? Math.max(...gaps) : 0;
+  const longGaps = gaps.filter(g => g > 60).length;
+  const withGps = entries.filter(e => e.hasGps).length;
+
+  // Distanz
+  let totalKm = 0;
+  const gpsEntries = entries.filter(e => e.hasGps && e.lat && e.lon);
+  for (let i = 1; i < gpsEntries.length; i++) {
+    const x = gpsEntries[i-1], y = gpsEntries[i];
+    const dl = (x.lat - y.lat) * Math.PI/180;
+    const dn = (x.lon - y.lon) * Math.PI/180;
+    const a = Math.sin(dl/2)**2 + Math.cos(x.lat*Math.PI/180)*Math.cos(y.lat*Math.PI/180)*Math.sin(dn/2)**2;
+    totalKm += 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  const last = entries[entries.length-1];
+  const ageSec = (Date.now() - last.ts) / 1000;
+  const wakeLock = last.powerStatus?.wakeLock;
+  const batOpt = last.powerStatus?.batteryOpt;
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Heartbeats</div><div class="stat-value ok">${entries.length}</div></div>
+    <div class="stat"><div class="stat-label">Mittel-Intervall</div><div class="stat-value ${avgGap < 35 ? 'ok' : 'warn'}">${avgGap.toFixed(1)}s</div></div>
+    <div class="stat"><div class="stat-label">Max-Lücke</div><div class="stat-value ${maxGap < 60 ? 'ok' : maxGap < 120 ? 'warn' : 'bad'}">${maxGap.toFixed(1)}s</div></div>
+    <div class="stat"><div class="stat-label">Lücken &gt;60s</div><div class="stat-value ${longGaps === 0 ? 'ok' : 'bad'}">${longGaps}</div></div>
+    <div class="stat"><div class="stat-label">GPS-Coverage</div><div class="stat-value ${withGps === entries.length ? 'ok' : 'warn'}">${withGps}/${entries.length}</div></div>
+    <div class="stat"><div class="stat-label">Track-Länge</div><div class="stat-value">${totalKm.toFixed(2)} km</div></div>
+    <div class="stat"><div class="stat-label">WakeLock</div><div class="stat-value ${wakeLock ? 'ok' : 'bad'}">${wakeLock ? '✓ aktiv' : '✗ aus'}</div></div>
+    <div class="stat"><div class="stat-label">Battery-Opt</div><div class="stat-value ${batOpt ? 'ok' : 'warn'}">${batOpt ? '✓ ignoriert' : '⚠ aktiv'}</div></div>
+    <div class="stat"><div class="stat-label">Letzter Tick</div><div class="stat-value ${ageSec < 60 ? 'ok' : ageSec < 180 ? 'warn' : 'bad'}">vor ${ageSec.toFixed(0)}s</div></div>
+  `;
+
+  // Polyline der Route
+  if (gpsEntries.length > 1) {
+    const latlngs = gpsEntries.map(e => [e.lat, e.lon]);
+    routePolyline = L.polyline(latlngs, { color: '#0ea5e9', weight: 3, opacity: 0.7 }).addTo(map);
+    map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+  }
+
+  // Marker pro Heartbeat — Farbe nach Gap-Klasse zum NÄCHSTEN
+  entries.forEach((e, i) => {
+    if (!e.hasGps || !e.lat || !e.lon) return;
+    const nextGap = i < entries.length - 1 ? (entries[i+1].ts - e.ts) / 1000 : 0;
+    const color = gapColor(nextGap || 30);
+    const m = L.circleMarker([e.lat, e.lon], { radius: 4, color, fillColor: color, fillOpacity: 0.85, weight: 1 }).addTo(map);
+    m.bindPopup(`<b>${fmtTime(e.ts)}</b><br>Lat: ${e.lat.toFixed(5)}<br>Lon: ${e.lon.toFixed(5)}<br>Genauigkeit: ${e.acc ? e.acc.toFixed(0) + 'm' : '?'}<br>Lücke davor: ${i>0 ? ((e.ts - entries[i-1].ts)/1000).toFixed(1) + 's' : '–'}`);
+    trackMarkers.push(m);
+  });
+
+  // Aktuelle Position als großer Marker
+  if (gpsEntries.length > 0) {
+    const cur = gpsEntries[gpsEntries.length - 1];
+    currentMarker = L.circleMarker([cur.lat, cur.lon], { radius: 10, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: 1, weight: 3 }).addTo(map);
+    currentMarker.bindPopup(`<b>📍 Aktuell</b><br>${fmtTime(cur.ts)}`);
+  }
+
+  // Timeline-Liste (neueste oben)
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    const gap = i > 0 ? (entries[i].ts - entries[i-1].ts) / 1000 : null;
+    const cls = gap !== null ? gapClass(gap) : 'ok';
+    const flag = e.hasGps ? '' : '<span style="color:#ef4444">kein GPS</span>';
+    tl.innerHTML += `<div class="hb-row">
+      <span class="hb-time">${fmtTime(e.ts)}</span>
+      <span class="hb-gap ${cls}">${gap !== null ? gap.toFixed(1) + 's' : 'start'}</span>
+      <span class="hb-coords">${e.lat ? e.lat.toFixed(4) + ', ' + e.lon.toFixed(4) : '–'} ${e.acc ? '(±' + e.acc.toFixed(0) + 'm)' : ''}</span>
+      <span class="hb-flag">${flag}</span>
+    </div>`;
+  }
+}
+
+async function init() {
+  // Anonym anmelden falls Rules das brauchen
+  try { await firebase.auth().signInAnonymously(); } catch (_) {}
+  await loadVehicles();
+  const sel = document.getElementById('vehicle-select');
+  sel.addEventListener('change', () => render(sel.value));
+  document.getElementById('refresh-btn').addEventListener('click', () => render(sel.value));
+  document.getElementById('auto-refresh-btn').addEventListener('click', () => {
+    const btn = document.getElementById('auto-refresh-btn');
+    if (autoRefreshHandle) {
+      clearInterval(autoRefreshHandle);
+      autoRefreshHandle = null;
+      btn.textContent = '⏸️ Auto-Refresh';
+    } else {
+      autoRefreshHandle = setInterval(() => render(sel.value), 30000);
+      btn.textContent = '🔴 Auto an (30s)';
+    }
+  });
+  if (sel.value) render(sel.value);
+}
+init();
+</script>
+</body>
+</html>

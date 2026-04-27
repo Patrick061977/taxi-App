@@ -201,6 +201,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                     + "oder dort 'Schicht beenden' drücken.")
                                 .setCancelable(false)
                                 .setPositiveButton("OK", (d, _w) -> {
+                                    // v6.62.13: Patrick: 'dann darf aber oben nicht aktiv stehen'.
+                                    // ShiftForegroundService läuft unabhängig weiter mit eigener
+                                    // Notification → 'Schicht aktiv' bleibt sichtbar obwohl Fahrzeug
+                                    // weg. Daher: Service explizit stoppen wenn Lock verloren.
+                                    try {
+                                        Intent stopSvc = new Intent(DriverDashboardActivity.this, ShiftForegroundService.class);
+                                        stopSvc.setAction(ShiftForegroundService.ACTION_STOP);
+                                        startService(stopSvc);
+                                    } catch (Throwable _e) {}
                                     getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
                                     startActivity(new Intent(DriverDashboardActivity.this, VehiclePickerActivity.class));
                                     finish();

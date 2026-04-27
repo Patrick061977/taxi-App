@@ -17584,10 +17584,13 @@ exports.scheduledAutoAssign = onSchedule(
         try {
             // 🔧 v6.38.30: Relevante Fahrten laden (nicht alle 5000+)
             const now = Date.now();
-            const [assignedSnap, vorbestelltSnap, newSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
+            // v6.62.22 FIX-2: warteschlange zur Query addieren — sonst landen Sofort-Fahrten
+            // bei denen alle besetzt waren (Status warteschlange) NIE wieder in der Auto-Zuweisung.
+            const [assignedSnap, vorbestelltSnap, newSnap, warteschlSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap] = await Promise.all([
                 db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
                 db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
                 db.ref('rides').orderByChild('status').equalTo('new').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value'),
                 db.ref('vehicles').once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
@@ -17664,6 +17667,7 @@ exports.scheduledAutoAssign = onSchedule(
             assignedSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             vorbestelltSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             newSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+            warteschlSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); }); // v6.62.22
 
             // 🔧 v6.40.18: SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen >60min korrigieren.
             // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).
@@ -17858,22 +17862,28 @@ exports.scheduledAutoAssign = onSchedule(
                 console.log(`🔄 ${needsReassign.length} Fahrzeug-Zuweisungen entfernt (kein Dienst)`);
                 // Rides neu laden damit die entfernten Zuweisungen berücksichtigt werden
                 allRides.length = 0;
-                const [_fAssigned, _fVorbestellt, _fNew] = await Promise.all([
+                const [_fAssigned, _fVorbestellt, _fNew, _fWarte] = await Promise.all([
                     db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
                     db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
-                    db.ref('rides').orderByChild('status').equalTo('new').once('value')
+                    db.ref('rides').orderByChild('status').equalTo('new').once('value'),
+                    db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value')
                 ]);
                 _fAssigned.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
                 _fVorbestellt.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
                 _fNew.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+                _fWarte.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             }
 
             // Unzugewiesene Fahrten finden
+            // v6.62.22 FIX-2: warteschlange-Fahrten werden auch dann verarbeitet wenn
+            // pickupTimestamp in der Vergangenheit liegt (Sofortfahrt die schon eine Weile wartet).
             const unassigned = allRides.filter(r => {
                 if (r.assignedVehicle || r.vehicleId) return false;
                 if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
                 if (r.assignmentLocked) return false;
                 if (!r.pickupTimestamp) return false;
+                // warteschlange = wartet auf freies Fahrzeug → 5-Min-Vorlauf-Regel umgehen
+                if (r.status === 'warteschlange') return true;
                 if (r.pickupTimestamp < now + 5 * 60000) return false;
                 return true;
             });
@@ -18586,6 +18596,33 @@ exports.onRideCreated = onValueCreated(
                     } else {
                         console.log(`⚠️ Cloud: Kein Fahrzeug für ${_zuweisTyp} ${rideId} gefunden`);
                         await addRideLog(rideId, '⚠️', `Cloud: Kein Fahrzeug gefunden (onRideCreated)`, { typ: _zuweisTyp, hinweis: isSofort ? 'Kein Fahrer online/verfügbar' : 'scheduledAutoAssign übernimmt' });
+                        // v6.62.22 FIX-1: Sofortfahrt + alle besetzt → warteschlange-Status setzen
+                        // damit der Web-Kunde (buchen.html) ETA sieht und das Re-Assign nach completed
+                        // greifen kann. Vorher: Status blieb 'new', Fahrt hing unsichtbar.
+                        if (isSofort) {
+                            try {
+                                let _estWaitMin = null;
+                                try {
+                                    const [_vSnap, _rSnap, _pSnap] = await Promise.all([
+                                        db.ref('vehicles').once('value'),
+                                        db.ref('rides').once('value'),
+                                        db.ref('settings/pricing').once('value')
+                                    ]);
+                                    const _allRides = [];
+                                    _rSnap.forEach(c => { _allRides.push({ ...c.val(), firebaseId: c.key }); });
+                                    _estWaitMin = await estimateNextAvailableMinutes(_allRides, _vSnap.val() || {}, _pSnap.val() || {});
+                                } catch(_estErr) { /* non-critical */ }
+                                const _wsUpdate = { status: 'warteschlange', updatedAt: Date.now() };
+                                if (_estWaitMin !== null) {
+                                    _wsUpdate.estimatedWaitMinutes = _estWaitMin;
+                                    _wsUpdate.estimatedWaitComputedAt = Date.now();
+                                }
+                                await db.ref('rides/' + rideId).update(_wsUpdate);
+                                await addRideLog(rideId, '⏳', 'Cloud: → warteschlange', { etaMin: _estWaitMin, quelle: 'onRideCreated v6.62.22' });
+                            } catch (_wsErr) {
+                                console.error('⚠️ warteschlange-Status setzen fehlgeschlagen:', _wsErr.message);
+                            }
+                        }
                     }
                 } catch(e) {
                     console.error(`❌ Cloud: Auto-Zuweisung fehlgeschlagen für ${rideId}:`, e.message);
@@ -18908,6 +18945,36 @@ exports.onRideUpdated = onValueUpdated(
                     } catch (afErr) {
                         console.error('⚠️ Anschlussfahrt-Check Fehler:', afErr.message);
                     }
+                }
+
+                // v6.62.22 FIX-3: nach completed → älteste warteschlange-Fahrt zuweisen.
+                // Vorher: scheduledAutoAssign hätte das alle 10 Min eingesammelt — viel zu langsam
+                // für Sofortfahrt-Kunden. Jetzt direkt re-assign sobald Fahrzeug frei wird.
+                try {
+                    const _wsSnap = await db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value');
+                    let _oldest = null;
+                    _wsSnap.forEach(c => {
+                        const r = c.val();
+                        if (!r) return;
+                        if (r.assignedVehicle || r.vehicleId) return; // bereits zugewiesen, sollte nicht 'warteschlange' sein
+                        if (!r.pickupCoords?.lat && !r.pickupLat) return; // ohne Koordinaten geht's nicht
+                        if (!_oldest || (r.createdAt || 0) < (_oldest.createdAt || 0)) {
+                            _oldest = { ...r, firebaseId: c.key };
+                        }
+                    });
+                    if (_oldest) {
+                        const _name = _oldest.customerName || _oldest.firebaseId;
+                        console.log(`🔁 v6.62.22: Re-Assign aus warteschlange → ${_name}`);
+                        await addRideLog(_oldest.firebaseId, '🔁', 'Cloud: Re-Assign nach completed-Trigger', { quelle: 'onRideUpdated v6.62.22', completedRide: rideId });
+                        const _result = await autoAssignRide(_oldest.firebaseId, _oldest);
+                        if (_result && _result.vehicleId) {
+                            console.log(`✅ Re-Assign erfolgreich: ${_name} → ${_result.name || _result.vehicleId}`);
+                        } else {
+                            console.log(`⚠️ Re-Assign fand kein Fahrzeug für ${_name} — bleibt warteschlange`);
+                        }
+                    }
+                } catch (_reErr) {
+                    console.error('⚠️ Re-Assign warteschlange Fehler:', _reErr.message);
                 }
             }
 

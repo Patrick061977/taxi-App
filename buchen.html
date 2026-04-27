@@ -1747,16 +1747,55 @@
             const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'arrived'];
             const _busyVids = new Set();
             const _busyEndTimes = {}; // vid → frühestes Ende
+            // v6.62.48: Live-GPS-basierte Wartezeit-Schaetzung. Patrick: 'machst du dann
+            // die ETA-Berechnung live mit GPS'. Vorher: pickupTimestamp + estimatedDuration
+            // (statisch, ignoriert wo Tesla GERADE ist). Jetzt:
+            // - Status on_way: Tesla → Pickup-Coords + Fahrt-Min + 5 Min Anfahrt-Puffer
+            // - Status picked_up: Tesla → Ziel-Coords + 5 Min Anfahrt-Puffer
+            // - Sonst: Fallback auf statische Berechnung
+            const _haversineMin = (lat1, lon1, lat2, lon2) => {
+                const dLat = (lat1 - lat2) * Math.PI / 180;
+                const dLon = (lon1 - lon2) * Math.PI / 180;
+                const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+                const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return Math.max(1, Math.round(distKm * 1.6 + 1)); // Strassenfaktor + 1 Min Anlauf
+            };
             Object.values(_activeRidesCache || {}).forEach(r => {
                 if (!r) return;
                 if (!_activeStatuses.includes(r.status)) return;
                 const _vid = r.vehicleId || r.assignedVehicle;
                 if (!_vid) return;
                 _busyVids.add(_vid);
-                const _dur = parseInt(r.duration || r.estimatedDuration || 30);
-                if (r.pickupTimestamp) {
-                    const _endTs = r.pickupTimestamp + _dur * 60000;
-                    if (!_busyEndTimes[_vid] || _endTs > _busyEndTimes[_vid]) _busyEndTimes[_vid] = _endTs;
+                const _ANFAHRT_BUFFER = 5; // Min fuer Anfahrt zum naechsten Kunden
+                const _vehLive = (_gpsOnlineVehicles || {})[_vid];
+                const _hasLiveGps = _vehLive && _vehLive.lat && _vehLive.lon &&
+                    _vehLive.timestamp && (Date.now() - _vehLive.timestamp) < 5*60*1000;
+                let _endTs = null;
+                if (_hasLiveGps && r.status === 'on_way') {
+                    // Tesla faehrt zum Pickup → Live-Rest + Fahrt-Min
+                    const _pLat = r.pickupLat || r.pickupCoords?.lat;
+                    const _pLon = r.pickupLon || r.pickupCoords?.lon;
+                    if (_pLat && _pLon) {
+                        const _restMin = _haversineMin(_vehLive.lat, _vehLive.lon, _pLat, _pLon);
+                        const _fahrtMin = parseInt(r.duration || r.estimatedDuration || 15);
+                        _endTs = Date.now() + (_restMin + _fahrtMin + _ANFAHRT_BUFFER) * 60000;
+                    }
+                } else if (_hasLiveGps && (r.status === 'picked_up' || r.status === 'arrived')) {
+                    // Tesla faehrt zum Ziel (oder wartet vor Pickup) → Live-Rest
+                    const _dLat = r.destinationLat || r.destCoords?.lat;
+                    const _dLon = r.destinationLon || r.destCoords?.lon;
+                    if (_dLat && _dLon) {
+                        const _restMin = _haversineMin(_vehLive.lat, _vehLive.lon, _dLat, _dLon);
+                        _endTs = Date.now() + (_restMin + _ANFAHRT_BUFFER) * 60000;
+                    }
+                }
+                // Fallback: statische Berechnung wenn keine Live-Daten
+                if (_endTs === null && r.pickupTimestamp) {
+                    const _dur = parseInt(r.duration || r.estimatedDuration || 30);
+                    _endTs = r.pickupTimestamp + _dur * 60000;
+                }
+                if (_endTs && (!_busyEndTimes[_vid] || _endTs > _busyEndTimes[_vid])) {
+                    _busyEndTimes[_vid] = _endTs;
                 }
             });
             // Wirklich FREI = GPS online + GPS frisch + NICHT besetzt

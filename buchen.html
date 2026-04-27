@@ -1796,17 +1796,25 @@
                 sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
             } else if (gpsOnlineCount > 0) {
-                // v6.62.7: GPS online aber ALLE besetzt → Warteliste-Modus
-                // v6.62.34 (Variante C): Patrick: 'gruen lassen, ehrlich Wartezeit zeigen,
-                // damit Kunden wissen sie kommen in die Warteschlange aber koennen trotzdem
-                // buchen'. Gleicher gruener Look wie 'frei', Subtext erklaert die Lage.
-                sofortBtn.style.background = '';  // Default-Gruen wie bei frei
-                sofortBtn.style.color = '';
+                // v6.62.41: Patrick: 'farblich differenzieren — gruen bei sofort,
+                // orange bei Wartezeit, der Kunde sieht was ihn erwartet'.
+                // Stufen: <10 Min gruen | 10-20 Min orange | >20 Min dunkles Orange
+                let _waitMin = null;
                 let _label = 'Sie kommen in die Warteschlange';
                 const _ends = Object.values(_busyEndTimes).filter(x => x > Date.now()).sort((a,b)=>a-b);
                 if (_ends.length > 0) {
-                    const _waitMin = Math.max(1, Math.round((_ends[0] - Date.now()) / 60000));
+                    _waitMin = Math.max(1, Math.round((_ends[0] - Date.now()) / 60000));
                     _label = 'Wartezeit ca. ' + _waitMin + ' Min — Sie kommen in die Warteschlange';
+                }
+                if (_waitMin === null || _waitMin < 10) {
+                    sofortBtn.style.background = '';   // Default-Gruen (wie bei frei)
+                    sofortBtn.style.color = '';
+                } else if (_waitMin < 20) {
+                    sofortBtn.style.background = '#fb923c';  // Orange — moderate Wartezeit
+                    sofortBtn.style.color = '#ffffff';
+                } else {
+                    sofortBtn.style.background = '#ea580c';  // Dunkles Orange — lange Wartezeit
+                    sofortBtn.style.color = '#ffffff';
                 }
                 sofortBtn.innerHTML = '⚡ Sofort buchen<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); }; // klickbar (Warteliste)

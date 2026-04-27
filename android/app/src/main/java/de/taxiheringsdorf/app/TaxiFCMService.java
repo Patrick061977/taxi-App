@@ -102,6 +102,10 @@ public class TaxiFCMService extends FirebaseMessagingService {
         if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
         if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
+        // v6.62.18: Auftrags-Push klebt — kann NICHT versehentlich weggewischt werden,
+        // verschwindet nur über Annehmen/Ablehnen (RideActionReceiver räumt auf) oder Tap (App-Open).
+        // Andere Push-Typen (storniert/Info) bleiben tap-to-dismiss.
+        boolean isOrderPush = "new_ride".equals(type) && rideId != null;
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
@@ -112,7 +116,8 @@ public class TaxiFCMService extends FirebaseMessagingService {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(sound)
             .setVibrate(new long[]{0, 800, 300, 800, 300, 800, 300, 800})
-            .setAutoCancel(true)
+            .setOngoing(isOrderPush)        // ← NEU: kann nicht weggewischt werden (nur Order-Pushes)
+            .setAutoCancel(true)            // Tap auf Notification/Action räumt sie weg
             .setContentIntent(pendingIntent)
             .setFullScreenIntent(pendingIntent, true); // weckt Bildschirm bei lock-screen
 

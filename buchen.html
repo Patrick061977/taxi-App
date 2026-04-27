@@ -1134,6 +1134,10 @@
         } catch(e) { console.warn('Shift-Listener Fehler:', e); }
         let isAvailable = false;
         let _gpsOnlineVehicles = {}; // 🆕 v6.38.95: GPS-online Fahrzeuge (live via Firebase)
+        // v6.62.20: Live-Rides im Outer-Scope, damit updateSofortToggle besetzte Fahrzeuge erkennt.
+        // Vorher war latestRides in einer IIFE der Live-Taxi-Map gefangen → ReferenceError beim
+        // Klick auf Sofort, Toggle hat nichts gemacht.
+        let _activeRidesCache = {};
 
         // 🆕 v6.38.78: Buchungsbutton je nach Verfügbarkeit umschalten
         // 🆕 v6.41.65: Progress-Strip — persistenter Fortschritts-Indikator
@@ -1705,6 +1709,21 @@
             updateStatusBar();
         });
 
+        // v6.62.20: Outer-Scope Rides-Listener für updateSofortToggle (erkennt besetzte Fahrzeuge).
+        // Nur aktive Stati indexieren — completed/cancelled brauchen wir hier nicht.
+        try {
+            db.ref('rides').on('value', snap => {
+                const all = snap.val() || {};
+                const active = {};
+                const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'sofort'];
+                Object.entries(all).forEach(([id, r]) => {
+                    if (r && _activeStatuses.includes(r.status)) active[id] = r;
+                });
+                _activeRidesCache = active;
+                updateStatusBar();
+            });
+        } catch(e) { console.warn('rides-Listener Fehler:', e); }
+
         // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
         // 🔧 v6.62.7: Patrick: 'Tesla ist besetzt aber buchen.html zeigt grün'.
         //            Bug: Button prüfte nur GPS-online, nicht ob Fahrzeug FREI ist.
@@ -1724,7 +1743,7 @@
             const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned'];
             const _busyVids = new Set();
             const _busyEndTimes = {}; // vid → frühestes Ende
-            Object.values(latestRides || {}).forEach(r => {
+            Object.values(_activeRidesCache || {}).forEach(r => {
                 if (!r) return;
                 if (!_activeStatuses.includes(r.status)) return;
                 const _vid = r.vehicleId || r.assignedVehicle;

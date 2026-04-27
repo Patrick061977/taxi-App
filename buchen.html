@@ -1795,21 +1795,18 @@
                 sofortBtn.onclick = function() { setWann('sofort'); };
             } else if (gpsOnlineCount > 0) {
                 // v6.62.7: GPS online aber ALLE besetzt → Warteliste-Modus
-                // v6.62.33: Patrick: 'können die Leute dann nicht buchen? Sollten trotzdem
-                // buchen können, aber wissen dass das Taxi noch bis X Uhr unterwegs ist'.
-                // Vorher: "JETZT BELEGT" wirkte abschreckend. Jetzt: "Vormerken — frei ab X
-                // Uhr" — klar dass Buchung trotzdem moeglich ist.
-                sofortBtn.style.background = '#dbeafe';
-                sofortBtn.style.color = '#1e40af';
-                let _label = 'Wir nehmen Ihre Buchung vor — Fahrer meldet sich';
+                // v6.62.34 (Variante C): Patrick: 'gruen lassen, ehrlich Wartezeit zeigen,
+                // damit Kunden wissen sie kommen in die Warteschlange aber koennen trotzdem
+                // buchen'. Gleicher gruener Look wie 'frei', Subtext erklaert die Lage.
+                sofortBtn.style.background = '';  // Default-Gruen wie bei frei
+                sofortBtn.style.color = '';
+                let _label = 'Sie kommen in die Warteschlange';
                 const _ends = Object.values(_busyEndTimes).filter(x => x > Date.now()).sort((a,b)=>a-b);
                 if (_ends.length > 0) {
-                    const _earliestEnd = new Date(_ends[0]);
-                    const _h = String(_earliestEnd.getHours()).padStart(2,'0');
-                    const _m = String(_earliestEnd.getMinutes()).padStart(2,'0');
-                    _label = 'Fahrer aktuell unterwegs — frei ab ca. ' + _h + ':' + _m + ' Uhr';
+                    const _waitMin = Math.max(1, Math.round((_ends[0] - Date.now()) / 60000));
+                    _label = 'Wartezeit ca. ' + _waitMin + ' Min — Sie kommen in die Warteschlange';
                 }
-                sofortBtn.innerHTML = '⚡ Vormerken<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
+                sofortBtn.innerHTML = '⚡ Sofort buchen<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); }; // klickbar (Warteliste)
             } else {
                 // Kein GPS → Anruf-Button

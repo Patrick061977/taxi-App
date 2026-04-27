@@ -103,12 +103,16 @@
             margin: 8px 0;
         }
         .ride-status-new { background: #fef3c7; color: #92400e; }
+        .ride-status-sofort { background: #fef3c7; color: #92400e; }
+        .ride-status-warteschlange { background: #fde68a; color: #78350f; animation: pulse 3s infinite; }
+        .ride-status-vorbestellt { background: #e0e7ff; color: #3730a3; }
         .ride-status-assigned { background: #dbeafe; color: #1e40af; }
         .ride-status-accepted { background: #d1fae5; color: #065f46; }
         .ride-status-on_way { background: #3b82f6; color: white; animation: pulse 2s infinite; }
         .ride-status-picked_up { background: #8b5cf6; color: white; animation: pulse 2s infinite; }
         .ride-status-completed { background: #6b7280; color: white; }
         .ride-status-cancelled { background: #ef4444; color: white; }
+        .ride-status-storniert { background: #ef4444; color: white; }
         
         #vehicle-info {
             font-size: 14px;
@@ -316,9 +320,15 @@
                 if (!r) return;
                 const badge = document.getElementById('ride-status-badge');
                 if (!badge) return;
+                // v6.62.23: warteschlange + vorbestellt ergaenzt + dynamische ETA-Anzeige
+                const _eta = r.estimatedWaitMinutes;
                 const statusMap = {
                     'new': '⏳ Wartet auf Fahrer',
                     'sofort': '⚡ Sofortfahrt — Fahrer wird gesucht',
+                    'warteschlange': _eta != null
+                        ? `⏳ Warteschlange — voraussichtlich ca. ${_eta} Min Wartezeit`
+                        : '⏳ Warteschlange — Sie werden benachrichtigt sobald ein Fahrer frei ist',
+                    'vorbestellt': '📅 Vorbestellt — Fahrer wird kurz vor Abholzeit zugeteilt',
                     'assigned': '🔔 Fahrer zugewiesen — wartet auf Bestätigung',
                     'accepted': '✅ Fahrer hat bestätigt',
                     'on_way': '🚗 Fahrer ist unterwegs zu Ihnen',

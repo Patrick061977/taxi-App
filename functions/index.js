@@ -21111,6 +21111,48 @@ async function validateRideConsistency(rideId, ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// v6.62.16: Notfall-Vehicle-Fix — Shift beenden + activeDevice clearen.
+// Aufruf: curl -X POST 'URL?key=SECRET' -d '{"vehicleId":"X","action":"endShift"|"clearLock"|"both"}'
+// ═══════════════════════════════════════════════════════════════
+exports.claudeFixVehicle = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const vehicleId = body.vehicleId;
+            const action = body.action || 'both';
+            if (!vehicleId) { res.status(400).json({ error: 'vehicleId required' }); return; }
+            const now = Date.now();
+            const result = {};
+            if (action === 'endShift' || action === 'both') {
+                await db.ref(`vehicles/${vehicleId}/shift`).update({
+                    status: 'ended',
+                    endedAt: now,
+                    endedReason: 'claudeFixVehicle-emergency',
+                    endedBy: 'claude-helper'
+                });
+                await db.ref(`vehicles/${vehicleId}/online`).set(false);
+                result.shiftEnded = true;
+            }
+            if (action === 'clearLock' || action === 'both') {
+                await db.ref(`vehicles/${vehicleId}/activeDevice`).remove();
+                result.lockCleared = true;
+            }
+            res.json({ ok: true, vehicleId, action, ...result, ts: now });
+        } catch (err) {
+            console.error('claudeFixVehicle error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // v6.62.14: Claude-Bridge-Send-Helper — HTTP-Endpoint mit Shared-Secret damit
 // ich (Claude in der CLI) direkt Telegram-Nachrichten an Patrick schicken kann.
 // Aufruf: curl -X POST 'URL?key=SECRET' -d '{"message":"...","targetChatId":6229490043}'

@@ -139,3 +139,55 @@ jobs:
           files: ${{ steps.rename.outputs.apkPath }}
           fail_on_unmatched_files: true
           make_latest: true
+
+      # v6.60.4: APK + latest.json auf Strato mirrorn — Patrick: S20-Download von GitHub
+      # extrem langsam, manche Samsung-ROMs drosseln + GitHub-CDN für DE-User suboptimal.
+      # Strato (DE-Hosting) liefert direkt + zügig. App prüft latest.json zuerst, GitHub-Fallback.
+      - name: Strato-Mirror vorbereiten
+        if: github.ref == 'refs/heads/main'
+        id: strato-mirror
+        run: |
+          set -e
+          mkdir -p strato-apk-upload/app
+          cp "${{ steps.rename.outputs.apkPath }}" strato-apk-upload/app/taxi-app-latest.apk
+          SHA256=$(sha256sum strato-apk-upload/app/taxi-app-latest.apk | cut -d' ' -f1)
+          SIZE=$(stat -c%s strato-apk-upload/app/taxi-app-latest.apk)
+          BUILD_TS=$(TZ="Europe/Berlin" date +"%Y-%m-%dT%H:%M:%S%:z")
+          cat > strato-apk-upload/app/latest.json <<EOF
+          {
+            "tag_name": "v${{ steps.version.outputs.versionName }}",
+            "version": "${{ steps.version.outputs.versionName }}",
+            "versionCode": ${{ steps.version.outputs.versionCode }},
+            "browser_download_url": "https://umwelt-taxi-insel-usedom.de/app/taxi-app-latest.apk",
+            "sha256": "$SHA256",
+            "size": $SIZE,
+            "buildTime": "$BUILD_TS"
+          }
+          EOF
+          echo "✅ Strato-Mirror vorbereitet (SHA256: $SHA256, Size: $SIZE)"
+          ls -la strato-apk-upload/app/
+
+      - name: Strato-Secrets prüfen
+        if: github.ref == 'refs/heads/main'
+        id: check-strato-secrets
+        run: |
+          if [ -n "${{ secrets.STRATO_FTP_HOST }}" ] \
+             && [ "${{ secrets.STRATO_FTP_HOST }}" != "PLACEHOLDER_UPDATE_ME" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Strato-Secrets fehlen — Mirror-Upload übersprungen"
+          fi
+
+      - name: APK auf Strato mirrorn (FTP)
+        if: github.ref == 'refs/heads/main' && steps.check-strato-secrets.outputs.ready == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.STRATO_FTP_HOST }}
+          username: ${{ secrets.STRATO_FTP_USER }}
+          password: ${{ secrets.STRATO_FTP_PASSWORD }}
+          local-dir: ./strato-apk-upload/
+          server-dir: /
+          dangerous-clean-slate: false
+          state-name: .ftp-deploy-apk-sync-state.json
+          log-level: minimal

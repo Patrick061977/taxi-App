@@ -27,7 +27,12 @@ import java.net.URL;
 // nicht eingeloggt ist'.
 public final class UpdateChecker {
     private static final String TAG = "UpdateChecker";
-    private static final String RELEASES_API = "https://api.github.com/repos/Patrick061977/taxi-App/releases/latest";
+    // v6.60.4: Strato (DE-Hosting) als Primär-Quelle, GitHub als Fallback.
+    // Patrick: 'kannst du das nicht zu strato laden und das wir es von da laden' —
+    // S20-Download von GitHub-CDN war extrem langsam (Drosselung / Routing).
+    // Strato liefert direkt aus DE-Rechenzentrum.
+    private static final String STRATO_LATEST_JSON = "https://umwelt-taxi-insel-usedom.de/app/latest.json";
+    private static final String GITHUB_RELEASES_API = "https://api.github.com/repos/Patrick061977/taxi-App/releases/latest";
 
     private UpdateChecker() {}
 
@@ -37,20 +42,36 @@ public final class UpdateChecker {
         new Thread(() -> doCheck(activity, banner, bannerText, bannerBtn)).start();
     }
 
-    private static void doCheck(Activity activity, LinearLayout banner, TextView bannerText, MaterialButton bannerBtn) {
+    private static String fetchJson(String urlStr) {
         try {
-            URL url = new URL(RELEASES_API);
+            URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(8000);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
             conn.setRequestMethod("GET");
-            if (conn.getResponseCode() != 200) return;
+            if (conn.getResponseCode() != 200) return null;
             BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) sb.append(line);
             br.close();
-            String json = sb.toString();
+            return sb.toString();
+        } catch (Throwable t) {
+            Log.w(TAG, "fetchJson fehlgeschlagen für " + urlStr + ": " + t.getMessage());
+            return null;
+        }
+    }
+
+    private static void doCheck(Activity activity, LinearLayout banner, TextView bannerText, MaterialButton bannerBtn) {
+        try {
+            // 1) Primär: Strato (schnell aus DE)
+            String json = fetchJson(STRATO_LATEST_JSON);
+            // 2) Fallback: GitHub
+            if (json == null) {
+                Log.i(TAG, "Strato-Mirror nicht erreichbar, fallback auf GitHub");
+                json = fetchJson(GITHUB_RELEASES_API);
+            }
+            if (json == null) return;
             String latestTag = extractJsonField(json, "tag_name");
             if (latestTag == null) return;
             if (latestTag.startsWith("v")) latestTag = latestTag.substring(1);

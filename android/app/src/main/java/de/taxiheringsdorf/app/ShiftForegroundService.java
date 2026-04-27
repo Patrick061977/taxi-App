@@ -97,11 +97,24 @@ public class ShiftForegroundService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
         if (ACTION_STOP.equals(action)) {
+            // v6.62.17: Patrick: 'oben ist immer noch dieses Icon, das muss doch weggehen'.
+            // stopForeground(true) reicht auf Samsung One UI nicht zuverlässig.
+            // Belt-and-Suspenders: Explizite Notification-Cancel via NotificationManager.
             running = false;
             currentVehicleId = null;
             stopHeartbeat();
             stopGpsTracking();
-            stopForeground(true);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(Service.STOP_FOREGROUND_REMOVE);
+                } else {
+                    stopForeground(true);
+                }
+            } catch (Throwable _t) { /* ignore */ }
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm != null) nm.cancel(NOTIFICATION_ID);
+            } catch (Throwable _t) { /* ignore */ }
             stopSelf();
             return START_NOT_STICKY;
         }

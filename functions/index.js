@@ -21111,6 +21111,61 @@ async function validateRideConsistency(rideId, ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.10: NOTFALL-RIDE-FIX — Patrick stuck mit Fahrt, Handy schreibt nicht.
+// Aufruf: curl -X POST "URL?key=SECRET" -d '{"rideId":"X","status":"completed"}'
+// Setzt Status + acceptedAt/onWayAt/arrivedAt/pickedUpAt Timestamps + admin-bypass Lock.
+// ═══════════════════════════════════════════════════════════════
+exports.claudeFixRide = onRequest(
+    { region: 'europe-west1', invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const rideId = body.rideId;
+            const newStatus = body.status;
+            if (!rideId || !newStatus) { res.status(400).json({ error: 'rideId+status required' }); return; }
+            const now = Date.now();
+            const upd = {
+                status: newStatus,
+                updatedAt: now,
+                fixedBy: 'claudeFixRide-v6.62.10',
+                fixedAt: now,
+                fixReason: body.reason || 'Manueller Notfall-Fix'
+            };
+            // Timeline-Felder rückwirkend setzen für vollständige Logs
+            if (newStatus === 'completed') {
+                if (!body.skipTimeline) {
+                    upd.onWayAt = upd.onWayAt || now - 600000;
+                    upd.arrivedAt = upd.arrivedAt || now - 120000;
+                    upd.pickedUpAt = upd.pickedUpAt || now - 60000;
+                    upd.completedAt = now;
+                }
+            } else if (newStatus === 'on_way') upd.onWayAt = now;
+            else if (newStatus === 'arrived') upd.arrivedAt = now;
+            else if (newStatus === 'picked_up') upd.pickedUpAt = now;
+            else if (newStatus === 'cancelled' || newStatus === 'storniert') {
+                upd.cancelledAt = now;
+                upd.cancelledBy = body.cancelledBy || 'claude-emergency-fix';
+            }
+            await db.ref('rides/' + rideId).update(upd);
+            await addRideLog(rideId, '🚑', `NOTFALL-FIX: status → ${newStatus}`, {
+                quelle: 'claudeFixRide v6.62.10',
+                grund: upd.fixReason
+            });
+            res.json({ ok: true, rideId, newStatus, updates: upd });
+        } catch (err) {
+            console.error('claudeFixRide error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // HEALTH CHECK — Live-Status für Terminal-Diagnose
 // Aufruf: node check.js  ODER  curl "URL?key=SECRET"
 // ═══════════════════════════════════════════════════════════════

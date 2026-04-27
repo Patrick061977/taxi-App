@@ -1274,7 +1274,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 tvName.setText(r.customerName != null ? r.customerName : "(Kunde)");
                 tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
                 tvDest.setText("🎯 " + (r.destination != null ? r.destination : "-"));
-                tvTime.setText(r.pickupTime != null ? r.pickupTime : "Sofort");
+                // v6.62.0: Patrick: 'da oben steht 8.45 Uhr aber jetzt ist 10.45 Uhr'.
+                // pickupTime kann eine ISO-UTC-Zeit sein ("2026-04-27T08:45:00.000Z") wenn die
+                // Buchung von Telegram/Web-App kommt. Direkt anzeigen → falsche UTC-Zeit.
+                // Fix: bevorzugt pickupTimestamp → Berlin-formatieren. Fallback nur wenn
+                // pickupTime ein einfaches HH:mm ist (Native erstellt, oder bereits formatiert).
+                String _displayTime;
+                if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                    java.text.SimpleDateFormat _fmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                    _fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    _displayTime = _fmt.format(new java.util.Date(r.pickupTimestamp));
+                } else if (r.pickupTime != null && r.pickupTime.matches("\\d{1,2}:\\d{2}")) {
+                    _displayTime = r.pickupTime; // schon HH:mm
+                } else {
+                    _displayTime = "Sofort";
+                }
+                tvTime.setText(_displayTime);
                 String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",
                     r.price != null ? String.format(Locale.GERMANY, "%.2f", r.price) : "--",
                     r.distance != null ? String.format(Locale.GERMANY, "%.1f", r.distance) : "--");

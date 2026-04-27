@@ -1715,7 +1715,10 @@
             db.ref('rides').on('value', snap => {
                 const all = snap.val() || {};
                 const active = {};
-                const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'sofort'];
+                // v6.62.43: Patrick: 'auf Bin da geklickt, dann war ich wieder frei — das
+                // kann nicht sein'. arrived in den active-Statuses gefehlt → buchen.html
+                // sah Fahrer als frei sobald er ankam.
+                const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'sofort', 'arrived'];
                 Object.entries(all).forEach(([id, r]) => {
                     if (r && _activeStatuses.includes(r.status)) active[id] = r;
                 });
@@ -1740,7 +1743,8 @@
                 return;
             }
             // v6.62.7: Welche Fahrzeuge sind aktuell BESETZT (auf aktiver Fahrt)?
-            const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned'];
+            // v6.62.43: + arrived (Fahrer angekommen, wartet auf Kunde — IMMER NOCH besetzt)
+            const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'arrived'];
             const _busyVids = new Set();
             const _busyEndTimes = {}; // vid → frühestes Ende
             Object.values(_activeRidesCache || {}).forEach(r => {
@@ -4249,7 +4253,7 @@
 
             function rebuildMarkers() {
                 const now = Date.now();
-                const activeStatuses = ['accepted', 'on_way', 'picked_up', 'assigned', 'sofort'];
+                const activeStatuses = ['accepted', 'on_way', 'picked_up', 'assigned', 'sofort', 'arrived']; // v6.62.43
                 // Pro Fahrzeug: bestimme ob es eine aktive Fahrt hat und schätze ETA bis Ende
                 const busyByVehicle = {}; // vid → { etaMin, rideCount }
                 Object.values(latestRides || {}).forEach(r => {

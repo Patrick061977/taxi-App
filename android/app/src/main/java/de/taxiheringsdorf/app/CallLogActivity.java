@@ -40,6 +40,11 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,11 +82,17 @@ public class CallLogActivity extends AppCompatActivity {
             if (rc == AutocompleteActivity.RESULT_ERROR && data != null) {
                 Status status = Autocomplete.getStatusFromIntent(data);
                 String msg = status != null ? (status.getStatusCode() + ": " + status.getStatusMessage()) : "unbekannter Status";
-                Toast.makeText(this, "❌ Places-Fehler — " + msg + " (vermutlich API-Key-Restriction in Cloud-Console)", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "⚠️ Places: " + msg + " — verwende OSM-Fallback", Toast.LENGTH_LONG).show();
+                // v6.62.28: bei Places-Fehler OSM-Fallback statt nur abzubrechen
+                showOsmFallbackPrompt();
                 return;
             }
             if (rc != RESULT_OK || data == null) {
-                // RESULT_CANCELED ist OK (User hat Abbrechen getippt) — keine Toast.
+                // v6.62.28: bei Cancel → OSM/Nominatim-Fallback anbieten.
+                // Patrick: 'in der anrufliste in autocomplete laeuft es nicht'.
+                // Manche Adressen findet Google Places nicht (zu klein, zu speziell)
+                // — Nominatim hat oft mehr Detail in Heringsdorf-Region.
+                showOsmFallbackPrompt();
                 return;
             }
             try {
@@ -113,6 +124,81 @@ public class CallLogActivity extends AppCompatActivity {
         }
     );
 
+    // v6.62.28: OSM/Nominatim-Fallback wenn Places fehlschlaegt oder nichts findet.
+    // Patrick: 'in der anrufliste in autocomplete macht er einen fehler — kannst Google
+    // mit OSM als Fallback nehmen'. Manche Adressen findet Google nicht (zu klein,
+    // Ferienwohnungen, Hausnummern-Detail), Nominatim hat oft mehr Detail in Heringsdorf.
+    private void showOsmFallbackPrompt() {
+        new AlertDialog.Builder(this)
+            .setTitle("Adresse nicht gefunden")
+            .setMessage("Google Places hat die Adresse nicht gefunden.\n\nMoechtest du sie manuell eingeben? Wir suchen sie dann ueber OpenStreetMap.")
+            .setPositiveButton("Manuell eingeben", (d, w) -> showManualAddressDialog())
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void showManualAddressDialog() {
+        final EditText input = new EditText(this);
+        input.setHint("z.B. Strandpromenade 12, 17424 Heringsdorf");
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        new AlertDialog.Builder(this)
+            .setTitle("Adresse manuell eingeben")
+            .setMessage("Tippe die Adresse moeglichst vollstaendig (Strasse, Nr, PLZ, Ort).")
+            .setView(input)
+            .setPositiveButton("Suchen", (d, w) -> {
+                String q = input.getText().toString().trim();
+                if (q.isEmpty()) return;
+                geocodeWithNominatim(q);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void geocodeWithNominatim(String query) {
+        Toast.makeText(this, "🔍 Suche '" + query + "' bei OpenStreetMap...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q="
+                    + URLEncoder.encode(query, "UTF-8");
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.28 (admin@funk-taxi-heringsdorf.de)");
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                conn.disconnect();
+                String json = sb.toString();
+                // Mini-JSON-Parser fuer das erste Result
+                int latIdx = json.indexOf("\"lat\":\"");
+                int lonIdx = json.indexOf("\"lon\":\"");
+                int dispIdx = json.indexOf("\"display_name\":\"");
+                if (latIdx < 0 || lonIdx < 0 || dispIdx < 0) {
+                    runOnUiThread(() -> Toast.makeText(this, "❌ OpenStreetMap fand auch nichts fuer '" + query + "'", Toast.LENGTH_LONG).show());
+                    return;
+                }
+                latIdx += 7; lonIdx += 7; dispIdx += 16;
+                final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
+                final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
+                String display = json.substring(dispIdx, json.indexOf("\"", dispIdx))
+                    .replace("\\u00fc", "ue").replace("\\u00f6", "oe").replace("\\u00e4", "ae")
+                    .replace("\\u00df", "ss").replace("\\/", "/");
+                runOnUiThread(() -> {
+                    if (pendingPlaceField != null) pendingPlaceField.setText(display);
+                    if (pendingPlaceCoords != null) {
+                        pendingPlaceCoords[0] = lat;
+                        pendingPlaceCoords[1] = lon;
+                    }
+                    Toast.makeText(this, "✅ Gefunden via OSM", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "OSM-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
     private void launchPlaces(TextView targetField, double[] coordsOut) {
         try {
             if (!Places.isInitialized()) {
@@ -141,7 +227,11 @@ public class CallLogActivity extends AppCompatActivity {
                 .build(this);
             placesLauncher.launch(intent);
         } catch (Throwable t) {
-            Toast.makeText(this, "Places-Init Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            // v6.62.28: Places-Init-Fehler → OSM-Fallback statt blocker Toast
+            Toast.makeText(this, "Places nicht verfuegbar: " + t.getMessage() + " — verwende OSM-Fallback", Toast.LENGTH_LONG).show();
+            pendingPlaceField = targetField;
+            pendingPlaceCoords = coordsOut;
+            showManualAddressDialog();
         }
     }
 

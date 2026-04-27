@@ -43,6 +43,7 @@ APP_FILES=(
     "berlin.html"
     "anfrage.html"
     "track.html"
+    "gps-track.html"
     "payment-success.html"
     "payment-cancel.html"
     "manifest.json"

@@ -1769,7 +1769,9 @@
                 // Mindestens 1 freies Fahrzeug → normaler Sofort-Button mit ETA
                 sofortBtn.style.background = '';
                 sofortBtn.style.color = '';
-                let etaText = 'Sofort verfügbar';
+                // v6.62.40: Patrick: 'nicht sofort verfuegbar, sondern Fahrer verfuegbar in X Min'.
+                // Default ohne pickupCoords: realistische Anfahrt 5-10 Min (Heringsdorf-typisch).
+                let etaText = 'Fahrer verfügbar — ca. 5-10 Min Anfahrt';
                 if (pickupCoords && _gpsOnlineVehicles) {
                     let closestEta = null;
                     for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {

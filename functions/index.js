@@ -17877,13 +17877,22 @@ exports.scheduledAutoAssign = onSchedule(
             // Unzugewiesene Fahrten finden
             // v6.62.22 FIX-2: warteschlange-Fahrten werden auch dann verarbeitet wenn
             // pickupTimestamp in der Vergangenheit liegt (Sofortfahrt die schon eine Weile wartet).
+            // v6.62.24 PATCH: aber NICHT wenn pickupTimestamp/createdAt > 30 Min alt ist —
+            // sonst werden uralte Karteileichen aus der Warteschlange ploetzlich aktiv (passiert
+            // 27.04. mit Frau Porath von 22.04 + 20.04, wurden nach v6.62.22-Deploy re-assigned).
+            // Karteileichen bleiben warteschlange und werden vom 24h-Cleanup spaeter completed.
+            const WARTE_MAX_AGE_MS = 30 * 60 * 1000; // 30 Min Toleranz
             const unassigned = allRides.filter(r => {
                 if (r.assignedVehicle || r.vehicleId) return false;
                 if (['deleted','cancelled','storniert','cancelled_pending_driver','completed','on_way','picked_up'].includes(r.status)) return false;
                 if (r.assignmentLocked) return false;
                 if (!r.pickupTimestamp) return false;
-                // warteschlange = wartet auf freies Fahrzeug → 5-Min-Vorlauf-Regel umgehen
-                if (r.status === 'warteschlange') return true;
+                if (r.status === 'warteschlange') {
+                    // Pickup darf nicht > 30 Min in der Vergangenheit liegen
+                    const _refTs = r.createdAt || r.pickupTimestamp;
+                    if ((now - _refTs) > WARTE_MAX_AGE_MS) return false;
+                    return true;
+                }
                 if (r.pickupTimestamp < now + 5 * 60000) return false;
                 return true;
             });
@@ -18950,14 +18959,19 @@ exports.onRideUpdated = onValueUpdated(
                 // v6.62.22 FIX-3: nach completed → älteste warteschlange-Fahrt zuweisen.
                 // Vorher: scheduledAutoAssign hätte das alle 10 Min eingesammelt — viel zu langsam
                 // für Sofortfahrt-Kunden. Jetzt direkt re-assign sobald Fahrzeug frei wird.
+                // v6.62.24: + Altersfilter — nur Fahrten max 30 Min alt zaehlen, sonst Karteileichen.
                 try {
                     const _wsSnap = await db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value');
                     let _oldest = null;
+                    const _now = Date.now();
+                    const _maxAge = 30 * 60 * 1000;
                     _wsSnap.forEach(c => {
                         const r = c.val();
                         if (!r) return;
                         if (r.assignedVehicle || r.vehicleId) return; // bereits zugewiesen, sollte nicht 'warteschlange' sein
                         if (!r.pickupCoords?.lat && !r.pickupLat) return; // ohne Koordinaten geht's nicht
+                        const _refTs = r.createdAt || r.pickupTimestamp;
+                        if (!_refTs || (_now - _refTs) > _maxAge) return; // zu alt → ueberspringen
                         if (!_oldest || (r.createdAt || 0) < (_oldest.createdAt || 0)) {
                             _oldest = { ...r, firebaseId: c.key };
                         }

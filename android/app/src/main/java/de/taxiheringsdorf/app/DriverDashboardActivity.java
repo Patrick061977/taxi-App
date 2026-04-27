@@ -837,6 +837,30 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     private void showPriceStage(Ride r, String hotelName, boolean hasAuftraggeber) {
+        // v6.59.2: Patrick: 'Preis sollte beim nächsten Mal vorbelegt sein'.
+        // Wenn ride.actualPrice schon gesetzt (aus früherer Eingabe) → nutze den.
+        // Lese aus Firebase damit auch nach App-Restart der zuletzt eingetippte
+        // Wert vorgemerkt ist.
+        if (db == null || r.id == null) {
+            // Fallback: nimm r.price
+            renderPriceStage(r, r.price != null ? r.price : 0.0, hotelName, hasAuftraggeber);
+            return;
+        }
+        db.getReference("rides/" + r.id + "/actualPrice")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    Object v = s.getValue();
+                    double prefill = (v instanceof Number) ? ((Number) v).doubleValue()
+                        : (r.price != null ? r.price : 0.0);
+                    renderPriceStage(r, prefill, hotelName, hasAuftraggeber);
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {
+                    renderPriceStage(r, r.price != null ? r.price : 0.0, hotelName, hasAuftraggeber);
+                }
+            });
+    }
+
+    private void renderPriceStage(Ride r, double prefillPrice, String hotelName, boolean hasAuftraggeber) {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
@@ -847,19 +871,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
         layout.addView(lbl);
         EditText etPrice = new EditText(this);
         etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        double estimated = r.price != null ? r.price : 0.0;
-        etPrice.setText(String.format(Locale.GERMANY, "%.2f", estimated));
+        etPrice.setText(String.format(Locale.GERMANY, "%.2f", prefillPrice));
         etPrice.setSelectAllOnFocus(true);
         layout.addView(etPrice);
         new AlertDialog.Builder(this)
             .setTitle("💰 Fahrt abschließen — " + (r.customerName != null ? r.customerName : "?"))
             .setView(layout)
             .setPositiveButton("Weiter →", (d, w) -> {
-                double price = estimated;
+                double price = prefillPrice;
                 try { price = Double.parseDouble(etPrice.getText().toString().trim().replace(',', '.')); } catch (Throwable _t) {}
                 if (price <= 0) {
                     Toast.makeText(this, "Gültigen Preis eingeben", Toast.LENGTH_SHORT).show();
                     return;
+                }
+                // v6.59.2: Sofort in Firebase persistieren — falls User abbricht und
+                // später nochmal in den Bezahl-Flow geht, bleibt der Preis erhalten.
+                if (db != null && r.id != null) {
+                    Map<String, Object> upd = new HashMap<>();
+                    upd.put("actualPrice", price);
+                    upd.put("priceUpdatedAt", System.currentTimeMillis());
+                    db.getReference("rides/" + r.id).updateChildren(upd);
                 }
                 showPaymentMethodStage(r, price, hotelName, hasAuftraggeber);
             })

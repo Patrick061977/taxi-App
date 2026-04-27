@@ -132,13 +132,15 @@ public class VehiclePickerActivity extends AppCompatActivity {
             });
     }
 
-    // v6.50.1/v6.51.3/v6.60.1: Tap-Handler.
+    // v6.50.1/v6.51.3/v6.60.1/v6.60.3: Tap-Handler.
     // v6.60.1: Patrick: 'wenn ein fahrzeug angemeldet ist dann kann kein 2ter user sich anmelden'.
-    // → HARTER BLOCK auf aktivem fremdem Lock. Kein 'trotzdem'-Override mehr.
+    // v6.60.3: Patrick: 'aber der admin muss alles können' → Admin darf den Lock zwangsweise
+    //          übernehmen, normaler Fahrer wird hart geblockt.
     // Ausnahmen:
     //   - eigene DeviceID im Lock → reclaim (App-Crash + Restart desselben Handys)
     //   - Lock veraltet (Heartbeat > 5 Min) → frei für jeden
     //   - kein Lock → frei
+    //   - Admin → zwei-Stufen-Bestätigung, claim trotzdem möglich
     private void onVehicleTap(Vehicle v) {
         long now = System.currentTimeMillis();
         boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
@@ -148,6 +150,21 @@ public class VehiclePickerActivity extends AppCompatActivity {
 
         if (lockedByOther) {
             String label = v.lockedByLabel != null ? v.lockedByLabel : "anderes Gerät";
+            boolean isAdmin = PermissionsHelper.isAdmin(this);
+            if (isAdmin) {
+                // Admin-Override: zwangsweise übernehmen mit expliziter Bestätigung
+                new AlertDialog.Builder(this)
+                    .setTitle("🔒 Fahrzeug in Nutzung — Admin-Übernahme?")
+                    .setMessage(v.name + "\n\nAktuell aktiv: " + label + "\n\n"
+                        + "Als Admin kannst du den Lock zwangsweise übernehmen.\n"
+                        + "Das andere Gerät wird automatisch abgemeldet (Dialog 'Schicht übernommen').\n\n"
+                        + "Übernehmen?")
+                    .setPositiveButton("Zwangsweise übernehmen", (d, _w) -> selectVehicle(v))
+                    .setNegativeButton("Abbrechen", null)
+                    .setCancelable(true)
+                    .show();
+                return;
+            }
             new AlertDialog.Builder(this)
                 .setTitle("🔒 Fahrzeug ist gerade in Nutzung")
                 .setMessage(v.name + "\n\n" + label + " ist aktuell mit diesem Fahrzeug eingeloggt.\n\n"

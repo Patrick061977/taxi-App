@@ -172,8 +172,10 @@
 </head>
 <body>
     <div id="info">
-        <button class="close-btn" onclick="closeTracking()" title="Tracking schließen" aria-label="Schließen">✕</button>
-        <div class="header" style="padding-right:32px;">
+        <!-- v6.62.32: X-Kreuz oben entfernt (Patrick: 'Kunde drueckt das X und alles ist weg —
+             das ist nicht was er wollte'). Wer den Tab schliessen will, schliesst einfach den
+             Browser-Tab. Standort-Toggle gibt's jetzt am Standort-Button. -->
+        <div class="header">
             <h2>🚕 Ihr Taxi</h2>
             <div id="status-indicator" class="status-indicator"></div>
         </div>
@@ -188,7 +190,7 @@
             📍 Warte auf GPS-Position...
         </div>
 
-        <button id="my-location-btn" onclick="showMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+        <button id="my-location-btn" onclick="toggleMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
             📍 Meinen Standort anzeigen
         </button>
     </div>
@@ -475,8 +477,26 @@
         }
 
         // 🔧 v6.39.5: Eigenen Standort auf der Karte anzeigen
+        // v6.62.32: Toggle-Verhalten (Patrick: 'Kunde wollte den Standort wegmachen, das
+        // Kreuzchen oben hat aber alles weggemacht'). Jetzt: gleicher Button zeigt + versteckt.
         let myLocationMarker = null;
         let myLocationCircle = null;
+        let myLocationVisible = false;
+        function toggleMyLocation() {
+            const btn = document.getElementById('my-location-btn');
+            if (myLocationVisible) {
+                if (myLocationMarker) { map.removeLayer(myLocationMarker); myLocationMarker = null; }
+                if (myLocationCircle) { map.removeLayer(myLocationCircle); myLocationCircle = null; }
+                myLocationVisible = false;
+                if (btn) btn.textContent = '📍 Meinen Standort anzeigen';
+                const info = document.getElementById('location-info');
+                if (info) info.textContent = '📍 Warte auf GPS-Position...';
+            } else {
+                showMyLocation();
+                myLocationVisible = true;
+                if (btn) btn.textContent = '📍 Meinen Standort ausblenden';
+            }
+        }
         function showMyLocation() {
             if (!navigator.geolocation) {
                 alert('GPS auf diesem Gerät nicht verfügbar');

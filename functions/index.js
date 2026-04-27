@@ -17651,21 +17651,25 @@ exports.scheduledAutoAssign = onSchedule(
                 }
             }
 
-            // 🆕 v6.61.0: PUSH-REMINDER für Vorbestellungen die in <60 Min sind.
-            // Patrick: 'die fahrt 09 uhr 45 müsste ja pushen theoretisch' (Frau-Säuber-Bug).
-            // Original-FCM ging beim Zuweisen raus (TTL 60s) → längst weg, Fahrer hat's vergessen.
-            // Wenn pickup näher als 60 Min: Status 'vorbestellt' → 'assigned' setzen UND FCM erneut
-            // senden. So kriegt der Fahrer rechtzeitig Bipp-Erinnerung. Idempotent: nach status='assigned'
-            // wird der Block nicht mehr getriggert (anderer Status).
+            // 🆕 v6.61.0: PUSH-REMINDER vor Pickup: (15 Min + Anfahrt) vor Abholzeit.
+            // Patrick: 'der push soll 15 plus anfahrt kommen' — Fahrer kriegt Bipp damit
+            // er rechtzeitig losfahren kann (15 Min Aufwärm-Puffer + Fahrzeit zum Pickup).
+            // Frau-Säuber-Bug: scheduledAutoAssign filtert Fahrten mit vehicleId raus
+            // (Zeile 17737), daher kein zweiter Pass für nahende Vorbestellungen.
+            // Original-FCM-TTL ist 60s → längst weg wenn Pickup Stunden später ist.
+            // Lösung: vorbestellt+vehicleId+pickup-(15+anfahrt)-Min erreicht → status='assigned'
+            // setzen UND FCM direkt erneut senden. Idempotent: nach status='assigned' fällt
+            // die Fahrt aus dem Filter, kein Re-Re-Push.
             {
-                const SOFORT_WINDOW_MS = 60 * 60000;
                 const _pushReadyList = allRides.filter(r => {
                     if (r.status !== 'vorbestellt') return false;
                     const _vid = r.vehicleId || r.assignedVehicle;
                     if (!_vid) return false;
                     if (!r.pickupTimestamp) return false;
-                    if (r.pickupTimestamp - now > SOFORT_WINDOW_MS) return false; // zu weit in Zukunft
-                    if (r.pickupTimestamp - now < -10 * 60000) return false; // schon >10 min überfällig
+                    const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
+                    const _reminderLeadMs = (15 + _anfahrt) * 60000;
+                    if ((r.pickupTimestamp - now) > _reminderLeadMs) return false; // zu weit in Zukunft
+                    if ((r.pickupTimestamp - now) < -10 * 60000) return false; // schon >10 min überfällig
                     if (r.acceptedAt) return false; // bereits angenommen
                     if (r.assignmentLocked) return false;
                     return true;

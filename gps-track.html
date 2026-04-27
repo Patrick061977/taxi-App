@@ -39,6 +39,11 @@
 <div id="header">
   <h1>📍 GPS-Diagnose</h1>
   <select id="vehicle-select"></select>
+  <select id="source-select">
+    <option value="live">Live (letzte 30 Min)</option>
+    <option value="shift">Schicht-Verlauf (komplett)</option>
+  </select>
+  <select id="shift-select" style="display:none"></select>
   <button id="refresh-btn">🔄 Neu laden</button>
   <button id="auto-refresh-btn">⏸️ Auto-Refresh</button>
 </div>
@@ -112,6 +117,29 @@ async function loadVehicles() {
   if (want && v[want]) sel.value = want;
 }
 
+async function loadShifts(vehicleId) {
+  const sel = document.getElementById('shift-select');
+  sel.innerHTML = '<option value="">Lade...</option>';
+  const snap = await db.ref('shiftHistory/' + vehicleId).once('value');
+  const shifts = snap.val() || {};
+  const ids = Object.keys(shifts).sort((a,b) => Number(b) - Number(a));
+  if (ids.length === 0) {
+    sel.innerHTML = '<option value="">Keine Schichten</option>';
+    return;
+  }
+  sel.innerHTML = '';
+  ids.forEach(id => {
+    const s = shifts[id];
+    const start = new Date(Number(id));
+    const dStr = start.toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const status = s.status === 'auto-ended' ? ' (auto-end)' : (s.endTime ? ' (beendet)' : ' 🟢');
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = dStr + status;
+    sel.appendChild(opt);
+  });
+}
+
 async function render(vehicleId) {
   // Clear bestehende Layer
   if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
@@ -119,9 +147,22 @@ async function render(vehicleId) {
   trackMarkers = [];
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
 
-  const histSnap = await db.ref('gpsHealth/' + vehicleId + '/history').once('value');
-  const data = histSnap.val() || {};
-  const entries = Object.values(data).filter(e => e && e.ts).sort((a,b) => a.ts - b.ts);
+  const source = document.getElementById('source-select').value;
+  let entries = [];
+  if (source === 'shift') {
+    const shiftId = document.getElementById('shift-select').value;
+    if (!shiftId) {
+      document.getElementById('stats').innerHTML = '<div class="stat"><div class="stat-label">Hinweis</div><div class="stat-value warn">Keine Schicht ausgewaehlt</div></div>';
+      return;
+    }
+    const snap = await db.ref('shiftHistory/' + vehicleId + '/' + shiftId + '/heartbeats').once('value');
+    const data = snap.val() || {};
+    entries = Object.values(data).filter(e => e && e.ts).sort((a,b) => a.ts - b.ts);
+  } else {
+    const histSnap = await db.ref('gpsHealth/' + vehicleId + '/history').once('value');
+    const data = histSnap.val() || {};
+    entries = Object.values(data).filter(e => e && e.ts).sort((a,b) => a.ts - b.ts);
+  }
 
   if (entries.length === 0) {
     document.getElementById('stats').innerHTML = '<div class="stat"><div class="stat-label">Hinweis</div><div class="stat-value bad">Keine Daten</div></div>';
@@ -135,11 +176,13 @@ async function render(vehicleId) {
   const avgGap = gaps.length ? gaps.reduce((a,b) => a+b, 0) / gaps.length : 0;
   const maxGap = gaps.length ? Math.max(...gaps) : 0;
   const longGaps = gaps.filter(g => g > 60).length;
-  const withGps = entries.filter(e => e.hasGps).length;
+  // hasGps fallback: shiftHistory schreibt nur lat/lon — als gpsOk werten wenn beide gesetzt
+  const isGpsOk = e => e.hasGps === true || (e.lat && e.lon);
+  const withGps = entries.filter(isGpsOk).length;
 
   // Distanz
   let totalKm = 0;
-  const gpsEntries = entries.filter(e => e.hasGps && e.lat && e.lon);
+  const gpsEntries = entries.filter(e => isGpsOk(e) && e.lat && e.lon);
   for (let i = 1; i < gpsEntries.length; i++) {
     const x = gpsEntries[i-1], y = gpsEntries[i];
     const dl = (x.lat - y.lat) * Math.PI/180;
@@ -160,8 +203,8 @@ async function render(vehicleId) {
     <div class="stat"><div class="stat-label">Lücken &gt;60s</div><div class="stat-value ${longGaps === 0 ? 'ok' : 'bad'}">${longGaps}</div></div>
     <div class="stat"><div class="stat-label">GPS-Coverage</div><div class="stat-value ${withGps === entries.length ? 'ok' : 'warn'}">${withGps}/${entries.length}</div></div>
     <div class="stat"><div class="stat-label">Track-Länge</div><div class="stat-value">${totalKm.toFixed(2)} km</div></div>
-    <div class="stat"><div class="stat-label">WakeLock</div><div class="stat-value ${wakeLock ? 'ok' : 'bad'}">${wakeLock ? '✓ aktiv' : '✗ aus'}</div></div>
-    <div class="stat"><div class="stat-label">Battery-Opt</div><div class="stat-value ${batOpt ? 'ok' : 'warn'}">${batOpt ? '✓ ignoriert' : '⚠ aktiv'}</div></div>
+    <div class="stat"><div class="stat-label">WakeLock</div><div class="stat-value ${wakeLock === undefined ? '' : (wakeLock ? 'ok' : 'bad')}">${wakeLock === undefined ? 'n/a' : (wakeLock ? '✓ aktiv' : '✗ aus')}</div></div>
+    <div class="stat"><div class="stat-label">Battery-Opt</div><div class="stat-value ${batOpt === undefined ? '' : (batOpt ? 'ok' : 'warn')}">${batOpt === undefined ? 'n/a' : (batOpt ? '✓ ignoriert' : '⚠ aktiv')}</div></div>
     <div class="stat"><div class="stat-label">Letzter Tick</div><div class="stat-value ${ageSec < 60 ? 'ok' : ageSec < 180 ? 'warn' : 'bad'}">vor ${ageSec.toFixed(0)}s</div></div>
   `;
 
@@ -174,7 +217,7 @@ async function render(vehicleId) {
 
   // Marker pro Heartbeat — Farbe nach Gap-Klasse zum NÄCHSTEN
   entries.forEach((e, i) => {
-    if (!e.hasGps || !e.lat || !e.lon) return;
+    if (!isGpsOk(e) || !e.lat || !e.lon) return;
     const nextGap = i < entries.length - 1 ? (entries[i+1].ts - e.ts) / 1000 : 0;
     const color = gapColor(nextGap || 30);
     const m = L.circleMarker([e.lat, e.lon], { radius: 4, color, fillColor: color, fillOpacity: 0.85, weight: 1 }).addTo(map);
@@ -196,7 +239,7 @@ async function render(vehicleId) {
     const e = entries[i];
     const gap = i > 0 ? (entries[i].ts - entries[i-1].ts) / 1000 : null;
     const cls = gap !== null ? gapClass(gap) : 'ok';
-    const flag = e.hasGps ? '' : '<span style="color:#ef4444">kein GPS</span>';
+    const flag = isGpsOk(e) ? '' : '<span style="color:#ef4444">kein GPS</span>';
     tl.innerHTML += `<div class="hb-row">
       <span class="hb-time">${fmtTime(e.ts)}</span>
       <span class="hb-gap ${cls}">${gap !== null ? gap.toFixed(1) + 's' : 'start'}</span>
@@ -211,8 +254,23 @@ async function init() {
   try { await firebase.auth().signInAnonymously(); } catch (_) {}
   await loadVehicles();
   const sel = document.getElementById('vehicle-select');
-  sel.addEventListener('change', () => render(sel.value));
-  document.getElementById('refresh-btn').addEventListener('click', () => render(sel.value));
+  const sourceSel = document.getElementById('source-select');
+  const shiftSel = document.getElementById('shift-select');
+
+  async function applyVehicle() {
+    if (sourceSel.value === 'shift') {
+      shiftSel.style.display = 'inline-block';
+      await loadShifts(sel.value);
+    } else {
+      shiftSel.style.display = 'none';
+    }
+    render(sel.value);
+  }
+
+  sel.addEventListener('change', applyVehicle);
+  sourceSel.addEventListener('change', applyVehicle);
+  shiftSel.addEventListener('change', () => render(sel.value));
+  document.getElementById('refresh-btn').addEventListener('click', () => applyVehicle());
   document.getElementById('auto-refresh-btn').addEventListener('click', () => {
     const btn = document.getElementById('auto-refresh-btn');
     if (autoRefreshHandle) {
@@ -224,7 +282,7 @@ async function init() {
       btn.textContent = '🔴 Auto an (30s)';
     }
   });
-  if (sel.value) render(sel.value);
+  if (sel.value) applyVehicle();
 }
 init();
 </script>

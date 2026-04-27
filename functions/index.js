@@ -19726,7 +19726,14 @@ exports.shiftHeartbeatPing = onRequest(
             updates['vehicles/' + vehicleId + '/shift/lastHeartbeat'] = now;
             // v6.42.6: online-Flag automatisch setzen wenn nativer Service Heartbeat schickt
             // (vorher nur durch WebView-JS — bei Native-Only blieb online=false)
-            updates['vehicles/' + vehicleId + '/online'] = true;
+            // v6.62.21: NICHT ueberschreiben wenn Fahrer manuell auf Pause geschaltet hat
+            // (online === false). Patrick: 'die Pause wird automatisch wieder rausgenommen
+            // wenn ich die App wieder oeffne'. Root-Cause war nicht App-Open sondern dieser
+            // Heartbeat alle 30s — der hat 'true' geschrieben und damit Pause aufgehoben.
+            // Nur set wenn nicht explizit false (= Erst-Aktivierung oder online war bereits true).
+            if (v.online !== false) {
+                updates['vehicles/' + vehicleId + '/online'] = true;
+            }
             const hasGps = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
             const inBox = hasGps && lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0;
             // GPS mitsenden wenn angegeben + plausibel (Usedom-Bereich grob gefiltert)

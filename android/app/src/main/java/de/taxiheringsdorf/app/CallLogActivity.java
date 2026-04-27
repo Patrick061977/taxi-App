@@ -802,43 +802,104 @@ public class CallLogActivity extends AppCompatActivity {
             return;
         }
 
+        // v6.62.38: Schnellbuchungs-Maske aus index.html portiert (Hotel/Auftraggeber-Logik).
+        // Patrick: 'wenn ein Hotel anruft, ist Hotel-Adresse Pickup oder Ziel — und Gastname
+        // muss separat erfasst werden. Auch Pickup/Ziel tauschen muss gehen wie im Browser'.
+        final boolean isHotelCustomer = crm != null && (
+            "Hotel".equalsIgnoreCase(crm.customerKind) ||
+            "Firma".equalsIgnoreCase(crm.customerKind)
+        );
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        int padHalf = (int) (getResources().getDisplayMetrics().density * 8);
         layout.setPadding(pad, pad, pad, pad);
 
         EditText etName = new EditText(this);
-        etName.setHint("Kundenname");
-        etName.setText(crm != null ? crm.name : (e.name != null ? e.name : ""));
+        etName.setHint(isHotelCustomer ? "Gastname (fuer den gebucht wird)" : "Kundenname");
+        etName.setText(isHotelCustomer ? "" : (crm != null ? crm.name : (e.name != null ? e.name : "")));
         layout.addView(etName);
 
+        // Hotel-Auftraggeber-Hint
+        if (isHotelCustomer) {
+            TextView tvAuftrag = new TextView(this);
+            tvAuftrag.setText("📨 Auftraggeber: " + crm.name + " (" + crm.customerKind + ")");
+            tvAuftrag.setTextSize(11);
+            tvAuftrag.setTextColor(0xFF64748B);
+            tvAuftrag.setPadding(0, 0, 0, padHalf);
+            layout.addView(tvAuftrag);
+        }
+
         // v6.53.0: Pickup + Destination als TextView-Buttons → öffnen Places-Autocomplete.
-        // Koords direkt aus Place gezogen, kein separates Geocoding mehr nötig.
         final double[] pickupCoords = { Double.NaN, Double.NaN };
         final double[] destCoords = { Double.NaN, Double.NaN };
         TextView tvPickup = new TextView(this);
-        tvPickup.setText(crm != null && crm.address != null ? "📍 " + crm.address : "📍 Abholort wählen…");
+        // Hotel: Pickup default LEER (Hotel ist Ziel — Gast wird zum Hotel gefahren).
+        // Stammkunde: Pickup = CRM-Adresse (Default-Verhalten beibehalten).
+        if (!isHotelCustomer && crm != null && crm.address != null) {
+            tvPickup.setText("📍 " + crm.address);
+        } else {
+            tvPickup.setText("📍 Abholort wählen…");
+        }
         tvPickup.setPadding(pad / 2, pad, pad / 2, pad);
         tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
         layout.addView(tvPickup);
-        // CRM-Koords als Vorbelegung wenn vorhanden
-        if (crm != null && crm.lat != null && crm.lon != null) {
+        // CRM-Koords nur als Pickup-Vorbelegung wenn NICHT Hotel
+        if (!isHotelCustomer && crm != null && crm.lat != null && crm.lon != null) {
             pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
-        } else if (crm != null && crm.address != null && !crm.address.isEmpty()) {
+        } else if (!isHotelCustomer && crm != null && crm.address != null && !crm.address.isEmpty()) {
             // v6.62.35: Patrick: 'Birgit Lenzkes Abholort nicht geocodierbar'.
-            // CRM-Eintrag hatte address aber keine lat/lon → UI zeigt Adresse,
-            // pickupCoords blieben NaN → Buchung landete ohne Koords in DB.
-            // Fix: bei CRM-Adresse ohne Coords automatisch Nominatim geocoden im
-            // Hintergrund-Thread, sobald Antwort da ist pickupCoords befuellen +
-            // tvPickup-Text mit aufgeloester Adresse aktualisieren.
+            // Background-Geocode bei CRM-Adresse ohne Coords.
             geocodeAndFill(crm.address, tvPickup, pickupCoords);
         }
 
+        // v6.62.38: Tausch-Button zwischen Pickup und Ziel (analog index.html swapPickupDest).
+        TextView btnSwap = new TextView(this);
+        btnSwap.setText("⇅ Abholort ↔ Ziel tauschen");
+        btnSwap.setTextSize(13);
+        btnSwap.setTextColor(0xFF1E40AF);
+        btnSwap.setBackgroundColor(0xFFEFF6FF);
+        btnSwap.setGravity(android.view.Gravity.CENTER);
+        btnSwap.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams swapLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        swapLp.setMargins(0, padHalf / 2, 0, padHalf / 2);
+        btnSwap.setLayoutParams(swapLp);
+        btnSwap.setClickable(true);
+        layout.addView(btnSwap);
+
         TextView tvDest = new TextView(this);
-        tvDest.setText("🎯 Zielort wählen…");
+        // Hotel: Ziel default = Hotel-Adresse (Gast wird zum Hotel gefahren).
+        if (isHotelCustomer && crm.address != null) {
+            tvDest.setText("🎯 " + crm.address);
+            if (crm.lat != null && crm.lon != null) {
+                destCoords[0] = crm.lat; destCoords[1] = crm.lon;
+            } else if (!crm.address.isEmpty()) {
+                geocodeAndFill(crm.address, tvDest, destCoords);
+            }
+        } else {
+            tvDest.setText("🎯 Zielort wählen…");
+        }
         tvDest.setPadding(pad / 2, pad, pad / 2, pad);
         tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
         layout.addView(tvDest);
+
+        // v6.62.38: Tausch-Click — vertauscht tvPickup-Text und tvDest-Text + die Coords-Arrays.
+        // Der placesLauncher-Callback nutzt die Array-Refs (pickupCoords / destCoords), die
+        // bleiben dabei dieselben Refs — wir tauschen nur die Werte in den Arrays.
+        btnSwap.setOnClickListener(_v -> {
+            String pickTxt = tvPickup.getText().toString();
+            String destTxt = tvDest.getText().toString();
+            // Symbol-Prefix beibehalten: tvPickup → 📍, tvDest → 🎯
+            String pickAddr = pickTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            String destAddr = destTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            tvPickup.setText("📍 " + (destAddr.endsWith("wählen…") ? "Abholort wählen…" : destAddr));
+            tvDest.setText("🎯 " + (pickAddr.endsWith("wählen…") ? "Zielort wählen…" : pickAddr));
+            double pl = pickupCoords[0], pn = pickupCoords[1];
+            pickupCoords[0] = destCoords[0]; pickupCoords[1] = destCoords[1];
+            destCoords[0] = pl; destCoords[1] = pn;
+            Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
+        });
 
         EditText etPax = new EditText(this);
         etPax.setHint("Personen (Default 1)");
@@ -873,8 +934,8 @@ public class CallLogActivity extends AppCompatActivity {
             .setView(layout)
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();
-                String pickup = tvPickup.getText().toString().replaceFirst("^📍 ", "").trim();
-                String dest = tvDest.getText().toString().replaceFirst("^🎯 ", "").trim();
+                String pickup = tvPickup.getText().toString().replaceFirst("^📍\\s*", "").trim();
+                String dest = tvDest.getText().toString().replaceFirst("^🎯\\s*", "").trim();
                 if (name.isEmpty() || pickup.isEmpty() || pickup.endsWith("wählen…") ||
                     dest.isEmpty() || dest.endsWith("wählen…")) {
                     Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
@@ -893,7 +954,19 @@ public class CallLogActivity extends AppCompatActivity {
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
-                r.put("customerName", name);
+                // v6.62.38: Hotel/Firma als Auftraggeber → 'name' ist Gastname, Hotel-Name
+                // wandert in guestName-Sektion. Stammkunde: name = customerName direkt.
+                if (isHotelCustomer && crm != null) {
+                    r.put("customerName", crm.name);                  // Hotel/Firma
+                    r.put("guestName", name);                          // Gast
+                    r.put("_isAuftraggeberBooking", true);
+                    r.put("_auftraggeberAddress", crm.address != null ? crm.address : "");
+                    r.put("_auftraggeberKind", crm.customerKind);
+                    if (crm.lat != null) r.put("_auftraggeberLat", crm.lat);
+                    if (crm.lon != null) r.put("_auftraggeberLon", crm.lon);
+                } else {
+                    r.put("customerName", name);
+                }
                 if (crm != null) r.put("customerId", crm.id);
                 r.put("customerPhone", e.number);
                 r.put("customerMobile", e.number);

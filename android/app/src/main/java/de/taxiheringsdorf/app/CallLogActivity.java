@@ -621,59 +621,134 @@ public class CallLogActivity extends AppCompatActivity {
             return;
         }
 
+        // v6.62.37: Patrick: 'CRM-Modal schicker — sieht altbacken aus'.
+        // Sections mit Header, Cards mit weissem BG + Schatten via Padding-Trick,
+        // Pflichtfelder rot-gerahmt, Kundenart als Chip-Row statt Tap-Cycle.
+        final float density = getResources().getDisplayMetrics().density;
+        final int pad = (int) (density * 16);
+        final int padHalf = (int) (density * 8);
         ScrollView scroll = new ScrollView(this);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (getResources().getDisplayMetrics().density * 16);
         layout.setPadding(pad, pad, pad, pad);
+        layout.setBackgroundColor(0xFFF1F5F9); // helles Slate-Grau
         scroll.addView(layout);
 
+        // Section-Helper
+        java.util.function.BiConsumer<String, String> addSection = (emoji, title) -> {
+            TextView h = new TextView(this);
+            h.setText(emoji + "  " + title.toUpperCase());
+            h.setTextSize(12);
+            h.setTextColor(0xFF64748B);
+            h.setPadding(padHalf, pad, 0, padHalf);
+            h.setLetterSpacing(0.05f);
+            android.graphics.Typeface bold = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+            h.setTypeface(bold);
+            layout.addView(h);
+        };
+
+        // Card-Helper (weisser Container fuer Felder)
+        java.util.function.Supplier<LinearLayout> newCard = () -> {
+            LinearLayout c = new LinearLayout(this);
+            c.setOrientation(LinearLayout.VERTICAL);
+            c.setBackgroundColor(0xFFFFFFFF);
+            c.setPadding(pad, padHalf, pad, padHalf);
+            // Margin via LayoutParams
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, 0, padHalf);
+            c.setLayoutParams(lp);
+            // Subtle shadow via top+bottom border
+            c.setElevation(2f * density);
+            return c;
+        };
+
+        // ─── STAMMDATEN ───────────────
+        addSection.accept("👤", "Stammdaten");
+        LinearLayout cardName = newCard.get();
         EditText etName = new EditText(this);
         etName.setHint("Name (Pflicht)");
         etName.setText(crm.name != null ? crm.name : "");
-        layout.addView(etName);
+        etName.setTextSize(16);
+        cardName.addView(etName);
+        layout.addView(cardName);
 
+        // ─── KONTAKT ─────────────────
+        addSection.accept("📞", "Kontakt");
+        LinearLayout cardKontakt = newCard.get();
         EditText etPhone = new EditText(this);
         etPhone.setHint("Telefon (Festnetz)");
         etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
         etPhone.setText(crm.phone != null ? crm.phone : "");
-        layout.addView(etPhone);
-
+        etPhone.setTextSize(15);
+        cardKontakt.addView(etPhone);
         EditText etMobile = new EditText(this);
         etMobile.setHint("Mobil");
         etMobile.setInputType(InputType.TYPE_CLASS_PHONE);
         etMobile.setText(crm.mobilePhone != null ? crm.mobilePhone : "");
-        layout.addView(etMobile);
-
+        etMobile.setTextSize(15);
+        cardKontakt.addView(etMobile);
         EditText etEmail = new EditText(this);
-        etEmail.setHint("Email");
+        etEmail.setHint("E-Mail");
         etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        // Email lese ich nicht aus crm.* (wir laden im Cache nicht alle Felder) — bleibt initial leer
-        layout.addView(etEmail);
+        etEmail.setTextSize(15);
+        cardKontakt.addView(etEmail);
+        layout.addView(cardKontakt);
 
-        // Adresse mit Places-Autocomplete (TextView-Button öffnet Places-Overlay)
+        // ─── ADRESSE ──────────────────
+        addSection.accept("📍", "Adresse");
         final double[] addrCoords = {
             crm.lat != null ? crm.lat : Double.NaN,
             crm.lon != null ? crm.lon : Double.NaN
         };
+        LinearLayout cardAddr = newCard.get();
         TextView tvAddress = new TextView(this);
-        tvAddress.setText(crm.address != null && !crm.address.isEmpty() ? "📍 " + crm.address : "📍 Adresse wählen…");
-        tvAddress.setPadding(pad / 2, pad, pad / 2, pad);
+        tvAddress.setText(crm.address != null && !crm.address.isEmpty() ? crm.address : "Tippen — Adresse waehlen");
+        tvAddress.setTextSize(15);
+        tvAddress.setTextColor(crm.address != null && !crm.address.isEmpty() ? 0xFF1E293B : 0xFF94A3B8);
+        tvAddress.setPadding(0, padHalf, 0, padHalf);
         tvAddress.setOnClickListener(_v -> launchPlaces(tvAddress, addrCoords));
-        layout.addView(tvAddress);
+        cardAddr.addView(tvAddress);
+        TextView tvAddrHint = new TextView(this);
+        tvAddrHint.setText(crm.lat == null && crm.address != null ? "⚠ Keine Koordinaten — bitte neu auswaehlen" : "Tippen oeffnet Suche (Google + OSM-Fallback)");
+        tvAddrHint.setTextSize(11);
+        tvAddrHint.setTextColor(crm.lat == null && crm.address != null ? 0xFFB45309 : 0xFF94A3B8);
+        cardAddr.addView(tvAddrHint);
+        layout.addView(cardAddr);
 
-        // CustomerKind als TextView (Tap zyklisch durch Optionen)
+        // ─── KUNDENART ────────────────
+        addSection.accept("👥", "Kundenart");
         final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
         final int[] kindIdx = { java.util.Arrays.asList(kinds).indexOf(crm.customerKind != null ? crm.customerKind : "Stammkunde") };
         if (kindIdx[0] < 0) kindIdx[0] = 0;
-        TextView tvKind = new TextView(this);
-        tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
-        tvKind.setPadding(pad / 2, pad, pad / 2, pad);
-        tvKind.setOnClickListener(_v -> {
-            kindIdx[0] = (kindIdx[0] + 1) % kinds.length;
-            tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
-        });
-        layout.addView(tvKind);
+        LinearLayout cardKind = newCard.get();
+        LinearLayout chipRow = new LinearLayout(this);
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        chipRow.setPadding(0, padHalf, 0, padHalf);
+        TextView[] chips = new TextView[kinds.length];
+        java.util.function.IntConsumer applyChips = (selected) -> {
+            for (int i = 0; i < kinds.length; i++) {
+                chips[i].setBackgroundColor(i == selected ? 0xFF10B981 : 0xFFE2E8F0);
+                chips[i].setTextColor(i == selected ? 0xFFFFFFFF : 0xFF475569);
+            }
+        };
+        for (int i = 0; i < kinds.length; i++) {
+            final int idx = i;
+            TextView chip = new TextView(this);
+            chip.setText(kinds[i]);
+            chip.setTextSize(13);
+            chip.setPadding(padHalf, padHalf, padHalf, padHalf);
+            chip.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            clp.setMargins(i == 0 ? 0 : (int)(density * 4), 0, i == kinds.length - 1 ? 0 : (int)(density * 4), 0);
+            chip.setLayoutParams(clp);
+            chip.setOnClickListener(_v -> { kindIdx[0] = idx; applyChips.accept(idx); });
+            chips[i] = chip;
+            chipRow.addView(chip);
+        }
+        applyChips.accept(kindIdx[0]);
+        cardKind.addView(chipRow);
+        layout.addView(cardKind);
 
         new AlertDialog.Builder(this)
             .setTitle("📋 " + (crm.name != null ? crm.name : "CRM-Kunde") + " bearbeiten")
@@ -692,8 +767,9 @@ public class CallLogActivity extends AppCompatActivity {
                 if (!phone.isEmpty()) updates.put("phone", phone);
                 if (!mobile.isEmpty()) updates.put("mobilePhone", mobile);
                 if (!email.isEmpty()) updates.put("email", email);
-                String addr = tvAddress.getText().toString().replaceFirst("^📍 ", "").trim();
-                if (!addr.isEmpty() && !addr.endsWith("wählen…")) {
+                String addr = tvAddress.getText().toString().replaceFirst("^📍\\s*", "").trim();
+                // v6.62.37: neuer Hint-Text 'Tippen — Adresse waehlen' statt alter '... wählen…'
+                if (!addr.isEmpty() && !addr.contains("Adresse waehlen") && !addr.endsWith("wählen…")) {
                     updates.put("address", addr);
                     if (!Double.isNaN(addrCoords[0])) {
                         updates.put("addressLat", addrCoords[0]);

@@ -52,6 +52,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static final String TRACKING_BASE = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=";
 
     private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
+    private TextView tvPauseBanner; // v6.62.26: grosser Pause-Banner
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.50.0: Update-Banner
     private LinearLayout updateBanner;
@@ -121,6 +122,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         tvVehicleInfo = findViewById(R.id.tv_vehicle_info);
         tvShiftStatus = findViewById(R.id.tv_shift_status);
+        tvPauseBanner = findViewById(R.id.tv_pause_banner);
+        // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
+        if (tvPauseBanner != null) tvPauseBanner.setOnClickListener(v -> toggleOnline());
+        // Auch der kleine Header-Badge ist jetzt klickbar — Tap auf '🟢 Aktiv' fuer Pause
+        if (tvShiftStatus != null) tvShiftStatus.setOnClickListener(v -> {
+            if (shiftActive) toggleOnline();
+        });
         tvShiftDetail = findViewById(R.id.tv_shift_detail);
         tvShiftTimer = findViewById(R.id.tv_shift_timer);
         tvTodayEarnings = findViewById(R.id.tv_today_earnings);
@@ -347,6 +355,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             } catch (Throwable t) {
                 Log.w(TAG, "🔄 Schicht-Recovery fehlgeschlagen: " + t.getMessage());
             }
+        }
+
+        // v6.62.26: Grosser Pause-Banner — sichtbar nur wenn Schicht aktiv + auf Pause
+        if (tvPauseBanner != null) {
+            tvPauseBanner.setVisibility((shiftActive && !onlineState) ? View.VISIBLE : View.GONE);
         }
 
         // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)

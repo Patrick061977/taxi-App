@@ -124,6 +124,44 @@ public class CallLogActivity extends AppCompatActivity {
         }
     );
 
+    // v6.62.35: Hintergrund-Geocoding fuer CRM-Vorbelegung. Bricht still ab wenn fehlschlaegt
+    // (UI zeigt dann beim Anlegen-Tap einen Hinweis, weil pickupCoords NaN bleiben).
+    private void geocodeAndFill(String query, TextView field, double[] coordsOut) {
+        if (query == null || query.trim().isEmpty()) return;
+        new Thread(() -> {
+            try {
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q="
+                    + URLEncoder.encode(query, "UTF-8");
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.35 (admin@funk-taxi-heringsdorf.de)");
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close(); conn.disconnect();
+                String json = sb.toString();
+                int latIdx = json.indexOf("\"lat\":\"");
+                int lonIdx = json.indexOf("\"lon\":\"");
+                int dispIdx = json.indexOf("\"display_name\":\"");
+                if (latIdx < 0 || lonIdx < 0) return;
+                latIdx += 7; lonIdx += 7;
+                final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
+                final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
+                final String display = (dispIdx >= 0)
+                    ? json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16))
+                          .replace("\\u00fc","ue").replace("\\u00f6","oe").replace("\\u00e4","ae")
+                          .replace("\\u00df","ss").replace("\\/","/")
+                    : null;
+                runOnUiThread(() -> {
+                    coordsOut[0] = lat; coordsOut[1] = lon;
+                    if (display != null && field != null) field.setText("📍 " + display);
+                });
+            } catch (Throwable _t) { /* still — User merkt's beim Anlegen-Tap */ }
+        }).start();
+    }
+
     // v6.62.28: OSM/Nominatim-Fallback wenn Places fehlschlaegt oder nichts findet.
     // Patrick: 'in der anrufliste in autocomplete macht er einen fehler — kannst Google
     // mit OSM als Fallback nehmen'. Manche Adressen findet Google nicht (zu klein,
@@ -710,6 +748,14 @@ public class CallLogActivity extends AppCompatActivity {
         // CRM-Koords als Vorbelegung wenn vorhanden
         if (crm != null && crm.lat != null && crm.lon != null) {
             pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
+        } else if (crm != null && crm.address != null && !crm.address.isEmpty()) {
+            // v6.62.35: Patrick: 'Birgit Lenzkes Abholort nicht geocodierbar'.
+            // CRM-Eintrag hatte address aber keine lat/lon → UI zeigt Adresse,
+            // pickupCoords blieben NaN → Buchung landete ohne Koords in DB.
+            // Fix: bei CRM-Adresse ohne Coords automatisch Nominatim geocoden im
+            // Hintergrund-Thread, sobald Antwort da ist pickupCoords befuellen +
+            // tvPickup-Text mit aufgeloester Adresse aktualisieren.
+            geocodeAndFill(crm.address, tvPickup, pickupCoords);
         }
 
         TextView tvDest = new TextView(this);
@@ -756,6 +802,14 @@ public class CallLogActivity extends AppCompatActivity {
                 if (name.isEmpty() || pickup.isEmpty() || pickup.endsWith("wählen…") ||
                     dest.isEmpty() || dest.endsWith("wählen…")) {
                     Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // v6.62.35: Pflicht-Coords — verhindert dass Buchungen ohne lat/lon in die DB
+                // kommen (passierte bei Birgit Lenzkes wo CRM-Adresse ohne addressLat/Lon
+                // vorbelegt wurde). geocodeAndFill versucht im Hintergrund zu fuellen aber
+                // wenn der User vor dem Geocode-Result tippt, blockieren wir hier.
+                if (Double.isNaN(pickupCoords[0]) || Double.isNaN(destCoords[0])) {
+                    Toast.makeText(this, "❌ Adresse(n) noch nicht geocodiert — bitte Abholort/Zielort antippen + auswaehlen", Toast.LENGTH_LONG).show();
                     return;
                 }
                 int pax = 1;

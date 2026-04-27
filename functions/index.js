@@ -760,9 +760,10 @@ async function autoAssignRide(rideId, rideData) {
 
             // 🔧 v6.38.50 BUG-05 FIX: accepted + on_way + picked_up blockieren!
             // Fahrer der gerade zum Kunden fährt (accepted) darf keine zweite Fahrt bekommen
+            // v6.62.43: + arrived als busy — Fahrer wartet vor Ort auf Kunde
             const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up' || (isSofort && r.status === 'accepted'))
+                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'arrived' || (isSofort && r.status === 'accepted'))
             );
             if (busyRide) {
                 console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`);

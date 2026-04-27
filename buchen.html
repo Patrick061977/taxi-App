@@ -1794,19 +1794,23 @@
                 sofortBtn.innerHTML = '⚡ Sofort<br><span style="font-size:11px;font-weight:400;">' + etaText + '</span>';
                 sofortBtn.onclick = function() { setWann('sofort'); };
             } else if (gpsOnlineCount > 0) {
-                // v6.62.7: GPS online aber ALLE besetzt → "JETZT BELEGT — frei ab X"
-                sofortBtn.style.background = '#fef3c7';
-                sofortBtn.style.color = '#92400e';
-                let _label = 'Aktuell alle Taxis besetzt';
+                // v6.62.7: GPS online aber ALLE besetzt → Warteliste-Modus
+                // v6.62.33: Patrick: 'können die Leute dann nicht buchen? Sollten trotzdem
+                // buchen können, aber wissen dass das Taxi noch bis X Uhr unterwegs ist'.
+                // Vorher: "JETZT BELEGT" wirkte abschreckend. Jetzt: "Vormerken — frei ab X
+                // Uhr" — klar dass Buchung trotzdem moeglich ist.
+                sofortBtn.style.background = '#dbeafe';
+                sofortBtn.style.color = '#1e40af';
+                let _label = 'Wir nehmen Ihre Buchung vor — Fahrer meldet sich';
                 const _ends = Object.values(_busyEndTimes).filter(x => x > Date.now()).sort((a,b)=>a-b);
                 if (_ends.length > 0) {
                     const _earliestEnd = new Date(_ends[0]);
                     const _h = String(_earliestEnd.getHours()).padStart(2,'0');
                     const _m = String(_earliestEnd.getMinutes()).padStart(2,'0');
-                    _label = 'Frei ab ca. ' + _h + ':' + _m + ' Uhr';
+                    _label = 'Fahrer aktuell unterwegs — frei ab ca. ' + _h + ':' + _m + ' Uhr';
                 }
-                sofortBtn.innerHTML = '🟡 JETZT BELEGT<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
-                sofortBtn.onclick = function() { setWann('sofort'); }; // weiterhin klickbar (Wartelistenmodus)
+                sofortBtn.innerHTML = '⚡ Vormerken<br><span style="font-size:11px;font-weight:400;">' + _label + '</span>';
+                sofortBtn.onclick = function() { setWann('sofort'); }; // klickbar (Warteliste)
             } else {
                 // Kein GPS → Anruf-Button
                 sofortBtn.style.background = '#ef4444';

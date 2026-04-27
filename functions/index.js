@@ -17655,10 +17655,28 @@ exports.scheduledAutoAssign = onSchedule(
             };
 
             // Fahrten aus 3 Status-Queries zusammenführen
+            // v6.61.5 DIAGNOSE: Log per-snap counts — nur 3 Fahrten geladen obwohl REST 45 zeigt!
+            console.log(`🔍 DIAGNOSE: assignedSnap.numChildren=${assignedSnap.numChildren()}, vorbestelltSnap.numChildren=${vorbestelltSnap.numChildren()}, newSnap.numChildren=${newSnap.numChildren()}`);
             const allRides = [];
             assignedSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
             vorbestelltSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
             newSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+            console.log(`🔍 DIAGNOSE: nach forEach allRides.length=${allRides.length}`);
+            // Fallback: lade ALLE Rides + filtere clientseitig — falls orderByChild kaputt ist
+            if (allRides.length < 10) {
+                console.warn(`⚠️ DIAGNOSE: nur ${allRides.length} Rides via orderByChild — fallback auf full-scan`);
+                const _allSnap = await db.ref('rides').once('value');
+                console.log(`🔍 DIAGNOSE: rides.numChildren=${_allSnap.numChildren()}`);
+                allRides.length = 0;
+                _allSnap.forEach(c => {
+                    const r = c.val();
+                    if (!r) return;
+                    if (['assigned','vorbestellt','new'].includes(r.status)) {
+                        allRides.push({ ...r, firebaseId: c.key });
+                    }
+                });
+                console.log(`🔍 DIAGNOSE: nach full-scan allRides.length=${allRides.length}`);
+            }
 
             // 🔧 v6.40.18: SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen >60min korrigieren.
             // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).

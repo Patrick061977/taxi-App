@@ -190,6 +190,13 @@
             📍 Warte auf GPS-Position...
         </div>
 
+        <!-- v6.62.46: Online-Storno fuer Online-Buchungen. Patrick: 'wenn die Leute online
+             bestellt haben sollen sie auch online stornieren koennen'. Nur sichtbar bei
+             noch nicht abgeschlossenen / nicht stornierten Fahrten. -->
+        <button id="cancel-btn" onclick="cancelRide()" style="display:none;width:100%;margin-top:10px;padding:12px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+            ❌ Buchung stornieren
+        </button>
+
         <button id="my-location-btn" onclick="toggleMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
             📍 Meinen Standort anzeigen
         </button>
@@ -344,6 +351,13 @@
                 badge.className = 'ride-status-' + (r.status || 'new');
                 badge.id = 'ride-status-badge';
                 badge.style.display = 'inline-block';
+                // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
+                // picked_up: kein Storno mehr — Fahrt laeuft schon.
+                const _cancelBtn = document.getElementById('cancel-btn');
+                const _cancellableStati = ['new','sofort','warteschlange','vorbestellt','assigned','accepted','on_way','arrived'];
+                if (_cancelBtn) {
+                    _cancelBtn.style.display = _cancellableStati.includes(r.status) ? 'block' : 'none';
+                }
                 if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'storniert') {
                     // Fahrt fertig — Live-Update stoppen
                     setTimeout(() => { db.ref('rides').child(rideId).off(); }, 2000);
@@ -462,6 +476,30 @@
             document.getElementById('location-info').innerHTML = `
                 <div class="warning-box">${msg}</div>
             `;
+        }
+
+        // v6.62.46: Online-Storno fuer Online-Buchungen.
+        // Direktes Firebase-Update — Cloud-Function-Trigger onRideUpdated kuemmert sich
+        // um Admin-Telegram + Storno-SMS an Kunde + Fahrer-Push wenn schon zugewiesen.
+        function cancelRide() {
+            if (!rideId) return;
+            const sure = confirm('Buchung wirklich stornieren?\n\nNach dem Stornieren ist sie nicht mehr aktiv.');
+            if (!sure) return;
+            const btn = document.getElementById('cancel-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Wird storniert...'; }
+            db.ref('rides').child(rideId).update({
+                status: 'cancelled',
+                cancelledAt: Date.now(),
+                cancelledBy: 'customer-portal',
+                deletedBy: 'customer-portal',
+                updatedAt: Date.now()
+            }).then(() => {
+                if (btn) { btn.style.display = 'none'; }
+                alert('✅ Ihre Buchung wurde storniert.');
+            }).catch(err => {
+                if (btn) { btn.disabled = false; btn.textContent = '❌ Buchung stornieren'; }
+                alert('Fehler beim Stornieren: ' + err.message + '\n\nBitte direkt anrufen: 038378/22022');
+            });
         }
 
         // v6.42.7: Tracking-Karte schließen — versucht window.close(), sonst History/Home

@@ -963,9 +963,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: " + err, Toast.LENGTH_LONG).show());
                     return;
                 }
-                // v6.59.3: Cloud Function liefert Feld 'checkoutUrl' (nicht 'url') — Bug aus v6.59.0.
-                String checkoutUrl = resp.optString("checkoutUrl", null);
-                if (checkoutUrl == null || checkoutUrl.isEmpty()) checkoutUrl = resp.optString("url", null);
+                // v6.59.3/4: Cloud Function liefert Feld 'checkoutUrl' (nicht 'url') — Bug aus v6.59.0.
+                // v6.59.4: tmp-Variable + final für Lambda (Java-Constraint).
+                String tmp = resp.optString("checkoutUrl", null);
+                if (tmp == null || tmp.isEmpty()) tmp = resp.optString("url", null);
+                final String checkoutUrl = tmp;
                 if (checkoutUrl == null || checkoutUrl.isEmpty()) {
                     runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: keine Checkout-URL erhalten — Response: " + resp.toString().substring(0, Math.min(120, resp.toString().length())), Toast.LENGTH_LONG).show());
                     return;

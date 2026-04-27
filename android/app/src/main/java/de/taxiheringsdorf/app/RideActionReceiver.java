@@ -38,6 +38,22 @@ public class RideActionReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "Action: " + (isAccept ? "ACCEPT" : "REJECT") + " für rideId=" + rideId + " vehicleId=" + vehicleId);
 
+        // v6.62.5: Patrick: 'wenn ich auf Annehmen klicke, muss ich sofort in die App reinkommen'.
+        // Bei ACCEPT direkt DriverDashboardActivity launchen — HTTP-Call läuft async daneben.
+        // (Bei REJECT bleibt der Fahrer wo er ist — er hat ja abgelehnt, kein Grund die App zu öffnen.)
+        if (isAccept) {
+            try {
+                Intent openApp = new Intent(context, DriverDashboardActivity.class);
+                openApp.putExtra("rideId", rideId);
+                openApp.putExtra("openedFromAccept", true);
+                openApp.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                context.startActivity(openApp);
+                Log.d(TAG, "✅ DriverDashboard direkt nach Annehmen geöffnet");
+            } catch (Throwable t) {
+                Log.w(TAG, "DashboardActivity-Launch fehlgeschlagen: " + t.getMessage());
+            }
+        }
+
         // Sofort Notification aktualisieren (UI-Feedback)
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         NotificationCompat.Builder building = new NotificationCompat.Builder(context, TaxiFCMService.CHANNEL_ID)

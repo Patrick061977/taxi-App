@@ -1210,9 +1210,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
     }
 
     static class Ride {
-        String id, customerName, pickup, destination, pickupTime, status;
+        String id, customerName, pickup, destination, pickupTime, status, notes;
         Double price, distance;
         Long pickupTimestamp;
+        List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -1223,6 +1224,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
                 r.status = s.child("status").getValue(String.class);
+                r.notes = s.child("notes").getValue(String.class);
+                // v6.62.2: Waypoints sind Array von Objekten mit address/lat/lon
+                DataSnapshot wpSnap = s.child("waypoints");
+                if (wpSnap.exists() && wpSnap.hasChildren()) {
+                    r.waypoints = new ArrayList<>();
+                    for (DataSnapshot wp : wpSnap.getChildren()) {
+                        String addr = wp.child("address").getValue(String.class);
+                        if (addr != null && !addr.trim().isEmpty()) r.waypoints.add(addr);
+                    }
+                }
                 Object p = s.child("price").getValue();
                 if (p instanceof Number) r.price = ((Number) p).doubleValue();
                 else if (p instanceof String) try { r.price = Double.parseDouble((String) p); } catch (NumberFormatException _e) {}
@@ -1273,7 +1284,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
             void bind(Ride r) {
                 tvName.setText(r.customerName != null ? r.customerName : "(Kunde)");
                 tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
-                tvDest.setText("🎯 " + (r.destination != null ? r.destination : "-"));
+                // v6.62.2: Patrick: 'Zwischenstopp wird nicht angezeigt bei Frau Balzer'.
+                // Waypoints VOR dem Ziel anzeigen — Fahrer muss da durch.
+                String _destText = "🎯 " + (r.destination != null ? r.destination : "-");
+                if (r.waypoints != null && !r.waypoints.isEmpty()) {
+                    StringBuilder _wpBuilder = new StringBuilder();
+                    for (String wp : r.waypoints) {
+                        _wpBuilder.append("\n🚏 via: ").append(wp);
+                    }
+                    _destText = "🎯 " + (r.destination != null ? r.destination : "-") + _wpBuilder.toString();
+                }
+                tvDest.setText(_destText);
                 // v6.62.0: Patrick: 'da oben steht 8.45 Uhr aber jetzt ist 10.45 Uhr'.
                 // pickupTime kann eine ISO-UTC-Zeit sein ("2026-04-27T08:45:00.000Z") wenn die
                 // Buchung von Telegram/Web-App kommt. Direkt anzeigen → falsche UTC-Zeit.

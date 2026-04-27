@@ -124,16 +124,17 @@ public class CallLogActivity extends AppCompatActivity {
         }
     );
 
-    // v6.62.35: Hintergrund-Geocoding fuer CRM-Vorbelegung. Bricht still ab wenn fehlschlaegt
-    // (UI zeigt dann beim Anlegen-Tap einen Hinweis, weil pickupCoords NaN bleiben).
+    // v6.62.35: Hintergrund-Geocoding fuer CRM-Vorbelegung. Bricht still ab wenn fehlschlaegt.
+    // v6.62.39: Patrick: 'ich brauche nicht Mecklenburg-Vorpommern, Vorpommern-Greifswald — nur
+    // Strasse + PLZ + Ort'. Compact-Format aus addressdetails statt full display_name.
     private void geocodeAndFill(String query, TextView field, double[] coordsOut) {
         if (query == null || query.trim().isEmpty()) return;
         new Thread(() -> {
             try {
-                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q="
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
                     + URLEncoder.encode(query, "UTF-8");
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.35 (admin@funk-taxi-heringsdorf.de)");
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.39 (admin@funk-taxi-heringsdorf.de)");
                 conn.setConnectTimeout(8000);
                 conn.setReadTimeout(8000);
                 BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
@@ -144,22 +145,71 @@ public class CallLogActivity extends AppCompatActivity {
                 String json = sb.toString();
                 int latIdx = json.indexOf("\"lat\":\"");
                 int lonIdx = json.indexOf("\"lon\":\"");
-                int dispIdx = json.indexOf("\"display_name\":\"");
                 if (latIdx < 0 || lonIdx < 0) return;
                 latIdx += 7; lonIdx += 7;
                 final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
                 final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
-                final String display = (dispIdx >= 0)
-                    ? json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16))
-                          .replace("\\u00fc","ue").replace("\\u00f6","oe").replace("\\u00e4","ae")
-                          .replace("\\u00df","ss").replace("\\/","/")
-                    : null;
+                final String display = compactNominatimAddress(json);
                 runOnUiThread(() -> {
                     coordsOut[0] = lat; coordsOut[1] = lon;
                     if (display != null && field != null) field.setText("📍 " + display);
                 });
             } catch (Throwable _t) { /* still — User merkt's beim Anlegen-Tap */ }
         }).start();
+    }
+
+    // v6.62.39: kompakte Adresse aus Nominatim-JSON. Format: "Strasse Nr, PLZ Ort".
+    // Patrick: 'ich brauche keine Mecklenburg-Vorpommern, Vorpommern-Greifswald, Deutschland —
+    // nur Adresse, PLZ, Ort'. Vorher wurde display_name komplett genommen.
+    private String compactNominatimAddress(String json) {
+        try {
+            String road = jsonString(json, "\"road\":\"");
+            String houseNr = jsonString(json, "\"house_number\":\"");
+            String postcode = jsonString(json, "\"postcode\":\"");
+            String city = jsonString(json, "\"city\":\"");
+            if (city == null) city = jsonString(json, "\"town\":\"");
+            if (city == null) city = jsonString(json, "\"village\":\"");
+            if (city == null) city = jsonString(json, "\"municipality\":\"");
+            String name = jsonString(json, "\"name\":\""); // POI/Hotel-Name wenn vorhanden
+            StringBuilder out = new StringBuilder();
+            if (name != null && !name.isEmpty()) {
+                out.append(name);
+            }
+            if (road != null) {
+                if (out.length() > 0) out.append(", ");
+                out.append(road);
+                if (houseNr != null) out.append(" ").append(houseNr);
+            }
+            if (postcode != null || city != null) {
+                if (out.length() > 0) out.append(", ");
+                if (postcode != null) out.append(postcode);
+                if (city != null) out.append(postcode != null ? " " : "").append(city);
+            }
+            if (out.length() > 0) return decodeUmlaute(out.toString());
+            // Fallback: display_name komplett (alt)
+            int dispIdx = json.indexOf("\"display_name\":\"");
+            if (dispIdx < 0) return null;
+            return decodeUmlaute(json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16)));
+        } catch (Throwable _t) {
+            return null;
+        }
+    }
+
+    private String jsonString(String json, String keyToken) {
+        int idx = json.indexOf(keyToken);
+        if (idx < 0) return null;
+        int start = idx + keyToken.length();
+        int end = json.indexOf("\"", start);
+        if (end < 0) return null;
+        String v = json.substring(start, end);
+        return v.isEmpty() ? null : v;
+    }
+
+    private String decodeUmlaute(String s) {
+        if (s == null) return null;
+        return s.replace("\\u00fc","ue").replace("\\u00f6","oe").replace("\\u00e4","ae")
+                .replace("\\u00df","ss").replace("\\u00dc","Ue").replace("\\u00d6","Oe")
+                .replace("\\u00c4","Ae").replace("\\/","/");
     }
 
     // v6.62.28: OSM/Nominatim-Fallback wenn Places fehlschlaegt oder nichts findet.
@@ -196,10 +246,10 @@ public class CallLogActivity extends AppCompatActivity {
         Toast.makeText(this, "🔍 Suche '" + query + "' bei OpenStreetMap...", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
             try {
-                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q="
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
                     + URLEncoder.encode(query, "UTF-8");
                 HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.28 (admin@funk-taxi-heringsdorf.de)");
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.39 (admin@funk-taxi-heringsdorf.de)");
                 conn.setConnectTimeout(8000);
                 conn.setReadTimeout(8000);
                 BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
@@ -209,20 +259,21 @@ public class CallLogActivity extends AppCompatActivity {
                 br.close();
                 conn.disconnect();
                 String json = sb.toString();
-                // Mini-JSON-Parser fuer das erste Result
                 int latIdx = json.indexOf("\"lat\":\"");
                 int lonIdx = json.indexOf("\"lon\":\"");
-                int dispIdx = json.indexOf("\"display_name\":\"");
-                if (latIdx < 0 || lonIdx < 0 || dispIdx < 0) {
+                if (latIdx < 0 || lonIdx < 0) {
                     runOnUiThread(() -> Toast.makeText(this, "❌ OpenStreetMap fand auch nichts fuer '" + query + "'", Toast.LENGTH_LONG).show());
                     return;
                 }
-                latIdx += 7; lonIdx += 7; dispIdx += 16;
+                latIdx += 7; lonIdx += 7;
                 final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
                 final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
-                String display = json.substring(dispIdx, json.indexOf("\"", dispIdx))
-                    .replace("\\u00fc", "ue").replace("\\u00f6", "oe").replace("\\u00e4", "ae")
-                    .replace("\\u00df", "ss").replace("\\/", "/");
+                // v6.62.39: kompaktes Format Strasse Nr, PLZ Ort statt full display_name
+                final String display = compactNominatimAddress(json);
+                if (display == null || display.isEmpty()) {
+                    runOnUiThread(() -> Toast.makeText(this, "❌ Adresse konnte nicht geparst werden", Toast.LENGTH_LONG).show());
+                    return;
+                }
                 runOnUiThread(() -> {
                     if (pendingPlaceField != null) pendingPlaceField.setText(display);
                     if (pendingPlaceCoords != null) {

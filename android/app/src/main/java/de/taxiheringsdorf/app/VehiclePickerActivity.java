@@ -149,22 +149,11 @@ public class VehiclePickerActivity extends AppCompatActivity {
         boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
 
         if (lockedByOther) {
+            // v6.62.11: Patrick: 'ich will nicht das man sich mit einem 2ten handy auf
+            // ein fahrzeug einloggen kann' — KEIN Override, auch nicht für Admin.
+            // Das Multi-Device-Lock-Race (Nicole-Schindel-Bug 2026-04-27) zeigte: jeder
+            // Override ist ein potenzieller Daten-Verlust-Risiko.
             String label = v.lockedByLabel != null ? v.lockedByLabel : "anderes Gerät";
-            boolean isAdmin = PermissionsHelper.isAdmin(this);
-            if (isAdmin) {
-                // Admin-Override: zwangsweise übernehmen mit expliziter Bestätigung
-                new AlertDialog.Builder(this)
-                    .setTitle("🔒 Fahrzeug in Nutzung — Admin-Übernahme?")
-                    .setMessage(v.name + "\n\nAktuell aktiv: " + label + "\n\n"
-                        + "Als Admin kannst du den Lock zwangsweise übernehmen.\n"
-                        + "Das andere Gerät wird automatisch abgemeldet (Dialog 'Schicht übernommen').\n\n"
-                        + "Übernehmen?")
-                    .setPositiveButton("Zwangsweise übernehmen", (d, _w) -> selectVehicle(v))
-                    .setNegativeButton("Abbrechen", null)
-                    .setCancelable(true)
-                    .show();
-                return;
-            }
             new AlertDialog.Builder(this)
                 .setTitle("🔒 Fahrzeug ist gerade in Nutzung")
                 .setMessage(v.name + "\n\n" + label + " ist aktuell mit diesem Fahrzeug eingeloggt.\n\n"

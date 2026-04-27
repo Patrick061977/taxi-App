@@ -115,7 +115,12 @@ public class CallLogActivity extends AppCompatActivity {
             List<Place.Field> fields = Arrays.asList(
                 Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG
             );
-            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
+            // v6.62.12: FULLSCREEN statt OVERLAY — Patrick: 'kann keine Adresse eingeben'.
+            // OVERLAY-Modus rendert transparent über vorherige Activity, verliert bei
+            // Keyboard-Show den Focus und schließt sich. Diagnose via Live-Logcat:
+            // Activity startet, ClassNotFoundException auf zzkm (harmlos),
+            // dann verschwindet UI ohne user-Action. FULLSCREEN ist stabil.
+            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
                 .setCountries(Arrays.asList("DE"))
                 .build(this);
             placesLauncher.launch(intent);

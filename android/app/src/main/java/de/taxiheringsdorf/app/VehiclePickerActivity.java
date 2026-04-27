@@ -154,11 +154,16 @@ public class VehiclePickerActivity extends AppCompatActivity {
         e2.putString("vehicleId", v.id);
         e2.apply();
 
-        // Cloud-side: setzt fcmToken-Vehicle-Mapping wenn Token schon vorhanden
+        // v6.59.1: Cloud Function liest /vehicles/{vid}/fcmToken/token (Objekt-Format).
+        // Vorher schrieb Native als String → tokenSnap.val() leer → kein FCM-Push.
+        // Patrick: 'kriege keinen push' — bestätigt Daten-Inkonsistenz.
         String token = getSharedPreferences("fcm", MODE_PRIVATE).getString("current_token", null);
         if (token != null && !token.isEmpty()) {
+            Map<String, Object> tokMap = new HashMap<>();
+            tokMap.put("token", token);
+            tokMap.put("updatedAt", com.google.firebase.database.ServerValue.TIMESTAMP);
             FirebaseDatabase.getInstance(DB_INSTANCE_URL)
-                .getReference("vehicles/" + v.id + "/fcmToken").setValue(token);
+                .getReference("vehicles/" + v.id + "/fcmToken").setValue(tokMap);
         }
 
         // v6.50.1: Lock setzen — atomar als ein Map-Write

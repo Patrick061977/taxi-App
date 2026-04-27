@@ -21439,6 +21439,28 @@ exports.rideAction = onRequest(
             // 2. Ride-Status auf accept oder reject setzen
             const now = Date.now();
             if (action === 'accept') {
+                // v6.62.9: Race-Condition-Fix — Patrick: 'Status springt immer wieder zurück'.
+                // FCM-Action und Status-Button-Tap parallel: rideAction-Async-Call kommt nach
+                // Status-Update an und überschreibt 'on_way' wieder mit 'accepted'.
+                // Lösung: prüfe current status, kein Downgrade von on_way/arrived/picked_up/completed.
+                const _curSnap = await db.ref(`rides/${rideId}`).once('value');
+                const _curRide = _curSnap.val();
+                const _curStatus = _curRide && _curRide.status;
+                if (['on_way', 'arrived', 'picked_up', 'completed', 'cancelled', 'storniert'].includes(_curStatus)) {
+                    console.log(`⏭️ rideAction: ${rideId} ist schon '${_curStatus}' — kein Downgrade auf accepted`);
+                    // acceptedAt trotzdem nachpflegen (zeigt dass Fahrer Push gesehen hat)
+                    if (!_curRide.acceptedAt) {
+                        try {
+                            await db.ref(`rides/${rideId}`).update({
+                                acceptedAt: now,
+                                acceptedVia: 'fcm-notification-action',
+                                acceptedByVehicle: vehicleId || null
+                            });
+                        } catch(_) {}
+                    }
+                    res.status(200).json({ ok: true, action: 'accepted', alreadyProgressed: _curStatus });
+                    return;
+                }
                 await db.ref(`rides/${rideId}`).update({
                     status: 'accepted',
                     acceptedAt: now,

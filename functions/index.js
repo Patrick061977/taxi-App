@@ -19812,8 +19812,14 @@ exports.shiftHeartbeatPing = onRequest(
             // wenn ich die App wieder oeffne'. Root-Cause war nicht App-Open sondern dieser
             // Heartbeat alle 30s — der hat 'true' geschrieben und damit Pause aufgehoben.
             // Nur set wenn nicht explizit false (= Erst-Aktivierung oder online war bereits true).
+            // v6.62.25: dispatchStatus + available zusammen mit online synchronisieren.
+            // Bug-Bericht 27.04. 16:17: Patrick toggelte Online aber dispatchStatus blieb 'offline'
+            // → buchen.html hatte inkonsistenten Zustand (online=true + dispatchStatus=offline).
+            // Heartbeat synct beide Felder solange nicht in Pause.
             if (v.online !== false) {
                 updates['vehicles/' + vehicleId + '/online'] = true;
+                updates['vehicles/' + vehicleId + '/dispatchStatus'] = 'online';
+                updates['vehicles/' + vehicleId + '/available'] = true;
             }
             const hasGps = lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
             const inBox = hasGps && lat >= 53.0 && lat <= 54.5 && lon >= 13.0 && lon <= 15.0;

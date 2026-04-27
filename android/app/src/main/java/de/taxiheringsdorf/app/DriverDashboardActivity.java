@@ -170,10 +170,59 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // v6.52.1: nutzt jetzt geteilte UpdateChecker-Klasse (gleiche Logik im LoginActivity)
         UpdateChecker.checkAsync(this, updateBanner, updateBannerText, updateBannerBtn);
 
-        // v6.50.1: Lock direkt setzen (falls Activity ohne VehiclePicker geöffnet wird —
-        // z.B. nach App-Restart) und Heartbeat-Loop starten
-        sendLockHeartbeat();
-        lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
+        // v6.62.11: Pre-Heartbeat-Check — Patrick: 'das 20 hat einfach mit übernommen ich
+        // musste nichts drücken'. App-Restart klaut sonst den Lock ohne UI-Aktion!
+        // Vor dem ersten Heartbeat: lese activeDevice. Wenn fremde DeviceID + frisch (<5 Min)
+        // → KEIN Heartbeat schreiben + Dialog + zurück zum VehiclePicker.
+        try {
+            FirebaseDatabase _db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
+            _db.getReference("vehicles/" + currentVehicleId + "/activeDevice")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot s) {
+                        String _lockedDevId = s.child("deviceId").getValue(String.class);
+                        Long _lockHb = null;
+                        Object _lockHbObj = s.child("lastHeartbeat").getValue();
+                        if (_lockHbObj instanceof Number) _lockHb = ((Number) _lockHbObj).longValue();
+                        String _lockedLabel = s.child("label").getValue(String.class);
+                        long _now = System.currentTimeMillis();
+                        boolean _lockStale = _lockHb == null || (_now - _lockHb) > 5 * 60 * 1000L;
+                        String _myDevId = DeviceIdHelper.getOrCreate(DriverDashboardActivity.this);
+                        boolean _ownsIt = _lockedDevId != null && _lockedDevId.equals(_myDevId);
+
+                        if (_lockedDevId != null && !_lockedDevId.isEmpty() && !_ownsIt && !_lockStale) {
+                            // Fremder aktiver Lock → KEIN Reclaim. Patrick will 1 Fahrzeug = 1 Gerät.
+                            iOwnTheLock = false;
+                            String _lbl = _lockedLabel != null ? _lockedLabel : "anderes Gerät";
+                            new androidx.appcompat.app.AlertDialog.Builder(DriverDashboardActivity.this)
+                                .setTitle("🔒 Fahrzeug woanders aktiv")
+                                .setMessage("Dieses Fahrzeug wird gerade auf einem anderen Gerät genutzt:\n\n" + _lbl + "\n\n"
+                                    + "Du wirst zur Fahrzeug-Auswahl zurückgeschickt — bitte ein anderes Fahrzeug wählen "
+                                    + "oder dort 'Schicht beenden' drücken.")
+                                .setCancelable(false)
+                                .setPositiveButton("OK", (d, _w) -> {
+                                    getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();
+                                    startActivity(new Intent(DriverDashboardActivity.this, VehiclePickerActivity.class));
+                                    finish();
+                                })
+                                .show();
+                            return;
+                        }
+                        // Wir besitzen oder Lock ist frei/stale → Heartbeat starten
+                        sendLockHeartbeat();
+                        lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError e) {
+                        // Bei DB-Fehler: vorsichtig weitermachen (Heartbeat starten, listener fängt später)
+                        sendLockHeartbeat();
+                        lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
+                    }
+                });
+        } catch (Throwable _t) {
+            // Fallback bei Init-Fehler
+            sendLockHeartbeat();
+            lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
+        }
     }
 
     private void connectFirebase() {

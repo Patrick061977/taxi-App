@@ -19073,20 +19073,32 @@ exports.onRideUpdated = onValueUpdated(
             // 🆕 v6.41.96: Native FCM-Push an die APK des zugewiesenen Fahrzeugs.
             // 🔧 v6.41.99: vehicleId mitschicken damit RideActionReceiver das Annehmen/Ablehnen
             // korrekt mit der Vehicle-ID an rideAction Cloud Function senden kann.
-            try {
-                const _pickupLabel = after.pickupTime || 'Sofort';
-                await sendFCMToVehicle(newVehicle, {
-                    type: 'new_ride',
-                    rideId,
-                    vehicleId: newVehicle,
-                    pickup: after.pickup || '',
-                    destination: after.destination || '',
-                    pickupTime: _pickupLabel,
-                    customerName: after.customerName || 'Kunde',
-                    isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false'
-                });
-            } catch (_fcmErr) {
-                console.warn('FCM-Push fehlgeschlagen:', _fcmErr.message);
+            // v6.62.36: Patrick: 'warum wird Birgit Lenzkes jetzt getriggert, ist doch
+            // erst morgen'. Bug: bei Vorbestellungs-Zuweisung (Tagesplanung 24h+ vorher)
+            // wurde sofort FCM-Push an Fahrer geschickt → Patrick bekam Annehmen-Push fuer
+            // Fahrt 14 Stunden in der Zukunft. PUSH-REMINDER (v6.61.0) macht das schon
+            // korrekt zur richtigen Zeit (15+Anfahrt Min vor Pickup). Diese sofortige
+            // Push-Stelle sollte NUR feuern wenn der Push jetzt wirklich relevant ist.
+            const _minutesUntilPickup = after.pickupTimestamp ? (after.pickupTimestamp - Date.now()) / 60000 : 0;
+            const _isVorbestPlan = (after.status === 'vorbestellt') && _minutesUntilPickup > 60;
+            if (_isVorbestPlan) {
+                console.log(`📋 Vorbestellungs-Tagesplanung — kein sofortiger FCM-Push (Pickup in ${Math.round(_minutesUntilPickup)} Min). PUSH-REMINDER greift spaeter.`);
+            } else {
+                try {
+                    const _pickupLabel = after.pickupTime || 'Sofort';
+                    await sendFCMToVehicle(newVehicle, {
+                        type: 'new_ride',
+                        rideId,
+                        vehicleId: newVehicle,
+                        pickup: after.pickup || '',
+                        destination: after.destination || '',
+                        pickupTime: _pickupLabel,
+                        customerName: after.customerName || 'Kunde',
+                        isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false'
+                    });
+                } catch (_fcmErr) {
+                    console.warn('FCM-Push fehlgeschlagen:', _fcmErr.message);
+                }
             }
 
             // Nur benachrichtigen wenn nicht von autoAssignRide (das macht es selbst)

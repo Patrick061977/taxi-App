@@ -17651,6 +17651,66 @@ exports.scheduledAutoAssign = onSchedule(
                 }
             }
 
+            // 🆕 v6.61.0: PUSH-REMINDER für Vorbestellungen die in <60 Min sind.
+            // Patrick: 'die fahrt 09 uhr 45 müsste ja pushen theoretisch' (Frau-Säuber-Bug).
+            // Original-FCM ging beim Zuweisen raus (TTL 60s) → längst weg, Fahrer hat's vergessen.
+            // Wenn pickup näher als 60 Min: Status 'vorbestellt' → 'assigned' setzen UND FCM erneut
+            // senden. So kriegt der Fahrer rechtzeitig Bipp-Erinnerung. Idempotent: nach status='assigned'
+            // wird der Block nicht mehr getriggert (anderer Status).
+            {
+                const SOFORT_WINDOW_MS = 60 * 60000;
+                const _pushReadyList = allRides.filter(r => {
+                    if (r.status !== 'vorbestellt') return false;
+                    const _vid = r.vehicleId || r.assignedVehicle;
+                    if (!_vid) return false;
+                    if (!r.pickupTimestamp) return false;
+                    if (r.pickupTimestamp - now > SOFORT_WINDOW_MS) return false; // zu weit in Zukunft
+                    if (r.pickupTimestamp - now < -10 * 60000) return false; // schon >10 min überfällig
+                    if (r.acceptedAt) return false; // bereits angenommen
+                    if (r.assignmentLocked) return false;
+                    return true;
+                });
+                if (_pushReadyList.length > 0) {
+                    console.log(`📲 v6.61.0 PUSH-REMINDER: ${_pushReadyList.length} Vorbestellung(en) in <60 Min → Status 'assigned' + FCM-Re-Push`);
+                    for (const r of _pushReadyList) {
+                        const _vid = r.vehicleId || r.assignedVehicle;
+                        const _vName = (OFFICIAL_VEHICLES[_vid] || {}).name || _vid;
+                        const _minUntil = Math.round((r.pickupTimestamp - now) / 60000);
+                        try {
+                            await db.ref('rides/' + r.firebaseId).update({
+                                status: 'assigned',
+                                statusTransitionedAt: now,
+                                statusTransitionReason: 'v6.61.0 Push-Reminder bei <60 Min vor Pickup',
+                                updatedAt: now
+                            });
+                            r.status = 'assigned'; // lokale Kopie aktualisieren
+                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) → assigned`);
+                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: vorbestellt → assigned (Pickup in ${_minUntil} Min)`, {
+                                quelle: 'scheduledAutoAssign v6.61.0',
+                                fahrzeug: _vName,
+                                minutenBisAbholung: _minUntil
+                            });
+                            // FCM direkt senden — onRideUpdated würde ihn nicht senden weil
+                            // newVehicle === oldVehicle (kein Vehicle-Change, nur Status-Change).
+                            const _pickupLabel = r.pickupTime || new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', timeZone: 'Europe/Berlin'});
+                            await sendFCMToVehicle(_vid, {
+                                type: 'new_ride',
+                                rideId: r.firebaseId,
+                                vehicleId: _vid,
+                                pickup: r.pickup || '',
+                                destination: r.destination || '',
+                                pickupTime: _pickupLabel,
+                                customerName: r.customerName || 'Kunde',
+                                isVorbestellung: 'false',
+                                isReminder: 'true'
+                            });
+                        } catch (_pErr) {
+                            console.error(`   ❌ Push-Reminder fehlgeschlagen ${r.firebaseId}:`, _pErr.message);
+                        }
+                    }
+                }
+            }
+
             // 🆕 v6.25.5: Zuerst: Falsch zugewiesene Fahrten korrigieren
             // Wenn eine Sofortfahrt auf ein anderes Datum verschoben wurde,
             // muss das Fahrzeug neu geprüft werden

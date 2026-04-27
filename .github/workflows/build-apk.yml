@@ -143,17 +143,20 @@ jobs:
       # v6.60.4: APK + latest.json auf Strato mirrorn — Patrick: S20-Download von GitHub
       # extrem langsam, manche Samsung-ROMs drosseln + GitHub-CDN für DE-User suboptimal.
       # Strato (DE-Hosting) liefert direkt + zügig. App prüft latest.json zuerst, GitHub-Fallback.
+      # v6.60.5: Strato Root-.htaccess leitet umwelt-taxi-insel-usedom.de/<*> auf /Taxi-App/<*> um.
+      # Dateien in /app/ direkt sind nicht erreichbar → wir müssen nach /Taxi-App/app/ uploaden.
+      # Öffentlich erreichbar bleiben sie aber unter umwelt-taxi-insel-usedom.de/app/* via Rewrite.
       - name: Strato-Mirror vorbereiten
         if: github.ref == 'refs/heads/main'
         id: strato-mirror
         run: |
           set -e
-          mkdir -p strato-apk-upload/app
-          cp "${{ steps.rename.outputs.apkPath }}" strato-apk-upload/app/taxi-app-latest.apk
-          SHA256=$(sha256sum strato-apk-upload/app/taxi-app-latest.apk | cut -d' ' -f1)
-          SIZE=$(stat -c%s strato-apk-upload/app/taxi-app-latest.apk)
+          mkdir -p strato-apk-upload/Taxi-App/app
+          cp "${{ steps.rename.outputs.apkPath }}" strato-apk-upload/Taxi-App/app/taxi-app-latest.apk
+          SHA256=$(sha256sum strato-apk-upload/Taxi-App/app/taxi-app-latest.apk | cut -d' ' -f1)
+          SIZE=$(stat -c%s strato-apk-upload/Taxi-App/app/taxi-app-latest.apk)
           BUILD_TS=$(TZ="Europe/Berlin" date +"%Y-%m-%dT%H:%M:%S%:z")
-          cat > strato-apk-upload/app/latest.json <<EOF
+          cat > strato-apk-upload/Taxi-App/app/latest.json <<EOF
           {
             "tag_name": "v${{ steps.version.outputs.versionName }}",
             "version": "${{ steps.version.outputs.versionName }}",
@@ -165,7 +168,7 @@ jobs:
           }
           EOF
           echo "✅ Strato-Mirror vorbereitet (SHA256: $SHA256, Size: $SIZE)"
-          ls -la strato-apk-upload/app/
+          ls -la strato-apk-upload/Taxi-App/app/
 
       - name: Strato-Secrets prüfen
         if: github.ref == 'refs/heads/main'

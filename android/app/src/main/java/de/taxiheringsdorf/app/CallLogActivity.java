@@ -86,9 +86,21 @@ public class CallLogActivity extends AppCompatActivity {
             }
             try {
                 Place place = Autocomplete.getPlaceFromIntent(data);
-                String label = place.getName() != null ? place.getName() : place.getAddress();
-                if (place.getAddress() != null && !place.getAddress().equals(place.getName())) {
-                    label = place.getName() + " — " + place.getAddress();
+                // v6.62.19: POI-Name VOR Adresse erhalten (Patrick: 'sinnvoller Lidl
+                // hinzuschreiben'). Format: "Lidl, Ahlbecker Ch 9, 17429 Heringsdorf".
+                // Konvention im Rest des Projekts ist Komma — siehe Hotel-Geocache-Strings.
+                // Doppelung vermeiden falls Address den Namen schon enthält.
+                String _name = place.getName();
+                String _addr = place.getAddress();
+                String label;
+                if (_name == null || _name.isEmpty()) {
+                    label = _addr != null ? _addr : "";
+                } else if (_addr == null || _addr.isEmpty() || _addr.equals(_name)) {
+                    label = _name;
+                } else if (_addr.startsWith(_name)) {
+                    label = _addr;  // Name schon vorne → keine Doppelung
+                } else {
+                    label = _name + ", " + _addr;
                 }
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
                 if (pendingPlaceCoords != null && place.getLatLng() != null) {

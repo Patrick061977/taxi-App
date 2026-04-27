@@ -71,9 +71,18 @@ public class CrmSearchActivity extends AppCompatActivity {
             if (rc != RESULT_OK || data == null) return;
             try {
                 Place p = Autocomplete.getPlaceFromIntent(data);
-                String label = p.getName() != null ? p.getName() : p.getAddress();
-                if (p.getAddress() != null && !p.getAddress().equals(p.getName())) {
-                    label = p.getName() + " — " + p.getAddress();
+                // v6.62.19: POI-Name + Adresse mit Komma trennen, Doppelung vermeiden.
+                String _name = p.getName();
+                String _addr = p.getAddress();
+                String label;
+                if (_name == null || _name.isEmpty()) {
+                    label = _addr != null ? _addr : "";
+                } else if (_addr == null || _addr.isEmpty() || _addr.equals(_name)) {
+                    label = _name;
+                } else if (_addr.startsWith(_name)) {
+                    label = _addr;
+                } else {
+                    label = _name + ", " + _addr;
                 }
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
                 if (pendingPlaceCoords != null && p.getLatLng() != null) {

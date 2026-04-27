@@ -96,7 +96,8 @@ public class CrmSearchActivity extends AppCompatActivity {
             List<Place.Field> fields = Arrays.asList(
                 Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG
             );
-            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
+            // v6.62.12: FULLSCREEN — siehe CallLogActivity.launchPlaces für Details
+            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
                 .setCountries(Arrays.asList("DE"))
                 .build(this);
             placesLauncher.launch(intent);

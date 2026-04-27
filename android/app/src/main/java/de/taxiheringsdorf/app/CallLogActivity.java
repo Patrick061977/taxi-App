@@ -152,7 +152,15 @@ public class CallLogActivity extends AppCompatActivity {
                 final String display = compactNominatimAddress(json);
                 runOnUiThread(() -> {
                     coordsOut[0] = lat; coordsOut[1] = lon;
-                    if (display != null && field != null) field.setText("📍 " + display);
+                    if (display != null && field != null) {
+                        // v6.62.42: Prefix vom existierenden Text uebernehmen (📍 oder 🎯)
+                        // statt hardcoded 📍 — sonst wurde Hotel-Ziel mit 📍 statt 🎯 gesetzt,
+                        // landete dann mit '📍'-Prefix in DB (Lenzkes-Folgebug bei Promenadenhotel
+                        // Admiral 27.04. 21:11).
+                        String existing = field.getText().toString();
+                        String prefix = existing.startsWith("🎯") ? "🎯 " : "📍 ";
+                        field.setText(prefix + display);
+                    }
                 });
             } catch (Throwable _t) { /* still — User merkt's beim Anlegen-Tap */ }
         }).start();
@@ -985,8 +993,14 @@ public class CallLogActivity extends AppCompatActivity {
             .setView(layout)
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();
-                String pickup = tvPickup.getText().toString().replaceFirst("^📍\\s*", "").trim();
-                String dest = tvDest.getText().toString().replaceFirst("^🎯\\s*", "").trim();
+                // v6.62.42: defensive — Symbol-Prefix von BEIDEN moeglichen Symbolen entfernen
+                // (📍 oder 🎯), falls geocodeAndFill oder Tausch den falschen Prefix
+                // hineingeschrieben hat (Promenadenhotel-Admiral 27.04. landete mit
+                // '📍'-Prefix als pickup-String in DB).
+                String pickup = tvPickup.getText().toString()
+                    .replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+                String dest = tvDest.getText().toString()
+                    .replaceFirst("^🎯\\s*", "").replaceFirst("^📍\\s*", "").trim();
                 if (name.isEmpty() || pickup.isEmpty() || pickup.endsWith("wählen…") ||
                     dest.isEmpty() || dest.endsWith("wählen…")) {
                     Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
@@ -1024,11 +1038,20 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("pickup", pickup);
                 r.put("destination", dest);
                 // v6.53.0: Koords aus Places-Pick (oder CRM-Vorbelegung) — keine String-Adressen mehr ohne lat/lon!
+                // v6.62.42: + pickupCoords/destCoords als Object schreiben — Browser-Code legt
+                // beides an, Cloud-Function 'Daten-Inkonsistenz' triggerte sonst weil onRideCreated
+                // pickup-coords-Object suchte (Promenadenhotel-Admiral 27.04.).
                 if (!Double.isNaN(pickupCoords[0])) {
                     r.put("pickupLat", pickupCoords[0]); r.put("pickupLon", pickupCoords[1]);
+                    java.util.Map<String,Object> pc = new java.util.HashMap<>();
+                    pc.put("lat", pickupCoords[0]); pc.put("lon", pickupCoords[1]);
+                    r.put("pickupCoords", pc);
                 }
                 if (!Double.isNaN(destCoords[0])) {
                     r.put("destinationLat", destCoords[0]); r.put("destinationLon", destCoords[1]);
+                    java.util.Map<String,Object> dc = new java.util.HashMap<>();
+                    dc.put("lat", destCoords[0]); dc.put("lon", destCoords[1]);
+                    r.put("destCoords", dc);
                 }
                 r.put("pickupTimestamp", datetime[0]);
                 r.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(datetime[0])));

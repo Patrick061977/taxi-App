@@ -963,9 +963,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: " + err, Toast.LENGTH_LONG).show());
                     return;
                 }
-                String checkoutUrl = resp.optString("url", null);
+                // v6.59.3: Cloud Function liefert Feld 'checkoutUrl' (nicht 'url') — Bug aus v6.59.0.
+                String checkoutUrl = resp.optString("checkoutUrl", null);
+                if (checkoutUrl == null || checkoutUrl.isEmpty()) checkoutUrl = resp.optString("url", null);
                 if (checkoutUrl == null || checkoutUrl.isEmpty()) {
-                    runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: keine Checkout-URL erhalten", Toast.LENGTH_LONG).show());
+                    runOnUiThread(() -> Toast.makeText(this, "❌ Stripe: keine Checkout-URL erhalten — Response: " + resp.toString().substring(0, Math.min(120, resp.toString().length())), Toast.LENGTH_LONG).show());
                     return;
                 }
                 runOnUiThread(() -> renderStripeQrDialog(r, amount, checkoutUrl));
@@ -1047,6 +1049,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private void payViaZettle(String rideId, double amount) {
         if (amount <= 0) {
             Toast.makeText(this, "Kein Preis hinterlegt — Betrag eingeben", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // v6.59.3: Patrick hat S9+ wo iZettle nicht funktioniert ('Handy zu alt').
+        // Vor dem Intent erstmal prüfen ob die App überhaupt installiert ist.
+        boolean izettleInstalled = false;
+        try {
+            getPackageManager().getPackageInfo("com.izettle.android", 0);
+            izettleInstalled = true;
+        } catch (android.content.pm.PackageManager.NameNotFoundException _e) {}
+        if (!izettleInstalled) {
+            new AlertDialog.Builder(this)
+                .setTitle("💳 iZettle nicht verfügbar")
+                .setMessage("Die iZettle/Zettle-App ist auf diesem Handy nicht installiert oder nicht kompatibel (z.B. S9+ mit Android 8 zu alt).\n\nAlternative:\n• 💵 Bar — direkt vom Kunden\n• 📱 Stripe-QR — Kunde scannt + bezahlt online")
+                .setPositiveButton("OK", null)
+                .show();
             return;
         }
         pendingZettleRideId = rideId;

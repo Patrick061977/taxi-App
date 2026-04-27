@@ -73,6 +73,7 @@ public class ShiftForegroundService extends Service {
     private volatile Double lastLat = null;
     private volatile Double lastLon = null;
     private volatile Float lastAccuracy = null;
+    private volatile Long lastGpsTimestamp = null; // v6.62.1: für Sprung-Filter
 
     // 🆕 v6.41.76: WakeLock hält CPU wach während Schicht (sonst drosselt Android bei Screen-off)
     private PowerManager.WakeLock wakeLock = null;
@@ -330,9 +331,36 @@ public class ShiftForegroundService extends Service {
                     if (result == null) return;
                     Location loc = result.getLastLocation();
                     if (loc == null) return;
+                    // v6.62.1: Patrick: 'GPS-Sprünge — Bülowstraße statt Neuhoferstraße'.
+                    // FusedLocationProvider mischt GPS + Wifi + Cell. Bei schwachem GPS
+                    // schaltet er auf Wifi (Accuracy 50-200m) → Position springt 100m+ um.
+                    // Filter: Accuracy > 50m verwerfen (außer wir hatten noch keine).
+                    if (loc.hasAccuracy() && loc.getAccuracy() > 50f && lastLat != null) {
+                        Log.d(TAG, "📍 GPS verworfen (Accuracy " + loc.getAccuracy() + "m > 50m)");
+                        return;
+                    }
+                    // v6.62.1: Implausibel schnelle Sprünge filtern (Teleport-Glitch).
+                    // Bei mehr als 200 km/h zwischen Updates → Wifi-Glitch, ignorieren.
+                    if (lastLat != null && lastLon != null && lastGpsTimestamp != null) {
+                        long dt = System.currentTimeMillis() - lastGpsTimestamp;
+                        if (dt > 0 && dt < 60000) {
+                            double dLat = (loc.getLatitude() - lastLat) * Math.PI / 180;
+                            double dLon = (loc.getLongitude() - lastLon) * Math.PI / 180;
+                            double a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+                                Math.cos(lastLat * Math.PI/180) * Math.cos(loc.getLatitude() * Math.PI/180) *
+                                Math.sin(dLon/2) * Math.sin(dLon/2);
+                            double distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                            double speedKmh = (distKm / dt) * 3600 * 1000;
+                            if (speedKmh > 200) {
+                                Log.d(TAG, "📍 GPS verworfen (Sprung " + Math.round(distKm*1000) + "m in " + dt + "ms = " + Math.round(speedKmh) + " km/h)");
+                                return;
+                            }
+                        }
+                    }
                     lastLat = loc.getLatitude();
                     lastLon = loc.getLongitude();
                     lastAccuracy = loc.hasAccuracy() ? loc.getAccuracy() : null;
+                    lastGpsTimestamp = System.currentTimeMillis();
                     Log.d(TAG, "📍 Native GPS: " + lastLat + "," + lastLon + " ±" + lastAccuracy + "m");
                 }
             };
@@ -355,6 +383,7 @@ public class ShiftForegroundService extends Service {
         fusedLocationClient = null;
         locationCallback = null;
         lastLat = null;
+        lastGpsTimestamp = null;
         lastLon = null;
         lastAccuracy = null;
     }

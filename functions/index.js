@@ -15,7 +15,13 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onValueCreated, onValueUpdated, onValueDeleted } = require('firebase-functions/v2/database');
 const admin = require('firebase-admin');
 
-admin.initializeApp();
+// v6.61.1: WICHTIG — databaseURL muss explizit gesetzt werden für europe-west1 RTDB.
+// Ohne URL nimmt admin.database() den US-Central-Default (taxi-heringsdorf.firebaseio.com)
+// statt den europe-west1 Endpunkt. Ergebnis: scheduledAutoAssign lud nur 3 von 45 Fahrten
+// (US-Instance enthält Legacy-Daten, EU-Instance ist die echte Quelle).
+admin.initializeApp({
+    databaseURL: 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app'
+});
 const db = admin.database();
 
 // 🔧 v6.21.0: Stripe SDK (lazy-init mit Secret Key aus Firebase)

@@ -604,7 +604,9 @@ async function autoAssignRide(rideId, rideData) {
         const vehiclePriorities = prioritiesSnap.val() || {};
         const pricingSettings = pricingSnap.val() || {};
         const allRides = [];
-        ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+        // v6.61.6: Block-Body — sonst stoppt Firebase forEach nach erstem push (push() returnt
+        // array.length=1, was Firebase als 'cancel iteration' interpretiert).
+        ridesSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
 
         // 🔧 v6.38.34: PFLICHT — Duration muss vorhanden sein! Kein Fallback auf 20 Min!
         if (!rideData.duration && !rideData.estimatedDuration) {
@@ -11183,7 +11185,7 @@ async function handleCallback(callback) {
                                 db.ref('settings/pricing').once('value')
                             ]);
                             const _allRides = [];
-                            _rSnap.forEach(c => _allRides.push({ ...c.val(), firebaseId: c.key }));
+                            _rSnap.forEach(c => { _allRides.push({ ...c.val(), firebaseId: c.key }); });
                             _estWaitMin = await estimateNextAvailableMinutes(_allRides, _vSnap.val() || {}, _pSnap.val() || {});
                         } catch(_estErr) { /* non-critical */ }
                         const _wsUpdate = { status: 'warteschlange', updatedAt: Date.now() };
@@ -17655,28 +17657,13 @@ exports.scheduledAutoAssign = onSchedule(
             };
 
             // Fahrten aus 3 Status-Queries zusammenführen
-            // v6.61.5 DIAGNOSE: Log per-snap counts — nur 3 Fahrten geladen obwohl REST 45 zeigt!
-            console.log(`🔍 DIAGNOSE: assignedSnap.numChildren=${assignedSnap.numChildren()}, vorbestelltSnap.numChildren=${vorbestelltSnap.numChildren()}, newSnap.numChildren=${newSnap.numChildren()}`);
+            // v6.61.6: Block-Body Pflicht — Firebase DataSnapshot.forEach interpretiert truthy
+            // return als 'cancel iteration'. push() returnt array.length=1 (truthy) → Loop stoppt
+            // nach 1 Element. Das war der 3-Fahrten-Bug (1+1+1 von je drei Snapshots).
             const allRides = [];
-            assignedSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
-            vorbestelltSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
-            newSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
-            console.log(`🔍 DIAGNOSE: nach forEach allRides.length=${allRides.length}`);
-            // Fallback: lade ALLE Rides + filtere clientseitig — falls orderByChild kaputt ist
-            if (allRides.length < 10) {
-                console.warn(`⚠️ DIAGNOSE: nur ${allRides.length} Rides via orderByChild — fallback auf full-scan`);
-                const _allSnap = await db.ref('rides').once('value');
-                console.log(`🔍 DIAGNOSE: rides.numChildren=${_allSnap.numChildren()}`);
-                allRides.length = 0;
-                _allSnap.forEach(c => {
-                    const r = c.val();
-                    if (!r) return;
-                    if (['assigned','vorbestellt','new'].includes(r.status)) {
-                        allRides.push({ ...r, firebaseId: c.key });
-                    }
-                });
-                console.log(`🔍 DIAGNOSE: nach full-scan allRides.length=${allRides.length}`);
-            }
+            assignedSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+            vorbestelltSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+            newSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
 
             // 🔧 v6.40.18: SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen >60min korrigieren.
             // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).
@@ -17876,9 +17863,9 @@ exports.scheduledAutoAssign = onSchedule(
                     db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
                     db.ref('rides').orderByChild('status').equalTo('new').once('value')
                 ]);
-                _fAssigned.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
-                _fVorbestellt.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
-                _fNew.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+                _fAssigned.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+                _fVorbestellt.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
+                _fNew.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             }
 
             // Unzugewiesene Fahrten finden

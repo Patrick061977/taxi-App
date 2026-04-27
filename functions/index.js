@@ -547,6 +547,48 @@ async function sendFCMToVehicle(vehicleId, payload) {
     }
 }
 
+// v6.61.2: Wartezeit-Schätzung für warteschlange-Fahrten.
+// Patrick: 'der Kunde müsste doch jetzt gleich eine Info kriegen das es ca 30 Minuten dauert
+// weil ich ja mit der Fahrt beschäftigt bin'.
+// Liefert die Minuten bis das nächste Fahrzeug frei wird, basierend auf:
+// - Aktive Fahrten (on_way/picked_up/accepted/assigned innerhalb 30 Min)
+// - Pickup + Duration + Boarding + Alighting Buffer
+async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSettings) {
+    const now = Date.now();
+    const boardingMin = (pricingSettings && pricingSettings.boardingTime) || 2;
+    const alightingMin = (pricingSettings && pricingSettings.alightingTime) || 2;
+    const bufferMs = (boardingMin + alightingMin + 5) * 60000; // 5 Min für Rückkehr/Pufferzeit
+    const candidates = [];
+    for (const [vid, vData] of Object.entries(vehiclesData || {})) {
+        if (!vData || !vData.online) continue;
+        // Welche Fahrten halten dieses Fahrzeug noch beschäftigt?
+        const vehicleRides = (allRides || []).filter(r =>
+            (r.vehicleId === vid || r.assignedVehicle === vid) &&
+            ['on_way', 'picked_up', 'assigned', 'accepted'].includes(r.status)
+        );
+        if (vehicleRides.length === 0) {
+            // Fahrzeug ist FREI → würde von autoAssignRide gefunden — also schnell wieder probieren
+            return 0;
+        }
+        // Spätestes Frei-Werden = max über alle aktiven Fahrten + Buffer
+        let freeAtMs = now;
+        for (const r of vehicleRides) {
+            const start = r.pickupTimestamp || r.acceptedAt || now;
+            const dur = ((r.duration || r.estimatedDuration || 20) * 60000);
+            const end = start + dur + bufferMs;
+            if (end > freeAtMs) freeAtMs = end;
+        }
+        candidates.push(freeAtMs);
+    }
+    if (candidates.length === 0) {
+        // Kein Fahrer online → großzügige Schätzung
+        return 30;
+    }
+    const earliestMs = Math.min(...candidates);
+    const minUntil = Math.round((earliestMs - now) / 60000);
+    return Math.max(1, minUntil);
+}
+
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
@@ -11131,12 +11173,31 @@ async function handleCallback(callback) {
                         await addTelegramLog('🚗', chatId, `Auto-Zuweisung: ${assignResult.name} (${assignResult.distance < 999 ? assignResult.distance.toFixed(1) + ' km' : 'kein GPS'}, ~${etaMin} Min)`);
                     } else if (_isJetztFahrt) {
                         // 🔧 v6.20.2: Sofortfahrt ohne Auto-Zuweisung → Admin-Vermittlung
-                        await db.ref('rides/' + rideData.id).update({ status: 'warteschlange', updatedAt: Date.now() });
+                        // v6.61.2: + Wartezeit-Schätzung schreiben damit buchen.html / Telegram
+                        // dem Kunden konkrete Minuten zeigen kann.
+                        let _estWaitMin = null;
+                        try {
+                            const [_vSnap, _rSnap, _pSnap] = await Promise.all([
+                                db.ref('vehicles').once('value'),
+                                db.ref('rides').once('value'),
+                                db.ref('settings/pricing').once('value')
+                            ]);
+                            const _allRides = [];
+                            _rSnap.forEach(c => _allRides.push({ ...c.val(), firebaseId: c.key }));
+                            _estWaitMin = await estimateNextAvailableMinutes(_allRides, _vSnap.val() || {}, _pSnap.val() || {});
+                        } catch(_estErr) { /* non-critical */ }
+                        const _wsUpdate = { status: 'warteschlange', updatedAt: Date.now() };
+                        if (_estWaitMin !== null) {
+                            _wsUpdate.estimatedWaitMinutes = _estWaitMin;
+                            _wsUpdate.estimatedWaitComputedAt = Date.now();
+                        }
+                        await db.ref('rides/' + rideData.id).update(_wsUpdate);
 
                         // Kunde beruhigen
+                        const _waitInfo = _estWaitMin !== null ? `\n⏱ <b>Voraussichtliche Wartezeit:</b> ca. ${_estWaitMin} Min` : '';
                         await sendTelegramMessage(chatId,
-                            `🚕 <b>Wir suchen einen Fahrer für Sie!</b>\n\n` +
-                            `📢 Sie werden in wenigen Minuten benachrichtigt.\n\n` +
+                            `🚕 <b>Wir suchen einen Fahrer für Sie!</b>${_waitInfo}\n\n` +
+                            `📢 Sie werden benachrichtigt sobald ein Fahrer frei ist.\n\n` +
                             `💡 <i>Sie müssen nichts weiter tun — der Fahrer meldet sich automatisch bei Ihnen.</i>`,
                             { reply_markup: { inline_keyboard: [
                                 [{ text: '📅 Lieber für später buchen', callback_data: `chdate_${rideData.id}` }],
@@ -18145,6 +18206,28 @@ exports.scheduledAutoAssign = onSchedule(
                 await sendToAllAdmins(autoAssignMsg);
                 await sendToSystemChannel(autoAssignMsg, 'auto_assign');
             }
+
+            // v6.61.2: Wartezeit-Schätzung für noch-unzugewiesene Fahrten aktualisieren.
+            // Patrick: 'der Kunde müsste eine Info kriegen das es ca 30 Min dauert'.
+            // Wird hier alle 10 Min aktualisiert wenn die Fahrt noch in warteschlange/new ist.
+            try {
+                const _stillWaiting = allRides.filter(r =>
+                    ['warteschlange', 'new'].includes(r.status) &&
+                    !r.vehicleId && !r.assignedVehicle
+                );
+                if (_stillWaiting.length > 0) {
+                    const _est = await estimateNextAvailableMinutes(allRides, vehiclesData, pricingSettings);
+                    for (const r of _stillWaiting) {
+                        try {
+                            await db.ref('rides/' + r.firebaseId).update({
+                                estimatedWaitMinutes: _est,
+                                estimatedWaitComputedAt: now
+                            });
+                        } catch(_) { /* non-critical */ }
+                    }
+                    console.log(`📊 v6.61.2: Wartezeit-Update für ${_stillWaiting.length} Fahrt(en) → ca. ${_est} Min`);
+                }
+            } catch(_estErr) { /* non-critical */ }
 
             console.log(`\n✅ scheduledAutoAssign abgeschlossen: ${assignedCount} zugewiesen, ${failedCount} ohne Fahrzeug`);
 

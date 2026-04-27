@@ -94,11 +94,23 @@ public class VehiclePickerActivity extends AppCompatActivity {
                 @Override
                 public void onDataChange(@NonNull DataSnapshot snapshot) {
                     progress.setVisibility(View.GONE);
+                    // v6.60.2: Patrick: 'fahrzeuge verschwinden aus der wählbaren liste der
+                    // fahrzeuge die angemeldet sind, aber der admin sieht warum'.
+                    // → Normaler Fahrer: belegte Wagen komplett ausblenden.
+                    //   Admin: alle Wagen sichtbar, belegte mit 🔒 + Label (Tap immer noch geblockt).
+                    long now = System.currentTimeMillis();
+                    String myDeviceId = DeviceIdHelper.getOrCreate(VehiclePickerActivity.this);
+                    boolean isAdmin = PermissionsHelper.isAdmin(VehiclePickerActivity.this);
                     List<Vehicle> vs = new ArrayList<>();
+                    int hiddenCount = 0;
                     for (DataSnapshot c : snapshot.getChildren()) {
                         Vehicle v = Vehicle.fromSnap(c);
                         if (v == null) continue;
                         if (v.deactivated) continue;
+                        boolean lockStale = v.lockHeartbeat == null || (now - v.lockHeartbeat) > STALE_LOCK_MS;
+                        boolean ownDevice = v.lockedByDeviceId != null && v.lockedByDeviceId.equals(myDeviceId);
+                        boolean lockedByOther = v.lockedByUid != null && !lockStale && !ownDevice;
+                        if (lockedByOther && !isAdmin) { hiddenCount++; continue; }
                         vs.add(v);
                     }
                     vs.sort((a, b) -> {

@@ -19850,6 +19850,25 @@ exports.shiftHeartbeatPing = onRequest(
             updates['gpsHealth/' + vehicleId + '/latest'] = diag;
             updates['gpsHealth/' + vehicleId + '/history/' + now] = diag;
 
+            // 🆕 v6.62.30: Persistenter Schicht-Tracker — kompletter Heartbeat-Verlauf pro Schicht.
+            // Patrick: 'die Tracking-Daten kannst du fuer die ganze Schicht loggen'.
+            // gpsHealth/history wird nach 30 Min beschnitten — fuer ganze Schicht (8-12h)
+            // brauchen wir persistenten Speicher. shiftHistory/{vid}/{shiftId} existiert schon.
+            // Pro Heartbeat ~80 Bytes -> 12h Schicht = ~115KB, akzeptabel.
+            if (v.shift && v.shift.startTime) {
+                const _shiftId = String(v.shift.startTime);
+                updates['shiftHistory/' + vehicleId + '/' + _shiftId + '/heartbeats/' + now] = {
+                    ts: now,
+                    lat: hasGps ? lat : null,
+                    lon: hasGps ? lon : null,
+                    acc: (acc !== null && !isNaN(acc)) ? acc : null
+                };
+                // Schicht-Metadaten setzen falls noch nicht da (idempotent)
+                updates['shiftHistory/' + vehicleId + '/' + _shiftId + '/startTime'] = v.shift.startTime;
+                updates['shiftHistory/' + vehicleId + '/' + _shiftId + '/lastHeartbeat'] = now;
+                if (v.shift.startedBy) updates['shiftHistory/' + vehicleId + '/' + _shiftId + '/startedBy'] = v.shift.startedBy;
+            }
+
             await db.ref().update(updates);
 
             // Fire-and-forget: History auf letzte 2 Stunden beschneiden (verhindert unbegrenztes Wachstum)

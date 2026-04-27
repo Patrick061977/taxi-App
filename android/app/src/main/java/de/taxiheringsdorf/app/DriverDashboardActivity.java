@@ -1214,6 +1214,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Double price, distance;
         Long pickupTimestamp;
         List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
+        Integer drivingTimeToPickup; // v6.62.6: Anfahrtszeit in Min (Patrick: 'wie lange braucht er bis zum Ziel')
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -1243,6 +1244,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 Object ts = s.child("pickupTimestamp").getValue();
                 if (ts instanceof Long) r.pickupTimestamp = (Long) ts;
                 else if (ts instanceof Number) r.pickupTimestamp = ((Number) ts).longValue();
+                Object dt = s.child("drivingTimeToPickup").getValue();
+                if (dt instanceof Number) r.drivingTimeToPickup = ((Number) dt).intValue();
                 return r;
             } catch (Throwable _t) { return null; }
         }
@@ -1309,6 +1312,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     _displayTime = r.pickupTime; // schon HH:mm
                 } else {
                     _displayTime = "Sofort";
+                }
+                // v6.62.6: Patrick: 'wie lange er braucht bis zum Ziel, damit er rechtzeitig losfahren kann'.
+                // Wenn drivingTimeToPickup gesetzt + pickupTimestamp in der Zukunft → Losfahrt-Zeit anzeigen.
+                if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0
+                    && r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
+                    long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
+                    if (_losfahrtMs > System.currentTimeMillis()) {
+                        java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                        _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        _displayTime += "  •  🚗 los um " + _lfFmt.format(new java.util.Date(_losfahrtMs))
+                            + " (" + r.drivingTimeToPickup + " Min)";
+                    } else {
+                        _displayTime += "  •  ⚠️ JETZT LOSFAHREN (" + r.drivingTimeToPickup + " Min Anfahrt)";
+                    }
                 }
                 tvTime.setText(_displayTime);
                 String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",

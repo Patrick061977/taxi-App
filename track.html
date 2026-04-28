@@ -176,7 +176,7 @@
              das ist nicht was er wollte'). Wer den Tab schliessen will, schliesst einfach den
              Browser-Tab. Standort-Toggle gibt's jetzt am Standort-Button. -->
         <div class="header">
-            <h2>🚕 Ihr Taxi</h2>
+            <h2>🚕 Ihre Buchung</h2>
             <div id="status-indicator" class="status-indicator"></div>
         </div>
 
@@ -185,6 +185,15 @@
         <!-- v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen,
              nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
         <div id="booking-details" style="display:none; margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; line-height:1.6;"></div>
+
+        <!-- v6.62.53: Patrick: 'paar Infos dass die Leute solange der Fahrer noch nicht
+             losgefahren ist stornieren koennen + dass die Page sich automatisch
+             aktualisiert + dass sie separat benachrichtigt werden wenn der Fahrer faehrt'. -->
+        <div id="info-hints" style="display:none; margin-top:10px; padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:13px; line-height:1.5; color:#1e3a8a;">
+            <div style="margin-bottom:4px;">🔄 Diese Seite aktualisiert sich automatisch.</div>
+            <div style="margin-bottom:4px;" id="hint-cancellable">❌ Solange der Fahrer noch nicht losgefahren ist, können Sie unten stornieren.</div>
+            <div>📱 Sie werden separat benachrichtigt sobald der Fahrer losfährt.</div>
+        </div>
 
         <div id="vehicle-info">
             Lädt Fahrzeug-Informationen...
@@ -383,10 +392,22 @@
                 }
                 // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
                 // picked_up: kein Storno mehr — Fahrt laeuft schon.
+                // v6.62.53: 'arrived' raus — Fahrer ist schon vor Ort, da kann nicht mehr storniert
+                // werden. on_way bleibt drin (Patrick: 'solange Fahrer noch nicht losgefahren').
                 const _cancelBtn = document.getElementById('cancel-btn');
-                const _cancellableStati = ['new','sofort','warteschlange','vorbestellt','assigned','accepted','on_way','arrived'];
+                const _cancellableStati = ['new','sofort','warteschlange','vorbestellt','assigned','accepted'];
+                const _isCancellable = _cancellableStati.includes(r.status);
                 if (_cancelBtn) {
-                    _cancelBtn.style.display = _cancellableStati.includes(r.status) ? 'block' : 'none';
+                    _cancelBtn.style.display = _isCancellable ? 'block' : 'none';
+                }
+                // v6.62.53: Info-Hints einblenden + Storno-Hinweis nur wenn noch stornierbar
+                const _hints = document.getElementById('info-hints');
+                const _hintCancel = document.getElementById('hint-cancellable');
+                if (_hints && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'storniert') {
+                    _hints.style.display = 'block';
+                    if (_hintCancel) _hintCancel.style.display = _isCancellable ? 'block' : 'none';
+                } else if (_hints) {
+                    _hints.style.display = 'none';
                 }
                 if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'storniert') {
                     // Fahrt fertig — Live-Update stoppen

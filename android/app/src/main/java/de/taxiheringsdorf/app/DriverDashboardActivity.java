@@ -737,6 +737,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void onRidesUpdate(DataSnapshot s) {
         // v6.42.7: Vorbestellungen erst 20 Min vor Pickup zeigen
+        // v6.62.84: Patrick: 'doch nicht 60 Min vorher'. Auch 'accepted' im 20-Min-Fenster
+        // halten — nur wirklich laufende Fahrten (on_way/arrived/picked_up) immer zeigen.
         long now = System.currentTimeMillis();
         long windowPast = now - 12L * 3600L * 1000L;
         long windowFuture = now + 20L * 60L * 1000L;
@@ -750,9 +752,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
                 st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
                 st.equals("done")) continue;
-            boolean isActive = st.equals("accepted") || st.equals("on_way") ||
-                    st.equals("arrived") || st.equals("picked_up");
-            if (!isActive) {
+            // Nur wirklich laufende Fahrten immer zeigen — accepted ist NICHT mehr 'immer'
+            boolean isLive = st.equals("on_way") || st.equals("arrived") || st.equals("picked_up");
+            if (!isLive) {
                 if (r.pickupTimestamp == null) {
                     if (!st.equals("new") && !st.equals("sofort") && !st.equals("assigned")) continue;
                 } else {

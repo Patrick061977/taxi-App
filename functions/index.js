@@ -21719,6 +21719,8 @@ exports.onClaudeBridgeOutbox = onValueCreated(
                 await sendToAllAdmins(text);
             }
             await event.data.ref.update({ sent: true, sentAt: Date.now() });
+            // 🆕 v6.62.60: Jede ausgehende Claude-Nachricht zählt als Heartbeat — egal ob Browser-Tab offen ist.
+            try { await db.ref('claudeBridge/heartbeat').set({ ts: Date.now(), pid: 'outbox' }); } catch(_) {}
             console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} (${useClaudeBot ? 'Claude-Bot' : 'Hauptbot'}) gesendet`);
         } catch (err) {
             console.error('❌ onClaudeBridgeOutbox Fehler:', err.message);
@@ -21897,14 +21899,9 @@ exports.claudeBotWebhook = onRequest(
                     read: false,
                     source: 'claudeBot+photo'
                 });
-                let onlineHint = '';
-                try {
-                    const hb = (await db.ref('claudeBridge/heartbeat').once('value')).val() || {};
-                    const ageSec = hb.ts ? Math.round((Date.now() - hb.ts)/1000) : 999;
-                    onlineHint = ageSec <= 60 ? '\n✅ Claude online.' : '\n⏸️ Claude offline.';
-                } catch(_) {}
+                // v6.62.60: Online/Offline-Hinweis entfernt — Heartbeat war fragil und alarmistisch
                 await sendClaudeBotMessage(chatId,
-                    `🖼️ <b>Bild analysiert:</b>\n<i>"${description.slice(0, 800)}"</i>\n\n📥 Posteingang #${ts}.${onlineHint}`);
+                    `🖼️ <b>Bild analysiert:</b>\n<i>"${description.slice(0, 800)}"</i>\n\n📥 Posteingang #${ts}.`);
                 res.status(200).send('OK');
                 return;
             }
@@ -21935,15 +21932,9 @@ exports.claudeBotWebhook = onRequest(
                     read: false,
                     source: 'claudeBot+voice'
                 });
-                // Heartbeat-Antwort wie bei Text
-                let onlineHint = '';
-                try {
-                    const hb = (await db.ref('claudeBridge/heartbeat').once('value')).val() || {};
-                    const ageSec = hb.ts ? Math.round((Date.now() - hb.ts)/1000) : 999;
-                    onlineHint = ageSec <= 60 ? '\n✅ Claude online — antwortet gleich.' : '\n⏸️ Claude offline — arbeitet ab sobald wieder am Rechner.';
-                } catch(_) {}
+                // v6.62.60: Online/Offline-Hinweis entfernt
                 await sendClaudeBotMessage(chatId,
-                    `🎙️ <b>Transkribiert:</b>\n<i>"${transcript.slice(0,1000)}"</i>\n\n📥 In Posteingang (#${ts}).${onlineHint}`);
+                    `🎙️ <b>Transkribiert:</b>\n<i>"${transcript.slice(0,1000)}"</i>\n\n📥 In Posteingang (#${ts}).`);
                 res.status(200).send('OK');
                 return;
             }
@@ -22006,24 +21997,8 @@ exports.claudeBotWebhook = onRequest(
                 read: false,
                 source: 'claudeBot'
             });
-            // 🆕 v6.41.92: Auto-Antwort je nach Heartbeat — wenn Claude offline (>60s seit
-            // letztem Heartbeat), sagen wir das ehrlich, damit Patrick nicht auf Antwort wartet.
-            try {
-                const hbSnap = await db.ref('claudeBridge/heartbeat').once('value');
-                const hb = hbSnap.val() || {};
-                const ageSec = hb.ts ? Math.round((Date.now() - hb.ts) / 1000) : 999;
-                if (ageSec <= 60) {
-                    await sendClaudeBotMessage(chatId, `📥 In Posteingang (#${ts}). Claude ist online — Antwort kommt gleich.`);
-                } else {
-                    const lastSeen = hb.ts ? new Date(hb.ts).toLocaleString('de-DE',{ timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : 'noch nie';
-                    await sendClaudeBotMessage(chatId,
-                        `📥 Notiz gespeichert (#${ts}).\n` +
-                        `⏸️ <b>Claude ist gerade offline</b> (zuletzt aktiv: ${lastSeen}).\n` +
-                        `Sobald er wieder am Rechner ist, arbeitet er deine Notizen ab.`);
-                }
-            } catch(_) {
-                await sendClaudeBotMessage(chatId, `📥 In Posteingang gepusht (#${ts}).`);
-            }
+            // v6.62.60: Heartbeat-Drama raus — schlichte Bestätigung. Antworten kommen via Outbox-Trigger.
+            await sendClaudeBotMessage(chatId, `📥 Notiz gespeichert (#${ts}).`);
             res.status(200).send('OK');
         } catch (err) {
             console.error('❌ claudeBotWebhook Fehler:', err.message);

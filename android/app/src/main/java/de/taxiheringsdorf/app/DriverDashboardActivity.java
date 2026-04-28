@@ -537,6 +537,31 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // (auch von LoginActivity benutzt damit Patrick auch ohne Login updaten kann).
 
     private void doLogout() {
+        // v6.62.93: Wenn Schicht noch aktiv ist beim Abmelden → automatisch beenden.
+        // Patrick: 'erst Schicht stoppen und dann abmelden' war die manuelle Lösung —
+        // Notification blieb sonst persistent, Service lief weiter, Heartbeat ins Leere.
+        if (shiftActive && currentVehicleId != null && db != null) {
+            try {
+                DatabaseReference ref = db.getReference("vehicles/" + currentVehicleId + "/shift");
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("status", "ended");
+                updates.put("endedAt", System.currentTimeMillis());
+                updates.put("endedReason", "logout_native_dashboard");
+                ref.updateChildren(updates);
+                db.getReference("vehicles/" + currentVehicleId + "/online").setValue(false);
+                Log.i(TAG, "🛑 Schicht beendet wegen Logout (vehicle=" + currentVehicleId + ")");
+            } catch (Throwable t) {
+                Log.w(TAG, "Schicht-Ende beim Logout fehlgeschlagen: " + t.getMessage());
+            }
+        }
+        try {
+            Intent stopSvc = new Intent(this, ShiftForegroundService.class);
+            stopSvc.setAction(ShiftForegroundService.ACTION_STOP);
+            startService(stopSvc);
+            Log.i(TAG, "🛑 ShiftForegroundService STOP gesendet (Logout)");
+        } catch (Throwable t) {
+            Log.w(TAG, "Service-Stop beim Logout fehlgeschlagen: " + t.getMessage());
+        }
         clearVehicleLock();
         try { FirebaseAuth.getInstance().signOut(); } catch (Throwable _t) {}
         getSharedPreferences("driver", MODE_PRIVATE).edit().clear().apply();

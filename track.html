@@ -586,6 +586,72 @@
                 }
             });
 
+            // v6.62.72: GPS-Track + Lifecycle-Marker auf der Karte. Patrick: 'damit wir
+            // nachvollziehen können, ob das richtige Fahrzeug gewählt wurde, ob das Fahrzeug
+            // mit dem dichtesten GPS gewählt wurde und was er gemacht hat'.
+            // Daten: shiftHistory/{vid}/{shiftId}/heartbeats[] korreliert mit lifecycleLog.
+            (async () => {
+                try {
+                    const r = (await db.ref('rides').child(rideId).once('value')).val();
+                    if (!r || !vehicleId || !r.pickupTimestamp) return;
+                    // Aktive Schicht zum Pickup-Zeitpunkt finden
+                    const shiftSnap = await db.ref('shiftHistory/' + vehicleId).once('value');
+                    let chosenShift = null;
+                    let chosenSId = 0;
+                    shiftSnap.forEach(c => {
+                        const sId = parseInt(c.key);
+                        const s = c.val();
+                        if (!s) return;
+                        if (sId <= r.pickupTimestamp && (!s.endedAt || s.endedAt >= r.pickupTimestamp - 30*60000)) {
+                            if (sId > chosenSId) { chosenSId = sId; chosenShift = s; }
+                        }
+                    });
+                    if (!chosenShift || !chosenShift.heartbeats) {
+                        console.log('🗺️ Keine Heartbeats fuer GPS-Track gefunden');
+                        return;
+                    }
+                    // Heartbeats im Zeitfenster (30 Min vor pickup bis 30 Min nach Endzeit)
+                    const wStart = r.pickupTimestamp - 30 * 60 * 1000;
+                    const wEnd = (r.completedAt || r.pickedUpAt || r.onWayAt || r.pickupTimestamp) + 30 * 60 * 1000;
+                    const beats = Object.values(chosenShift.heartbeats)
+                        .filter(hb => hb && hb.ts >= wStart && hb.ts <= wEnd && hb.lat && hb.lon)
+                        .sort((a, b) => a.ts - b.ts);
+                    if (beats.length >= 2) {
+                        const coords = beats.map(hb => [hb.lat, hb.lon]);
+                        L.polyline(coords, { color: '#10b981', weight: 3, opacity: 0.55, dashArray: '6, 8' })
+                            .bindTooltip(`📍 GPS-Track (${beats.length} Punkte)`, { sticky: true })
+                            .addTo(map);
+                    }
+                    // Lifecycle-Events korrelieren mit Heartbeats → Marker
+                    const lcSnap2 = await db.ref('rides/' + rideId + '/lifecycleLog').once('value');
+                    const events = [];
+                    lcSnap2.forEach(c => { const v = c.val(); if (v && v.t) events.push(v); });
+                    const relevantIcons = new Set(['📥','👆','🚗','✅','🏁','📊','📲','⚠️']);
+                    let markerCount = 0;
+                    for (const e of events) {
+                        if (!relevantIcons.has(e.icon)) continue;
+                        let nearestHb = null, minDiff = Infinity;
+                        for (const hb of beats) {
+                            const diff = Math.abs(hb.ts - e.t);
+                            if (diff < minDiff) { minDiff = diff; nearestHb = hb; }
+                        }
+                        if (!nearestHb || minDiff > 90000) continue;
+                        const time = new Date(e.t).toLocaleTimeString('de-DE', { timeZone:'Europe/Berlin', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+                        let color = '#3b82f6';
+                        if (e.icon === '✅' || e.icon === '🚗') color = '#10b981';
+                        else if (e.icon === '⚠️') color = '#f59e0b';
+                        else if (e.icon === '🏁') color = '#8b5cf6';
+                        else if (e.icon === '👆') color = '#06b6d4';
+                        else if (e.icon === '📥' || e.icon === '📲') color = '#6366f1';
+                        L.circleMarker([nearestHb.lat, nearestHb.lon], {
+                            radius: 6, fillColor: color, color:'#fff', weight: 2, opacity: 1, fillOpacity: 0.9
+                        }).bindTooltip(`<b>${e.icon} ${(e.action || '').replace(/[<>]/g,'')}</b><br>${time}`, { direction:'top' }).addTo(map);
+                        markerCount++;
+                    }
+                    console.log(`🗺️ GPS-Track: ${beats.length} Heartbeats, ${markerCount} Lifecycle-Marker`);
+                } catch (_e) { console.warn('GPS-Track-Fehler:', _e.message); }
+            })();
+
             // v6.62.64: Lifecycle-Verlauf Live-Listener — Cloud Function addRideLog
             // schreibt in rides/{id}/lifecycleLog. Patrick will den ganzen Ablauf sehen.
             db.ref('rides').child(rideId).child('lifecycleLog').on('value', (lcSnap) => {
@@ -632,6 +698,37 @@
                         ${detailStr}
                     </div>`;
                 }).join('');
+
+                // v6.62.72: Fahrzeug-Auswahl-Tabelle (vehicleScores) am Ende der Timeline
+                db.ref('rides/' + rideId + '/vehicleScores').once('value').then(vsSnap => {
+                    const vs = vsSnap.val();
+                    if (!vs || typeof vs !== 'object') return;
+                    const rows = Object.entries(vs).map(([vid, sc]) => {
+                        let bg = '';
+                        if (sc.status === 'chosen') bg = 'background:#d1fae5;';
+                        else if (sc.status === 'rejected') bg = 'background:#fee2e2;';
+                        else if (sc.status === 'available') bg = 'background:#dbeafe;';
+                        return `<tr style="${bg}">
+                            <td style="padding:3px 6px; font-weight:600;">${vid}</td>
+                            <td style="padding:3px 6px;">${sc.status || '?'}</td>
+                            <td style="padding:3px 6px; color:#6b7280;">${(sc.reason || '').slice(0, 50)}</td>
+                            <td style="padding:3px 6px; text-align:right;">${sc.totalScore != null ? sc.totalScore : (sc.distanceKm != null ? sc.distanceKm + ' km' : '—')}</td>
+                        </tr>`;
+                    }).join('');
+                    const html = `<div style="margin-top:10px; padding:8px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
+                        <div style="font-weight:600; color:#374151; font-size:11px; margin-bottom:6px;">🚖 Fahrzeug-Auswahl-Logik (${Object.keys(vs).length})</div>
+                        <table style="width:100%; font-size:10.5px; border-collapse:collapse;">
+                            <thead><tr style="color:#6b7280; border-bottom:1px solid #e5e7eb;">
+                                <th style="text-align:left; padding:3px 6px;">Fahrzeug</th>
+                                <th style="text-align:left; padding:3px 6px;">Status</th>
+                                <th style="text-align:left; padding:3px 6px;">Grund</th>
+                                <th style="text-align:right; padding:3px 6px;">Score/km</th>
+                            </tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
+                    tl.insertAdjacentHTML('beforeend', html);
+                }).catch(()=>{});
             });
 
             // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!

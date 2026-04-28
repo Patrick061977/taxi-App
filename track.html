@@ -343,15 +343,32 @@
                     }).addTo(map).bindPopup('Ziel: ' + destination);
                 }
 
-                // v6.62.55: Patrick: 'Karte hochklappen dass die Leute sehen von wo nach wo
-                // sie fahren'. Sobald Pickup + Destination da sind: Strecke einzeichnen +
-                // Karte auf beide zoomen — auch ohne Vehicle (Vorbestellung vor Zuweisung).
+                // v6.62.55: Karte zeigt Pickup→Destination + Auto-Zoom.
+                // v6.62.56: Patrick: 'auf Karte sind die Koordinaten ja ueberhaupt nicht
+                // richtig — muessen so sein wie der Fahrer faehrt'. Erst Fallback (gerade
+                // Linie) zeichnen damit Karte sofort etwas zeigt, dann OSRM-Route fetchen
+                // und drueberlegen.
                 if (pickupLat && pickupLon && destLat && destLon) {
-                    L.polyline([[pickupLat, pickupLon], [destLat, destLon]], {
-                        color: '#3b82f6', weight: 3, opacity: 0.6, dashArray: '8 8'
+                    let _fallbackLine = L.polyline([[pickupLat, pickupLon], [destLat, destLon]], {
+                        color: '#3b82f6', weight: 3, opacity: 0.4, dashArray: '8 8'
                     }).addTo(map);
                     const _bounds = L.latLngBounds([[pickupLat, pickupLon], [destLat, destLon]]);
                     map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 });
+
+                    // OSRM-Route asynchron holen + Fallback ersetzen
+                    (async () => {
+                        try {
+                            const _url = `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${destLon},${destLat}?overview=full&geometries=geojson`;
+                            const _resp = await fetch(_url);
+                            const _data = await _resp.json();
+                            if (_data.code === 'Ok' && _data.routes && _data.routes[0] && _data.routes[0].geometry) {
+                                const _coords = _data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                                if (_fallbackLine) { map.removeLayer(_fallbackLine); _fallbackLine = null; }
+                                const _routeLine = L.polyline(_coords, { color: '#3b82f6', weight: 5, opacity: 0.75 }).addTo(map);
+                                map.fitBounds(_routeLine.getBounds(), { padding: [60, 60], maxZoom: 14 });
+                            }
+                        } catch (_e) { /* Fallback bleibt sichtbar */ }
+                    })();
                 }
             }
 
@@ -628,7 +645,7 @@
         // Sorge dass Kunde versehentlich alles weghaut. Kompromiss: kleines X oben rechts +
         // confirm-Dialog).
         function closeTrackingConfirm() {
-            const ok = confirm('Buchungsstatus schließen?\n\nSie können den Link aus der SMS jederzeit wieder öffnen.');
+            const ok = confirm('Diese Statusansicht schließen?\n\nIhre Buchung bleibt aktiv. Sie können den Link aus der SMS jederzeit wieder öffnen.');
             if (ok) closeTracking();
         }
 

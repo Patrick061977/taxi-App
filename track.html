@@ -213,6 +213,18 @@
             📍 Warte auf GPS-Position...
         </div>
 
+        <!-- v6.62.64: Lifecycle-Verlauf — Timeline aller Events seit Buchungseingang.
+             Patrick (28.04.): "wir sehen wann das Signal ausgeloest wurde, was war die
+             Ursache, wurde ein Push gesendet, schoenen Ablauf, wann die Sachen versendet
+             wurden". Daten kommen aus rides/{id}/lifecycleLog (Cloud Function addRideLog
+             seit v6.38.44). -->
+        <details id="lifecycle-section" style="margin-top:10px; padding:8px 10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:12px;">
+            <summary style="cursor:pointer; font-weight:600; color:#374151;">📋 Verlauf <span id="lifecycle-count" style="color:#6b7280; font-weight:400;"></span></summary>
+            <div id="lifecycle-timeline" style="margin-top:8px; max-height:280px; overflow-y:auto; border-top:1px solid #e5e7eb; padding-top:8px;">
+                <div style="color:#9ca3af; text-align:center; padding:8px;">Lade Verlauf…</div>
+            </div>
+        </details>
+
         <!-- v6.62.46: Online-Storno fuer Online-Buchungen. Patrick: 'wenn die Leute online
              bestellt haben sollen sie auch online stornieren koennen'. Nur sichtbar bei
              noch nicht abgeschlossenen / nicht stornierten Fahrten.
@@ -466,6 +478,53 @@
                     // Fahrt fertig — Live-Update stoppen
                     setTimeout(() => { db.ref('rides').child(rideId).off(); }, 2000);
                 }
+            });
+
+            // v6.62.64: Lifecycle-Verlauf Live-Listener — Cloud Function addRideLog
+            // schreibt in rides/{id}/lifecycleLog. Patrick will den ganzen Ablauf sehen.
+            db.ref('rides').child(rideId).child('lifecycleLog').on('value', (lcSnap) => {
+                const tl = document.getElementById('lifecycle-timeline');
+                const cnt = document.getElementById('lifecycle-count');
+                if (!tl) return;
+                const items = [];
+                lcSnap.forEach(c => {
+                    const v = c.val();
+                    if (v && v.t) items.push(v);
+                });
+                items.sort((a, b) => a.t - b.t);
+                if (cnt) cnt.textContent = items.length > 0 ? `(${items.length})` : '';
+                if (items.length === 0) {
+                    tl.innerHTML = '<div style="color:#9ca3af; text-align:center; padding:8px;">Noch keine Eintraege.</div>';
+                    return;
+                }
+                tl.innerHTML = items.map(e => {
+                    const time = new Date(e.t).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const icon = e.icon || '•';
+                    const action = (e.action || '').replace(/[<>]/g, '');
+                    let detailStr = '';
+                    if (e.details) {
+                        let d = e.details;
+                        if (typeof d === 'string') {
+                            try { d = JSON.parse(d); } catch(_) { /* Plain-String */ }
+                        }
+                        if (typeof d === 'object' && d !== null) {
+                            const parts = Object.entries(d).slice(0, 4).map(([k, v]) => `<span style="color:#6b7280;">${k}:</span> ${String(v).slice(0, 40)}`);
+                            detailStr = `<div style="margin-top:2px; font-size:11px; color:#4b5563;">${parts.join(' &middot; ')}</div>`;
+                        } else if (typeof d === 'string') {
+                            detailStr = `<div style="margin-top:2px; font-size:11px; color:#4b5563;">${d.slice(0, 100)}</div>`;
+                        }
+                    }
+                    return `<div style="padding:6px 0; border-bottom:1px solid #f3f4f6;">
+                        <div style="display:flex; gap:8px; align-items:flex-start;">
+                            <span style="font-size:14px;">${icon}</span>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:11px; color:#9ca3af;">${time}</div>
+                                <div style="font-weight:500; color:#1f2937;">${action}</div>
+                                ${detailStr}
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
             });
 
             // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!

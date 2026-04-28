@@ -223,11 +223,63 @@ public class CrmSearchActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
+    // v6.62.90: Geocoding-Helper. Wenn CRM keine Coords hat, vor dem Speichern via
+    // Nominatim Lat/Lon holen + dann callback ausfuehren. Async, im Background-Thread.
+    private interface GeocodeCallback {
+        void onResult(Double lat, Double lon);
+    }
+
+    private void geocodeAddressIfNeeded(CrmEntry e, GeocodeCallback cb) {
+        if (e == null || e.address == null || e.address.isEmpty()) { cb.onResult(null, null); return; }
+        if (e.lat != null && e.lon != null) { cb.onResult(e.lat, e.lon); return; }
+        new Thread(() -> {
+            try {
+                String url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=" + java.net.URLEncoder.encode(e.address, "UTF-8");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-NativeApp");
+                conn.setConnectTimeout(5000); conn.setReadTimeout(5000);
+                if (conn.getResponseCode() != 200) { conn.disconnect(); runOnUiThread(() -> cb.onResult(null, null)); return; }
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close(); conn.disconnect();
+                org.json.JSONArray arr = new org.json.JSONArray(sb.toString());
+                if (arr.length() == 0) { runOnUiThread(() -> cb.onResult(null, null)); return; }
+                org.json.JSONObject hit = arr.getJSONObject(0);
+                final double _lat = hit.getDouble("lat");
+                final double _lon = hit.getDouble("lon");
+                // CRM nachtragen — damit beim naechsten Mal kein Lookup noetig
+                if (e.id != null) {
+                    java.util.Map<String, Object> upd = new java.util.HashMap<>();
+                    upd.put("addressLat", _lat); upd.put("addressLon", _lon);
+                    upd.put("addressGeocodedAt", System.currentTimeMillis());
+                    upd.put("addressGeocodedVia", "nominatim-auto");
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + e.id).updateChildren(upd);
+                    e.lat = _lat; e.lon = _lon;
+                }
+                runOnUiThread(() -> cb.onResult(_lat, _lon));
+            } catch (Throwable _err) {
+                Log.w(TAG, "Geocoding fehlgeschlagen: " + _err.getMessage());
+                runOnUiThread(() -> cb.onResult(null, null));
+            }
+        }, "geocode").start();
+    }
+
     // v6.62.78: Action-Dialog statt direktem Edit. Patrick: 'aus CRM-Suche eine
     // Vorbestellung erstellen, mit haeufigsten Zielen als Quick-Buttons'.
     private void showActionDialog(CrmEntry e) {
+        // v6.62.90: Wenn keine Coords im CRM → Background-Geocoding triggern damit
+        // sie beim spaeteren Save da sind. Falls schon da → no-op.
+        if (e.address != null && !e.address.isEmpty() && (e.lat == null || e.lon == null)) {
+            Toast.makeText(this, "📍 Adresse wird automatisch geocoded...", Toast.LENGTH_SHORT).show();
+            geocodeAddressIfNeeded(e, (lat, lon) -> {
+                if (lat != null) Toast.makeText(this, "✅ Koordinaten ermittelt", Toast.LENGTH_SHORT).show();
+                else Toast.makeText(this, "⚠️ Konnte Koordinaten nicht ermitteln", Toast.LENGTH_LONG).show();
+            });
+        }
         String title = e.name != null ? e.name : "?";
         if (e.address != null && !e.address.isEmpty()) title += "\n📍 " + e.address;
+        if (e.lat == null || e.lon == null) title += " ❓";
         String[] options = new String[]{
             "🚗 SOFORT-Fahrt (ich fahre hin)",
             "🚖 EINSTEIGER (Kunde steht am Auto)",
@@ -629,11 +681,19 @@ public class CrmSearchActivity extends AppCompatActivity {
                 t2.setTextColor(0xFF94A3B8);
             }
             void bind(CrmEntry e) {
-                t1.setText(e.name != null ? e.name : "?");
+                // v6.62.90: Patrick will sehen welche CRM-Eintraege keine Koordinaten haben
+                String namePrefix = "";
+                if (e.address != null && !e.address.isEmpty() && (e.lat == null || e.lon == null)) {
+                    namePrefix = "⚠️ ";
+                }
+                t1.setText(namePrefix + (e.name != null ? e.name : "?"));
                 String sub = "";
                 if (e.phone != null) sub += "📞 " + e.phone;
                 if (e.mobilePhone != null && !e.mobilePhone.equals(e.phone)) sub += "  📱 " + e.mobilePhone;
-                if (e.address != null && !e.address.isEmpty()) sub += (sub.isEmpty() ? "" : "\n") + "📍 " + e.address;
+                if (e.address != null && !e.address.isEmpty()) {
+                    String addrLabel = (e.lat != null && e.lon != null) ? "📍 " : "📍❓ ";
+                    sub += (sub.isEmpty() ? "" : "\n") + addrLabel + e.address;
+                }
                 t2.setText(sub.isEmpty() ? "—" : sub);
                 itemView.setOnClickListener(_v -> showActionDialog(e));
             }

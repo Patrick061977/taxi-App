@@ -247,6 +247,99 @@ async function render(vehicleId) {
       <span class="hb-flag">${flag}</span>
     </div>`;
   }
+
+  // v6.62.87: Audit-Trail — Fahrten der Schicht + Lifecycle-Events laden
+  const isShiftMode = document.getElementById('source-select').value === 'shift';
+  if (isShiftMode && entries.length > 0) {
+    loadShiftRides(vehicleId, entries[0].ts, entries[entries.length-1].ts, gpsEntries).catch(_ => {});
+  }
+}
+
+// v6.62.87: Lade alle Rides die zur Schicht gehoeren + zeige Lifecycle als Section + Marker
+async function loadShiftRides(vehicleId, shiftStart, shiftEnd, gpsEntries) {
+  const tl = document.getElementById('timeline');
+  // Lade alle Rides dieses Fahrzeugs im Schicht-Zeitfenster
+  const ridesSnap = await db.ref('rides').orderByChild('vehicleId').equalTo(vehicleId).once('value');
+  const rides = [];
+  ridesSnap.forEach(c => {
+    const r = c.val();
+    if (!r) return;
+    const refTs = r.acceptedAt || r.assignedAt || r.createdAt || r.pickupTimestamp || 0;
+    if (refTs < shiftStart - 30*60000 || refTs > shiftEnd + 30*60000) return;
+    rides.push({ id: c.key, ...r });
+  });
+  rides.sort((a, b) => (a.acceptedAt || a.createdAt || 0) - (b.acceptedAt || b.createdAt || 0));
+  if (rides.length === 0) {
+    tl.insertAdjacentHTML('afterbegin', '<div style="padding:8px;color:#94a3b8;background:#1e293b;border-radius:6px;margin-bottom:8px;font-size:12px;">📋 Keine Fahrten in dieser Schicht.</div>');
+    return;
+  }
+  // Header
+  let html = `<div style="padding:10px;background:#1e293b;border-radius:8px;margin-bottom:8px;border:1px solid #334155;">
+    <div style="font-weight:700;font-size:14px;color:#f1f5f9;margin-bottom:8px;">🚖 Fahrten in dieser Schicht (${rides.length})</div>`;
+  for (const r of rides) {
+    const lcSnap = await db.ref('rides/' + r.id + '/lifecycleLog').once('value');
+    const events = [];
+    lcSnap.forEach(c => { const v = c.val(); if (v && v.t) events.push(v); });
+    events.sort((a, b) => a.t - b.t);
+    const customer = r.customerName || r.guestName || '?';
+    const pickup = (r.pickup || '').slice(0, 40);
+    const dest = (r.destination || '').slice(0, 40);
+    const ptStr = r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleString('de-DE',{ timeZone:'Europe/Berlin', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '?';
+    const status = r.status || '?';
+    const wartezeit = (r.arrivedAt && r.pickedUpAt) ? Math.round((r.pickedUpAt - r.arrivedAt) / 1000) : null;
+    html += `<details style="margin:6px 0;background:#0f172a;border:1px solid #334155;border-radius:6px;">
+      <summary style="cursor:pointer;padding:6px 10px;font-weight:600;color:#cbd5e1;font-size:12px;">
+        ${ptStr} · ${customer} · ${status} <span style="color:#64748b;">(${events.length} Events)</span>
+      </summary>
+      <div style="padding:6px 10px;font-size:11px;color:#94a3b8;border-top:1px solid #334155;">
+        📍 ${pickup} → ${dest}
+        ${wartezeit !== null ? ` · ⏱️ Wartezeit ${wartezeit}s` : ''}
+        ${r.drivingTimeToPickup ? ` · 🚗 Anfahrt ${r.drivingTimeToPickup}min` : ''}
+      </div>
+      <div style="max-height:240px;overflow-y:auto;padding:0 10px 8px;">
+        ${events.map(e => {
+          const t = new Date(e.t).toLocaleTimeString('de-DE',{ timeZone:'Europe/Berlin', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+          let detail = '';
+          if (e.details) {
+            let d = e.details;
+            if (typeof d === 'string') { try { d = JSON.parse(d); } catch(_) {} }
+            if (typeof d === 'object' && d) {
+              detail = Object.entries(d).slice(0,3).map(([k,v]) => `<span style="color:#64748b;">${k}:</span> ${String(v).slice(0,40)}`).join(' · ');
+            } else if (typeof d === 'string') detail = d.slice(0,80);
+          }
+          return `<div style="padding:3px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#94a3b8;font-family:ui-monospace,monospace;">${t}</span>
+            ${e.icon || '•'} <span style="color:#cbd5e1;">${(e.action||'').replace(/[<>]/g,'').slice(0,80)}</span>
+            ${detail ? `<div style="font-size:10px;color:#64748b;margin-left:64px;">${detail}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </details>`;
+
+    // Marker fuer relevante Events auf der Karte
+    const relevantIcons = new Set(['📥','👆','🚗','✅','🏁','📊','📲','⚠️']);
+    for (const e of events) {
+      if (!relevantIcons.has(e.icon)) continue;
+      let nearestHb = null, minDiff = Infinity;
+      for (const hb of gpsEntries) {
+        const diff = Math.abs(hb.ts - e.t);
+        if (diff < minDiff) { minDiff = diff; nearestHb = hb; }
+      }
+      if (!nearestHb || minDiff > 90000) continue;
+      let color = '#3b82f6';
+      if (e.icon === '✅' || e.icon === '🚗') color = '#10b981';
+      else if (e.icon === '⚠️') color = '#f59e0b';
+      else if (e.icon === '🏁') color = '#8b5cf6';
+      else if (e.icon === '👆') color = '#06b6d4';
+      else if (e.icon === '📥' || e.icon === '📲') color = '#6366f1';
+      const m = L.circleMarker([nearestHb.lat, nearestHb.lon], { radius: 7, fillColor: color, color:'#fff', weight: 2, opacity: 1, fillOpacity: 0.9 })
+        .bindTooltip(`<b>${e.icon} ${(e.action || '').replace(/[<>]/g,'')}</b><br>${customer} ${ptStr}<br>${new Date(e.t).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin'})}`, { direction:'top' })
+        .addTo(map);
+      trackMarkers.push(m);
+    }
+  }
+  html += '</div>';
+  tl.insertAdjacentHTML('afterbegin', html);
 }
 
 async function init() {

@@ -21570,42 +21570,52 @@ exports.onSmsQueued = onValueCreated(
         console.log(`📲 onSmsQueued: ${smsId} — ${smsData.phone} — ${smsData.type}`);
 
         try {
-            // SMS-Chat-ID laden (separater Chat für SMS-Trigger, damit nicht alle Admin-Nachrichten matchen)
-            // Fallback: Erster Admin-Chat
-            let smsChatId = null;
-            const smsChatSnap = await db.ref('settings/sms/telegramChatId').once('value');
-            smsChatId = smsChatSnap.val();
+            // v6.62.49: Native-SMS-Gateway statt Macrodroid-Telegram-Trigger.
+            // settings/sms/gatewayVehicleId zeigt auf das Fahrzeug-Handy mit aktiver
+            // Funk-Taxi-App + SEND_SMS-Permission. Default: pw-my-222-e (Patrick's Tesla).
+            const gwSnap = await db.ref('settings/sms/gatewayVehicleId').once('value');
+            const gatewayVid = gwSnap.val() || 'pw-my-222-e';
 
-            if (!smsChatId) {
-                // Fallback: Ersten Admin-Chat verwenden
-                const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
-                const admins = adminSnap.val();
-                if (Array.isArray(admins) && admins.length > 0) smsChatId = admins[0];
-                else if (typeof admins === 'object' && admins) smsChatId = Object.values(admins)[0];
-                else if (admins) smsChatId = admins;
-            }
-
-            if (!smsChatId) {
-                console.warn('⚠️ onSmsQueued: Kein Chat-ID konfiguriert');
-                await db.ref(`smsQueue/${smsId}`).update({ status: 'failed', error: 'Kein Chat-ID', processedAt: Date.now() });
-                return;
-            }
-
-            // Zwei separate Telegram-Nachrichten für Macrodroid:
-            // 1. Telefonnummer (Macrodroid speichert sie in Variable)
-            // 2. SMS-Text (Macrodroid sendet SMS an gespeicherte Nummer)
-            await sendTelegramMessage(smsChatId, `📲SMSNUM ${smsData.phone}`, { parse_mode: undefined });
-            // 1 Sekunde warten damit Macrodroid die Nummer verarbeiten kann
-            await new Promise(r => setTimeout(r, 1000));
-            await sendTelegramMessage(smsChatId, `📲SMSTXT ${smsData.text}`, { parse_mode: undefined });
-
-            console.log(`✅ SMS-Trigger via Telegram gesendet: ${smsData.phone}`);
-
-            await db.ref(`smsQueue/${smsId}`).update({
-                status: 'telegram_sent',
-                sentAt: Date.now(),
-                sentTo: smsChatId
+            const fcmOk = await sendFCMToVehicle(gatewayVid, {
+                type: 'send_sms',
+                smsId,
+                phone: smsData.phone,
+                text: smsData.text
             });
+
+            if (fcmOk) {
+                await db.ref(`smsQueue/${smsId}`).update({
+                    status: 'fcm_sent',
+                    sentAt: Date.now(),
+                    gatewayVehicle: gatewayVid
+                });
+                console.log(`✅ SMS-FCM an Gateway ${gatewayVid} gesendet: ${smsData.phone}`);
+                // Native quittiert mit status='sent' oder 'failed' wenn die SMS verarbeitet wurde
+            } else {
+                // Fallback: Macrodroid-Telegram-Trigger (alter Pfad) falls kein FCM-Token
+                let smsChatId = null;
+                const smsChatSnap = await db.ref('settings/sms/telegramChatId').once('value');
+                smsChatId = smsChatSnap.val();
+                if (!smsChatId) {
+                    const adminSnap = await db.ref('settings/telegram/adminChats').once('value');
+                    const admins = adminSnap.val();
+                    if (Array.isArray(admins) && admins.length > 0) smsChatId = admins[0];
+                    else if (typeof admins === 'object' && admins) smsChatId = Object.values(admins)[0];
+                    else if (admins) smsChatId = admins;
+                }
+                if (!smsChatId) {
+                    await db.ref(`smsQueue/${smsId}`).update({ status: 'failed', error: 'Kein FCM-Token + kein Chat-ID', processedAt: Date.now() });
+                    return;
+                }
+                await sendTelegramMessage(smsChatId, `📲SMSNUM ${smsData.phone}`, { parse_mode: undefined });
+                await new Promise(r => setTimeout(r, 1000));
+                await sendTelegramMessage(smsChatId, `📲SMSTXT ${smsData.text}`, { parse_mode: undefined });
+                await db.ref(`smsQueue/${smsId}`).update({
+                    status: 'telegram_sent_fallback',
+                    sentAt: Date.now(),
+                    sentTo: smsChatId
+                });
+            }
 
         } catch (err) {
             console.error('❌ onSmsQueued Fehler:', err.message);

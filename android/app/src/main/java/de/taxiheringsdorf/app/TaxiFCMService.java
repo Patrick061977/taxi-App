@@ -40,6 +40,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         Map<String, String> data = remoteMessage.getData();
         String type = data.getOrDefault("type", "unknown");
+
+        // v6.62.49: Native SMS-Gateway. Cloud-Function pusht FCM type=send_sms wenn ein
+        // smsQueue-Eintrag verarbeitet werden soll. Wir rufen SmsManager.sendTextMessage
+        // (SEND_SMS-Permission ist im Manifest, einmal granted) und schreiben Status zurueck.
+        if ("send_sms".equals(type)) {
+            handleSmsRelay(data);
+            return;
+        }
+
         String rideId = data.get("rideId");
         String pickup = data.getOrDefault("pickup", "");
         String destination = data.getOrDefault("destination", "");
@@ -127,6 +136,53 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());
+    }
+
+    // v6.62.49: Native SMS-Gateway. Empfaengt FCM type=send_sms, ruft SmsManager und
+    // schreibt Status zurueck nach /smsQueue/{smsId}. Ersetzt das Macrodroid-Setup.
+    private void handleSmsRelay(Map<String, String> data) {
+        final String smsId = data.get("smsId");
+        final String phone = data.get("phone");
+        final String text = data.get("text");
+        if (smsId == null || phone == null || text == null) {
+            Log.w(TAG, "send_sms: smsId/phone/text fehlt");
+            return;
+        }
+        // SEND_SMS-Permission pruefen
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.SEND_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "send_sms: SEND_SMS-Permission fehlt");
+            updateSmsStatus(smsId, "failed", "no_send_sms_permission");
+            return;
+        }
+        try {
+            // Bei langen Texten: divideMessage
+            android.telephony.SmsManager sm = android.telephony.SmsManager.getDefault();
+            if (text.length() > 160) {
+                java.util.ArrayList<String> parts = sm.divideMessage(text);
+                sm.sendMultipartTextMessage(phone, null, parts, null, null);
+            } else {
+                sm.sendTextMessage(phone, null, text, null, null);
+            }
+            Log.i(TAG, "📲 SMS gesendet an " + phone + " (smsId " + smsId + ")");
+            updateSmsStatus(smsId, "sent", null);
+        } catch (Throwable t) {
+            Log.e(TAG, "send_sms Fehler: " + t.getMessage());
+            updateSmsStatus(smsId, "failed", t.getMessage());
+        }
+    }
+
+    private void updateSmsStatus(String smsId, String status, String error) {
+        try {
+            java.util.Map<String, Object> upd = new java.util.HashMap<>();
+            upd.put("status", status);
+            upd.put("processedAt", System.currentTimeMillis());
+            upd.put("processedBy", "native_gateway_" + Build.MODEL);
+            if (error != null) upd.put("error", error);
+            com.google.firebase.database.FirebaseDatabase.getInstance(
+                "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("smsQueue/" + smsId).updateChildren(upd);
+        } catch (Throwable _t) { /* still */ }
     }
 
     @Override

@@ -175,6 +175,210 @@ public class CrmSearchActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
+    // v6.62.78: Action-Dialog statt direktem Edit. Patrick: 'aus CRM-Suche eine
+    // Vorbestellung erstellen, mit haeufigsten Zielen als Quick-Buttons'.
+    private void showActionDialog(CrmEntry e) {
+        String title = e.name != null ? e.name : "?";
+        if (e.address != null && !e.address.isEmpty()) title += "\n📍 " + e.address;
+        String[] options = new String[]{
+            "🚗 SOFORT-Fahrt (ich fahre hin)",
+            "🚖 EINSTEIGER (Kunde steht am Auto)",
+            "📅 Vorbestellung erstellen",
+            "✏️ CRM-Eintrag bearbeiten",
+            "Abbrechen"
+        };
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(options, (d, w) -> {
+                switch (w) {
+                    case 0: createSofortFahrtFromCrm(e); break;
+                    case 1: createEinsteigerFromCrm(e); break;
+                    case 2: showVorbestellungDialog(e); break;
+                    case 3: openEditDialog(e); break;
+                }
+            }).show();
+    }
+
+    private void createSofortFahrtFromCrm(CrmEntry e) {
+        String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewaehlt", Toast.LENGTH_SHORT).show(); return; }
+        new AlertDialog.Builder(this)
+            .setTitle("🚗 SOFORT-Fahrt anlegen?")
+            .setMessage("Kunde: " + e.name + "\n📍 Pickup: " + (e.address != null ? e.address : "Adresse fehlt!") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nStatus 'angenommen' → du tippst dann Losfahren / BIN DA / Eingestiegen.")
+            .setPositiveButton("✅ Anlegen", (d, w) -> {
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", e.name);
+                r.put("customerId", e.id);
+                if (e.phone != null) r.put("customerPhone", e.phone);
+                if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+                r.put("vehicleId", vehicleId);
+                r.put("assignedVehicle", vehicleId);
+                r.put("status", "accepted");
+                r.put("pickup", e.address != null ? e.address : "");
+                if (e.lat != null) { r.put("pickupLat", e.lat); r.put("pickupLon", e.lon); }
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("assignedAt", now);
+                r.put("assignedBy", "native_sofort_crmsearch");
+                r.put("acceptedVia", "native_sofort_crmsearch");
+                r.put("source", "native_sofort_crmsearch");
+                r.put("isSofort", true);
+                r.put("passengers", 1);
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
+                    .addOnSuccessListener(_v -> {
+                        Toast.makeText(this, "✅ SOFORT-Fahrt: " + e.name, Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(this, DriverDashboardActivity.class));
+                        finish();
+                    })
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
+    }
+
+    private void createEinsteigerFromCrm(CrmEntry e) {
+        String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewaehlt", Toast.LENGTH_SHORT).show(); return; }
+        new AlertDialog.Builder(this)
+            .setTitle("🚖 EINSTEIGER anlegen?")
+            .setMessage("Kunde: " + e.name + "\n📍 Pickup: " + (e.address != null ? e.address : "Standort Fahrer") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nFahrt sofort als 'abgeholt' eingetragen.")
+            .setPositiveButton("✅ Anlegen", (d, w) -> {
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", e.name);
+                r.put("customerId", e.id);
+                if (e.phone != null) r.put("customerPhone", e.phone);
+                if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+                r.put("vehicleId", vehicleId);
+                r.put("status", "picked_up");
+                r.put("pickup", e.address != null ? e.address : "Standort Fahrer");
+                if (e.lat != null) { r.put("pickupLat", e.lat); r.put("pickupLon", e.lon); }
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("acceptedVia", "native_einsteiger_crmsearch");
+                r.put("source", "native_einsteiger_crmsearch");
+                r.put("isInsteiger", true);
+                r.put("passengers", 1);
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
+                    .addOnSuccessListener(_v -> {
+                        Toast.makeText(this, "✅ EINSTEIGER: " + e.name, Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(this, DriverDashboardActivity.class));
+                        finish();
+                    })
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
+    }
+
+    // v6.62.78: Vorbestellungs-Dialog mit haeufigsten Zielen dieses Kunden als Quick-Buttons
+    private void showVorbestellungDialog(CrmEntry e) {
+        if (e.id == null) {
+            Toast.makeText(this, "CRM ohne ID — kann nicht nach haeufigen Zielen suchen", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // Lade alle Rides dieses Kunden
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+            .orderByChild("customerId").equalTo(e.id).limitToLast(80)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    Map<String, Integer> destCount = new HashMap<>();
+                    Map<String, double[]> destCoords = new HashMap<>();
+                    for (DataSnapshot c : snap.getChildren()) {
+                        String dest = c.child("destination").getValue(String.class);
+                        if (dest == null || dest.isEmpty()) continue;
+                        destCount.merge(dest, 1, Integer::sum);
+                        Object dl = c.child("destinationLat").getValue();
+                        Object dn = c.child("destinationLon").getValue();
+                        if (dl == null) dl = c.child("destCoords").child("lat").getValue();
+                        if (dn == null) dn = c.child("destCoords").child("lon").getValue();
+                        if (dl instanceof Number && dn instanceof Number && !destCoords.containsKey(dest)) {
+                            destCoords.put(dest, new double[]{((Number)dl).doubleValue(), ((Number)dn).doubleValue()});
+                        }
+                    }
+                    List<Map.Entry<String,Integer>> sorted = new ArrayList<>(destCount.entrySet());
+                    sorted.sort((a,b) -> b.getValue() - a.getValue());
+                    List<Map.Entry<String,Integer>> top = sorted.subList(0, Math.min(5, sorted.size()));
+                    showVorbestellungOptions(e, top, destCoords);
+                }
+                @Override public void onCancelled(@NonNull DatabaseError err) {
+                    showVorbestellungOptions(e, new ArrayList<>(), new HashMap<>());
+                }
+            });
+    }
+
+    private void showVorbestellungOptions(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoords) {
+        List<String> items = new ArrayList<>();
+        for (Map.Entry<String,Integer> d : topDests) {
+            items.add("⭐ " + d.getKey() + "  (" + d.getValue() + "x)");
+        }
+        items.add("✏️ Ziel manuell eingeben");
+        items.add("❌ Abbrechen");
+        String[] options = items.toArray(new String[0]);
+        String title = "📅 Vorbestellung — " + e.name;
+        if (topDests.isEmpty()) title += "\n(noch keine vorigen Ziele)";
+        else title += "\nHaeufigste Ziele:";
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(options, (d, w) -> {
+                if (w < topDests.size()) {
+                    String dest = topDests.get(w).getKey();
+                    double[] coords = destCoords.get(dest);
+                    askPickupTimeForVorbestellung(e, dest, coords);
+                } else if (w == topDests.size()) {
+                    Toast.makeText(this, "Manuell-Eingabe folgt in v6.62.79 — bisher: nutze Anrufliste fuer freie Ziele", Toast.LENGTH_LONG).show();
+                }
+            }).show();
+    }
+
+    private void askPickupTimeForVorbestellung(CrmEntry e, String destination, double[] destCoords) {
+        // Datum + Uhrzeit Picker
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        new android.app.DatePickerDialog(this, (dp, year, month, day) -> {
+            cal.set(year, month, day);
+            new android.app.TimePickerDialog(this, (tp, hour, minute) -> {
+                cal.set(java.util.Calendar.HOUR_OF_DAY, hour);
+                cal.set(java.util.Calendar.MINUTE, minute);
+                cal.set(java.util.Calendar.SECOND, 0);
+                cal.set(java.util.Calendar.MILLISECOND, 0);
+                createVorbestellung(e, destination, destCoords, cal.getTimeInMillis());
+            }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), true).show();
+        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show();
+    }
+
+    private void createVorbestellung(CrmEntry e, String destination, double[] destCoords, long pickupTs) {
+        long now = System.currentTimeMillis();
+        Map<String, Object> r = new HashMap<>();
+        r.put("customerName", e.name);
+        r.put("customerId", e.id);
+        if (e.phone != null) r.put("customerPhone", e.phone);
+        if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+        r.put("status", "vorbestellt");
+        r.put("pickup", e.address != null ? e.address : "");
+        if (e.lat != null) { r.put("pickupLat", e.lat); r.put("pickupLon", e.lon); }
+        r.put("destination", destination);
+        if (destCoords != null) { r.put("destinationLat", destCoords[0]); r.put("destinationLon", destCoords[1]); }
+        r.put("pickupTimestamp", pickupTs);
+        java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+        tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        r.put("pickupTime", tf.format(new java.util.Date(pickupTs)));
+        r.put("createdAt", now);
+        r.put("updatedAt", now);
+        r.put("source", "native_vorbestellung_crmsearch");
+        r.put("passengers", 1);
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
+            .addOnSuccessListener(_v -> {
+                Toast.makeText(this, "✅ Vorbestellung: " + e.name + " → " + destination, Toast.LENGTH_LONG).show();
+                finish();
+            })
+            .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
     private void openEditDialog(CrmEntry e) {
         ScrollView scroll = new ScrollView(this);
         LinearLayout layout = new LinearLayout(this);
@@ -313,7 +517,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (e.mobilePhone != null && !e.mobilePhone.equals(e.phone)) sub += "  📱 " + e.mobilePhone;
                 if (e.address != null && !e.address.isEmpty()) sub += (sub.isEmpty() ? "" : "\n") + "📍 " + e.address;
                 t2.setText(sub.isEmpty() ? "—" : sub);
-                itemView.setOnClickListener(_v -> openEditDialog(e));
+                itemView.setOnClickListener(_v -> showActionDialog(e));
             }
         }
     }

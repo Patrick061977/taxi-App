@@ -182,6 +182,10 @@
 
         <div id="ride-status-badge" class="ride-status-new" style="display:none;">⏳ Wartet auf Fahrer</div>
 
+        <!-- v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen,
+             nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
+        <div id="booking-details" style="display:none; margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; line-height:1.6;"></div>
+
         <div id="vehicle-info">
             Lädt Fahrzeug-Informationen...
         </div>
@@ -351,6 +355,32 @@
                 badge.className = 'ride-status-' + (r.status || 'new');
                 badge.id = 'ride-status-badge';
                 badge.style.display = 'inline-block';
+
+                // v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen'.
+                // Buchungsdetails (read-only) fuer den Kunden anzeigen.
+                const _bd = document.getElementById('booking-details');
+                if (_bd) {
+                    const _ts = r.pickupTimestamp || r.pickupTime;
+                    let _termin = '';
+                    if (_ts && typeof _ts === 'number') {
+                        const _d = new Date(_ts);
+                        const _wt = _d.toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
+                        const _dt = _d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
+                        const _tt = _d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                        _termin = `${_wt}, ${_dt}, ${_tt} Uhr`;
+                    }
+                    const _rows = [];
+                    if (_termin) _rows.push(`<div>📅 <b>Termin:</b> ${_termin}</div>`);
+                    if (r.customerName) _rows.push(`<div>👤 <b>Name:</b> ${r.customerName}</div>`);
+                    if (r.passengers && r.passengers > 1) _rows.push(`<div>👥 <b>Personen:</b> ${r.passengers}</div>`);
+                    if (r.pickup) _rows.push(`<div>📍 <b>Von:</b> ${r.pickup}</div>`);
+                    if (r.destination) _rows.push(`<div>🎯 <b>Nach:</b> ${r.destination}</div>`);
+                    if (r.price) _rows.push(`<div>💰 <b>Preis ca.</b> ${String(r.price).replace('.', ',')} €</div>`);
+                    if (_rows.length) {
+                        _bd.innerHTML = _rows.join('');
+                        _bd.style.display = 'block';
+                    }
+                }
                 // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
                 // picked_up: kein Storno mehr — Fahrt laeuft schon.
                 const _cancelBtn = document.getElementById('cancel-btn');

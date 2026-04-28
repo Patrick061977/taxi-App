@@ -17391,7 +17391,14 @@ function formatBerlinTime(timestamp) {
 // 🔔 v6.20.1: Benachrichtigungs-Kategorien für Admins
 const NOTIFY_CATEGORIES = {
     new_ride: { emoji: '🚕', label: 'Neue Buchung', desc: 'Neue Fahrten (Sofort + Vorbestellung)' },
-    status_change: { emoji: '🔄', label: 'Status-Änderung', desc: 'Angenommen / Unterwegs / Abgeschlossen' },
+    // v6.62.68: Status-Aenderung jetzt feiner granuliert. Patrick: 'Fahrt unterwegs und
+    // Fahrt abgeschlossen brauche ich nicht'. Master-Toggle status_change wirkt OFF auf alle Sub.
+    status_change: { emoji: '🔄', label: 'Status (Master)', desc: 'Master-Schalter — wenn AUS sind alle Status-Benachrichtigungen aus' },
+    status_assigned: { emoji: '🔵', label: 'Status: Zugewiesen', desc: 'Fahrer wurde der Fahrt zugewiesen' },
+    status_accepted: { emoji: '✅', label: 'Status: Angenommen', desc: 'Fahrer hat die Fahrt angenommen' },
+    status_on_way: { emoji: '🚗', label: 'Status: Fahrer unterwegs', desc: 'Fahrer faehrt los' },
+    status_picked_up: { emoji: '👤', label: 'Status: Kunde abgeholt', desc: 'Fahrer hat den Kunden eingeladen' },
+    status_completed: { emoji: '🏁', label: 'Status: Fahrt abgeschlossen', desc: 'Fahrt ist beendet' },
     cancellation: { emoji: '⚠️', label: 'Stornierung', desc: 'Kunde storniert Fahrt' },
     ride_deleted: { emoji: '🗑️', label: 'Fahrt gelöscht', desc: 'Fahrt wurde gelöscht' },
     unassigned: { emoji: '🚨', label: 'Offene Fahrt', desc: 'Fahrt ohne Fahrer kurz vor Abholung' },
@@ -17420,11 +17427,19 @@ async function sendToAllAdmins(message, category) {
         console.log(`📢 sendToAllAdmins: ${adminChats.length} Admins, Kategorie: ${category || 'alle'}`);
         for (const chatId of adminChats) {
             // 🔔 v6.20.1: Kategorie-Filter prüfen
+            // 🆕 v6.62.68: Master-Toggle status_change wirkt OFF auf alle status_* Sub-Kategorien
             if (category) {
                 const prefs = await getAdminNotifyPrefs(chatId);
-                if (prefs && prefs[category] === false) {
-                    console.log(`🔕 Admin ${chatId}: Kategorie '${category}' deaktiviert`);
-                    continue;
+                if (prefs) {
+                    if (prefs[category] === false) {
+                        console.log(`🔕 Admin ${chatId}: Kategorie '${category}' deaktiviert`);
+                        continue;
+                    }
+                    // Master-Logik: status_change OFF → alle status_* aus
+                    if (category.startsWith('status_') && category !== 'status_change' && prefs.status_change === false) {
+                        console.log(`🔕 Admin ${chatId}: Master 'status_change' OFF → '${category}' uebersprungen`);
+                        continue;
+                    }
                 }
             }
             const result = await sendTelegramMessage(chatId, message);
@@ -19097,7 +19112,11 @@ exports.onRideUpdated = onValueUpdated(
             }
 
             if (message) {
-                await sendToAllAdmins(message, 'status_change');
+                // v6.62.68: dynamische Sub-Kategorie damit Patrick einzelne Status abschalten kann
+                const _statusCat = ['assigned','accepted','on_way','picked_up','completed'].includes(newStatus)
+                    ? 'status_' + newStatus
+                    : 'status_change';
+                await sendToAllAdmins(message, _statusCat);
                 await sendToSystemChannel(message, 'status_change');
                 await addTelegramLog('📱', 'cloud', `Status: ${oldStatus} → ${newStatus} (${after.customerName || '?'})`, { rideId });
                 // 🆕 v6.38.95: Status-Wechsel ins buchenLog (System Monitor Dispatch)

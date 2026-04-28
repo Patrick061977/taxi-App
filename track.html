@@ -304,11 +304,13 @@
                  losgefahren ist stornieren koennen + dass die Page sich automatisch
                  aktualisiert + dass sie separat benachrichtigt werden wenn der Fahrer faehrt
                  + Vorbestellungen koennen die Leute selber via Kundenportal aendern'. -->
-            <div id="info-hints" style="display:none; margin-top:10px; padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:13px; line-height:1.5; color:#1e3a8a;">
-                <div style="margin-bottom:4px;">🔄 Diese Seite aktualisiert sich automatisch.</div>
-                <div style="margin-bottom:4px;" id="hint-cancellable">❌ Solange der Fahrer noch nicht losgefahren ist, können Sie unten stornieren.</div>
-                <div style="margin-bottom:4px;" id="hint-editable" style="display:none;">✏️ <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#1e3a8a; text-decoration:underline;">Buchung im Kundenportal ändern</a> (nur Vorbestellungen über 60 Min vor Abholung)</div>
-                <div>📱 Sie werden separat benachrichtigt sobald der Fahrer losfährt.</div>
+            <!-- v6.62.83: Patrick: 'Inhalt zu lang, Doppelungen raus'. Kompakter:
+                 nur noch Stornieren-Hint (wenn moeglich) + Edit-Link (wenn Vorbestellung).
+                 'Seite aktualisiert sich automatisch' + 'Sie werden benachrichtigt' raus
+                 (sind redundant — Status-Badge oben zeigt Live-Updates eh). -->
+            <div id="info-hints" style="display:none; margin-top:8px; padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:12px; line-height:1.45; color:#1e3a8a;">
+                <div id="hint-cancellable" style="margin-bottom:3px;">❌ Stornieren möglich solange der Fahrer noch nicht losgefahren ist.</div>
+                <div id="hint-editable" style="display:none;">✏️ <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#1e3a8a; text-decoration:underline;">Im Kundenportal ändern</a> (nur Vorbestellungen >60 Min vor Abholung)</div>
             </div>
 
         <div id="vehicle-info">

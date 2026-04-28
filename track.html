@@ -14,63 +14,74 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             overflow: hidden;
+            color: #0f172a;
+            -webkit-font-smoothing: antialiased;
         }
-        
-        /* v6.62.59: Patrick: 'alles ein bisschen kleiner, panel kann ich nicht scrollen,
-           Storno-Button sehe ich nicht'. max-height + overflow-y damit alles erreichbar. */
+
+        /* v6.62.65: Modernes Glassmorphism-Panel statt flachem Weiß. Patrick: "HTML-Erste-Klasse" → Polish. */
         #info {
             position: absolute;
-            top: 12px;
-            left: 12px;
-            right: 12px;
-            background: white;
-            padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding: 16px 18px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.18), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+            border: 1px solid rgba(255, 255, 255, 0.5);
             z-index: 1000;
-            max-width: 380px;
-            max-height: calc(100vh - 24px);
+            max-width: 400px;
+            max-height: calc(100vh - 28px);
             overflow-y: auto;
+            scrollbar-width: thin;
         }
-        
+        #info::-webkit-scrollbar { width: 6px; }
+        #info::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.18); border-radius: 3px; }
+
         #map {
             width: 100%;
             height: 100vh;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 100%);
         }
-        
+
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
-        
+
         .header h2 {
             margin: 0;
-            font-size: 15px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: #0f172a;
         }
-        
+
         .status-indicator {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: #ccc;
+            background: #cbd5e1;
             animation: pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(203, 213, 225, 0.7);
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(0.94); }
         }
 
-        .status-ok { background: #10b981; }
-        .status-warning { background: #f59e0b; }
-        .status-error { background: #ef4444; }
+        .status-ok { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18); }
+        .status-warning { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18); }
+        .status-error { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18); }
 
         /* v6.42.7: Close-Button — Kunde kann Tracking-Karte schließen */
         .close-btn {
@@ -98,67 +109,162 @@
             color: #111827;
         }
 
-        /* 🔧 v6.39.5: Fahrt-Status-Badge mit Farbe je nach Status */
+        /* v6.62.65: Status-Badges mit subtilem Schatten + saubererer Farbpalette */
         #ride-status-badge {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 999px;
             font-size: 13px;
-            font-weight: 700;
-            margin: 8px 0;
+            font-weight: 600;
+            margin: 6px 0 10px;
+            letter-spacing: 0.01em;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
         }
-        .ride-status-new { background: #fef3c7; color: #92400e; }
-        .ride-status-sofort { background: #fef3c7; color: #92400e; }
-        .ride-status-warteschlange { background: #fde68a; color: #78350f; animation: pulse 3s infinite; }
-        .ride-status-vorbestellt { background: #e0e7ff; color: #3730a3; }
-        .ride-status-assigned { background: #dbeafe; color: #1e40af; }
-        .ride-status-accepted { background: #d1fae5; color: #065f46; }
-        .ride-status-on_way { background: #3b82f6; color: white; animation: pulse 2s infinite; }
-        .ride-status-picked_up { background: #8b5cf6; color: white; animation: pulse 2s infinite; }
-        .ride-status-completed { background: #6b7280; color: white; }
-        .ride-status-cancelled { background: #ef4444; color: white; }
-        .ride-status-storniert { background: #ef4444; color: white; }
-        
+        .ride-status-new { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #78350f; }
+        .ride-status-sofort { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #78350f; }
+        .ride-status-warteschlange { background: linear-gradient(135deg, #fde68a, #fbbf24); color: #78350f; animation: pulse 3s infinite; }
+        .ride-status-vorbestellt { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); color: #3730a3; }
+        .ride-status-assigned { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e3a8a; }
+        .ride-status-accepted { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
+        .ride-status-on_way { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; animation: pulse 2s infinite; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35); }
+        .ride-status-picked_up { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; animation: pulse 2s infinite; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35); }
+        .ride-status-completed { background: linear-gradient(135deg, #64748b, #475569); color: white; }
+        .ride-status-cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .ride-status-storniert { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+
         #vehicle-info {
-            font-size: 14px;
-            color: #666;
+            font-size: 13.5px;
+            color: #475569;
             margin-bottom: 10px;
+            line-height: 1.55;
         }
-        
+
         #vehicle-info .info-line {
-            margin: 5px 0;
+            margin: 4px 0;
         }
-        
+
         #vehicle-info .label {
             font-weight: 600;
-            color: #333;
+            color: #1e293b;
         }
-        
+
         #location-info {
-            font-size: 13px;
-            color: #666;
-            padding: 10px;
-            background: #f3f4f6;
-            border-radius: 6px;
+            font-size: 12.5px;
+            color: #475569;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 10px;
             margin-top: 10px;
+            border: 1px solid #e2e8f0;
         }
-        
+
         .error-box {
-            background: #fee2e2;
-            border: 1px solid #fecaca;
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border: 1px solid #fca5a5;
             color: #991b1b;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: 12px;
             font-size: 14px;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
         }
-        
+
         .warning-box {
-            background: #fef3c7;
-            border: 1px solid #fde68a;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #fcd34d;
             color: #92400e;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: 12px;
             font-size: 14px;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12);
+        }
+
+        /* v6.62.65: Lifecycle-Timeline mit echtem Vertical-Bar-Look */
+        #lifecycle-section {
+            margin-top: 12px !important;
+            padding: 10px 12px !important;
+            background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            font-size: 12.5px !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        #lifecycle-section summary {
+            font-weight: 600;
+            color: #334155;
+            user-select: none;
+            list-style: none;
+        }
+        #lifecycle-section summary::-webkit-details-marker { display: none; }
+        #lifecycle-section summary::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: 6px;
+            font-size: 9px;
+            color: #94a3b8;
+            transition: transform 0.2s;
+        }
+        #lifecycle-section[open] summary::before { transform: rotate(90deg); }
+
+        .lc-item {
+            position: relative;
+            padding: 8px 0 8px 22px;
+            border-left: 2px solid #e2e8f0;
+            margin-left: 6px;
+        }
+        .lc-item::before {
+            content: '';
+            position: absolute;
+            left: -5px;
+            top: 12px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+            box-shadow: 0 0 0 2px white;
+        }
+        .lc-item.lc-status::before { background: #3b82f6; }
+        .lc-item.lc-warn::before { background: #f59e0b; }
+        .lc-item.lc-ok::before { background: #10b981; }
+        .lc-item.lc-error::before { background: #ef4444; }
+
+        .lc-time {
+            font-size: 10.5px;
+            color: #94a3b8;
+            font-variant-numeric: tabular-nums;
+        }
+        .lc-action {
+            font-weight: 500;
+            color: #1e293b;
+            font-size: 12.5px;
+            line-height: 1.4;
+            margin: 1px 0;
+        }
+        .lc-details {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .lc-details span.k { color: #94a3b8; }
+
+        /* v6.62.65: Buttons polieren */
+        #my-location-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.28);
+            transition: transform 0.1s, box-shadow 0.15s;
+        }
+        #my-location-btn:hover, #my-location-btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+        }
+        #cancel-btn {
+            transition: all 0.15s;
+        }
+        #cancel-btn:hover, #cancel-btn:active {
+            background: #fef2f2 !important;
+            color: #dc2626 !important;
+            border-color: #fca5a5 !important;
         }
         
         @media (max-width: 600px) {
@@ -218,10 +324,10 @@
              Ursache, wurde ein Push gesendet, schoenen Ablauf, wann die Sachen versendet
              wurden". Daten kommen aus rides/{id}/lifecycleLog (Cloud Function addRideLog
              seit v6.38.44). -->
-        <details id="lifecycle-section" style="margin-top:10px; padding:8px 10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; font-size:12px;">
-            <summary style="cursor:pointer; font-weight:600; color:#374151;">📋 Verlauf <span id="lifecycle-count" style="color:#6b7280; font-weight:400;"></span></summary>
-            <div id="lifecycle-timeline" style="margin-top:8px; max-height:280px; overflow-y:auto; border-top:1px solid #e5e7eb; padding-top:8px;">
-                <div style="color:#9ca3af; text-align:center; padding:8px;">Lade Verlauf…</div>
+        <details id="lifecycle-section">
+            <summary style="cursor:pointer;">📋 Verlauf <span id="lifecycle-count" style="color:#94a3b8; font-weight:400; margin-left:4px;"></span></summary>
+            <div id="lifecycle-timeline" style="margin-top:10px; max-height:280px; overflow-y:auto; padding-right:4px;">
+                <div style="color:#94a3b8; text-align:center; padding:10px; font-size:12px;">Lade Verlauf…</div>
             </div>
         </details>
 
@@ -501,6 +607,12 @@
                     const time = new Date(e.t).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     const icon = e.icon || '•';
                     const action = (e.action || '').replace(/[<>]/g, '');
+                    // v6.62.65: Klassen fuer Timeline-Dots je Event-Typ
+                    let cls = 'lc-item';
+                    if (icon === '🚑' || icon === '❌' || icon === '⚠️') cls += ' lc-warn';
+                    else if (icon === '✅' || icon === '🚗') cls += ' lc-ok';
+                    else if (icon === '📊') cls += ' lc-status';
+                    else if (icon === '💥' || icon === '🔥') cls += ' lc-error';
                     let detailStr = '';
                     if (e.details) {
                         let d = e.details;
@@ -508,21 +620,16 @@
                             try { d = JSON.parse(d); } catch(_) { /* Plain-String */ }
                         }
                         if (typeof d === 'object' && d !== null) {
-                            const parts = Object.entries(d).slice(0, 4).map(([k, v]) => `<span style="color:#6b7280;">${k}:</span> ${String(v).slice(0, 40)}`);
-                            detailStr = `<div style="margin-top:2px; font-size:11px; color:#4b5563;">${parts.join(' &middot; ')}</div>`;
+                            const parts = Object.entries(d).slice(0, 4).map(([k, v]) => `<span class="k">${k}:</span> ${String(v).slice(0, 40)}`);
+                            detailStr = `<div class="lc-details">${parts.join(' &middot; ')}</div>`;
                         } else if (typeof d === 'string') {
-                            detailStr = `<div style="margin-top:2px; font-size:11px; color:#4b5563;">${d.slice(0, 100)}</div>`;
+                            detailStr = `<div class="lc-details">${d.slice(0, 100)}</div>`;
                         }
                     }
-                    return `<div style="padding:6px 0; border-bottom:1px solid #f3f4f6;">
-                        <div style="display:flex; gap:8px; align-items:flex-start;">
-                            <span style="font-size:14px;">${icon}</span>
-                            <div style="flex:1; min-width:0;">
-                                <div style="font-size:11px; color:#9ca3af;">${time}</div>
-                                <div style="font-weight:500; color:#1f2937;">${action}</div>
-                                ${detailStr}
-                            </div>
-                        </div>
+                    return `<div class="${cls}">
+                        <div class="lc-time">${time}</div>
+                        <div class="lc-action">${icon} ${action}</div>
+                        ${detailStr}
                     </div>`;
                 }).join('');
             });

@@ -112,6 +112,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
 
+        // v6.62.71: FullScreen-Notification-Permission pruefen.
+        // Patrick: 'wenn der Push kommt soll die App in den Vordergrund springen'.
+        // Code (setFullScreenIntent in TaxiFCMService) ist seit v6.42.7 da, ABER Android 14+
+        // erlaubt das nur wenn der User in den App-Einstellungen 'Vollbild-Benachrichtigungen'
+        // aktiviert hat. Wir prompten EINMALIG (per SharedPref-Flag) wenn Permission fehlt.
+        checkFullScreenNotificationPermission();
+
         // v6.42.3: Optionaler Intent-Extra für ADB-Setup ohne WebView-Login
         String intentVehicleId = getIntent() != null ? getIntent().getStringExtra("setVehicleId") : null;
         if (intentVehicleId != null && !intentVehicleId.isEmpty()) {
@@ -1075,6 +1082,44 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // v6.62.61: Auto-SMS-Tracking-Link entfernt. Cloud-Function schickt bei Status-Wechsel
         // bereits 2 SMS (Bestaetigung + "Fahrer faehrt los", beide mit Track-Link inline) —
         // die zusaetzliche Fahrer-SIM-SMS war doppelt. Manueller btn_sms_track bleibt fuer Notfaelle.
+    }
+
+    // v6.62.71: Pruefe ob Vollbild-Notification erlaubt — sonst springt App nicht in
+    // Vordergrund bei neuer Fahrt obwohl setFullScreenIntent gesetzt ist.
+    private void checkFullScreenNotificationPermission() {
+        // Erst ab Android 14 (API 34) explizit pruefen — vorher ging FullScreen automatisch
+        if (android.os.Build.VERSION.SDK_INT < 34) return;
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+            if (nm.canUseFullScreenIntent()) return; // alles gut
+            SharedPreferences prefs = getSharedPreferences("perms", MODE_PRIVATE);
+            // EINMALIG zeigen pro Tag — sonst nervt es den User wenn er ablehnt
+            long lastPrompt = prefs.getLong("fullScreenPromptShownAt", 0);
+            if (System.currentTimeMillis() - lastPrompt < 24L * 3600L * 1000L) return;
+            prefs.edit().putLong("fullScreenPromptShownAt", System.currentTimeMillis()).apply();
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("⚠️ App soll bei neuer Fahrt aufspringen")
+                .setMessage("Damit die Fahrer-App bei neuen Aufträgen automatisch den Bildschirm einschaltet und in den Vordergrund kommt, brauchen wir die Berechtigung 'Vollbild-Benachrichtigungen'.\n\nKurz tippen: 'Erlauben' → 'Funk Taxi' → Schalter AN → zurück.")
+                .setPositiveButton("Einstellungen öffnen", (d, w) -> {
+                    try {
+                        Intent i = new Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                        i.setData(android.net.Uri.parse("package:" + getPackageName()));
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(i);
+                    } catch (Throwable _e) {
+                        // Fallback: App-Settings allgemein
+                        Intent i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        i.setData(android.net.Uri.parse("package:" + getPackageName()));
+                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(i);
+                    }
+                })
+                .setNegativeButton("Spaeter", null)
+                .show();
+        } catch (Throwable t) {
+            Log.w(TAG, "FullScreen-Permission-Check fehlgeschlagen: " + t.getMessage());
+        }
     }
 
     // v6.62.69: Lifecycle-Eintrag fuer Fahrer-Aktionen (Tap-Events) ins rides/{id}/lifecycleLog

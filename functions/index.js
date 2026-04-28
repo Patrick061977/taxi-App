@@ -18419,7 +18419,7 @@ exports.onRideCreated = onValueCreated(
                         const _waitInfo = (typeof ride.estimatedWaitMinutes === 'number' && ride.estimatedWaitMinutes > 0)
                             ? ` Wartezeit ca. ${ride.estimatedWaitMinutes} Min.`
                             : '';
-                        _smsText = `Funk Taxi Heringsdorf: Ihre Buchung ist eingegangen!${_waitInfo} Sie werden informiert sobald ein Fahrer angenommen hat. Status / stornieren: ${_trackLink}`;
+                        _smsText = `Funk Taxi Heringsdorf: Ihre Buchung ist eingegangen!${_waitInfo} Sie werden informiert sobald ein Fahrer angenommen hat. Status: ${_trackLink}`;
                     } else {
                         const _lines = [];
                         _lines.push('Hier ist Funk Taxi Heringsdorf.');
@@ -18429,7 +18429,7 @@ exports.onRideCreated = onValueCreated(
                         if (ride.pickup) _lines.push(`Von: ${ride.pickup}`);
                         if (ride.destination) _lines.push(`Nach: ${ride.destination}`);
                         if (ride.price) _lines.push(`Preis ca. ${String(ride.price).replace('.', ',')}€`);
-                        _lines.push(`Status / stornieren: ${_trackLink}`);
+                        _lines.push(`Status: ${_trackLink}`);
                         _smsText = _lines.join('\n');
                     }
 

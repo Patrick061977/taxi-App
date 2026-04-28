@@ -101,8 +101,9 @@ public class CallLogActivity extends AppCompatActivity {
                 // hinzuschreiben'). Format: "Lidl, Ahlbecker Ch 9, 17429 Heringsdorf".
                 // Konvention im Rest des Projekts ist Komma — siehe Hotel-Geocache-Strings.
                 // Doppelung vermeiden falls Address den Namen schon enthält.
-                String _name = place.getName();
-                String _addr = place.getAddress();
+                // v6.62.91: SDK 4.x APIs
+                String _name = place.getDisplayName();
+                String _addr = place.getFormattedAddress();
                 String label;
                 if (_name == null || _name.isEmpty()) {
                     label = _addr != null ? _addr : "";
@@ -114,9 +115,9 @@ public class CallLogActivity extends AppCompatActivity {
                     label = _name + ", " + _addr;
                 }
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
-                if (pendingPlaceCoords != null && place.getLatLng() != null) {
-                    pendingPlaceCoords[0] = place.getLatLng().latitude;
-                    pendingPlaceCoords[1] = place.getLatLng().longitude;
+                if (pendingPlaceCoords != null && place.getLocation() != null) {
+                    pendingPlaceCoords[0] = place.getLocation().latitude;
+                    pendingPlaceCoords[1] = place.getLocation().longitude;
                 }
             } catch (Throwable t) {
                 Toast.makeText(this, "Places-Parse-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
@@ -312,7 +313,7 @@ public class CallLogActivity extends AppCompatActivity {
             pendingPlaceField = targetField;
             pendingPlaceCoords = coordsOut;
             List<Place.Field> fields = Arrays.asList(
-                Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG
+                Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION
             );
             // v6.62.12: FULLSCREEN statt OVERLAY — Patrick: 'kann keine Adresse eingeben'.
             // OVERLAY-Modus rendert transparent über vorherige Activity, verliert bei

@@ -365,11 +365,12 @@ public class CrmSearchActivity extends AppCompatActivity {
         for (Map.Entry<String,Integer> d : topDests) {
             items.add("⭐ " + d.getKey() + "  (" + d.getValue() + "x)");
         }
-        items.add("✏️ Ziel manuell eingeben");
+        // v6.62.88: Manuell-Ziel-Eingabe direkt im Dialog (war bisher Toast 'kommt spaeter')
+        items.add("📍 Ziel via Google Places suchen");
         items.add("❌ Abbrechen");
         String[] options = items.toArray(new String[0]);
         String title = "📅 Vorbestellung — " + e.name;
-        if (topDests.isEmpty()) title += "\n(noch keine vorigen Ziele)";
+        if (topDests.isEmpty()) title += "\n(Kein vorheriges Ziel im CRM — Ziel via Places eingeben)";
         else title += "\nHaeufigste Ziele:";
         new AlertDialog.Builder(this)
             .setTitle(title)
@@ -379,10 +380,62 @@ public class CrmSearchActivity extends AppCompatActivity {
                     double[] coords = destCoords.get(dest);
                     askPickupTimeForVorbestellung(e, dest, coords);
                 } else if (w == topDests.size()) {
-                    Toast.makeText(this, "Manuell-Eingabe folgt in v6.62.79 — bisher: nutze Anrufliste fuer freie Ziele", Toast.LENGTH_LONG).show();
+                    // v6.62.88: Places-Picker fuer freies Ziel
+                    askDestinationViaPlaces(e);
                 }
             }).show();
     }
+
+    // v6.62.88: Places-Autocomplete fuer freies Ziel bei Vorbestellung
+    private CrmEntry _vorbestPendingCrm = null;
+    private void askDestinationViaPlaces(CrmEntry e) {
+        _vorbestPendingCrm = e;
+        // pendingPlaceField = ein temporaerer TextView um den Label zu fangen
+        TextView tv = new TextView(this);
+        double[] coords = new double[]{ Double.NaN, Double.NaN };
+        pendingPlaceField = tv;
+        pendingPlaceCoords = coords;
+        // Wenn Places-Result kommt → in placesLauncher-Callback wird tv gesetzt; danach hier weiter
+        // Wir hooken einen kurzen Polling-Mechanismus weil Places-Result async kommt
+        try {
+            if (!Places.isInitialized()) {
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
+            }
+            List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG);
+            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
+                .setCountries(Arrays.asList("DE"))
+                .build(this);
+            // Eigener Launcher mit Spezial-Handling
+            vorbestPlacesLauncher.launch(intent);
+        } catch (Throwable t) {
+            Toast.makeText(this, "Places-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private final ActivityResultLauncher<Intent> vorbestPlacesLauncher = registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+            if (result.getResultCode() != RESULT_OK || result.getData() == null || _vorbestPendingCrm == null) {
+                _vorbestPendingCrm = null;
+                return;
+            }
+            try {
+                Place p = Autocomplete.getPlaceFromIntent(result.getData());
+                String name = p.getName();
+                String addr = p.getAddress();
+                String label = (name == null || name.isEmpty()) ? (addr != null ? addr : "")
+                    : (addr == null || addr.isEmpty() || addr.equals(name) ? name
+                    : (addr.startsWith(name) ? addr : name + ", " + addr));
+                double[] coords = null;
+                if (p.getLatLng() != null) coords = new double[]{ p.getLatLng().latitude, p.getLatLng().longitude };
+                askPickupTimeForVorbestellung(_vorbestPendingCrm, label, coords);
+            } catch (Throwable t) {
+                Toast.makeText(this, "Places-Parse: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            } finally {
+                _vorbestPendingCrm = null;
+            }
+        }
+    );
 
     private void askPickupTimeForVorbestellung(CrmEntry e, String destination, double[] destCoords) {
         // Datum + Uhrzeit Picker
@@ -394,7 +447,24 @@ public class CrmSearchActivity extends AppCompatActivity {
                 cal.set(java.util.Calendar.MINUTE, minute);
                 cal.set(java.util.Calendar.SECOND, 0);
                 cal.set(java.util.Calendar.MILLISECOND, 0);
-                createVorbestellung(e, destination, destCoords, cal.getTimeInMillis());
+                long pickupTs = cal.getTimeInMillis();
+                long now = System.currentTimeMillis();
+                // v6.62.88: Patrick: 'es duerfte jetzt keine Fahrt eingetragen werden koennen
+                // die in der Vergangenheit liegt'. Mindestens 5 Min Vorlauf erzwingen.
+                if (pickupTs < now + 5L * 60_000L) {
+                    long minutesPast = (now - pickupTs) / 60_000L;
+                    String msg = pickupTs < now
+                        ? "❌ Pickup-Zeit liegt " + minutesPast + " Min in der Vergangenheit. Wähle eine Zeit in der Zukunft."
+                        : "⚠️ Pickup-Zeit ist zu nah am Jetzt (<5 Min). Nutze SOFORT-Fahrt statt Vorbestellung.";
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Ungueltige Pickup-Zeit")
+                        .setMessage(msg)
+                        .setPositiveButton("Andere Zeit waehlen", (d, w) -> askPickupTimeForVorbestellung(e, destination, destCoords))
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                    return;
+                }
+                createVorbestellung(e, destination, destCoords, pickupTs);
             }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), true).show();
         }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show();
     }

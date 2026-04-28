@@ -18404,10 +18404,11 @@ exports.onRideCreated = onValueCreated(
                 const _smsSettings = _smsSettingsSnap.val() || {};
                 const _smsEnabled = _smsSettings.bookingEnabled === true;
                 if (_smsEnabled) {
-                    const _pickupBerlin = new Date(new Date(pickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-                    const _smsDateStr = _pickupBerlin.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                    const _smsTimeStr = _pickupBerlin.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    const _smsPrice = ride.price ? `, ca. ${ride.price}€` : '';
+                    // v6.62.51: Patrick: 'Wochentag ausgeschrieben, Datum mit Jahr,
+                    // Von/Nach, Name, Personenzahl rein'. SMS-Flat → Laenge egal.
+                    const _smsWeekday = new Date(pickupTs).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
+                    const _smsDateStr = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
+                    const _smsTimeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                     // v6.62.46: Patrick: 'wenn online bestellt, sollen sie auch online stornieren
                     // koennen + Wartezeit sehen'. Track-Link bietet beides — Status-Seite mit
                     // Storno-Button (track.html v6.62.46). Track-Link in Initial-SMS war
@@ -18420,7 +18421,16 @@ exports.onRideCreated = onValueCreated(
                             : '';
                         _smsText = `Funk Taxi Heringsdorf: Ihre Buchung ist eingegangen!${_waitInfo} Sie werden informiert sobald ein Fahrer angenommen hat. Status / stornieren: ${_trackLink}`;
                     } else {
-                        _smsText = `Funk Taxi Heringsdorf: Vorbestellung bestaetigt fuer ${_smsDateStr} ${_smsTimeStr} Uhr${_smsPrice}. Status / stornieren: ${_trackLink}`;
+                        const _lines = [];
+                        _lines.push('Hier ist Funk Taxi Heringsdorf.');
+                        _lines.push(`Vorbestellung bestaetigt fuer ${_smsWeekday}, ${_smsDateStr}, ${_smsTimeStr} Uhr.`);
+                        if (ride.customerName) _lines.push(`Name: ${ride.customerName}`);
+                        if (ride.passengers && ride.passengers > 1) _lines.push(`Personen: ${ride.passengers}`);
+                        if (ride.pickup) _lines.push(`Von: ${ride.pickup}`);
+                        if (ride.destination) _lines.push(`Nach: ${ride.destination}`);
+                        if (ride.price) _lines.push(`Preis ca. ${String(ride.price).replace('.', ',')}€`);
+                        _lines.push(`Status / stornieren: ${_trackLink}`);
+                        _smsText = _lines.join('\n');
                     }
 
                     await db.ref('smsQueue').push({

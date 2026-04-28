@@ -415,21 +415,30 @@ public class DriverDashboardActivity extends AppCompatActivity {
         long now = System.currentTimeMillis();
         for (Ride r : new ArrayList<>(myAssignedRides)) {
             if (r == null || r.id == null) continue;
-            if (r.pickupLat == null || r.pickupLon == null) continue;
             String st = r.status != null ? r.status.toLowerCase() : "";
-            // Nur fuer noch nicht losgefahrene Fahrten ETA aktualisieren
-            if (!st.equals("assigned") && !st.equals("accepted") && !st.equals("sofort") && !st.equals("vorbestellt")) continue;
-            // pickupTimestamp muss in der Zukunft liegen (sonst ETA irrelevant)
-            if (r.pickupTimestamp == null || r.pickupTimestamp <= now) continue;
+            // v6.62.75: 2 Modi:
+            //  - vor Pickup (assigned/accepted/sofort/vorbestellt/on_way): ETA zu pickupCoords → drivingTimeToPickup
+            //  - nach Pickup (picked_up): ETA zu destinationCoords → drivingTimeToDestination
+            boolean isPrePickup = st.equals("assigned") || st.equals("accepted") || st.equals("sofort") || st.equals("vorbestellt") || st.equals("on_way");
+            boolean isPostPickup = st.equals("picked_up");
+            if (!isPrePickup && !isPostPickup) continue;
             // Throttle: max 1 Call pro 20s pro Ride
             Long lastCall = lastEtaCalc.get(r.id);
             if (lastCall != null && (now - lastCall) < 20_000L) continue;
-            lastEtaCalc.put(r.id, now);
-            fetchOsrmETA(r.id, vLat, vLon, r.pickupLat, r.pickupLon);
+            if (isPrePickup) {
+                if (r.pickupLat == null || r.pickupLon == null) continue;
+                if (r.pickupTimestamp == null || r.pickupTimestamp <= now) continue;
+                lastEtaCalc.put(r.id, now);
+                fetchOsrmETA(r.id, vLat, vLon, r.pickupLat, r.pickupLon, "pickup");
+            } else if (isPostPickup) {
+                if (r.destinationLat == null || r.destinationLon == null) continue;
+                lastEtaCalc.put(r.id, now);
+                fetchOsrmETA(r.id, vLat, vLon, r.destinationLat, r.destinationLon, "destination");
+            }
         }
     }
 
-    private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon) {
+    private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
         new Thread(() -> {
             try {
                 String url = String.format(Locale.US,
@@ -454,13 +463,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 double durationSec = routes.getJSONObject(0).getDouble("duration");
                 int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
                 // Local update + UI redraw
+                final String _mode = mode;
                 runOnUiThread(() -> {
                     boolean changed = false;
                     for (Ride rr : myAssignedRides) {
                         if (rr.id != null && rr.id.equals(rideId)) {
-                            if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durationMin) {
-                                rr.drivingTimeToPickup = durationMin;
-                                changed = true;
+                            if ("destination".equals(_mode)) {
+                                if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != durationMin) {
+                                    rr.drivingTimeToDestination = durationMin;
+                                    changed = true;
+                                }
+                            } else {
+                                if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durationMin) {
+                                    rr.drivingTimeToPickup = durationMin;
+                                    changed = true;
+                                }
                             }
                             break;
                         }
@@ -469,7 +486,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 });
                 // Firebase update damit Admin-Dashboard den Live-Wert sieht
                 if (db != null) {
-                    db.getReference("rides/" + rideId + "/drivingTimeToPickup").setValue(durationMin);
+                    String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
+                    db.getReference("rides/" + rideId + "/" + field).setValue(durationMin);
                 }
             } catch (Exception e) {
                 Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
@@ -1551,6 +1569,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
         Integer drivingTimeToPickup; // v6.62.6: Anfahrtszeit in Min (Patrick: 'wie lange braucht er bis zum Ziel')
         Double pickupLat, pickupLon; // v6.62.62: für Live-ETA-Neuberechnung via OSRM
+        Double destinationLat, destinationLon; // v6.62.75: für ETA bis Ziel nach picked_up
+        Integer drivingTimeToDestination; // v6.62.75: Min bis Ziel (live, nach picked_up)
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -1596,6 +1616,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (pl instanceof Number) r.pickupLat = ((Number) pl).doubleValue();
                     if (pn instanceof Number) r.pickupLon = ((Number) pn).doubleValue();
                 }
+                // v6.62.75: destinationCoords fuer ETA bis Ziel
+                DataSnapshot dcSnap = s.child("destinationCoords");
+                if (dcSnap.exists()) {
+                    Object dl = dcSnap.child("lat").getValue();
+                    Object dn = dcSnap.child("lon").getValue();
+                    if (dl instanceof Number) r.destinationLat = ((Number) dl).doubleValue();
+                    if (dn instanceof Number) r.destinationLon = ((Number) dn).doubleValue();
+                }
+                if (r.destinationLat == null) {
+                    Object dl = s.child("destinationLat").getValue();
+                    Object dn = s.child("destinationLon").getValue();
+                    if (dl instanceof Number) r.destinationLat = ((Number) dl).doubleValue();
+                    if (dn instanceof Number) r.destinationLon = ((Number) dn).doubleValue();
+                }
+                Object dtd = s.child("drivingTimeToDestination").getValue();
+                if (dtd instanceof Number) r.drivingTimeToDestination = ((Number) dtd).intValue();
                 return r;
             } catch (Throwable _t) { return null; }
         }
@@ -1676,6 +1712,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     } else {
                         _displayTime += "  •  ⚠️ JETZT LOSFAHREN (" + r.drivingTimeToPickup + " Min Anfahrt)";
                     }
+                }
+                // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar → "noch X Min bis Ziel"
+                String _stLow = r.status != null ? r.status.toLowerCase() : "";
+                if (_stLow.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
+                    _displayTime += "  •  ⏱️ Ziel in " + r.drivingTimeToDestination + " Min";
                 }
                 tvTime.setText(_displayTime);
                 String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",

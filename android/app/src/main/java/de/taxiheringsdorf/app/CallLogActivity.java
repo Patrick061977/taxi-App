@@ -493,10 +493,12 @@ public class CallLogActivity extends AppCompatActivity {
         CrmCustomer crm = lookupCrm(e.number);
         boolean admin = isAdminMode();
         if (crm != null) {
+            // v6.62.74: Patrick: 'Anrufer ruft an, ich fahre noch hin' → SOFORT-Fahrt mit
+            // Status='accepted' damit normaler Flow durchlaufen wird (on_way → BIN DA → Eingestiegen).
+            // EINSTEIGER bleibt fuer Walk-in (Person steht schon am Auto, sofort 'picked_up').
             String[] options = admin
-                ? new String[]{ "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" }
-                : new String[]{ "🚖 EINSTEIGER (mit CRM-Adresse als Pickup)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" };
-            // v6.52.3: setMessage + setItems = Android-Bug (Items unsichtbar). Info in Titel packen.
+                ? new String[]{ "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" }
+                : new String[]{ "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" };
             String title = "📞 " + crm.name + " — " + e.number;
             if (crm.address != null) title += "\n📍 " + crm.address;
             new AlertDialog.Builder(this)
@@ -504,39 +506,123 @@ public class CallLogActivity extends AppCompatActivity {
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {
-                            case 0: showPrebookingDialog(e, crm); break;
-                            case 1: showCrmEditDialog(crm); break;
+                            case 0: createSofortFahrtCrm(e, crm); break;
+                            case 1: showPrebookingDialog(e, crm); break;
+                            case 2: showCrmEditDialog(crm); break;
                         }
                     } else {
                         switch (which) {
                             case 0: createEinsteigerCrm(e, crm); break;
-                            case 1: showPrebookingDialog(e, crm); break;
-                            case 2: showCrmEditDialog(crm); break;
+                            case 1: createSofortFahrtCrm(e, crm); break;
+                            case 2: showPrebookingDialog(e, crm); break;
+                            case 3: showCrmEditDialog(crm); break;
                         }
                     }
                 }).show();
         } else {
             String[] options = admin
-                ? new String[]{ "👤 Als CRM-Kunde anlegen", "📅 Vorbestellung erstellen", "Abbrechen" }
-                : new String[]{ "👤 Als CRM-Kunde anlegen", "🚖 EINSTEIGER (nur mit Nummer)", "📅 Vorbestellung erstellen", "Abbrechen" };
-            // v6.52.3: setMessage + setItems = Android-Bug (Items unsichtbar). Info in Titel packen.
+                ? new String[]{ "👤 Als CRM-Kunde anlegen", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "Abbrechen" }
+                : new String[]{ "👤 Als CRM-Kunde anlegen", "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "Abbrechen" };
             new AlertDialog.Builder(this)
                 .setTitle("❓ " + e.number + " — nicht im CRM")
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {
                             case 0: showCrmCreateDialog(e); break;
-                            case 1: showPrebookingDialog(e, null); break;
+                            case 1: createSofortFahrtPhone(e); break;
+                            case 2: showPrebookingDialog(e, null); break;
                         }
                     } else {
                         switch (which) {
                             case 0: showCrmCreateDialog(e); break;
                             case 1: createEinsteigerWithPhone(e); break;
-                            case 2: showPrebookingDialog(e, null); break;
+                            case 2: createSofortFahrtPhone(e); break;
+                            case 3: showPrebookingDialog(e, null); break;
                         }
                     }
                 }).show();
         }
+    }
+
+    // v6.62.74: SOFORT-Fahrt — Pickup steht beim Anrufer, ich fahre hin.
+    // Status='accepted' damit DriverDashboard den vollen Flow zeigt: on_way / BIN DA / Eingestiegen.
+    // CRM-Variante: Pickup = CRM-Adresse des Anrufers
+    private void createSofortFahrtCrm(CallEntry e, CrmCustomer crm) {
+        String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
+        new AlertDialog.Builder(this)
+            .setTitle("🚗 SOFORT-Fahrt anlegen?")
+            .setMessage("Kunde: " + crm.name + "\n📍 Pickup: " + (crm.address != null ? crm.address : "Adresse fehlt!") + "\n📞 " + e.number + "\n\nFahrt wird mit Status 'angenommen' angelegt — du tippst dann 'Losfahren', 'BIN DA', 'Eingestiegen' wie sonst.")
+            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
+                DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", crm.name);
+                r.put("customerId", crm.id);
+                r.put("customerPhone", e.number);
+                r.put("customerMobile", crm.mobilePhone != null ? crm.mobilePhone : e.number);
+                r.put("vehicleId", vehicleId);
+                r.put("assignedVehicle", vehicleId);
+                r.put("status", "accepted");
+                r.put("pickup", crm.address != null ? crm.address : "");
+                if (crm.lat != null) { r.put("pickupLat", crm.lat); r.put("pickupLon", crm.lon); }
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("assignedAt", now);
+                r.put("assignedBy", "native_sofort_calllog_crm");
+                r.put("acceptedVia", "native_sofort_calllog_crm");
+                r.put("source", "native_sofort_call_crm");
+                r.put("isSofort", true);
+                r.put("passengers", 1);
+                ref.setValue(r).addOnSuccessListener(_v -> {
+                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt: " + crm.name, Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, DriverDashboardActivity.class));
+                    finish();
+                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
+    }
+
+    // v6.62.74: SOFORT-Fahrt ohne CRM (nur Telefonnummer)
+    private void createSofortFahrtPhone(CallEntry e) {
+        String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
+        String label = e.name != null && !e.name.isEmpty() ? e.name : "Anrufer";
+        new AlertDialog.Builder(this)
+            .setTitle("🚗 SOFORT-Fahrt anlegen?")
+            .setMessage("Kunde: " + label + "\n📞 " + e.number + "\n\n⚠️ Keine CRM-Adresse — Pickup musst du manuell ergaenzen oder Adresse via Maps nachtragen.\n\nStatus 'angenommen' → du tippst 'Losfahren', 'BIN DA', 'Eingestiegen'.")
+            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
+                DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
+                long now = System.currentTimeMillis();
+                Map<String, Object> r = new HashMap<>();
+                r.put("customerName", label);
+                r.put("customerPhone", e.number);
+                r.put("customerMobile", e.number);
+                r.put("vehicleId", vehicleId);
+                r.put("assignedVehicle", vehicleId);
+                r.put("status", "accepted");
+                r.put("pickup", "");
+                r.put("destination", "");
+                r.put("pickupTimestamp", now);
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("acceptedAt", now);
+                r.put("assignedAt", now);
+                r.put("assignedBy", "native_sofort_calllog");
+                r.put("acceptedVia", "native_sofort_calllog");
+                r.put("source", "native_sofort_call");
+                r.put("isSofort", true);
+                r.put("passengers", 1);
+                ref.setValue(r).addOnSuccessListener(_v -> {
+                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt mit " + e.number, Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(this, DriverDashboardActivity.class));
+                    finish();
+                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null).show();
     }
 
     private void createEinsteigerCrm(CallEntry e, CrmCustomer crm) {

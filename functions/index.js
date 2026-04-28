@@ -17751,6 +17751,26 @@ exports.scheduledAutoAssign = onSchedule(
                     if (r.assignmentLocked) return false;
                     return true;
                 });
+                // 🆕 v6.62.63: Stranded-Vorbestellungs-Warnung — Rides die in den Filter
+                // gehoert haetten, aber durch 'r.acceptedAt' ausgeschlossen wurden (typisch:
+                // claudeFixRide Status-Reset ohne acceptedAt-Loeschung). Sonst still skipped.
+                const _strandedList = allRides.filter(r => {
+                    if (r.status !== 'vorbestellt') return false;
+                    const _vid = r.vehicleId || r.assignedVehicle;
+                    if (!_vid) return false;
+                    if (!r.pickupTimestamp) return false;
+                    const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 10;
+                    const _reminderLeadMs = (15 + _anfahrt) * 60000;
+                    if ((r.pickupTimestamp - now) > _reminderLeadMs) return false;
+                    if ((r.pickupTimestamp - now) < -10 * 60000) return false;
+                    if (!r.acceptedAt) return false; // wir wollen NUR die mit acceptedAt
+                    return true;
+                });
+                if (_strandedList.length > 0) {
+                    for (const r of _strandedList) {
+                        console.warn(`⚠️ STRANDED: ${r.firebaseId} (${r.customerName || '?'}) status=vorbestellt + acceptedAt=${r.acceptedAt} → PUSH-REMINDER skipped! Vermutlich claudeFixRide-Reset ohne acceptedAt-Loeschung.`);
+                    }
+                }
                 if (_pushReadyList.length > 0) {
                     console.log(`📲 v6.61.0 PUSH-REMINDER: ${_pushReadyList.length} Vorbestellung(en) in <60 Min → Status 'assigned' + FCM-Re-Push`);
                     for (const r of _pushReadyList) {
@@ -21437,6 +21457,16 @@ exports.claudeFixRide = onRequest(
             else if (newStatus === 'cancelled' || newStatus === 'storniert') {
                 upd.cancelledAt = now;
                 upd.cancelledBy = body.cancelledBy || 'claude-emergency-fix';
+            }
+            // 🔧 v6.62.63: Wenn auf 'vorbestellt' zurueckgesetzt, MUSS acceptedAt/assignedAt/assignmentLocked
+            // entfernt werden, sonst skipt PUSH-REMINDER (functions/index.js:17750) die Ride am Pickup-Tag
+            // weil 'r.acceptedAt' truthy ist → kein zweiter FCM-Push. Birgit-Lenzkes-Bug 28.04.
+            if (newStatus === 'vorbestellt') {
+                upd.acceptedAt = null;
+                upd.assignedAt = null;
+                upd.assignmentLocked = null;
+                upd.statusTransitionedAt = now;
+                upd.statusTransitionReason = upd.fixReason + ' (acceptedAt/assignedAt geloescht damit PUSH-REMINDER greift)';
             }
             await db.ref('rides/' + rideId).update(upd);
             await addRideLog(rideId, '🚑', `NOTFALL-FIX: status → ${newStatus}`, {

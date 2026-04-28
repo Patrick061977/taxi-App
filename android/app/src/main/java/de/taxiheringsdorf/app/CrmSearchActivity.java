@@ -71,9 +71,9 @@ public class CrmSearchActivity extends AppCompatActivity {
             if (rc != RESULT_OK || data == null) return;
             try {
                 Place p = Autocomplete.getPlaceFromIntent(data);
-                // v6.62.19: POI-Name + Adresse mit Komma trennen, Doppelung vermeiden.
-                String _name = p.getName();
-                String _addr = p.getAddress();
+                // v6.62.91: SDK 4.x APIs — getName→getDisplayName, getAddress→getFormattedAddress, getLatLng→getLocation
+                String _name = p.getDisplayName();
+                String _addr = p.getFormattedAddress();
                 String label;
                 if (_name == null || _name.isEmpty()) {
                     label = _addr != null ? _addr : "";
@@ -85,9 +85,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                     label = _name + ", " + _addr;
                 }
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
-                if (pendingPlaceCoords != null && p.getLatLng() != null) {
-                    pendingPlaceCoords[0] = p.getLatLng().latitude;
-                    pendingPlaceCoords[1] = p.getLatLng().longitude;
+                if (pendingPlaceCoords != null && p.getLocation() != null) {
+                    pendingPlaceCoords[0] = p.getLocation().latitude;
+                    pendingPlaceCoords[1] = p.getLocation().longitude;
                 }
                 // v6.62.79: Wenn Adresse keine Hausnummer enthaelt → Reverse-Geocode via Nominatim
                 // Patrick: 'Hotel Villa Neptun ohne Hausnummer'. Places liefert oft nur POI-Name +
@@ -95,9 +95,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                 final TextView _field = pendingPlaceField;
                 final String _label = label;
                 final boolean _needsHN = _label != null && !_label.matches(".*\\d+\\s*[a-zA-Z]?[,\\s].*") && !_label.matches(".*\\d+\\s*[a-zA-Z]?$");
-                if (_needsHN && p.getLatLng() != null) {
-                    final double _lat = p.getLatLng().latitude;
-                    final double _lon = p.getLatLng().longitude;
+                if (_needsHN && p.getLocation() != null) {
+                    final double _lat = p.getLocation().latitude;
+                    final double _lon = p.getLocation().longitude;
                     new Thread(() -> {
                         try {
                             String url = "https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=" + _lat + "&lon=" + _lon;
@@ -152,7 +152,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             pendingPlaceField = field;
             pendingPlaceCoords = coordsOut;
             List<Place.Field> fields = Arrays.asList(
-                Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG
+                Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION
             );
             // v6.62.12: FULLSCREEN — siehe CallLogActivity.launchPlaces für Details
             Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
@@ -453,7 +453,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             if (!Places.isInitialized()) {
                 Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
             }
-            List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG);
+            List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION);
             Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
                 .setCountries(Arrays.asList("DE"))
                 .build(this);
@@ -473,13 +473,13 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             try {
                 Place p = Autocomplete.getPlaceFromIntent(result.getData());
-                String name = p.getName();
-                String addr = p.getAddress();
+                String name = p.getDisplayName();
+                String addr = p.getFormattedAddress();
                 String label = (name == null || name.isEmpty()) ? (addr != null ? addr : "")
                     : (addr == null || addr.isEmpty() || addr.equals(name) ? name
                     : (addr.startsWith(name) ? addr : name + ", " + addr));
                 double[] coords = null;
-                if (p.getLatLng() != null) coords = new double[]{ p.getLatLng().latitude, p.getLatLng().longitude };
+                if (p.getLocation() != null) coords = new double[]{ p.getLocation().latitude, p.getLocation().longitude };
                 askPickupTimeForVorbestellung(_vorbestPendingCrm, label, coords);
             } catch (Throwable t) {
                 Toast.makeText(this, "Places-Parse: " + t.getMessage(), Toast.LENGTH_LONG).show();

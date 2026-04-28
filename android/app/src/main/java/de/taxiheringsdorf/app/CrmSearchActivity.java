@@ -89,6 +89,54 @@ public class CrmSearchActivity extends AppCompatActivity {
                     pendingPlaceCoords[0] = p.getLatLng().latitude;
                     pendingPlaceCoords[1] = p.getLatLng().longitude;
                 }
+                // v6.62.79: Wenn Adresse keine Hausnummer enthaelt → Reverse-Geocode via Nominatim
+                // Patrick: 'Hotel Villa Neptun ohne Hausnummer'. Places liefert oft nur POI-Name +
+                // Stadt, ohne Strasse/HN. Nominatim-Reverse auf Lat/Lon ergaenzt das.
+                final TextView _field = pendingPlaceField;
+                final String _label = label;
+                final boolean _needsHN = _label != null && !_label.matches(".*\\d+\\s*[a-zA-Z]?[,\\s].*") && !_label.matches(".*\\d+\\s*[a-zA-Z]?$");
+                if (_needsHN && p.getLatLng() != null) {
+                    final double _lat = p.getLatLng().latitude;
+                    final double _lon = p.getLatLng().longitude;
+                    new Thread(() -> {
+                        try {
+                            String url = "https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=" + _lat + "&lon=" + _lon;
+                            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                            conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-NativeApp");
+                            conn.setConnectTimeout(5000);
+                            conn.setReadTimeout(5000);
+                            if (conn.getResponseCode() != 200) { conn.disconnect(); return; }
+                            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                            StringBuilder sb = new StringBuilder();
+                            String line; while ((line = br.readLine()) != null) sb.append(line);
+                            br.close(); conn.disconnect();
+                            org.json.JSONObject json = new org.json.JSONObject(sb.toString());
+                            org.json.JSONObject addr = json.optJSONObject("address");
+                            if (addr == null) return;
+                            String hn = addr.optString("house_number", "");
+                            String road = addr.optString("road", "");
+                            if (road.isEmpty() || hn.isEmpty()) return; // nichts zu erweitern
+                            String enriched = _label;
+                            // Falls 'road' im Label fehlt → vor Stadt einsetzen
+                            if (!_label.toLowerCase().contains(road.toLowerCase())) {
+                                // Format: 'Name, Stadt' → 'Name, Strasse HN, Stadt'
+                                int komma = _label.lastIndexOf(',');
+                                if (komma > 0) {
+                                    enriched = _label.substring(0, komma) + ", " + road + " " + hn + _label.substring(komma);
+                                } else {
+                                    enriched = _label + ", " + road + " " + hn;
+                                }
+                            } else {
+                                // road ist da aber HN fehlt → HN nach road einfuegen
+                                enriched = _label.replaceFirst("(?i)" + java.util.regex.Pattern.quote(road), road + " " + hn);
+                            }
+                            final String _enrichedFinal = enriched;
+                            runOnUiThread(() -> {
+                                if (_field != null) _field.setText(_enrichedFinal);
+                            });
+                        } catch (Throwable _e) { Log.w(TAG, "Hausnummer-Reverse fehlgeschlagen: " + _e.getMessage()); }
+                    }, "hn-reverse").start();
+                }
             } catch (Throwable t) {
                 Toast.makeText(this, "Places-Parse: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }

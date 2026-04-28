@@ -382,6 +382,92 @@ public class DriverDashboardActivity extends AppCompatActivity {
             shiftStatsRow.setVisibility(View.GONE);
             timerHandler.removeCallbacks(timerTick);
         }
+
+        // v6.62.62: Bei jedem Vehicle-Update (kommt mit jedem GPS-Write alle 10-15s)
+        // Live-ETA für aktive Rides via OSRM neu berechnen.
+        Object latObj = s.child("lat").getValue();
+        Object lonObj = s.child("lon").getValue();
+        Object tsObj = s.child("timestamp").getValue();
+        if (latObj instanceof Number && lonObj instanceof Number) {
+            double vLat = ((Number) latObj).doubleValue();
+            double vLon = ((Number) lonObj).doubleValue();
+            long gpsAge = (tsObj instanceof Number)
+                ? System.currentTimeMillis() - ((Number) tsObj).longValue()
+                : 0;
+            if (gpsAge < 5L * 60L * 1000L) {
+                recalculateETAsForActiveRides(vLat, vLon);
+            }
+        }
+    }
+
+    // v6.62.62: Pro Ride throttle — nicht oefter als alle 20s OSRM-Call
+    private final java.util.Map<String, Long> lastEtaCalc = new java.util.HashMap<>();
+
+    private void recalculateETAsForActiveRides(double vLat, double vLon) {
+        if (myAssignedRides == null) return;
+        long now = System.currentTimeMillis();
+        for (Ride r : new ArrayList<>(myAssignedRides)) {
+            if (r == null || r.id == null) continue;
+            if (r.pickupLat == null || r.pickupLon == null) continue;
+            String st = r.status != null ? r.status.toLowerCase() : "";
+            // Nur fuer noch nicht losgefahrene Fahrten ETA aktualisieren
+            if (!st.equals("assigned") && !st.equals("accepted") && !st.equals("sofort") && !st.equals("vorbestellt")) continue;
+            // pickupTimestamp muss in der Zukunft liegen (sonst ETA irrelevant)
+            if (r.pickupTimestamp == null || r.pickupTimestamp <= now) continue;
+            // Throttle: max 1 Call pro 20s pro Ride
+            Long lastCall = lastEtaCalc.get(r.id);
+            if (lastCall != null && (now - lastCall) < 20_000L) continue;
+            lastEtaCalc.put(r.id, now);
+            fetchOsrmETA(r.id, vLat, vLon, r.pickupLat, r.pickupLon);
+        }
+    }
+
+    private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon) {
+        new Thread(() -> {
+            try {
+                String url = String.format(Locale.US,
+                    "https://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=false",
+                    fromLon, fromLat, toLon, toLat);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                conn.setRequestProperty("User-Agent", "FunkTaxiHeringsdorf-DriverApp");
+                int code = conn.getResponseCode();
+                if (code != 200) { conn.disconnect(); return; }
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                conn.disconnect();
+                org.json.JSONObject json = new org.json.JSONObject(sb.toString());
+                if (!json.has("routes")) return;
+                org.json.JSONArray routes = json.getJSONArray("routes");
+                if (routes.length() == 0) return;
+                double durationSec = routes.getJSONObject(0).getDouble("duration");
+                int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
+                // Local update + UI redraw
+                runOnUiThread(() -> {
+                    boolean changed = false;
+                    for (Ride rr : myAssignedRides) {
+                        if (rr.id != null && rr.id.equals(rideId)) {
+                            if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durationMin) {
+                                rr.drivingTimeToPickup = durationMin;
+                                changed = true;
+                            }
+                            break;
+                        }
+                    }
+                    if (changed && rideAdapter != null) rideAdapter.notifyDataSetChanged();
+                });
+                // Firebase update damit Admin-Dashboard den Live-Wert sieht
+                if (db != null) {
+                    db.getReference("rides/" + rideId + "/drivingTimeToPickup").setValue(durationMin);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
+            }
+        }, "osrm-eta-" + rideId).start();
     }
 
     // v6.47.0: Hamburger-Menu mit allen Schicht-/Account-Aktionen
@@ -1321,6 +1407,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Long pickupTimestamp;
         List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
         Integer drivingTimeToPickup; // v6.62.6: Anfahrtszeit in Min (Patrick: 'wie lange braucht er bis zum Ziel')
+        Double pickupLat, pickupLon; // v6.62.62: für Live-ETA-Neuberechnung via OSRM
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -1352,6 +1439,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 else if (ts instanceof Number) r.pickupTimestamp = ((Number) ts).longValue();
                 Object dt = s.child("drivingTimeToPickup").getValue();
                 if (dt instanceof Number) r.drivingTimeToPickup = ((Number) dt).intValue();
+                // v6.62.62: pickupCoords als {lat, lon} ODER Top-Level pickupLat/pickupLon
+                DataSnapshot pcSnap = s.child("pickupCoords");
+                if (pcSnap.exists()) {
+                    Object pl = pcSnap.child("lat").getValue();
+                    Object pn = pcSnap.child("lon").getValue();
+                    if (pl instanceof Number) r.pickupLat = ((Number) pl).doubleValue();
+                    if (pn instanceof Number) r.pickupLon = ((Number) pn).doubleValue();
+                }
+                if (r.pickupLat == null) {
+                    Object pl = s.child("pickupLat").getValue();
+                    Object pn = s.child("pickupLon").getValue();
+                    if (pl instanceof Number) r.pickupLat = ((Number) pl).doubleValue();
+                    if (pn instanceof Number) r.pickupLon = ((Number) pn).doubleValue();
+                }
                 return r;
             } catch (Throwable _t) { return null; }
         }

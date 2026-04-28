@@ -188,10 +188,12 @@
 
         <!-- v6.62.53: Patrick: 'paar Infos dass die Leute solange der Fahrer noch nicht
              losgefahren ist stornieren koennen + dass die Page sich automatisch
-             aktualisiert + dass sie separat benachrichtigt werden wenn der Fahrer faehrt'. -->
+             aktualisiert + dass sie separat benachrichtigt werden wenn der Fahrer faehrt
+             + Vorbestellungen koennen die Leute selber via Kundenportal aendern'. -->
         <div id="info-hints" style="display:none; margin-top:10px; padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:13px; line-height:1.5; color:#1e3a8a;">
             <div style="margin-bottom:4px;">🔄 Diese Seite aktualisiert sich automatisch.</div>
             <div style="margin-bottom:4px;" id="hint-cancellable">❌ Solange der Fahrer noch nicht losgefahren ist, können Sie unten stornieren.</div>
+            <div style="margin-bottom:4px;" id="hint-editable" style="display:none;">✏️ <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#1e3a8a; text-decoration:underline;">Buchung im Kundenportal ändern</a> (nur Vorbestellungen über 60 Min vor Abholung)</div>
             <div>📱 Sie werden separat benachrichtigt sobald der Fahrer losfährt.</div>
         </div>
 
@@ -205,10 +207,14 @@
 
         <!-- v6.62.46: Online-Storno fuer Online-Buchungen. Patrick: 'wenn die Leute online
              bestellt haben sollen sie auch online stornieren koennen'. Nur sichtbar bei
-             noch nicht abgeschlossenen / nicht stornierten Fahrten. -->
-        <button id="cancel-btn" onclick="cancelRide()" style="display:none;width:100%;margin-top:10px;padding:12px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
-            ❌ Buchung stornieren
-        </button>
+             noch nicht abgeschlossenen / nicht stornierten Fahrten.
+             v6.62.53: Patrick: 'Stornieren nicht zu praesent, nicht dass die Leute
+             versehentlich druecken'. Outline-Style + schmaler statt knall-rot Vollbreite. -->
+        <div style="text-align:center; margin-top:10px;">
+            <button id="cancel-btn" onclick="cancelRide()" style="display:none;padding:8px 16px;background:white;color:#9ca3af;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
+                Buchung stornieren
+            </button>
+        </div>
 
         <button id="my-location-btn" onclick="toggleMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
             📍 Meinen Standort anzeigen
@@ -401,11 +407,18 @@
                     _cancelBtn.style.display = _isCancellable ? 'block' : 'none';
                 }
                 // v6.62.53: Info-Hints einblenden + Storno-Hinweis nur wenn noch stornierbar
+                // + Aendern-Hinweis nur fuer Vorbestellungen >60min vor Abholung
                 const _hints = document.getElementById('info-hints');
                 const _hintCancel = document.getElementById('hint-cancellable');
+                const _hintEdit = document.getElementById('hint-editable');
                 if (_hints && r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'storniert') {
                     _hints.style.display = 'block';
                     if (_hintCancel) _hintCancel.style.display = _isCancellable ? 'block' : 'none';
+                    if (_hintEdit) {
+                        const _ts = r.pickupTimestamp || r.pickupTime;
+                        const _minsUntilPickup = (typeof _ts === 'number') ? (_ts - Date.now()) / 60000 : 0;
+                        _hintEdit.style.display = (_minsUntilPickup > 60 && _isCancellable) ? 'block' : 'none';
+                    }
                 } else if (_hints) {
                     _hints.style.display = 'none';
                 }
@@ -532,25 +545,58 @@
         // v6.62.46: Online-Storno fuer Online-Buchungen.
         // Direktes Firebase-Update — Cloud-Function-Trigger onRideUpdated kuemmert sich
         // um Admin-Telegram + Storno-SMS an Kunde + Fahrer-Push wenn schon zugewiesen.
+        // v6.62.53: 2-Klick-Storno. Patrick: 'nicht dass die Leute versehentlich druecken,
+         // erstmal stornieren und dann nochmal nach einer Bestaetigung fragen'.
+         // Klick 1: Button wechselt zu Warn-Style + Text 'Wirklich stornieren? Nochmal tippen'.
+         // Klick 2 innerhalb 5s: stornieren. Nach 5s Inaktivitaet: Button reset.
+        let _cancelArmedTimer = null;
         function cancelRide() {
             if (!rideId) return;
-            const sure = confirm('Buchung wirklich stornieren?\n\nNach dem Stornieren ist sie nicht mehr aktiv.');
-            if (!sure) return;
             const btn = document.getElementById('cancel-btn');
-            if (btn) { btn.disabled = true; btn.textContent = '⏳ Wird storniert...'; }
-            db.ref('rides').child(rideId).update({
-                status: 'cancelled',
-                cancelledAt: Date.now(),
-                cancelledBy: 'customer-portal',
-                deletedBy: 'customer-portal',
-                updatedAt: Date.now()
-            }).then(() => {
-                if (btn) { btn.style.display = 'none'; }
-                alert('✅ Ihre Buchung wurde storniert.');
-            }).catch(err => {
-                if (btn) { btn.disabled = false; btn.textContent = '❌ Buchung stornieren'; }
-                alert('Fehler beim Stornieren: ' + err.message + '\n\nBitte direkt anrufen: 038378/22022');
-            });
+            if (!btn) return;
+
+            if (btn.dataset.armed === '1') {
+                // 2. Klick → ausfuehren
+                clearTimeout(_cancelArmedTimer);
+                btn.dataset.armed = '0';
+                btn.disabled = true;
+                btn.textContent = '⏳ Wird storniert...';
+                db.ref('rides').child(rideId).update({
+                    status: 'cancelled',
+                    cancelledAt: Date.now(),
+                    cancelledBy: 'customer-portal',
+                    deletedBy: 'customer-portal',
+                    updatedAt: Date.now()
+                }).then(() => {
+                    btn.style.display = 'none';
+                    alert('✅ Ihre Buchung wurde storniert.');
+                }).catch(err => {
+                    btn.disabled = false;
+                    btn.textContent = 'Buchung stornieren';
+                    btn.style.background = 'white';
+                    btn.style.color = '#9ca3af';
+                    btn.style.borderColor = '#d1d5db';
+                    alert('Fehler beim Stornieren: ' + err.message + '\n\nBitte direkt anrufen: 038378/22022');
+                });
+                return;
+            }
+
+            // 1. Klick → Warn-State scharfschalten
+            btn.dataset.armed = '1';
+            btn.textContent = '❌ Wirklich stornieren? Nochmal tippen';
+            btn.style.background = '#fef2f2';
+            btn.style.color = '#dc2626';
+            btn.style.borderColor = '#dc2626';
+            // Auto-Reset nach 5s
+            _cancelArmedTimer = setTimeout(() => {
+                if (btn.dataset.armed === '1') {
+                    btn.dataset.armed = '0';
+                    btn.textContent = 'Buchung stornieren';
+                    btn.style.background = 'white';
+                    btn.style.color = '#9ca3af';
+                    btn.style.borderColor = '#d1d5db';
+                }
+            }, 5000);
         }
 
         // v6.42.7: Tracking-Karte schließen — versucht window.close(), sonst History/Home

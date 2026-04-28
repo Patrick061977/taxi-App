@@ -321,26 +321,27 @@
                 const destLat = ride.destCoords?.lat || ride.destinationLat;
                 const destLon = ride.destCoords?.lon || ride.destinationLon;
 
-                // Pickup Marker
+                // v6.62.57: Patrick: 'Stecknadel — was ist Abholort und was Zielort?'
+                // Sichtbare Labels statt nur Popup. Pickup gruen, Ziel rot.
                 if (pickupLat && pickupLon) {
                     pickupMarker = L.marker([pickupLat, pickupLon], {
                         icon: L.divIcon({
-                            html: '<div style="font-size:30px;">📍</div>',
-                            iconSize: [30, 30],
+                            html: '<div style="display:inline-flex;align-items:center;background:#16a34a;color:white;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);"><span style="font-size:14px;margin-right:4px;">📍</span>Abholort</div>',
+                            iconSize: null,
+                            iconAnchor: [0, 12],
                             className: ''
                         })
-                    }).addTo(map).bindPopup('Abholung: ' + pickup);
+                    }).addTo(map).bindPopup('<b>Abholort:</b><br>' + pickup);
                 }
-
-                // Destination Marker
                 if (destLat && destLon) {
                     destinationMarker = L.marker([destLat, destLon], {
                         icon: L.divIcon({
-                            html: '<div style="font-size:30px;">🎯</div>',
-                            iconSize: [30, 30],
+                            html: '<div style="display:inline-flex;align-items:center;background:#dc2626;color:white;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);"><span style="font-size:14px;margin-right:4px;">🎯</span>Zielort</div>',
+                            iconSize: null,
+                            iconAnchor: [0, 12],
                             className: ''
                         })
-                    }).addTo(map).bindPopup('Ziel: ' + destination);
+                    }).addTo(map).bindPopup('<b>Zielort:</b><br>' + destination);
                 }
 
                 // v6.62.55: Karte zeigt Pickup→Destination + Auto-Zoom.
@@ -418,8 +419,8 @@
                     if (_termin) _rows.push(`<div>📅 <b>Termin:</b> ${_termin}</div>`);
                     if (r.customerName) _rows.push(`<div>👤 <b>Name:</b> ${r.customerName}</div>`);
                     if (r.passengers && r.passengers > 1) _rows.push(`<div>👥 <b>Personen:</b> ${r.passengers}</div>`);
-                    if (r.pickup) _rows.push(`<div>📍 <b>Von:</b> ${r.pickup}</div>`);
-                    if (r.destination) _rows.push(`<div>🎯 <b>Nach:</b> ${r.destination}</div>`);
+                    if (r.pickup) _rows.push(`<div>📍 <b>Abholort:</b> ${r.pickup}</div>`);
+                    if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
                     if (r.price) _rows.push(`<div>💰 <b>Preis ca.</b> ${String(r.price).replace('.', ',')} €</div>`);
                     if (_rows.length) {
                         _bd.innerHTML = _rows.join('');

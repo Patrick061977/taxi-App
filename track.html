@@ -342,6 +342,17 @@
                         })
                     }).addTo(map).bindPopup('Ziel: ' + destination);
                 }
+
+                // v6.62.55: Patrick: 'Karte hochklappen dass die Leute sehen von wo nach wo
+                // sie fahren'. Sobald Pickup + Destination da sind: Strecke einzeichnen +
+                // Karte auf beide zoomen — auch ohne Vehicle (Vorbestellung vor Zuweisung).
+                if (pickupLat && pickupLon && destLat && destLon) {
+                    L.polyline([[pickupLat, pickupLon], [destLat, destLon]], {
+                        color: '#3b82f6', weight: 3, opacity: 0.6, dashArray: '8 8'
+                    }).addTo(map);
+                    const _bounds = L.latLngBounds([[pickupLat, pickupLon], [destLat, destLon]]);
+                    map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 });
+                }
             }
 
             // 🔧 v6.39.5: Fahrt-Status live verfolgen + Badge-Farbe aktualisieren

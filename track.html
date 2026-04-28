@@ -180,73 +180,7 @@
             box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12);
         }
 
-        /* v6.62.65: Lifecycle-Timeline mit echtem Vertical-Bar-Look */
-        #lifecycle-section {
-            margin-top: 12px !important;
-            padding: 10px 12px !important;
-            background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            font-size: 12.5px !important;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-        }
-        #lifecycle-section summary {
-            font-weight: 600;
-            color: #334155;
-            user-select: none;
-            list-style: none;
-        }
-        #lifecycle-section summary::-webkit-details-marker { display: none; }
-        #lifecycle-section summary::before {
-            content: '▶';
-            display: inline-block;
-            margin-right: 6px;
-            font-size: 9px;
-            color: #94a3b8;
-            transition: transform 0.2s;
-        }
-        #lifecycle-section[open] summary::before { transform: rotate(90deg); }
-
-        .lc-item {
-            position: relative;
-            padding: 8px 0 8px 22px;
-            border-left: 2px solid #e2e8f0;
-            margin-left: 6px;
-        }
-        .lc-item::before {
-            content: '';
-            position: absolute;
-            left: -5px;
-            top: 12px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #94a3b8;
-            box-shadow: 0 0 0 2px white;
-        }
-        .lc-item.lc-status::before { background: #3b82f6; }
-        .lc-item.lc-warn::before { background: #f59e0b; }
-        .lc-item.lc-ok::before { background: #10b981; }
-        .lc-item.lc-error::before { background: #ef4444; }
-
-        .lc-time {
-            font-size: 10.5px;
-            color: #94a3b8;
-            font-variant-numeric: tabular-nums;
-        }
-        .lc-action {
-            font-weight: 500;
-            color: #1e293b;
-            font-size: 12.5px;
-            line-height: 1.4;
-            margin: 1px 0;
-        }
-        .lc-details {
-            font-size: 11px;
-            color: #64748b;
-            line-height: 1.4;
-        }
-        .lc-details span.k { color: #94a3b8; }
+        /* v6.62.85: Lifecycle-Timeline-Styles entfernt (Section ist nicht mehr in track.html) */
 
         /* v6.62.65: Buttons polieren */
         #my-location-btn {
@@ -321,17 +255,10 @@
             📍 Warte auf GPS-Position...
         </div>
 
-        <!-- v6.62.64: Lifecycle-Verlauf — Timeline aller Events seit Buchungseingang.
-             Patrick (28.04.): "wir sehen wann das Signal ausgeloest wurde, was war die
-             Ursache, wurde ein Push gesendet, schoenen Ablauf, wann die Sachen versendet
-             wurden". Daten kommen aus rides/{id}/lifecycleLog (Cloud Function addRideLog
-             seit v6.38.44). -->
-        <details id="lifecycle-section">
-            <summary style="cursor:pointer;">📋 Verlauf <span id="lifecycle-count" style="color:#94a3b8; font-weight:400; margin-left:4px;"></span></summary>
-            <div id="lifecycle-timeline" style="margin-top:10px; max-height:280px; overflow-y:auto; padding-right:4px;">
-                <div style="color:#94a3b8; text-align:center; padding:10px; font-size:12px;">Lade Verlauf…</div>
-            </div>
-        </details>
+        <!-- v6.62.85: Lifecycle-Verlauf rausgenommen aus track.html (Kunden-Page).
+             Patrick: 'fuer wen soll der Verlauf sichtbar sein? Fuer den Kunden oder was?'
+             Audit-Trail gehoert in Admin-Bereich, nicht zum Kunden. Daten bleiben in
+             Firebase rides/{id}/lifecycleLog erhalten — werden vom Admin-Tab gelesen. -->
 
         <!-- v6.62.46: Online-Storno fuer Online-Buchungen. Patrick: 'wenn die Leute online
              bestellt haben sollen sie auch online stornieren koennen'. Nur sichtbar bei
@@ -588,150 +515,8 @@
                 }
             });
 
-            // v6.62.72: GPS-Track + Lifecycle-Marker auf der Karte. Patrick: 'damit wir
-            // nachvollziehen können, ob das richtige Fahrzeug gewählt wurde, ob das Fahrzeug
-            // mit dem dichtesten GPS gewählt wurde und was er gemacht hat'.
-            // Daten: shiftHistory/{vid}/{shiftId}/heartbeats[] korreliert mit lifecycleLog.
-            (async () => {
-                try {
-                    const r = (await db.ref('rides').child(rideId).once('value')).val();
-                    if (!r || !vehicleId || !r.pickupTimestamp) return;
-                    // Aktive Schicht zum Pickup-Zeitpunkt finden
-                    const shiftSnap = await db.ref('shiftHistory/' + vehicleId).once('value');
-                    let chosenShift = null;
-                    let chosenSId = 0;
-                    shiftSnap.forEach(c => {
-                        const sId = parseInt(c.key);
-                        const s = c.val();
-                        if (!s) return;
-                        if (sId <= r.pickupTimestamp && (!s.endedAt || s.endedAt >= r.pickupTimestamp - 30*60000)) {
-                            if (sId > chosenSId) { chosenSId = sId; chosenShift = s; }
-                        }
-                    });
-                    if (!chosenShift || !chosenShift.heartbeats) {
-                        console.log('🗺️ Keine Heartbeats fuer GPS-Track gefunden');
-                        return;
-                    }
-                    // Heartbeats im Zeitfenster (30 Min vor pickup bis 30 Min nach Endzeit)
-                    const wStart = r.pickupTimestamp - 30 * 60 * 1000;
-                    const wEnd = (r.completedAt || r.pickedUpAt || r.onWayAt || r.pickupTimestamp) + 30 * 60 * 1000;
-                    const beats = Object.values(chosenShift.heartbeats)
-                        .filter(hb => hb && hb.ts >= wStart && hb.ts <= wEnd && hb.lat && hb.lon)
-                        .sort((a, b) => a.ts - b.ts);
-                    if (beats.length >= 2) {
-                        const coords = beats.map(hb => [hb.lat, hb.lon]);
-                        L.polyline(coords, { color: '#10b981', weight: 3, opacity: 0.55, dashArray: '6, 8' })
-                            .bindTooltip(`📍 GPS-Track (${beats.length} Punkte)`, { sticky: true })
-                            .addTo(map);
-                    }
-                    // Lifecycle-Events korrelieren mit Heartbeats → Marker
-                    const lcSnap2 = await db.ref('rides/' + rideId + '/lifecycleLog').once('value');
-                    const events = [];
-                    lcSnap2.forEach(c => { const v = c.val(); if (v && v.t) events.push(v); });
-                    const relevantIcons = new Set(['📥','👆','🚗','✅','🏁','📊','📲','⚠️']);
-                    let markerCount = 0;
-                    for (const e of events) {
-                        if (!relevantIcons.has(e.icon)) continue;
-                        let nearestHb = null, minDiff = Infinity;
-                        for (const hb of beats) {
-                            const diff = Math.abs(hb.ts - e.t);
-                            if (diff < minDiff) { minDiff = diff; nearestHb = hb; }
-                        }
-                        if (!nearestHb || minDiff > 90000) continue;
-                        const time = new Date(e.t).toLocaleTimeString('de-DE', { timeZone:'Europe/Berlin', hour:'2-digit', minute:'2-digit', second:'2-digit' });
-                        let color = '#3b82f6';
-                        if (e.icon === '✅' || e.icon === '🚗') color = '#10b981';
-                        else if (e.icon === '⚠️') color = '#f59e0b';
-                        else if (e.icon === '🏁') color = '#8b5cf6';
-                        else if (e.icon === '👆') color = '#06b6d4';
-                        else if (e.icon === '📥' || e.icon === '📲') color = '#6366f1';
-                        L.circleMarker([nearestHb.lat, nearestHb.lon], {
-                            radius: 6, fillColor: color, color:'#fff', weight: 2, opacity: 1, fillOpacity: 0.9
-                        }).bindTooltip(`<b>${e.icon} ${(e.action || '').replace(/[<>]/g,'')}</b><br>${time}`, { direction:'top' }).addTo(map);
-                        markerCount++;
-                    }
-                    console.log(`🗺️ GPS-Track: ${beats.length} Heartbeats, ${markerCount} Lifecycle-Marker`);
-                } catch (_e) { console.warn('GPS-Track-Fehler:', _e.message); }
-            })();
-
-            // v6.62.64: Lifecycle-Verlauf Live-Listener — Cloud Function addRideLog
-            // schreibt in rides/{id}/lifecycleLog. Patrick will den ganzen Ablauf sehen.
-            db.ref('rides').child(rideId).child('lifecycleLog').on('value', (lcSnap) => {
-                const tl = document.getElementById('lifecycle-timeline');
-                const cnt = document.getElementById('lifecycle-count');
-                if (!tl) return;
-                const items = [];
-                lcSnap.forEach(c => {
-                    const v = c.val();
-                    if (v && v.t) items.push(v);
-                });
-                items.sort((a, b) => a.t - b.t);
-                if (cnt) cnt.textContent = items.length > 0 ? `(${items.length})` : '';
-                if (items.length === 0) {
-                    tl.innerHTML = '<div style="color:#9ca3af; text-align:center; padding:8px;">Noch keine Eintraege.</div>';
-                    return;
-                }
-                tl.innerHTML = items.map(e => {
-                    const time = new Date(e.t).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    const icon = e.icon || '•';
-                    const action = (e.action || '').replace(/[<>]/g, '');
-                    // v6.62.65: Klassen fuer Timeline-Dots je Event-Typ
-                    let cls = 'lc-item';
-                    if (icon === '🚑' || icon === '❌' || icon === '⚠️') cls += ' lc-warn';
-                    else if (icon === '✅' || icon === '🚗') cls += ' lc-ok';
-                    else if (icon === '📊') cls += ' lc-status';
-                    else if (icon === '💥' || icon === '🔥') cls += ' lc-error';
-                    let detailStr = '';
-                    if (e.details) {
-                        let d = e.details;
-                        if (typeof d === 'string') {
-                            try { d = JSON.parse(d); } catch(_) { /* Plain-String */ }
-                        }
-                        if (typeof d === 'object' && d !== null) {
-                            const parts = Object.entries(d).slice(0, 4).map(([k, v]) => `<span class="k">${k}:</span> ${String(v).slice(0, 40)}`);
-                            detailStr = `<div class="lc-details">${parts.join(' &middot; ')}</div>`;
-                        } else if (typeof d === 'string') {
-                            detailStr = `<div class="lc-details">${d.slice(0, 100)}</div>`;
-                        }
-                    }
-                    return `<div class="${cls}">
-                        <div class="lc-time">${time}</div>
-                        <div class="lc-action">${icon} ${action}</div>
-                        ${detailStr}
-                    </div>`;
-                }).join('');
-
-                // v6.62.72: Fahrzeug-Auswahl-Tabelle (vehicleScores) am Ende der Timeline
-                db.ref('rides/' + rideId + '/vehicleScores').once('value').then(vsSnap => {
-                    const vs = vsSnap.val();
-                    if (!vs || typeof vs !== 'object') return;
-                    const rows = Object.entries(vs).map(([vid, sc]) => {
-                        let bg = '';
-                        if (sc.status === 'chosen') bg = 'background:#d1fae5;';
-                        else if (sc.status === 'rejected') bg = 'background:#fee2e2;';
-                        else if (sc.status === 'available') bg = 'background:#dbeafe;';
-                        return `<tr style="${bg}">
-                            <td style="padding:3px 6px; font-weight:600;">${vid}</td>
-                            <td style="padding:3px 6px;">${sc.status || '?'}</td>
-                            <td style="padding:3px 6px; color:#6b7280;">${(sc.reason || '').slice(0, 50)}</td>
-                            <td style="padding:3px 6px; text-align:right;">${sc.totalScore != null ? sc.totalScore : (sc.distanceKm != null ? sc.distanceKm + ' km' : '—')}</td>
-                        </tr>`;
-                    }).join('');
-                    const html = `<div style="margin-top:10px; padding:8px; background:#fff; border:1px solid #e5e7eb; border-radius:8px;">
-                        <div style="font-weight:600; color:#374151; font-size:11px; margin-bottom:6px;">🚖 Fahrzeug-Auswahl-Logik (${Object.keys(vs).length})</div>
-                        <table style="width:100%; font-size:10.5px; border-collapse:collapse;">
-                            <thead><tr style="color:#6b7280; border-bottom:1px solid #e5e7eb;">
-                                <th style="text-align:left; padding:3px 6px;">Fahrzeug</th>
-                                <th style="text-align:left; padding:3px 6px;">Status</th>
-                                <th style="text-align:left; padding:3px 6px;">Grund</th>
-                                <th style="text-align:right; padding:3px 6px;">Score/km</th>
-                            </tr></thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>`;
-                    tl.insertAdjacentHTML('beforeend', html);
-                }).catch(()=>{});
-            });
+            // v6.62.85: Lifecycle-Verlauf, GPS-Marker, vehicleScores entfernt — track.html
+            // ist Kunden-Page. Audit-Trail kommt in Admin-Bereich.
 
             // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!
             db.ref('vehicles').on('value', (driversSnapshot) => {

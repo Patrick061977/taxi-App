@@ -1702,22 +1702,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 // v6.62.6: Patrick: 'wie lange er braucht bis zum Ziel, damit er rechtzeitig losfahren kann'.
                 // Wenn drivingTimeToPickup gesetzt + pickupTimestamp in der Zukunft → Losfahrt-Zeit anzeigen.
+                // v6.62.81: kompakter — Patrick: 'sehe Zahl nicht, muss kleiner gemacht werden'.
+                // Vorher: '21:30  •  🚗 los um 21:26 (4 Min)' = ~35 Zeichen, croppt auf schmalen Geraeten.
+                // Jetzt: '21:30 → 🚗 21:26 (4min)' = ~22 Zeichen.
                 if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0
                     && r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
                     long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
                     if (_losfahrtMs > System.currentTimeMillis()) {
                         java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                         _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                        _displayTime += "  •  🚗 los um " + _lfFmt.format(new java.util.Date(_losfahrtMs))
-                            + " (" + r.drivingTimeToPickup + " Min)";
+                        _displayTime += " → 🚗 " + _lfFmt.format(new java.util.Date(_losfahrtMs))
+                            + " (" + r.drivingTimeToPickup + "min)";
                     } else {
-                        _displayTime += "  •  ⚠️ JETZT LOSFAHREN (" + r.drivingTimeToPickup + " Min Anfahrt)";
+                        _displayTime += " → ⚠️ JETZT (" + r.drivingTimeToPickup + "min)";
                     }
                 }
-                // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar → "noch X Min bis Ziel"
+                // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar
+                // v6.62.81: kompakter — '⏱️ X min' statt 'Ziel in X Min'
                 String _stLow = r.status != null ? r.status.toLowerCase() : "";
                 if (_stLow.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
-                    _displayTime += "  •  ⏱️ Ziel in " + r.drivingTimeToDestination + " Min";
+                    _displayTime += " → ⏱️ " + r.drivingTimeToDestination + "min";
                 }
                 tvTime.setText(_displayTime);
                 String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",

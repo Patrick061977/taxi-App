@@ -4200,21 +4200,44 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                 // 🔧 v6.38.26: Echtes Levenshtein-Matching statt nur includes()
                 const fuzzyWords = addressToResolve.toLowerCase().replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 2);
                 const similarPlaces = [];
-                // Hilfsfunktion: Fuzzy-Wort-Match mit Levenshtein
+                // 🆕 v6.62.70: Common-Word-Liste — Generika zaehlen weniger als Eigennamen.
+                // Patrick: 'Hotel Admiral' soll NICHT 'Hotel Residenz' vorschlagen weil nur 'hotel' matched.
+                const _COMMON_WORDS = new Set([
+                    'hotel', 'pension', 'restaurant', 'cafe', 'café', 'bar', 'imbiss',
+                    'bahnhof', 'flughafen', 'parkplatz', 'parkhaus', 'apotheke', 'tankstelle',
+                    'supermarkt', 'rewe', 'edeka', 'aldi', 'lidl', 'penny',
+                    'arzt', 'praxis', 'klinik', 'krankenhaus', 'zahnarzt',
+                    'strandhotel', 'promenadenhotel', 'gasthaus', 'gasthof',
+                    'strasse', 'straße', 'weg', 'platz', 'allee',
+                    'usedom', 'heringsdorf', 'bansin', 'ahlbeck', 'kamminke', 'koserow',
+                    'der', 'die', 'das', 'dem', 'den', 'des', 'ein', 'eine', 'einer'
+                ]);
+                // Eigennamen 2 Pkt, Common-Words 0.5 Pkt
+                const _wordWeight = (w) => _COMMON_WORDS.has(w) ? 0.5 : 2.0;
+                // Hilfsfunktion: Fuzzy-Wort-Match mit Levenshtein + Score-Gewichtung
                 const _fuzzyWordCount = (fWords, targetText) => {
                     const tWords = targetText.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
-                    return fWords.filter(fw => tWords.some(tw => {
-                        if (tw.includes(fw) || fw.includes(tw)) return true;
-                        const maxD = Math.max(fw.length, tw.length) >= 7 ? 2 : 1;
-                        return _levenshteinDist(fw, tw) <= maxD;
-                    })).length;
+                    let score = 0;
+                    for (const fw of fWords) {
+                        const matched = tWords.some(tw => {
+                            if (tw.includes(fw) || fw.includes(tw)) return true;
+                            const maxD = Math.max(fw.length, tw.length) >= 7 ? 2 : 1;
+                            return _levenshteinDist(fw, tw) <= maxD;
+                        });
+                        if (matched) score += _wordWeight(fw);
+                    }
+                    return score;
                 };
+                // 🆕 v6.62.70: Mindest-Score-Schwelle — mind. 50% des MAX-moeglichen Scores
+                // (verhindert dass 'Hotel Admiral' mit 'Hotel Residenz' beantwortet wird wenn nur 'hotel' matched).
+                const _maxPossibleScore = fuzzyWords.reduce((sum, w) => sum + _wordWeight(w), 0);
+                const _minRequiredScore = Math.max(1.0, _maxPossibleScore * 0.5);
                 // 1. KNOWN_PLACES (v6.48.0 — aus /pois)
                 const _kpFuzzy = await getKnownPlaces();
                 for (const [key, place] of Object.entries(_kpFuzzy)) {
                     const pName = (place.name || '').toLowerCase();
                     const matchCount = _fuzzyWordCount(fuzzyWords, key + ' ' + pName);
-                    if (matchCount > 0) {
+                    if (matchCount >= _minRequiredScore) {
                         similarPlaces.push({ ...place, name: place.name || key, score: matchCount });
                     }
                 }
@@ -4228,7 +4251,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             const pName = poi.name.toLowerCase();
                             const pAddr = (poi.address || '').toLowerCase();
                             const matchCount = _fuzzyWordCount(fuzzyWords, pName + ' ' + pAddr);
-                            if (matchCount > 0) {
+                            if (matchCount >= _minRequiredScore) {
                                 const displayName = poi.address ? (poi.address.toLowerCase().startsWith(poi.name.toLowerCase()) ? poi.address : `${poi.name}, ${poi.address}`) : poi.name;
                                 similarPlaces.push({ name: displayName, lat: poi.lat, lon: poi.lon, score: matchCount });
                             }
@@ -4250,7 +4273,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             if (seen.has(key)) continue;
                             seen.add(key);
                             const matchCount = _fuzzyWordCount(fuzzyWords, key);
-                            if (matchCount > 0) {
+                            if (matchCount >= _minRequiredScore) {
                                 similarPlaces.push({ name: addr, lat, lon, score: matchCount });
                             }
                         }
@@ -4269,7 +4292,7 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
                             const lon = c.lon || c.pickupLon;
                             if (!lat || !lon) return;
                             const matchCount = _fuzzyWordCount(fuzzyWords, cName + ' ' + cAddr);
-                            if (matchCount > 0) {
+                            if (matchCount >= _minRequiredScore) {
                                 similarPlaces.push({ name: `${c.name}, ${c.address}`, lat, lon, score: matchCount });
                             }
                         });

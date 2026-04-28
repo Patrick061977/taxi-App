@@ -587,15 +587,90 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvShiftTimer.setText(String.format(Locale.GERMANY, "⏱ %02d:%02d:%02d", h, m, sec));
     }
 
+    // v6.62.67: Pause-Resume-Handler fuer Auto-Resume nach 15/30 Min
+    private final Handler pauseResumeHandler = new Handler(Looper.getMainLooper());
+    private Runnable pauseResumeTask = null;
+
     private void toggleOnline() {
         if (db == null || currentVehicleId == null) return;
-        onlineState = !onlineState;
-        // UI-Update kommt automatisch via onVehicleUpdate-Listener wenn Firebase write durchgeht
+        if (onlineState) {
+            // Aktuell online → Pause-Dialog zeigen mit 15/30/Manuell-Auswahl
+            showPauseDialog();
+        } else {
+            // Aktuell in Pause → sofort wieder online (Patrick: "manuell zurueck")
+            cancelPauseResumeTask();
+            Map<String, Object> u = new HashMap<>();
+            u.put("online", true);
+            u.put("dispatchStatus", "online");
+            u.put("pauseUntil", null);
+            u.put("pauseResumedAt", System.currentTimeMillis());
+            u.put("pauseResumedBy", "manual");
+            db.getReference("vehicles/" + currentVehicleId).updateChildren(u);
+            Toast.makeText(this, "🟢 Online", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // v6.62.67: Pause-Dialog mit 15/30/Manuell. Spec von Patrick 28.04.:
+    // "der springt dann automatisch nach 15 Minuten wieder in frei oder
+    //  nach 30 Minuten ... dann weiss zumindest auch die Vermittlung,
+    //  wann das Fahrzeug wieder frei ist."
+    private void showPauseDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⏸ Pause machen")
+            .setItems(new String[]{
+                "15 Minuten (auto-zurueck)",
+                "30 Minuten (auto-zurueck)",
+                "Manuell (manuell zurueck)"
+            }, (dialog, which) -> {
+                int minutes = 0;
+                if (which == 0) minutes = 15;
+                else if (which == 1) minutes = 30;
+                setPause(minutes);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void setPause(int minutes) {
+        if (db == null || currentVehicleId == null) return;
+        cancelPauseResumeTask();
+        long now = System.currentTimeMillis();
         Map<String, Object> u = new HashMap<>();
-        u.put("online", onlineState);
-        u.put("dispatchStatus", onlineState ? "online" : "offline");
+        u.put("online", false);
+        u.put("dispatchStatus", "pause");
+        u.put("pauseStartedAt", now);
+        if (minutes > 0) {
+            long pauseUntil = now + (long) minutes * 60_000L;
+            u.put("pauseUntil", pauseUntil);
+            // Lokaler Timer als primaerer Trigger; Cloud Function als Backup
+            pauseResumeTask = () -> {
+                if (db == null || currentVehicleId == null) return;
+                Map<String, Object> resumeU = new HashMap<>();
+                resumeU.put("online", true);
+                resumeU.put("dispatchStatus", "online");
+                resumeU.put("pauseUntil", null);
+                resumeU.put("pauseResumedAt", System.currentTimeMillis());
+                resumeU.put("pauseResumedBy", "app-timer");
+                db.getReference("vehicles/" + currentVehicleId).updateChildren(resumeU);
+                runOnUiThread(() -> Toast.makeText(this, "🟢 Pause vorbei — wieder online", Toast.LENGTH_LONG).show());
+                pauseResumeTask = null;
+            };
+            pauseResumeHandler.postDelayed(pauseResumeTask, (long) minutes * 60_000L);
+            Toast.makeText(this, "⏸ Pause " + minutes + " Min — auto-zurueck um " +
+                new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(pauseUntil)),
+                Toast.LENGTH_LONG).show();
+        } else {
+            u.put("pauseUntil", null); // Manuell — kein Auto-Resume
+            Toast.makeText(this, "⏸ Pause manuell — tippe nochmal um wieder online zu gehen", Toast.LENGTH_LONG).show();
+        }
         db.getReference("vehicles/" + currentVehicleId).updateChildren(u);
-        Toast.makeText(this, onlineState ? "🟢 Online" : "⏸ Pause", Toast.LENGTH_SHORT).show();
+    }
+
+    private void cancelPauseResumeTask() {
+        if (pauseResumeTask != null) {
+            pauseResumeHandler.removeCallbacks(pauseResumeTask);
+            pauseResumeTask = null;
+        }
     }
 
     private void calcTodayEarnings(DataSnapshot s) {

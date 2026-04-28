@@ -19712,6 +19712,29 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
             const vehiclesSnap = await db.ref('vehicles').once('value');
             const vehicles = vehiclesSnap.val() || {};
 
+            // 🆕 v6.62.67: PAUSE-AUTO-RESUME — Fahrer hat Pause mit pauseUntil gesetzt.
+            // Sobald pauseUntil < now → wieder online schalten. Backup falls die App
+            // den eigenen Resume-Handler nicht ausgefuehrt hat (App-Crash, Doze-Mode).
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || !v.shift) continue;
+                if (v.shift.status !== 'active') continue;
+                if (v.online !== false) continue; // ist schon online
+                const pauseUntil = v.pauseUntil;
+                if (typeof pauseUntil !== 'number' || pauseUntil <= 0) continue;
+                if (pauseUntil > now) continue; // noch in Pause
+                // Pause vorbei → resume
+                try {
+                    await db.ref('vehicles/' + vid).update({
+                        online: true,
+                        dispatchStatus: 'online',
+                        pauseUntil: null,
+                        pauseResumedAt: now,
+                        pauseResumedBy: 'cloud-auto-resume'
+                    });
+                    console.log(`▶️ Pause-Auto-Resume: ${v.name || vid} wieder online (Pause bis ${new Date(pauseUntil).toLocaleString('de-DE',{ timeZone:'Europe/Berlin' })})`);
+                } catch (_e) { console.warn('Pause-Resume Fehler ' + vid + ': ' + _e.message); }
+            }
+
             // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
             // Aufruf alle 2 Min. Jetzt: nur status active/on_way/picked_up/accepted/arrived
             // (nur die brauchen wir für die Schicht-Lebendcheck-Logik).

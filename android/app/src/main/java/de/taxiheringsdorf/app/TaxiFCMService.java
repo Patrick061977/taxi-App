@@ -55,6 +55,26 @@ public class TaxiFCMService extends FirebaseMessagingService {
         String pickupTime = data.getOrDefault("pickupTime", "Sofort");
         String customerName = data.getOrDefault("customerName", "Kunde");
 
+        // v6.62.69: Audit-Trail — Push-Empfang im lifecycleLog der Ride loggen.
+        // Patrick will sehen wann sein Handy den Push wirklich empfangen hat (vs. wann er
+        // gesendet wurde). Differenz zeigt FCM-Latenz.
+        if (rideId != null && !rideId.isEmpty() && ("new_ride".equals(type) || "ride_cancelled".equals(type))) {
+            try {
+                java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("t", System.currentTimeMillis());
+                entry.put("icon", "📥");
+                entry.put("action", "FCM-Push empfangen (Handy)");
+                entry.put("source", "🤖 Native v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+                entry.put("device", android.os.Build.MODEL);
+                org.json.JSONObject details = new org.json.JSONObject();
+                details.put("type", type);
+                details.put("isReminder", data.getOrDefault("isReminder", "false"));
+                entry.put("details", details.toString());
+                com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+            } catch (Throwable _logErr) { Log.w(TAG, "Lifecycle-Log fuer Push-Empfang fehlgeschlagen: " + _logErr.getMessage()); }
+        }
+
         // Notification-Inhalt
         String title;
         String body;

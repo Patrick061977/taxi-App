@@ -536,9 +536,24 @@ async function sendFCMToVehicle(vehicleId, payload) {
         };
         const result = await admin.messaging().send(message);
         console.log(`✅ FCM gesendet an ${vehicleId}: ${result}`);
+        // 🆕 v6.62.69: Audit-Trail im lifecycleLog der Ride — Patrick will sehen wann Push raus ging
+        if (payload && payload.rideId) {
+            try {
+                await addRideLog(payload.rideId, '📲', `FCM-Push gesendet an ${vehicleId}`, {
+                    vehicleId,
+                    type: payload.type || 'unknown',
+                    isReminder: payload.isReminder || 'false',
+                    quelle: 'sendFCMToVehicle'
+                });
+            } catch (_logErr) { /* Log-Fehler nicht eskalieren */ }
+        }
         return true;
     } catch (e) {
         console.error(`❌ sendFCMToVehicle ${vehicleId} fehlgeschlagen:`, e.message);
+        // v6.62.69: Auch Fehlschlaege loggen
+        if (payload && payload.rideId) {
+            try { await addRideLog(payload.rideId, '⚠️', `FCM-Push FEHLGESCHLAGEN an ${vehicleId}`, { vehicleId, fehler: e.message }); } catch(_) {}
+        }
         // Wenn Token ungültig (UNREGISTERED/INVALID_ARGUMENT) → entfernen
         if (e.code === 'messaging/registration-token-not-registered' || e.code === 'messaging/invalid-registration-token') {
             try { await db.ref(`vehicles/${vehicleId}/fcmToken`).remove(); } catch (_) {}

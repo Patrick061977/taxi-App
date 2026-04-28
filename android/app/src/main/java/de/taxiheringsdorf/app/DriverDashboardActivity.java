@@ -1067,9 +1067,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
 
+        // v6.62.69: Tap-Audit — wer hat den Status-Tap ausgeloest. Cloud onRideUpdated
+        // loggt den Status-Wechsel selbst, aber wir wissen nicht ob es ein Driver-Tap oder
+        // anderer Trigger war. Patrick will das im Verlauf nachvollziehen koennen.
+        logLifecycleTap(r.id, "👆", "Fahrer-Tap: Status → " + next, next);
+
         // v6.62.61: Auto-SMS-Tracking-Link entfernt. Cloud-Function schickt bei Status-Wechsel
         // bereits 2 SMS (Bestaetigung + "Fahrer faehrt los", beide mit Track-Link inline) —
         // die zusaetzliche Fahrer-SIM-SMS war doppelt. Manueller btn_sms_track bleibt fuer Notfaelle.
+    }
+
+    // v6.62.69: Lifecycle-Eintrag fuer Fahrer-Aktionen (Tap-Events) ins rides/{id}/lifecycleLog
+    private void logLifecycleTap(String rideId, String icon, String action, String newStatus) {
+        if (db == null || rideId == null || rideId.isEmpty()) return;
+        try {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("t", System.currentTimeMillis());
+            entry.put("icon", icon);
+            entry.put("action", action);
+            entry.put("source", "🤖 Native v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+            entry.put("device", android.os.Build.MODEL);
+            org.json.JSONObject details = new org.json.JSONObject();
+            details.put("vehicleId", currentVehicleId != null ? currentVehicleId : "?");
+            if (newStatus != null) details.put("newStatus", newStatus);
+            entry.put("details", details.toString());
+            db.getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+        } catch (Throwable _e) { Log.w(TAG, "logLifecycleTap fehlgeschlagen: " + _e.getMessage()); }
     }
 
     // v6.44.0: Bezahl-Dialog nach "Fahrt fertig" — Bar/iZettle/Hotel/Mail
@@ -1686,6 +1709,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         u.put("acceptedVia", "native_dashboard");
         u.put("updatedAt", System.currentTimeMillis());
         db.getReference("rides/" + rideId).updateChildren(u);
+        // v6.62.69: Tap-Audit
+        logLifecycleTap(rideId, "✅", "Fahrer-Tap: Status manuell → " + newStatus, newStatus);
     }
 
     // v6.43.1: Annehmen — bei unzugewiesenen Aufträgen (warteschlange/sofort/new)
@@ -1704,6 +1729,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         u.put("updatedAt", System.currentTimeMillis());
         u.put("openRideWarned", null);  // Watchdog reset
         db.getReference("rides/" + rideId).updateChildren(u);
+        // v6.62.69: Tap-Audit
+        logLifecycleTap(rideId, "✅", "Fahrer-Tap: ANGENOMMEN (aus Warteschlange)", "accepted");
     }
 
     private void rejectRide(String rideId) {

@@ -20,17 +20,21 @@
             overflow: hidden;
         }
         
+        /* v6.62.59: Patrick: 'alles ein bisschen kleiner, panel kann ich nicht scrollen,
+           Storno-Button sehe ich nicht'. max-height + overflow-y damit alles erreichbar. */
         #info {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
+            top: 12px;
+            left: 12px;
+            right: 12px;
             background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
             z-index: 1000;
-            max-width: 400px;
+            max-width: 380px;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
         }
         
         #map {
@@ -47,7 +51,8 @@
         
         .header h2 {
             margin: 0;
-            font-size: 20px;
+            font-size: 15px;
+            font-weight: 600;
         }
         
         .status-indicator {
@@ -174,10 +179,12 @@
     <div id="info">
         <!-- v6.62.54: Patrick: 'Buchungsbestaetigung' Header + ein-/ausklappbar
              oben klein. Schliessen-Button mit Bestaetigung wieder rein. -->
-        <div class="header" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="togglePanel()">
-            <h2 id="track-title" style="margin:0; flex:1;">🚕 Buchungsbestätigung <span id="toggle-icon" style="font-size:14px; color:#9ca3af; margin-left:6px;">▲</span></h2>
-            <div id="status-indicator" class="status-indicator" style="margin:0 8px;"></div>
-            <button id="close-btn" onclick="event.stopPropagation(); closeTrackingConfirm();" title="Schließen" style="background:transparent; border:none; color:#9ca3af; font-size:18px; cursor:pointer; padding:0 4px;">✕</button>
+        <!-- v6.62.59: Patrick: 'Kreuz oben zu praesent verleitet zum draufdruecken,
+             Header-Balken zu dick, alles kleiner'. Header schlanker, ✕ winzig + grau. -->
+        <div class="header" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:8px;" onclick="togglePanel()">
+            <h2 id="track-title" style="margin:0; flex:1;">🚕 Buchungsbestätigung <span id="toggle-icon" style="font-size:11px; color:#9ca3af; margin-left:4px;">▲</span></h2>
+            <div id="status-indicator" class="status-indicator" style="margin:0 6px;"></div>
+            <button id="close-btn" onclick="event.stopPropagation(); closeTrackingConfirm();" title="Schließen" style="background:transparent; border:none; color:#d1d5db; font-size:13px; cursor:pointer; padding:0 2px; line-height:1;">×</button>
         </div>
 
         <div id="panel-body">
@@ -260,7 +267,9 @@
         console.log('🔗 Tracking:', trackingCode ? 'Code: ' + trackingCode : 'Ride-ID: ' + directRideId);
         
         // Karte initialisieren
-        const map = L.map('map').setView([54.0, 14.0], 10);
+        // v6.62.59: Patrick: 'Plus/Minus weg, ueberdeckt das B von Buchungsbestaetigung —
+        // Leute zoomen mit Pinch-Geste auf dem Handy'.
+        const map = L.map('map', { zoomControl: false }).setView([54.0, 14.0], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
             maxZoom: 19
@@ -376,8 +385,11 @@
                 if (!badge) return;
                 // v6.62.23: warteschlange + vorbestellt ergaenzt + dynamische ETA-Anzeige
                 const _eta = r.estimatedWaitMinutes;
+                // v6.62.59: Patrick: '"pending" ist fuer die Leute kryptisch'.
+                // Alle internen Stati in deutsche Klartext-Texte mappen.
                 const statusMap = {
-                    'new': '⏳ Wartet auf Fahrer',
+                    'pending': '⏳ Buchung eingegangen — wird zugewiesen',
+                    'new': '⏳ Buchung eingegangen — wird zugewiesen',
                     'sofort': '⚡ Sofortfahrt — Fahrer wird gesucht',
                     'warteschlange': _eta != null
                         ? `⏳ Warteschlange — voraussichtlich ca. ${_eta} Min Wartezeit`
@@ -386,8 +398,10 @@
                     'assigned': '🔔 Fahrer zugewiesen — wartet auf Bestätigung',
                     'accepted': '✅ Fahrer hat bestätigt',
                     'on_way': '🚗 Fahrer ist unterwegs zu Ihnen',
+                    'arrived': '🏁 Fahrer ist vor Ort',
                     'picked_up': '🚕 Unterwegs zum Ziel',
                     'completed': '🏁 Fahrt abgeschlossen',
+                    'abgeschlossen': '🏁 Fahrt abgeschlossen',
                     'cancelled': '❌ Fahrt storniert',
                     'storniert': '❌ Fahrt storniert'
                 };

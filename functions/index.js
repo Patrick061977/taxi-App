@@ -18923,23 +18923,16 @@ exports.onRideUpdated = onValueUpdated(
                 // accepted und on_way binnen Sekunden — zwei SMS sind zu viel. Nur EINE SMS:
                 // - Vorbestellung (>30 Min in Zukunft) → bei accepted ('Fahrer steht bereit')
                 // - Sofortfahrt (<=30 Min) → bei on_way ('Fahrer faehrt jetzt los')
-                const _minsUntil = after.pickupTimestamp ? (after.pickupTimestamp - Date.now()) / 60000 : 0;
-                const _isVorbestPlan = _minsUntil > 30;
-                const _eta = after.drivingTimeToPickup ? `Anfahrt ca. ${after.drivingTimeToPickup} Min` : 'Fahrer ist unterwegs';
-                if (_isVorbestPlan && (newStatus === 'assigned' || newStatus === 'accepted') &&
-                    (oldStatus === 'warteschlange' || oldStatus === 'vorbestellt' || oldStatus === 'sofort' || oldStatus === 'new')) {
-                    // Vorbestellung weit in Zukunft: Fahrer-Bestaetigung
-                    const _pickupBerlin = new Date(new Date(after.pickupTimestamp).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-                    const _pickupStr = _pickupBerlin.toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer fuer ${_pickupStr} Uhr ist bestaetigt: ${_vehLabel}. Live-Tracking ab Abfahrt: ${_trackingLink}`;
-                    _smsType = 'driver_assigned_vorbest';
-                }
-                else if (oldStatus === 'accepted' && newStatus === 'on_way') {
-                    // Sofortfahrt-typisch: Fahrer faehrt JETZT los
-                    _smsBody = `Funk Taxi Heringsdorf: ${_greet}Ihr Fahrer faehrt jetzt los! ${_vehLabel}, ${_eta}. Live-Tracking: ${_trackingLink}`;
+                const _eta = after.drivingTimeToPickup ? `ca. ${after.drivingTimeToPickup} Min` : '';
+                // v6.62.82: Patrick: 'wieso kriegen die Leute nochmal eine Bestaetigung
+                // von der Bestaetigung?'. driver_assigned_vorbest entfernt — Kunde hatte
+                // schon initiale SMS bei Buchung. Nur 'Fahrer faehrt jetzt los' bei on_way.
+                if (oldStatus === 'accepted' && newStatus === 'on_way') {
+                    // Bei jeder Fahrt: Fahrer faehrt JETZT los
+                    _smsBody = `Funk Taxi: ${_greet}Fahrer faehrt los! ${_vehLabel}${_eta ? ', ' + _eta : ''}. Tracking: ${_trackingLink}`;
                     _smsType = 'driver_on_way';
                 }
-                // assigned/accepted bei Sofortfahrt → keine SMS (kommt gleich on_way)
+                // assigned/accepted → keine SMS (Kunde hatte initiale Buchungs-Bestaetigung)
                 if (_smsBody && _phoneOk) {
                     // SMS-Settings pruefen (gleicher Toggle wie initiale SMS)
                     const _smsSettingsSnap = await db.ref('settings/sms').once('value');

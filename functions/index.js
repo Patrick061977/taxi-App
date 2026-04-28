@@ -18548,12 +18548,20 @@ exports.onRideCreated = onValueCreated(
             const _greeting = _passengerName ? `Hallo ${_passengerName},\n\n` : '';
             const vehicleInfo = ride.vehicle ? `\n🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ' (' + ride.vehiclePlate + ')' : ''}` : '';
             const trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+            // v6.62.50: Patrick: 'wurde fuer Hotel ueber nativ gebucht aber Gastname erscheint
+            // nicht im Bot-Display'. Bei Auftraggeber-Buchungen explizite Gast/Auftraggeber-
+            // Zeilen damit klar ist wer wen schickt.
+            const _isAuftrag = ride._isAuftraggeberBooking === true && ride.guestName;
+            const _auftragInfo = _isAuftrag
+                ? `\n🏨 <b>Auftraggeber:</b> ${ride.customerName || '?'}\n👤 <b>Fahrgast:</b> ${ride.guestName}`
+                : '';
             const customerMsg = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
                 _greeting +
                 `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                 `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
                 `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
                 (ride.price ? `💰 <b>Preis:</b> ca. ${ride.price}€\n` : '') +
+                _auftragInfo +
                 vehicleInfo +
                 `\n📲 <b>Fahrt live verfolgen:</b>\n<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
                 `✅ Sie erhalten Updates sobald der Fahrer losfährt!\n` +

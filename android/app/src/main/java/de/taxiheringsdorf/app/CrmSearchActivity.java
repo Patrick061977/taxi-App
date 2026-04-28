@@ -265,6 +265,46 @@ public class CrmSearchActivity extends AppCompatActivity {
         }, "geocode").start();
     }
 
+    // v6.62.92: Hotel/Firma-Erkennung — Patrick: 'bei Hotels muessen die Restriktionen
+    // uebernommen werden, Hotel bucht fuer Gast'. customerKind = Hotel/Firma → Auftraggeber-Buchung.
+    private boolean isAuftraggeberCrm(CrmEntry e) {
+        if (e == null || e.customerKind == null) return false;
+        String k = e.customerKind.toLowerCase();
+        return k.equals("hotel") || k.equals("firma") || k.equals("klinik") || k.equals("supplier") || k.equals("lieferant");
+    }
+
+    // v6.62.92: Frag Gastnamen ab, dann ruf Callback mit dem Namen auf
+    private interface GuestNameCallback { void onGuest(String guestName, String guestPhone); }
+    private void askGuestName(CrmEntry e, GuestNameCallback cb) {
+        if (!isAuftraggeberCrm(e)) { cb.onGuest(null, null); return; }
+        LinearLayout lay = new LinearLayout(this);
+        lay.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        lay.setPadding(pad, pad, pad, pad);
+        EditText etGuest = new EditText(this);
+        etGuest.setHint("Gastname (fuer den gebucht wird)");
+        etGuest.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        lay.addView(etGuest);
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("Telefon des Gastes (optional)");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        lay.addView(etPhone);
+        new AlertDialog.Builder(this)
+            .setTitle("🏨 " + (e.name != null ? e.name : "Auftraggeber") + " bucht für Gast")
+            .setView(lay)
+            .setPositiveButton("Weiter", (d, w) -> {
+                String guest = etGuest.getText().toString().trim();
+                String phone = etPhone.getText().toString().trim();
+                if (guest.isEmpty()) {
+                    Toast.makeText(this, "Gastname fehlt", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                cb.onGuest(guest, phone.isEmpty() ? null : phone);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     // v6.62.78: Action-Dialog statt direktem Edit. Patrick: 'aus CRM-Suche eine
     // Vorbestellung erstellen, mit haeufigsten Zielen als Quick-Buttons'.
     private void showActionDialog(CrmEntry e) {
@@ -293,25 +333,46 @@ public class CrmSearchActivity extends AppCompatActivity {
                 switch (w) {
                     case 0: createSofortFahrtFromCrm(e); break;
                     case 1: createEinsteigerFromCrm(e); break;
-                    case 2: showVorbestellungDialog(e); break;
+                    case 2: showVorbestellungDialogWithGuest(e); break;
                     case 3: openEditDialog(e); break;
                 }
             }).show();
     }
 
     private void createSofortFahrtFromCrm(CrmEntry e) {
+        // v6.62.92: Wenn Hotel/Firma → erst Gastname abfragen, dann Auftraggeber-Buchung
+        askGuestName(e, (guestName, guestPhone) -> doCreateSofortFahrt(e, guestName, guestPhone));
+    }
+    private void doCreateSofortFahrt(CrmEntry e, String guestName, String guestPhone) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewaehlt", Toast.LENGTH_SHORT).show(); return; }
+        boolean isAuftrag = isAuftraggeberCrm(e) && guestName != null;
+        String displayName = isAuftrag ? guestName : e.name;
         new AlertDialog.Builder(this)
             .setTitle("🚗 SOFORT-Fahrt anlegen?")
-            .setMessage("Kunde: " + e.name + "\n📍 Pickup: " + (e.address != null ? e.address : "Adresse fehlt!") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nStatus 'angenommen' → du tippst dann Losfahren / BIN DA / Eingestiegen.")
+            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Adresse fehlt!") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nStatus 'angenommen' → du tippst dann Losfahren / BIN DA / Eingestiegen.")
             .setPositiveButton("✅ Anlegen", (d, w) -> {
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
-                r.put("customerName", e.name);
+                if (isAuftrag) {
+                    r.put("customerName", e.name);
+                    r.put("guestName", guestName);
+                    r.put("_isAuftraggeberBooking", true);
+                    r.put("_auftraggeberAddress", e.address != null ? e.address : "");
+                    r.put("_auftraggeberKind", e.customerKind);
+                    if (e.lat != null) { r.put("_auftraggeberLat", e.lat); r.put("_auftraggeberLon", e.lon); }
+                    if (guestPhone != null) {
+                        r.put("customerPhone", guestPhone);
+                        r.put("customerMobile", guestPhone);
+                    } else if (e.phone != null) {
+                        r.put("customerPhone", e.phone);
+                    }
+                } else {
+                    r.put("customerName", e.name);
+                    if (e.phone != null) r.put("customerPhone", e.phone);
+                    if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+                }
                 r.put("customerId", e.id);
-                if (e.phone != null) r.put("customerPhone", e.phone);
-                if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
                 r.put("vehicleId", vehicleId);
                 r.put("assignedVehicle", vehicleId);
                 r.put("status", "accepted");
@@ -330,7 +391,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                 r.put("passengers", 1);
                 FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                     .addOnSuccessListener(_v -> {
-                        Toast.makeText(this, "✅ SOFORT-Fahrt: " + e.name, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "✅ SOFORT-Fahrt: " + displayName, Toast.LENGTH_SHORT).show();
                         startActivity(new Intent(this, DriverDashboardActivity.class));
                         finish();
                     })
@@ -340,18 +401,35 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     private void createEinsteigerFromCrm(CrmEntry e) {
+        // v6.62.92: Auftraggeber-Erkennung
+        askGuestName(e, (guestName, guestPhone) -> doCreateEinsteiger(e, guestName, guestPhone));
+    }
+    private void doCreateEinsteiger(CrmEntry e, String guestName, String guestPhone) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewaehlt", Toast.LENGTH_SHORT).show(); return; }
+        boolean isAuftrag = isAuftraggeberCrm(e) && guestName != null;
+        String displayName = isAuftrag ? guestName : e.name;
         new AlertDialog.Builder(this)
             .setTitle("🚖 EINSTEIGER anlegen?")
-            .setMessage("Kunde: " + e.name + "\n📍 Pickup: " + (e.address != null ? e.address : "Standort Fahrer") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nFahrt sofort als 'abgeholt' eingetragen.")
+            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Standort Fahrer") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nFahrt sofort als 'abgeholt' eingetragen.")
             .setPositiveButton("✅ Anlegen", (d, w) -> {
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
-                r.put("customerName", e.name);
+                if (isAuftrag) {
+                    r.put("customerName", e.name);
+                    r.put("guestName", guestName);
+                    r.put("_isAuftraggeberBooking", true);
+                    r.put("_auftraggeberAddress", e.address != null ? e.address : "");
+                    r.put("_auftraggeberKind", e.customerKind);
+                    if (e.lat != null) { r.put("_auftraggeberLat", e.lat); r.put("_auftraggeberLon", e.lon); }
+                    if (guestPhone != null) { r.put("customerPhone", guestPhone); r.put("customerMobile", guestPhone); }
+                    else if (e.phone != null) r.put("customerPhone", e.phone);
+                } else {
+                    r.put("customerName", e.name);
+                    if (e.phone != null) r.put("customerPhone", e.phone);
+                    if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+                }
                 r.put("customerId", e.id);
-                if (e.phone != null) r.put("customerPhone", e.phone);
-                if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
                 r.put("vehicleId", vehicleId);
                 r.put("status", "picked_up");
                 r.put("pickup", e.address != null ? e.address : "Standort Fahrer");
@@ -367,13 +445,24 @@ public class CrmSearchActivity extends AppCompatActivity {
                 r.put("passengers", 1);
                 FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                     .addOnSuccessListener(_v -> {
-                        Toast.makeText(this, "✅ EINSTEIGER: " + e.name, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "✅ EINSTEIGER: " + displayName, Toast.LENGTH_SHORT).show();
                         startActivity(new Intent(this, DriverDashboardActivity.class));
                         finish();
                     })
                     .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null).show();
+    }
+
+    // v6.62.92: Vor Vorbestellung-Workflow Gast abfragen wenn Hotel/Firma
+    private String _vorbestGuestName = null;
+    private String _vorbestGuestPhone = null;
+    private void showVorbestellungDialogWithGuest(CrmEntry e) {
+        askGuestName(e, (guestName, guestPhone) -> {
+            _vorbestGuestName = guestName;
+            _vorbestGuestPhone = guestPhone;
+            showVorbestellungDialog(e);
+        });
     }
 
     // v6.62.78: Vorbestellungs-Dialog mit haeufigsten Zielen dieses Kunden als Quick-Buttons
@@ -524,10 +613,22 @@ public class CrmSearchActivity extends AppCompatActivity {
     private void createVorbestellung(CrmEntry e, String destination, double[] destCoords, long pickupTs) {
         long now = System.currentTimeMillis();
         Map<String, Object> r = new HashMap<>();
-        r.put("customerName", e.name);
+        boolean isAuftrag = isAuftraggeberCrm(e) && _vorbestGuestName != null;
+        if (isAuftrag) {
+            r.put("customerName", e.name);
+            r.put("guestName", _vorbestGuestName);
+            r.put("_isAuftraggeberBooking", true);
+            r.put("_auftraggeberAddress", e.address != null ? e.address : "");
+            r.put("_auftraggeberKind", e.customerKind);
+            if (e.lat != null) { r.put("_auftraggeberLat", e.lat); r.put("_auftraggeberLon", e.lon); }
+            if (_vorbestGuestPhone != null) { r.put("customerPhone", _vorbestGuestPhone); r.put("customerMobile", _vorbestGuestPhone); }
+            else if (e.phone != null) r.put("customerPhone", e.phone);
+        } else {
+            r.put("customerName", e.name);
+            if (e.phone != null) r.put("customerPhone", e.phone);
+            if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+        }
         r.put("customerId", e.id);
-        if (e.phone != null) r.put("customerPhone", e.phone);
-        if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
         r.put("status", "vorbestellt");
         r.put("pickup", e.address != null ? e.address : "");
         if (e.lat != null) { r.put("pickupLat", e.lat); r.put("pickupLon", e.lon); }

@@ -113,6 +113,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
 
+        // v6.62.86: Periodischer ETA-Trigger starten (alle 30s)
+        etaTickHandler.postDelayed(etaTick, 30_000L);
+
         // v6.62.71: FullScreen-Notification-Permission pruefen.
         // Patrick: 'wenn der Push kommt soll die App in den Vordergrund springen'.
         // Code (setFullScreenIntent in TaxiFCMService) ist seit v6.42.7 da, ABER Android 14+
@@ -1095,7 +1098,37 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
 
-        // v6.62.69: Tap-Audit — wer hat den Status-Tap ausgeloest. Cloud onRideUpdated
+        // v6.62.86: Periodischer ETA-Trigger — alle 30s. Patrick: 'ETA aendert sich nicht'.
+    // Bug: vehicles/{id}-Listener feuert nur bei tatsaechlicher Wert-Aenderung. Wenn
+    // ShiftForegroundService GPS gleich gross/lang schreibt (z.B. Stillstand) → kein
+    // Trigger. Auch im Stillstand sollte aber gelegentlich neu berechnet werden falls
+    // OSRM andere Route waehlt. + Sicherheit gegen verpasste Trigger.
+    private final Handler etaTickHandler = new Handler(Looper.getMainLooper());
+    private final Runnable etaTick = new Runnable() {
+        @Override public void run() {
+            try {
+                if (currentVehicleId != null && db != null) {
+                    db.getReference("vehicles/" + currentVehicleId).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot s) {
+                            Object lat = s.child("lat").getValue();
+                            Object lon = s.child("lon").getValue();
+                            Object ts = s.child("timestamp").getValue();
+                            if (lat instanceof Number && lon instanceof Number) {
+                                long age = (ts instanceof Number) ? System.currentTimeMillis() - ((Number) ts).longValue() : 0;
+                                if (age < 5L * 60L * 1000L) {
+                                    recalculateETAsForActiveRides(((Number) lat).doubleValue(), ((Number) lon).doubleValue());
+                                }
+                            }
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError e) {}
+                    });
+                }
+            } catch (Throwable _e) {}
+            etaTickHandler.postDelayed(this, 30_000L);
+        }
+    };
+
+    // v6.62.69: Tap-Audit — wer hat den Status-Tap ausgeloest. Cloud onRideUpdated
         // loggt den Status-Wechsel selbst, aber wir wissen nicht ob es ein Driver-Tap oder
         // anderer Trigger war. Patrick will das im Verlauf nachvollziehen koennen.
         logLifecycleTap(r.id, "👆", "Fahrer-Tap: Status → " + next, next);
@@ -1559,6 +1592,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // nur kurz geschlossen wird, soll der Lock nach STALE_LOCK_MS (5 Min) auslaufen.
         // Beim expliziten Logout/Lock-Stolen wird der Lock anders gehandhabt.
         try { lockHandler.removeCallbacks(lockHeartbeatTick); } catch (Throwable _t) {}
+        try { etaTickHandler.removeCallbacks(etaTick); } catch (Throwable _t) {}
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);

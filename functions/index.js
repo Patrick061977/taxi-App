@@ -7692,6 +7692,22 @@ async function handleMessage(message) {
         return;
     }
 
+    // 🆕 v6.62.73: /health — System-Admin-Status auf einen Blick. Nur fuer Admins.
+    if (textCmd === '/health' || textCmd === '/status' || textCmd === '/system') {
+        if (!await isTelegramAdmin(chatId)) {
+            await sendTelegramMessage(chatId, '🔒 Nur fuer Admins.');
+            return;
+        }
+        try {
+            const report = await buildHealthReport();
+            await sendTelegramMessage(chatId, report);
+            await addTelegramLog('🩺', chatId, '/health-Befehl ausgefuehrt');
+        } catch (e) {
+            await sendTelegramMessage(chatId, '❌ Health-Report Fehler: ' + e.message);
+        }
+        return;
+    }
+
     // 🆕 v6.16.0: /menü Befehl — zeigt das Inline-Button-Hauptmenü (statt nur Slash-Befehle)
     if (textCmd === '/menü' || textCmd === '/menu' || textCmd === '/menue') {
         await addTelegramLog('📋', chatId, '/menü Kommando — Hauptmenü angezeigt');
@@ -19942,6 +19958,133 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
             }
         } catch (e) {
             console.error('❌ scheduledShiftHeartbeatCheck Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🩺 SYSTEM-HEALTH-REPORT — v6.62.73
+// /health im Telegram-Hauptbot ruft buildHealthReport() ab.
+// Plus scheduledHealthReport: taeglich 06:00 Berlin an alle Admins.
+// ═══════════════════════════════════════════════════════════════
+
+async function buildHealthReport() {
+    const now = Date.now();
+    const lines = ['🩺 <b>SYSTEM-HEALTH</b>', `<i>${new Date(now).toLocaleString('de-DE',{ timeZone:'Europe/Berlin' })}</i>`, ''];
+
+    // 1. Fahrzeuge
+    const vSnap = await db.ref('vehicles').once('value');
+    const vehicles = vSnap.val() || {};
+    let vehActive = 0, vehNoFcm = 0, vehList = [];
+    for (const [vid, v] of Object.entries(vehicles)) {
+        if (!v) continue;
+        const isActive = v.shift?.status === 'active';
+        const hasFcm = !!v.fcmToken?.token;
+        if (isActive) vehActive++;
+        if (!hasFcm) vehNoFcm++;
+        vehList.push({ vid, name: v.name || vid, isActive, hasFcm, online: v.online });
+    }
+    lines.push('🚖 <b>Fahrzeuge:</b>');
+    for (const v of vehList) {
+        const icons = (v.isActive ? '🟢' : '⚪') + (v.hasFcm ? '📲' : '📵') + (v.online ? '' : ' ⏸');
+        lines.push(`${icons} ${v.name}`);
+    }
+    lines.push('');
+
+    // 2. Offene Vorbestellungen <60 Min
+    const ridesV = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+    let openVorbest = 0, openIds = [];
+    ridesV.forEach(c => {
+        const r = c.val();
+        if (!r || !r.pickupTimestamp) return;
+        const min = (r.pickupTimestamp - now) / 60000;
+        if (min > 0 && min < 60) { openVorbest++; openIds.push(`${r.customerName || '?'} in ${Math.round(min)}min`); }
+    });
+
+    // 3. Warteschlange
+    const ridesW = await db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value');
+    let ws = 0;
+    ridesW.forEach(() => ws++);
+
+    // 4. SMS-Queue offen
+    const smsSnap = await db.ref('smsQueue').once('value');
+    let smsOpen = 0, smsExpired = 0;
+    smsSnap.forEach(c => {
+        const s = c.val();
+        if (!s) return;
+        if (s.status === 'expired') { smsExpired++; return; }
+        if (s.status !== 'sent' && s.status !== 'failed_max_retries') smsOpen++;
+    });
+
+    lines.push(`📅 Vorbestellungen <60min: <b>${openVorbest}</b>`);
+    if (openIds.length > 0) lines.push('   ' + openIds.slice(0, 5).join(', '));
+    lines.push(`⏳ Warteschlange: <b>${ws}</b>`);
+    lines.push(`📱 SMS-Queue offen: <b>${smsOpen}</b> ${smsExpired > 0 ? `(${smsExpired} expired)` : ''}`);
+    lines.push(`🚖 Aktive Schichten: <b>${vehActive}/${vehList.length}</b>`);
+    if (vehNoFcm > 0) lines.push(`⚠️ Fahrzeuge ohne FCM-Token: <b>${vehNoFcm}</b> (App muessten geoeffnet werden)`);
+
+    return lines.join('\n');
+}
+
+exports.scheduledHealthReport = onSchedule(
+    {
+        schedule: '0 6 * * *', // taeglich 06:00 Berlin
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const report = await buildHealthReport();
+            await sendToAllAdmins(report); // ohne category → immer senden
+            console.log('🩺 scheduledHealthReport an Admins gesendet');
+        } catch (e) {
+            console.error('❌ scheduledHealthReport Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🧹 SMS-QUEUE-CLEANUP — v6.62.73
+// Markiert SMS-Eintraege >7 Tage alt + nicht-sent als 'expired'.
+// Verhindert dass die Queue mit Karteileichen voll laeuft.
+// ═══════════════════════════════════════════════════════════════
+
+exports.scheduledSmsQueueCleanup = onSchedule(
+    {
+        schedule: '0 4 * * *', // taeglich 04:00 Berlin
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async () => {
+        try {
+            const now = Date.now();
+            const cutoff = now - 7 * 24 * 3600 * 1000;
+            const snap = await db.ref('smsQueue').once('value');
+            const updates = {};
+            let cleaned = 0;
+            snap.forEach(c => {
+                const s = c.val();
+                if (!s) return;
+                const created = s.createdAt || 0;
+                if (created < cutoff && s.status !== 'sent' && s.status !== 'failed_max_retries' && s.status !== 'expired') {
+                    updates[c.key + '/status'] = 'expired';
+                    updates[c.key + '/expiredAt'] = now;
+                    updates[c.key + '/expiredReason'] = `cleanup-cron: >7d alt, status=${s.status || 'unknown'}`;
+                    cleaned++;
+                }
+            });
+            if (cleaned > 0) {
+                await db.ref('smsQueue').update(updates);
+                console.log(`🧹 SMS-Queue-Cleanup: ${cleaned} Eintraege als 'expired' markiert`);
+            } else {
+                console.log('🧹 SMS-Queue-Cleanup: nichts zu tun');
+            }
+        } catch (e) {
+            console.error('❌ scheduledSmsQueueCleanup Fehler:', e.message);
         }
     }
 );

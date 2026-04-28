@@ -906,12 +906,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
 
-        // v6.43.2: Auto-SMS-Tracking-Link bei 'Losfahren' (Status accepted → on_way).
-        if (next.equals("on_way")) {
-            resolvePhoneAndAct(r, phone -> {
-                if (phone != null && !phone.isEmpty()) sendTrackingSMS(r.id, phone);
-            });
-        }
+        // v6.62.61: Auto-SMS-Tracking-Link entfernt. Cloud-Function schickt bei Status-Wechsel
+        // bereits 2 SMS (Bestaetigung + "Fahrer faehrt los", beide mit Track-Link inline) —
+        // die zusaetzliche Fahrer-SIM-SMS war doppelt. Manueller btn_sms_track bleibt fuer Notfaelle.
     }
 
     // v6.44.0: Bezahl-Dialog nach "Fahrt fertig" — Bar/iZettle/Hotel/Mail

@@ -2,6 +2,25 @@
 
 ---
 
+## 🚨 PFLICHT bei JEDEM Session-Start (vor inhaltlicher Arbeit!)
+
+Claude MUSS **als allererstes** bei jedem neuen Claude-Code-Start in diesem Repo das Bridge-Polling starten:
+
+```
+Monitor(
+  command: "node scripts/bridge-poll.js",
+  description: "Bridge-Inbox Live-Polling — neue Notizen von Patrick triggern Notification",
+  persistent: true,
+  timeout_ms: 3600000
+)
+```
+
+**Warum:** Ohne das Polling sieht Claude die Telegram-Bridge-Notizen von Patrick (gesendet via @Funktaxiclaudebot oder "claude:..." im Hauptbot) NICHT in Echtzeit. Patrick erwartet dass jede Telegram-Notiz innerhalb ~15s als Notification im Claude-Code-Chat erscheint — wie es seit v6.41.92 (25.04.2026) etabliert ist.
+
+**Symptom wenn vergessen:** Patrick schreibt Notizen, sieht keine Reaktion → denkt die Bridge sei kaputt → frustriert. Tatsächlich liegen die Notizen brav in `/claudeBridge/inbox`, Claude weiß nur nichts davon.
+
+---
+
 ## 🕵️ PFLICHT: Detektiv-Modus statt Rätselraten (WICHTIG!)
 
 **Claude darf NIEMALS "könnte", "vielleicht", "möglicherweise" in Diagnosen verwenden.**

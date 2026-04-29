@@ -1,0 +1,88 @@
+{
+  "_meta": {
+    "name": "SKR03 — Funk Taxi Heringsdorf",
+    "kanzlei": "ECOVIS Baltic GmbH & Co.KG StB RAe",
+    "ansprechpartner": "Evelyn Karstaedt",
+    "bwa_form": "Einnahmen-Ausgaben-BWA",
+    "stand": "2026-04-29",
+    "hinweis": "Reduzierte Liste — nur Konten die Funk Taxi tatsächlich nutzt. Vollständige SKR03-Liste hat ~2200 Konten, hier sind die ~30 relevanten."
+  },
+  "geldkonten": {
+    "1000": { "name": "Kasse", "use": "Bargeld vom Fahrer / aus Tageskasse" },
+    "1200": { "name": "Bank (Sparkasse / DKB)", "use": "Bank-Hauptkonto Geschäft" },
+    "1361": { "name": "Geldtransit Stripe / Zettle", "use": "Online-Zahlung schwebend (zwischen Kunde-Zahlung und Bank-Eingang)" },
+    "1366": { "name": "Geldtransit PayPal", "use": "PayPal-Zahlungen schwebend" }
+  },
+  "forderungen": {
+    "1400": { "name": "Forderungen aus Lieferungen und Leistungen", "use": "Allgemein" },
+    "1410": { "name": "Forderungen Hotels / Auftraggeber", "use": "Hotel-Rechnung offen (Patrick erstellt Rechnung an Hotel, Hotel zahlt monatlich)" },
+    "1576": { "name": "Vorsteuer 7 %", "use": "Personenbeförderung-Aufwand mit 7 % Vorsteuer" },
+    "1577": { "name": "Vorsteuer 19 %", "use": "Standardsatz Aufwand (Tankstelle, Werkstatt, etc.)" }
+  },
+  "verbindlichkeiten_und_steuern": {
+    "1740": { "name": "Verbindlichkeiten Lohnsteuer / KiSt", "use": "Durchlaufender Posten Mitarbeiter-Lohnabzug" },
+    "1771": { "name": "Umsatzsteuer 7 %", "use": "Auf Personenbeförderung-Erlöse" },
+    "1776": { "name": "Umsatzsteuer 19 %", "use": "Auf Fernverkehr / Kurierdienst" }
+  },
+  "erloese": {
+    "8400": { "name": "Erlöse 7 % USt — Personenbeförderung Nahverkehr (<50 km)", "use": "Standard-Taxi-Fahrt im Gemeindegebiet / unter 50 km" },
+    "8401": { "name": "Erlöse 19 % USt — Fernverkehr / Kurier", "use": "Fahrt >50 km, Pakettransport, Kurierdienst" },
+    "8200": { "name": "Erlöse Hotel-Provision / Vermittlung", "use": "Wenn Hotel Provision an Patrick zahlt für Vermittlung" },
+    "4400": { "name": "Erlöse 7 % USt (alternativ-SKR03)", "use": "Manche Steuerberater nutzen 4400 statt 8400 in SKR03 — bei ECOVIS prüfen" }
+  },
+  "betriebsausgaben_personal": {
+    "4120": { "name": "Löhne und Gehälter", "use": "Brutto-Lohn der Fahrer" },
+    "4140": { "name": "Aushilfslöhne / 520-Euro-Jobs", "use": "Mini-Job-Fahrer" },
+    "4150": { "name": "Gesetzliche soziale Aufwendungen (AG-Anteil)", "use": "AG-Anteil Krankenkasse, Rente, etc." },
+    "4180": { "name": "Sachzuwendungen / Verpflegungsmehraufwand", "use": "Falls relevant" }
+  },
+  "betriebsausgaben_kfz": {
+    "4530": { "name": "Treibstoff / Kraftstoff Kfz", "use": "Aral, Shell, Total, JET, Star, etc. — Diesel/Benzin/Strom-Lade-Quittungen" },
+    "4540": { "name": "Wartung / Inspektion Kfz", "use": "Werkstatt-Rechnung Inspektion / Ölwechsel" },
+    "4570": { "name": "Sonstige Kfz-Kosten / Reparaturen", "use": "Werkstatt-Rechnung Reparatur, Reifen, TÜV, AU" },
+    "4520": { "name": "Kfz-Versicherung", "use": "Haftpflicht + Kasko (z.B. HUK, Allianz, AXA)" },
+    "4510": { "name": "Kfz-Steuer", "use": "Jährliche Kfz-Steuer ans Hauptzollamt" },
+    "4580": { "name": "Garagenmiete / Parkplatz", "use": "Falls Stellplatz angemietet" }
+  },
+  "betriebsausgaben_raum": {
+    "4210": { "name": "Miete / Pacht (Geschäftsräume)", "use": "Büro-/Funkstation-Miete" },
+    "4220": { "name": "Heizung / Strom / Wasser", "use": "Nebenkosten Geschäftsräume" }
+  },
+  "betriebsausgaben_kommunikation": {
+    "4910": { "name": "Werbekosten / Marketing", "use": "Plakat, Visitenkarten, Online-Werbung, Funkschilder" },
+    "4920": { "name": "Telefon / Internet / Mobilfunk", "use": "Telekom-Rechnung, GMX, Telegram-Bot-Kosten" },
+    "4930": { "name": "Bürobedarf / Software-Abos", "use": "Anthropic API, Stripe Gebühren, Firebase, Google Cloud" },
+    "4940": { "name": "Porto / Versand", "use": "Briefmarken, DHL-Pakete" }
+  },
+  "betriebsausgaben_dienstleister": {
+    "4920": { "name": "Steuerberatung", "use": "ECOVIS-Honorar (vorher VKO Konitzer)" },
+    "4922": { "name": "Rechts- / Beratungskosten", "use": "Avoka.law (Plischka)" },
+    "4925": { "name": "Buchführungskosten", "use": "Falls extern abgegeben" },
+    "4926": { "name": "Abschluss- / Prüfungskosten", "use": "Jahresabschluss-Erstellung" }
+  },
+  "betriebsausgaben_sonstige": {
+    "4360": { "name": "Versicherungen (Betrieb)", "use": "Betriebshaftpflicht, Inhaltsversicherung, Rechtsschutz" },
+    "4380": { "name": "Beiträge IHK / Berufsgenossenschaft / Verband", "use": "BG Verkehr, IHK Neubrandenburg, Verband Taxi MV" },
+    "4940": { "name": "Reise- / Bewirtungskosten", "use": "Falls relevant" },
+    "4980": { "name": "Sonstige betriebliche Aufwendungen", "use": "Catch-all für nichts Passendes" }
+  },
+  "anlagevermoegen": {
+    "0320": { "name": "Pkw / Fahrzeuge", "use": "Anschaffung Tesla Model Y, Prius PW-IK 222, etc. — wird abgeschrieben" },
+    "0420": { "name": "Geringwertige Wirtschaftsgüter (GWG <800 €)", "use": "Drucker, Tablet, Kabel etc. unter 800 € netto" },
+    "0440": { "name": "Sammelposten 250-1000 €", "use": "Pool-Abschreibung über 5 Jahre" }
+  },
+  "_kategorisierungs_hinweise": {
+    "Aral / Shell / Total / JET / Star Tankstelle": "4530",
+    "Werkstatt-Rechnung mit 'Inspektion'": "4540",
+    "Werkstatt-Rechnung mit 'Reparatur' oder 'Reifen' oder 'TÜV'": "4570",
+    "HUK / Allianz / AXA / Kfz-Versicherung": "4520",
+    "Hauptzollamt Kfz-Steuer": "4510",
+    "Telekom / Vodafone / 1&1 / O2 Mobilfunk": "4920",
+    "Stadtwerke / E.ON / Vattenfall (für Geschäftsräume)": "4220",
+    "DHL / Hermes / DPD Versand": "4940",
+    "Druckerei / Visitenkarten / Werbeflyer": "4910",
+    "Anthropic / Stripe / Google Cloud (Software)": "4930",
+    "AOK / Krankenkasse Mitarbeiter": "1740 (durchlaufend) + 4150 (AG-Anteil)",
+    "Lohnzettel / Gehaltsauszahlung": "4120 (Lohn) + 1740 (LSt) + 4150 (Sozial)"
+  }
+}

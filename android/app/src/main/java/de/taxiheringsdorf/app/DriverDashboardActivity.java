@@ -820,11 +820,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
                 st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
                 st.equals("done")) continue;
-            // Nur wirklich laufende Fahrten immer zeigen — accepted ist NICHT mehr 'immer'
-            boolean isLive = st.equals("on_way") || st.equals("arrived") || st.equals("picked_up");
+            // v6.62.132: Patrick: 'warum erscheint die Vorbestellung jetzt nicht in meiner Liste?'
+            // Bug: angenommene Vorbestellungen (status=assigned/accepted) wurden durchs 20-Min-
+            // Fenster gefiltert, obwohl der Fahrer sie schon angenommen hat. Wenn der Fahrer
+            // die Annahme bestaetigt hat, will er die Buchung IMMER im Blick haben — sonst
+            // weiss er nach Annehmen nicht mehr was als Naechstes ansteht.
+            // Fix: accepted/assigned auch als 'immer-sichtbar' behandeln, gleich wie laufende
+            // Fahrten. Nur new/sofort/warteschlange/vorbestellt fallen unters 20-Min-Fenster.
+            boolean isLive = st.equals("on_way") || st.equals("arrived") || st.equals("picked_up")
+                          || st.equals("accepted") || st.equals("assigned");
             if (!isLive) {
                 if (r.pickupTimestamp == null) {
-                    if (!st.equals("new") && !st.equals("sofort") && !st.equals("assigned")) continue;
+                    if (!st.equals("new") && !st.equals("sofort")) continue;
                 } else {
                     if (r.pickupTimestamp < windowPast) continue;
                     if (r.pickupTimestamp > windowFuture) continue;

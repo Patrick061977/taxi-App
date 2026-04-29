@@ -20555,12 +20555,18 @@ exports.stripeWebhook = onRequest(
 
                     console.log(`✅ Stripe Zahlung erhalten: ${invoiceNumber} → ${(session.amount_total / 100).toFixed(2)} €`);
 
-                    // Optional: Admin benachrichtigen via Telegram
+                    // 🔧 v6.62.127: invoice + amountEur OUTSIDE inner try-blocks deklarieren
+                    // damit beide nachfolgenden try-Blocks (Admin-Telegram + Kunden-Confirmation)
+                    // sie nutzen koennen. Vorher: 'invoice is not defined' im Confirmation-Block.
+                    let invoice = null;
                     try {
                         const invoiceSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
-                        const invoice = invoiceSnap.val();
-                        const amountEur = (session.amount_total / 100).toFixed(2);
+                        invoice = invoiceSnap.val();
+                    } catch(_invLoadErr) { /* lassen */ }
+                    const amountEur = (session.amount_total / 100).toFixed(2);
 
+                    // Optional: Admin benachrichtigen via Telegram
+                    try {
                         const adminMsg = `💳✅ <b>Zahlung eingegangen!</b>\n\n` +
                             `📄 <b>Rechnung:</b> ${invoiceNumber}\n` +
                             `👤 <b>Kunde:</b> ${invoice?.customerName || session.customer_details?.name || '?'}\n` +

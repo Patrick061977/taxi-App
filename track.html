@@ -558,25 +558,64 @@
                     }
                 } catch (_icsErr) {}
 
-                // 🆕 v6.62.125: Patrick: 'bei der Abschluss-Card auch einen Download-Link
-                // fuer die Rechnung mitschicken'. Wenn Fahrt completed + Rechnungs-PDF
-                // existiert → Download-Button auf Track-Page anzeigen.
-                if (r.status === 'completed' && r.invoiceNumber) {
+                // 🆕 v6.62.125 + v6.62.135: Bei completed-Fahrten zeigt die Track-Page:
+                // 1) Bezahlt-Badge (✅ Bezahlt am ... / 💳 Noch offen)
+                // 2) Rechnungs-Download-Knopf wenn PDF-URL existiert
+                // 3) Stripe-Bezahlen-Knopf wenn noch nicht bezahlt + checkoutUrl da
+                // 4) Rechnung-per-Email-Anfordern (Patrick v6.62.135)
+                // 5) Bewertung-abgeben (Patrick v6.62.135)
+                if (r.status === 'completed') {
                     try {
-                        const _invSnap = await db.ref('invoices/' + r.invoiceNumber).once('value');
-                        const _inv = _invSnap.val() || {};
-                        if (_inv.pdfUrl) {
-                            const _bd2 = document.getElementById('booking-details');
-                            if (_bd2) {
-                                _bd2.innerHTML += `<div style="margin-top:10px;padding:10px;background:#dbeafe;border:1px solid #3b82f6;border-radius:6px;text-align:center;">
-                                    <div style="font-size:12px;color:#1e40af;font-weight:600;margin-bottom:6px;">📄 Ihre Rechnung steht bereit</div>
-                                    <a href="${_inv.pdfUrl}" target="_blank" style="display:inline-block;background:#3b82f6;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">⬇️ Rechnung herunterladen</a>
-                                    ${_inv.stripePaymentStatus !== 'paid' && _inv.stripeCheckoutUrl ? `<div style="margin-top:8px;"><a href="${_inv.stripeCheckoutUrl}" target="_blank" style="display:inline-block;background:#635bff;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">💳 Online bezahlen</a></div>` : ''}
-                                    ${_inv.stripePaymentStatus === 'paid' ? `<div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">✅ Bezahlt am ${new Date(_inv.stripePaidAt || _inv.paidAt).toLocaleDateString('de-DE',{timeZone:'Europe/Berlin'})}</div>` : ''}
-                                </div>`;
-                            }
+                        let _inv = {};
+                        if (r.invoiceNumber) {
+                            const _invSnap = await db.ref('invoices/' + r.invoiceNumber).once('value');
+                            _inv = _invSnap.val() || {};
                         }
-                    } catch (_invErr) { console.warn('Invoice-Lookup-Fehler:', _invErr.message); }
+                        const _bd2 = document.getElementById('booking-details');
+                        if (!_bd2) return;
+                        const _pm = (r.paymentMethod || '').toLowerCase();
+                        const _isStripe = _pm === 'stripe' || _pm === 'card' || _pm === 'kreditkarte';
+                        const _stripePaid = _inv.stripePaymentStatus === 'paid';
+                        const _paidAt = _inv.stripePaidAt || _inv.paidAt || r.completedAt;
+
+                        const _blocks = [];
+                        // 1) Bezahlt-Banner — prominent oben
+                        if (_pm === 'bar') {
+                            _blocks.push(`<div style="margin-top:10px;padding:10px;background:#ecfdf5;border:1px solid #10b981;border-radius:6px;text-align:center;color:#065f46;font-size:13px;font-weight:600;">✅ Bar bezahlt — Vielen Dank!</div>`);
+                        } else if (_stripePaid) {
+                            const _d = _paidAt ? new Date(_paidAt).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) : '';
+                            _blocks.push(`<div style="margin-top:10px;padding:10px;background:#ecfdf5;border:1px solid #10b981;border-radius:6px;text-align:center;color:#065f46;font-size:13px;font-weight:600;">✅ Bezahlt${_d ? ' am ' + _d : ''} — Vielen Dank!</div>`);
+                        } else if (_isStripe && _inv.stripeCheckoutUrl) {
+                            _blocks.push(`<div style="margin-top:10px;padding:10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;text-align:center;">
+                                <div style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:6px;">💳 Zahlung noch ausstehend</div>
+                                <a href="${_inv.stripeCheckoutUrl}" target="_blank" style="display:inline-block;background:#635bff;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">Jetzt online bezahlen</a>
+                            </div>`);
+                        }
+                        // 2) Rechnungs-Download (PDF)
+                        if (_inv.pdfUrl) {
+                            _blocks.push(`<div style="margin-top:8px;padding:10px;background:#dbeafe;border:1px solid #3b82f6;border-radius:6px;text-align:center;">
+                                <div style="font-size:12px;color:#1e40af;font-weight:600;margin-bottom:6px;">📄 Ihre Rechnung</div>
+                                <a href="${_inv.pdfUrl}" target="_blank" style="display:inline-block;background:#3b82f6;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">⬇️ Rechnung herunterladen</a>
+                                <button onclick="requestInvoiceEmail()" style="display:inline-block;background:white;color:#3b82f6;border:1px solid #3b82f6;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px;">📧 Per Email</button>
+                            </div>`);
+                        } else {
+                            // Keine PDF — Knopf zum Anfordern
+                            _blocks.push(`<div style="margin-top:8px;padding:10px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;text-align:center;">
+                                <div style="font-size:12px;color:#475569;margin-bottom:6px;">Rechnung per Email gewünscht?</div>
+                                <button onclick="requestInvoiceEmail()" style="display:inline-block;background:#3b82f6;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">📧 Rechnung per Email anfordern</button>
+                            </div>`);
+                        }
+                        // 3) Bewertung
+                        _blocks.push(`<div id="feedback-row" style="margin-top:8px;padding:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;text-align:center;">
+                            <div style="font-size:12px;color:#78350f;margin-bottom:6px;">Wie war Ihre Fahrt?</div>
+                            <div id="feedback-stars" style="font-size:24px;cursor:pointer;letter-spacing:4px;color:#cbd5e1;">
+                                <span data-rating="1" onclick="submitFeedback(1)">★</span><span data-rating="2" onclick="submitFeedback(2)">★</span><span data-rating="3" onclick="submitFeedback(3)">★</span><span data-rating="4" onclick="submitFeedback(4)">★</span><span data-rating="5" onclick="submitFeedback(5)">★</span>
+                            </div>
+                            <div id="feedback-thanks" style="display:none;font-size:12px;color:#065f46;font-weight:600;margin-top:4px;">Danke für Ihr Feedback! 🙏</div>
+                        </div>`);
+
+                        _bd2.innerHTML += _blocks.join('');
+                    } catch (_invErr) { console.warn('Invoice/Feedback-Lookup-Fehler:', _invErr.message); }
                 }
                 // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
                 // picked_up: kein Storno mehr — Fahrt laeuft schon.
@@ -887,6 +926,71 @@
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
             } catch (e) {
                 alert('Fehler beim Erzeugen des Kalender-Termins: ' + e.message);
+            }
+        }
+
+        // v6.62.135: Patrick: 'beim Abschluss noch Rechnung per Email-Option dazu'.
+        // Schreibt Anfrage nach /invoiceRequests/{rideId} — Cloud-Function (Folge-PR)
+        // erkennt sie + sendet PDF an angegebene Email-Adresse.
+        async function requestInvoiceEmail() {
+            const cur = window._currentRide;
+            if (!cur || !cur.data) { alert('Buchung nicht geladen.'); return; }
+            const r = cur.data;
+            // Pre-fill aus CRM-Email falls in der Ride hinterlegt
+            const _suggested = r.customerEmail || '';
+            const email = prompt('An welche Email-Adresse soll die Rechnung gesendet werden?', _suggested);
+            if (!email) return;
+            const _trimmed = email.trim();
+            if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(_trimmed)) {
+                alert('Diese Email-Adresse sieht ungültig aus. Bitte erneut prüfen.');
+                return;
+            }
+            try {
+                await db.ref('invoiceRequests/' + cur.id).set({
+                    rideId: cur.id,
+                    requestedAt: Date.now(),
+                    email: _trimmed,
+                    invoiceNumber: r.invoiceNumber || null,
+                    customerName: r.customerName || null,
+                    source: 'track-page'
+                });
+                alert('✅ Rechnungs-Anfrage erfasst.\\nWir senden die Rechnung an ' + _trimmed + '.');
+            } catch (e) {
+                alert('Fehler: ' + e.message + '\\nBitte rufen Sie uns an: 038378 / 22022');
+            }
+        }
+
+        // v6.62.135: Patrick: 'Feedback geben oder bewerten in der Abschluss-Card'.
+        // 1-5 Sterne — Klick speichert sofort, optional kann Kunde anschliessend einen
+        // Kommentar hinterlassen.
+        async function submitFeedback(rating) {
+            const cur = window._currentRide;
+            if (!cur || !cur.data) return;
+            try {
+                // Visualisiere die Sterne
+                const stars = document.querySelectorAll('#feedback-stars span');
+                stars.forEach(s => {
+                    const r = parseInt(s.getAttribute('data-rating') || '0', 10);
+                    s.style.color = r <= rating ? '#f59e0b' : '#cbd5e1';
+                });
+                let _comment = null;
+                // Bei Bewertung <= 3: optional Kommentar-Feld
+                if (rating <= 3) {
+                    _comment = prompt('Was können wir besser machen? (optional)', '');
+                }
+                await db.ref('feedback/' + cur.id).set({
+                    rideId: cur.id,
+                    rating,
+                    comment: _comment || null,
+                    submittedAt: Date.now(),
+                    customerName: cur.data.customerName || null,
+                    customerPhone: cur.data.customerPhone || cur.data.customerMobile || null,
+                    source: 'track-page'
+                });
+                const thanks = document.getElementById('feedback-thanks');
+                if (thanks) thanks.style.display = 'block';
+            } catch (e) {
+                alert('Bewertung konnte nicht gespeichert werden: ' + e.message);
             }
         }
 

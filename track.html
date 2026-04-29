@@ -536,15 +536,17 @@
                 // Finde das richtige Fahrzeug
                 const driver = driversData[vehicleId];
                 
+                // 🔧 v6.62.118: Patrick: 'auf der Karte Fahrzeug nicht gefunden — sollte
+                // der Kunde gar nicht sehen, verwirrt'. Vor Fahrer-Zuweisung / GPS-Start
+                // freundlichere Nachricht statt Tech-Warnung.
                 if (!driver) {
-                    console.error('❌ Kein Fahrer gefunden für:', vehicleId);
-                    console.log('📋 Verfügbare IDs:', Object.keys(driversData));
-                    showWarning('⚠️ Fahrzeug nicht gefunden');
+                    console.error('❌ Kein Fahrer-Record für:', vehicleId);
+                    showWarning('🚕 Wir bereiten Ihre Fahrt vor...');
                     return;
                 }
-                
+
                 if (!driver.lat || !driver.lon) {
-                    showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
+                    showWarning('🚕 Fahrzeug wird vorbereitet — Live-Position folgt sobald der Fahrer losfährt');
                     return;
                 }
                 

@@ -18537,8 +18537,28 @@ exports.onRideCreated = onValueCreated(
                     const _smsDateStr = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
                     const _smsTimeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                     const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
-                    const _custFirstName = (ride.guestName || ride.customerName || '').split(' ')[0];
-                    const _anrede = _custFirstName ? `Hallo ${_custFirstName}, ` : '';
+                    // 🔧 v6.62.118: Patrick: 'mit Vornamen ansprechen bei fremden Leuten ist
+                    // doof — Nachname mit Anrede nehmen, Herr Dorfmeister'. Wir schauen erst
+                    // im CRM nach anrede + nehmen Nachname (letztes Wort), fallback 'Guten Tag,'.
+                    const _custFullName = (ride.guestName || ride.customerName || '').trim();
+                    const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                    let _custAnrede = '';
+                    try {
+                        if (ride.customerId) {
+                            const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                            const _cust = _custSnap.val();
+                            if (_cust && _cust.anrede) _custAnrede = String(_cust.anrede).trim();
+                        }
+                    } catch (_e) { /* fallback unten */ }
+                    // 'Herr' → 'Sehr geehrter Herr X', 'Frau' → 'Sehr geehrte Frau X'
+                    let _anrede;
+                    if (/^herr$/i.test(_custAnrede) && _custLastName) {
+                        _anrede = `Sehr geehrter Herr ${_custLastName}, `;
+                    } else if (/^frau$/i.test(_custAnrede) && _custLastName) {
+                        _anrede = `Sehr geehrte Frau ${_custLastName}, `;
+                    } else {
+                        _anrede = 'Guten Tag, ';
+                    }
                     const _priceStr = ride.price ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' Euro' : null;
                     let _smsText;
                     if (isSofort) {

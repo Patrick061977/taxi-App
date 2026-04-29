@@ -21836,9 +21836,12 @@ exports.onSmsQueued = onValueCreated(
         try {
             // v6.62.49: Native-SMS-Gateway statt Macrodroid-Telegram-Trigger.
             // settings/sms/gatewayVehicleId zeigt auf das Fahrzeug-Handy mit aktiver
-            // Funk-Taxi-App + SEND_SMS-Permission. Default: pw-my-222-e (Patrick's Tesla).
+            // Funk-Taxi-App + SEND_SMS-Permission. Default: pw-ym-222-e (Patrick's Tesla).
+            // v6.62.94: Typo gefixt — war 'pw-my-222-e' (m statt y), das Vehicle gibt's
+            // gar nicht. Wenn das Setting fehlte, fiel der Fallback ins Leere und SMS
+            // landeten still im Macrodroid-Pfad. Korrekt: pw-ym-222-e.
             const gwSnap = await db.ref('settings/sms/gatewayVehicleId').once('value');
-            const gatewayVid = gwSnap.val() || 'pw-my-222-e';
+            const gatewayVid = gwSnap.val() || 'pw-ym-222-e';
 
             const fcmOk = await sendFCMToVehicle(gatewayVid, {
                 type: 'send_sms',

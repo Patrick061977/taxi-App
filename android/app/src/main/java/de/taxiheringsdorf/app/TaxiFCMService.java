@@ -185,6 +185,24 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 sm.sendTextMessage(phone, null, text, null, null);
             }
             Log.i(TAG, "📲 SMS gesendet an " + phone + " (smsId " + smsId + ")");
+            // v6.62.94: Patrick: 'gestern war mein Postausgang immer mit den SMSen gefuellt
+            // damit ich das alles nochmal kontrollieren kann was verschickt wird'. Samsung
+            // capturete frueher SmsManager-SMS automatisch — nach APK-Update v6.62.93 nicht
+            // mehr. Wir schreiben die SMS jetzt explizit in Telephony.Sms.Sent damit sie
+            // OS-unabhaengig im Standard-SMS-Postausgang erscheint. Ab Android 4.4 darf das
+            // eigentlich nur die Default-SMS-App, aber Samsung-Geraete tolerieren den Insert
+            // historisch — Best-Effort, Fehler ignorieren.
+            try {
+                android.content.ContentValues values = new android.content.ContentValues();
+                values.put("address", phone);
+                values.put("body", text);
+                values.put("date", System.currentTimeMillis());
+                values.put("read", 1);
+                values.put("type", 2); // MESSAGE_TYPE_SENT
+                getContentResolver().insert(android.net.Uri.parse("content://sms/sent"), values);
+            } catch (Throwable _outboxErr) {
+                Log.w(TAG, "Outbox-Insert nicht moeglich: " + _outboxErr.getMessage());
+            }
             updateSmsStatus(smsId, "sent", null);
         } catch (Throwable t) {
             Log.e(TAG, "send_sms Fehler: " + t.getMessage());

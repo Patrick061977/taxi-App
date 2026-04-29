@@ -492,6 +492,27 @@
                         _bd.style.display = 'block';
                     }
                 }
+
+                // 🆕 v6.62.125: Patrick: 'bei der Abschluss-Card auch einen Download-Link
+                // fuer die Rechnung mitschicken'. Wenn Fahrt completed + Rechnungs-PDF
+                // existiert → Download-Button auf Track-Page anzeigen.
+                if (r.status === 'completed' && r.invoiceNumber) {
+                    try {
+                        const _invSnap = await db.ref('invoices/' + r.invoiceNumber).once('value');
+                        const _inv = _invSnap.val() || {};
+                        if (_inv.pdfUrl) {
+                            const _bd2 = document.getElementById('booking-details');
+                            if (_bd2) {
+                                _bd2.innerHTML += `<div style="margin-top:10px;padding:10px;background:#dbeafe;border:1px solid #3b82f6;border-radius:6px;text-align:center;">
+                                    <div style="font-size:12px;color:#1e40af;font-weight:600;margin-bottom:6px;">📄 Ihre Rechnung steht bereit</div>
+                                    <a href="${_inv.pdfUrl}" target="_blank" style="display:inline-block;background:#3b82f6;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">⬇️ Rechnung herunterladen</a>
+                                    ${_inv.stripePaymentStatus !== 'paid' && _inv.stripeCheckoutUrl ? `<div style="margin-top:8px;"><a href="${_inv.stripeCheckoutUrl}" target="_blank" style="display:inline-block;background:#635bff;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">💳 Online bezahlen</a></div>` : ''}
+                                    ${_inv.stripePaymentStatus === 'paid' ? `<div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">✅ Bezahlt am ${new Date(_inv.stripePaidAt || _inv.paidAt).toLocaleDateString('de-DE',{timeZone:'Europe/Berlin'})}</div>` : ''}
+                                </div>`;
+                            }
+                        }
+                    } catch (_invErr) { console.warn('Invoice-Lookup-Fehler:', _invErr.message); }
+                }
                 // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
                 // picked_up: kein Storno mehr — Fahrt laeuft schon.
                 // v6.62.53: 'arrived' raus — Fahrer ist schon vor Ort, da kann nicht mehr storniert

@@ -164,8 +164,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
             currentVehicleId = fcmPrefs.getString("vehicleId", null);
         }
 
-        if (currentVehicleId == null) {
-            // v6.45.0: Kein Fahrzeug → zu LoginActivity weiterleiten
+        // v6.62.105: Patrick: 'wenn man die App neu startet und nicht angemeldet ist
+        // duerfte man nicht ins Hauptmenue kommen — muss sich erst anmelden'.
+        // Vorher: nur SharedPrefs-vehicleId-Check. Wenn Firebase-Auth aber abgelaufen
+        // ist (token expired, fremder Logout, etc.) und SharedPrefs noch vehicleId
+        // hat → User landet im Dashboard mit stale State + Firebase-Reads schlagen fehl.
+        // Jetzt: BEIDE pruefen — Auth UND vehicleId. Eines fehlt → LoginActivity.
+        com.google.firebase.auth.FirebaseUser _curUser = null;
+        try { _curUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser(); } catch (Throwable _authErr) {}
+        if (currentVehicleId == null || _curUser == null) {
+            // Stale SharedPrefs leeren falls Auth fehlt aber prefs noch was hatten
+            if (_curUser == null && currentVehicleId != null) {
+                Log.w(TAG, "FirebaseAuth-User ist null obwohl vehicleId in SharedPrefs — Prefs werden bereinigt + Login");
+                prefs.edit().clear().apply();
+                getSharedPreferences("fcm", MODE_PRIVATE).edit().remove("vehicleId").apply();
+            }
             startActivity(new Intent(this, LoginActivity.class));
             finish();
             return;

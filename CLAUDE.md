@@ -21,6 +21,44 @@ Monitor(
 
 ---
 
+## 📋 PFLICHT: Tägliche Sekretärs-Routine (WICHTIG!)
+
+Patrick (29.04.2026): "Du bist sozusagen meine Sekretärin. Stell mal einen Workflow zusammen welche Sachen wir täglich abarbeiten müssen, damit wir eine gewisse Struktur ins Unternehmen bekommen — auch Buchhaltung, Umsätze prüfen, Rechnungsfahrten erledigen, Step-by-Step."
+
+Claude MUSS bei jedem Session-Start (NACH dem Bridge-Polling) Patrick einen kompakten **Daily-Briefing-Bridge-Push** schicken mit:
+
+### 1. SYSTEM-CHECK STAND HEUTE (aus settings/systemCheck)
+- Probleme-Anzahl + 3 Top-Themen
+- Heutige Fahrten (geplant + erledigt + ohne Fahrer)
+- Telegram-Webhook aktiv?
+
+### 2. RECHNUNGS-BACKLOG
+- Offene Vorkasse-Rechnungen (status='offen' + 'open')
+- Rechnungen ohne PDF (Auto-Regenerierung nötig?)
+- Überfällige Rechnungen (>30 Tage)
+
+### 3. FAHRTEN-AUFRÄUMUNG
+- 'new' / 'vorbestellt' Fahrten >2h überfällig → vermutlich completed/cancelled
+- Stuck 'accepted' ohne Fahrer-Heartbeat
+- Doppelt-zugewiesene Fahrzeuge (Konflikte)
+
+### 4. TAGES-UMSATZ-CHECK
+- Heutiger Umsatz (sum aller completed rides today)
+- Vergleich Vorwoche gleicher Tag
+- Top-Fahrzeug heute
+
+### 5. ENTWICKLUNGS-TODOs (Backlog)
+- Was ist seit gestern fertig (Versions-Log letzte 24h)
+- Was steht für heute an (Patrick-priorisiert)
+- Wo brauche ich Patricks Entscheidung
+
+### Format
+Ein einziger Telegram-Push, bridge-outbox, max 30 Zeilen. Klar gegliedert mit ━━━ Trennlinien. Patrick liest das morgens beim Kaffee → entscheidet was wir angehen.
+
+**Symptom wenn vergessen:** Patrick startet Session, Claude fängt sofort mit Code an, Patrick verliert den Überblick was offen ist und was Priorität hat.
+
+---
+
 ## 🕵️ PFLICHT: Detektiv-Modus statt Rätselraten (WICHTIG!)
 
 **Claude darf NIEMALS "könnte", "vielleicht", "möglicherweise" in Diagnosen verwenden.**

@@ -19126,6 +19126,60 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
+                // 🆕 v6.62.126: Patrick: 'wenn der Fahrer abschliesst kriegt der Kunde
+                // automatisch eine Abschluss-Nachricht mit Track-Link wo er die Rechnung
+                // herunterladen kann'. Channel-respektierend: Email wenn email-Anfrage,
+                // sonst SMS.
+                try {
+                    const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                    const _custFullName = (after.guestName || after.customerName || '').trim();
+                    const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                    // Anrede
+                    let _anrede = 'Guten Tag';
+                    if (after.customerId) {
+                        try {
+                            const _cs = await db.ref(`customers/${after.customerId}/anrede`).once('value');
+                            const _aRaw = (_cs.val() || '').toString();
+                            if (/^herr$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
+                            else if (/^frau$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
+                        } catch(_e) {}
+                    }
+                    // Channel ermitteln
+                    let _channel = null;
+                    if (after.anfrageId) {
+                        try {
+                            const _as = await db.ref(`anfragen/${after.anfrageId}/channel`).once('value');
+                            _channel = _as.val();
+                        } catch(_e) {}
+                    }
+                    if (!_channel && after.customerId) {
+                        try {
+                            const _cs2 = await db.ref(`customers/${after.customerId}/notificationPreference`).once('value');
+                            _channel = _cs2.val();
+                        } catch(_e) {}
+                    }
+                    if (!_channel) _channel = (after.customerEmail || (after.customerId && false)) ? 'email' : 'sms';
+                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Ihre Rechnung + Status: ${_trackLink} - Bei Fragen: 038378 22022.`;
+                    if (_channel === 'sms' && after.customerPhone) {
+                        await db.ref('smsQueue').push({
+                            phone: after.customerPhone,
+                            text: _smsText,
+                            rideId,
+                            type: 'fahrt_abgeschlossen',
+                            status: 'pending',
+                            createdAt: Date.now()
+                        });
+                        await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue', { phone: after.customerPhone, channel: 'sms' });
+                    } else if (_channel === 'email') {
+                        // Email wird über Stripe-Webhook (bei Bezahlung) bzw. ueber existing
+                        // sendInvoiceEmail Pfad gesendet — beim completed-Trigger nur Log.
+                        await addRideLog(rideId, '📧', 'Abschluss-Channel: email — Email wird bei Rechnungs-Versand mitgeschickt', { channel: 'email' });
+                    } else {
+                        await addRideLog(rideId, 'ℹ️', 'Kein Abschluss-Channel zum Senden (kein Phone/Email)', { channel: _channel });
+                    }
+                } catch (_abschlErr) {
+                    console.warn('Abschluss-Nachricht fehlgeschlagen:', _abschlErr.message);
+                }
                 message = `✅ <b>FAHRT ABGESCHLOSSEN!</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}\n` +

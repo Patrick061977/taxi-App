@@ -20519,6 +20519,65 @@ exports.stripeWebhook = onRequest(
                     } catch (notifyErr) {
                         console.warn('⚠️ Admin-Benachrichtigung fehlgeschlagen:', notifyErr.message);
                     }
+
+                    // 🆕 v6.62.124: Patrick: 'eine Zahlungsbestaetigung an Kunden waere
+                    // sauber'. Email mit Quittung an Kunde wenn Email vorhanden.
+                    try {
+                        const _custEmail = (invoice?.customerEmail || session.customer_details?.email || '').trim();
+                        const _custName = invoice?.customerName || session.customer_details?.name || '';
+                        const _custLastName = _custName.trim().split(/\s+/).pop();
+                        const _now = new Date();
+                        const _dateStr = _now.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
+                        const _timeStr = _now.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                        if (_custEmail) {
+                            const _confHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+<h2 style="margin:0;">✅ Zahlung erhalten — Vielen Dank!</h2>
+<p style="margin:5px 0 0 0;opacity:0.9;">Funk Taxi Heringsdorf · Rechnung ${invoiceNumber}</p>
+</div>
+<div style="padding:20px;background:#ffffff;border:1px solid #e5e7eb;">
+<p>Sehr geehrte/r ${_custLastName ? 'Herr/Frau ' + _custLastName : 'Kunde/Kundin'},</p>
+<p>vielen Dank! Ihre Zahlung über <b>${amountEur} €</b> ist erfolgreich bei uns eingegangen.</p>
+<div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:15px;margin:20px 0;">
+<table style="width:100%;border-collapse:collapse;font-size:14px;">
+<tr><td style="padding:6px 0;color:#6b7280;">Rechnungsnummer:</td><td style="text-align:right;font-weight:600;">${invoiceNumber}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">Betrag:</td><td style="text-align:right;font-weight:600;">${amountEur} €</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">Zahlungsart:</td><td style="text-align:right;">Stripe Online-Bezahlung</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">Datum:</td><td style="text-align:right;">${_dateStr}, ${_timeStr} Uhr</td></tr>
+</table>
+</div>
+<p style="font-size:13px;color:#6b7280;">Diese Email dient als Zahlungsbestätigung. Ihre Original-Rechnung haben Sie bereits per separater Email erhalten.</p>
+<p>Wir freuen uns auf das nächste Mal!<br>Mit freundlichen Grüßen<br><strong>Patrick Wydra</strong><br>Funk Taxi Heringsdorf</p>
+</div>
+<div style="background:#f9fafb;padding:15px;border-radius:0 0 8px 8px;text-align:center;font-size:12px;color:#6b7280;border:1px solid #e5e7eb;border-top:none;">
+📞 038378 22022 &nbsp;|&nbsp; ✉️ taxiwydra@googlemail.com &nbsp;|&nbsp; 🌐 funk-taxi-heringsdorf.de
+</div>
+</div>`;
+                            // Über interne Funktion versenden — direkt nodemailer hier statt sendInvoiceEmail-HTTP-Loop
+                            const smtpSnap2 = await db.ref('settings/smtp').once('value');
+                            const smtp2 = smtpSnap2.val();
+                            if (smtp2 && smtp2.host && smtp2.user && smtp2.pass) {
+                                const nodemailer2 = require('nodemailer');
+                                const transp = nodemailer2.createTransport({
+                                    host: smtp2.host,
+                                    port: parseInt(smtp2.port) || 587,
+                                    secure: (parseInt(smtp2.port) || 587) === 465,
+                                    auth: { user: smtp2.user, pass: smtp2.pass }
+                                });
+                                const fromName = smtp2.fromName || 'Funk Taxi Heringsdorf';
+                                const fromEmail = smtp2.fromEmail || smtp2.user;
+                                await transp.sendMail({
+                                    from: `"${fromName}" <${fromEmail}>`,
+                                    to: _custEmail,
+                                    subject: `✅ Zahlungsbestätigung Rechnung ${invoiceNumber} — Funk Taxi Heringsdorf`,
+                                    html: _confHtml
+                                });
+                                console.log(`✅ Zahlungsbestätigung an ${_custEmail} versendet`);
+                            }
+                        }
+                    } catch (confErr) {
+                        console.warn('⚠️ Zahlungsbestätigungs-Email fehlgeschlagen:', confErr.message);
+                    }
                 }
             } else if (event.type === 'checkout.session.expired') {
                 const session = event.data.object;

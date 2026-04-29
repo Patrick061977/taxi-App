@@ -2035,6 +2035,11 @@ async function logError(functionName, error, context = {}) {
 }
 
 // 🆕 v6.38.44: Daten-Inkonsistenz melden (Strecke fehlt, Preis fehlt, etc.)
+// 🔧 v6.62.103: Patrick: 'das kommt jedes Mal wenn ich eine Fahrt ueber die
+// Native-App erstelle — nervig'. Auto-fixes sollen Patrick NICHT mehr per
+// Telegram alarmieren. Nur unresolved Issues alarmieren.
+// Eine Issue gilt als "auto-resolved", wenn die NACHFOLGENDE Issue mit
+// "→ Auto-Fix" oder "-> Auto-Fix" beginnt. Paare werden gefiltert.
 async function logDataInconsistency(rideId, ride, issues) {
     const dayKey = getTodayLogKey();
     const entry = {
@@ -2053,17 +2058,38 @@ async function logDataInconsistency(rideId, ride, issues) {
         await db.ref(`errorLogs/${dayKey}`).push(entry);
     } catch (e) { /* ignore */ }
 
-    // Admin warnen wenn schwerwiegend
-    if (issues.length > 0) {
+    // v6.62.103: Auto-fixed Paare aus Admin-Warnung filtern.
+    // Heuristik: Eine Issue bei der die naechste mit "Auto-Fix" beginnt
+    // (mit beliebigem Prefix wie "→" / "->" / Whitespace) ist gefixt → BEIDE
+    // raus. Die Lifecycle/errorLogs-Eintraege bleiben fuer Audit.
+    const _unresolved = [];
+    for (let i = 0; i < issues.length; i++) {
+        const cur = issues[i];
+        const next = issues[i + 1] || '';
+        const _nextIsAutoFix = /(?:^|\s)(?:→|->)\s*Auto-Fix/i.test(next) || /^Auto-Fix/i.test(next.replace(/^[\s\-→>]+/, ''));
+        if (_nextIsAutoFix) {
+            i++; // skip the Auto-Fix line too
+            continue;
+        }
+        // Nicht skippen wenn die Issue selbst schon ein Auto-Fix-Folge-Eintrag ist
+        if (/(?:^|\s)(?:→|->)\s*Auto-Fix/i.test(cur)) continue;
+        _unresolved.push(cur);
+    }
+
+    // Admin warnen NUR wenn unresolved Issues vorhanden
+    if (_unresolved.length > 0) {
         const warnMsg = `⚠️ <b>DATEN-INKONSISTENZ</b>\n\n` +
             `🚕 Fahrt: <b>${ride?.customerName || '?'}</b>\n` +
             `📍 ${ride?.pickup || '?'} → ${ride?.destination || '?'}\n\n` +
-            issues.map(i => `❌ ${i}`).join('\n') +
+            _unresolved.map(i => `❌ ${i}`).join('\n') +
             `\n\n🔧 <i>Bitte Fahrt prüfen: ${rideId}</i>`;
         try {
             await sendToAllAdmins(warnMsg);
         } catch (e) { /* ignore */ }
-        await addRideLog(rideId, '⚠️', `Daten-Inkonsistenz: ${issues.join(', ')}`);
+        await addRideLog(rideId, '⚠️', `Daten-Inkonsistenz: ${_unresolved.join(', ')}`);
+    } else if (issues.length > 0) {
+        // Alles auto-gefixt → nur Audit-Trail im Lifecycle, keine Alarmierung.
+        await addRideLog(rideId, '✅', `Konsistenz auto-gefixt`, { count: issues.length, originalIssues: issues });
     }
 }
 

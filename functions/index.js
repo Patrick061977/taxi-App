@@ -4453,7 +4453,9 @@ async function validateTelegramAddresses(chatId, booking, originalText) {
 // ═══════════════════════════════════════════════════════════════
 
 async function callAnthropicAPI(apiKey, model, maxTokens, messages) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // 🆕 v6.62.112: Patrick: 'das kann ruhig 1-2 Min warten' — bei 429
+    // (Rate-Limit) automatisch retry nach 30/60/90 Sek statt Fehler werfen.
+    const _doFetch = async () => fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -4462,6 +4464,13 @@ async function callAnthropicAPI(apiKey, model, maxTokens, messages) {
         },
         body: JSON.stringify({ model, max_tokens: maxTokens, messages })
     });
+    const _waits = [30000, 60000, 90000]; // Drei Retries mit progressivem Backoff
+    let resp = await _doFetch();
+    for (let i = 0; i < _waits.length && resp.status === 429; i++) {
+        console.warn(`⏳ Anthropic 429 — warte ${_waits[i]/1000}s und retrye (${i+1}/${_waits.length})`);
+        await new Promise(r => setTimeout(r, _waits[i]));
+        resp = await _doFetch();
+    }
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(`API-Fehler: ${resp.status} - ${err.error?.message || 'Unbekannt'}`);

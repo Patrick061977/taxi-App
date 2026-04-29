@@ -217,14 +217,13 @@
 </head>
 <body>
     <div id="info">
-        <!-- v6.62.54: Patrick: 'Buchungsbestaetigung' Header + ein-/ausklappbar
-             oben klein. Schliessen-Button mit Bestaetigung wieder rein. -->
-        <!-- v6.62.59: Patrick: 'Kreuz oben zu praesent verleitet zum draufdruecken,
-             Header-Balken zu dick, alles kleiner'. Header schlanker, ✕ winzig + grau. -->
-        <div class="header" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:8px;" onclick="togglePanel()">
-            <h2 id="track-title" style="margin:0; flex:1;">🚕 Buchungsbestätigung <span id="toggle-icon" style="font-size:11px; color:#9ca3af; margin-left:4px;">▲</span></h2>
+        <!-- v6.62.97: Patrick: 'Buchungsbestaetigung viel zu fett, Klappen verwirrt
+             den Kunden, alles soll zur gleichen Zeit sichtbar sein'. Header schlanker
+             (kein Klappen mehr), Toggle-Icon raus. Kunde sieht alle Infos sofort. -->
+        <div class="header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <h2 id="track-title" style="margin:0; flex:1; font-size:14px;">🚕 Buchungsbestätigung</h2>
             <div id="status-indicator" class="status-indicator" style="margin:0 6px;"></div>
-            <button id="close-btn" onclick="event.stopPropagation(); closeTrackingConfirm();" title="Schließen" style="background:transparent; border:none; color:#d1d5db; font-size:13px; cursor:pointer; padding:0 2px; line-height:1;">×</button>
+            <button id="close-btn" onclick="closeTrackingConfirm();" title="Schließen" style="background:transparent; border:none; color:#d1d5db; font-size:13px; cursor:pointer; padding:0 2px; line-height:1;">×</button>
         </div>
 
         <div id="panel-body">
@@ -232,7 +231,8 @@
 
             <!-- v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen,
                  nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
-            <div id="booking-details" style="display:none; margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; line-height:1.6;"></div>
+            <!-- v6.62.97: Padding/Font reduziert damit Panel kompakter wirkt. -->
+            <div id="booking-details" style="display:none; margin-top:8px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; line-height:1.5;"></div>
 
             <!-- v6.62.53: Patrick: 'paar Infos dass die Leute solange der Fahrer noch nicht
                  losgefahren ist stornieren koennen + dass die Page sich automatisch
@@ -242,11 +242,6 @@
                  nur noch Stornieren-Hint (wenn moeglich) + Edit-Link (wenn Vorbestellung).
                  'Seite aktualisiert sich automatisch' + 'Sie werden benachrichtigt' raus
                  (sind redundant — Status-Badge oben zeigt Live-Updates eh). -->
-            <div id="info-hints" style="display:none; margin-top:8px; padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:12px; line-height:1.45; color:#1e3a8a;">
-                <div id="hint-cancellable" style="margin-bottom:3px;">❌ Stornieren möglich solange der Fahrer noch nicht losgefahren ist.</div>
-                <div id="hint-editable" style="display:none;">✏️ <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#1e3a8a; text-decoration:underline;">Im Kundenportal ändern</a> (nur Vorbestellungen >60 Min vor Abholung)</div>
-            </div>
-
         <div id="vehicle-info">
             Lädt Fahrzeug-Informationen...
         </div>
@@ -264,11 +259,21 @@
              bestellt haben sollen sie auch online stornieren koennen'. Nur sichtbar bei
              noch nicht abgeschlossenen / nicht stornierten Fahrten.
              v6.62.53: Patrick: 'Stornieren nicht zu praesent, nicht dass die Leute
-             versehentlich druecken'. Outline-Style + schmaler statt knall-rot Vollbreite. -->
-        <div style="text-align:center; margin-top:10px;">
-            <button id="cancel-btn" onclick="cancelRide()" style="display:none;padding:8px 16px;background:white;color:#9ca3af;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                Buchung stornieren
-            </button>
+             versehentlich druecken'. Outline-Style + schmaler statt knall-rot Vollbreite.
+             v6.62.97: Patrick: 'Hinweis-Text muss woanders hin'. Zusammen mit Storno-Button
+             gruppiert — Hint direkt unter dem Button als Mini-Erklaerung. -->
+        <div id="info-hints" style="display:none; margin-top:8px;">
+            <div style="text-align:center;">
+                <button id="cancel-btn" onclick="cancelRide()" style="display:none;padding:8px 16px;background:white;color:#9ca3af;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
+                    Buchung stornieren
+                </button>
+            </div>
+            <div id="hint-cancellable" style="display:none; margin-top:6px; font-size:11px; color:#64748b; text-align:center; line-height:1.35;">
+                Stornieren möglich solange der Fahrer noch nicht losgefahren ist
+            </div>
+            <div id="hint-editable" style="display:none; margin-top:6px; font-size:11px; color:#64748b; text-align:center; line-height:1.35;">
+                ✏️ Termin/Adresse <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#3b82f6; text-decoration:underline;">im Kundenportal ändern</a>
+            </div>
         </div>
 
         <button id="my-location-btn" onclick="toggleMyLocation()" style="width:100%;margin-top:10px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
@@ -477,7 +482,11 @@
                     if (r.passengers && r.passengers > 1) _rows.push(`<div>👥 <b>Personen:</b> ${r.passengers}</div>`);
                     if (r.pickup) _rows.push(`<div>📍 <b>Abholort:</b> ${r.pickup}</div>`);
                     if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
-                    if (r.price) _rows.push(`<div>💰 <b>Preis ca.</b> ${String(r.price).replace('.', ',')} €</div>`);
+                    // v6.62.97: Patrick: '17,1 muss 17,10 sein'. Immer 2 Nachkommastellen.
+                    if (r.price) {
+                        const _p = parseFloat(r.price);
+                        if (!isNaN(_p)) _rows.push(`<div>💰 <b>Preis ca.</b> ${_p.toFixed(2).replace('.', ',')} €</div>`);
+                    }
                     if (_rows.length) {
                         _bd.innerHTML = _rows.join('');
                         _bd.style.display = 'block';

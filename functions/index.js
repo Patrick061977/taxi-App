@@ -21606,6 +21606,93 @@ async function validateRideConsistency(rideId, ride) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.109: PDF-Auftrag-Import via Anthropic Vision
+// Patrick: 'Vetter Touristik schickt PDF mit Pickup/Stopps/Namen — KI soll
+// das parsen und als Buchungs-Vorschlag zurueckgeben'.
+// Aufruf: POST URL mit { fileBase64, mediaType, filename } + ?key=SECRET
+// Antwort: { ok: true, parsed: { pickup, destination, waypoints[], passengers,
+//           datetime, customer, hint } }
+// Patrick bestaetigt im UI bevor die Buchung wirklich angelegt wird.
+// ═══════════════════════════════════════════════════════════════
+exports.importAuftragPdf = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 120, memory: '512MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'POST required' }); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const { fileBase64, mediaType, filename } = body;
+            if (!fileBase64) { res.status(400).json({ error: 'fileBase64 required' }); return; }
+            const _media = mediaType || 'application/pdf';
+            const anthropicKey = await getAnthropicApiKey();
+            if (!anthropicKey) { res.status(500).json({ error: 'Kein Anthropic API Key konfiguriert' }); return; }
+
+            // Heutiges Datum als Hint für KI (Datum-Auflösung)
+            const _today = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
+            const prompt = `Du bekommst einen Taxi-Auftrag (PDF/Bild) eines Hotel- oder Touristik-Kunden (typischerweise Vetter Touristik, Federpoint, Hotels). Extrahiere die Buchungsdaten als striktes JSON.
+
+Heute ist: ${_today}.
+
+Anforderungen:
+- pickup: Hauptabhol-Adresse (z.B. "Strandhotel Heringsdorf, Delbrückstr. 5, 17424 Heringsdorf")
+- destination: Zielort (z.B. "Interferie Medical Spa Uzdrowiskowa, Swinemünde, Polen")
+- waypoints: Array Zwischenstopps in Anfahrreihenfolge — jeweils {address, name?}.
+  name = Gast/Hotel/Klinik der dort ein-/aussteigt (wenn im Auftrag steht).
+- pickupName: Name am Pickup (z.B. "Frau Müller" oder "Familie Schmidt") falls erkennbar
+- passengers: Personenzahl (Default 1 wenn unklar)
+- datetime: Pickup-Zeitpunkt im ISO-Format "YYYY-MM-DDTHH:MM:SS+02:00".
+  Bei Datumsangaben wie "morgen" / "Donnerstag" beziehe dich auf heute (${_today}).
+- customer: { name, type? } — Auftraggeber/Kunde (z.B. {name:"Vetter Touristik", type:"supplier"})
+- hint: Kurze Erklärung was du verstanden hast (1-2 Sätze, Deutsch)
+- confidence: 0.0-1.0 wie sicher du dir bist
+- rawText: ALLEN sichtbaren Text aus dem Dokument wortgenau extrahiert
+
+Gib NUR JSON zurück, kein Markdown, kein Pre/Post-Text. Wenn ein Feld fehlt: null oder leeres Array. Bei mehreren Personen mit Adressen jede als waypoint mit name.`;
+
+            const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
+                role: 'user',
+                content: [
+                    { type: 'document', source: { type: 'base64', media_type: _media, data: fileBase64 } },
+                    { type: 'text', text: prompt }
+                ]
+            }]);
+            const text = (visionResp.content?.[0]?.text || '').trim();
+            // JSON aus der Antwort holen — Claude gibt manchmal ```json ... ``` zurück
+            let jsonText = text;
+            const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) jsonText = jsonMatch[1].trim();
+            let parsed = null;
+            try { parsed = JSON.parse(jsonText); }
+            catch (parseErr) {
+                console.error('importAuftragPdf JSON-Parse-Fehler:', parseErr.message, 'Text:', text.slice(0, 500));
+                res.status(200).json({ ok: false, error: 'KI-Antwort konnte nicht als JSON geparst werden', rawText: text });
+                return;
+            }
+            // Audit-Log
+            try {
+                await db.ref('importLog').push({
+                    t: Date.now(),
+                    filename: filename || 'unbekannt',
+                    mediaType: _media,
+                    parsed,
+                    success: true
+                });
+            } catch (_logErr) { /* still */ }
+            res.status(200).json({ ok: true, parsed });
+        } catch (err) {
+            console.error('importAuftragPdf Fehler:', err.message, err.stack);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // v6.62.16: Notfall-Vehicle-Fix — Shift beenden + activeDevice clearen.
 // Aufruf: curl -X POST 'URL?key=SECRET' -d '{"vehicleId":"X","action":"endShift"|"clearLock"|"both"}'
 // ═══════════════════════════════════════════════════════════════

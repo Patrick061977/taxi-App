@@ -916,6 +916,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
             updates.put("startTime", System.currentTimeMillis());
             updates.put("startedBy", "native_dashboard");
             updates.put("lastHeartbeat", System.currentTimeMillis());
+            // v6.62.98: Patrick: 'Fahrer-SMS soll Namen enthalten — Ihr Fahrer Patrick
+            // ist jetzt unterwegs'. Schreiben den eingeloggten User mit Display-Name
+            // ans Shift damit die Cloud-Function in onRideUpdated.on_way die Vorname-
+            // Variable hat. Fallback auf email-Praefix wenn DisplayName leer.
+            try {
+                com.google.firebase.auth.FirebaseUser _user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (_user != null) {
+                    updates.put("userId", _user.getUid());
+                    String _dn = _user.getDisplayName();
+                    if (_dn == null || _dn.trim().isEmpty()) {
+                        String _em = _user.getEmail();
+                        if (_em != null && _em.contains("@")) _dn = _em.substring(0, _em.indexOf("@"));
+                    }
+                    if (_dn != null && !_dn.trim().isEmpty()) {
+                        updates.put("driverName", _dn.trim());
+                    }
+                }
+            } catch (Throwable _shiftIdErr) {
+                Log.w(TAG, "Shift driverName Schreibfehler: " + _shiftIdErr.getMessage());
+            }
             ref.updateChildren(updates);
             db.getReference("vehicles/" + currentVehicleId + "/online").setValue(true);
             Intent svc = new Intent(this, ShiftForegroundService.class);

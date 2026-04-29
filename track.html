@@ -438,10 +438,13 @@
             const ride = rideSnap.val();
             
             // 🆕 v5.90.53: STATUS-CHECK - Ist Fahrt beendet?
-            if (ride && (ride.status === 'completed' || ride.status === 'abgeschlossen')) {
-                showError('✅ Diese Fahrt wurde bereits abgeschlossen.<br><br>Das Live-Tracking ist nicht mehr aktiv.');
-                return;
-            }
+            // 🔧 v6.62.140: Patrick: 'Card ist gar nicht mehr verfuegbar wenn die Fahrt
+            // abgeschlossen ist — Kunden koennen sich keine Rechnung runterladen'.
+            // Bei 'completed' KEIN early-return mehr — Card laedt normal weiter, der
+            // Status-Listener (Z.464+) zeigt automatisch '🏁 Fahrt abgeschlossen' und
+            // der completed-Block ergaenzt Rechnungs-Download / Bezahlt-Badge / Feedback.
+            // Nur bei 'cancelled' macht eine reduzierte Anzeige Sinn — aber selbst da
+            // bleibt die Card sichtbar, der Status-Badge sagt klar 'storniert'.
             
             if (ride) {
                 // Fahrt-Infos anzeigen

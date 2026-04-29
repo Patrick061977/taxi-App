@@ -22263,6 +22263,110 @@ exports.onClaudeBridgeOutbox = onValueCreated(
     }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.138: Invoice-Request-Trigger
+// Wenn die Track-Page (oder das Kundenportal) /invoiceRequests/{rideId}
+// schreibt, schicken wir die Rechnung per Email an die angegebene Adresse.
+// Daten: { rideId, email, invoiceNumber?, customerName?, requestedAt, source }
+// ═══════════════════════════════════════════════════════════════
+exports.onInvoiceRequested = onValueCreated(
+    {
+        ref: '/invoiceRequests/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const data = event.data.val();
+        if (!data || data.sent || !data.email) return;
+        const rideId = event.params.rideId;
+        try {
+            // invoiceNumber bestimmen — aus payload oder aus der Ride nachladen
+            let invoiceNumber = data.invoiceNumber;
+            let customerName = data.customerName;
+            if (!invoiceNumber || !customerName) {
+                const rideSnap = await db.ref(`rides/${rideId}`).once('value');
+                const ride = rideSnap.val() || {};
+                invoiceNumber = invoiceNumber || ride.invoiceNumber;
+                customerName = customerName || ride.customerName;
+            }
+            if (!invoiceNumber) {
+                await event.data.ref.update({
+                    error: 'Keine invoiceNumber an der Ride hinterlegt — Rechnung muss erst angelegt werden.',
+                    errorAt: Date.now()
+                });
+                console.warn(`onInvoiceRequested ${rideId}: invoiceNumber fehlt`);
+                return;
+            }
+            // PDF-URL fuer Anhang ermitteln
+            const invSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+            const inv = invSnap.val() || {};
+            // sendInvoiceEmail Cloud-Function intern aufrufen — aber die ist HTTP.
+            // Wir bauen die Email-Logik direkt nach, weil es im selben Process laeuft.
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const smtp = smtpSnap.val();
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                await event.data.ref.update({ error: 'SMTP nicht konfiguriert', errorAt: Date.now() });
+                console.warn('onInvoiceRequested: SMTP fehlt');
+                return;
+            }
+            const nodemailer = require('nodemailer');
+            const transporter = nodemailer.createTransport({
+                host: smtp.host,
+                port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+            const safeName = (customerName || 'Kunde').replace(/[<>]/g, '');
+            const totalGross = parseFloat(inv.totalGross) || parseFloat(inv.amount) || 0;
+            const subj = `Ihre Rechnung Nr. ${invoiceNumber} — Funk Taxi Heringsdorf`;
+            const html = `<!DOCTYPE html><html><body style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; color:#0f172a;">
+                <div style="max-width:560px; margin:0 auto; padding:20px;">
+                    <div style="background:linear-gradient(135deg,#3b82f6,#0ea5e9); padding:24px; border-radius:12px 12px 0 0; color:white;">
+                        <h2 style="margin:0;font-size:20px;">🧾 Ihre Rechnung</h2>
+                        <p style="margin:4px 0 0 0;font-size:13px;opacity:.95;">Funk Taxi Heringsdorf</p>
+                    </div>
+                    <div style="background:#f8fafc; padding:20px; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px;">
+                        <p>Sehr geehrte/r ${safeName},</p>
+                        <p>vielen Dank für Ihre Fahrt mit uns! Im Anhang dieser Email finden Sie Ihre Rechnung als PDF.</p>
+                        <ul style="line-height:1.8;">
+                            <li>Rechnungs-Nr.: <b>${invoiceNumber}</b></li>
+                            <li>Betrag: <b>${totalGross.toFixed(2).replace('.', ',')} €</b></li>
+                        </ul>
+                        ${inv.pdfUrl ? `<p style="margin-top:20px;text-align:center;"><a href="${inv.pdfUrl}" style="display:inline-block;padding:12px 24px;background:#3b82f6;color:white;text-decoration:none;border-radius:8px;font-weight:600;">⬇️ Rechnung anzeigen / herunterladen</a></p>` : ''}
+                        <p style="margin-top:20px;font-size:12px;color:#64748b;">Bei Fragen erreichen Sie uns unter 038378 / 22022.</p>
+                        <p style="font-size:12px;color:#64748b;">Mit freundlichen Grüßen<br>Patrick Wydra<br>Funk Taxi Heringsdorf</p>
+                    </div>
+                </div>
+            </body></html>`;
+            const mailOptions = {
+                from: `"Funk Taxi Heringsdorf" <${smtp.user}>`,
+                to: data.email,
+                subject: subj,
+                html
+            };
+            // PDF-Anhang
+            if (inv.pdfUrl) {
+                try {
+                    mailOptions.attachments = [{
+                        filename: `Rechnung-${invoiceNumber}.pdf`,
+                        path: inv.pdfUrl
+                    }];
+                } catch (_e) { /* if path-based fails, mail goes without attachment */ }
+            }
+            const info = await transporter.sendMail(mailOptions);
+            await event.data.ref.update({
+                sent: true,
+                sentAt: Date.now(),
+                messageId: info.messageId || null
+            });
+            console.log(`✅ onInvoiceRequested: Email an ${data.email} fuer Rechnung ${invoiceNumber}`);
+        } catch (err) {
+            console.error('❌ onInvoiceRequested Fehler:', err.message);
+            try { await event.data.ref.update({ error: err.message, errorAt: Date.now() }); } catch(_) {}
+        }
+    }
+);
+
 // 🆕 v6.41.95: Auto-Forward von /debugErrors → /claudeBridge/inbox.
 // Wenn der JS-Crash-Logger einen neuen Eintrag schreibt (Window-Error,
 // Unhandled-Rejection, console.error, native Crash via __reportNativeCrash),

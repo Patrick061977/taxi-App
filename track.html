@@ -430,7 +430,11 @@
             }
 
             // 🔧 v6.39.5: Fahrt-Status live verfolgen + Badge-Farbe aktualisieren
-            db.ref('rides').child(rideId).on('value', (snap) => {
+            // 🚑 v6.62.130: Callback async — v6.62.125 hatte ein 'await' (Rechnungs-PDF-Lookup)
+            // im NICHT-async Callback eingefuehrt → SyntaxError → das gesamte <script> ist
+            // tot beim Parsen → Track-Page bleibt im 'Lädt Fahrzeug-Informationen'-Initialstate.
+            // Patrick: 'heute wird gar nichts angezeigt'.
+            db.ref('rides').child(rideId).on('value', async (snap) => {
                 const r = snap.val();
                 if (!r) return;
                 const badge = document.getElementById('ride-status-badge');

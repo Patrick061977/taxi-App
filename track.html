@@ -246,13 +246,44 @@
         #info-restore-tab:hover { background: rgba(255, 255, 255, 1); }
         #info-restore-tab:active { transform: scale(0.94); }
         #info-restore-tab.tab-visible { display: block; }
+        /* v6.62.136: Patrick: 'auf der Karte muss auch ein Kreuz sein um die Seite zu schliessen'.
+           Map-Close-Button rechts oben auf der Karte. Sichtbar nur wenn Card minimiert ist. */
+        #map-close-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+            cursor: pointer;
+            z-index: 999;
+            font-size: 18px;
+            color: #475569;
+            display: none;
+            transition: transform 0.2s ease, background 0.2s ease;
+            line-height: 36px;
+            text-align: center;
+            padding: 0;
+        }
+        #map-close-btn:hover { background: rgba(255, 255, 255, 1); color: #dc2626; }
+        #map-close-btn:active { transform: scale(0.94); }
+        #map-close-btn.btn-visible { display: block; }
         @media (max-width: 600px) {
             #info-restore-tab { top: 10px; padding: 8px 10px; font-size: 16px; }
+            #map-close-btn { top: 10px; right: 10px; width: 34px; height: 34px; line-height: 32px; }
         }
     </style>
 </head>
 <body>
     <button id="info-restore-tab" onclick="restoreInfoCard()" title="Buchung anzeigen">📋</button>
+    <!-- v6.62.136: Map-Close-Button — sichtbar nur wenn Card minimiert ist. Patrick:
+         'auf der Karte muss auch ein Kreuz sein, dass man die Seite schliessen kann'. -->
+    <button id="map-close-btn" onclick="closeTrackingConfirm()" title="Statusansicht schließen">×</button>
     <div id="info">
         <!-- v6.62.97: Patrick: 'Buchungsbestaetigung viel zu fett, Klappen verwirrt
              den Kunden, alles soll zur gleichen Zeit sichtbar sein'. Header schlanker
@@ -843,16 +874,19 @@
         function hideInfoCard() {
             const info = document.getElementById('info');
             const tab  = document.getElementById('info-restore-tab');
+            const cls  = document.getElementById('map-close-btn');
             if (info) info.classList.add('info-hidden');
             if (tab)  tab.classList.add('tab-visible');
-            // Karte neu zentrieren damit Markers sichtbar bleiben
+            if (cls)  cls.classList.add('btn-visible'); // v6.62.136
             try { setTimeout(() => map.invalidateSize(), 320); } catch (_e) {}
         }
         function restoreInfoCard() {
             const info = document.getElementById('info');
             const tab  = document.getElementById('info-restore-tab');
+            const cls  = document.getElementById('map-close-btn');
             if (info) info.classList.remove('info-hidden');
             if (tab)  tab.classList.remove('tab-visible');
+            if (cls)  cls.classList.remove('btn-visible'); // v6.62.136
             try { setTimeout(() => map.invalidateSize(), 320); } catch (_e) {}
         }
         // v6.62.134: zurueck zur Vorversion — X schliesst tatsaechlich den Tab

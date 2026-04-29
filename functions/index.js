@@ -18495,30 +18495,36 @@ exports.onRideCreated = onValueCreated(
                 if (_smsEnabled) {
                     // v6.62.51: Patrick: 'Wochentag ausgeschrieben, Datum mit Jahr,
                     // Von/Nach, Name, Personenzahl rein'. SMS-Flat → Laenge egal.
+                    // v6.62.98: Patrick: 'kann man das ein bisschen netter machen?
+                    // Hier ist Funk Taxi Heringsdorf, Vorbestellung bestaetigt — ist scheisse'.
+                    // Persoenlicher Ton, mit Anrede + Dank, weniger Imperativ.
                     const _smsWeekday = new Date(pickupTs).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
                     const _smsDateStr = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
                     const _smsTimeStr = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
-                    // v6.62.46: Patrick: 'wenn online bestellt, sollen sie auch online stornieren
-                    // koennen + Wartezeit sehen'. Track-Link bietet beides — Status-Seite mit
-                    // Storno-Button (track.html v6.62.46). Track-Link in Initial-SMS war
-                    // 'Quatsch' (v6.62.45) wenn nur Tracking — aber als Status+Storno-Seite hilft.
                     const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                    const _custFirstName = (ride.guestName || ride.customerName || '').split(' ')[0];
+                    const _anrede = _custFirstName ? `Hallo ${_custFirstName}, ` : '';
+                    const _priceStr = ride.price ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' Euro' : null;
                     let _smsText;
                     if (isSofort) {
                         const _waitInfo = (typeof ride.estimatedWaitMinutes === 'number' && ride.estimatedWaitMinutes > 0)
-                            ? ` Wartezeit ca. ${ride.estimatedWaitMinutes} Min.`
+                            ? `Voraussichtliche Wartezeit: ca. ${ride.estimatedWaitMinutes} Min. `
                             : '';
-                        _smsText = `Funk Taxi Heringsdorf: Ihre Buchung ist eingegangen!${_waitInfo} Sie werden informiert sobald ein Fahrer angenommen hat. Status: ${_trackLink}`;
+                        _smsText = `${_anrede}vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf! `
+                            + `${_waitInfo}Sobald Ihr Fahrer losfaehrt, bekommen Sie Bescheid. `
+                            + `Live-Status: ${_trackLink}`;
                     } else {
                         const _lines = [];
-                        _lines.push('Hier ist Funk Taxi Heringsdorf.');
-                        _lines.push(`Vorbestellung bestaetigt fuer ${_smsWeekday}, ${_smsDateStr}, ${_smsTimeStr} Uhr.`);
-                        if (ride.customerName) _lines.push(`Name: ${ride.customerName}`);
+                        _lines.push(`${_anrede}vielen Dank fuer Ihre Buchung bei Funk Taxi Heringsdorf!`);
+                        _lines.push('');
+                        _lines.push(`Termin: ${_smsWeekday}, ${_smsDateStr} um ${_smsTimeStr} Uhr`);
+                        if (ride.pickup) _lines.push(`Abholung: ${ride.pickup}`);
+                        if (ride.destination) _lines.push(`Ziel: ${ride.destination}`);
                         if (ride.passengers && ride.passengers > 1) _lines.push(`Personen: ${ride.passengers}`);
-                        if (ride.pickup) _lines.push(`Von: ${ride.pickup}`);
-                        if (ride.destination) _lines.push(`Nach: ${ride.destination}`);
-                        if (ride.price) _lines.push(`Preis ca. ${String(ride.price).replace('.', ',')}€`);
-                        _lines.push(`Status: ${_trackLink}`);
+                        if (_priceStr) _lines.push(`Preis: ca. ${_priceStr}`);
+                        _lines.push('');
+                        _lines.push(`Live-Status & Storno: ${_trackLink}`);
+                        _lines.push('Wir freuen uns auf Sie!');
                         _smsText = _lines.join('\n');
                     }
 
@@ -18929,7 +18935,25 @@ exports.onRideUpdated = onValueUpdated(
                 // schon initiale SMS bei Buchung. Nur 'Fahrer faehrt jetzt los' bei on_way.
                 if (oldStatus === 'accepted' && newStatus === 'on_way') {
                     // Bei jeder Fahrt: Fahrer faehrt JETZT los
-                    _smsBody = `Funk Taxi: ${_greet}Fahrer faehrt los! ${_vehLabel}${_eta ? ', ' + _eta : ''}. Tracking: ${_trackingLink}`;
+                    // v6.62.98: Patrick: 'beim Fahrer-SMS soll der Vorname stehen — Ihr
+                    // Fahrer Patrick ist jetzt unterwegs'. Driver-Name aus
+                    // vehicles/{vid}/shift/driverName lesen (wird ab v6.62.98 vom Native-
+                    // Dashboard beim Schicht-Start geschrieben). Fallback: 'Ihr Fahrer'.
+                    let _driverFirstName = null;
+                    try {
+                        const _vid = after.assignedVehicle || after.vehicleId;
+                        if (_vid) {
+                            const _shiftSnap = await db.ref(`vehicles/${_vid}/shift`).once('value');
+                            const _shift = _shiftSnap.val() || {};
+                            const _full = _shift.driverName || '';
+                            _driverFirstName = _full ? _full.trim().split(/\s+/)[0] : null;
+                        }
+                    } catch (_dnErr) { /* Fallback: ohne Name */ }
+                    const _driverPart = _driverFirstName ? `Ihr Fahrer ${_driverFirstName} ist jetzt unterwegs zu Ihnen` : `Ihr Funk-Taxi-Fahrer ist jetzt unterwegs`;
+                    const _vehiclePart = after.vehicle ? ` mit dem ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
+                    const _etaPart = _eta ? ` (${_eta})` : '';
+                    const _custName = _custFirstName ? `${_custFirstName}, ` : '';
+                    _smsBody = `${_custName}${_driverPart}${_vehiclePart}${_etaPart}.\nLive-Verfolgung: ${_trackingLink}\nFunk Taxi Heringsdorf`;
                     _smsType = 'driver_on_way';
                 }
                 // assigned/accepted → keine SMS (Kunde hatte initiale Buchungs-Bestaetigung)

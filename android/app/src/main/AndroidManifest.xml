@@ -168,4 +168,15 @@
 
     <!-- v6.50.0: APK-Install via Native-Update-Banner ohne WebView-Detour. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- v6.62.128: Bluetooth-Drucker (HALE TPD-02-BT) für Quittungs-Druck nach Bezahlung.
+         Vor Android 12 reichten BLUETOOTH + BLUETOOTH_ADMIN; ab Android 12 brauchen
+         Apps für Scan/Connect die neuen runtime-Permissions BLUETOOTH_SCAN +
+         BLUETOOTH_CONNECT. usesPermissionFlags="neverForLocation" verhindert dass
+         Android beim BT-Scan Standortdaten anfordert (Drucker hat keine Geo-Relevanz).
+         BT-Profil (Classic/SPP vs BLE) wird beim Servicetechniker-Termin ermittelt. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 </manifest>

@@ -302,6 +302,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 @Override public void onCancelled(@NonNull DatabaseError error) { Log.e(TAG, "OpenRides: " + error.getMessage()); }
             };
             openRidesQuery.addValueEventListener(openRidesListener);
+
+            // v6.62.128: Test-Druck-Listener — Admin-Tab schreibt nach
+            // /printerTestRequest, ein verbundenes Fahrer-Handy mit aktivem
+            // Drucker druckt eine Demo-Quittung (im Mock-Mode ins Logcat).
+            db.getReference("printerTestRequest").addValueEventListener(new ValueEventListener() {
+                long lastHandled = 0;
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    if (!s.exists()) return;
+                    Object tsObj = s.child("requestedAt").getValue();
+                    long ts = (tsObj instanceof Number) ? ((Number) tsObj).longValue() : 0L;
+                    if (ts == 0 || ts == lastHandled) return;
+                    lastHandled = ts;
+                    runTestPrint();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) { /* ignore */ }
+            });
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup Fehler: " + t.getMessage());
             tvVehicleInfo.setText("⚠️ Firebase-Verbindungsfehler: " + t.getMessage());
@@ -1494,6 +1510,60 @@ public class DriverDashboardActivity extends AppCompatActivity {
         if (note != null) u.put("paymentNote", note);
         db.getReference("rides/" + rideId).updateChildren(u);
         Toast.makeText(this, "✅ Fahrt abgeschlossen — " + paymentMethod, Toast.LENGTH_SHORT).show();
+        // v6.62.128: Nach Bezahlung optional Quittung drucken (TPD-02-BT).
+        // Aktuell Mock-Modus — gibt Quittungs-Inhalt nur ins Logcat.
+        try { triggerReceiptPrintAsync(rideId, paymentMethod, amount, note); } catch (Throwable _t) {}
+    }
+
+    /**
+     * v6.62.128: Test-Druck via Admin-UI. Erstellt eine Beispiel-Ride und ruft
+     * den {@link EscPosPrinter} im Mock-Modus auf — Logcat-Tag "EscPosPrinter".
+     */
+    private void runTestPrint() {
+        try {
+            Ride demo = new Ride();
+            demo.id = "TEST-" + System.currentTimeMillis();
+            demo.pickup = "Heringsdorf, Strandpromenade 1";
+            demo.destination = "Ahlbeck, Bahnhof";
+            demo.distance = 5.4;
+            String driver  = getSharedPreferences("fcm", MODE_PRIVATE).getString("driverName", "Test-Fahrer");
+            String vehicle = getSharedPreferences("fcm", MODE_PRIVATE).getString("vehicleName", "TEST-VEHICLE");
+            EscPosPrinter p = new EscPosPrinter(this);
+            p.printReceipt(demo, 12.40, "cash", null, driver, vehicle);
+            p.disconnect();
+            Toast.makeText(this, "🧾 Test-Druck (Mock) — siehe Logcat 'EscPosPrinter'", Toast.LENGTH_LONG).show();
+        } catch (Throwable t) {
+            Log.e(TAG, "runTestPrint failed: " + t.getMessage());
+        }
+    }
+
+    /**
+     * v6.62.128: Liest /settings/printer/enabled, lädt die Ride und ruft den
+     * {@link EscPosPrinter} auf. Schweigt im Fehlerfall — der Druck darf den
+     * Fahrt-Abschluss nicht blockieren.
+     */
+    private void triggerReceiptPrintAsync(String rideId, String paymentMethod, double amount, String stripeUrl) {
+        db.getReference("settings/printer").get().addOnSuccessListener(settingsSnap -> {
+            Boolean enabled = settingsSnap.child("enabled").getValue(Boolean.class);
+            if (!Boolean.TRUE.equals(enabled)) return;
+            String mac     = settingsSnap.child("macAddress").getValue(String.class);
+            String profile = settingsSnap.child("profile").getValue(String.class);
+            Object cplObj  = settingsSnap.child("charsPerLine").getValue();
+            int charsPerLine = (cplObj instanceof Number) ? ((Number) cplObj).intValue() : 32;
+
+            db.getReference("rides/" + rideId).get().addOnSuccessListener(rideSnap -> {
+                Ride r = Ride.fromSnap(rideSnap);
+                if (r == null) return;
+                String driver  = getSharedPreferences("fcm", MODE_PRIVATE).getString("driverName", null);
+                String vehicle = getSharedPreferences("fcm", MODE_PRIVATE).getString("vehicleName", null);
+                EscPosPrinter p = new EscPosPrinter(this);
+                p.setCharsPerLine(charsPerLine);
+                if ("ble".equals(profile)) p.connectBle(mac);
+                else                       p.connectSpp(mac);
+                p.printReceipt(r, amount, paymentMethod, stripeUrl, driver, vehicle);
+                p.disconnect();
+            });
+        });
     }
 
     private void payViaZettle(String rideId, double amount) {

@@ -978,7 +978,12 @@
             const email = prompt('An welche Email-Adresse soll die Rechnung gesendet werden?', _suggested);
             if (!email) return;
             const _trimmed = email.trim();
-            if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(_trimmed)) {
+            // 🔧 v6.62.141: Patrick: 'E-Mail-Adresse sieht ungueltig aus. Ist auch alles
+            // Quatsch.' Bug: doppelte Backslashes in der Regex (\\s statt \s) → matchte
+            // literal Backslash+s, also wurden alle Adressen mit 's' im Lokalteil oder der
+            // Domain als ungueltig abgelehnt (z.B. patrick@gmx.de). Fix: simple
+            // S-(non-whitespace)-Variante mit korrekter Single-Backslash-Eskapierung.
+            if (!/^\S+@\S+\.\S+$/.test(_trimmed)) {
                 alert('Diese Email-Adresse sieht ungültig aus. Bitte erneut prüfen.');
                 return;
             }

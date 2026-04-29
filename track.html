@@ -208,14 +208,51 @@
                 right: 10px;
                 padding: 15px;
             }
-            
+
             .header h2 {
                 font-size: 18px;
             }
         }
+
+        /* v6.62.133: Patrick: 'Karte verdeckt — Card muss zur Seite gewischt werden koennen'.
+           Swipe-Animation + Edge-Tab. Card kann nach links gewischt oder via X geschlossen
+           werden, kommt mit Tap auf Edge-Tab oder dem 📋 zurueck. */
+        #info {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #info.info-hidden {
+            transform: translateX(calc(-100% - 30px));
+            opacity: 0;
+            pointer-events: none;
+        }
+        #info-restore-tab {
+            position: absolute;
+            top: 14px;
+            left: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            border-left: none;
+            border-radius: 0 12px 12px 0;
+            padding: 10px 12px;
+            box-shadow: 2px 4px 16px rgba(15, 23, 42, 0.18);
+            cursor: pointer;
+            z-index: 999;
+            font-size: 18px;
+            display: none;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        #info-restore-tab:hover { background: rgba(255, 255, 255, 1); }
+        #info-restore-tab:active { transform: scale(0.94); }
+        #info-restore-tab.tab-visible { display: block; }
+        @media (max-width: 600px) {
+            #info-restore-tab { top: 10px; padding: 8px 10px; font-size: 16px; }
+        }
     </style>
 </head>
 <body>
+    <button id="info-restore-tab" onclick="restoreInfoCard()" title="Buchung anzeigen">📋</button>
     <div id="info">
         <!-- v6.62.97: Patrick: 'Buchungsbestaetigung viel zu fett, Klappen verwirrt
              den Kunden, alles soll zur gleichen Zeit sichtbar sein'. Header schlanker
@@ -737,13 +774,55 @@
             }, 100);
         }
 
-        // v6.62.54: Schliessen mit Bestaetigung (Patrick: 'wie kommen die Leute hier raus' +
-        // Sorge dass Kunde versehentlich alles weghaut. Kompromiss: kleines X oben rechts +
-        // confirm-Dialog).
-        function closeTrackingConfirm() {
-            const ok = confirm('Diese Statusansicht schließen?\n\nIhre Buchung bleibt aktiv. Sie können den Link aus der SMS jederzeit wieder öffnen.');
-            if (ok) closeTracking();
+        // v6.62.133: Patrick: 'Karte muss zur Seite gewischt werden, dass die nicht alles
+        // ueberdeckt'. X-Button blendet Card aus + zeigt Edge-Tab an, mit dem die Card
+        // wieder zurueckgeholt werden kann. Plus Swipe-Geste nach links.
+        function hideInfoCard() {
+            const info = document.getElementById('info');
+            const tab  = document.getElementById('info-restore-tab');
+            if (info) info.classList.add('info-hidden');
+            if (tab)  tab.classList.add('tab-visible');
+            // Karte neu zentrieren damit Markers sichtbar bleiben
+            try { setTimeout(() => map.invalidateSize(), 320); } catch (_e) {}
         }
+        function restoreInfoCard() {
+            const info = document.getElementById('info');
+            const tab  = document.getElementById('info-restore-tab');
+            if (info) info.classList.remove('info-hidden');
+            if (tab)  tab.classList.remove('tab-visible');
+            try { setTimeout(() => map.invalidateSize(), 320); } catch (_e) {}
+        }
+        // v6.62.54/v6.62.133: X-Knopf macht jetzt 'Card ausblenden' statt 'Tab schliessen'.
+        // Confirm-Dialog ist weg — Card bleibt auf einen Tap zurueckholbar, also kein Risiko.
+        function closeTrackingConfirm() { hideInfoCard(); }
+
+        // v6.62.133: Swipe nach links auf der Card → Card ausblenden.
+        (function setupSwipe() {
+            const info = document.getElementById('info');
+            if (!info) return;
+            let _startX = 0, _startY = 0, _moved = 0, _swiping = false;
+            info.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                _startX = t.clientX;
+                _startY = t.clientY;
+                _moved = 0;
+                _swiping = true;
+            }, { passive: true });
+            info.addEventListener('touchmove', (e) => {
+                if (!_swiping) return;
+                const t = e.touches[0];
+                const dx = t.clientX - _startX;
+                const dy = Math.abs(t.clientY - _startY);
+                _moved = dx;
+                // Wenn vertikale Bewegung deutlich groesser → Scroll, kein Swipe
+                if (dy > Math.abs(dx) * 1.2) { _swiping = false; return; }
+            }, { passive: true });
+            info.addEventListener('touchend', () => {
+                if (_swiping && _moved < -60) { hideInfoCard(); }
+                _swiping = false;
+                _moved = 0;
+            });
+        })();
 
         // v6.62.54: Buchungsbestaetigung-Panel ein-/ausklappbar (Patrick: 'klein
         // ein- und ausklappbar oben'). Klick auf Header togglet panel-body.

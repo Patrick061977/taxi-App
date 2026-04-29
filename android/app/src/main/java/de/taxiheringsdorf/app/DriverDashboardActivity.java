@@ -1792,20 +1792,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     _displayTime = "Sofort";
                 }
                 // v6.62.6: Patrick: 'wie lange er braucht bis zum Ziel, damit er rechtzeitig losfahren kann'.
-                // Wenn drivingTimeToPickup gesetzt + pickupTimestamp in der Zukunft → Losfahrt-Zeit anzeigen.
                 // v6.62.81: kompakter — Patrick: 'sehe Zahl nicht, muss kleiner gemacht werden'.
-                // Vorher: '21:30  •  🚗 los um 21:26 (4 Min)' = ~35 Zeichen, croppt auf schmalen Geraeten.
-                // Jetzt: '21:30 → 🚗 21:26 (4min)' = ~22 Zeichen.
-                if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0
-                    && r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
-                    long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
-                    if (_losfahrtMs > System.currentTimeMillis()) {
-                        java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
-                        _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-                        _displayTime += " → 🚗 " + _lfFmt.format(new java.util.Date(_losfahrtMs))
-                            + " (" + r.drivingTimeToPickup + "min)";
+                // v6.62.131: Patrick: 'da war nichts von wegen Anfahrt' bei Sofortfahrten — Bug:
+                // der if-Block hatte 'pickupTimestamp > now' als Pflicht, was bei Sofortfahrten
+                // (pickupTimestamp = jetzt) immer false war. Drei Faelle jetzt sauber getrennt:
+                //   • Vorbestellung in Zukunft + Losfahrt noch NICHT faellig → 'HH:MM → 🚗 HH:MM (Nmin)'
+                //   • Vorbestellung in Zukunft + Losfahrt schon faellig     → 'HH:MM → ⚠️ JETZT (Nmin)'
+                //   • Sofort (pickupTimestamp = jetzt / Vergangenheit)      → 'Sofort → 🚗 Nmin'
+                if (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
+                    if (r.pickupTimestamp != null && r.pickupTimestamp > System.currentTimeMillis()) {
+                        long _losfahrtMs = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
+                        if (_losfahrtMs > System.currentTimeMillis()) {
+                            java.text.SimpleDateFormat _lfFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                            _lfFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                            _displayTime += " → 🚗 " + _lfFmt.format(new java.util.Date(_losfahrtMs))
+                                + " (" + r.drivingTimeToPickup + "min)";
+                        } else {
+                            _displayTime += " → ⚠️ JETZT (" + r.drivingTimeToPickup + "min)";
+                        }
                     } else {
-                        _displayTime += " → ⚠️ JETZT (" + r.drivingTimeToPickup + "min)";
+                        // Sofortfahrt oder pickupTimestamp in Vergangenheit — einfach Anfahrt anzeigen
+                        _displayTime += " → 🚗 " + r.drivingTimeToPickup + " min";
                     }
                 }
                 // v6.62.75: Wenn Status picked_up + Live-ETA zum Ziel verfuegbar

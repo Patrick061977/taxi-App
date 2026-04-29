@@ -260,8 +260,13 @@
         <div class="header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
             <h2 id="track-title" style="margin:0; flex:1; font-size:14px;">🚕 Buchungsbestätigung</h2>
             <div id="status-indicator" class="status-indicator" style="margin:0 6px;"></div>
-            <button id="close-btn" onclick="closeTrackingConfirm();" title="Schließen" style="background:transparent; border:none; color:#d1d5db; font-size:13px; cursor:pointer; padding:0 2px; line-height:1;">×</button>
+            <!-- v6.62.134: zwei Knoepfe — Pfeil minimiert (Card slidet links raus, 📋 holt zurueck),
+                 X schliesst die Seite komplett (history.back() / window.close()). -->
+            <button id="minimize-btn" onclick="hideInfoCard();" title="Verkleinern (← wischen)" style="background:transparent; border:none; color:#94a3b8; font-size:13px; cursor:pointer; padding:0 4px; line-height:1;">›</button>
+            <button id="close-btn" onclick="closeTrackingConfirm();" title="Tab schließen" style="background:transparent; border:none; color:#d1d5db; font-size:13px; cursor:pointer; padding:0 2px; line-height:1;">×</button>
         </div>
+        <!-- v6.62.134: Discovery-Hinweis: Kunden zeigen dass die Card weg gewischt werden kann -->
+        <div id="swipe-hint" style="font-size:10px; color:#94a3b8; text-align:right; margin:-2px 0 4px 0;">← wischen oder › zum Verkleinern</div>
 
         <div id="panel-body">
             <div id="ride-status-badge" class="ride-status-new" style="display:none;">⏳ Wartet auf Fahrer</div>
@@ -270,6 +275,12 @@
                  nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
             <!-- v6.62.97: Padding/Font reduziert damit Panel kompakter wirkt. -->
             <div id="booking-details" style="display:none; margin-top:8px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; line-height:1.5;"></div>
+            <!-- v6.62.134: Kalender-Termin-Download (Patrick: 'Vorbestellung als ICS,
+                 dass die Leute sich den Termin in den Kalender bauen koennen'). Sichtbar
+                 nur bei Vorbestellungen die noch in der Zukunft sind. -->
+            <div id="ics-add-row" style="display:none; margin-top:8px; text-align:center;">
+                <button onclick="downloadIcs()" style="padding:8px 14px; background:#0ea5e9; color:white; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">📅 Termin in den Kalender</button>
+            </div>
 
             <!-- v6.62.53: Patrick: 'paar Infos dass die Leute solange der Fahrer noch nicht
                  losgefahren ist stornieren koennen + dass die Page sich automatisch
@@ -474,6 +485,8 @@
             db.ref('rides').child(rideId).on('value', async (snap) => {
                 const r = snap.val();
                 if (!r) return;
+                // v6.62.134: aktueller Ride-State global verfuegbar fuer downloadIcs()
+                window._currentRide = { id: rideId, data: r };
                 const badge = document.getElementById('ride-status-badge');
                 if (!badge) return;
                 // v6.62.23: warteschlange + vorbestellt ergaenzt + dynamische ETA-Anzeige
@@ -533,6 +546,17 @@
                         _bd.style.display = 'block';
                     }
                 }
+
+                // v6.62.134: Kalender-Termin-Download nur bei zukuenftiger Vorbestellung anzeigen
+                try {
+                    const _icsRow = document.getElementById('ics-add-row');
+                    if (_icsRow) {
+                        const _isFuture = r.pickupTimestamp && typeof r.pickupTimestamp === 'number'
+                                          && r.pickupTimestamp > Date.now();
+                        const _isCancelled = ['cancelled','storniert','completed','abgeschlossen'].includes((r.status||'').toLowerCase());
+                        _icsRow.style.display = (_isFuture && !_isCancelled) ? 'block' : 'none';
+                    }
+                } catch (_icsErr) {}
 
                 // 🆕 v6.62.125: Patrick: 'bei der Abschluss-Card auch einen Download-Link
                 // fuer die Rechnung mitschicken'. Wenn Fahrt completed + Rechnungs-PDF
@@ -792,9 +816,79 @@
             if (tab)  tab.classList.remove('tab-visible');
             try { setTimeout(() => map.invalidateSize(), 320); } catch (_e) {}
         }
-        // v6.62.54/v6.62.133: X-Knopf macht jetzt 'Card ausblenden' statt 'Tab schliessen'.
-        // Confirm-Dialog ist weg — Card bleibt auf einen Tap zurueckholbar, also kein Risiko.
-        function closeTrackingConfirm() { hideInfoCard(); }
+        // v6.62.134: zurueck zur Vorversion — X schliesst tatsaechlich den Tab
+        // (Patrick: 'kann man jetzt auch den Link komplett schliessen?'). Card-Verkleinern
+        // hat jetzt einen eigenen ›-Knopf links daneben + den Swipe-Pfad. confirm-Dialog
+        // bleibt damit Kunde nicht versehentlich raushuepft.
+        function closeTrackingConfirm() {
+            const ok = confirm('Diese Statusansicht schließen?\n\nIhre Buchung bleibt aktiv. Sie können den Link aus der SMS jederzeit wieder öffnen.');
+            if (ok) closeTracking();
+        }
+
+        // v6.62.134: Kalender-Termin-Export (.ics) — Patrick: 'die Leute sollen sich den Termin
+        // in den Kalender bauen koennen'. Generiert RFC5545-konformen iCalendar-Block clientseitig
+        // und triggert einen Download. iOS / Android / Outlook erkennen das automatisch.
+        function downloadIcs() {
+            try {
+                const cur = window._currentRide;
+                if (!cur || !cur.data) { alert('Buchungsdaten nicht geladen.'); return; }
+                const r = cur.data;
+                if (!r.pickupTimestamp || typeof r.pickupTimestamp !== 'number') {
+                    alert('Kein Termin-Zeitstempel hinterlegt.');
+                    return;
+                }
+                const start = new Date(r.pickupTimestamp);
+                // Default-Dauer: ride.duration (Min) + 5 Min Puffer, sonst 30 Min
+                const _durMin = (r.duration ? parseInt(r.duration, 10) : 25) + 5;
+                const end = new Date(start.getTime() + _durMin * 60 * 1000);
+                const _fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                const trackUrl = window.location.href;
+                const summary = '🚕 Taxifahrt — Funk Taxi Heringsdorf';
+                const location = (r.pickup || 'Funk Taxi Heringsdorf').replace(/[\r\n]/g, ' ');
+                const descLines = [];
+                if (r.pickup) descLines.push('Abholung: ' + r.pickup);
+                if (r.destination) descLines.push('Ziel: ' + r.destination);
+                if (r.passengers && r.passengers > 1) descLines.push('Personen: ' + r.passengers);
+                if (r.price) descLines.push('Preis ca.: ' + Number(r.price).toFixed(2).replace('.', ',') + ' €');
+                descLines.push('');
+                descLines.push('Live-Status: ' + trackUrl);
+                descLines.push('Funk Taxi Heringsdorf — 038378 / 22022');
+                const description = descLines.join('\\n').replace(/[,;]/g, m => '\\' + m);
+                const uid = 'ride-' + (cur.id || Date.now()) + '@funktaxi.de';
+                const ics = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//Funk Taxi Heringsdorf//Tracking//DE',
+                    'CALSCALE:GREGORIAN',
+                    'METHOD:PUBLISH',
+                    'BEGIN:VEVENT',
+                    'UID:' + uid,
+                    'DTSTAMP:' + _fmt(new Date()),
+                    'DTSTART:' + _fmt(start),
+                    'DTEND:' + _fmt(end),
+                    'SUMMARY:' + summary,
+                    'LOCATION:' + location.replace(/[,;]/g, m => '\\' + m),
+                    'DESCRIPTION:' + description,
+                    'BEGIN:VALARM',
+                    'ACTION:DISPLAY',
+                    'DESCRIPTION:Taxifahrt in 15 Min',
+                    'TRIGGER:-PT15M',
+                    'END:VALARM',
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                ].join('\r\n');
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'taxifahrt-' + _fmt(start).slice(0, 8) + '.ics';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+            } catch (e) {
+                alert('Fehler beim Erzeugen des Kalender-Termins: ' + e.message);
+            }
+        }
 
         // v6.62.133: Swipe nach links auf der Card → Card ausblenden.
         (function setupSwipe() {

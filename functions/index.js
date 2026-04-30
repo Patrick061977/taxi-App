@@ -1603,6 +1603,85 @@ async function sendClaudeBotMessage(chatId, text, extraParams = {}) {
     }
 }
 
+// 🆕 v6.62.143: Cloud-TTS fuer Bridge-Nachrichten (Patrick: 'kannst du mir hier auf
+// dem Handy eine Funktion bauen die mir die Sachen vorliest?'). Bei langen
+// Bridge-Pushes generiert Google Cloud TTS aus dem Text eine Voice-Message und
+// schickt sie zusaetzlich via sendVoice an den gleichen Bot/Chat.
+async function generateTtsAudio(text) {
+    try {
+        const apiKey = (await db.ref('settings/googlePlacesApiKey').once('value')).val();
+        if (!apiKey) { console.warn('TTS: kein Google API Key'); return null; }
+        const voiceName = (await db.ref('settings/bridge/voiceName').once('value')).val()
+                          || 'de-DE-Wavenet-F';
+        const speakRate = (await db.ref('settings/bridge/speakingRate').once('value')).val() || 1.0;
+        // Text fuer TTS bereinigen — Emoji/Markdown raus, sonst spricht die Stimme '🚕' aus
+        const _spoken = String(text)
+            .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+            .replace(/[*_`#~]+/g, '')
+            .replace(/\n+/g, '. ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 4500);
+        if (!_spoken) return null;
+        const resp = await fetch(
+            `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: { text: _spoken },
+                    voice: { languageCode: 'de-DE', name: voiceName },
+                    audioConfig: { audioEncoding: 'OGG_OPUS', speakingRate: speakRate }
+                })
+            }
+        );
+        const data = await resp.json();
+        if (!data.audioContent) {
+            console.error('TTS-API-Fehler:', data.error?.message || data);
+            return null;
+        }
+        return Buffer.from(data.audioContent, 'base64');
+    } catch (e) {
+        console.error('generateTtsAudio Exception:', e.message);
+        return null;
+    }
+}
+
+async function sendTelegramVoice(token, chatId, audioBuffer, replyToMessageId) {
+    try {
+        const fd = new FormData();
+        fd.append('chat_id', String(chatId));
+        fd.append('voice', new Blob([audioBuffer], { type: 'audio/ogg' }), 'voice.ogg');
+        if (replyToMessageId) fd.append('reply_to_message_id', String(replyToMessageId));
+        const resp = await fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
+            method: 'POST',
+            body: fd
+        });
+        const data = await resp.json();
+        if (!data.ok) console.error('sendVoice Fehler:', data.description);
+        return data.ok ? data.result : null;
+    } catch (e) {
+        console.error('sendVoice Exception:', e.message);
+        return null;
+    }
+}
+
+async function maybeSendVoiceVersion(text, chatId, useClaudeBot, replyToMessageId) {
+    try {
+        const enabled = (await db.ref('settings/bridge/voiceMode').once('value')).val();
+        if (enabled === false) return; // explizit abgeschaltet
+        const minChars = (await db.ref('settings/bridge/voiceMinChars').once('value')).val() || 200;
+        if (!text || text.length < minChars) return;
+        const audio = await generateTtsAudio(text);
+        if (!audio) return;
+        const token = useClaudeBot ? await loadClaudeBotToken() : await loadBotToken();
+        if (!token) return;
+        await sendTelegramVoice(token, chatId, audio, replyToMessageId);
+    } catch (e) {
+        console.error('maybeSendVoiceVersion Fehler:', e.message);
+    }
+}
+
 async function ensureWebhookSecret() {
     const snap = await db.ref('settings/telegram/webhookSecret').once('value');
     if (snap.val()) return snap.val();
@@ -22242,11 +22321,12 @@ exports.onClaudeBridgeOutbox = onValueCreated(
         try {
             const text = '🤖 ' + String(data.message).slice(0, 3500);
             const useClaudeBot = data.via === 'claude' || data.source === 'claudeBot';
+            let textMsgResult = null;
             if (data.targetChatId) {
                 if (useClaudeBot) {
-                    await sendClaudeBotMessage(data.targetChatId, text);
+                    textMsgResult = await sendClaudeBotMessage(data.targetChatId, text);
                 } else {
-                    await sendTelegramMessage(data.targetChatId, text);
+                    textMsgResult = await sendTelegramMessage(data.targetChatId, text);
                 }
             } else {
                 // ohne Target → Hauptbot an alle Admins (Claude-Bot hat keine "alle"-Liste)
@@ -22256,6 +22336,22 @@ exports.onClaudeBridgeOutbox = onValueCreated(
             // 🆕 v6.62.60: Jede ausgehende Claude-Nachricht zählt als Heartbeat — egal ob Browser-Tab offen ist.
             try { await db.ref('claudeBridge/heartbeat').set({ ts: Date.now(), pid: 'outbox' }); } catch(_) {}
             console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} (${useClaudeBot ? 'Claude-Bot' : 'Hauptbot'}) gesendet`);
+
+            // 🆕 v6.62.143: TTS-Voice-Version fuer lange Nachrichten (Patrick: 'die Sachen
+            // vorlesen lassen'). Schwelle aus settings/bridge/voiceMinChars (Default 200).
+            // Nur an einzelne targetChatId — broadcast skip wir hier (zuviel Voice-Spam).
+            if (data.targetChatId && data.voice !== false) {
+                try {
+                    await maybeSendVoiceVersion(
+                        String(data.message),       // Original ohne 🤖-Prefix
+                        data.targetChatId,
+                        useClaudeBot,
+                        textMsgResult?.message_id    // als Reply, sodass Voice unter dem Text haengt
+                    );
+                } catch (_voiceErr) {
+                    console.warn('TTS-Voice-Push fehlgeschlagen:', _voiceErr.message);
+                }
+            }
         } catch (err) {
             console.error('❌ onClaudeBridgeOutbox Fehler:', err.message);
             try { await event.data.ref.update({ error: err.message, errorAt: Date.now() }); } catch(_) {}

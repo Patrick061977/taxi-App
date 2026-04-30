@@ -1047,10 +1047,89 @@ public class CallLogActivity extends AppCompatActivity {
             Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
         });
 
-        EditText etPax = new EditText(this);
-        etPax.setHint("Personen (Default 1)");
-        etPax.setInputType(InputType.TYPE_CLASS_NUMBER);
-        layout.addView(etPax);
+        // v6.62.152: Zwischenstops-Sektion (Patrick: 'Zwischenstops fehlen in den Native-Apps').
+        // Pro Klick auf '+' wird eine Zeile mit Places-Autocomplete + Entfernen-Button angelegt.
+        TextView tvWpHeader = new TextView(this);
+        tvWpHeader.setText("🔶 Zwischenstops");
+        tvWpHeader.setTextSize(13);
+        tvWpHeader.setTextColor(0xFF374151);
+        tvWpHeader.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvWpHeader);
+
+        final LinearLayout wpContainer = new LinearLayout(this);
+        wpContainer.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(wpContainer);
+
+        // Tracking pro Waypoint-Zeile: TextView (für Adresse) + double[2] (für Coords)
+        final List<TextView> waypointFields = new ArrayList<>();
+        final List<double[]> waypointCoords = new ArrayList<>();
+
+        TextView btnAddWp = new TextView(this);
+        btnAddWp.setText("+ Zwischenstopp hinzufügen");
+        btnAddWp.setTextSize(13);
+        btnAddWp.setTextColor(0xFF1E40AF);
+        btnAddWp.setBackgroundColor(0xFFEFF6FF);
+        btnAddWp.setGravity(android.view.Gravity.CENTER);
+        btnAddWp.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams addLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        addLp.setMargins(0, padHalf / 2, 0, padHalf);
+        btnAddWp.setLayoutParams(addLp);
+        btnAddWp.setOnClickListener(_v -> {
+            final double[] wpC = new double[]{Double.NaN, Double.NaN};
+            waypointCoords.add(wpC);
+
+            LinearLayout wpRow = new LinearLayout(this);
+            wpRow.setOrientation(LinearLayout.HORIZONTAL);
+
+            TextView tvWp = new TextView(this);
+            tvWp.setText("🔶 Zwischenstopp wählen…");
+            tvWp.setPadding(pad / 2, pad, pad / 2, pad);
+            LinearLayout.LayoutParams wpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            tvWp.setLayoutParams(wpLp);
+            tvWp.setOnClickListener(__v -> launchPlaces(tvWp, wpC));
+            wpRow.addView(tvWp);
+            waypointFields.add(tvWp);
+
+            TextView btnRemove = new TextView(this);
+            btnRemove.setText("✕");
+            btnRemove.setTextSize(18);
+            btnRemove.setTextColor(0xFFDC2626);
+            btnRemove.setPadding(pad, pad, pad, pad);
+            btnRemove.setOnClickListener(__v -> {
+                int pos = waypointFields.indexOf(tvWp);
+                if (pos >= 0) {
+                    waypointFields.remove(pos);
+                    waypointCoords.remove(pos);
+                }
+                wpContainer.removeView(wpRow);
+            });
+            wpRow.addView(btnRemove);
+
+            wpContainer.addView(wpRow);
+            // Direkt Places-Picker oeffnen — Patrick will schnell tippen
+            launchPlaces(tvWp, wpC);
+        });
+        layout.addView(btnAddWp);
+
+        // v6.62.152: Personenzahl als Spinner statt verstecktem EditText (Patrick: 'muss
+        // feststehen, nicht nur Default'). Spinner zeigt 1-8 Personen mit Bus-Hinweis ab 5.
+        TextView tvPaxLabel = new TextView(this);
+        tvPaxLabel.setText("👥 Personen:");
+        tvPaxLabel.setTextSize(13);
+        tvPaxLabel.setTextColor(0xFF374151);
+        tvPaxLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvPaxLabel);
+
+        final android.widget.Spinner spnPax = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> paxAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item,
+            new String[]{"1 Person", "2 Personen", "3 Personen", "4 Personen",
+                         "5 Personen (Bus)", "6 Personen (Bus)", "7 Personen (Bus)", "8 Personen (Bus)"});
+        paxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spnPax.setAdapter(paxAdapter);
+        spnPax.setSelection(0);
+        layout.addView(spnPax);
 
         // Datum + Zeit Picker als Buttons
         Calendar cal = Calendar.getInstance();
@@ -1074,10 +1153,15 @@ public class CallLogActivity extends AppCompatActivity {
         });
         layout.addView(tvDate);
 
+        // v6.62.152: ScrollView-Wrap weil mit Zwischenstops + Personenzahl-Spinner das
+        // Modal auf kleinen Phones (S9) sonst die Anlegen-Buttons unter den Bildschirmrand schiebt.
+        ScrollView scrollWrap = new ScrollView(this);
+        scrollWrap.addView(layout);
+
         new AlertDialog.Builder(this)
             .setTitle("📅 Vorbestellung anlegen")
             .setMessage("Telefonnummer: " + e.number)
-            .setView(layout)
+            .setView(scrollWrap)
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();
                 // v6.62.42: defensive — Symbol-Prefix von BEIDEN moeglichen Symbolen entfernen
@@ -1101,8 +1185,27 @@ public class CallLogActivity extends AppCompatActivity {
                     Toast.makeText(this, "❌ Adresse(n) noch nicht geocodiert — bitte Abholort/Zielort antippen + auswaehlen", Toast.LENGTH_LONG).show();
                     return;
                 }
-                int pax = 1;
-                try { pax = Integer.parseInt(etPax.getText().toString().trim()); } catch (Throwable _t) {}
+                // v6.62.152: Personenzahl aus Spinner (1-8)
+                int pax = spnPax.getSelectedItemPosition() + 1;
+                if (pax < 1) pax = 1;
+                if (pax > 8) pax = 8;
+
+                // v6.62.152: Zwischenstops-Liste bauen — nur ausgefuellte (nicht 'wählen…')
+                final List<Map<String, Object>> waypointsList = new ArrayList<>();
+                for (int wi = 0; wi < waypointFields.size(); wi++) {
+                    String wpAddr = waypointFields.get(wi).getText().toString()
+                        .replaceFirst("^🔶\\s*", "").replaceFirst("^📍\\s*", "").trim();
+                    if (wpAddr.isEmpty() || wpAddr.endsWith("wählen…")) continue;
+                    double[] wpC = waypointCoords.get(wi);
+                    Map<String, Object> wpData = new HashMap<>();
+                    wpData.put("address", wpAddr);
+                    if (!Double.isNaN(wpC[0])) {
+                        wpData.put("lat", wpC[0]);
+                        wpData.put("lon", wpC[1]);
+                    }
+                    waypointsList.add(wpData);
+                }
+
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
@@ -1119,11 +1222,47 @@ public class CallLogActivity extends AppCompatActivity {
                 } else {
                     r.put("customerName", name);
                 }
-                if (crm != null) r.put("customerId", crm.id);
+                // v6.62.152: Auto-CRM-Anlage wenn unbekannte Nummer (Patrick: 'sonst finde
+                // ich den im Fahrtenkalender ja nachher nicht'). Push customer FIRST damit
+                // wir die customerId in der Ride mitschreiben koennen.
+                String autoCustomerId = null;
+                if (crm != null) {
+                    r.put("customerId", crm.id);
+                } else if (e.number != null && !e.number.trim().isEmpty()) {
+                    try {
+                        DatabaseReference custRef = FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("customers").push();
+                        autoCustomerId = custRef.getKey();
+                        Map<String, Object> custData = new HashMap<>();
+                        custData.put("name", name);
+                        // Mobil/Festnetz routen anhand 015/016/017-Prefix (DE) oder +491
+                        String _digits = e.number.replaceAll("[^0-9+]", "");
+                        boolean _isMobile = _digits.startsWith("+4915") || _digits.startsWith("+4916")
+                            || _digits.startsWith("+4917") || _digits.startsWith("015")
+                            || _digits.startsWith("016") || _digits.startsWith("017");
+                        custData.put("phone", _isMobile ? "" : e.number);
+                        custData.put("mobilePhone", _isMobile ? e.number : "");
+                        // Adresse + billingAddress LEER lassen (Pickup ist NIEMALS Rechnungsadresse)
+                        custData.put("address", "");
+                        custData.put("createdAt", now);
+                        custData.put("createdBy", "native_calllog_prebooking_auto");
+                        custData.put("source", "native_call_prebooking");
+                        custData.put("totalRides", 0);
+                        custData.put("isVIP", false);
+                        custData.put("notes", "Auto-angelegt aus Native-Vorbestellung v6.62.152");
+                        custRef.setValue(custData);
+                        r.put("customerId", autoCustomerId);
+                    } catch (Throwable _ce) {
+                        // Wenn CRM-Anlage scheitert, Ride trotzdem ohne customerId anlegen
+                        autoCustomerId = null;
+                    }
+                }
                 r.put("customerPhone", e.number);
                 r.put("customerMobile", e.number);
                 r.put("pickup", pickup);
                 r.put("destination", dest);
+                // v6.62.152: Zwischenstops mitschreiben (mit lat/lon falls vorhanden)
+                if (!waypointsList.isEmpty()) r.put("waypoints", waypointsList);
                 // v6.53.0: Koords aus Places-Pick (oder CRM-Vorbelegung) — keine String-Adressen mehr ohne lat/lon!
                 // v6.62.42: + pickupCoords/destCoords als Object schreiben — Browser-Code legt
                 // beides an, Cloud-Function 'Daten-Inkonsistenz' triggerte sonst weil onRideCreated

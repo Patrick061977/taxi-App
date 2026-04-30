@@ -3599,13 +3599,21 @@ async function calculateRoute(from, to, waypointCoords = []) {
         }
         coordinates += `;${to.lon},${to.lat}`;
 
+        // 🆕 v6.62.150: legs sind in route.legs[] (=N+1 Etappen bei N Waypoints).
+        // Ohne overview-Geometry, aber legs liefert duration + distance pro Etappe.
         const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`);
         const data = await resp.json();
         if (data.routes && data.routes[0]) {
             const route = data.routes[0];
+            // Per-Etappe Daten extrahieren — fuer Stop-Timeline-Anzeige
+            const legs = (route.legs || []).map(l => ({
+                duration: Math.round((l.duration || 0) / 60),  // in Min
+                distance: +(((l.distance || 0) / 1000).toFixed(1))  // in km
+            }));
             return {
                 distance: (route.distance / 1000).toFixed(1),
-                duration: Math.round(route.duration / 60)
+                duration: Math.round(route.duration / 60),
+                legs
             };
         }
     } catch (e) { console.warn('Route Fehler:', e.message); }
@@ -21940,6 +21948,147 @@ Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: t
                     datetime: parsed.datetime, customer: parsed.customer, hint: parsed.hint
                 }];
             }
+            // 🆕 v6.62.150: Auftraggeber-CRM-Lookup — sucht customer.name (z.B. Vetter
+            // Touristik) im CRM mit Fuzzy-Match. Wenn Treffer: customerId pro Trip mit
+            // anhaengen, damit beim Anlegen der Ride der Auftraggeber verknuepft wird +
+            // die Rechnung automatisch an die richtige Adresse geht.
+            try {
+                const customersSnap = await db.ref('customers').once('value');
+                const customers = customersSnap.val() || {};
+                const findMatch = (searchName) => {
+                    if (!searchName || typeof searchName !== 'string') return null;
+                    const sNorm = searchName.toLowerCase().replace(/\s+/g, ' ').trim();
+                    if (sNorm.length < 3) return null;
+                    let best = null;
+                    let bestScore = 0;
+                    for (const [cid, c] of Object.entries(customers)) {
+                        if (!c || !c.name) continue;
+                        const cNorm = String(c.name).toLowerCase().replace(/\s+/g, ' ').trim();
+                        let score = 0;
+                        if (cNorm === sNorm) score = 100;
+                        else if (cNorm.includes(sNorm) || sNorm.includes(cNorm)) score = 80;
+                        else {
+                            // Token-basiert — 'Vetter Touristik' matcht 'Vetter' mit 50%
+                            const sTokens = sNorm.split(' ').filter(t => t.length > 2);
+                            const cTokens = cNorm.split(' ').filter(t => t.length > 2);
+                            const overlap = sTokens.filter(t => cTokens.some(ct => ct.includes(t) || t.includes(ct))).length;
+                            if (sTokens.length > 0 && cTokens.length > 0) {
+                                score = (overlap / Math.max(sTokens.length, cTokens.length)) * 70;
+                            }
+                        }
+                        // Supplier-Bonus — Auftraggeber sind typischerweise type:supplier/hotel
+                        if (score > 0 && (c.type === 'supplier' || c.type === 'hotel')) score += 5;
+                        if (score > bestScore && score >= 50) {
+                            bestScore = score;
+                            best = { customerId: cid, customer: c, score };
+                        }
+                    }
+                    return best;
+                };
+                if (parsed.trips) {
+                    parsed.trips.forEach(t => {
+                        if (t.customer && t.customer.name) {
+                            const m = findMatch(t.customer.name);
+                            if (m) {
+                                t.customerId = m.customerId;
+                                t.customerMatchScore = m.score;
+                                t.customerMatchedName = m.customer.name;
+                            }
+                        }
+                    });
+                }
+                // Top-level Spiegelung fuer Backwards-compat
+                if (parsed.trips && parsed.trips[0] && parsed.trips[0].customerId) {
+                    parsed.customerId = parsed.trips[0].customerId;
+                    parsed.customerMatchScore = parsed.trips[0].customerMatchScore;
+                    parsed.customerMatchedName = parsed.trips[0].customerMatchedName;
+                }
+            } catch (_lookupErr) {
+                console.warn('CRM-Lookup-Fehler:', _lookupErr.message);
+            }
+
+            // 🆕 v6.62.150: Stop-Timeline — alle Adressen geocodieren, OSRM-Route mit
+            // Waypoints rechnen, daraus Etappen-Zeiten + arrivalTime pro Stopp ableiten.
+            // Wartezeit pro Zwischenstopp aus settings/waypointDwellMin (Default 3 Min).
+            try {
+                const dwellSnap = await db.ref('settings/waypointDwellMin').once('value');
+                const dwellMin = Math.max(0, Number(dwellSnap.val()) || 3);
+                if (parsed.trips && Array.isArray(parsed.trips)) {
+                    for (const t of parsed.trips) {
+                        try {
+                            if (!t.pickup || !t.destination) continue;
+                            const pickC = await geocode(t.pickup);
+                            const destC = await geocode(t.destination);
+                            if (!pickC || !destC) continue;
+                            t.pickupLat = pickC.lat; t.pickupLon = pickC.lon;
+                            t.destinationLat = destC.lat; t.destinationLon = destC.lon;
+                            const wpCoords = [];
+                            if (Array.isArray(t.waypoints)) {
+                                for (let i = 0; i < t.waypoints.length; i++) {
+                                    const wp = t.waypoints[i];
+                                    const addr = (wp && (wp.address || wp.addr)) || (typeof wp === 'string' ? wp : null);
+                                    if (!addr) continue;
+                                    const c = await geocode(addr);
+                                    if (c && c.lat && c.lon) {
+                                        wpCoords.push({ lat: c.lat, lon: c.lon });
+                                        if (typeof wp === 'object') { wp.lat = c.lat; wp.lon = c.lon; }
+                                        else t.waypoints[i] = { address: addr, lat: c.lat, lon: c.lon };
+                                    }
+                                }
+                            }
+                            const route = await calculateRoute(
+                                { lat: pickC.lat, lon: pickC.lon },
+                                { lat: destC.lat, lon: destC.lon },
+                                wpCoords
+                            );
+                            if (!route) continue;
+                            t.distance = route.distance;
+                            t.duration = route.duration;
+                            t.legs = route.legs || [];
+                            t.dwellMin = dwellMin;
+                            // Stop-Timeline aufbauen — Pickup + N Waypoints + Destination
+                            const baseTs = t.datetime ? Date.parse(t.datetime) : null;
+                            if (baseTs && !isNaN(baseTs) && route.legs && route.legs.length > 0) {
+                                let cursor = baseTs;
+                                const timeline = [{ kind: 'pickup', address: t.pickup, name: t.pickupName || null, arrivalTime: cursor }];
+                                let totalDwell = 0;
+                                for (let i = 0; i < route.legs.length; i++) {
+                                    cursor += route.legs[i].duration * 60000;
+                                    const isLast = (i === route.legs.length - 1);
+                                    if (isLast) {
+                                        timeline.push({ kind: 'destination', address: t.destination, name: t.destinationName || null, arrivalTime: cursor });
+                                    } else {
+                                        const wp = (t.waypoints || [])[i];
+                                        timeline.push({
+                                            kind: 'waypoint',
+                                            address: (wp && (wp.address || wp.addr)) || (typeof wp === 'string' ? wp : null),
+                                            name: (wp && wp.name) || null,
+                                            arrivalTime: cursor,
+                                            dwellMin
+                                        });
+                                        cursor += dwellMin * 60000;
+                                        totalDwell += dwellMin;
+                                    }
+                                }
+                                t.timeline = timeline;
+                                t.totalDwellMin = totalDwell;
+                                t.destinationArrivalTime = cursor;
+                            }
+                        } catch (_tripErr) {
+                            console.warn('Trip-Timeline-Fehler:', _tripErr.message);
+                        }
+                    }
+                    // Top-Level Spiegelung fuer Backwards-compat (erste Fahrt)
+                    if (parsed.trips[0]) {
+                        if (parsed.trips[0].timeline) parsed.timeline = parsed.trips[0].timeline;
+                        if (parsed.trips[0].legs) parsed.legs = parsed.trips[0].legs;
+                        if (parsed.trips[0].dwellMin != null) parsed.dwellMin = parsed.trips[0].dwellMin;
+                    }
+                }
+            } catch (_timelineErr) {
+                console.warn('Timeline-Fehler:', _timelineErr.message);
+            }
+
             // Audit-Log
             try {
                 await db.ref('importLog').push({

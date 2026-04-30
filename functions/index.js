@@ -17813,22 +17813,45 @@ exports.scheduledAutoAssign = onSchedule(
                         ['on_way', 'picked_up', 'assigned', 'accepted'].includes(r.status)
                     );
                     if (_hasActiveRide) {
-                        console.log(`🛡️ STALE-CLEANUP: ${(OFFICIAL_VEHICLES[vid] || {}).name || vid} — GPS veraltet aber auf aktiver Fahrt → NICHT löschen`);
+                        console.log(`🛡️ STALE-CLEANUP: ${(OFFICIAL_VEHICLES[vid] || {}).name || vid} — GPS veraltet aber auf aktiver Fahrt → NICHT loeschen`);
                         continue;
                     }
+
+                    // 🔧 v6.62.158: Skip wenn schon offline + shift ended → nichts zu tun
+                    if (vData.online === false && (!vData.shift || vData.shift.status !== 'active')) continue;
 
                     const vName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
                     const ageMin = Math.round(ageMs / 60000);
                     const lastGpsTime = new Date(vData.lastUpdate).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
-                    console.log(`🧹 STALE-CLEANUP: ${vName} — letztes GPS vor ${ageMin} Min → offline setzen`);
+                    console.log(`🧹 STALE-CLEANUP: ${vName} — letztes GPS vor ${ageMin} Min → nur Status auf offline (NICHT loeschen — v6.62.158)`);
                     try {
-                        await db.ref('vehicles/' + vid).remove();
-                        console.log(`   ✅ ${vName} aus /vehicles entfernt`);
+                        // 🔧 v6.62.158 FIX: NIE MEHR `.remove()` — nur Status-Felder updaten.
+                        // Patrick: 'pw-my-222-e ist schon 2x weg gewesen, STALE-CLEANUP loescht
+                        // das ganze Objekt'. Vorher: Plate, Capacity, Priority, FCM-Token gingen
+                        // jedes Mal verloren wenn Auto >15 Min offline war.
+                        const _staleUpdates = {
+                            online: false,
+                            dispatchStatus: 'offline',
+                            available: false,
+                            staleAt: now,
+                            staleReason: `GPS-Heartbeat ${ageMin} Min alt`,
+                            staleAgeMin: ageMin
+                        };
+                        if (vData.shift && vData.shift.status === 'active') {
+                            _staleUpdates['shift/status'] = 'stale';
+                            _staleUpdates['shift/staleEndedAt'] = now;
+                            _staleUpdates['shift/staleEndedReason'] = `GPS verloren (${ageMin} Min)`;
+                        }
+                        if (vData.activeDevice) {
+                            _staleUpdates['activeDevice'] = null;
+                        }
+                        await db.ref('vehicles/' + vid).update(_staleUpdates);
+                        console.log(`   ✅ ${vName} auf offline gesetzt (Stammdaten bleiben)`);
                         // 📋 Im ActivityLog speichern (sichtbar im System-Log)
                         await db.ref('activityLog').push({
                             type: 'system',
-                            action: 'stale_cleanup',
-                            message: `🧹 Geister-Fahrzeug entfernt: ${vName} — letztes GPS: ${lastGpsTime} (${ageMin} Min alt)`,
+                            action: 'stale_cleanup_offline',
+                            message: `🧹 Stale-Vehicle offline: ${vName} — letztes GPS: ${lastGpsTime} (${ageMin} Min alt)`,
                             timestamp: now,
                             vehicle: vid,
                             vehicleName: vName,

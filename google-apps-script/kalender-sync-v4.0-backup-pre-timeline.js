@@ -1,6 +1,5 @@
 // 📅 FUNK TAXI KALENDER-SYNCHRONISATION
 // Google Apps Script für automatische Kalender-Einträge
-// Version: 5.1 - Stop-Timeline mit OSRM-Etappenzeiten + Wartezeiten pro Zwischenstopp
 // Version: 5.0 - Fix: Zeitzonen-korrektes Datum-Parsing + findExistingEvent sucht jetzt breit (nicht nur am Zieltag)
 // REGELN:
 //   1. Nur ZUKÜNFTIGE Fahrten synchronisieren (ab heute 00:00)
@@ -466,27 +465,6 @@ function createEventDescription(ride) {
     lines.push(_destLine);
   }
 
-  // 🆕 v5.0: Stop-Timeline (OSRM-Etappen + Wartezeiten) — wenn ride.timeline aus Auftrag-Import vorhanden
-  if (ride.timeline && Array.isArray(ride.timeline) && ride.timeline.length > 0) {
-    lines.push('');
-    lines.push('⏱ Stop-Timeline:');
-    for (var sIdx = 0; sIdx < ride.timeline.length; sIdx++) {
-      var s = ride.timeline[sIdx];
-      var _ic = s.kind === 'pickup' ? '📍' : (s.kind === 'destination' ? '🎯' : '🔶');
-      var _lbl = s.kind === 'pickup' ? 'Abholung' : (s.kind === 'destination' ? 'Ziel' : 'Stopp ' + sIdx);
-      var _time = '';
-      if (s.arrivalTime) {
-        var d = new Date(s.arrivalTime);
-        _time = Utilities.formatDate(d, 'Europe/Berlin', 'HH:mm');
-      }
-      var _line = '   ' + (_time || '--:--') + '  ' + _ic + ' ' + _lbl;
-      if (s.name) _line += ' — ' + s.name;
-      if (s.address) _line += ' (' + s.address + ')';
-      if (s.dwellMin) _line += '  +' + s.dwellMin + ' Min Wartezeit';
-      lines.push(_line);
-    }
-  }
-
   lines.push('');
 
   if (EXPORT_SETTINGS.showPrice && ride.price) {
@@ -495,7 +473,7 @@ function createEventDescription(ride) {
   if (EXPORT_SETTINGS.showDistance && ride.distance) {
     lines.push('📏 Distanz: ' + ride.distance + ' km');
   }
-  lines.push('⏱️ Dauer: ~' + (ride.duration || '?') + ' Min' + (ride.totalDwellMin ? ' + ' + ride.totalDwellMin + ' Min Wartezeit' : ''));
+  lines.push('⏱️ Dauer: ~' + (ride.duration || '?') + ' Min');
   if (EXPORT_SETTINGS.showPassengers) {
     lines.push('👥 Personen: ' + (ride.passengers || '1'));
   }
@@ -523,7 +501,7 @@ function createEventDescription(ride) {
   // 🆕 v4.0: SIGNATUR
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  lines.push('📝 Erstellt von: CalendarSync v5.1 (Stop-Timeline)');
+  lines.push('📝 Erstellt von: CalendarSync v5.0');
   lines.push('🖥️ Script-Account: ' + Session.getActiveUser().getEmail());
   lines.push('⏰ Sync-Zeit: ' + new Date().toLocaleString('de-DE'));
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

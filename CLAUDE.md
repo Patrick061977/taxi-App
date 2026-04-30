@@ -21,6 +21,37 @@ Monitor(
 
 ---
 
+## 📤 PFLICHT: Antworten IMMER über den Claude-Bot (WICHTIG!)
+
+Patrick (30.04.2026): „Ich möchte aber hier über den Funktaxi-Cloud-Bot sprechen. Ich renne hier nicht durch den Hauptbot. Schreib das in die Claude md, wie es richtig gehen soll."
+
+**Jede Antwort an Patrick MUSS über den Claude-Bot (`@Funktaxiclaudebot`) gehen, nicht über den Hauptbot.** Konkret: Bridge-Outbox-Pushes IMMER mit `via: 'claude'` schreiben:
+
+```bash
+node scripts/bridge-send.js "Nachricht"   # nutzt automatisch via:'claude'
+```
+
+oder direkt via REST in `/claudeBridge/outbox/{ts}`:
+
+```json
+{
+  "message": "...",
+  "targetChatId": 6229490043,
+  "via": "claude",          ← PFLICHT, niemals weglassen
+  "ts": <Date.now()>
+}
+```
+
+**Warum:** Patrick hat zwei Telegram-Bots am Start — den Hauptbot (`@FunkTaxiHeringsdorfBot`, Kunden-Buchungen, Auftragslogik) und den Claude-Bot (`@Funktaxiclaudebot`, Patrick ↔ Claude Privatkanal). Wenn Claude über den Hauptbot antwortet, mischt sich Patricks Privat-Konversation mit Claude in die Geschäftslogik. Das verwirrt: der Hauptbot hat eine Buchungs-Pending-Statemachine, die Claude-Antworten als „neue Buchung" missinterpretieren kann.
+
+**Symptom wenn vergessen:** Patrick antwortet auf Claude-Nachrichten im Hauptbot → Hauptbot schickt seine Antwort durch die Booking-Pipeline → Pending-State `awaitingAdminCrmConfirm` festgefahren (siehe Petrizien-Vorfall 29.04. um 19:17).
+
+**Ausnahme:** Nur wenn der Claude-Bot nachweislich tot ist (getMe-Fehler, Token leer, Webhook last_error frisch) — dann einmalig Hauptbot-Fallback mit klarem `🚨 Notfall-Fallback`-Prefix + Hinweis warum.
+
+**Sanity-Check vor jeder Antwort:** Setze ich `via: 'claude'`? Wenn nicht → fix.
+
+---
+
 ## 📋 PFLICHT: Tägliche Sekretärs-Routine (WICHTIG!)
 
 Patrick (29.04.2026): "Du bist sozusagen meine Sekretärin. Stell mal einen Workflow zusammen welche Sachen wir täglich abarbeiten müssen, damit wir eine gewisse Struktur ins Unternehmen bekommen — auch Buchhaltung, Umsätze prüfen, Rechnungsfahrten erledigen, Step-by-Step."

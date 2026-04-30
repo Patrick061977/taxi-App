@@ -533,6 +533,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (id == R.id.menu_online_toggle)  { toggleOnline(); return true; }
             if (id == R.id.menu_stats)          { startActivity(new Intent(this, StatsActivity.class)); return true; }
             if (id == R.id.menu_crm)            { startActivity(new Intent(this, CrmSearchActivity.class)); return true; }
+            // v6.62.153: Disposition öffnet AdminDashboardActivity (Operator-Modus
+            // mit Liste aller aktiven Fahrten + Tap-to-Edit). isAdminMode-Flag wird in
+            // AdminDashboardActivity selbst gesetzt — beim Zurück automatisch zurueckgenommen.
+            if (id == R.id.menu_dispo)          { startActivity(new Intent(this, AdminDashboardActivity.class)); return true; }
             if (id == R.id.menu_webapp)         { openWebView(); return true; }
             if (id == R.id.menu_change_vehicle) {
                 getSharedPreferences("driver", MODE_PRIVATE).edit().remove("vehicleId").remove("vehicleName").apply();

@@ -16,6 +16,7 @@ import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -33,6 +34,7 @@ import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -59,6 +61,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private FirebaseDatabase db;
     private Query openRidesQuery;
     private ValueEventListener openRidesListener;
+    // v6.62.153: Active-Statuses fuer Disposition-Liste (alle Fahrten die noch nicht abgeschlossen sind)
+    private static final List<String> ACTIVE_STATUSES = Arrays.asList(
+        "warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,8 +101,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private void connectFirebase() {
         try {
             db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
-            // Server-side Filter: nur warteschlange — Patrick will primär unzugewiesene sehen
-            openRidesQuery = db.getReference("rides").orderByChild("status").equalTo("warteschlange");
+            // v6.62.153: Alle Fahrten ab letzten 24h ziehen, client-seitig nach
+            // ACTIVE_STATUSES filtern. Vorher nur warteschlange — Patrick will jetzt auch
+            // vorbestellt + accepted + on_way + picked_up sehen + bearbeiten.
+            long since = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+            openRidesQuery = db.getReference("rides").orderByChild("createdAt").startAt(since);
             openRidesListener = new ValueEventListener() {
                 @Override public void onDataChange(@NonNull DataSnapshot s) { onOpenRides(s); }
                 @Override public void onCancelled(@NonNull DatabaseError e) { Log.e(TAG, e.getMessage()); }
@@ -113,7 +121,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         List<Ride> list = new ArrayList<>();
         for (DataSnapshot c : s.getChildren()) {
             Ride r = Ride.fromSnap(c);
-            if (r != null) list.add(r);
+            // v6.62.153: client-seitiger Filter nach Active-Status (siehe ACTIVE_STATUSES)
+            if (r != null && r.status != null && ACTIVE_STATUSES.contains(r.status)) list.add(r);
         }
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
         adapter.set(list);
@@ -241,23 +250,36 @@ public class AdminDashboardActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
+        // v6.62.153: Wenn Patrick von Driver-Hamburger-'Disposition' kam, Admin-Mode wieder
+        // ausschalten — sonst denkt CallLogActivity nach Rueckkehr es laeuft Admin-Modus.
+        // Nur ausschalten wenn Driver-Vehicle gesetzt ist (= wir kamen aus Driver-Mode).
+        try {
+            String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+            if (vehicleId != null) {
+                getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", false).apply();
+            }
+        } catch (Throwable _t) {}
     }
 
     static class Ride {
-        String id, customerName, pickup, destination, pickupTime, status;
+        String id, customerName, customerPhone, pickup, destination, pickupTime, status;
         Long pickupTimestamp;
+        Integer passengers;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
                 Ride r = new Ride();
                 r.id = s.getKey();
                 r.customerName = s.child("customerName").getValue(String.class);
+                r.customerPhone = s.child("customerPhone").getValue(String.class);
                 r.pickup = s.child("pickup").getValue(String.class);
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
                 r.status = s.child("status").getValue(String.class);
                 Object t = s.child("pickupTimestamp").getValue();
                 if (t instanceof Number) r.pickupTimestamp = ((Number) t).longValue();
+                Object p = s.child("passengers").getValue();
+                if (p instanceof Number) r.passengers = ((Number) p).intValue();
                 return r;
             } catch (Throwable _t) { return null; }
         }
@@ -286,9 +308,150 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
             void bind(Ride r) {
                 String when = r.pickupTime != null ? r.pickupTime : "—";
-                t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?"));
+                String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
+                t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
                 t2.setText("📍 " + (r.pickup != null ? r.pickup : "?") + "  →  " + (r.destination != null ? r.destination : "?"));
+                // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
+                itemView.setOnClickListener(_v -> showEditRideDialog(r));
             }
         }
+    }
+
+    // v6.62.153: Status-Emoji für visuelle Schnell-Erkennung in der Liste
+    private static String statusEmoji(String status) {
+        switch (status) {
+            case "warteschlange": return "⏳";
+            case "vorbestellt":   return "📅";
+            case "new":           return "🆕";
+            case "accepted":      return "✅";
+            case "on_way":        return "🚗";
+            case "picked_up":     return "🧍";
+            default:              return "❓";
+        }
+    }
+
+    // v6.62.153: Edit-Dialog für eine bestehende Fahrt — bearbeitbare Felder:
+    // Name, Phone, Pickup, Destination, Datum/Zeit, Personenzahl, Status. Plus Stornieren-Button.
+    private void showEditRideDialog(final Ride r) {
+        if (r == null || r.id == null) return;
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        int padHalf = pad / 2;
+        layout.setPadding(pad, pad, pad, pad);
+
+        EditText etName = new EditText(this);
+        etName.setHint("Kundenname");
+        etName.setText(r.customerName != null ? r.customerName : "");
+        layout.addView(etName);
+
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("Telefonnummer");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        etPhone.setText(r.customerPhone != null ? r.customerPhone : "");
+        layout.addView(etPhone);
+
+        EditText etPickup = new EditText(this);
+        etPickup.setHint("Abholort");
+        etPickup.setText(r.pickup != null ? r.pickup : "");
+        layout.addView(etPickup);
+
+        EditText etDest = new EditText(this);
+        etDest.setHint("Zielort");
+        etDest.setText(r.destination != null ? r.destination : "");
+        layout.addView(etDest);
+
+        // Datum + Zeit
+        final long[] dateTime = { r.pickupTimestamp != null ? r.pickupTimestamp : System.currentTimeMillis() };
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(dateTime[0]);
+        TextView tvDate = new TextView(this);
+        tvDate.setText("📅 " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(cal.getTime()));
+        tvDate.setPadding(0, pad, 0, pad);
+        tvDate.setOnClickListener(v -> {
+            Calendar curr = Calendar.getInstance();
+            curr.setTimeInMillis(dateTime[0]);
+            new DatePickerDialog(this, (dp, y, m, d) ->
+                new TimePickerDialog(this, (tp, h, mi) -> {
+                    Calendar nc = Calendar.getInstance();
+                    nc.set(y, m, d, h, mi, 0);
+                    dateTime[0] = nc.getTimeInMillis();
+                    tvDate.setText("📅 " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(nc.getTime()));
+                }, curr.get(Calendar.HOUR_OF_DAY), curr.get(Calendar.MINUTE), true).show(),
+                curr.get(Calendar.YEAR), curr.get(Calendar.MONTH), curr.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        layout.addView(tvDate);
+
+        // Personenzahl-Spinner 1-8
+        TextView tvPaxLabel = new TextView(this);
+        tvPaxLabel.setText("👥 Personen:");
+        tvPaxLabel.setTextSize(13);
+        tvPaxLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvPaxLabel);
+        final android.widget.Spinner spnPax = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> paxAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item,
+            new String[]{"1 Person", "2 Personen", "3 Personen", "4 Personen",
+                         "5 Personen (Bus)", "6 Personen (Bus)", "7 Personen (Bus)", "8 Personen (Bus)"});
+        paxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spnPax.setAdapter(paxAdapter);
+        int paxSel = (r.passengers != null && r.passengers >= 1 && r.passengers <= 8) ? r.passengers - 1 : 0;
+        spnPax.setSelection(paxSel);
+        layout.addView(spnPax);
+
+        // Status-Spinner
+        TextView tvStatusLabel = new TextView(this);
+        tvStatusLabel.setText("📊 Status:");
+        tvStatusLabel.setTextSize(13);
+        tvStatusLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvStatusLabel);
+        final android.widget.Spinner spnStatus = new android.widget.Spinner(this);
+        final String[] statusVals = {"warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up", "completed", "cancelled"};
+        android.widget.ArrayAdapter<String> statAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, statusVals);
+        statAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spnStatus.setAdapter(statAdapter);
+        int statSel = 0;
+        for (int i = 0; i < statusVals.length; i++) if (statusVals[i].equals(r.status)) { statSel = i; break; }
+        spnStatus.setSelection(statSel);
+        layout.addView(spnStatus);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(layout);
+
+        new AlertDialog.Builder(this)
+            .setTitle("✏️ Fahrt bearbeiten")
+            .setMessage("ID: " + r.id)
+            .setView(sv)
+            .setPositiveButton("💾 Speichern", (d, w) -> {
+                Map<String, Object> upd = new HashMap<>();
+                upd.put("customerName", etName.getText().toString().trim());
+                upd.put("customerPhone", etPhone.getText().toString().trim());
+                upd.put("pickup", etPickup.getText().toString().trim());
+                upd.put("destination", etDest.getText().toString().trim());
+                upd.put("pickupTimestamp", dateTime[0]);
+                upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
+                upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
+                upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
+                upd.put("updatedAt", System.currentTimeMillis());
+                upd.put("updatedBy", "native_admin_dispo_edit");
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+                    .updateChildren(upd)
+                    .addOnSuccessListener(_v -> Toast.makeText(this, "✅ Fahrt aktualisiert", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNeutralButton("🚫 Stornieren", (d, w) -> {
+                Map<String, Object> upd = new HashMap<>();
+                upd.put("status", "cancelled");
+                upd.put("cancelledAt", System.currentTimeMillis());
+                upd.put("cancelledBy", "native_admin_dispo");
+                upd.put("updatedAt", System.currentTimeMillis());
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+                    .updateChildren(upd)
+                    .addOnSuccessListener(_v -> Toast.makeText(this, "🚫 Fahrt storniert", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 }

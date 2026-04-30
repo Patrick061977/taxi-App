@@ -8204,10 +8204,12 @@ async function handleMessage(message) {
             const newTimeStr = newDt.toLocaleTimeString('de-DE', { ...TZ_BERLIN, hour: '2-digit', minute: '2-digit' });
             const newDateStr = newDt.toLocaleDateString('de-DE', { ...TZ_BERLIN, weekday: 'long', day: '2-digit', month: '2-digit' });
 
-            // Firebase updaten
+            // 🔧 v6.62.159: pickupTime war .toISOString() (UTC!) — Patrick: 'Termin steht
+            // 12:30 statt 14:30, irgendwas mit UTC stimmt nicht'. Fix: HH:mm Berlin-Format
+            // wie alle anderen pickupTime-Setter (Zeile 9283, 9332, 11177, 13712).
             await db.ref('rides/' + rideId).update({
                 pickupTimestamp: newTimestamp,
-                pickupTime: newDt.toISOString(),
+                pickupTime: newTimeStr,
                 pickupDate: newDt.toLocaleDateString('de-DE', TZ_BERLIN),
                 timestamp: newTimestamp,
                 updatedAt: Date.now()

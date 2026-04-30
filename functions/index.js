@@ -19966,6 +19966,99 @@ exports.onVehicleOnline = onValueUpdated(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🏁 RIDE AUTO-CLOSE — v6.62.157
+// Patrick (30.04.2026): "Wenn die Fahrt nicht abgeschlossen wird, sehen
+// die Leute trotzdem 'Fahrer zugewiesen, wartet auf Bestätigung'. Können
+// wir einen Auto-Close eine Stunde nach Pickup machen?"
+//
+// Läuft alle 10 Min, schließt Fahrten die seit >60 Min im Status accepted/
+// on_way/picked_up hängen. Audit-Log nach /autoCloseLog.
+//
+// SICHERHEIT:
+// - NUR Fahrten ohne frischen GPS-Heartbeat (>20 Min alt) werden geschlossen
+// - completedAt = pickupTimestamp + duration (sonst now)
+// - status='completed', closedBy='cloud-auto-close-1h'
+// - onRideUpdated triggert ggf. die Kunden-Bestätigung
+// ═══════════════════════════════════════════════════════════════
+
+exports.scheduledRideAutoClose = onSchedule(
+    {
+        schedule: 'every 10 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const sixtyMinAgo = now - 60 * 60 * 1000;
+            const horizonBack = now - 24 * 60 * 60 * 1000;
+            // Server-side Filter: nur Fahrten der letzten 24h
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(horizonBack)
+                .endAt(now)
+                .once('value');
+            if (!ridesSnap.val()) return;
+
+            const ACTIVE_STATUSES = ['accepted', 'on_way', 'picked_up', 'akzeptiert', 'unterwegs'];
+            const closed = [];
+            const skipped = [];
+
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (!ACTIVE_STATUSES.includes(ride.status)) return;
+                const pickupTs = ride.pickupTimestamp || 0;
+                if (!pickupTs) return;
+                if (pickupTs > sixtyMinAgo) return; // Pickup noch nicht 60 Min her
+
+                // Sicherheits-Check 1: GPS-Heartbeat noch frisch?
+                // → ride.lastDriverHeartbeat oder vehicle.lastUpdate
+                const lastHb = ride.lastDriverHeartbeat || 0;
+                if (lastHb > now - 20 * 60 * 1000) {
+                    skipped.push({ rideId, reason: 'GPS-Heartbeat frisch (<20min)' });
+                    return;
+                }
+
+                // Compute completedAt — bevorzugt pickupTimestamp + duration
+                const durationMin = parseInt(ride.duration) || 30;
+                const completedAt = Math.min(pickupTs + durationMin * 60 * 1000, now);
+
+                const updates = {
+                    status: 'completed',
+                    completedAt,
+                    completedBy: 'cloud-auto-close-1h',
+                    closedReason: 'auto_close_60min_after_pickup',
+                    updatedAt: now,
+                    updatedBy: 'cloud-auto-close-1h'
+                };
+                db.ref('rides/' + rideId).update(updates)
+                    .then(() => {
+                        // Audit-Log
+                        db.ref('autoCloseLog').push({
+                            rideId,
+                            t: now,
+                            oldStatus: ride.status,
+                            customerName: ride.customerName || null,
+                            pickupTs,
+                            minutesOverdue: Math.round((now - pickupTs) / 60000),
+                            durationMin,
+                            completedAt
+                        }).catch(_e => {});
+                    })
+                    .catch(e => console.error('AutoClose-Update-Fehler:', e.message));
+                closed.push(rideId);
+            });
+
+            if (closed.length > 0) console.log(`🏁 v6.62.157 Auto-Close: ${closed.length} Fahrten geschlossen, ${skipped.length} übersprungen`);
+        } catch (e) {
+            console.error('❌ scheduledRideAutoClose Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 💓 SHIFT-HEARTBEAT WATCHDOG — v6.40.29
 // Läuft jede Minute, prüft ob aktive Schichten noch einen frischen
 // Heartbeat senden. Fehlt der Heartbeat >2 Min → Schicht auto-beenden

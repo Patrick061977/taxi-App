@@ -21892,7 +21892,7 @@ Format:
       ],
       "passengers": 1,
       "datetime": "YYYY-MM-DDTHH:MM:SS+02:00 (Pickup-Zeit). Bei 'morgen'/'Donnerstag' beziehe auf heute (${_today})",
-      "customer": { "name": "Auftraggeber (z.B. Vetter Touristik)", "type": "supplier|hotel|null" },
+      "customer": { "name": "Auftraggeber (z.B. Vetter Touristik)", "type": "supplier|hotel|firma|null", "address": "Vollstaendige Anschrift aus Briefkopf/Fusszeile (Strasse, PLZ, Ort) — null wenn nicht im PDF", "phone": "Telefonnummer des Auftraggebers — null wenn nicht im PDF", "email": "Email des Auftraggebers — null wenn nicht im PDF", "taxId": "USt-IdNr / Steuernummer — null wenn nicht im PDF", "website": "Webseite — null wenn nicht im PDF" },
       "hint": "1 Satz Beschreibung dieser einen Fahrt"
     }
     // weitere trips falls mehrere im PDF

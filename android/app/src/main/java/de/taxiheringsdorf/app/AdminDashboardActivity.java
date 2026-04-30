@@ -102,10 +102,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         try {
             db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
             // v6.62.153: Alle Fahrten ab letzten 24h ziehen, client-seitig nach
-            // ACTIVE_STATUSES filtern. Vorher nur warteschlange — Patrick will jetzt auch
-            // vorbestellt + accepted + on_way + picked_up sehen + bearbeiten.
-            long since = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
-            openRidesQuery = db.getReference("rides").orderByChild("createdAt").startAt(since);
+            // ACTIVE_STATUSES filtern. Vorher nur warteschlange.
+            // 🔧 v6.62.161 FIX: Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
+            // Vorher createdAt-Filter (24h zurueck) — verlor Vorbestellungen die vor 3 Tagen
+            // angelegt wurden fuer uebermorgen. Jetzt pickupTimestamp-Filter: 2h vor jetzt
+            // bis +14 Tage, deckt aktive + alle naechste-Wochen-Vorbestellungen ab.
+            long since = System.currentTimeMillis() - 2L * 60 * 60 * 1000;
+            long until = System.currentTimeMillis() + 14L * 24 * 60 * 60 * 1000;
+            openRidesQuery = db.getReference("rides").orderByChild("pickupTimestamp").startAt(since).endAt(until);
             openRidesListener = new ValueEventListener() {
                 @Override public void onDataChange(@NonNull DataSnapshot s) { onOpenRides(s); }
                 @Override public void onCancelled(@NonNull DatabaseError e) { Log.e(TAG, e.getMessage()); }
@@ -125,7 +129,31 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (r != null && r.status != null && ACTIVE_STATUSES.contains(r.status)) list.add(r);
         }
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
-        adapter.set(list);
+        // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
+        // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
+        List<Object> sectioned = new ArrayList<>();
+        Calendar lastDay = null;
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0); today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0); today.set(Calendar.MILLISECOND, 0);
+        Calendar tomorrow = (Calendar) today.clone();
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+        for (Ride r : list) {
+            if (r.pickupTimestamp == null) continue;
+            Calendar c = Calendar.getInstance();
+            c.setTimeInMillis(r.pickupTimestamp);
+            if (lastDay == null || c.get(Calendar.YEAR) != lastDay.get(Calendar.YEAR)
+                    || c.get(Calendar.DAY_OF_YEAR) != lastDay.get(Calendar.DAY_OF_YEAR)) {
+                String header;
+                if (sameDay(c, today)) header = "🟡 HEUTE — " + new SimpleDateFormat("EEE dd.MM.yyyy", Locale.GERMANY).format(c.getTime());
+                else if (sameDay(c, tomorrow)) header = "🔵 MORGEN — " + new SimpleDateFormat("EEE dd.MM.yyyy", Locale.GERMANY).format(c.getTime());
+                else header = "📅 " + new SimpleDateFormat("EEEE dd.MM.yyyy", Locale.GERMANY).format(c.getTime());
+                sectioned.add(header);
+                lastDay = c;
+            }
+            sectioned.add(r);
+        }
+        adapter.set(sectioned);
         tvQueueCount.setText(String.valueOf(list.size()));
         emptyState.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
         rv.setVisibility(list.isEmpty() ? View.GONE : View.VISIBLE);
@@ -285,21 +313,47 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
     }
 
-    class AdminRideAdapter extends RecyclerView.Adapter<AdminRideAdapter.VH> {
-        private List<Ride> data = new ArrayList<>();
-        void set(List<Ride> list) { data = list; notifyDataSetChanged(); }
+    class AdminRideAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private List<Object> data = new ArrayList<>();
+        private static final int TYPE_HEADER = 0;
+        private static final int TYPE_RIDE = 1;
+        void set(List<Object> list) { data = list; notifyDataSetChanged(); }
+        @Override public int getItemViewType(int pos) {
+            return data.get(pos) instanceof String ? TYPE_HEADER : TYPE_RIDE;
+        }
         @NonNull @Override
-        public VH onCreateViewHolder(@NonNull ViewGroup p, int t) {
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
+            if (t == TYPE_HEADER) {
+                TextView v = new TextView(p.getContext());
+                v.setBackgroundColor(Color.parseColor("#0F172A"));
+                v.setPadding(28, 22, 28, 22);
+                v.setTextSize(15);
+                v.setTextColor(Color.parseColor("#FBBF24"));
+                v.setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                return new HeaderVH(v);
+            }
             View v = LayoutInflater.from(p.getContext()).inflate(android.R.layout.simple_list_item_2, p, false);
             v.setBackgroundColor(Color.parseColor("#1E293B"));
             v.setPadding(24, 24, 24, 24);
-            return new VH(v);
+            return new RideVH(v);
         }
-        @Override public void onBindViewHolder(@NonNull VH h, int pos) { h.bind(data.get(pos)); }
+        @Override public void onBindViewHolder(@NonNull RecyclerView.ViewHolder h, int pos) {
+            Object item = data.get(pos);
+            if (h instanceof HeaderVH && item instanceof String) ((HeaderVH) h).bind((String) item);
+            else if (h instanceof RideVH && item instanceof Ride) ((RideVH) h).bind((Ride) item);
+        }
         @Override public int getItemCount() { return data.size(); }
-        class VH extends RecyclerView.ViewHolder {
+
+        class HeaderVH extends RecyclerView.ViewHolder {
+            TextView tv;
+            HeaderVH(View v) { super(v); tv = (TextView) v; }
+            void bind(String header) { tv.setText(header); }
+        }
+
+        class RideVH extends RecyclerView.ViewHolder {
             TextView t1, t2;
-            VH(View v) {
+            RideVH(View v) {
                 super(v);
                 t1 = v.findViewById(android.R.id.text1);
                 t2 = v.findViewById(android.R.id.text2);
@@ -315,6 +369,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 itemView.setOnClickListener(_v -> showEditRideDialog(r));
             }
         }
+    }
+
+    // v6.62.161: Helper fuer Tag-Vergleich
+    private static boolean sameDay(Calendar a, Calendar b) {
+        return a != null && b != null
+            && a.get(Calendar.YEAR) == b.get(Calendar.YEAR)
+            && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR);
     }
 
     // v6.62.153: Status-Emoji für visuelle Schnell-Erkennung in der Liste

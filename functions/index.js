@@ -21862,25 +21862,43 @@ exports.importAuftragPdf = onRequest(
 
             // Heutiges Datum als Hint für KI (Datum-Auflösung)
             const _today = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
-            const prompt = `Du bekommst einen Taxi-Auftrag (PDF/Bild) eines Hotel- oder Touristik-Kunden (typischerweise Vetter Touristik, Federpoint, Hotels). Extrahiere die Buchungsdaten als striktes JSON.
+            // 🆕 v6.62.144: trips[]-Array statt singular pickup/destination — ein PDF kann
+            // Hin- + Rueckfahrt enthalten (zwei Seiten). Plus destinationName fuer den Pax
+            // der am Ziel aussteigt (Patrick: 'Frau Bohner beim Seehotel Esplanade fehlt').
+            const prompt = `Du bekommst einen Taxi-Auftrag (PDF/Bild, evtl. MEHRSEITIG) eines Hotel-/Touristik-Kunden (z.B. Vetter Touristik, Federpoint, Hotels). Extrahiere ALLE Fahrten als striktes JSON.
 
 Heute ist: ${_today}.
 
-Anforderungen:
-- pickup: Hauptabhol-Adresse (z.B. "Strandhotel Heringsdorf, Delbrückstr. 5, 17424 Heringsdorf")
-- destination: Zielort (z.B. "Interferie Medical Spa Uzdrowiskowa, Swinemünde, Polen")
-- waypoints: Array Zwischenstopps in Anfahrreihenfolge — jeweils {address, name?}.
-  name = Gast/Hotel/Klinik der dort ein-/aussteigt (wenn im Auftrag steht).
-- pickupName: Name am Pickup (z.B. "Frau Müller" oder "Familie Schmidt") falls erkennbar
-- passengers: Personenzahl (Default 1 wenn unklar)
-- datetime: Pickup-Zeitpunkt im ISO-Format "YYYY-MM-DDTHH:MM:SS+02:00".
-  Bei Datumsangaben wie "morgen" / "Donnerstag" beziehe dich auf heute (${_today}).
-- customer: { name, type? } — Auftraggeber/Kunde (z.B. {name:"Vetter Touristik", type:"supplier"})
-- hint: Kurze Erklärung was du verstanden hast (1-2 Sätze, Deutsch)
-- confidence: 0.0-1.0 wie sicher du dir bist
-- rawText: ALLEN sichtbaren Text aus dem Dokument wortgenau extrahiert
+WICHTIG: PDFs koennen 2+ Seiten haben — typischerweise eine Seite Hinfahrt, eine Seite Rueckfahrt (oder mehrere unabhaengige Fahrten). ALLE als separate Eintraege im trips-Array zurueckgeben.
 
-Gib NUR JSON zurück, kein Markdown, kein Pre/Post-Text. Wenn ein Feld fehlt: null oder leeres Array. Bei mehreren Personen mit Adressen jede als waypoint mit name.`;
+Format:
+{
+  "trips": [
+    {
+      "pickup": "Hauptabhol-Adresse (z.B. 'Strandhotel Heringsdorf, Delbrueckstr. 5, 17424 Heringsdorf')",
+      "pickupName": "Name am Pickup (z.B. 'Frau Mueller', 'Familie Schmidt') — falls erkennbar, sonst null",
+      "destination": "End-Ziel-Adresse (z.B. 'Interferie Medical Spa, Swinemuende')",
+      "destinationName": "Name am Ziel-Drop-off (z.B. 'Frau Bohner') — falls erkennbar, sonst null",
+      "waypoints": [
+        { "address": "Zwischenstopp-Adresse", "name": "Gast/Hotel/Klinik der dort aus-/einsteigt (wenn im Auftrag)" }
+      ],
+      "passengers": 1,
+      "datetime": "YYYY-MM-DDTHH:MM:SS+02:00 (Pickup-Zeit). Bei 'morgen'/'Donnerstag' beziehe auf heute (${_today})",
+      "customer": { "name": "Auftraggeber (z.B. Vetter Touristik)", "type": "supplier|hotel|null" },
+      "hint": "1 Satz Beschreibung dieser einen Fahrt"
+    }
+    // weitere trips falls mehrere im PDF
+  ],
+  "confidence": 0.0-1.0,
+  "rawText": "ALLEN sichtbaren Text aus dem Dokument wortgenau extrahiert"
+}
+
+Beispiele:
+- Federpoint-PDF Seite 1 = Hinfahrt zum Flughafen, Seite 2 = Rueckfahrt → 2 Trips.
+- Vetter Touristik mit Sammeltransfer (Pickup im Hotel, 3 Drop-offs) → 1 Trip mit 2 waypoints + destination (mit destinationName).
+- Hotel-Anweisung ohne Rueckfahrt → 1 Trip.
+
+Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: trips-Array mit genau 1 Eintrag. Fehlende Felder: null. Bei mehreren Personen mit unterschiedlichen Adressen jede als waypoint mit name (oder destination mit destinationName fuer den letzten Drop-off).`;
 
             const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
                 role: 'user',
@@ -21900,6 +21918,27 @@ Gib NUR JSON zurück, kein Markdown, kein Pre/Post-Text. Wenn ein Feld fehlt: nu
                 console.error('importAuftragPdf JSON-Parse-Fehler:', parseErr.message, 'Text:', text.slice(0, 500));
                 res.status(200).json({ ok: false, error: 'KI-Antwort konnte nicht als JSON geparst werden', rawText: text });
                 return;
+            }
+            // 🆕 v6.62.144: Backwards-compat fuer alte UI-Versionen — wenn KI nur trips[]
+            // zurueckgibt aber kein top-level pickup/destination, kopier den ersten Trip
+            // hoch. Neue UI nutzt parsed.trips[]; alte UI nutzt parsed.pickup/destination.
+            if (parsed && parsed.trips && Array.isArray(parsed.trips) && parsed.trips.length > 0 && !parsed.pickup) {
+                const first = parsed.trips[0];
+                parsed = {
+                    ...first,
+                    trips: parsed.trips,
+                    confidence: parsed.confidence ?? first.confidence ?? null,
+                    rawText: parsed.rawText ?? null
+                };
+            }
+            // Falls trips fehlt aber pickup da ist (alter Prompt-Stil) → ein-Trip-Array generieren
+            if (parsed && !parsed.trips && parsed.pickup) {
+                parsed.trips = [{
+                    pickup: parsed.pickup, pickupName: parsed.pickupName,
+                    destination: parsed.destination, destinationName: parsed.destinationName,
+                    waypoints: parsed.waypoints || [], passengers: parsed.passengers || 1,
+                    datetime: parsed.datetime, customer: parsed.customer, hint: parsed.hint
+                }];
             }
             // Audit-Log
             try {

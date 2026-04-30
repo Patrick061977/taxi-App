@@ -440,29 +440,18 @@ function createEventDescription(ride) {
   lines.push('');
 
   if (EXPORT_SETTINGS.showPickup) {
-    // 🆕 v4.9: pickupName am Pickup anzeigen (Hotel-Gast / Familie etc.)
-    var _pickupLine = '📍 Von: ' + (ride.pickup || '-');
-    if (ride.pickupName) _pickupLine += ' — ' + ride.pickupName;
-    lines.push(_pickupLine);
+    lines.push('📍 Von: ' + (ride.pickup || '-'));
   }
-  // 🆕 v4.8 + v4.9: Zwischenstopps anzeigen MIT NAMEN (Patrick: 'Familie Luettig fehlt
-  // im Kalender — der Code nimmt nur address ODER name, nicht beides').
+  // 🆕 v4.8: Zwischenstopps anzeigen
   if (ride.waypoints && ride.waypoints.length > 0) {
     var waypoints = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
     for (var w = 0; w < waypoints.length; w++) {
-      var _wp = waypoints[w];
-      var _wpAddr = (typeof _wp === 'object') ? (_wp.address || '') : String(_wp || '');
-      var _wpName = (typeof _wp === 'object') ? (_wp.name || '') : '';
-      var _line = '🔶 Zwischenstopp: ' + _wpAddr;
-      if (_wpName) _line += ' — ' + _wpName;
-      lines.push(_line);
+      var wpName = (typeof waypoints[w] === 'object') ? (waypoints[w].address || waypoints[w].name || '') : String(waypoints[w]);
+      lines.push('🔶 Zwischenstopp: ' + wpName);
     }
   }
   if (EXPORT_SETTINGS.showDestination) {
-    // 🆕 v4.9: destinationName am Ziel anzeigen (Patrick: 'Frau Bohner beim Seehotel Esplanade')
-    var _destLine = '🎯 Nach: ' + (ride.destination || '-');
-    if (ride.destinationName) _destLine += ' — ' + ride.destinationName;
-    lines.push(_destLine);
+    lines.push('🎯 Nach: ' + (ride.destination || '-'));
   }
 
   lines.push('');

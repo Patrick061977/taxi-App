@@ -1528,9 +1528,26 @@ function showAnfrageSuccess() {
 
     async function _refreshBanner() {
         try {
-            const _vSnap = await _db.ref('vehicles').once('value');
+            // Vehicles + aktive Rides parallel laden — wir muessen wissen welcher
+            // Fahrer gerade in einer aktiven Fahrt ist (on_way/picked_up/in_progress).
+            // 🆕 v6.62.184: Patrick: 'wenn Taxi sofort frei → sofort buchen, wenn unterwegs → Wartezeit'.
+            const [_vSnap, _rSnap] = await Promise.all([
+                _db.ref('vehicles').once('value'),
+                _db.ref('rides').once('value')
+            ]);
             const _vData = _vSnap.val() || {};
+            const _rData = _rSnap.val() || {};
             const _now = Date.now();
+
+            // Welche Fahrzeuge sind GERADE busy (aktive Fahrt)?
+            const _busyVids = new Set();
+            for (const _r of Object.values(_rData)) {
+                if (!_r) continue;
+                if (!['on_way', 'picked_up', 'in_progress'].includes(_r.status)) continue;
+                const _vid = _r.vehicleId || _r.assignedVehicle;
+                if (_vid) _busyVids.add(_vid);
+            }
+
             const _candidates = [];
             for (const [_vid, _v] of Object.entries(_vData)) {
                 if (!_v || !_v.lat || !_v.lon) continue;
@@ -1540,7 +1557,8 @@ function showAnfrageSuccess() {
                 if (_v.online === false) continue;
                 _candidates.push({ vid: _vid, lat: _v.lat, lon: _v.lon,
                     distKm: _haversineKm(DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON, _v.lat, _v.lon),
-                    isFresh: _gpsAge < 5 });
+                    isFresh: _gpsAge < 5,
+                    busy: _busyVids.has(_vid) });
             }
             if (_candidates.length === 0) {
                 _bannerEl.className = 'eta-banner-unavailable';
@@ -1548,22 +1566,26 @@ function showAnfrageSuccess() {
                 _bannerEl.innerHTML = '🚕 Sofort-Buchung: <a href="tel:+4938378 22022">📞 038378 22022</a>';
                 return;
             }
-            // Top 3 nach Luftlinie OSRM-Zeit holen
-            _candidates.sort((a, b) => a.distKm - b.distKm);
-            const _top = _candidates.slice(0, 3);
-            const _osrmResults = await Promise.all(_top.map(async c => {
-                const m = await _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
-                return { ...c, etaMin: Math.max(2, m) };
-            }));
-            _osrmResults.sort((a, b) => a.etaMin - b.etaMin);
-            const _bestMin = _osrmResults[0].etaMin;
-            const _online = _candidates.length;
+
+            // Status entscheiden: gibt es einen FREIEN Fahrer (nicht busy)?
+            const _freeVehicles = _candidates.filter(c => !c.busy);
+            const _hasSofortFrei = _freeVehicles.length > 0;
             _bannerEl.className = 'eta-banner-available';
             _bannerEl.style.display = 'block';
-            _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
-                <span class="eta-text">🚕 Nächstes Taxi in ca. ${_bestMin} Min frei</span>
-                <a href="${_bookHref}">🚀 Jetzt buchen →</a>
-            </div>`;
+
+            if (_hasSofortFrei) {
+                // 🟢 Mindestens ein Taxi ist frei → 'sofort verfuegbar'
+                _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
+                    <span class="eta-text">🚕 Taxi sofort verfügbar</span>
+                    <a href="${_bookHref}">🚀 Jetzt buchen →</a>
+                </div>`;
+            } else {
+                // 🟡 Alle Fahrer sind besetzt → 'mit Wartezeit'
+                _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
+                    <span class="eta-text">🚕 Taxi verfügbar — mit Wartezeit</span>
+                    <a href="${_bookHref}">🚀 Jetzt buchen →</a>
+                </div>`;
+            }
         } catch (_err) {
             // Bei Firebase-/Netzwerk-Fehler: Banner verstecken statt Falsch-Info
             console.warn('Live-ETA-Banner Fehler:', _err.message);

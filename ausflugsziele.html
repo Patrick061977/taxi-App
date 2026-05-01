@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ausflugsziele auf Usedom — Funk Taxi Heringsdorf</title>
+<meta name="description" content="Entdecken Sie die schönsten Ausflugsziele auf der Insel Usedom — Funk Taxi Heringsdorf bringt Sie hin.">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafaf7; color: #1f2937; line-height: 1.5; }
+
+/* Header */
+.site-header {
+    position: sticky; top: 0; z-index: 100;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white; padding: 12px 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.site-header .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+.site-header .brand-logo { background: #facc15; color: #0f172a; padding: 4px 10px; border-radius: 6px; font-weight: 800; letter-spacing: 0.5px; }
+.site-header .nav { display: flex; gap: 14px; flex-wrap: wrap; }
+.site-header .nav a { color: white; text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 8px; transition: background 0.2s; }
+.site-header .nav a:hover { background: rgba(255,255,255,0.1); }
+.site-header .nav a.cta { background: #facc15; color: #0f172a; font-weight: 700; }
+.site-header .nav a.cta:hover { background: #fde047; }
+
+/* Hero */
+.hero { padding: 32px 20px 16px; text-align: center; max-width: 1200px; margin: 0 auto; }
+.hero h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+.hero h1 .gold { color: #b45309; }
+.hero p.subtitle { font-size: clamp(14px, 2.2vw, 17px); color: #475569; max-width: 640px; margin: 0 auto; }
+
+/* Filter-Buttons */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 20px auto; max-width: 720px; padding: 0 16px; }
+.filter-btn { padding: 8px 16px; border: 2px solid #e5e7eb; background: white; border-radius: 999px; font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; transition: all 0.2s; }
+.filter-btn:hover { border-color: #facc15; }
+.filter-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
+
+/* Karten-Container */
+.map-container { max-width: 900px; margin: 0 auto; padding: 0 16px; position: relative; }
+.usedom-map { width: 100%; height: auto; display: block; background: linear-gradient(180deg, #cfe7f5 0%, #a8d4ec 100%); border-radius: 16px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12); }
+
+/* Hotspots */
+.poi-hotspot {
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.poi-hotspot circle.pulse {
+    fill: #facc15;
+    opacity: 0.6;
+    animation: poiPulse 2s ease-out infinite;
+    transform-origin: center;
+}
+@keyframes poiPulse {
+    0% { r: 8; opacity: 0.6; }
+    100% { r: 28; opacity: 0; }
+}
+.poi-hotspot circle.dot {
+    fill: #ea580c;
+    stroke: white;
+    stroke-width: 3;
+    transition: all 0.25s ease;
+}
+.poi-hotspot:hover circle.dot,
+.poi-hotspot.active circle.dot {
+    fill: #facc15;
+    transform: scale(1.4);
+}
+.poi-hotspot text {
+    font-size: 11px;
+    font-weight: 700;
+    fill: #0f172a;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 4;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+/* Tooltip-Karte (Desktop) */
+.poi-tooltip {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(15,23,42,0.25);
+    padding: 0;
+    width: 280px;
+    z-index: 50;
+    overflow: hidden;
+    transform: translate(-50%, -110%);
+}
+.poi-tooltip.visible { opacity: 1; pointer-events: auto; }
+.poi-tooltip img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.poi-tooltip .tt-body { padding: 12px 14px; }
+.poi-tooltip .tt-cat { display: inline-block; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+.poi-tooltip h3 { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+.poi-tooltip p { font-size: 13px; color: #475569; margin-bottom: 10px; }
+.poi-tooltip .tt-btn {
+    display: block; text-align: center; padding: 10px 14px;
+    background: linear-gradient(135deg, #facc15, #eab308);
+    color: #0f172a; text-decoration: none; border-radius: 8px;
+    font-weight: 800; font-size: 14px;
+    box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+    transition: transform 0.15s;
+}
+.poi-tooltip .tt-btn:hover { transform: translateY(-2px); }
+
+/* Cards-Grid (Mobile + alle) */
+.cards-section { max-width: 1200px; margin: 40px auto 60px; padding: 0 16px; }
+.cards-section h2 { font-size: clamp(20px, 3vw, 28px); font-weight: 800; color: #0f172a; margin-bottom: 20px; text-align: center; }
+.poi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.poi-card { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 12px rgba(15,23,42,0.08); transition: all 0.25s; cursor: pointer; }
+.poi-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(15,23,42,0.18); }
+.poi-card .card-img { width: 100%; height: 160px; object-fit: cover; display: block; transition: transform 0.4s; }
+.poi-card:hover .card-img { transform: scale(1.06); }
+.poi-card .card-body { padding: 14px 16px; }
+.poi-card .card-cat { display: inline-block; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+.poi-card h3 { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+.poi-card p { font-size: 13px; color: #475569; margin-bottom: 12px; }
+.poi-card .card-btn {
+    display: block; text-align: center; padding: 10px 14px;
+    background: linear-gradient(135deg, #facc15, #eab308);
+    color: #0f172a; text-decoration: none; border-radius: 8px;
+    font-weight: 800; font-size: 14px;
+}
+.poi-card .card-btn:hover { background: linear-gradient(135deg, #fde047, #facc15); }
+
+/* CTA-Footer */
+.cta-footer { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 40px 20px; text-align: center; margin-top: 40px; }
+.cta-footer h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 800; margin-bottom: 8px; }
+.cta-footer p { font-size: 15px; color: #cbd5e1; margin-bottom: 20px; }
+.cta-footer .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.cta-footer a { padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px; transition: transform 0.15s; }
+.cta-footer a.gold { background: #facc15; color: #0f172a; }
+.cta-footer a.outline { border: 2px solid white; color: white; }
+.cta-footer a:hover { transform: translateY(-2px); }
+
+/* Mobile */
+@media (max-width: 600px) {
+    .site-header { padding: 10px 14px; }
+    .site-header .nav { gap: 6px; }
+    .site-header .nav a { font-size: 12px; padding: 5px 10px; }
+    .poi-hotspot text { display: none; }
+    .poi-tooltip { width: 90vw; max-width: 320px; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="brand">
+        <span class="brand-logo">FUNK TAXI</span>
+        <span style="font-size: 13px; opacity: 0.85;">Heringsdorf</span>
+    </div>
+    <nav class="nav">
+        <a href="landing.html">🏠 Start</a>
+        <a href="anfrage.html">✉️ Anfrage</a>
+        <a href="buchen.html" class="cta">🚕 Jetzt buchen</a>
+    </nav>
+</header>
+
+<section class="hero">
+    <h1>Entdecke <span class="gold">Usedom</span> 🏖</h1>
+    <p class="subtitle">Die schönsten Ausflugsziele auf der Sonneninsel — Funk Taxi bringt Sie hin.</p>
+</section>
+
+<div class="filter-bar" id="filter-bar">
+    <button class="filter-btn active" data-cat="alle">Alle</button>
+    <button class="filter-btn" data-cat="strand">🏖 Strand &amp; See</button>
+    <button class="filter-btn" data-cat="kultur">🏛 Kultur &amp; Geschichte</button>
+    <button class="filter-btn" data-cat="familie">👨‍👩‍👧 Familie</button>
+    <button class="filter-btn" data-cat="natur">🌳 Natur</button>
+</div>
+
+<div class="map-container">
+    <svg viewBox="0 0 800 1100" class="usedom-map" id="usedom-map" xmlns="http://www.w3.org/2000/svg">
+        <!-- Wellen-Linien Hintergrund -->
+        <defs>
+            <pattern id="waves" patternUnits="userSpaceOnUse" width="60" height="20" patternTransform="rotate(0)">
+                <path d="M 0 10 Q 15 4, 30 10 T 60 10" stroke="#9ec5e0" stroke-width="0.7" fill="none" opacity="0.55"/>
+            </pattern>
+            <filter id="islandShadow" x="-5%" y="-5%" width="110%" height="110%">
+                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.15"/>
+            </filter>
+        </defs>
+        <rect width="800" height="1100" fill="url(#waves)" />
+
+        <!-- Insel-Form (vereinfachtes Polygon — Usedom-mäßig) -->
+        <!-- Nordteil: Peenemünde, Trassenheide, Karlshagen, Zinnowitz -->
+        <!-- Mittelteil: Koserow, Loddin, Lüttenort -->
+        <!-- Südteil: Heringsdorf, Ahlbeck, Bansin, Świnoujście -->
+        <path d="
+            M 80 130
+            Q 110 90, 180 110
+            Q 220 130, 260 180
+            Q 280 240, 290 320
+            Q 320 360, 360 380
+            Q 410 410, 440 460
+            Q 460 510, 470 560
+            Q 480 600, 510 620
+            Q 555 645, 580 700
+            Q 600 750, 620 790
+            Q 660 830, 700 880
+            Q 720 940, 700 990
+            Q 660 1030, 590 1010
+            Q 540 990, 510 950
+            Q 460 905, 430 870
+            Q 380 850, 340 870
+            Q 290 870, 250 830
+            Q 200 800, 200 740
+            Q 215 690, 230 660
+            Q 220 600, 200 580
+            Q 175 560, 165 510
+            Q 155 460, 175 420
+            Q 195 390, 200 360
+            Q 200 320, 180 290
+            Q 145 240, 110 220
+            Q 75 195, 80 130
+            Z
+        " fill="#dde9c7" stroke="#7a8c5a" stroke-width="2" filter="url(#islandShadow)" />
+
+        <!-- Achterwasser-Bucht (helles Blau, in der Mitte zwischen Nord- und Südteil) -->
+        <path d="
+            M 230 480
+            Q 280 460, 340 480
+            Q 380 510, 400 560
+            Q 410 610, 380 640
+            Q 340 660, 290 650
+            Q 250 630, 230 590
+            Q 215 540, 230 480 Z
+        " fill="#c7e3f0" stroke="#9ec5e0" stroke-width="1.2" />
+
+        <!-- Beschriftungen Hauptorte (Hintergrund) -->
+        <g style="font-family: Georgia, serif; font-style: italic; font-size: 16px; fill: #6b7280; opacity: 0.55;">
+            <text x="120" y="165">Peenemünde</text>
+            <text x="180" y="280">Karlshagen</text>
+            <text x="280" y="370">Zinnowitz</text>
+            <text x="360" y="510">Koserow</text>
+            <text x="455" y="610">Lüttenort</text>
+            <text x="560" y="780">Bansin</text>
+            <text x="610" y="855">Heringsdorf</text>
+            <text x="650" y="935">Ahlbeck</text>
+            <text x="700" y="1010" style="font-size:14px;">Świnoujście</text>
+            <text x="305" y="568" style="font-size: 14px; opacity: 0.6;">Achterwasser</text>
+            <text x="40" y="80" style="font-family: 'Brush Script MT', cursive; font-size: 28px; fill: #dc2626; opacity: 0.7;">Ostsee</text>
+        </g>
+
+        <!-- POI-Hotspots werden via JS rendered -->
+        <g id="poi-layer"></g>
+    </svg>
+</div>
+
+<!-- Tooltip wird via JS positioniert -->
+<div class="poi-tooltip" id="poi-tooltip">
+    <img id="tt-img" alt="">
+    <div class="tt-body">
+        <span class="tt-cat" id="tt-cat"></span>
+        <h3 id="tt-name"></h3>
+        <p id="tt-desc"></p>
+        <a class="tt-btn" id="tt-btn">🚕 Mit Funk Taxi hinfahren</a>
+    </div>
+</div>
+
+<section class="cards-section">
+    <h2>Alle Ausflugsziele auf einen Blick</h2>
+    <div class="poi-grid" id="poi-grid"></div>
+</section>
+
+<section class="cta-footer">
+    <h2>Bereit für deinen Ausflug?</h2>
+    <p>Funk Taxi bringt dich entspannt hin — kein Parkplatz suchen, kein Stress.</p>
+    <div class="cta-buttons">
+        <a href="buchen.html" class="gold">🚕 Jetzt Taxi buchen</a>
+        <a href="tel:03837822022" class="outline">📞 038378 22022</a>
+    </div>
+</section>
+
+<script>
+// 🆕 v6.62.173: Ausflugsziele-Karte — Mockup mit hardcoded POIs.
+// Etappe 2 (separat): Admin-UI + Firebase-Persistenz fuer eigenstaendiges Erweitern.
+// Bilder sind Placeholder via picsum.photos — Patrick kann durch eigene URLs ersetzen.
+//
+// Lat/Lon-Bounding fuer Insel Usedom (vereinfacht):
+// Lat-Range: 53.85 (Süd) bis 54.20 (Nord) → 0.35 → SVG-Y 0 bis 1100
+// Lon-Range: 13.70 (West) bis 14.30 (Ost) → 0.60 → SVG-X 0 bis 800
+// y wird invertiert weil oben in SVG = niedrige Y aber Nord = hohe Lat.
+
+const POIS = [
+    { name: 'Peenemünde HTM', cat: 'kultur', lat: 54.137, lon: 13.775, address: 'Im Kraftwerk, 17449 Peenemünde',
+      desc: 'Historisch-Technisches Museum — wo die Raumfahrt begann.',
+      img: 'https://picsum.photos/seed/peenemuende/400/240' },
+    { name: 'Schmetterlingsfarm Trassenheide', cat: 'familie', lat: 54.062, lon: 13.892, address: 'Schmetterlingsfarm, Hauptstraße, 17449 Trassenheide',
+      desc: '1.000 lebende Falter aus aller Welt — Familien-Highlight.',
+      img: 'https://picsum.photos/seed/schmetterling/400/240' },
+    { name: 'Karls Erlebnis-Dorf Koserow', cat: 'familie', lat: 54.040, lon: 14.026, address: 'Karls Erlebnis-Dorf Koserow, Zur Seebrücke, 17459 Koserow',
+      desc: 'Hofladen, Erdbeerwelt, Riesenrutsche — Spaß für die ganze Familie.',
+      img: 'https://picsum.photos/seed/karls/400/240' },
+    { name: 'Streckelsberg Koserow', cat: 'natur', lat: 54.041, lon: 14.060, address: 'Streckelsberg, 17459 Koserow',
+      desc: 'Höchster Punkt der Insel (58 m) — Aussicht über die ganze Küste.',
+      img: 'https://picsum.photos/seed/streckelsberg/400/240' },
+    { name: 'Wasserschloss Mellenthin', cat: 'kultur', lat: 54.013, lon: 13.946, address: 'Schlossstraße 1, 17429 Mellenthin',
+      desc: 'Mittelalterliches Wasserschloss mit eigener Brauerei und Restaurant.',
+      img: 'https://picsum.photos/seed/mellenthin/400/240' },
+    { name: 'Seebrücke Heringsdorf', cat: 'strand', lat: 53.951, lon: 14.171, address: 'Kulmstraße, 17424 Heringsdorf',
+      desc: 'Längste Seebrücke Deutschlands (508 m) — über dem Meer schlendern.',
+      img: 'https://picsum.photos/seed/seebruecke/400/240' },
+    { name: 'Bahnhof Ahlbeck', cat: 'kultur', lat: 53.943, lon: 14.198, address: 'Dünenstraße 25a, 17419 Ahlbeck',
+      desc: 'Schönster Bahnhof an der Ostsee — historischer Holzbau seit 1911.',
+      img: 'https://picsum.photos/seed/bahnhof-ahlbeck/400/240' },
+    { name: 'Świnoujście Promenade', cat: 'strand', lat: 53.911, lon: 14.247, address: 'Promenada Zdrojowa, 72-600 Świnoujście, Polen',
+      desc: 'Polnische Seebadepromenade — Polen zu Fuß erreichbar.',
+      img: 'https://picsum.photos/seed/swinoujscie/400/240' },
+    { name: 'Schmetterling Park Trassenheide', cat: 'natur', lat: 54.063, lon: 13.890, address: 'Trassenheide',
+      desc: 'Tropische Atmosphäre mit den größten Schmetterlingen der Welt.',
+      img: 'https://picsum.photos/seed/falter/400/240' }
+];
+
+const CAT_LABELS = {
+    strand: '🏖 Strand & See',
+    kultur: '🏛 Kultur',
+    familie: '👨‍👩‍👧 Familie',
+    natur: '🌳 Natur'
+};
+
+// Lat/Lon → SVG-Koordinaten (im 800x1100 viewBox)
+function latLonToSvg(lat, lon) {
+    const x = ((lon - 13.70) / 0.60) * 800;
+    const y = ((54.20 - lat) / 0.35) * 1100;
+    return { x, y };
+}
+
+let activeCat = 'alle';
+let activeTooltipId = null;
+
+function renderPois() {
+    const layer = document.getElementById('poi-layer');
+    const grid = document.getElementById('poi-grid');
+    layer.innerHTML = '';
+    grid.innerHTML = '';
+
+    POIS.forEach((p, idx) => {
+        const visible = activeCat === 'alle' || p.cat === activeCat;
+        const { x, y } = latLonToSvg(p.lat, p.lon);
+
+        // SVG-Hotspot
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'poi-hotspot');
+        g.setAttribute('transform', `translate(${x}, ${y})`);
+        g.setAttribute('data-idx', idx);
+        g.style.display = visible ? '' : 'none';
+        g.innerHTML = `
+            <circle class="pulse" cx="0" cy="0" r="8" />
+            <circle class="dot" cx="0" cy="0" r="9" />
+            <text x="0" y="-18">${p.name.length > 22 ? p.name.substring(0,20) + '…' : p.name}</text>
+        `;
+        g.addEventListener('mouseenter', () => showTooltip(idx, x, y));
+        g.addEventListener('mouseleave', () => hideTooltip());
+        g.addEventListener('click', (e) => { e.stopPropagation(); showTooltip(idx, x, y, true); });
+        layer.appendChild(g);
+
+        // Card im Grid
+        if (visible) {
+            const card = document.createElement('div');
+            card.className = 'poi-card';
+            card.innerHTML = `
+                <img class="card-img" src="${p.img}" alt="${p.name}" loading="lazy">
+                <div class="card-body">
+                    <span class="card-cat">${CAT_LABELS[p.cat] || p.cat}</span>
+                    <h3>${p.name}</h3>
+                    <p>${p.desc}</p>
+                    <a class="card-btn" href="buchen.html?ziel=${encodeURIComponent(p.address)}">🚕 Mit Funk Taxi hinfahren</a>
+                </div>
+            `;
+            grid.appendChild(card);
+        }
+    });
+}
+
+function showTooltip(idx, x, y, sticky) {
+    const p = POIS[idx];
+    if (!p) return;
+    const tt = document.getElementById('poi-tooltip');
+    document.getElementById('tt-img').src = p.img;
+    document.getElementById('tt-cat').textContent = CAT_LABELS[p.cat] || p.cat;
+    document.getElementById('tt-name').textContent = p.name;
+    document.getElementById('tt-desc').textContent = p.desc;
+    document.getElementById('tt-btn').href = `buchen.html?ziel=${encodeURIComponent(p.address)}`;
+    // Position: SVG-Pixel zu Bildschirm-Pixel mit aktueller Skalierung
+    const svg = document.getElementById('usedom-map');
+    const rect = svg.getBoundingClientRect();
+    const scale = rect.width / 800;
+    const screenX = rect.left + window.scrollX + x * scale;
+    const screenY = rect.top + window.scrollY + y * scale;
+    tt.style.left = screenX + 'px';
+    tt.style.top = (screenY - 12) + 'px';
+    tt.classList.add('visible');
+    activeTooltipId = idx;
+    // Hotspot aktiv markieren
+    document.querySelectorAll('.poi-hotspot').forEach(h => h.classList.remove('active'));
+    const hotspot = document.querySelector(`.poi-hotspot[data-idx="${idx}"]`);
+    if (hotspot) hotspot.classList.add('active');
+}
+
+function hideTooltip() {
+    setTimeout(() => {
+        if (!document.getElementById('poi-tooltip').matches(':hover')) {
+            document.getElementById('poi-tooltip').classList.remove('visible');
+            document.querySelectorAll('.poi-hotspot').forEach(h => h.classList.remove('active'));
+            activeTooltipId = null;
+        }
+    }, 100);
+}
+
+// Tooltip selber bleibt offen wenn Maus drauf geht
+document.getElementById('poi-tooltip').addEventListener('mouseleave', hideTooltip);
+
+// Filter-Buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCat = btn.dataset.cat;
+        renderPois();
+    });
+});
+
+// Initial-Render
+renderPois();
+
+// Klick außerhalb schließt Tooltip
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.poi-hotspot') && !e.target.closest('.poi-tooltip')) {
+        document.getElementById('poi-tooltip').classList.remove('visible');
+        document.querySelectorAll('.poi-hotspot').forEach(h => h.classList.remove('active'));
+    }
+});
+
+// Tooltip-Position bei Resize neu berechnen
+window.addEventListener('resize', () => {
+    if (activeTooltipId !== null) {
+        const p = POIS[activeTooltipId];
+        const { x, y } = latLonToSvg(p.lat, p.lon);
+        showTooltip(activeTooltipId, x, y);
+    }
+});
+</script>
+
+</body>
+</html>

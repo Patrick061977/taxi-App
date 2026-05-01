@@ -1984,8 +1984,12 @@
                 sofortBtn.style.background = '';
                 sofortBtn.style.color = '';
                 // v6.62.40: Patrick: 'nicht sofort verfuegbar, sondern Fahrer verfuegbar in X Min'.
-                // Default ohne pickupCoords: realistische Anfahrt 5-10 Min (Heringsdorf-typisch).
-                let etaText = 'Fahrer verfügbar — ca. 5-10 Min Anfahrt';
+                // 🆕 v6.62.179: Patrick (01.05. 12:13): 'da steht jetzt nicht dass die Fahrt
+                // berechnet wird — 23 Sekunden lang 5-10 Min'. Statt statischem 5-10-Default
+                // jetzt animiertes 'Anfahrt wird berechnet' bis Smart-ETA durch ist.
+                let etaText = pickupCoords
+                    ? '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>'
+                    : 'Adresse eingeben für Taxi-Verfügbarkeit';
                 if (pickupCoords && _gpsOnlineVehicles) {
                     let closestEta = null;
                     for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {

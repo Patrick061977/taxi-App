@@ -2626,39 +2626,40 @@ function isTelegramModifyQuery(text) {
 // GEOCODING & ROUTING
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.62.193: geocode() komplett auf Google Places API (New) Text Search migriert.
+// Patrick (01.05.): "alles auf google places umstellen" — Nominatim findet POIs wie
+// "Strandhotel Heringsdorf, Liehrstr. 10" nicht (Auftrag-Import-Bug heute Vetter
+// Touristik 25.04. Koserow). Google Places kennt sie. Multi-Pass-Fallback-Logik
+// (Polnisch / Deutschland / Usedom-Viewbox) wird ueberfluessig — eine Anfrage
+// mit locationBias circle 25km um Heringsdorf reicht. PLZ-Validierung bleibt drin.
 async function geocode(address) {
     const searchKey = address.toLowerCase().trim();
-    // v6.48.0: KNOWN_PLACES kommt jetzt aus /pois (Firebase) statt Code
+    // v6.48.0: KNOWN_PLACES kommt aus /pois (Firebase) statt Code
     const _kp = await getKnownPlaces();
     if (_kp[searchKey]) return _kp[searchKey];
 
     const cacheKey = 'geocodeCache/' + searchKey.replace(/[.#$/[\]]/g, '_');
 
-    // Geocoding-Cache aus Firebase (mit Validierung)
+    // Geocoding-Cache aus Firebase (mit Validierung) — unverändert übernommen
     try {
         const cacheSnap = await db.ref(cacheKey).once('value');
         const cached = cacheSnap.val();
         if (cached && typeof cached.lat === 'number' && typeof cached.lon === 'number' && cached.lat !== 0 && cached.lon !== 0) {
-            // 🔧 v6.28.0: Nicht-Usedom PLZ → Cache-Eintrag IMMER akzeptieren (wenn lat/lon plausibel)
             const _anyPLZ = address.match(/\b(\d{5})\b/);
             const _usedomPLZ = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
             const _isNonUsedom = _anyPLZ && !_usedomPLZ;
 
             if (_isNonUsedom) {
-                // Nicht-Usedom Adresse: Cache akzeptieren wenn Koordinaten existieren
                 console.log(`[Geocode] Nicht-Usedom PLZ ${_anyPLZ[1]} → Cache akzeptiert: ${cached.lat}, ${cached.lon}`);
                 return cached;
             }
 
-            // Cache-Treffer nur verwenden wenn Koordinaten plausibel (Usedom-Nähe)
             if (isNearUsedom(cached.lat, cached.lon)) {
-                // 🔧 v6.15.7+v6.25.4: PLZ-Validierung — Cache mit falscher PLZ oder zu weit vom PLZ-Zentrum verwerfen!
                 const plzInAddr = _usedomPLZ;
                 if (plzInAddr) {
                     const _plzC = PLZ_CENTERS[plzInAddr[1]];
-                    // 🔧 v6.25.4: Koordinaten-Distanz-Check statt nur display_name-PLZ
                     if (_plzC && distanceKm(cached.lat, cached.lon, _plzC.lat, _plzC.lon) > PLZ_MAX_RADIUS_KM) {
-                        console.log(`[Geocode] Cache-PLZ-Distanz-Mismatch: Adresse hat PLZ ${plzInAddr[1]}, Cache-Koordinaten ${cached.lat.toFixed(4)},${cached.lon.toFixed(4)} sind ${distanceKm(cached.lat, cached.lon, _plzC.lat, _plzC.lon).toFixed(1)}km entfernt → wird neu geocodiert`);
+                        console.log(`[Geocode] Cache-PLZ-Distanz-Mismatch: ${plzInAddr[1]}, Cache ${distanceKm(cached.lat, cached.lon, _plzC.lat, _plzC.lon).toFixed(1)}km entfernt → neu geocodiert`);
                         try { await db.ref(cacheKey).remove(); } catch (e) {}
                     } else {
                         return cached;
@@ -2667,170 +2668,107 @@ async function geocode(address) {
                     return cached;
                 }
             } else {
-                // Cache-Eintrag außerhalb Usedom → löschen und neu geocodieren
-                console.log(`[Geocode] Cache-Eintrag für "${address}" außerhalb Usedom (${cached.lat}, ${cached.lon}) → wird neu geocodiert`);
+                console.log(`[Geocode] Cache "${address}" außerhalb Usedom (${cached.lat}, ${cached.lon}) → neu geocodiert`);
                 try { await db.ref(cacheKey).remove(); } catch (e) {}
             }
         }
     } catch (e) { /* Cache-Fehler ignorieren */ }
 
     try {
-        // 🔧 v6.15.7: PLZ aus Adresse extrahieren für besseres Matching
         const plzMatch = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
         const addressPLZ = plzMatch ? plzMatch[1] : null;
-        if (addressPLZ) console.log(`[Geocode] PLZ in Adresse erkannt: ${addressPLZ}`);
-
-        // 🔧 v6.28.0: Nicht-Usedom PLZ erkennen (z.B. 17489 Greifswald, 10115 Berlin)
-        // → Direkt deutschlandweit suchen, NICHT über Usedom-Suche!
         const anyPLZMatch = address.match(/\b(\d{5})\b/);
-        const isNonUsedomPLZ = anyPLZMatch && !plzMatch; // PLZ gefunden, aber KEINE Usedom-PLZ
-        if (isNonUsedomPLZ) console.log(`[Geocode] Nicht-Usedom PLZ erkannt: ${anyPLZMatch[1]} → Direkte Deutschland-Suche`);
+        const isNonUsedomPLZ = anyPLZMatch && !plzMatch;
 
-        // 🔧 v6.38.23: Adress-Validierung — prüft ob Geocoding-Ergebnis zur Eingabe passt
-        const _extractStreetFromAddr = (addr) => {
-            if (!addr) return '';
-            return addr.split(',')[0].replace(/\s*\d+[a-z]?\s*$/i, '').toLowerCase().trim();
-        };
-        const _extractHouseNr = (addr) => {
-            if (!addr) return null;
-            const m = addr.match(/(\d+)\s*[a-z]?\s*(?:,|$)/i);
-            return m ? m[1] : null;
-        };
-        // Bewertet wie gut ein Nominatim-Ergebnis zur Nutzereingabe passt
-        const _scoreResult = (result, inputAddr) => {
-            const inputLower = inputAddr.toLowerCase();
-            const resultName = (result.display_name || '').toLowerCase();
-            const resultAddr = result.address || {};
-
-            let score = 0;
-
-            // Straßenname prüfen
-            const inputStreet = _extractStreetFromAddr(inputAddr);
-            const resultStreet = (resultAddr.road || resultAddr.pedestrian || resultAddr.path || '').toLowerCase();
-
-            if (inputStreet && resultStreet) {
-                if (resultStreet === inputStreet) {
-                    score += 50; // Exakter Straßen-Match
-                } else if (resultStreet.includes(inputStreet) || inputStreet.includes(resultStreet)) {
-                    score += 20; // Partieller Match (z.B. "Strandpromenade" in "Asgard Strandpromenade")
-                } else {
-                    score -= 30; // Falscher Straßenname!
-                }
-            }
-
-            // Hausnummer prüfen
-            const inputNr = _extractHouseNr(inputAddr);
-            const resultNr = resultAddr.house_number || _extractHouseNr(result.display_name);
-            if (inputNr && resultNr) {
-                if (resultNr === inputNr) {
-                    score += 30; // Richtige Hausnummer
-                } else {
-                    score -= 20; // Falsche Hausnummer!
-                }
-            }
-
-            // Ortsname prüfen
-            const inputWords = inputLower.split(/[\s,]+/).filter(w => w.length > 2);
-            for (const word of inputWords) {
-                if (word.match(/^\d+$/) || word.match(/^(der|die|das|str|straße|weg)$/)) continue;
-                if (resultName.includes(word)) score += 5;
-            }
-
-            return score;
-        };
-
-        // Nominatim-Ergebnisse durchsuchen: bevorzugt Usedom-Region + PLZ-Match
-        const fetchAndValidate = async (url) => {
-            const resp = await fetch(url, { headers: { 'User-Agent': 'TaxiHeringsdorf/1.0' } });
-            const data = await resp.json();
-            if (!data || !data.length) return null;
-
-            // 🔧 v6.28.0: Nicht-Usedom PLZ → erstes Ergebnis direkt nehmen (kein Regions-Filter)
-            if (isNonUsedomPLZ) {
-                const first = data[0];
-                const lat = parseFloat(first.lat), lon = parseFloat(first.lon);
-                console.log(`[Geocode] Nicht-Usedom PLZ → erstes Ergebnis: ${lat}, ${lon} (${first.display_name})`);
-                return { lat, lon, display_name: first.display_name, address: first.address };
-            }
-
-            // Alle Usedom-Treffer sammeln
-            const usedomHits = [];
-            for (const item of data) {
-                const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-                if (isNearUsedom(lat, lon)) {
-                    usedomHits.push({ lat, lon, display_name: item.display_name, address: item.address });
-                }
-            }
-
-            if (usedomHits.length > 0) {
-                // 🆕 v6.38.23: Adress-Validierung — Ergebnisse nach Übereinstimmung mit Eingabe bewerten
-                if (usedomHits.length > 1) {
-                    usedomHits.forEach(h => { h._score = _scoreResult(h, address); });
-                    usedomHits.sort((a, b) => b._score - a._score);
-                    console.log(`[Geocode] "${address}" → ${usedomHits.length} Usedom-Treffer, Scores:`, usedomHits.map(h => `${h._score}: ${h.display_name}`).join(' | '));
-                } else {
-                    usedomHits[0]._score = _scoreResult(usedomHits[0], address);
-                }
-
-                // 🔧 v6.25.4: PLZ-Zentrum für Koordinaten-Distanz-Check
-                const _plzC = addressPLZ ? PLZ_CENTERS[addressPLZ] : null;
-
-                // 🔧 v6.25.4: Wenn PLZ angegeben → Ergebnisse nach Distanz zum PLZ-Zentrum filtern
-                if (_plzC && usedomHits.length > 1) {
-                    // Nur Ergebnisse innerhalb PLZ_MAX_RADIUS_KM vom PLZ-Zentrum akzeptieren
-                    const nearHits = usedomHits.filter(h => distanceKm(h.lat, h.lon, _plzC.lat, _plzC.lon) <= PLZ_MAX_RADIUS_KM);
-                    if (nearHits.length > 0) {
-                        // 🆕 v6.38.23: Innerhalb der PLZ-Treffer → den mit bestem Score nehmen
-                        nearHits.sort((a, b) => b._score - a._score);
-                        console.log(`[Geocode] "${address}" → PLZ+Score-Match (${addressPLZ}): Score ${nearHits[0]._score}, ${nearHits[0].display_name}`);
-                        return nearHits[0];
-                    }
-                    console.log(`[Geocode] "${address}" → Kein Treffer innerhalb ${PLZ_MAX_RADIUS_KM}km von PLZ ${addressPLZ}, nutze besten Score: ${usedomHits[0].display_name}`);
-                } else if (_plzC && usedomHits.length === 1) {
-                    const dist = distanceKm(usedomHits[0].lat, usedomHits[0].lon, _plzC.lat, _plzC.lon);
-                    if (dist > PLZ_MAX_RADIUS_KM) {
-                        console.warn(`[Geocode] ⚠️ "${address}" → Einziger Treffer ${dist.toFixed(1)}km von PLZ ${addressPLZ} entfernt! ${usedomHits[0].display_name}`);
-                    }
-                }
-
-                // 🆕 v6.38.23: Warnung wenn bester Treffer negativen Score hat (wahrscheinlich falsch)
-                if (usedomHits[0]._score < -10) {
-                    console.warn(`[Geocode] ⚠️ "${address}" → Bester Treffer hat negativen Score ${usedomHits[0]._score}: ${usedomHits[0].display_name} — möglicherweise falsch!`);
-                }
-
-                console.log(`[Geocode] "${address}" → Usedom-Treffer (Score ${usedomHits[0]._score}): ${usedomHits[0].lat}, ${usedomHits[0].lon} (${usedomHits[0].display_name})`);
-                return usedomHits[0];
-            }
-
-            // 2. Fallback: Erstes Ergebnis (für Fern-Ziele wie Berlin, Hamburg)
-            const first = data[0];
-            const lat = parseFloat(first.lat), lon = parseFloat(first.lon);
-            console.log(`[Geocode] "${address}" → Kein Usedom-Treffer, nutze erstes Ergebnis: ${lat}, ${lon} (${first.display_name})`);
-            return { lat, lon, display_name: first.display_name };
-        };
-
-        // 🔧 v6.28.0: Bei Nicht-Usedom PLZ → direkt deutschlandweit suchen (verhindert falsche Treffer in Usedom-Region)
-        let result = null;
-        if (isNonUsedomPLZ) {
-            result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
-            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`);
-        } else {
-            // Nominatim-Suche mit Viewbox-Präferenz für Usedom
-            result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=5&addressdetails=1&viewbox=13.6,54.2,14.45,53.75&bounded=0`);
-            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Świnoujście, Polska')}&limit=5&addressdetails=1`);
-            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=13.6,54.2,14.45,53.75&bounded=1&limit=5&addressdetails=1`);
-            if (!result) result = await fetchAndValidate(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=5&addressdetails=1`);
+        // Google Places API Key aus Firebase Settings
+        const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
+        const gKey = gKeySnap.val();
+        if (!gKey) {
+            console.warn(`[Geocode] Kein Google Places API Key in settings/googlePlacesApiKey — geocode unmoeglich.`);
+            return null;
         }
 
-        if (result) {
-            // Nur in Usedom-Nähe cachen (Fern-Ziele nicht cachen, da diese eher variieren)
-            if (isNearUsedom(result.lat, result.lon)) {
-                try { await db.ref(cacheKey).set(result); } catch (e) {}
+        // Bei Nicht-Usedom PLZ: Suche ohne Region-Bias (deutschlandweit) und nutze Plain-Address
+        // Bei Usedom-PLZ oder ohne PLZ: Suche mit locationBias um Heringsdorf
+        const requestBody = {
+            textQuery: address,
+            languageCode: 'de',
+            maxResultCount: 5
+        };
+        if (!isNonUsedomPLZ) {
+            // Usedom-Bias: Kreis 25km um Heringsdorf-Mitte (lat 53.95, lon 14.10)
+            requestBody.locationBias = {
+                circle: { center: { latitude: 53.95, longitude: 14.10 }, radius: 25000.0 }
+            };
+        }
+
+        const resp = await fetch('https://places.googleapis.com/v1/places:searchText', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': gKey,
+                'X-Goog-FieldMask': 'places.location,places.displayName,places.formattedAddress,places.postalAddress'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        const data = await resp.json();
+        if (data.error) {
+            console.warn(`[Geocode] Google Places Error für "${address}":`, data.error.message || data.error);
+            return null;
+        }
+        if (!data.places || data.places.length === 0) {
+            console.log(`[Geocode] Google Places: keine Treffer für "${address}"`);
+            return null;
+        }
+
+        // Konvertiere Places-Result in unser internes Format
+        const candidates = data.places.map(p => ({
+            lat: p.location?.latitude,
+            lon: p.location?.longitude,
+            display_name: p.formattedAddress || p.displayName?.text || '',
+            address: {
+                road: p.postalAddress?.addressLines?.[0] || '',
+                postcode: p.postalAddress?.postalCode || '',
+                city: p.postalAddress?.locality || ''
             }
+        })).filter(c => typeof c.lat === 'number' && typeof c.lon === 'number');
+        if (candidates.length === 0) return null;
+
+        // Bei Nicht-Usedom PLZ: erstes Result direkt nehmen (Google sortiert nach Relevanz)
+        if (isNonUsedomPLZ) {
+            const first = candidates[0];
+            console.log(`[Geocode] "${address}" → Google (Nicht-Usedom PLZ): ${first.lat}, ${first.lon} (${first.display_name})`);
+            return first;
+        }
+
+        // PLZ-Validierung: Wenn PLZ in Adresse, Treffer innerhalb PLZ_MAX_RADIUS_KM bevorzugen
+        const _plzC = addressPLZ ? PLZ_CENTERS[addressPLZ] : null;
+        if (_plzC && candidates.length > 1) {
+            const nearHits = candidates.filter(c => distanceKm(c.lat, c.lon, _plzC.lat, _plzC.lon) <= PLZ_MAX_RADIUS_KM);
+            if (nearHits.length > 0) {
+                console.log(`[Geocode] "${address}" → Google (PLZ ${addressPLZ}): ${nearHits[0].lat}, ${nearHits[0].lon} (${nearHits[0].display_name})`);
+                const result = nearHits[0];
+                if (isNearUsedom(result.lat, result.lon)) {
+                    try { await db.ref(cacheKey).set(result); } catch (e) {}
+                }
+                return result;
+            }
+            console.log(`[Geocode] "${address}" → Kein Google-Treffer innerhalb ${PLZ_MAX_RADIUS_KM}km PLZ ${addressPLZ} — nutze besten: ${candidates[0].display_name}`);
+        } else if (_plzC) {
+            const dist = distanceKm(candidates[0].lat, candidates[0].lon, _plzC.lat, _plzC.lon);
+            if (dist > PLZ_MAX_RADIUS_KM) {
+                console.warn(`[Geocode] ⚠️ "${address}" → Treffer ${dist.toFixed(1)}km von PLZ ${addressPLZ} entfernt: ${candidates[0].display_name}`);
+            }
+        }
+
+        const result = candidates[0];
+        console.log(`[Geocode] "${address}" → Google: ${result.lat}, ${result.lon} (${result.display_name})`);
+        if (isNearUsedom(result.lat, result.lon)) {
+            try { await db.ref(cacheKey).set(result); } catch (e) {}
         }
         return result;
     } catch (e) {
-        console.warn('Geocoding Fehler:', e.message);
+        console.warn('Geocoding (Google Places) Fehler:', e.message);
         return null;
     }
 }
@@ -3467,44 +3405,12 @@ async function searchNominatimForTelegram(query) {
             }
         } catch(gErr) { console.warn('Google Places Fehler:', gErr.message); }
 
-        // 🆕 v6.41.20: Nominatim-FALLBACK wenn Geocache + Google Places leer sind.
-        //   v6.41.14 hatte Nominatim komplett rausgeworfen — Folge: Wenn Google Places
-        //   eine Adresse nicht findet (z.B. "Bergstraße 16, Villa Frieda" mit POI-Suffix),
-        //   dann KEINE Koordinaten → Cloud-Function meldet "DATEN-INKONSISTENZ".
-        //   Fix: Nominatim als Notfall-Quelle wenn sonst nichts gefunden wurde.
-        if (allItems.length === 0) {
-            console.log('[Nominatim-Fallback] Geocache + Google Places leer — versuche Nominatim');
-            try {
-                const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&viewbox=${usedomViewbox}&bounded=0&limit=5&addressdetails=1`;
-                const fallbackResp = await fetch(fallbackUrl, fetchOpts);
-                if (fallbackResp.ok) {
-                    const fallbackData = await fallbackResp.json();
-                    if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-                        console.log(`[Nominatim-Fallback] ${fallbackData.length} Treffer`);
-                        for (const item of fallbackData) {
-                            const fLat = parseFloat(item.lat);
-                            const fLon = parseFloat(item.lon);
-                            if (isNaN(fLat) || isNaN(fLon)) continue;
-                            // Plausibilitäts-Check: Ort-Konflikt (analog v6.41.13)
-                            const _UO = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'uckeritz', 'loddin', 'zempin', 'karlshagen', 'peenemünde', 'peenemuende', 'trassenheide'];
-                            const sOrt = searchKey ? _UO.find(o => searchKey.includes(o)) : null;
-                            const itemAddr = (item.display_name || '').toLowerCase();
-                            const itemOrt = _UO.find(o => itemAddr.includes(o));
-                            if (sOrt && itemOrt && sOrt !== itemOrt) {
-                                console.log(`[Nominatim-Fallback] Ort-Konflikt: Suche "${sOrt}" vs. Adresse "${itemOrt}" → übersprungen`);
-                                continue;
-                            }
-                            allItems.push({
-                                display_name: item.display_name || '',
-                                lat: fLat, lon: fLon,
-                                source: 'nominatim-fallback',
-                                address: item.address || {}
-                            });
-                        }
-                    }
-                }
-            } catch(nfErr) { console.warn('[Nominatim-Fallback] Fehler:', nfErr.message); }
-        }
+        // 🆕 v6.62.196: Patrick (01.05.): "google places für den telegram bot der macht
+        // mir noch zuviel mist". Nominatim-Fallback (v6.41.20) komplett raus —
+        // Nominatim hat zu oft falsche Treffer geliefert (Ort-Verwechslungen,
+        // unbekannte POIs als Strassennamen interpretiert). Wenn Google nichts findet,
+        // lieber 0 Treffer im Bot als Schrott. Patrick kann dann manuell PLZ + Strasse
+        // tippen oder GPS-Sticker schicken.
 
         // 🔧 v6.25.5: Duplikate nach Koordinaten entfernen (beide Requests liefern oft gleiche Ergebnisse)
         const seenCoords = new Set();

@@ -1169,14 +1169,23 @@ async function autoAssignRide(rideId, rideData) {
             rideUpdate.pickupShiftReason = rideData.pickupShiftReason;
             rideUpdate.pickupShiftMinutes = rideData.pickupShiftMinutes;
         }
+        // 🆕 v6.62.172: Wenn Kunde im buchen.html-Smart-ETA-Modus eine versprochene Anfahrt
+        // gesehen hat (z.B. 18 Min inkl. Restfahrt), nehmen wir das Maximum aus
+        // versprochener und direkter Anfahrt. Sonst kaeme der Fahrer mit 13 Min direkter
+        // Anfahrt davon — sieht aber 13 Min waehrend der Kunde 18 Min erwartet → er faehrt
+        // zu spaet los, Kunde wartet laenger. Patrick (01.05.): 'in der fahrer app die
+        // gleiche zeit wie der kunde sehen'.
+        const _promisedEta = rideData?.bookingPromisedEtaMin;
+        const _effectiveDrivingMin = (typeof _promisedEta === 'number' && _promisedEta > drivingTimeMin)
+            ? _promisedEta : drivingTimeMin;
         if (Object.keys(vehicleScores).length > 0) {
             rideUpdate.vehicleScores = vehicleScores;
-            rideUpdate.drivingTimeToPickup = drivingTimeMin;
+            rideUpdate.drivingTimeToPickup = _effectiveDrivingMin;
         }
         if (isSofort) {
             rideUpdate.assignmentDistance = best.distance;
-            rideUpdate.drivingTimeToPickup = drivingTimeMin;
-            rideUpdate.estimatedArrivalAt = Date.now() + (drivingTimeMin * 60000);
+            rideUpdate.drivingTimeToPickup = _effectiveDrivingMin;
+            rideUpdate.estimatedArrivalAt = Date.now() + (_effectiveDrivingMin * 60000);
             rideUpdate.assignmentExpiresAt = Date.now() + 60000;
         }
         await db.ref('rides/' + rideId).update(rideUpdate);

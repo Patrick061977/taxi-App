@@ -772,9 +772,9 @@
                 <!-- Abholort — v6.41.60: Icon im Feld + "z.B. ..." Placeholder raus (doppelt gemoppelt) -->
                 <div class="input-group">
                     <label>📍 Abholort</label>
-                    <input type="text" id="b-pickup" placeholder="Adresse eingeben…" autocomplete="off" style="padding-left:14px;padding-right:70px;">
+                    <input type="text" id="b-pickup" placeholder="Stecknadel drücken oder Abholort eintippen" autocomplete="off" style="padding-left:14px;padding-right:70px;">
                     <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
-                    <button class="gps-btn" onclick="useGPS('pickup')" title="GPS-Standort nutzen">📡</button>
+                    <button class="gps-btn" onclick="useGPS('pickup')" title="Standort per Stecknadel setzen">📍</button>
                     <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
                     <div id="pickup-hint" style="display:none;font-size:12px;color:#f59e0b;margin-top:4px;padding:4px 8px;background:#fffbeb;border-radius:6px;border:1px solid #fde68a;">
                         ⚠️ Bitte einen Vorschlag aus der Liste auswählen
@@ -1727,6 +1727,12 @@
                     etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
                 }
                 bar.textContent = `${base} — ${etaMsg}`;
+                // 🆕 v6.62.172: Versprochene ETA persistieren — wird beim Booking-Confirm in
+                // ride.bookingPromisedEtaMin geschrieben, damit Fahrer-App die GLEICHE Zeit sieht
+                // wie der Kunde im Buchungsmoment. Sonst sieht der Fahrer evtl. nur 13 Min direkte
+                // Anfahrt und faehrt zu spaet los — der Kunde wartet dann laenger als versprochen.
+                window._lastSmartEtaMin = best.etaMin;
+                window._lastSmartEtaStatus = best.status;
             } catch (_e) {
                 // 🆕 v6.62.171: Bei Fehler Original-Text wiederherstellen, nicht im Loading-Limbo haengen
                 bar.textContent = _origText;
@@ -4180,6 +4186,16 @@
                     estimatedDistance: routeData.km,
                     duration: parseInt(routeData.min),
                     estimatedDuration: parseInt(routeData.min)
+                }),
+                // 🆕 v6.62.172: Versprochene Anfahrtszeit (was Smart-ETA dem Kunden zeigte) —
+                // damit Fahrer-App die GLEICHE Zeit sieht und nicht zu spaet losfaehrt.
+                ...(typeof window._lastSmartEtaMin === 'number' && !isNaN(window._lastSmartEtaMin) && {
+                    bookingPromisedEtaMin: window._lastSmartEtaMin,
+                    bookingPromisedEtaStatus: window._lastSmartEtaStatus || 'frei',
+                    // drivingTimeToPickup mit der versprochenen Zeit vorbelegen — Cloud Function
+                    // ueberschreibt das ggf. spaeter, aber wenn der zugewiesene Fahrer der ist
+                    // den Smart-ETA gefunden hat, bleibt der Wert konsistent zur Versprechen.
+                    drivingTimeToPickup: window._lastSmartEtaMin
                 })
             };
 

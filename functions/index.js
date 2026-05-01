@@ -18514,6 +18514,27 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // 🆕 v6.62.171: Past-Date-Auto-Schutz fuer historische Auftrag-Importe.
+        // Wenn confirmAuftragImport eine Ride bereits mit status='completed' + completedBy=
+        // 'auftrag-import-historic' anlegt (Patrick reicht z.B. Vetter 25.04. nachtraeglich
+        // ein), soll onRideCreated KEINEN Auto-Assign + KEINE Admin-Telegram-Benachrichtigung
+        // ausloesen — die Fahrt ist schon vorbei.
+        // Bug vor Fix (Patrick 01.05. 10:43): 'Status: completed → warteschlange' wurde
+        // gesetzt, weil isSofort = (pickupTs - now) < 25 Min, was bei pickupTs in Vergangenheit
+        // immer true ist → Auto-Zuweisung lief → keine Fahrzeuge → warteschlange.
+        if (ride.status === 'completed' && ride.completedBy === 'auftrag-import-historic') {
+            console.log(`📦 onRideCreated: Historic Past-Date Import — Skip Auto-Assign + Telegram (${rideId})`);
+            try {
+                await addRideLog(rideId, '📦', 'Cloud: Historic Past-Date Import — Skip Auto-Assign', {
+                    completedBy: 'auftrag-import-historic',
+                    pickup: ride.pickup,
+                    destination: ride.destination,
+                    pickupTs: ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toISOString() : null
+                });
+            } catch (_logErr) { /* still */ }
+            return; // Komplett raus — keine Notif, kein Auto-Assign, kein Status-Override
+        }
+
         // Prüfe ob Benachrichtigung schon gesendet wurde (z.B. vom Webhook-Handler selbst)
         if (ride.cloudNotificationSent) {
             console.log('⚠️ Benachrichtigung bereits gesendet (cloudNotificationSent flag)');

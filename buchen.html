@@ -1521,69 +1521,184 @@
             return count;
         }
 
-        // 🔧 v6.38.82: ETA nur berechnen wenn Abholort bekannt (pickupCoords gesetzt)
-        // Kein GPS-Fallback — ohne Adresse wäre die Zeit irreführend (z.B. 2 Min statt 30 Min)
-        // ☁️ v6.40.28: OSRM statt Luftlinie — Haversine nur als Pre-Filter, dann echte Straßen-Route
-        async function calcStatusBarEta(bar, count) {
-            if (!pickupCoords) return; // Keine Adresse → keine ETA
+        // 🆕 v6.62.168: Smart-ETA portiert aus index.html (calculateSmartETA + getOSRMDurationMin).
+        // Patrick (01.05.): 'buchen.html ETA an Web-App-Logik angleichen — die zeigt aktuell nur
+        // GPS-Position-zu-Pickup, ignoriert ob Fahrzeug gerade besetzt ist oder Folgefahrt hat.'
+        // Jetzt rechnet buchen.html genau wie der Admin: Restfahrt + Folgefahrten + 3 Min Puffer
+        // pro Fahrt + echte OSRM-Anfahrtszeit.
+
+        async function _buchenGetOSRMDurationMin(fromLat, fromLon, toLat, toLon) {
             try {
-                // 🔧 v6.38.95: Live-Daten nutzen statt once()
-                const vData = _gpsOnlineVehicles && Object.keys(_gpsOnlineVehicles).length > 0
-                    ? _gpsOnlineVehicles
-                    : (await db.ref('vehicles').once('value')).val() || {};
-                const nowTs = Date.now();
-                const nowDateStr = berlinDateStr(berlinNow());
-                const nowTimeStr = berlinTimeStr(berlinNow());
+                const controller = new AbortController();
+                const tid = setTimeout(() => controller.abort(), 5000);
+                const resp = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false`,
+                    { signal: controller.signal }
+                );
+                clearTimeout(tid);
+                const data = await resp.json();
+                if (data.routes && data.routes[0]) return Math.round(data.routes[0].duration / 60);
+            } catch (_e) { /* Fallback Haversine */ }
+            const dLat = (fromLat - toLat) * Math.PI / 180;
+            const dLon = (fromLon - toLon) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(toLat*Math.PI/180)*Math.cos(fromLat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.max(1, Math.round(distKm * 1.5));
+        }
 
-                // Schritt 1: Pre-Filter per Haversine — nur Kandidaten in <= 15 km Luftlinie weiter prüfen
-                const candidates = [];
-                for (const [vid, vInfo] of Object.entries(vData)) {
-                    if (!vInfo.lat || !vInfo.lon) continue;
-                    const inShift = isVehicleInShift(vid, nowDateStr, nowTimeStr);
-                    const isGpsOnline = vInfo.online !== false && vInfo.timestamp && (nowTs - vInfo.timestamp) < 5 * 60000;
-                    if (!inShift && !isGpsOnline) continue;
-                    const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000 :
-                                      (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
-                    if (gpsAgeMin > 10) continue;
-                    const isFresh = gpsAgeMin < 5;
-                    const dLat = (pickupCoords.lat - vInfo.lat) * Math.PI / 180;
-                    const dLon = (pickupCoords.lon - vInfo.lon) * Math.PI / 180;
-                    const a = Math.sin(dLat/2)**2 + Math.cos(vInfo.lat*Math.PI/180)*Math.cos(pickupCoords.lat*Math.PI/180)*Math.sin(dLon/2)**2;
-                    const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    if (distKm > 15) continue; // zu weit → keine sinnvolle ETA
-                    candidates.push({ vid, lat: vInfo.lat, lon: vInfo.lon, distKm, isFresh });
+        // Berechnet pro Online-Fahrzeug die wahre ETA zur Pickup-Adresse — beruecksichtigt:
+        // - frei: direkte Anfahrt
+        // - on_way/picked_up: Restfahrt der laufenden Fahrt + Anfahrt
+        // - prebooked/assigned in den naechsten 30 Min: Folgefahrt-Kette + Anfahrt
+        // + 3 Min Puffer Ein-/Aussteigen pro Fahrt
+        async function _buchenCalculateSmartETA(pLat, pLon) {
+            const PUFFER = 3;
+            const vData = _gpsOnlineVehicles && Object.keys(_gpsOnlineVehicles).length > 0
+                ? _gpsOnlineVehicles
+                : ((await db.ref('vehicles').once('value')).val() || {});
+            const nowTs = Date.now();
+            const nowDateStr = berlinDateStr(berlinNow());
+            const nowTimeStr = berlinTimeStr(berlinNow());
+            const onlineVehicles = [];
+            for (const [vid, vInfo] of Object.entries(vData)) {
+                if (!vInfo.lat || !vInfo.lon) continue;
+                const gpsAgeMin = vInfo.lastUpdate ? (nowTs - vInfo.lastUpdate) / 60000
+                                  : (vInfo.timestamp ? (nowTs - vInfo.timestamp) / 60000 : 999);
+                if (gpsAgeMin > 10) continue;
+                const inShift = isVehicleInShift(vid, nowDateStr, nowTimeStr);
+                const isGpsOnline = vInfo.online !== false && gpsAgeMin < 5;
+                if (!inShift && !isGpsOnline) continue;
+                onlineVehicles.push({ vid, lat: vInfo.lat, lon: vInfo.lon, isFresh: gpsAgeMin < 5 });
+            }
+            if (onlineVehicles.length === 0) return [];
+            // Pre-Filter Haversine — nur Kandidaten <= 25km weiterrechnen, sonst dauert OSRM zu lang
+            for (const v of onlineVehicles) {
+                const dLat = (pLat - v.lat) * Math.PI / 180;
+                const dLon = (pLon - v.lon) * Math.PI / 180;
+                const a = Math.sin(dLat/2)**2 + Math.cos(v.lat*Math.PI/180)*Math.cos(pLat*Math.PI/180)*Math.sin(dLon/2)**2;
+                v.distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+            const candidates = onlineVehicles.filter(v => v.distKm <= 25)
+                .sort((a, b) => a.distKm - b.distKm).slice(0, 5);
+            if (candidates.length === 0) return [];
+            // Aktive + zugewiesene Fahrten holen — buchen.html hat keinen Live-rides-Listener
+            let allRides = [];
+            try {
+                const rsnap = await db.ref('rides').once('value');
+                const rdata = rsnap.val() || {};
+                for (const [rid, r] of Object.entries(rdata)) {
+                    if (!r) continue;
+                    if (!['on_way', 'picked_up', 'in_progress', 'accepted', 'prebooked', 'assigned'].includes(r.status)) continue;
+                    const isActive = ['on_way', 'picked_up', 'in_progress'].includes(r.status);
+                    if (!isActive) {
+                        const rideTime = r.pickupTimestamp || r.createdAt || 0;
+                        if (rideTime < nowTs - 5 * 60000) continue;          // schon vorbei
+                        if (rideTime > nowTs + 60 * 60000) continue;         // > 60 Min in Zukunft
+                    }
+                    allRides.push({ id: rid, ...r });
                 }
-
-                // Schritt 2: Top 3 nach Luftlinie nehmen, echte OSRM-Zeit parallel holen
-                candidates.sort((x, y) => x.distKm - y.distKm);
-                const top = candidates.slice(0, 3);
-                const osrmResults = await Promise.all(top.map(async c => {
-                    try {
-                        const url = `https://router.project-osrm.org/route/v1/driving/${c.lon},${c.lat};${pickupCoords.lon},${pickupCoords.lat}?overview=false`;
-                        const resp = await fetch(url);
-                        const data = await resp.json();
-                        if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                            return { ...c, etaMin: Math.max(2, Math.round(data.routes[0].duration / 60)), osrm: true };
+            } catch (_e) { /* still — werte als 'frei' */ }
+            const ridesByVehicle = {};
+            for (const r of allRides) {
+                const vId = r.vehicleId || r.assignedTo;
+                if (!vId) continue;
+                if (!ridesByVehicle[vId]) ridesByVehicle[vId] = [];
+                ridesByVehicle[vId].push(r);
+            }
+            for (const vId in ridesByVehicle) {
+                ridesByVehicle[vId].sort((a, b) => {
+                    const sp = { 'picked_up': 0, 'on_way': 1, 'in_progress': 2, 'accepted': 3, 'assigned': 4, 'prebooked': 5 };
+                    const pa = sp[a.status] ?? 9, pb = sp[b.status] ?? 9;
+                    if (pa !== pb) return pa - pb;
+                    return (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0);
+                });
+            }
+            // Pro Fahrzeug ETA berechnen (parallel)
+            const results = await Promise.all(candidates.map(async (v) => {
+                const vRides = ridesByVehicle[v.vid] || [];
+                let totalMin = 0;
+                let cLat = v.lat, cLon = v.lon;
+                let status = 'frei';
+                if (vRides.length === 0) {
+                    totalMin = await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
+                } else {
+                    const active = vRides[0];
+                    const hasActive = ['on_way', 'picked_up', 'in_progress'].includes(active.status);
+                    if (!hasActive) {
+                        // Vorbestellung steht noch — passt Sofortfahrt davor?
+                        const directEta = await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
+                        const minsUntilNext = active.pickupTimestamp
+                            ? (active.pickupTimestamp - nowTs) / 60000 : 999;
+                        if (minsUntilNext > directEta + 15 + PUFFER) {
+                            totalMin = directEta;
+                        } else {
+                            status = 'zugewiesen';
+                            for (const r of vRides) {
+                                const dLat = r.destinationLat || r.destCoords?.lat;
+                                const dLon = r.destinationLon || r.destCoords?.lon;
+                                const rpLat = r.pickupLat || r.pickupCoords?.lat;
+                                const rpLon = r.pickupLon || r.pickupCoords?.lon;
+                                if (r.pickupTimestamp && (r.pickupTimestamp - nowTs) > 30 * 60000) continue;
+                                if (rpLat && rpLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, rpLat, rpLon) + PUFFER;
+                                    cLat = rpLat; cLon = rpLon;
+                                }
+                                if (dLat && dLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, dLat, dLon) + PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            }
+                            totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
                         }
-                    } catch(e) { /* Fallback */ }
-                    // Fallback: Haversine × 1.5 (wie bisher, falls OSRM down)
-                    return { ...c, etaMin: Math.max(2, Math.round(c.distKm * 1.5 + 1)), osrm: false };
-                }));
-
-                let closestEtaMin = null;
-                let closestFresh = false;
-                for (const r of osrmResults) {
-                    if (closestEtaMin === null || (r.isFresh && !closestFresh) || (r.isFresh === closestFresh && r.etaMin < closestEtaMin)) {
-                        closestEtaMin = r.etaMin;
-                        closestFresh = r.isFresh;
+                    } else {
+                        status = 'beschäftigt';
+                        for (const r of vRides) {
+                            const dLat = r.destinationLat || r.destCoords?.lat;
+                            const dLon = r.destinationLon || r.destCoords?.lon;
+                            const rpLat = r.pickupLat || r.pickupCoords?.lat;
+                            const rpLon = r.pickupLon || r.pickupCoords?.lon;
+                            if (['picked_up', 'in_progress'].includes(r.status)) {
+                                if (dLat && dLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, dLat, dLon) + PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            } else if (r.status === 'on_way') {
+                                if (rpLat && rpLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, rpLat, rpLon) + PUFFER;
+                                    cLat = rpLat; cLon = rpLon;
+                                }
+                                if (dLat && dLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, dLat, dLon) + PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            } else {
+                                if (r.pickupTimestamp && (r.pickupTimestamp - nowTs) > 30 * 60000) continue;
+                                if (rpLat && rpLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, rpLat, rpLon) + PUFFER;
+                                    cLat = rpLat; cLon = rpLon;
+                                }
+                                if (dLat && dLon) {
+                                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, dLat, dLon) + PUFFER;
+                                    cLat = dLat; cLon = dLon;
+                                }
+                            }
+                        }
+                        totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
                     }
                 }
-                if (closestEtaMin !== null) {
-                    const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
-                    bar.textContent = `${base} — 🚕 ca. ${closestEtaMin} Min bis zu dir`;
-                } else {
-                    // 🔧 v6.38.89: Kein aktuelles GPS (> 10 Min alt oder kein GPS) → Sofortbuchung unsicher
-                    // → auf Anrufen umschalten statt falschen grünen Button zu zeigen
+                return { vid: v.vid, etaMin: Math.max(2, Math.round(totalMin)), status, isFresh: v.isFresh, queued: vRides.length };
+            }));
+            results.sort((a, b) => a.etaMin - b.etaMin);
+            return results;
+        }
+
+        // 🔧 v6.62.168: calcStatusBarEta nutzt jetzt Smart-ETA (Konflikt-Check inkl. Folgefahrten).
+        // Vorher: nur Top 3 Haversine + OSRM zu Pickup, ignorierte ob Fahrzeug besetzt war.
+        async function calcStatusBarEta(bar, count) {
+            if (!pickupCoords) return;
+            try {
+                const etaResults = await _buchenCalculateSmartETA(pickupCoords.lat, pickupCoords.lon);
+                if (etaResults.length === 0) {
                     isAvailable = false;
                     bar.className = 'status-bar';
                     bar.style.background = '#fef3c7';
@@ -1592,8 +1707,21 @@
                     const callBox = document.getElementById('offline-call-box');
                     if (callBox) callBox.classList.add('visible');
                     updateBookButton();
+                    return;
                 }
-            } catch(e) { /* ETA nicht verfügbar */ }
+                const best = etaResults[0];
+                const freeCount = etaResults.filter(r => r.status === 'frei').length;
+                const base = `🟢 Taxi verfügbar! ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+                let etaMsg;
+                if (best.status === 'frei') {
+                    etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
+                } else if (best.status === 'beschäftigt') {
+                    etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min frei (gerade unterwegs)`;
+                } else {
+                    etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
+                }
+                bar.textContent = `${base} — ${etaMsg}`;
+            } catch (_e) { /* still */ }
         }
 
         async function updateStatusBar() {

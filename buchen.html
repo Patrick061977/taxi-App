@@ -386,6 +386,28 @@
         .status-bar.online { background: #d1fae5; color: #065f46; }
         .status-bar.offline { background: #fee2e2; color: #991b1b; border-bottom: 2px solid #fca5a5; }
         .status-bar.loading { background: #e2e8f0; color: #64748b; }
+        /* 🆕 v6.62.176: Animation waehrend Smart-ETA berechnet wird (1-3 Sek OSRM).
+           Patrick: 'irgendwie ein Auto das vorbeifaehrt, dass der Kunde sieht dass gearbeitet wird'. */
+        .eta-loading-car {
+            display: inline-block;
+            animation: etaCarDrive 1.4s ease-in-out infinite;
+            font-size: 18px;
+        }
+        @keyframes etaCarDrive {
+            0%   { transform: translateX(-6px) scale(1);   }
+            45%  { transform: translateX(8px)  scale(1.1); }
+            55%  { transform: translateX(8px)  scale(1.1); }
+            100% { transform: translateX(-6px) scale(1);   }
+        }
+        .eta-loading-dots {
+            display: inline-block;
+            animation: etaDotsFade 1.4s ease-in-out infinite;
+        }
+        @keyframes etaDotsFade {
+            0%   { opacity: 0.2; letter-spacing: 1px; }
+            50%  { opacity: 1;   letter-spacing: 4px; }
+            100% { opacity: 0.2; letter-spacing: 1px; }
+        }
         /* 🆕 v6.38.74: Rote Telefon-Box wenn offline */
         .offline-call-box {
             display: none;
@@ -1700,8 +1722,14 @@
         async function calcStatusBarEta(bar, count) {
             if (!pickupCoords) return;
             const _origText = bar.textContent;
-            // Loading-Indicator anzeigen — wird durch echtes Ergebnis ersetzt
-            bar.textContent = `🔍 Verfügbarkeit wird geprüft … ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
+            // 🆕 v6.62.176: Patrick: 'animation dass der Kunde sieht dass gearbeitet wird,
+            // ein Auto das vorbeifährt'. Animiertes Taxi-Emoji + Bewegungslinien.
+            // Zeigt waehrend OSRM-Calls (1-3 Sek) dass das System Verfuegbarkeit prueft.
+            bar.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;">
+                <span class="eta-loading-car">🚕</span>
+                <span style="opacity:0.6;letter-spacing:2px;" class="eta-loading-dots">···</span>
+                <span>Verfügbarkeit wird geprüft … ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst</span>
+            </span>`;
             try {
                 const etaResults = await _buchenCalculateSmartETA(pickupCoords.lat, pickupCoords.lon);
                 if (etaResults.length === 0) {

@@ -1694,8 +1694,14 @@
 
         // 🔧 v6.62.168: calcStatusBarEta nutzt jetzt Smart-ETA (Konflikt-Check inkl. Folgefahrten).
         // Vorher: nur Top 3 Haversine + OSRM zu Pickup, ignorierte ob Fahrzeug besetzt war.
+        // 🆕 v6.62.171: Patrick: 'irgendwo so ein bisschen im Hintergrund gesagt wird,
+        // Verfuegbarkeit wird geprueft, plupp, dass der Kunde weiss, ah ok jetzt passiert was'.
+        // Loading-State waehrend OSRM-Aufruf (1-3 Sekunden), damit Kunde nicht denkt App haengt.
         async function calcStatusBarEta(bar, count) {
             if (!pickupCoords) return;
+            const _origText = bar.textContent;
+            // Loading-Indicator anzeigen — wird durch echtes Ergebnis ersetzt
+            bar.textContent = `🔍 Verfügbarkeit wird geprüft … ${count} Fahrzeug${count > 1 ? 'e' : ''} im Dienst`;
             try {
                 const etaResults = await _buchenCalculateSmartETA(pickupCoords.lat, pickupCoords.lon);
                 if (etaResults.length === 0) {
@@ -1721,7 +1727,10 @@
                     etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min (${best.queued} Vorbestellung${best.queued>1?'en':''})`;
                 }
                 bar.textContent = `${base} — ${etaMsg}`;
-            } catch (_e) { /* still */ }
+            } catch (_e) {
+                // 🆕 v6.62.171: Bei Fehler Original-Text wiederherstellen, nicht im Loading-Limbo haengen
+                bar.textContent = _origText;
+            }
         }
 
         async function updateStatusBar() {

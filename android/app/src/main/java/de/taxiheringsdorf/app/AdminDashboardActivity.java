@@ -291,8 +291,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
     static class Ride {
         String id, customerName, customerPhone, pickup, destination, pickupTime, status;
+        String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         Long pickupTimestamp;
         Integer passengers;
+        // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
+        // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
+        java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -308,6 +312,22 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (t instanceof Number) r.pickupTimestamp = ((Number) t).longValue();
                 Object p = s.child("passengers").getValue();
                 if (p instanceof Number) r.passengers = ((Number) p).intValue();
+                r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
+                if (r.assignedVehicle == null) r.assignedVehicle = s.child("vehicleId").getValue(String.class);
+                // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
+                DataSnapshot wpSnap = s.child("waypoints");
+                if (wpSnap.exists() && wpSnap.hasChildren()) {
+                    r.waypointDisplay = new java.util.ArrayList<>();
+                    for (DataSnapshot wp : wpSnap.getChildren()) {
+                        String addr = wp.child("address").getValue(String.class);
+                        String name = wp.child("name").getValue(String.class);
+                        if (addr != null && !addr.trim().isEmpty()) {
+                            String line = addr;
+                            if (name != null && !name.trim().isEmpty()) line += " — " + name;
+                            r.waypointDisplay.add(line);
+                        }
+                    }
+                }
                 return r;
             } catch (Throwable _t) { return null; }
         }
@@ -364,7 +384,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 String when = r.pickupTime != null ? r.pickupTime : "—";
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
                 t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
-                t2.setText("📍 " + (r.pickup != null ? r.pickup : "?") + "  →  " + (r.destination != null ? r.destination : "?"));
+                // v6.62.193: Waypoints zwischen Pickup und Ziel anzeigen (Patrick: 'Zwischenstops
+                // nicht angezeigt im Kalender nativ app'). Mehrzeilig — eine Zeile pro Stop mit
+                // Adresse + Pax-Name. So sieht Admin bei Sammeltransfers welche Familie wo raus muss.
+                StringBuilder route = new StringBuilder();
+                route.append("📍 ").append(r.pickup != null ? r.pickup : "?");
+                if (r.waypointDisplay != null && !r.waypointDisplay.isEmpty()) {
+                    for (String wp : r.waypointDisplay) {
+                        route.append("\n🔶 ").append(wp);
+                    }
+                }
+                route.append("\n🎯 ").append(r.destination != null ? r.destination : "?");
+                t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
                 itemView.setOnClickListener(_v -> showEditRideDialog(r));
             }
@@ -477,6 +508,41 @@ public class AdminDashboardActivity extends AppCompatActivity {
         spnStatus.setSelection(statSel);
         layout.addView(spnStatus);
 
+        // 🆕 v6.62.193: Fahrzeug-Zuweisung (Patrick: 'autos kann ich auch nicht zuweisen').
+        // Hardcoded Fleet — wenn neue Autos dazukommen, hier ergaenzen. Index 0 = nicht zugewiesen.
+        TextView tvVehLabel = new TextView(this);
+        tvVehLabel.setText("🚗 Fahrzeug:");
+        tvVehLabel.setTextSize(13);
+        tvVehLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvVehLabel);
+        final android.widget.Spinner spnVehicle = new android.widget.Spinner(this);
+        final String[] vehIds = {"", "pw-ik-222", "pw-my-222-e", "pw-ki-222", "pw-sk-222", "vg-lk-111", "pw-ym-222-e"};
+        final String[] vehLabels = {"— Nicht zugewiesen —",
+            "Toyota Prius IK (PW-IK 222)",
+            "Tesla Model Y (PW-MY 222 E)",
+            "Toyota Prius II (PW-KI 222)",
+            "Renault Traffic 8 Pax (PW-SK 222)",
+            "Mercedes Vito 8 Pax (VG-LK 111)",
+            "Tesla (PW-YM 222 E)"};
+        final String[] vehNames = {"",
+            "Toyota Prius IK", "Tesla Model Y", "Toyota Prius II",
+            "Renault Traffic 8 Pax", "Mercedes Vito 8 Pax", "Tesla"};
+        final String[] vehPlates = {"",
+            "PW-IK 222", "PW-MY 222 E", "PW-KI 222",
+            "PW-SK 222", "VG-LK 111", "PW-YM 222 E"};
+        android.widget.ArrayAdapter<String> vehAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, vehLabels);
+        vehAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spnVehicle.setAdapter(vehAdapter);
+        int vehSel = 0;
+        if (r.assignedVehicle != null) {
+            for (int i = 0; i < vehIds.length; i++) {
+                if (vehIds[i].equals(r.assignedVehicle)) { vehSel = i; break; }
+            }
+        }
+        spnVehicle.setSelection(vehSel);
+        layout.addView(spnVehicle);
+
         ScrollView sv = new ScrollView(this);
         sv.addView(layout);
 
@@ -494,6 +560,31 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
                 upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
                 upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
+                // 🆕 v6.62.193: Fahrzeug-Zuweisung — alle Felder die Cloud Function +
+                // Web-App erwarten setzen, sonst zeigt die Disposition es nicht oder
+                // Telegram-Bot sendet keine Fahrer-Benachrichtigung.
+                int vIdx = spnVehicle.getSelectedItemPosition();
+                if (vIdx > 0 && vIdx < vehIds.length) {
+                    String newVehId = vehIds[vIdx];
+                    if (!newVehId.equals(r.assignedVehicle)) {
+                        upd.put("assignedVehicle", newVehId);
+                        upd.put("vehicleId", newVehId);
+                        upd.put("assignedTo", newVehId);
+                        upd.put("assignedVehicleName", vehNames[vIdx]);
+                        upd.put("assignedVehiclePlate", vehPlates[vIdx]);
+                        upd.put("assignedAt", System.currentTimeMillis());
+                        upd.put("assignedBy", "native_admin_dispo_assign");
+                    }
+                } else if (vIdx == 0 && r.assignedVehicle != null) {
+                    // Patrick hat 'Nicht zugewiesen' gewaehlt → Auto-Zuweisung loeschen
+                    upd.put("assignedVehicle", null);
+                    upd.put("vehicleId", null);
+                    upd.put("assignedTo", null);
+                    upd.put("assignedVehicleName", null);
+                    upd.put("assignedVehiclePlate", null);
+                    upd.put("unassignedAt", System.currentTimeMillis());
+                    upd.put("unassignedBy", "native_admin_dispo_assign");
+                }
                 upd.put("updatedAt", System.currentTimeMillis());
                 upd.put("updatedBy", "native_admin_dispo_edit");
                 FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)

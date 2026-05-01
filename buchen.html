@@ -1989,7 +1989,7 @@
                 // jetzt animiertes 'Anfahrt wird berechnet' bis Smart-ETA durch ist.
                 let etaText = pickupCoords
                     ? '<span class="eta-loading-car">🚕</span> Anfahrt wird berechnet <span class="eta-loading-dots" style="opacity:0.6;">···</span>'
-                    : 'Adresse eingeben für Taxi-Verfügbarkeit';
+                    : 'Erst Abholort eingeben';
                 if (pickupCoords && _gpsOnlineVehicles) {
                     let closestEta = null;
                     for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {

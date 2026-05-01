@@ -22170,18 +22170,43 @@ Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: t
                             if (!pickC || !destC) continue;
                             t.pickupLat = pickC.lat; t.pickupLon = pickC.lon;
                             t.destinationLat = destC.lat; t.destinationLon = destC.lon;
+                            // 🛡️ v6.62.192: Patrick (01.05.): "warum ist die Fahrt vom 25.04
+                            // nach Koserow nicht importiert?". Befund: Waypoint-Geocode-Fail
+                            // hat den Stop aus wpCoords gekickt, Timeline-Schleife unten nutzte
+                            // aber weiter t.waypoints[i] als Index → Adressen verschoben +
+                            // ein Stop verschwand komplett. aja Strandhotel Bansin (Höhne+
+                            // Reichert-Drop) war weg, sie wären mit nach Koserow gefahren.
+                            // Fix: existing-coords nutzen wenn vorhanden (kein redundanter
+                            // Geocode-Call), validWaypoints tracken, und t.waypoints am
+                            // Ende auf valide Liste reduzieren damit Indices matchen.
                             const wpCoords = [];
+                            const validWaypoints = [];
                             if (Array.isArray(t.waypoints)) {
                                 for (let i = 0; i < t.waypoints.length; i++) {
                                     const wp = t.waypoints[i];
                                     const addr = (wp && (wp.address || wp.addr)) || (typeof wp === 'string' ? wp : null);
                                     if (!addr) continue;
-                                    const c = await geocode(addr);
+                                    let c;
+                                    if (typeof wp === 'object' && wp.lat && wp.lon) {
+                                        c = { lat: wp.lat, lon: wp.lon };
+                                    } else {
+                                        c = await geocode(addr);
+                                    }
                                     if (c && c.lat && c.lon) {
                                         wpCoords.push({ lat: c.lat, lon: c.lon });
-                                        if (typeof wp === 'object') { wp.lat = c.lat; wp.lon = c.lon; }
-                                        else t.waypoints[i] = { address: addr, lat: c.lat, lon: c.lon };
+                                        const enriched = (typeof wp === 'object')
+                                            ? Object.assign({}, wp, { lat: c.lat, lon: c.lon })
+                                            : { address: addr, lat: c.lat, lon: c.lon };
+                                        validWaypoints.push(enriched);
+                                        t.waypoints[i] = enriched;
+                                    } else {
+                                        console.warn('Geocode-Fail Waypoint:', addr, '— Trip', t.pickup, '→', t.destination, '— Stop wird aus Timeline entfernt damit Indices matchen.');
                                     }
+                                }
+                                // Wenn Stops gedroppt wurden: t.waypoints auf validierte Liste
+                                // reduzieren, sonst ueberlappt die Timeline-Schleife unten falsch.
+                                if (validWaypoints.length !== t.waypoints.length) {
+                                    t.waypoints = validWaypoints;
                                 }
                             }
                             const route = await calculateRoute(

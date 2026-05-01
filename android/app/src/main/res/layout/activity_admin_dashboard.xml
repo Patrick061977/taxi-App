@@ -13,6 +13,46 @@
         android:background="#1E293B"
         app:elevation="0dp">
 
+        <!-- v6.62.197: Update-Banner — Patrick sah keine Updates mehr seit er auf
+             Admin-Disposition (v6.62.153) umgestiegen ist, weil diese Activity
+             keinen Banner hatte. Jetzt analog zu DriverDashboardActivity. -->
+        <LinearLayout
+            android:id="@+id/admin_update_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#10B981"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="10dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/admin_update_banner_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📥 Update verfügbar"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/admin_update_banner_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Herunterladen"
+                android:textColor="#10B981"
+                android:textSize="12sp"
+                app:backgroundTint="#FFFFFF"
+                app:cornerRadius="18dp" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

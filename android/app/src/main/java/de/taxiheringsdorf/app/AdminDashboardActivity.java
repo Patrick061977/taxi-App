@@ -74,6 +74,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // Admin-Mode Flag setzen — CallLogActivity nutzt das um EINSTEIGER zu verstecken
         getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", true).apply();
 
+        // v6.62.197: Update-Banner aktivieren — vorher kamen Updates auf Admin-Geraeten
+        // nicht durch weil dieser Activity keinen UpdateChecker-Aufruf hatte. Patrick:
+        // 'warum werden die updates der apk nicht auf das handy runtergeladen?'.
+        android.widget.LinearLayout updateBanner = findViewById(R.id.admin_update_banner);
+        android.widget.TextView updateBannerText = findViewById(R.id.admin_update_banner_text);
+        com.google.android.material.button.MaterialButton updateBannerBtn = findViewById(R.id.admin_update_banner_btn);
+        if (updateBanner != null && updateBannerText != null && updateBannerBtn != null) {
+            UpdateChecker.checkAsync(this, updateBanner, updateBannerText, updateBannerBtn);
+        }
+
         tvAdminEmail = findViewById(R.id.tv_admin_email);
         tvQueueCount = findViewById(R.id.tv_admin_queue_count);
         btnMenu = findViewById(R.id.btn_admin_menu);

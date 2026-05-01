@@ -3623,6 +3623,11 @@
 
             if (inputId === 'b-pickup') {
                 pickupCoords = r.lat ? { lat: r.lat, lon: r.lon } : null;
+                // 🆕 v6.62.181: Patrick (12:23): 'Sofort bleibt 3-45 Sek stehen ohne Veraenderung,
+                // sollte sich umstellen auf Verfuegbarkeit wird geprueft'. Sofort-Button + Status-Bar
+                // jetzt direkt updaten — Smart-ETA-Berechnung laeuft danach async und ersetzt die
+                // Loading-Anzeige durch echte Min-Zahl.
+                try { updateStatusBar(); } catch(_e) {}
                 // ETA in Status-Bar sofort aktualisieren nach Adresseingabe
                 const bar = document.getElementById('status-bar');
                 const cnt = getActiveVehicleCount(berlinDateStr(berlinNow()), berlinTimeStr(berlinNow()), passengers);

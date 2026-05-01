@@ -3643,6 +3643,26 @@
                 document.getElementById('btn-book').disabled = true;
                 return;
             }
+            // 🆕 v6.62.178: Loading-Animation waehrend OSRM-Route + Preis berechnet wird.
+            // Patrick (01.05. 12:08): 'wenn ich das Ziel eingebe da bewegt sich nichts —
+            // ihre Fahrzeit wird berechnet'. Animiertes Taxi auf der Karte bis das echte
+            // Ergebnis kommt.
+            const _routeMap = document.getElementById('route-map');
+            if (_routeMap) {
+                let _ovl = document.getElementById('route-loading-overlay');
+                if (!_ovl) {
+                    _ovl = document.createElement('div');
+                    _ovl.id = 'route-loading-overlay';
+                    _ovl.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,0.92);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px;';
+                    _routeMap.appendChild(_ovl);
+                }
+                _ovl.innerHTML = `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <span class="eta-loading-car" style="font-size:32px;">🚕</span>
+                    <span style="opacity:0.6;letter-spacing:2px;font-size:18px;" class="eta-loading-dots">···</span>
+                    <span style="font-weight:700;color:#0f172a;font-size:14px;">Fahrzeit & Preis werden berechnet</span>
+                </div>`;
+                _ovl.style.display = 'flex';
+            }
             try {
                 // Route: Pickup → (Zwischenstopp) → Ziel
                 let waypoints = `${pickupCoords.lon},${pickupCoords.lat}`;
@@ -3756,6 +3776,10 @@
                 }
             } catch(e) {
                 console.warn('Route error:', e);
+            } finally {
+                // 🆕 v6.62.178: Loading-Overlay wieder entfernen
+                const _ovl = document.getElementById('route-loading-overlay');
+                if (_ovl) _ovl.style.display = 'none';
             }
         }
 

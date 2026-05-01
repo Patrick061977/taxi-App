@@ -889,6 +889,52 @@
     </div>
 </header>
 
+<!-- ==================== LIVE-ETA-BANNER (v6.62.175) ==================== -->
+<!-- Patrick (01.05.): Aufsteller-Workflow — wenn Taxi verfuegbar grosser Banner mit
+     Min-Anzahl + Buchen-Button, wenn nicht verfuegbar dezenter Anrufen-Hinweis.
+     'wenn kein Taxi verfuegbar ist muessen wir das so hinkriegen dass das nicht
+     auffaellt' — also kein 'leider kein Taxi'-Schock, sondern unscheinbarer
+     Anrufen-Streifen. -->
+<div id="live-eta-banner" style="display:none;"></div>
+<style>
+.eta-banner-available {
+    background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+    color: #0f172a;
+    padding: 14px 16px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    animation: etaBannerFadeIn 0.4s ease;
+}
+@keyframes etaBannerFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.eta-banner-available a {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #0f172a; color: white;
+    padding: 10px 20px; border-radius: 999px;
+    text-decoration: none; font-weight: 800; font-size: 15px;
+    margin-left: 12px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.eta-banner-available a:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.3); }
+.eta-banner-available .eta-text { font-weight: 800; font-size: clamp(15px, 2.5vw, 18px); }
+.eta-banner-unavailable {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 6px 16px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid #e2e8f0;
+}
+.eta-banner-unavailable a { color: #1e40af; font-weight: 700; text-decoration: none; }
+.eta-banner-unavailable a:hover { text-decoration: underline; }
+@media (max-width: 600px) {
+    .eta-banner-available { padding: 12px 12px; }
+    .eta-banner-available a { margin-left: 0; margin-top: 8px; padding: 9px 16px; font-size: 14px; }
+    .eta-banner-available .inner { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+}
+</style>
+
 <!-- ==================== ANGEBOTS-BANNER ==================== -->
 <div id="angebot-banner" style="display:none;">
 <script>
@@ -1440,6 +1486,113 @@ function showAnfrageSuccess() {
         💬
     </button>
 </div>
+
+<!-- 🆕 v6.62.175: Live-ETA-Banner — Firebase + Smart-ETA-Logik. Adaptive Anzeige
+     je nach Taxi-Verfuegbarkeit. Bei verfuegbar: grosser Buchen-CTA. Bei nicht:
+     dezenter Anrufen-Streifen. ?src=qr Param wandert weiter zu buchen.html. -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script>
+(function() {
+    if (typeof firebase === 'undefined') return;
+    try {
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+    } catch(_e) { /* may already be inited */ }
+    const _db = firebase.database();
+    const _bannerEl = document.getElementById('live-eta-banner');
+    if (!_bannerEl) return;
+
+    // Default-Pickup-Coords: Heringsdorf-Zentrum (Seebruecke). Aufsteller stehen
+    // typischerweise in Heringsdorf/Ahlbeck/Bansin-Hotels — Anfahrtszeit aus diesem
+    // Bereich ist eine ehrliche Schaetzung.
+    const DEFAULT_PICKUP_LAT = 53.951;
+    const DEFAULT_PICKUP_LON = 14.171;
+
+    // src-Param weiterleiten (?src=qr → wird an buchen.html durchgereicht damit
+    // die Ride als source='qr-aufsteller' markiert wird)
+    const _params = new URLSearchParams(window.location.search);
+    const _src = _params.get('src') || '';
+    const _bookHref = 'buchen.html' + (_src ? '?src=' + encodeURIComponent(_src) : '');
+
+    function _haversineKm(lat1, lon1, lat2, lon2) {
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    async function _osrmDuration(fromLat, fromLon, toLat, toLon) {
+        try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 5000);
+            const resp = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false`,
+                { signal: ctrl.signal }
+            );
+            clearTimeout(tid);
+            const data = await resp.json();
+            if (data.routes && data.routes[0]) return Math.round(data.routes[0].duration / 60);
+        } catch(_e) {}
+        return Math.max(1, Math.round(_haversineKm(fromLat, fromLon, toLat, toLon) * 1.5));
+    }
+
+    async function _refreshBanner() {
+        try {
+            const _vSnap = await _db.ref('vehicles').once('value');
+            const _vData = _vSnap.val() || {};
+            const _now = Date.now();
+            const _candidates = [];
+            for (const [_vid, _v] of Object.entries(_vData)) {
+                if (!_v || !_v.lat || !_v.lon) continue;
+                const _gpsAge = _v.lastUpdate ? (_now - _v.lastUpdate) / 60000
+                              : (_v.timestamp ? (_now - _v.timestamp) / 60000 : 999);
+                if (_gpsAge > 10) continue;
+                if (_v.online === false) continue;
+                _candidates.push({ vid: _vid, lat: _v.lat, lon: _v.lon,
+                    distKm: _haversineKm(DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON, _v.lat, _v.lon),
+                    isFresh: _gpsAge < 5 });
+            }
+            if (_candidates.length === 0) {
+                _bannerEl.className = 'eta-banner-unavailable';
+                _bannerEl.style.display = 'block';
+                _bannerEl.innerHTML = '🚕 Sofort-Buchung: <a href="tel:+4938378 22022">📞 038378 22022</a>';
+                return;
+            }
+            // Top 3 nach Luftlinie OSRM-Zeit holen
+            _candidates.sort((a, b) => a.distKm - b.distKm);
+            const _top = _candidates.slice(0, 3);
+            const _osrmResults = await Promise.all(_top.map(async c => {
+                const m = await _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
+                return { ...c, etaMin: Math.max(2, m) };
+            }));
+            _osrmResults.sort((a, b) => a.etaMin - b.etaMin);
+            const _bestMin = _osrmResults[0].etaMin;
+            const _online = _candidates.length;
+            _bannerEl.className = 'eta-banner-available';
+            _bannerEl.style.display = 'block';
+            _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
+                <span class="eta-text">🚕 Nächstes Taxi in ca. ${_bestMin} Min frei</span>
+                <a href="${_bookHref}">🚀 Jetzt buchen →</a>
+            </div>`;
+        } catch (_err) {
+            // Bei Firebase-/Netzwerk-Fehler: Banner verstecken statt Falsch-Info
+            console.warn('Live-ETA-Banner Fehler:', _err.message);
+            _bannerEl.style.display = 'none';
+        }
+    }
+
+    _refreshBanner();
+    setInterval(_refreshBanner, 30000); // alle 30s neu
+})();
+</script>
 
 </body>
 </html>

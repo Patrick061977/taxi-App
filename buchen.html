@@ -4173,7 +4173,10 @@
                 passengers,
                 status: isVorbestellt ? 'vorbestellt' : 'sofort',
                 isJetzt: !isVorbestellt,
-                source: 'web-booking',
+                // 🆕 v6.62.175: source je nach ?src-Parameter (Aufsteller-Tracking).
+                // 'qr-aufsteller' wenn Kunde per QR-Code von einem Aufsteller kam, sonst 'web-booking'.
+                source: (new URLSearchParams(window.location.search).get('src') === 'qr')
+                    ? 'qr-aufsteller' : 'web-booking',
                 createdAt: now,
                 updatedAt: now,
                 pickupTimestamp: pickupTs,

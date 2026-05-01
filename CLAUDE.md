@@ -381,17 +381,18 @@ Hat KEINEN Auto-Deploy-Workflow. Bei Änderungen an `google-apps-script/kalender
 
 ## Google Apps Script — Kalender-Sync (WICHTIG!)
 
-### Datei: `google-apps-script/kalender-sync-v4.0.js`
+### Datei: `google-apps-script/kalender-sync-v5.2.js`
 
 Das Google Apps Script läuft **extern** auf Google-Servern (nicht Firebase!) und synchronisiert Fahrten aus Firebase in den Google Kalender.
 
 ### Versionierung (WICHTIG!):
 - **VOR** jeder Änderung an einer Script-Datei: aktuelle Version als Backup kopieren!
-- Namensschema: `kalender-sync-v4.0-backup.js` (Version aus dem Dateinamen übernehmen)
-- Beispiel: Bevor `kalender-sync-v4.0.js` geändert wird:
+- Namensschema: `kalender-sync-vX.Y-backup.js` (Version aus dem internen Header übernehmen, NICHT aus dem alten Dateinamen)
+- Beispiel: Bevor `kalender-sync-v5.2.js` geändert wird:
   ```bash
-  cp google-apps-script/kalender-sync-v4.0.js google-apps-script/kalender-sync-v4.0-backup.js
+  cp google-apps-script/kalender-sync-v5.2.js google-apps-script/kalender-sync-v5.2-backup.js
   ```
+- Bei jeder neuen Version: Hauptdatei umbenennen auf neuen Versions-Stand (`git mv`).
 - Alte Backups bleiben im Ordner — NICHT löschen!
 
 ### Deployment:

@@ -22653,6 +22653,13 @@ exports.onClaudeBridgeOutbox = onValueCreated(
     async (event) => {
         const outboxId = event.params.outboxId;
         const data = event.data.val();
+        // 🆕 v6.62.185: Keep-Warm-Heartbeats halten die Function-Instance aktiv,
+        // damit Patrick keine 5-15 Sek Cold-Start-Verzoegerung mehr hat. Loescht
+        // sich selbst sobald angekommen — keine Telegram-Nachricht, kein Spam.
+        if (data && data.keepWarm) {
+            try { await event.data.ref.remove(); } catch (_) {}
+            return;
+        }
         if (!data || data.sent || !data.message) return;
         try {
             const text = '🤖 ' + String(data.message).slice(0, 3500);
@@ -22691,6 +22698,34 @@ exports.onClaudeBridgeOutbox = onValueCreated(
         } catch (err) {
             console.error('❌ onClaudeBridgeOutbox Fehler:', err.message);
             try { await event.data.ref.update({ error: err.message, errorAt: Date.now() }); } catch(_) {}
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.185: Bridge-Keep-Warm
+// Patrick (01.05. 17:24): nach 15 Min Idle-Zeit haben Bridge-Pushes 5-15 Sek
+// Cold-Start-Verzoegerung. Diese Schedule-Function schreibt alle 5 Min einen
+// Heartbeat-Eintrag in /claudeBridge/outbox/_keepwarm-{ts} → triggert
+// onClaudeBridgeOutbox → die Function bleibt warm. Heartbeat-Eintraege
+// loeschen sich selbst (keepWarm-Check oben in onClaudeBridgeOutbox).
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledClaudeBridgeKeepWarm = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin'
+    },
+    async (_event) => {
+        const ts = Date.now();
+        try {
+            await db.ref('claudeBridge/outbox/_keepwarm-' + ts).set({
+                keepWarm: true,
+                ts: ts
+            });
+            console.log('🔥 Bridge Keep-Warm Heartbeat geschrieben (ts=' + ts + ')');
+        } catch (err) {
+            console.warn('Keep-Warm-Fehler:', err.message);
         }
     }
 );

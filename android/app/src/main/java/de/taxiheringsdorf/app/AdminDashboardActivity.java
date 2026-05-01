@@ -501,16 +501,30 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     .addOnSuccessListener(_v -> Toast.makeText(this, "✅ Fahrt aktualisiert", Toast.LENGTH_SHORT).show())
                     .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
+            // 🆕 v6.62.191: Stornieren-Button war unter "Abbrechen" platziert — Patrick hat
+            // versehentlich gedrueckt und Vetter-Touristik 11:20-Tour war weg. Jetzt mit
+            // Bestaetigungs-Dialog davor: "Wirklich stornieren?" Yes/No.
             .setNeutralButton("🚫 Stornieren", (d, w) -> {
-                Map<String, Object> upd = new HashMap<>();
-                upd.put("status", "cancelled");
-                upd.put("cancelledAt", System.currentTimeMillis());
-                upd.put("cancelledBy", "native_admin_dispo");
-                upd.put("updatedAt", System.currentTimeMillis());
-                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
-                    .updateChildren(upd)
-                    .addOnSuccessListener(_v -> Toast.makeText(this, "🚫 Fahrt storniert", Toast.LENGTH_SHORT).show())
-                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                String confirmMsg = "Diese Fahrt wirklich stornieren?\n\n" +
+                    (r.customerName != null ? "👤 " + r.customerName + "\n" : "") +
+                    (r.pickupTime != null ? "🕒 " + r.pickupTime + "\n" : "") +
+                    (r.pickup != null ? "📍 " + r.pickup + "\n" : "");
+                new AlertDialog.Builder(AdminDashboardActivity.this)
+                    .setTitle("⚠️ Stornieren bestaetigen")
+                    .setMessage(confirmMsg)
+                    .setPositiveButton("🚫 Ja, stornieren", (d2, w2) -> {
+                        Map<String, Object> upd = new HashMap<>();
+                        upd.put("status", "cancelled");
+                        upd.put("cancelledAt", System.currentTimeMillis());
+                        upd.put("cancelledBy", "native_admin_dispo");
+                        upd.put("updatedAt", System.currentTimeMillis());
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+                            .updateChildren(upd)
+                            .addOnSuccessListener(_v -> Toast.makeText(this, "🚫 Fahrt storniert", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                    })
+                    .setNegativeButton("Nein, behalten", null)
+                    .show();
             })
             .setNegativeButton("Abbrechen", null)
             .show();

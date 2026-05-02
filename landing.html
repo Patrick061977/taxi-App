@@ -1718,19 +1718,26 @@ function showAnfrageSuccess() {
             starsEl.textContent = '★'.repeat(full) + (half ? '⯨' : '') + '☆'.repeat(empty);
         }
 
-        // Nur positive Reviews (>=4 Sterne) anzeigen, max 3
-        const positive = (data.reviews || []).filter(r => r.rating >= 4 && r.text && r.text.text).slice(0, 3);
-        if (positive.length === 0) {
+        // 🆕 v6.62.198o: ALLE Reviews zeigen (auch negative) — Patrick antwortet auf Google,
+        // Owner-Replies sind via googleMapsUri pro Review erreichbar (API liefert sie nicht direkt)
+        const all = (data.reviews || []).filter(r => r.text && r.text.text).slice(0, 5);
+        if (all.length === 0) {
             cardsEl.style.display = 'none';
         } else {
-            cardsEl.innerHTML = positive.map(r => {
+            cardsEl.innerHTML = all.map(r => {
                 const txt = r.text.text;
-                const short = txt.length > 200 ? txt.substring(0, 200).replace(/\s\S*$/, '') + '…' : txt;
+                const short = txt.length > 220 ? txt.substring(0, 220).replace(/\s\S*$/, '') + '…' : txt;
                 const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
-                return `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                    <div style="color:#f59e0b;letter-spacing:1px;margin-bottom:8px;font-size:14px;">${stars}</div>
-                    <div style="font-size:13px;line-height:1.5;color:#374151;margin-bottom:10px;">"${escapeHtml(short)}"</div>
+                const isLow = r.rating <= 2;
+                const reviewLink = r.googleMapsUri || '';
+                const replyHint = reviewLink ? `<a href="${escapeHtml(reviewLink)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;color:${isLow ? '#dc2626' : '#3b82f6'};text-decoration:none;font-weight:600;">${isLow ? '↳ Antwort vom Inhaber bei Google lesen' : '↳ Auf Google ansehen'}</a>` : '';
+                const borderColor = isLow ? '#fecaca' : '#e5e7eb';
+                const starColor = isLow ? '#9ca3af' : '#f59e0b';
+                return `<div style="background:white;border:1px solid ${borderColor};border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="color:${starColor};letter-spacing:1px;margin-bottom:8px;font-size:14px;">${stars}</div>
+                    <div style="font-size:13px;line-height:1.5;color:#374151;margin-bottom:6px;">"${escapeHtml(short)}"</div>
                     <div style="font-size:11px;color:#9ca3af;font-weight:600;">${escapeHtml(r.authorAttribution?.displayName || 'Google-Nutzer')} · ${escapeHtml(r.relativePublishTimeDescription || '')}</div>
+                    ${replyHint}
                 </div>`;
             }).join('');
         }

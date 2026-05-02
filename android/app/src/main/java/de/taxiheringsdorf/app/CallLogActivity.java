@@ -251,50 +251,138 @@ public class CallLogActivity extends AppCompatActivity {
             .show();
     }
 
+    // 🆕 v6.62.198: Kaskade Places Text Search → Nominatim
+    // Patrick: 'D' (Kaskade Places → Geocoder → Nominatim). Geocoding-API
+    // ist bei Patricks Key nicht enabled — stattdessen Places Text Search,
+    // funktioniert mit gleichem Key und findet z.B. 'Waldbuehnenweg 1 Heringsdorf'.
+    // Bei jedem Schritt Toast mit Quelle damit Patrick sieht WAS geholfen hat.
     private void geocodeWithNominatim(String query) {
-        Toast.makeText(this, "🔍 Suche '" + query + "' bei OpenStreetMap...", Toast.LENGTH_SHORT).show();
+        geocodeWithCascade(query);
+    }
+
+    private void geocodeWithCascade(String query) {
+        if (query == null || query.trim().isEmpty()) return;
+        Toast.makeText(this, "🔍 Suche: " + query, Toast.LENGTH_SHORT).show();
         new Thread(() -> {
-            try {
-                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
-                    + URLEncoder.encode(query, "UTF-8");
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.39 (admin@funk-taxi-heringsdorf.de)");
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(8000);
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                conn.disconnect();
-                String json = sb.toString();
-                int latIdx = json.indexOf("\"lat\":\"");
-                int lonIdx = json.indexOf("\"lon\":\"");
-                if (latIdx < 0 || lonIdx < 0) {
-                    runOnUiThread(() -> Toast.makeText(this, "❌ OpenStreetMap fand auch nichts fuer '" + query + "'", Toast.LENGTH_LONG).show());
-                    return;
-                }
-                latIdx += 7; lonIdx += 7;
-                final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
-                final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
-                // v6.62.39: kompaktes Format Strasse Nr, PLZ Ort statt full display_name
-                final String display = compactNominatimAddress(json);
-                if (display == null || display.isEmpty()) {
-                    runOnUiThread(() -> Toast.makeText(this, "❌ Adresse konnte nicht geparst werden", Toast.LENGTH_LONG).show());
-                    return;
-                }
-                runOnUiThread(() -> {
-                    if (pendingPlaceField != null) pendingPlaceField.setText(display);
-                    if (pendingPlaceCoords != null) {
-                        pendingPlaceCoords[0] = lat;
-                        pendingPlaceCoords[1] = lon;
-                    }
-                    Toast.makeText(this, "✅ Gefunden via OSM", Toast.LENGTH_SHORT).show();
-                });
-            } catch (Throwable t) {
-                runOnUiThread(() -> Toast.makeText(this, "OSM-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
-            }
+            // STUFE 1: Places Text Search (New API) — gleicher Key wie Autocomplete
+            if (tryPlacesTextSearch(query)) return;
+            // STUFE 2: Nominatim (OpenStreetMap)
+            runOnUiThread(() -> Toast.makeText(this, "↪ Places leer — versuche OpenStreetMap...", Toast.LENGTH_SHORT).show());
+            tryNominatimSearch(query);
         }).start();
+    }
+
+    // Stufe 1: Places Text Search via REST. Returns true wenn Treffer.
+    private boolean tryPlacesTextSearch(String query) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL("https://places.googleapis.com/v1/places:searchText");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setRequestProperty("X-Goog-Api-Key", "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
+            conn.setRequestProperty("X-Goog-FieldMask", "places.formattedAddress,places.location,places.displayName");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setDoOutput(true);
+            String body = "{\"textQuery\":\"" + query.replace("\\", "\\\\").replace("\"", "\\\"") + "\",\"regionCode\":\"de\",\"maxResultCount\":1}";
+            conn.getOutputStream().write(body.getBytes("UTF-8"));
+            int code = conn.getResponseCode();
+            BufferedReader br = new BufferedReader(new InputStreamReader(
+                code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            String json = sb.toString();
+            if (code < 200 || code >= 300) return false;
+            int latIdx = json.indexOf("\"latitude\"");
+            int lonIdx = json.indexOf("\"longitude\"");
+            int addrIdx = json.indexOf("\"formattedAddress\":\"");
+            if (latIdx < 0 || lonIdx < 0 || addrIdx < 0) return false;
+            latIdx = json.indexOf(":", latIdx) + 1;
+            int latEnd = findNumberEnd(json, latIdx);
+            lonIdx = json.indexOf(":", lonIdx) + 1;
+            int lonEnd = findNumberEnd(json, lonIdx);
+            final double lat = Double.parseDouble(json.substring(latIdx, latEnd).trim());
+            final double lon = Double.parseDouble(json.substring(lonIdx, lonEnd).trim());
+            int addrStart = addrIdx + 20;
+            int addrEnd = json.indexOf("\"", addrStart);
+            // Quote-escape ueberspringen
+            while (addrEnd > 0 && json.charAt(addrEnd - 1) == '\\') {
+                addrEnd = json.indexOf("\"", addrEnd + 1);
+            }
+            final String display = decodeUmlaute(json.substring(addrStart, addrEnd));
+            runOnUiThread(() -> {
+                applyGeocodeResult(lat, lon, display, "Google Places");
+            });
+            return true;
+        } catch (Throwable t) {
+            return false;
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private int findNumberEnd(String json, int start) {
+        int end = start;
+        while (end < json.length()) {
+            char c = json.charAt(end);
+            if ((c >= '0' && c <= '9') || c == '.' || c == '-' || c == 'e' || c == 'E' || c == '+') {
+                end++;
+            } else break;
+        }
+        return end;
+    }
+
+    // Stufe 2: Nominatim — letzte Stufe der Kaskade
+    private void tryNominatimSearch(String query) {
+        try {
+            String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
+                + URLEncoder.encode(query, "UTF-8");
+            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+            conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.198 (admin@funk-taxi-heringsdorf.de)");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            conn.disconnect();
+            String json = sb.toString();
+            int latIdx = json.indexOf("\"lat\":\"");
+            int lonIdx = json.indexOf("\"lon\":\"");
+            if (latIdx < 0 || lonIdx < 0) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Auch OpenStreetMap fand nichts fuer '" + query + "'", Toast.LENGTH_LONG).show());
+                return;
+            }
+            latIdx += 7; lonIdx += 7;
+            final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
+            final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
+            final String display = compactNominatimAddress(json);
+            if (display == null || display.isEmpty()) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Adresse konnte nicht geparst werden", Toast.LENGTH_LONG).show());
+                return;
+            }
+            runOnUiThread(() -> applyGeocodeResult(lat, lon, display, "OpenStreetMap"));
+        } catch (Throwable t) {
+            runOnUiThread(() -> Toast.makeText(this, "OSM-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+        }
+    }
+
+    // Schreibt Geocode-Ergebnis ins pendingPlaceField + zeigt Quelle
+    private void applyGeocodeResult(double lat, double lon, String display, String source) {
+        if (pendingPlaceField != null) {
+            String existing = pendingPlaceField.getText().toString();
+            String prefix = existing.startsWith("🎯") ? "🎯 " : "📍 ";
+            pendingPlaceField.setText(prefix + display);
+        }
+        if (pendingPlaceCoords != null) {
+            pendingPlaceCoords[0] = lat;
+            pendingPlaceCoords[1] = lon;
+        }
+        Toast.makeText(this, "✅ Gefunden via " + source, Toast.LENGTH_SHORT).show();
     }
 
     private void launchPlaces(TextView targetField, double[] coordsOut) {

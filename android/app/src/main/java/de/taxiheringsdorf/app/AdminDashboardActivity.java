@@ -139,16 +139,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (r != null && r.status != null && ACTIVE_STATUSES.contains(r.status)) list.add(r);
         }
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
+        // 🆕 v6.62.199: Patrick: 'Web-Anfragen direkt in der Native-App sehen'
+        // Unzugewiesene Web-Bookings nach oben in eigene Sektion ziehen.
+        List<Ride> webRequests = new ArrayList<>();
+        List<Ride> rest = new ArrayList<>();
+        for (Ride r : list) {
+            if (r.isUnclaimedWebBooking()) webRequests.add(r);
+            else rest.add(r);
+        }
         // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
         // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
         List<Object> sectioned = new ArrayList<>();
+        if (!webRequests.isEmpty()) {
+            sectioned.add("🆕 NEUE WEB-ANFRAGEN (" + webRequests.size() + ") — bitte annehmen");
+            sectioned.addAll(webRequests);
+        }
         Calendar lastDay = null;
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0); today.set(Calendar.MINUTE, 0);
         today.set(Calendar.SECOND, 0); today.set(Calendar.MILLISECOND, 0);
         Calendar tomorrow = (Calendar) today.clone();
         tomorrow.add(Calendar.DAY_OF_MONTH, 1);
-        for (Ride r : list) {
+        for (Ride r : rest) {
             if (r.pickupTimestamp == null) continue;
             Calendar c = Calendar.getInstance();
             c.setTimeInMillis(r.pickupTimestamp);
@@ -304,9 +316,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         Long pickupTimestamp;
         Integer passengers;
+        // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
+        String source; // 'web-booking', 'admin-quick', 'auftrag-import' etc.
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
+
+        boolean isUnclaimedWebBooking() {
+            return "web-booking".equals(source)
+                && (assignedVehicle == null || assignedVehicle.isEmpty())
+                && status != null && (status.equals("new") || status.equals("vorbestellt") || status.equals("warteschlange"));
+        }
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -318,6 +338,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.destination = s.child("destination").getValue(String.class);
                 r.pickupTime = s.child("pickupTime").getValue(String.class);
                 r.status = s.child("status").getValue(String.class);
+                r.source = s.child("source").getValue(String.class);
                 Object t = s.child("pickupTimestamp").getValue();
                 if (t instanceof Number) r.pickupTimestamp = ((Number) t).longValue();
                 Object p = s.child("passengers").getValue();
@@ -378,7 +399,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         class HeaderVH extends RecyclerView.ViewHolder {
             TextView tv;
             HeaderVH(View v) { super(v); tv = (TextView) v; }
-            void bind(String header) { tv.setText(header); }
+            void bind(String header) {
+                tv.setText(header);
+                // 🆕 v6.62.199: Web-Anfragen-Header in Rot/Orange damit's auffaellt
+                if (header != null && header.startsWith("🆕")) {
+                    tv.setBackgroundColor(Color.parseColor("#7C2D12")); // dunkles Orange-Rot
+                    tv.setTextColor(Color.parseColor("#FED7AA"));
+                } else {
+                    tv.setBackgroundColor(Color.parseColor("#0F172A"));
+                    tv.setTextColor(Color.parseColor("#FBBF24"));
+                }
+            }
         }
 
         class RideVH extends RecyclerView.ViewHolder {
@@ -393,7 +424,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
             void bind(Ride r) {
                 String when = r.pickupTime != null ? r.pickupTime : "—";
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
-                t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
+                // 🆕 v6.62.199: Web-Anfrage visuell hervorheben
+                if (r.isUnclaimedWebBooking()) {
+                    itemView.setBackgroundColor(Color.parseColor("#451A03")); // dunkles Orange
+                    t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
+                } else {
+                    itemView.setBackgroundColor(Color.parseColor("#1E293B"));
+                    t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
+                }
                 // v6.62.193: Waypoints zwischen Pickup und Ziel anzeigen (Patrick: 'Zwischenstops
                 // nicht angezeigt im Kalender nativ app'). Mehrzeilig — eine Zeile pro Stop mit
                 // Adresse + Pax-Name. So sieht Admin bei Sammeltransfers welche Familie wo raus muss.

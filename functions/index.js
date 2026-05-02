@@ -5779,14 +5779,21 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     // 🔧 v6.38.25: Kaiserbäder = Heringsdorf + Ahlbeck + Bansin sind EINE Gemeinde!
                     const _KAISERBAEDER = ['heringsdorf', 'ahlbeck', 'bansin'];
                     const _TOWNS2 = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'koserow', 'ückeritz', 'loddin', 'trassenheide', 'zempin', 'karlshagen', 'peenemünde', 'wolgast', 'anklam'];
-                    const _explTown2 = _TOWNS2.find(t => addressToResolve.toLowerCase().includes(t));
+                    // 🆕 v6.62.199: Word-Boundary Match — Patrick: 'Idyll am Wolgastsee bekommt
+                    // Autohaus Neumann + Bahnhof Wolgast'. Der alte .includes() matchte 'wolgast'
+                    // als Substring in 'wolgastsee' → Filter auf falsche Stadt. Jetzt: nur als
+                    // ganzes Wort.
+                    const _addrLow2 = addressToResolve.toLowerCase();
+                    const _explTown2 = _TOWNS2.find(t => new RegExp('\\b' + t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\b').test(_addrLow2));
                     const _isKaiserbad2 = _KAISERBAEDER.includes(_explTown2);
                     const _townOk2 = (s) => {
                         if (!_explTown2) return true;
                         const sLow = (s.name + ' ' + (s.display_name || '')).toLowerCase();
-                        if (sLow.includes(_explTown2)) return true;
+                        // Word-Boundary statt Substring (sonst matcht 'wolgast' in 'wolgastsee')
+                        const _townRe = new RegExp('\\b' + _explTown2.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '\\b');
+                        if (_townRe.test(sLow)) return true;
                         // Kaiserbäder-Synonym: Heringsdorf = Ahlbeck = Bansin (gleiche Gemeinde!)
-                        if (_isKaiserbad2) return _KAISERBAEDER.some(k => sLow.includes(k));
+                        if (_isKaiserbad2) return _KAISERBAEDER.some(k => new RegExp('\\b' + k + '\\b').test(sLow));
                         return false;
                     };
 

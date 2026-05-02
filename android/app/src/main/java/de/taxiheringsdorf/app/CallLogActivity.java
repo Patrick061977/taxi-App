@@ -214,11 +214,14 @@ public class CallLogActivity extends AppCompatActivity {
         return v.isEmpty() ? null : v;
     }
 
+    // 🆕 v6.62.198: ECHTE Umlaute statt 'ue/oe/ae' — Patrick: 'schroeder ist schroder'
+    // Vorher wandelte die Funktion JSON-Unicode-Escapes (ö) zu 'oe', weil
+    // einige Renderings UTF-8 nicht hatten. Heute laeuft alles UTF-8 → Umlaute zurueck.
     private String decodeUmlaute(String s) {
         if (s == null) return null;
-        return s.replace("\\u00fc","ue").replace("\\u00f6","oe").replace("\\u00e4","ae")
-                .replace("\\u00df","ss").replace("\\u00dc","Ue").replace("\\u00d6","Oe")
-                .replace("\\u00c4","Ae").replace("\\/","/");
+        return s.replace("\\u00fc","ü").replace("\\u00f6","ö").replace("\\u00e4","ä")
+                .replace("\\u00df","ß").replace("\\u00dc","Ü").replace("\\u00d6","Ö")
+                .replace("\\u00c4","Ä").replace("\\/","/");
     }
 
     // v6.62.28: OSM/Nominatim-Fallback wenn Places fehlschlaegt oder nichts findet.

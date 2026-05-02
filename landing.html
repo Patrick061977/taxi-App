@@ -1039,31 +1039,10 @@ const ANGEBOT = {
     <div class="container">
         <span class="trust-item">&#128661; 4 Fahrzeuge</span>
         <span class="trust-item">&#11088; Seit 1991</span>
-        <span class="trust-item">&#128241; Online buchen</span>
+        <a href="#reviews" class="trust-item" style="color:#f59e0b;text-decoration:none;font-weight:700;">⭐ <span id="rev-bar-rating">4.8</span> · <span id="rev-bar-count">330</span> Bewertungen</a>
         <span class="trust-item">&#128274; Sichere Zahlung</span>
     </div>
 </div>
-
-<!-- ==================== GOOGLE REVIEWS ==================== -->
-<section class="section" id="reviews" style="padding:36px 0;background:#fafafa;">
-    <div class="container" style="max-width:1000px;">
-        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px;margin-bottom:20px;">
-            <div style="text-align:center;">
-                <div style="font-size:44px;font-weight:800;color:#f59e0b;line-height:1;" id="rev-rating-num">…</div>
-                <div style="font-size:18px;color:#f59e0b;letter-spacing:2px;" id="rev-stars">★★★★★</div>
-            </div>
-            <div style="text-align:left;">
-                <div style="font-size:15px;color:#1f2937;font-weight:700;">Bewertet auf Google</div>
-                <div style="font-size:13px;color:#6b7280;"><span id="rev-count">…</span> Kundenbewertungen</div>
-                <a href="#" id="rev-google-link" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:12px;color:#3b82f6;font-weight:600;text-decoration:none;">Alle Bewertungen auf Google &rarr;</a>
-            </div>
-        </div>
-        <div id="rev-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;"></div>
-        <div id="rev-cta" style="text-align:center;margin-top:18px;display:none;">
-            <a href="https://search.google.com/local/writereview?placeid=ChIJG-vxdPn3qkcRcT9GOA4S6-0" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:white;border:2px solid #f59e0b;color:#92400e;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">⭐ Bewertung schreiben</a>
-        </div>
-    </div>
-</section>
 
 <!-- ==================== PAUSCHALPREISE (Świnoujście) ==================== -->
 <section class="section" id="pauschal" style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);padding:40px 0;">
@@ -1510,6 +1489,27 @@ function showAnfrageSuccess() {
     </div>
 </section>
 
+<!-- ==================== GOOGLE REVIEWS (unten, nach FAQ) ==================== -->
+<section class="section" id="reviews" style="padding:36px 0;background:#fafafa;">
+    <div class="container" style="max-width:1000px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px;margin-bottom:20px;">
+            <div style="text-align:center;">
+                <div style="font-size:44px;font-weight:800;color:#f59e0b;line-height:1;" id="rev-rating-num">…</div>
+                <div style="font-size:18px;color:#f59e0b;letter-spacing:2px;" id="rev-stars">★★★★★</div>
+            </div>
+            <div style="text-align:left;">
+                <div style="font-size:15px;color:#1f2937;font-weight:700;">Bewertet auf Google</div>
+                <div style="font-size:13px;color:#6b7280;"><span id="rev-count">…</span> Kundenbewertungen</div>
+                <a href="#" id="rev-google-link" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:12px;color:#3b82f6;font-weight:600;text-decoration:none;">Alle Bewertungen auf Google &rarr;</a>
+            </div>
+        </div>
+        <div id="rev-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;"></div>
+        <div id="rev-cta" style="text-align:center;margin-top:18px;display:none;">
+            <a href="https://search.google.com/local/writereview?placeid=ChIJG-vxdPn3qkcRcT9GOA4S6-0" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:white;border:2px solid #f59e0b;color:#92400e;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">⭐ Bewertung schreiben</a>
+        </div>
+    </div>
+</section>
+
 <!-- ==================== FOOTER ==================== -->
 <footer class="footer" id="kontakt">
     <div class="footer-grid">
@@ -1709,6 +1709,11 @@ function showAnfrageSuccess() {
         if (data.rating) ratingEl.textContent = data.rating.toFixed(1);
         if (data.userRatingCount) countEl.textContent = data.userRatingCount.toLocaleString('de-DE');
         if (data.googleMapsUri) linkEl.href = data.googleMapsUri;
+        // 🆕 v6.62.198q: Trust-Bar Werte befuellen
+        const barRatingEl = document.getElementById('rev-bar-rating');
+        const barCountEl = document.getElementById('rev-bar-count');
+        if (barRatingEl && data.rating) barRatingEl.textContent = data.rating.toFixed(1);
+        if (barCountEl && data.userRatingCount) barCountEl.textContent = data.userRatingCount.toLocaleString('de-DE');
 
         // Sterne-Anzeige (4.8 → 4 volle + halber)
         if (data.rating) {
@@ -1718,9 +1723,11 @@ function showAnfrageSuccess() {
             starsEl.textContent = '★'.repeat(full) + (half ? '⯨' : '') + '☆'.repeat(empty);
         }
 
-        // 🆕 v6.62.198o: ALLE Reviews zeigen (auch negative) — Patrick antwortet auf Google,
-        // Owner-Replies sind via googleMapsUri pro Review erreichbar (API liefert sie nicht direkt)
-        const all = (data.reviews || []).filter(r => r.text && r.text.text).slice(0, 5);
+        // 🆕 v6.62.198o/q: ALLE Reviews, neueste zuerst
+        const all = (data.reviews || [])
+            .filter(r => r.text && r.text.text)
+            .sort((a, b) => new Date(b.publishTime || 0) - new Date(a.publishTime || 0))
+            .slice(0, 5);
         if (all.length === 0) {
             cardsEl.style.display = 'none';
         } else {

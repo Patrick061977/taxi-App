@@ -212,8 +212,9 @@
                 📞 <strong>Bitte rechtzeitig vorbestellen!</strong> Um alle Fahrten reibungslos planen zu k&ouml;nnen, bitten wir Sie, Ihre Fahrt fr&uuml;hzeitig zu buchen. Vorbestellungen bis 22:00 Uhr am gleichen Tag. Anfragen nach 22:00 Uhr werden erst am n&auml;chsten Morgen ab 07:00 Uhr bearbeitet.
             </div>
 
-            <!-- Festpreis-Angebote (nur bis 10:00 Uhr) -->
-            <div id="festpreis-section" style="display:none;margin-top:16px;">
+            <!-- Festpreis-Angebote (nur bis 10:00 Uhr) — auch unter Anker #festpreis erreichbar -->
+            <a id="festpreis" style="position:relative;top:-80px;"></a>
+            <div id="festpreis-section" style="display:none;margin-top:16px;scroll-margin-top:80px;">
                 <div style="text-align:center;margin-bottom:10px;">
                     <div style="font-size:16px;font-weight:700;color:#059669;">🏷️ Pauschalpreis-Angebote</div>
                     <div style="font-size:11px;color:#f59e0b;font-weight:600;" id="festpreis-timer">Nur bis 10:00 Uhr verf&uuml;gbar!</div>
@@ -753,6 +754,17 @@ function toggleRabatt() {
         }
     }, 50);
 }
+
+// 🆕 v6.62.198: Bei Hash #festpreis automatisch hinscrollen (von landing.html-Karten)
+(function autoScrollToFestpreis() {
+    if (window.location.hash !== '#festpreis') return;
+    function scroll() {
+        var el = document.getElementById('festpreis-section') || document.getElementById('festpreis');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (document.readyState === 'complete') setTimeout(scroll, 200);
+    else window.addEventListener('load', function() { setTimeout(scroll, 200); });
+})();
 
 function toggleFestpreis() {
     var check = document.getElementById('anf-prepay-check');

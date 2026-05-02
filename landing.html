@@ -428,6 +428,11 @@
             padding: 32px 24px;
             text-align: center;
             transition: box-shadow 0.3s, transform 0.2s;
+            /* 🆕 v6.62.198: jetzt klickbar */
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
         }
 
         .usp-card:hover {
@@ -475,6 +480,11 @@
             border-radius: var(--radius-card);
             padding: 32px 24px;
             transition: box-shadow 0.3s, transform 0.2s;
+            /* 🆕 v6.62.198: jetzt klickbar */
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
         }
 
         .service-card:hover {
@@ -1001,26 +1011,26 @@ const ANGEBOT = {
         <h2 class="section-title">Warum Funk Taxi Heringsdorf?</h2>
         <p class="section-subtitle">Alles, was Sie von einem modernen Taxiservice erwarten</p>
         <div class="usp-grid">
-            <div class="usp-card">
+            <a class="usp-card" href="buchen.html">
                 <div class="usp-icon">&#128241;</div>
                 <h3>Online buchen</h3>
                 <p>Kein Anrufen n&ouml;tig. Buchen Sie bequem &uuml;ber unser Online-Formular &mdash; rund um die Uhr.</p>
-            </div>
-            <div class="usp-card">
+            </a>
+            <a class="usp-card" href="kunden.html">
                 <div class="usp-icon">&#128506;&#65039;</div>
                 <h3>Live-Tracking</h3>
                 <p>Verfolgen Sie Ihr Taxi in Echtzeit auf der Karte. Sie wissen immer wo Ihr Fahrer ist.</p>
-            </div>
-            <div class="usp-card">
+            </a>
+            <a class="usp-card" href="#preise">
                 <div class="usp-icon">&#128176;</div>
                 <h3>Preisrechner</h3>
                 <p>Kennen Sie den Fahrpreis vorab. Unser Preisrechner berechnet die Kosten sofort.</p>
-            </div>
-            <div class="usp-card">
+            </a>
+            <a class="usp-card" href="buchen.html">
                 <div class="usp-icon">&#9889;</div>
                 <h3>Sofort oder sp&auml;ter</h3>
                 <p>Brauchen Sie jetzt ein Taxi? Oder lieber f&uuml;r morgen vorbestellen? Beides m&ouml;glich.</p>
-            </div>
+            </a>
         </div>
     </div>
 </section>
@@ -1031,36 +1041,36 @@ const ANGEBOT = {
         <h2 class="section-title">Unsere Leistungen</h2>
         <p class="section-subtitle">Zuverl&auml;ssiger Transport f&uuml;r jeden Anlass</p>
         <div class="services-grid">
-            <div class="service-card">
+            <a class="service-card" href="buchen.html">
                 <div class="service-icon">&#9992;&#65039;</div>
                 <h3>Flughafentransfer</h3>
                 <p>Zuverl&auml;ssiger Transfer vom Flughafen Heringsdorf zu Ihrem Hotel oder Ferienhaus.</p>
                 <span class="price-badge">ab 30&euro;</span>
-            </div>
-            <div class="service-card">
+            </a>
+            <a class="service-card" href="buchen.html">
                 <div class="service-icon">&#128646;</div>
                 <h3>Bahnhofstransfer</h3>
                 <p>Wir holen Sie an jedem Bahnhof auf Usedom ab &mdash; Heringsdorf, Bansin, Ahlbeck.</p>
                 <span class="price-badge">ab 10&euro;</span>
-            </div>
-            <div class="service-card">
+            </a>
+            <a class="service-card" href="tel:03837822022">
                 <div class="service-icon">&#127973;</div>
                 <h3>Krankenfahrten</h3>
                 <p>Fahrten zu &Auml;rzten, Kliniken und Krankenh&auml;usern. Direkte Abrechnung mit der Krankenkasse.</p>
                 <span class="price-badge">Abrechnung</span>
-            </div>
-            <div class="service-card">
+            </a>
+            <a class="service-card" href="buchen.html">
                 <div class="service-icon">&#127958;&#65039;</div>
                 <h3>Inselfahrten</h3>
                 <p>Alle Orte auf Usedom &mdash; von Peenem&uuml;nde bis Swinem&uuml;nde. Auch Tagesausfl&uuml;ge.</p>
                 <span class="price-badge">nach Tarif</span>
-            </div>
-            <div class="service-card">
+            </a>
+            <a class="service-card" href="tel:03837822022">
                 <div class="service-icon">&#128106;</div>
                 <h3>Gro&szlig;raumtaxi</h3>
                 <p>Platz f&uuml;r bis zu 8 Personen. Ideal f&uuml;r Familien und Gruppen.</p>
                 <span class="price-badge">auf Anfrage</span>
-            </div>
+            </a>
         </div>
     </div>
 </section>

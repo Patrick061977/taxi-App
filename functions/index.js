@@ -3171,8 +3171,13 @@ async function searchNominatimForTelegram(query) {
         if (targetWords.length === 0) return false;
         return searchWds.every(sw =>
             targetWords.some(tw => {
-                // Exakter Substring im Wort? (z.B. "bierkutsch" in "bierkutscher")
-                if (tw.includes(sw) || sw.includes(tw)) return true;
+                // 🆕 v6.62.199: Substring-Match nur bei Laengen-Diff <=2
+                // Vorher: 'wolgastsee'.includes('wolgast') = true → POI 'Bahnhof Wolgast' matchte
+                // bei Suche nach 'Idyll am Wolgastsee'. Patrick: 'Was soll der Scheiss?'
+                // Jetzt: Substring nur wenn Laengen-Diff <= 2 (z.B. 'idyll' ↔ 'idylle' OK,
+                // 'wolgast' ↔ 'wolgastsee' BLOCKIERT)
+                const lenDiff = Math.abs(sw.length - tw.length);
+                if (lenDiff <= 2 && (tw.includes(sw) || sw.includes(tw))) return true;
                 // Fuzzy-Match: Levenshtein-Distanz ≤ 2 (bei kurzen Wörtern ≤ 1)
                 const maxDist = Math.max(sw.length, tw.length) >= 7 ? 2 : 1;
                 return _levenshteinDist(sw, tw) <= maxDist;

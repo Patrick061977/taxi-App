@@ -1729,8 +1729,9 @@ function showAnfrageSuccess() {
                 const short = txt.length > 220 ? txt.substring(0, 220).replace(/\s\S*$/, '') + '…' : txt;
                 const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
                 const isLow = r.rating <= 2;
-                const reviewLink = r.googleMapsUri || '';
-                const replyHint = reviewLink ? `<a href="${escapeHtml(reviewLink)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;color:${isLow ? '#dc2626' : '#3b82f6'};text-decoration:none;font-weight:600;">${isLow ? '↳ Antwort vom Inhaber bei Google lesen' : '↳ Auf Google ansehen'}</a>` : '';
+                // 🆕 v6.62.198p: per-Review-Link der API verlangt Login → stattdessen oeffentlicher Reviews-Tab
+                const reviewLink = 'https://search.google.com/local/reviews?placeid=' + PLACE_ID;
+                const replyHint = `<a href="${reviewLink}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;color:${isLow ? '#dc2626' : '#3b82f6'};text-decoration:none;font-weight:600;">${isLow ? '↳ Antwort vom Inhaber + alle Bewertungen' : '↳ Alle Bewertungen auf Google'}</a>`;
                 const borderColor = isLow ? '#fecaca' : '#e5e7eb';
                 const starColor = isLow ? '#9ca3af' : '#f59e0b';
                 return `<div style="background:white;border:1px solid ${borderColor};border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">

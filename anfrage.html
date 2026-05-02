@@ -652,6 +652,20 @@ function validateAnfrage(requireEmail) {
     if (!document.getElementById('anf-pickup').value) { alert('Bitte Abholort eingeben'); return false; }
     if (!document.getElementById('anf-name').value.trim()) { alert('Bitte Name eingeben'); return false; }
     if (!document.getElementById('anf-phone').value.trim()) { alert('Bitte Telefonnummer eingeben'); return false; }
+    // 🆕 v6.62.198: Mindestens 1 Stunde Vorlauf — Patrick: 'Wieso können Kunden für 20:30 anfragen wenn es 20:03 ist'
+    var dateStr = (document.getElementById('anf-date').value || '').trim();
+    var timeStr = (document.getElementById('anf-time').value || '').trim();
+    if (dateStr && timeStr) {
+        var pickupAt = new Date(dateStr + 'T' + timeStr);
+        var minPickup = new Date(Date.now() + 60 * 60000); // jetzt + 60 Min
+        if (pickupAt < minPickup) {
+            var hh = String(minPickup.getHours()).padStart(2,'0');
+            var mm = String(minPickup.getMinutes()).padStart(2,'0');
+            var dd = String(minPickup.getDate()).padStart(2,'0') + '.' + String(minPickup.getMonth()+1).padStart(2,'0');
+            alert('⏰ Mindestens 1 Stunde Vorlauf nötig.\n\nFrühster Termin: ' + dd + ' um ' + hh + ':' + mm + ' Uhr\n\nFür kürzere Wartezeit bitte direkt anrufen: 038378 22022');
+            return false;
+        }
+    }
     if (requireEmail) {
         var email = (document.getElementById('anf-email').value || '').trim();
         if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { alert('Bitte gültige E-Mail-Adresse eingeben — damit wir Ihnen die Bestätigung senden können'); return false; }

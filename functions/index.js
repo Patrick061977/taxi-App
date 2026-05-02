@@ -4822,6 +4822,13 @@ DATUM + UHRZEIT → ISO-Format YYYY-MM-DDTHH:MM:
 • NIEMALS 00:00 verwenden!
 
 ADRESSEN — SORGFÄLTIG EXTRAHIEREN:
+• ⚠️ NIEMALS den ganzen Satz als pickup/destination uebernehmen! IMMER zerlegen!
+• "Ich hätte gern ein Taxi vom A nach B um 17 Uhr" → pickup="A", destination="B", datetime=...T17:00
+• "Bringt mich vom Hotel X zum Bahnhof Y morgen um 10" → pickup="Hotel X", destination="Bahnhof Y", datetime=morgenT10:00
+• "Taxi vom Idyll am Wolgastsee nach Ahlbeck zum Ahlbecker Hof" → pickup="Idyll am Wolgastsee", destination="Ahlbecker Hof, Ahlbeck"
+• "Holt mich an der Promenade ab und fahrt mich zum Flughafen" → pickup="Promenade [Ort?]", destination="Flughafen Heringsdorf"
+• Wörter wie "vom", "nach", "zum", "zur", "von", "abholen", "fahren" sind TRENN-Indikatoren — was DAVOR steht ist pickup, was DAHINTER steht ist destination
+• POI-Namen ("Idyll am Wolgastsee", "Hotel X", "Ahlbecker Hof") als Ganzes uebernehmen — NICHT auf Stadtnamen reduzieren
 • Straße + Hausnummer immer vollständig übernehmen
 • TRENNZEICHEN: Komma, Punkt oder Leerzeichen zwischen Adressteilen ist OK — "Friedrichstraße 9 Ahlbeck" = "Friedrichstraße 9, Ahlbeck"
 • Bekannte Ziele: "Bahnhof Heringsdorf", "Flughafen Heringsdorf (HDF)", "Seebrücke Heringsdorf"
@@ -4942,6 +4949,34 @@ Nur gültiges JSON, kein Markdown:
 
         const textContent = data.content.find(c => c.type === 'text')?.text || '';
         const booking = extractJsonFromAiResponse(textContent);
+
+        // 🆕 v6.62.199: KI-Output ins Bot-Log (zur Nachverfolgung bei Audio/Voice-Fehlern)
+        try {
+            await addTelegramLog('🤖', chatId, `KI-Output: pickup="${booking.pickup || '-'}" | dest="${booking.destination || '-'}" | dt=${booking.datetime || '-'} | missing=[${(booking.missing || []).join(',')}]`);
+        } catch (_) { /* nicht kritisch */ }
+
+        // 🆕 v6.62.199: Sanity-Check fuer Voll-Satz-Halluzinationen
+        // Patrick: 'Bot bekam Audio "Ich hätte gern Taxi vom Idyll am Wolgastsee nach Ahlbeck" — KI
+        // hat den ganzen Satz als destination zurückgegeben statt zu zerlegen.'
+        // Wenn pickup/destination wie ein ganzer Satz aussieht, NULL setzen + in missing.
+        const _looksLikeSentence = (s) => {
+            if (!s || typeof s !== 'string') return false;
+            if (s.length < 50) return false; // kurze Adressen ok auch wenn mehrere Worte
+            const stopWords = /\b(ich|hätte|hatte|gern|gerne|brauche|möchte|möcht|moechte|bitte|können|könnte|sie\s|wir\s|nach|von|zum|zur|vom|fahrt|taxi|holen|abholen|bringen|fahren)\b/gi;
+            const matches = s.match(stopWords) || [];
+            return matches.length >= 2; // mind. 2 Stop-Words → kein reiner Adress-String
+        };
+        if (_looksLikeSentence(booking.destination)) {
+            await addTelegramLog('⚠️', chatId, `Sanity: destination="${booking.destination.slice(0,80)}..." sieht aus wie ganzer Satz — verworfen, nachfragen.`);
+            booking.destination = null;
+            booking.missing = Array.isArray(booking.missing) ? booking.missing : [];
+            if (!booking.missing.includes('destination')) booking.missing.push('destination');
+        }
+        if (_looksLikeSentence(booking.pickup)) {
+            await addTelegramLog('⚠️', chatId, `Sanity: pickup="${booking.pickup.slice(0,80)}..." sieht aus wie ganzer Satz — verworfen, nachfragen.`);
+            booking.pickup = null;
+            if (!booking.missing.includes('pickup')) booking.missing.push('pickup');
+        }
 
         // 🛡️ v6.25.4: Telefonnummer-Schutz — KI-Ergebnis gegen Originaltext prüfen
         if (booking.phone && !prefilledPhone) {

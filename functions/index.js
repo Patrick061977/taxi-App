@@ -2684,8 +2684,9 @@ async function geocode(address) {
         const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
         const gKey = gKeySnap.val();
         if (!gKey) {
-            console.warn(`[Geocode] Kein Google Places API Key in settings/googlePlacesApiKey — geocode unmoeglich.`);
-            return null;
+            // 🆕 v6.62.198: Kein Key → Nominatim-Fallback statt 'unmoeglich'
+            console.warn(`[Geocode] Kein Google Places API Key — verwende Nominatim-Fallback fuer "${address}"`);
+            return await geocodeNominatimFallback(address, addressPLZ, isNonUsedomPLZ, cacheKey);
         }
 
         // Bei Nicht-Usedom PLZ: Suche ohne Region-Bias (deutschlandweit) und nutze Plain-Address
@@ -2714,11 +2715,13 @@ async function geocode(address) {
         const data = await resp.json();
         if (data.error) {
             console.warn(`[Geocode] Google Places Error für "${address}":`, data.error.message || data.error);
-            return null;
+            // 🆕 v6.62.198: Bei API-Error Nominatim-Fallback statt null
+            return await geocodeNominatimFallback(address, addressPLZ, isNonUsedomPLZ, cacheKey);
         }
         if (!data.places || data.places.length === 0) {
-            console.log(`[Geocode] Google Places: keine Treffer für "${address}"`);
-            return null;
+            console.log(`[Geocode] Google Places: keine Treffer für "${address}" → Nominatim-Fallback`);
+            // 🆕 v6.62.198: Bei leerem Result Nominatim-Fallback
+            return await geocodeNominatimFallback(address, addressPLZ, isNonUsedomPLZ, cacheKey);
         }
 
         // Konvertiere Places-Result in unser internes Format
@@ -2768,9 +2771,65 @@ async function geocode(address) {
         }
         return result;
     } catch (e) {
-        console.warn('Geocoding (Google Places) Fehler:', e.message);
-        return null;
+        console.warn('Geocoding (Google Places) Fehler:', e.message, '→ Nominatim-Fallback');
+        // 🆕 v6.62.198: Exception → Nominatim-Fallback
+        const _plzMatch = address.match(/\b(1742[0-9]|1741[0-9]|1743[0-9]|1744[0-9]|1745[0-9])\b/);
+        const _anyPLZMatch = address.match(/\b(\d{5})\b/);
+        return await geocodeNominatimFallback(address,
+            _plzMatch ? _plzMatch[1] : null,
+            _anyPLZMatch && !_plzMatch,
+            cacheKey);
     }
+}
+
+// 🆕 v6.62.198: Nominatim-Fallback wenn Google Places versagt
+async function geocodeNominatimFallback(address, addressPLZ, isNonUsedomPLZ, cacheKey) {
+    const buildUrl = (q) => `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=1&countrycodes=de,pl`;
+    // Reihenfolge: 1. mit Usedom-Kontext, 2. Plain
+    const queries = isNonUsedomPLZ
+        ? [address, address + ', Deutschland']
+        : [address + ', Usedom, Deutschland', address, address + ', Deutschland'];
+    for (const q of queries) {
+        try {
+            const resp = await fetch(buildUrl(q), { headers: { 'User-Agent': 'TaxiHeringsdorf/6.62.198 (+https://umwelt-taxi-insel-usedom.de)' } });
+            if (!resp.ok) continue;
+            const data = await resp.json();
+            if (!Array.isArray(data) || data.length === 0) continue;
+            // Bei Nicht-Usedom PLZ: erstes Result direkt
+            if (isNonUsedomPLZ) {
+                const r = data[0];
+                const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    console.log(`[Geocode-OSM] "${address}" → ${lat}, ${lon} (${r.display_name})`);
+                    const result = { lat, lon, display_name: r.display_name, address: r.address || {}, source: 'nominatim-fallback' };
+                    return result;
+                }
+                continue;
+            }
+            // Usedom-Bias: nimm Treffer in Usedom-Region, sonst besten
+            const usedomHits = data.filter(r => {
+                const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+                return !isNaN(lat) && !isNaN(lon) && isNearUsedom(lat, lon);
+            });
+            const pool = usedomHits.length > 0 ? usedomHits : data;
+            // PLZ-Match bevorzugen
+            let pick = pool[0];
+            if (addressPLZ) {
+                const plzHit = pool.find(r => r.address && r.address.postcode === addressPLZ);
+                if (plzHit) pick = plzHit;
+            }
+            const lat = parseFloat(pick.lat), lon = parseFloat(pick.lon);
+            if (isNaN(lat) || isNaN(lon)) continue;
+            console.log(`[Geocode-OSM] "${address}" via "${q}" → ${lat}, ${lon} (${pick.display_name})`);
+            const result = { lat, lon, display_name: pick.display_name, address: pick.address || {}, source: 'nominatim-fallback' };
+            try { if (isNearUsedom(lat, lon)) await db.ref(cacheKey).set(result); } catch (e) {}
+            return result;
+        } catch (e) {
+            console.warn(`[Geocode-OSM] Fehler bei "${q}":`, e.message);
+        }
+    }
+    console.warn(`[Geocode-OSM] Nichts gefunden fuer "${address}" — alle Stufen leer`);
+    return null;
 }
 
 // Reverse-Geocoding: Koordinaten → Adresse

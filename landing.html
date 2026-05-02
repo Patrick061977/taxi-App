@@ -1044,6 +1044,27 @@ const ANGEBOT = {
     </div>
 </div>
 
+<!-- ==================== GOOGLE REVIEWS ==================== -->
+<section class="section" id="reviews" style="padding:36px 0;background:#fafafa;">
+    <div class="container" style="max-width:1000px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px;margin-bottom:20px;">
+            <div style="text-align:center;">
+                <div style="font-size:44px;font-weight:800;color:#f59e0b;line-height:1;" id="rev-rating-num">…</div>
+                <div style="font-size:18px;color:#f59e0b;letter-spacing:2px;" id="rev-stars">★★★★★</div>
+            </div>
+            <div style="text-align:left;">
+                <div style="font-size:15px;color:#1f2937;font-weight:700;">Bewertet auf Google</div>
+                <div style="font-size:13px;color:#6b7280;"><span id="rev-count">…</span> Kundenbewertungen</div>
+                <a href="#" id="rev-google-link" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:12px;color:#3b82f6;font-weight:600;text-decoration:none;">Alle Bewertungen auf Google &rarr;</a>
+            </div>
+        </div>
+        <div id="rev-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;"></div>
+        <div id="rev-cta" style="text-align:center;margin-top:18px;display:none;">
+            <a href="https://search.google.com/local/writereview?placeid=ChIJG-vxdPn3qkcRcT9GOA4S6-0" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:white;border:2px solid #f59e0b;color:#92400e;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">⭐ Bewertung schreiben</a>
+        </div>
+    </div>
+</section>
+
 <!-- ==================== PAUSCHALPREISE (Świnoujście) ==================== -->
 <section class="section" id="pauschal" style="background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);padding:40px 0;">
     <div class="container">
@@ -1661,6 +1682,91 @@ function showAnfrageSuccess() {
 
     _refreshBanner();
     setInterval(_refreshBanner, 30000); // alle 30s neu
+})();
+</script>
+
+<!-- 🆕 v6.62.198: Google Reviews Widget — laedt Funk Taxi Reviews von Places API -->
+<script>
+(function loadReviews() {
+    const PLACE_ID = 'ChIJG-vxdPn3qkcRcT9GOA4S6-0';
+    const API_KEY = 'AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg';
+    const CACHE_KEY = 'gReviewsV1';
+    const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function render(data) {
+        const ratingEl = document.getElementById('rev-rating-num');
+        const countEl = document.getElementById('rev-count');
+        const starsEl = document.getElementById('rev-stars');
+        const linkEl = document.getElementById('rev-google-link');
+        const cardsEl = document.getElementById('rev-cards');
+        const ctaEl = document.getElementById('rev-cta');
+        if (!ratingEl || !cardsEl) return;
+
+        if (data.rating) ratingEl.textContent = data.rating.toFixed(1);
+        if (data.userRatingCount) countEl.textContent = data.userRatingCount.toLocaleString('de-DE');
+        if (data.googleMapsUri) linkEl.href = data.googleMapsUri;
+
+        // Sterne-Anzeige (4.8 → 4 volle + halber)
+        if (data.rating) {
+            const full = Math.floor(data.rating);
+            const half = (data.rating - full) >= 0.4 ? 1 : 0;
+            const empty = 5 - full - half;
+            starsEl.textContent = '★'.repeat(full) + (half ? '⯨' : '') + '☆'.repeat(empty);
+        }
+
+        // Nur positive Reviews (>=4 Sterne) anzeigen, max 3
+        const positive = (data.reviews || []).filter(r => r.rating >= 4 && r.text && r.text.text).slice(0, 3);
+        if (positive.length === 0) {
+            cardsEl.style.display = 'none';
+        } else {
+            cardsEl.innerHTML = positive.map(r => {
+                const txt = r.text.text;
+                const short = txt.length > 200 ? txt.substring(0, 200).replace(/\s\S*$/, '') + '…' : txt;
+                const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                return `<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="color:#f59e0b;letter-spacing:1px;margin-bottom:8px;font-size:14px;">${stars}</div>
+                    <div style="font-size:13px;line-height:1.5;color:#374151;margin-bottom:10px;">"${escapeHtml(short)}"</div>
+                    <div style="font-size:11px;color:#9ca3af;font-weight:600;">${escapeHtml(r.authorAttribution?.displayName || 'Google-Nutzer')} · ${escapeHtml(r.relativePublishTimeDescription || '')}</div>
+                </div>`;
+            }).join('');
+        }
+        ctaEl.style.display = 'block';
+    }
+
+    function fetchReviews() {
+        return fetch(`https://places.googleapis.com/v1/places/${PLACE_ID}?languageCode=de`, {
+            headers: {
+                'X-Goog-Api-Key': API_KEY,
+                'X-Goog-FieldMask': 'rating,userRatingCount,reviews,googleMapsUri'
+            }
+        }).then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)));
+    }
+
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            const obj = JSON.parse(cached);
+            if (obj.ts && Date.now() - obj.ts < CACHE_TTL) {
+                render(obj.data);
+                return;
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    fetchReviews()
+        .then(data => {
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (e) {}
+            render(data);
+        })
+        .catch(err => {
+            console.warn('Reviews konnten nicht geladen werden:', err);
+            // Fallback: Statische Anzeige (4.8 / 330) damit das Widget nicht leer bleibt
+            render({ rating: 4.8, userRatingCount: 330, reviews: [], googleMapsUri: 'https://www.google.com/maps/place/?q=place_id:ChIJG-vxdPn3qkcRcT9GOA4S6-0' });
+        });
 })();
 </script>
 

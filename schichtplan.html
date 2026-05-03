@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schichtplan — Funk Taxi Heringsdorf</title>
+    <!--
+        v6.62.203: Schichtplan + ECOVIS-Lohnexport — Phase 2 (Wochenplan-UI).
+        Patrick (02.05.2026): "Phase 2: Wochenplan-UI (Mo-So Raster pro Mitarbeiter)".
+
+        Wochenraster mit einem Click-Handler pro Zelle:
+        Modal → Schichttyp (Frei/Tag/Spät/Nacht/Rufbereitschaft/Urlaub/Krank) + Zeiten.
+
+        Datenmodell: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx 0=Mo..6=So} = {
+          type, start, end, hours, note, updatedAt, updatedBy
+        }
+    -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f3f4f6; color: #1f2937;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+            color: white;
+            padding: 18px 16px;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 12px rgba(30, 64, 175, 0.3);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header-back, .header-link {
+            background: rgba(255,255,255,0.2); color: white;
+            padding: 8px 14px; border-radius: 8px;
+            text-decoration: none; font-size: 13px; font-weight: 600;
+        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+
+        /* Wochen-Navigation */
+        .week-nav {
+            background: white; border-radius: 12px;
+            padding: 12px 16px; margin-bottom: 14px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .week-label { font-size: 16px; font-weight: 700; }
+        .week-summary { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .week-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .btn {
+            padding: 8px 14px; border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            background: #e5e7eb; color: #374151;
+        }
+        .btn:hover { background: #d1d5db; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-ghost { background: transparent; color: #6b7280; }
+        .btn-icon { padding: 8px 12px; }
+        .week-input { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+
+        /* Raster */
+        .grid-wrap {
+            background: white; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 200px repeat(7, 1fr);
+            min-width: 900px;
+        }
+        .grid-cell, .grid-head {
+            border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+            padding: 10px 8px;
+            min-height: 64px;
+            font-size: 12px;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        .grid-head {
+            background: #f9fafb;
+            font-weight: 700;
+            position: sticky; top: 0;
+            z-index: 5;
+            min-height: 56px;
+        }
+        .grid-head.staff-head {
+            position: sticky; left: 0; z-index: 10;
+            background: #f9fafb;
+        }
+        .grid-day-name { font-size: 13px; }
+        .grid-day-date { font-size: 11px; color: #6b7280; font-weight: 500; margin-top: 2px; }
+        .grid-day-date.today { color: #2563eb; font-weight: 700; }
+        .grid-cell.staff-cell {
+            background: #f9fafb;
+            font-weight: 700; font-size: 13px;
+            position: sticky; left: 0; z-index: 4;
+            border-right: 2px solid #d1d5db;
+        }
+        .grid-cell.staff-cell .meta { font-weight: 400; color: #6b7280; font-size: 11px; margin-top: 2px; }
+        .grid-cell.shift-cell { cursor: pointer; transition: background 0.1s; }
+        .grid-cell.shift-cell:hover { background: #f3f4f6; }
+        .shift-badge {
+            display: inline-block;
+            padding: 4px 8px; border-radius: 6px;
+            font-size: 11px; font-weight: 700;
+            line-height: 1.2;
+        }
+        .shift-time { font-size: 11px; color: #4b5563; margin-top: 4px; }
+        .shift-hours { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+        .type-day      { background: #dbeafe; color: #1e3a8a; }
+        .type-late     { background: #fef3c7; color: #78350f; }
+        .type-night    { background: #1e293b; color: #fde68a; }
+        .type-standby  { background: #ede9fe; color: #4c1d95; }
+        .type-vacation { background: #d1fae5; color: #065f46; }
+        .type-sick     { background: #fee2e2; color: #991b1b; }
+        .type-free     { background: transparent; color: #9ca3af; }
+
+        .grid-cell.is-weekend { background: #fafbfc; }
+        .grid-head.is-weekend { background: #f3f4f6; }
+
+        .week-totals {
+            background: #f9fafb;
+            border-top: 2px solid #d1d5db;
+            font-weight: 700;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white; border-radius: 14px;
+            max-width: 460px; width: 100%;
+            max-height: 92vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .modal-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-header h2 { font-size: 17px; font-weight: 700; }
+        .modal-header .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .modal-body { padding: 20px; }
+
+        .type-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 8px; margin-bottom: 18px;
+        }
+        .type-btn {
+            padding: 12px 10px; border: 2px solid transparent;
+            border-radius: 10px;
+            font-size: 13px; font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.1s;
+        }
+        .type-btn.selected { border-color: #1f2937; transform: scale(1.02); }
+
+        .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-label { font-size: 12px; font-weight: 600; color: #374151; }
+        .form-input {
+            padding: 10px 12px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 14px; outline: none;
+        }
+        .form-input:focus { border-color: #2563eb; }
+
+        .modal-footer {
+            padding: 14px 20px; border-top: 1px solid #e5e7eb;
+            display: flex; justify-content: space-between; gap: 10px;
+        }
+
+        .empty-state, .no-staff {
+            text-align: center; padding: 60px 20px; color: #6b7280;
+            background: white; border-radius: 12px;
+            margin: 14px 0;
+        }
+        .empty-state .icon, .no-staff .icon { font-size: 48px; margin-bottom: 10px; }
+
+        #not-admin, #not-logged-in {
+            display: none;
+            text-align: center; padding: 60px 20px;
+            background: white; border-radius: 12px;
+            margin-top: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        #not-admin .icon, #not-logged-in .icon { font-size: 48px; margin-bottom: 12px; }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px; border-radius: 10px;
+            background: #1f2937; color: white;
+            font-size: 14px; font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 2000;
+            opacity: 0; transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="header-back">← Admin</a>
+        <h1>📅 Schichtplan</h1>
+        <a href="mitarbeiter.html" class="header-link">👥 Mitarbeiter</a>
+    </div>
+
+    <div class="container">
+        <div id="loading" style="text-align:center;padding:40px;color:#6b7280;">Prüfe Login…</div>
+
+        <div id="not-logged-in">
+            <div class="icon">🔒</div>
+            <h2>Nicht eingeloggt</h2>
+            <p style="font-size:14px;color:#6b7280;margin-bottom:20px;">Bitte erst in der Admin-App einloggen.</p>
+            <a href="index.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Zur Admin-App</a>
+        </div>
+
+        <div id="not-admin">
+            <div class="icon">🚫</div>
+            <h2>Kein Zugriff</h2>
+            <p style="font-size:14px;color:#6b7280;">Schichtplan ist nur für Admins.</p>
+        </div>
+
+        <div id="main-content" style="display:none;">
+            <div class="week-nav">
+                <div>
+                    <div class="week-label" id="week-label">KW —</div>
+                    <div class="week-summary" id="week-summary">—</div>
+                </div>
+                <div class="week-buttons">
+                    <button class="btn btn-icon" onclick="changeWeek(-1)">◀</button>
+                    <button class="btn" onclick="goToCurrentWeek()">Heute</button>
+                    <button class="btn btn-icon" onclick="changeWeek(1)">▶</button>
+                    <input type="week" id="week-picker" class="week-input">
+                </div>
+            </div>
+
+            <div id="no-staff" class="no-staff" style="display:none;">
+                <div class="icon">👥</div>
+                <h2 style="font-size:18px;color:#1f2937;margin-bottom:8px;">Noch keine aktiven Mitarbeiter</h2>
+                <p style="font-size:14px;margin-bottom:16px;">Lege erst in der Mitarbeiter-Verwaltung Mitarbeiter an.</p>
+                <a href="mitarbeiter.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">→ Zu Mitarbeiter</a>
+            </div>
+
+            <div id="grid-wrap" class="grid-wrap" style="display:none;">
+                <div id="grid" class="grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-title">Schicht eintragen</h2>
+                    <div class="sub" id="modal-sub">—</div>
+                </div>
+                <button class="btn btn-ghost" onclick="closeModal()" style="font-size:20px;">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="type-grid" id="type-grid"></div>
+
+                <div class="time-row" id="time-row">
+                    <div class="form-group">
+                        <label class="form-label">Start</label>
+                        <input type="time" id="shift-start" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ende</label>
+                        <input type="time" id="shift-end" class="form-input">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label class="form-label">Notiz</label>
+                    <input type="text" id="shift-note" class="form-input" placeholder="optional">
+                </div>
+                <div id="hours-preview" style="font-size:13px;color:#6b7280;text-align:right;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="clearShift()">Löschen</button>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" onclick="closeModal()">Abbrechen</button>
+                    <button class="btn btn-primary" onclick="saveShift()">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ─── v6.62.203: Schichtplan-Wochenraster ───
+
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        const ADMIN_EMAILS = ['patrick061977@gmail.com', 'admin@taxi-heringsdorf.de', 'taxiwydra@googlemail.com'];
+        const ADMIN_PHONES = ['+4915127585179'];
+
+        // Schichttypen mit Default-Zeiten
+        const TYPES = [
+            { id: 'free',     label: '🚫 Frei',         time: null,                  short: 'Frei' },
+            { id: 'day',      label: '☀️ Tagschicht',   time: { start: '06:00', end: '14:00' }, short: 'Tag' },
+            { id: 'late',     label: '🌆 Spätschicht',  time: { start: '14:00', end: '22:00' }, short: 'Spät' },
+            { id: 'night',    label: '🌙 Nachtschicht', time: { start: '22:00', end: '06:00' }, short: 'Nacht' },
+            { id: 'standby',  label: '📞 Rufbereitsch.', time: { start: '19:00', end: '22:00' }, short: 'Standby' },
+            { id: 'vacation', label: '🏖 Urlaub',        time: null,                  short: 'Urlaub' },
+            { id: 'sick',     label: '🤒 Krank',         time: null,                  short: 'Krank' }
+        ];
+        const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+        let allStaff = [];
+        let currentWeekKey = null;       // YYYY-WW
+        let currentWeekStart = null;     // Date (Mo)
+        let currentShifts = {};          // {staffId: {0..6: {type, ...}}}
+        let editing = null;              // {staffId, dayIdx}
+        let selectedType = null;
+
+        auth.onAuthStateChanged(async (user) => {
+            document.getElementById('loading').style.display = 'none';
+            if (!user) { document.getElementById('not-logged-in').style.display = 'block'; return; }
+            if (!(await isAdmin(user))) { document.getElementById('not-admin').style.display = 'block'; return; }
+            document.getElementById('main-content').style.display = 'block';
+            await loadStaff();
+            goToCurrentWeek();
+        });
+
+        async function isAdmin(user) {
+            try {
+                const snap = await db.ref('users/' + user.uid + '/role').once('value');
+                if (snap.exists() && String(snap.val()).toLowerCase() === 'admin') return true;
+            } catch (_) {}
+            if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) return true;
+            if (user.phoneNumber && ADMIN_PHONES.includes(user.phoneNumber)) return true;
+            return false;
+        }
+
+        async function loadStaff() {
+            const snap = await db.ref('staff').once('value');
+            allStaff = [];
+            snap.forEach((c) => {
+                const v = c.val();
+                if (!v || v.active === false) return;
+                allStaff.push({ id: c.key, ...v });
+            });
+            allStaff.sort((a, b) => {
+                const an = ((a.lastName || '') + (a.firstName || '')).toLowerCase();
+                const bn = ((b.lastName || '') + (b.firstName || '')).toLowerCase();
+                return an.localeCompare(bn);
+            });
+        }
+
+        // ─── ISO-Wochen-Logik ───
+        function isoWeekKey(date) {
+            // Liefert YYYY-WW (ISO 8601)
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const wk = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return d.getUTCFullYear() + '-' + String(wk).padStart(2, '0');
+        }
+        function mondayOf(date) {
+            const d = new Date(date);
+            const diff = (d.getDay() + 6) % 7; // 0=Mo
+            d.setDate(d.getDate() - diff);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        function addDays(date, n) {
+            const d = new Date(date);
+            d.setDate(d.getDate() + n);
+            return d;
+        }
+        function ddmm(date) {
+            return String(date.getDate()).padStart(2, '0') + '.' + String(date.getMonth() + 1).padStart(2, '0') + '.';
+        }
+
+        function goToCurrentWeek() { setWeek(new Date()); }
+        function changeWeek(delta) { setWeek(addDays(currentWeekStart, delta * 7)); }
+
+        function setWeek(date) {
+            currentWeekStart = mondayOf(date);
+            currentWeekKey = isoWeekKey(currentWeekStart);
+            const sun = addDays(currentWeekStart, 6);
+            document.getElementById('week-label').textContent = 'KW ' + currentWeekKey.split('-')[1] + ' / ' + currentWeekKey.split('-')[0];
+            document.getElementById('week-summary').textContent = ddmm(currentWeekStart) + ' – ' + ddmm(sun);
+            // ISO-Week zum input umformen (YYYY-Www)
+            document.getElementById('week-picker').value = currentWeekKey.replace('-', '-W');
+            attachShiftsListener();
+        }
+
+        document.getElementById('week-picker').addEventListener('change', (e) => {
+            const v = e.target.value; // YYYY-Www
+            if (!v) return;
+            const m = v.match(/^(\d{4})-W(\d{2})$/);
+            if (!m) return;
+            // ISO-Woche → Montag dieser Woche
+            const year = parseInt(m[1]), week = parseInt(m[2]);
+            const jan4 = new Date(year, 0, 4);
+            const jan4Day = (jan4.getDay() + 6) % 7;
+            const monday = addDays(jan4, (week - 1) * 7 - jan4Day);
+            setWeek(monday);
+        });
+
+        let shiftsListenerRef = null;
+        function attachShiftsListener() {
+            if (shiftsListenerRef) shiftsListenerRef.off();
+            const ref = db.ref('shiftPlan/' + currentWeekKey);
+            shiftsListenerRef = ref;
+            ref.on('value', (snap) => {
+                currentShifts = {};
+                snap.forEach((staffSnap) => {
+                    currentShifts[staffSnap.key] = {};
+                    staffSnap.forEach((daySnap) => {
+                        const di = parseInt(daySnap.key);
+                        if (!isNaN(di) && di >= 0 && di < 7) {
+                            currentShifts[staffSnap.key][di] = daySnap.val();
+                        }
+                    });
+                });
+                renderGrid();
+            });
+        }
+
+        function renderGrid() {
+            const noStaff = document.getElementById('no-staff');
+            const wrap = document.getElementById('grid-wrap');
+            if (allStaff.length === 0) {
+                noStaff.style.display = 'block';
+                wrap.style.display = 'none';
+                return;
+            }
+            noStaff.style.display = 'none';
+            wrap.style.display = 'block';
+
+            const grid = document.getElementById('grid');
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+
+            let html = '<div class="grid-head staff-head">Mitarbeiter</div>';
+            for (let i = 0; i < 7; i++) {
+                const d = addDays(currentWeekStart, i);
+                const isToday = d.getTime() === today.getTime();
+                const isWeekend = i >= 5;
+                html += `<div class="grid-head ${isWeekend ? 'is-weekend' : ''}">
+                    <div class="grid-day-name">${DAY_NAMES[i]}</div>
+                    <div class="grid-day-date ${isToday ? 'today' : ''}">${ddmm(d)}</div>
+                </div>`;
+            }
+
+            for (const s of allStaff) {
+                const meta = [];
+                if (s.weeklyHoursTarget) meta.push(s.weeklyHoursTarget + 'h Soll');
+                const hoursSum = sumHours(s.id);
+                meta.push(`<b>${formatHours(hoursSum)}</b> Plan`);
+                html += `<div class="grid-cell staff-cell">
+                    <div>${escHtml(([s.firstName, s.lastName].filter(Boolean).join(' ')) || '—')}</div>
+                    <div class="meta">${meta.join(' · ')}</div>
+                </div>`;
+                for (let i = 0; i < 7; i++) {
+                    const isWeekend = i >= 5;
+                    const shift = (currentShifts[s.id] || {})[i];
+                    html += renderCell(s.id, i, shift, isWeekend);
+                }
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function renderCell(staffId, dayIdx, shift, isWeekend) {
+            const cls = 'grid-cell shift-cell' + (isWeekend ? ' is-weekend' : '');
+            if (!shift || shift.type === 'free') {
+                return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})">
+                    <span style="color:#cbd5e1;font-size:11px;">—</span>
+                </div>`;
+            }
+            const t = TYPES.find((x) => x.id === shift.type) || TYPES[0];
+            const time = (shift.start && shift.end) ? `${shift.start}–${shift.end}` : '';
+            const hrs = shift.hours != null ? `${formatHours(shift.hours)}h` : '';
+            return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})">
+                <span class="shift-badge type-${shift.type}">${t.short}</span>
+                ${time ? `<div class="shift-time">${time}</div>` : ''}
+                ${hrs ? `<div class="shift-hours">${hrs}</div>` : ''}
+                ${shift.note ? `<div class="shift-time" style="font-style:italic;">${escHtml(shift.note)}</div>` : ''}
+            </div>`;
+        }
+
+        function sumHours(staffId) {
+            const days = currentShifts[staffId] || {};
+            let sum = 0;
+            for (let i = 0; i < 7; i++) {
+                const s = days[i];
+                if (s && s.hours) sum += s.hours;
+            }
+            return sum;
+        }
+        function formatHours(h) { return Number(h || 0).toFixed(2).replace(/\.00$/, '').replace('.', ','); }
+        function escHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ─── Modal ───
+        function openCell(staffId, dayIdx) {
+            editing = { staffId, dayIdx };
+            const s = allStaff.find((x) => x.id === staffId);
+            const date = addDays(currentWeekStart, dayIdx);
+            document.getElementById('modal-title').textContent =
+                ([s.firstName, s.lastName].filter(Boolean).join(' ')) || '—';
+            document.getElementById('modal-sub').textContent =
+                DAY_NAMES[dayIdx] + '. ' + date.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+
+            // Type-Grid bauen
+            const grid = document.getElementById('type-grid');
+            grid.innerHTML = TYPES.map((t) =>
+                `<button class="type-btn type-${t.id}" data-type="${t.id}" onclick="selectType('${t.id}')">${t.label}</button>`
+            ).join('');
+
+            const existing = (currentShifts[staffId] || {})[dayIdx];
+            if (existing) {
+                selectedType = existing.type;
+                document.getElementById('shift-start').value = existing.start || '';
+                document.getElementById('shift-end').value = existing.end || '';
+                document.getElementById('shift-note').value = existing.note || '';
+            } else {
+                selectedType = 'free';
+                document.getElementById('shift-start').value = '';
+                document.getElementById('shift-end').value = '';
+                document.getElementById('shift-note').value = '';
+            }
+            updateTypeUI();
+            updateHoursPreview();
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function selectType(t) {
+            selectedType = t;
+            const def = TYPES.find((x) => x.id === t);
+            if (def && def.time) {
+                document.getElementById('shift-start').value = def.time.start;
+                document.getElementById('shift-end').value = def.time.end;
+            } else if (t === 'vacation' || t === 'sick' || t === 'free') {
+                document.getElementById('shift-start').value = '';
+                document.getElementById('shift-end').value = '';
+            }
+            updateTypeUI();
+            updateHoursPreview();
+        }
+
+        function updateTypeUI() {
+            document.querySelectorAll('#type-grid .type-btn').forEach((b) => {
+                b.classList.toggle('selected', b.dataset.type === selectedType);
+            });
+            const showTime = !['free', 'vacation', 'sick'].includes(selectedType);
+            document.getElementById('time-row').style.display = showTime ? 'grid' : 'none';
+        }
+
+        document.getElementById('shift-start').addEventListener('input', updateHoursPreview);
+        document.getElementById('shift-end').addEventListener('input', updateHoursPreview);
+
+        function calcHours(start, end) {
+            if (!start || !end) return 0;
+            const [sh, sm] = start.split(':').map(Number);
+            const [eh, em] = end.split(':').map(Number);
+            let mins = (eh * 60 + em) - (sh * 60 + sm);
+            if (mins < 0) mins += 24 * 60; // Nachtschicht über Mitternacht
+            return mins / 60;
+        }
+        function updateHoursPreview() {
+            const start = document.getElementById('shift-start').value;
+            const end = document.getElementById('shift-end').value;
+            const hrs = calcHours(start, end);
+            document.getElementById('hours-preview').textContent =
+                hrs > 0 ? `Stunden: ${formatHours(hrs)}` : '';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+            editing = null;
+        }
+
+        async function saveShift() {
+            if (!editing) return;
+            const { staffId, dayIdx } = editing;
+            const start = document.getElementById('shift-start').value || null;
+            const end = document.getElementById('shift-end').value || null;
+            const note = document.getElementById('shift-note').value || null;
+            const hours = (start && end) ? calcHours(start, end) : 0;
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            const data = {
+                type: selectedType,
+                start, end,
+                hours: Number(hours.toFixed(2)),
+                note,
+                updatedAt: Date.now(),
+                updatedBy: userEmail
+            };
+            try {
+                if (selectedType === 'free') {
+                    await db.ref('shiftPlan/' + currentWeekKey + '/' + staffId + '/' + dayIdx).remove();
+                } else {
+                    await db.ref('shiftPlan/' + currentWeekKey + '/' + staffId + '/' + dayIdx).set(data);
+                }
+                showToast('Gespeichert ✓');
+                closeModal();
+            } catch (e) {
+                showToast('Fehler: ' + e.message, true);
+            }
+        }
+
+        async function clearShift() {
+            if (!editing) return;
+            const { staffId, dayIdx } = editing;
+            try {
+                await db.ref('shiftPlan/' + currentWeekKey + '/' + staffId + '/' + dayIdx).remove();
+                showToast('Entfernt');
+                closeModal();
+            } catch (e) {
+                showToast('Fehler: ' + e.message, true);
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(msg, isError) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = isError ? '#dc2626' : '#10b981';
+            t.classList.add('show');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('modal').classList.contains('show')) closeModal();
+        });
+    </script>
+</body>
+</html>

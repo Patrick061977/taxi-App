@@ -22453,16 +22453,21 @@ Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: t
             }
 
             // Audit-Log
+            // v6.62.228: Patrick (03.05. 19:40): "kann ich zu dem importierten Auftrag
+            // springen?". Push-Key zurueckgeben damit der Browser ihn in jede ride als
+            // auftragImportId speichert — dann kann das edit-Modal zurueck springen.
+            let _importLogId = null;
             try {
-                await db.ref('importLog').push({
+                const _logRef = await db.ref('importLog').push({
                     t: Date.now(),
                     filename: filename || 'unbekannt',
                     mediaType: _media,
                     parsed,
                     success: true
                 });
+                _importLogId = _logRef.key;
             } catch (_logErr) { /* still */ }
-            res.status(200).json({ ok: true, parsed });
+            res.status(200).json({ ok: true, parsed, importLogId: _importLogId });
         } catch (err) {
             console.error('importAuftragPdf Fehler:', err.message, err.stack);
             res.status(500).json({ error: err.message });

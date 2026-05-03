@@ -283,7 +283,7 @@ public class CallLogActivity extends AppCompatActivity {
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            conn.setRequestProperty("X-Goog-Api-Key", "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+            conn.setRequestProperty("X-Goog-Api-Key", "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
             conn.setRequestProperty("X-Goog-FieldMask", "places.formattedAddress,places.location,places.displayName");
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(8000);
@@ -399,7 +399,7 @@ public class CallLogActivity extends AppCompatActivity {
                 // das Problem' (9011 API-Key not authorized). Browser-Keys haben HTTP-Referrer-
                 // Restriction → für Android-SDK nicht zugelassen. Android-Key f7d12f86 hat
                 // androidKeyRestrictions + Places API enabled (siehe gcloud-Setup 2026-04-27).
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
             }
             pendingPlaceField = targetField;
             pendingPlaceCoords = coordsOut;

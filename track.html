@@ -83,6 +83,38 @@
         .status-warning { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18); }
         .status-error { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18); }
 
+        /* v6.62.226: Patrick (03.05. 19:19): "kannst du das mal ein bisschen visuell auf
+           der Karte darstellen" — Tesla-Marker bekommt Pulsier-Glow damit Kunde sofort
+           sieht: das Auto bewegt sich live. */
+        .live-pulse {
+            animation: live-pulse-anim 1.6s ease-out infinite;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+            width: 56px;
+            height: 56px;
+        }
+        @keyframes live-pulse-anim {
+            0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+            70%  { box-shadow: 0 0 0 22px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .vehicle-icon-inner {
+            position: relative;
+            top: 6px;
+            left: 6px;
+            background: #22c55e;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
         /* v6.42.7: Close-Button — Kunde kann Tracking-Karte schließen */
         .close-btn {
             position: absolute;
@@ -739,42 +771,73 @@
                     statusIndicator.title = '🔴 Offline';
                 }
                 
-                // Custom Icon (EXAKT wie Fahrer-View!)
-                const color = '#22c55e';
+                // v6.62.226: Pulsierender Live-Marker — Patrick: 'visuell auf der Karte darstellen'.
+                // Aussen pulsiert ein gruener Glow, innen sitzt der 🚕-Pin.
                 const icon = L.divIcon({
                     className: 'fleet-marker',
-                    html: `
-                        <div style="
-                            background: ${color};
-                            width: 36px;
-                            height: 36px;
-                            border-radius: 50%;
-                            border: 3px solid white;
-                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            font-size: 18px;
-                        ">🚕</div>
-                    `,
-                    iconSize: [36, 36],
-                    iconAnchor: [18, 18]
+                    html: `<div class="live-pulse"><div class="vehicle-icon-inner">🚕</div></div>`,
+                    iconSize: [56, 56],
+                    iconAnchor: [28, 28]
                 });
-                
+
                 // Marker erstellen/aktualisieren
                 if (vehicleMarker) {
                     vehicleMarker.setLatLng([driver.lat, driver.lon]);
                 } else {
                     vehicleMarker = L.marker([driver.lat, driver.lon], { icon }).addTo(map);
-                    
+
                     // Zur Position zoomen
                     const bounds = L.latLngBounds([[driver.lat, driver.lon]]);
-                    
+
                     if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
                     if (destinationMarker) bounds.extend(destinationMarker.getLatLng());
-                    
+
                     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
                 }
+
+                // v6.62.226: Auto-Refit wenn Tesla aus dem Viewport rauslaeuft.
+                // Patrick: 'wenn man die Karte wegwischt war ich nicht zu sehen, weil
+                // ich ein bisschen weiter aus der Karte raus war'. Bei JEDEM GPS-Update
+                // pruefen ob Marker im sichtbaren Bereich ist — wenn nicht: alle drei
+                // Marker ins fitBounds und neu zentrieren.
+                try {
+                    const _vlatlng = vehicleMarker.getLatLng();
+                    if (!map.getBounds().contains(_vlatlng)) {
+                        const _b = L.latLngBounds([_vlatlng]);
+                        if (pickupMarker) _b.extend(pickupMarker.getLatLng());
+                        if (destinationMarker) _b.extend(destinationMarker.getLatLng());
+                        map.fitBounds(_b, { padding: [60, 60], maxZoom: 14 });
+                    }
+                } catch(_) { /* tolerant */ }
+
+                // v6.62.226: Live-Verbindungslinie Tesla → aktuelles Ziel (Pickup oder Destination
+                // je nach Status). Gruene gestrichelte Linie zeigt visuell wo der Wagen hinfaehrt.
+                try {
+                    if (window._currentRide && window._currentRide.data) {
+                        const _r = window._currentRide.data;
+                        let _tLat, _tLon;
+                        if (['picked_up','arrived'].includes(_r.status)) {
+                            _tLat = _r.destinationLat || (_r.destCoords && _r.destCoords.lat);
+                            _tLon = _r.destinationLon || (_r.destCoords && _r.destCoords.lon);
+                        } else if (['accepted','on_way','assigned'].includes(_r.status)) {
+                            _tLat = _r.pickupLat || (_r.pickupCoords && _r.pickupCoords.lat);
+                            _tLon = _r.pickupLon || (_r.pickupCoords && _r.pickupCoords.lon);
+                        }
+                        if (_tLat && _tLon) {
+                            if (window._driverLine) {
+                                window._driverLine.setLatLngs([[driver.lat, driver.lon], [_tLat, _tLon]]);
+                            } else {
+                                window._driverLine = L.polyline(
+                                    [[driver.lat, driver.lon], [_tLat, _tLon]],
+                                    { color: '#22c55e', weight: 3, opacity: 0.7, dashArray: '8 6' }
+                                ).addTo(map);
+                            }
+                        } else if (window._driverLine) {
+                            map.removeLayer(window._driverLine);
+                            window._driverLine = null;
+                        }
+                    }
+                } catch(_e) { /* nur visuell, kein crash */ }
                 
                 // Location Info
                 const timestamp = new Date(driver.timestamp || Date.now());

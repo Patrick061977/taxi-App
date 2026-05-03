@@ -349,7 +349,16 @@
                     document.getElementById('anf-rabatt-normal').textContent = doppel.toFixed(2);
                     document.getElementById('anf-rabatt-preis').textContent = rabattPreis.toFixed(2);
                     window._anfRabattPreis = rabattPreis;
+                    // v6.62.206: Checkbox bei jeder neuen Festpreis-Auswahl zurücksetzen.
+                    var rcb = document.getElementById('anf-rabatt-check');
+                    var rlbl = document.getElementById('anf-rabatt-label');
+                    if (rcb) rcb.checked = false;
+                    if (rlbl) { rlbl.style.borderColor = '#bbf7d0'; rlbl.style.background = '#f0fdf4'; }
                 }
+                // v6.62.206: Originalpreis + Ziel für toggleRabatt() merken.
+                window._anfPauschalpreisSingle = preis;
+                window._anfFestpreisZiel = ziel;
+                window._anfFestpreisVon = von;
                 window.scrollTo({top: 0, behavior: 'smooth'});
             }
             </script>
@@ -753,18 +762,49 @@ function toggleRabatt() {
     var label = document.getElementById('anf-rabatt-label');
     var notes = document.getElementById('anf-notes');
     var rabattPreis = window._anfRabattPreis;
+    var singlePreis = window._anfPauschalpreisSingle;
+    var von = window._anfFestpreisVon || '';
+    var ziel = window._anfFestpreisZiel || '';
     setTimeout(function() {
         if (check.checked) {
             label.style.borderColor = '#10b981';
             label.style.background = '#d1fae5';
+            // v6.62.206: Preis-Anzeige + Bemerkung auf Hin+Zur\u00fcck (mit 10% Rabatt) umstellen.
+            if (rabattPreis) {
+                var priceEl = document.getElementById('anf-price');
+                var lblEl = document.getElementById('anf-price-label');
+                var routeEl = document.getElementById('anf-route-info');
+                if (priceEl) priceEl.textContent = rabattPreis.toFixed(2) + '\u20ac';
+                if (lblEl) lblEl.textContent = 'Pauschalpreis Hin + R\u00fcckfahrt (10% Rabatt)';
+                if (routeEl && von && ziel) routeEl.textContent = von + ' \u2194 \u015awinouj\u015bcie ' + ziel;
+            }
             if (notes && rabattPreis) {
-                var existing = notes.value.replace(/Hin- und R.ckfahrt.*$/i, '').trim();
-                notes.value = (existing ? existing + ' | ' : '') + 'Hin- und R\u00fcckfahrt gew\u00fcnscht (' + rabattPreis.toFixed(2) + '\u20ac inkl. 10% Rabatt)';
+                var existing = notes.value
+                    .replace(/^Pauschalpreis [^|]*$/i, '')
+                    .replace(/Hin- und R.ckfahrt.*$/i, '')
+                    .trim();
+                var rabattNote = 'Pauschalpreis Hin + R\u00fcckfahrt ' + rabattPreis.toFixed(2) + '\u20ac (10% Rabatt)';
+                notes.value = (existing ? existing + ' | ' : '') + rabattNote;
             }
         } else {
             label.style.borderColor = '#bbf7d0';
             label.style.background = '#f0fdf4';
-            if (notes) notes.value = notes.value.replace(/\s*\|?\s*Hin- und R.ckfahrt.*$/i, '').trim();
+            // v6.62.206: Zur\u00fcck auf Einzelpreis.
+            if (singlePreis) {
+                var priceEl2 = document.getElementById('anf-price');
+                var lblEl2 = document.getElementById('anf-price-label');
+                var routeEl2 = document.getElementById('anf-route-info');
+                if (priceEl2) priceEl2.textContent = singlePreis.toFixed(2) + '\u20ac';
+                if (lblEl2) lblEl2.textContent = 'Pauschalpreis';
+                if (routeEl2 && ziel) routeEl2.textContent = '\u015awinouj\u015bcie ' + ziel;
+            }
+            if (notes) {
+                notes.value = notes.value.replace(/\s*\|?\s*Pauschalpreis Hin \+ R.ckfahrt[^|]*/i, '').trim();
+                if (singlePreis && von && ziel && !/^Pauschalpreis /i.test(notes.value)) {
+                    notes.value = 'Pauschalpreis ' + singlePreis + '\u20ac (' + von + ' \u2192 \u015awinouj\u015bcie ' + ziel + ')'
+                        + (notes.value ? ' | ' + notes.value : '');
+                }
+            }
         }
     }, 50);
 }

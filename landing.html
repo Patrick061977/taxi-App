@@ -1687,10 +1687,19 @@ function showAnfrageSuccess() {
             starsEl.textContent = '★'.repeat(full) + (half ? '⯨' : '') + '☆'.repeat(empty);
         }
 
-        // 🆕 v6.62.198o/q: ALLE Reviews, neueste zuerst
+        // 🆕 v6.62.206: Reviews oeffentlich + best-first. Patrick sah schlechteste
+        // Bewertung zuerst (publishTime-Sort) UND Klick verlangte Google-Login
+        // (search.google.com/local/reviews redirected). Fix: Sort nach Rating
+        // (5★ zuerst) + Tiebreaker auf publishTime (neueste). Link nutzt
+        // data.googleMapsUri (oeffentlich, kein Login noetig).
+        const _publicReviewsLink = data.googleMapsUri || ('https://www.google.com/maps/place/?q=place_id:' + PLACE_ID);
         const all = (data.reviews || [])
             .filter(r => r.text && r.text.text)
-            .sort((a, b) => new Date(b.publishTime || 0) - new Date(a.publishTime || 0))
+            .sort((a, b) => {
+                const dr = (b.rating || 0) - (a.rating || 0);
+                if (dr !== 0) return dr;
+                return new Date(b.publishTime || 0) - new Date(a.publishTime || 0);
+            })
             .slice(0, 5);
         if (all.length === 0) {
             cardsEl.style.display = 'none';
@@ -1700,8 +1709,8 @@ function showAnfrageSuccess() {
                 const short = txt.length > 220 ? txt.substring(0, 220).replace(/\s\S*$/, '') + '…' : txt;
                 const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
                 const isLow = r.rating <= 2;
-                // 🆕 v6.62.198p: per-Review-Link der API verlangt Login → stattdessen oeffentlicher Reviews-Tab
-                const reviewLink = 'https://search.google.com/local/reviews?placeid=' + PLACE_ID;
+                // v6.62.206: oeffentlicher Maps-Link (kein Google-Login noetig)
+                const reviewLink = _publicReviewsLink;
                 const replyHint = `<a href="${reviewLink}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;color:${isLow ? '#dc2626' : '#3b82f6'};text-decoration:none;font-weight:600;">${isLow ? '↳ Antwort vom Inhaber + alle Bewertungen' : '↳ Alle Bewertungen auf Google'}</a>`;
                 const borderColor = isLow ? '#fecaca' : '#e5e7eb';
                 const starColor = isLow ? '#9ca3af' : '#f59e0b';

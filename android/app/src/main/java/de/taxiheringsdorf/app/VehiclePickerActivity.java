@@ -78,7 +78,12 @@ public class VehiclePickerActivity extends AppCompatActivity {
             if (PermissionsHelper.isAdmin(this)) {
                 btnAdminMode.setVisibility(View.VISIBLE);
                 btnAdminMode.setOnClickListener(_v -> {
-                    startActivity(new Intent(this, AdminDashboardActivity.class));
+                    // v6.62.202: Healthcheck einschieben wenn faellig
+                    if (OnboardingHealthcheckActivity.shouldRun(this)) {
+                        startActivity(new Intent(this, OnboardingHealthcheckActivity.class));
+                    } else {
+                        startActivity(new Intent(this, AdminDashboardActivity.class));
+                    }
                     finish();
                 });
             }
@@ -207,7 +212,12 @@ public class VehiclePickerActivity extends AppCompatActivity {
             .getReference("vehicles/" + v.id + "/activeDevice").setValue(lock);
 
         Toast.makeText(this, "✅ " + (v.name != null ? v.name : v.id) + " gewählt", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(this, DriverDashboardActivity.class));
+        // v6.62.202: Healthcheck einschieben wenn faellig (>14 Tage seit letztem erfolgreichem Pass)
+        if (OnboardingHealthcheckActivity.shouldRun(this)) {
+            startActivity(new Intent(this, OnboardingHealthcheckActivity.class));
+        } else {
+            startActivity(new Intent(this, DriverDashboardActivity.class));
+        }
         finish();
     }
 

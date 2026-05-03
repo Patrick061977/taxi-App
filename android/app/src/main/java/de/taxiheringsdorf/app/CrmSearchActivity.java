@@ -147,7 +147,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         try {
             if (!Places.isInitialized()) {
                 // v6.62.15: Android-Key statt Browser-Key (siehe CallLogActivity)
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
             }
             pendingPlaceField = field;
             pendingPlaceCoords = coordsOut;
@@ -540,7 +540,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         // Wir hooken einen kurzen Polling-Mechanismus weil Places-Result async kommt
         try {
             if (!Places.isInitialized()) {
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
+                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg");
             }
             List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION);
             Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)

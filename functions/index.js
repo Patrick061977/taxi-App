@@ -23115,7 +23115,8 @@ exports.claudeBotWebhook = onRequest(
                     `Befehle:\n` +
                     `/start — Begrüßung + Status\n` +
                     `/help — diese Hilfe\n` +
-                    `/inbox — wie viele ungelesene Nachrichten warten`);
+                    `/inbox — wie viele ungelesene Nachrichten warten\n` +
+                    `/todo — offene Aufgaben (oder einfach "todo" tippen)`);
                 res.status(200).send('OK');
                 return;
             }
@@ -23124,6 +23125,41 @@ exports.claudeBotWebhook = onRequest(
                 let unread = 0, total = 0;
                 inboxSnap.forEach(c => { total++; if (!c.val()?.read) unread++; });
                 await sendClaudeBotMessage(chatId, `📥 Posteingang: ${unread} ungelesen / ${total} gesamt.`);
+                res.status(200).send('OK');
+                return;
+            }
+
+            // 🆕 v6.62.208: /todo + 'todo' — listet offene Aufgaben aus /claudeBridge/tasks.
+            // Patrick (03.05.): "Kannst du das mal bitte alles als To-Do, alles, was ich
+            // so sage, aufschreiben". Tasks werden von Claude gepflegt — Bot zeigt sie nur an.
+            const _txtLower = text.toLowerCase();
+            if (text === '/todo' || _txtLower === 'todo' || _txtLower === 'aufgaben' || _txtLower === '/aufgaben') {
+                if (!await isTelegramAdmin(chatId)) {
+                    await sendClaudeBotMessage(chatId, '🤖 ToDo-Liste nur für Admins.');
+                    res.status(200).send('OK');
+                    return;
+                }
+                const tasksSnap = await db.ref('claudeBridge/tasks').once('value');
+                const tasks = tasksSnap.val() || {};
+                const arr = Object.entries(tasks)
+                    .map(([id, t]) => ({ id, ...t }))
+                    .filter(t => t && t.status !== 'completed' && t.status !== 'deleted')
+                    .sort((a, b) => (a.priority || 99) - (b.priority || 99) || (a.createdAt || 0) - (b.createdAt || 0));
+                if (arr.length === 0) {
+                    await sendClaudeBotMessage(chatId, '✅ Keine offenen Aufgaben in der ToDo-Liste. Sage mir was — und es landet hier.');
+                    res.status(200).send('OK');
+                    return;
+                }
+                const lines = arr.slice(0, 30).map((t, i) => {
+                    const icon = t.status === 'in_progress' ? '⏳' : '⬜';
+                    const subj = (t.subject || '(ohne Titel)').slice(0, 100);
+                    const since = t.createdAt ? `<i>seit ${new Date(t.createdAt).toLocaleDateString('de-DE')}</i>` : '';
+                    return `${icon} <b>${i + 1}.</b> ${subj} ${since}`;
+                });
+                const more = arr.length > 30 ? `\n\n<i>… und ${arr.length - 30} weitere.</i>` : '';
+                await sendClaudeBotMessage(chatId,
+                    `📋 <b>Offene Aufgaben (${arr.length})</b>\n\n` + lines.join('\n') + more +
+                    `\n\n<i>Stand: ${new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}</i>`);
                 res.status(200).send('OK');
                 return;
             }
@@ -23201,7 +23237,8 @@ exports.setupClaudeBot = onRequest(
                     commands: [
                         { command: 'start', description: '👋 Bot starten' },
                         { command: 'help', description: 'ℹ️ Hilfe' },
-                        { command: 'inbox', description: '📥 Posteingang-Status' }
+                        { command: 'inbox', description: '📥 Posteingang-Status' },
+                        { command: 'todo', description: '📋 Offene Aufgaben' }
                     ]
                 })
             }).catch(() => {});

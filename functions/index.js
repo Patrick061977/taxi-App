@@ -18050,6 +18050,34 @@ exports.scheduledAutoAssign = onSchedule(
                                 isVorbestellung: 'false',
                                 isReminder: 'true'
                             });
+                            // 🆕 v6.62.216: Patrick (03.05. 11:30): "werde ich auch noch
+                            // irgendwie so ein bisschen darauf hingewiesen, dass ich langsam
+                            // losfahren müsste". Zusätzlich Telegram-Push an alle Admins —
+                            // FCM allein reicht nicht wenn Patrick gerade auf dem Tesla
+                            // (Web-CRM) sitzt und kein Native-Dashboard offen hat.
+                            try {
+                                const _custName = r.customerName || r.guestName || 'Kunde';
+                                const _anfahrtStr = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0)
+                                    ? `${r.drivingTimeToPickup} Min Anfahrt` : 'unbekannte Anfahrt';
+                                const _waLink = formatWhatsAppLink(r.customerPhone || r.customerMobile);
+                                const _phoneLine = r.customerPhone
+                                    ? `📱 <code>${r.customerPhone}</code>${_waLink}\n` : '';
+                                const _losMsg =
+                                    `⏰ <b>LOSFAHREN — ${_pickupLabel} Uhr</b>\n` +
+                                    `🚗 ${_vName}\n` +
+                                    `👤 ${_custName}\n` +
+                                    _phoneLine +
+                                    `📍 ${r.pickup || '?'}\n` +
+                                    `🎯 ${r.destination || '?'}\n` +
+                                    `⏱ ${_anfahrtStr} · in ${_minUntil} Min Pickup`;
+                                await sendToAllAdmins(_losMsg, 'losfahrt');
+                                await db.ref('rides/' + r.firebaseId).update({
+                                    losfahrtTelegramSent: true,
+                                    losfahrtTelegramAt: now
+                                });
+                            } catch (_lErr) {
+                                console.warn(`⚠️ Losfahrt-Telegram fehlgeschlagen ${r.firebaseId}: ${_lErr.message}`);
+                            }
                         } catch (_pErr) {
                             console.error(`   ❌ Push-Reminder fehlgeschlagen ${r.firebaseId}:`, _pErr.message);
                         }

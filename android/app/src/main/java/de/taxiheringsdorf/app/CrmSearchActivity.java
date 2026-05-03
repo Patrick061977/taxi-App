@@ -217,11 +217,10 @@ public class CrmSearchActivity extends AppCompatActivity {
                 latIdx += 7; lonIdx += 7;
                 final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
                 final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
-                int dispIdx = json.indexOf("\"display_name\":\"");
-                final String displayRaw = (dispIdx < 0) ? query : json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16));
-                final String display = displayRaw.replace("\\u00fc","ü").replace("\\u00f6","ö").replace("\\u00e4","ä")
-                    .replace("\\u00df","ß").replace("\\u00dc","Ü").replace("\\u00d6","Ö").replace("\\u00c4","Ä")
-                    .replace("\\/","/");
+                // v6.62.230: Patrick (03.05. 22:18): "Kaiserbäder, Vorpommern-Greifswald,
+                // Mecklenburg-Vorpommern, Deutschland brauchen wir nicht — Straße zuerst,
+                // dann Hausnummer". Compact-Format aus addressdetails statt display_name.
+                final String display = compactNominatimAddress(json, query);
                 runOnUiThread(() -> {
                     if (pendingPlaceField != null) pendingPlaceField.setText(display);
                     if (pendingPlaceCoords != null) {
@@ -234,6 +233,59 @@ public class CrmSearchActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(this, "❌ Geocode-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
             }
         }).start();
+    }
+
+    // v6.62.230: Kompakte Adress-Anzeige aus Nominatim-JSON.
+    // Patrick (03.05. 22:18): "Kaiserbaeder, Vorpommern-Greifswald, Mecklenburg-Vorpommern,
+    // Deutschland brauchen wir nicht — Strasse zuerst, dann Hausnummer".
+    // Format: "[POI-Name, ]Strasse Hausnummer, PLZ Ort".
+    private static String compactNominatimAddress(String json, String fallbackQuery) {
+        try {
+            String road = jsonStr(json, "\"road\":\"");
+            String houseNr = jsonStr(json, "\"house_number\":\"");
+            String postcode = jsonStr(json, "\"postcode\":\"");
+            String city = jsonStr(json, "\"city\":\"");
+            if (city == null) city = jsonStr(json, "\"town\":\"");
+            if (city == null) city = jsonStr(json, "\"village\":\"");
+            if (city == null) city = jsonStr(json, "\"municipality\":\"");
+            String name = jsonStr(json, "\"name\":\"");
+            StringBuilder out = new StringBuilder();
+            if (name != null && !name.isEmpty()) out.append(name);
+            if (road != null) {
+                if (out.length() > 0) out.append(", ");
+                out.append(road);
+                if (houseNr != null) out.append(" ").append(houseNr);
+            }
+            if (postcode != null || city != null) {
+                if (out.length() > 0) out.append(", ");
+                if (postcode != null) out.append(postcode);
+                if (city != null) out.append(postcode != null ? " " : "").append(city);
+            }
+            if (out.length() > 0) return decodeUmlauteJson(out.toString());
+            // Fallback: display_name komplett (alt)
+            int dispIdx = json.indexOf("\"display_name\":\"");
+            if (dispIdx < 0) return fallbackQuery;
+            return decodeUmlauteJson(json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16)));
+        } catch (Throwable _t) {
+            return fallbackQuery;
+        }
+    }
+
+    private static String jsonStr(String json, String keyToken) {
+        int idx = json.indexOf(keyToken);
+        if (idx < 0) return null;
+        int start = idx + keyToken.length();
+        int end = json.indexOf("\"", start);
+        if (end < 0) return null;
+        String val = json.substring(start, end);
+        return val.isEmpty() ? null : val;
+    }
+
+    private static String decodeUmlauteJson(String s) {
+        if (s == null) return null;
+        return s.replace("\\u00fc","ü").replace("\\u00f6","ö").replace("\\u00e4","ä")
+                .replace("\\u00df","ß").replace("\\u00dc","Ü").replace("\\u00d6","Ö")
+                .replace("\\u00c4","Ä").replace("\\/","/");
     }
 
     @Override

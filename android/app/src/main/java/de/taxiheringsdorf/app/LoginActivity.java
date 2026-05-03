@@ -77,10 +77,15 @@ public class LoginActivity extends AppCompatActivity {
             UpdateChecker.checkAsync(this, updateBanner, updateBannerText, updateBannerBtn);
         }
 
-        // Wenn schon eingeloggt UND vehicleId schon gewählt → direkt Dashboard
+        // Wenn schon eingeloggt UND vehicleId schon gewählt → direkt Dashboard.
+        // v6.62.202: Vorher Healthcheck wenn faellig (>14 Tage seit letztem Pass).
         String existingVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (auth.getCurrentUser() != null && existingVid != null && !existingVid.isEmpty()) {
-            startActivity(new Intent(this, DriverDashboardActivity.class));
+            if (OnboardingHealthcheckActivity.shouldRun(this)) {
+                startActivity(new Intent(this, OnboardingHealthcheckActivity.class));
+            } else {
+                startActivity(new Intent(this, DriverDashboardActivity.class));
+            }
             finish();
             return;
         }

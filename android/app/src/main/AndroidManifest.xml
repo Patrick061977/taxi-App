@@ -84,6 +84,17 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.62.202: OnboardingHealthcheckActivity — geoeffnet von LoginActivity / VehiclePicker
+             nach Login wenn der letzte erfolgreiche Healthcheck >14 Tage zurueckliegt. Prueft
+             8 Punkte (Standort, GPS, Akku-Optimierung, Notifs, FCM, Internet, ...) und bietet
+             pro Fail einen 'Jetzt fixen'-Button. -->
+        <activity
+            android:name=".OnboardingHealthcheckActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

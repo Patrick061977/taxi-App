@@ -19219,6 +19219,75 @@ exports.onRideUpdated = onValueUpdated(
             }
         }
 
+        // ─── 🆕 v6.62.223: ÄNDERUNGS-PUSH bei Vorbestellungen ───
+        // Patrick (03.05. 18:20): "bei jeder Vorbestellung-Änderung würde ich gerne neuen Push haben,
+        // weil sonst vergisst man das". FCM an Fahrer + Telegram an Admins wenn Schlüsselfelder
+        // einer schon zugewiesenen Vorbestellung geändert werden — nicht nur Lifecycle-Log wie vorher.
+        try {
+            const _changeRelevantStatus = ['vorbestellt', 'assigned', 'accepted'];
+            const _vidForChange = after.assignedVehicle || after.vehicleId;
+            const _pickupOk = after.pickupTimestamp && (after.pickupTimestamp - Date.now()) > -2 * 60000;
+            const _hasNewStatus = oldStatus !== newStatus; // Status-Push laeuft separat unten
+            if (_changeRelevantStatus.includes(newStatus) && _vidForChange && _pickupOk && !_hasNewStatus) {
+                const _changes = [];
+                if (before.pickup && after.pickup && before.pickup !== after.pickup) _changes.push(`📍 Abholort: ${before.pickup} → ${after.pickup}`);
+                if (before.destination && after.destination && before.destination !== after.destination) _changes.push(`🎯 Zielort: ${before.destination} → ${after.destination}`);
+                if (before.pickupTime && after.pickupTime && before.pickupTime !== after.pickupTime) _changes.push(`🕐 Zeit: ${before.pickupTime} → ${after.pickupTime}`);
+                if (before.pickupTimestamp && after.pickupTimestamp && before.pickupTimestamp !== after.pickupTimestamp && (!before.pickupTime || !after.pickupTime)) {
+                    const _bt = new Date(before.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                    const _at = new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                    _changes.push(`🕐 Zeit: ${_bt} → ${_at}`);
+                }
+                if (before.passengers && after.passengers && before.passengers !== after.passengers) _changes.push(`👥 Personen: ${before.passengers} → ${after.passengers}`);
+                if (before.price !== after.price && (before.price || after.price)) _changes.push(`💰 Preis: ${before.price || 0}€ → ${after.price || 0}€`);
+                if (before.guestName !== after.guestName && (before.guestName || after.guestName)) _changes.push(`👤 Gast: ${before.guestName || '—'} → ${after.guestName || '—'}`);
+
+                // Cooldown: vermeidet Doppel-Push bei rapid-fire Updates (z.B. mehrere Felder einzeln gesetzt).
+                const _lastNotify = after.lastChangeNotifyAt || 0;
+                const _cooldownOk = (Date.now() - _lastNotify) > 3000;
+
+                if (_changes.length > 0 && _cooldownOk) {
+                    const _vName = (OFFICIAL_VEHICLES[_vidForChange] || {}).name || after.vehicle || _vidForChange;
+                    const _pickLabel = after.pickupTime || new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                    const _custName = after.guestName || after.customerName || 'Kunde';
+                    // FCM an Fahrer
+                    try {
+                        await sendFCMToVehicle(_vidForChange, {
+                            type: 'ride_changed',
+                            rideId,
+                            vehicleId: _vidForChange,
+                            pickup: after.pickup || '',
+                            destination: after.destination || '',
+                            pickupTime: _pickLabel,
+                            customerName: _custName,
+                            changes: _changes.join(' · '),
+                            isReminder: 'false'
+                        });
+                    } catch (_fcmErr) { console.warn('Change-FCM:', _fcmErr.message); }
+                    // Telegram an alle Admins
+                    try {
+                        const _tgMsg = `🔄 <b>Vorbestellung geändert</b>\n\n` +
+                            `🚗 ${_vName}\n` +
+                            `👤 ${_custName}\n` +
+                            `🕐 Pickup: ${_pickLabel} Uhr\n\n` +
+                            _changes.map(c => `• ${c}`).join('\n') +
+                            `\n\n📋 ID: <code>${rideId}</code>`;
+                        await sendToAllAdmins(_tgMsg, 'change');
+                    } catch (_tgErr) { console.warn('Change-Telegram:', _tgErr.message); }
+                    await addRideLog(rideId, '🔄', `Änderungs-Push: ${_changes.length} Feld(er)`, {
+                        felder: _changes.join(' · '),
+                        fahrzeug: _vName,
+                        quelle: 'onRideUpdated v6.62.223'
+                    });
+                    // Cooldown-Marker setzen — verhindert Doppel-Push wenn unmittelbar danach noch ein Update kommt.
+                    // Achtung: dieses Update triggert onRideUpdated erneut, dann sind aber keine relevanten Felder geändert.
+                    db.ref('rides/' + rideId + '/lastChangeNotifyAt').set(Date.now()).catch(() => {});
+                }
+            }
+        } catch (_changeErr) {
+            console.warn(`⚠️ v6.62.223 Änderungs-Push fehlgeschlagen ${rideId}:`, _changeErr.message);
+        }
+
         // ─── STATUS-ÄNDERUNG → Admin-Benachrichtigung ───
         if (oldStatus !== newStatus) {
             console.log(`📱 onRideUpdated: ${rideId} Status ${oldStatus} → ${newStatus}`);

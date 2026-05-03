@@ -675,7 +675,12 @@ async function autoAssignRide(rideId, rideData) {
         const now = new Date();
         const berlin = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
         const minutesUntilPickup = rideData.pickupTimestamp ? (rideData.pickupTimestamp - Date.now()) / 60000 : 0;
-        const isSofort = minutesUntilPickup <= 60;
+        // v6.62.222: Vorbestellungs-Schwelle = 15 + Anfahrt (nicht mehr pauschal 60).
+        // Patrick (03.05. 18:04 zu Hasbargen): Buchung 18:01 fuer 19:00 (59 Min vor Pickup)
+        // wurde sofort als 'assigned' gesetzt + FCM-Push. Soll: erst 15+Anfahrt vor Pickup
+        // pushen — wie der onRideCreated-Pfad das schon macht (Zeile 18685).
+        const _anfahrtMin = (rideData.drivingTimeToPickup && rideData.drivingTimeToPickup > 0) ? rideData.drivingTimeToPickup : 10;
+        const isSofort = !rideData.pickupTimestamp || rideData.isJetzt === true || minutesUntilPickup <= (15 + _anfahrtMin);
 
         // 🔧 v6.25.4: Schicht-Check IMMER gegen Abholzeit prüfen, nicht aktuelle Uhrzeit!
         // Vorher: Sofortfahrten nutzten berlin (aktuelle Uhrzeit) → Fahrzeug bekam Fahrt außerhalb seiner Schicht
@@ -1213,7 +1218,11 @@ async function autoAssignRide(rideId, rideData) {
                 `📍 <b>Von:</b> ${rideData.pickup}\n` +
                 `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                 `👤 <b>Kunde:</b> ${rideData.customerName}\n` +
-                (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone)}\n` : '') +
+                (() => {
+                    // v6.62.222: Fallback auf customerMobile/mobilePhone wenn customerPhone leer.
+                    const _tel = rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone;
+                    return _tel ? `📱 <b>Tel:</b> ${_tel}${formatWhatsAppLink(_tel)}\n` : '';
+                })() +
                 `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                 (isSofort ? `🚗 <b>Anfahrt:</b> ~${drivingTimeMin} Min${best.distance < 999 ? ` (${best.distance.toFixed(1)} km)` : ' (GPS nicht verfügbar)'}\n\n` : '\n') +
                 (isSofort ? `⏱️ <i>Bitte in der App annehmen oder ablehnen!</i>` : `💡 <i>Fahrt vorgemerkt für ${pickupLabel}</i>`)
@@ -11432,7 +11441,11 @@ async function handleCallback(callback) {
                                     `📍 <b>Von:</b> ${rideData.pickup}\n` +
                                     `🎯 <b>Nach:</b> ${rideData.destination}\n` +
                                     `👤 <b>Name:</b> ${rideData.customerName}\n` +
-                                    (rideData.customerPhone ? `📱 <b>Tel:</b> ${rideData.customerPhone}${formatWhatsAppLink(rideData.customerPhone)}\n` : '') +
+                                    (() => {
+                                        // v6.62.222: Fallback auf customerMobile wenn customerPhone leer.
+                                        const _t = rideData.customerPhone || rideData.customerMobile || rideData.mobilePhone;
+                                        return _t ? `📱 <b>Tel:</b> ${_t}${formatWhatsAppLink(_t)}\n` : '';
+                                    })() +
                                     `👥 <b>Personen:</b> ${passengers}\n` +
                                     (telegramRoutePrice ? `💰 ca. ${telegramRoutePrice.price} €\n` : '') +
                                     `\n⚡ <b>Bitte Fahrer zuweisen:</b>`;
@@ -18059,9 +18072,11 @@ exports.scheduledAutoAssign = onSchedule(
                                 const _custName = r.customerName || r.guestName || 'Kunde';
                                 const _anfahrtStr = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0)
                                     ? `${r.drivingTimeToPickup} Min Anfahrt` : 'unbekannte Anfahrt';
-                                const _waLink = formatWhatsAppLink(r.customerPhone || r.customerMobile);
-                                const _phoneLine = r.customerPhone
-                                    ? `📱 <code>${r.customerPhone}</code>${_waLink}\n` : '';
+                                // v6.62.222: Fallback auf customerMobile auch in der Anzeige (vorher nur in WhatsApp-Link).
+                                const _telForShow = r.customerPhone || r.customerMobile || r.mobilePhone;
+                                const _waLink = formatWhatsAppLink(_telForShow);
+                                const _phoneLine = _telForShow
+                                    ? `📱 <code>${_telForShow}</code>${_waLink}\n` : '';
                                 const _losMsg =
                                     `⏰ <b>LOSFAHREN — ${_pickupLabel} Uhr</b>\n` +
                                     `🚗 ${_vName}\n` +
@@ -18212,7 +18227,11 @@ exports.scheduledAutoAssign = onSchedule(
                 const timeStr = String(berlinPickup.getHours()).padStart(2,'0') + ':' + String(berlinPickup.getMinutes()).padStart(2,'0');
                 const passengers = ride.passengers || 1;
                 const minutesUntilPickup = (ride.pickupTimestamp - now) / 60000;
-                const isSofort = minutesUntilPickup <= 60;
+                // v6.62.222: Schwelle = 15 + Anfahrt statt pauschal 60 Min.
+                // Hasbargen-Fall 03.05.: 19:00 gebucht 18:01 → 59 Min vorher, lief als
+                // Sofort durch → Push 60 Min vor Zeit. Soll erst (15+Anfahrt) Min davor.
+                const _anfMin = (ride.drivingTimeToPickup && ride.drivingTimeToPickup > 0) ? ride.drivingTimeToPickup : 10;
+                const isSofort = ride.isJetzt === true || minutesUntilPickup <= (15 + _anfMin);
 
                 console.log(`\n📋 Fahrt ${rideId}: ${ride.customerName || '?'} | ${dateStr} ${timeStr} | ${passengers} Pax | ${isSofort ? 'SOFORT' : 'Vorbestellung'}`);
 
@@ -18510,7 +18529,12 @@ exports.scheduledAutoAssign = onSchedule(
                         `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                         `🎯 <b>Nach:</b> ${ride.destination || '?'}\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-                        (ride.customerPhone ? `📱 <b>Tel:</b> ${ride.customerPhone}${formatWhatsAppLink(ride.customerPhone)}\n` : '') +
+                        (() => {
+                            // v6.62.222: Fallback auf customerMobile wenn customerPhone leer.
+                            // Hasbargen-Bug 03.05.: customerPhone="", customerMobile gefüllt → Telegram zeigte keine Nummer.
+                            const _tel = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+                            return _tel ? `📱 <b>Tel:</b> ${_tel}${formatWhatsAppLink(_tel)}\n` : '';
+                        })() +
                         `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                         (bestDrivingTime > 0 ? `🚗 <b>Anfahrt:</b> ~${bestDrivingTime} Min\n` : '') +
                         `\n💡 <i>Automatisch zugewiesen (Cloud)</i>`
@@ -22051,10 +22075,12 @@ async function validateRideConsistency(rideId, ride) {
     }
 
     // 5. Status-Konsistenz
-    // 🔧 v6.40.21: respektiere 60-Min-Schwelle — Vorbestellung bleibt 'vorbestellt', nicht 'assigned'
+    // 🔧 v6.40.21: respektiere Vorbestellungs-Schwelle — Vorbestellung bleibt 'vorbestellt', nicht 'assigned'
+    // v6.62.222: Schwelle = 15 + Anfahrt statt pauschal 60 Min (synchron mit scheduledAutoAssign).
     if (ride.assignedVehicle && ride.status === 'new') {
         const _msUntilPickup = ride.pickupTimestamp ? (ride.pickupTimestamp - Date.now()) : 0;
-        const _isSofort = _msUntilPickup > 0 && _msUntilPickup <= 60 * 60000;
+        const _anfMinFix = (ride.drivingTimeToPickup && ride.drivingTimeToPickup > 0) ? ride.drivingTimeToPickup : 10;
+        const _isSofort = _msUntilPickup > 0 && _msUntilPickup <= (15 + _anfMinFix) * 60000;
         const _targetStatus = _isSofort ? 'assigned' : 'vorbestellt';
         issues.push('Status "new" aber Fahrzeug zugewiesen (' + ride.assignedVehicle + ')');
         // Auto-Fix

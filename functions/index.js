@@ -18779,7 +18779,10 @@ exports.onRideCreated = onValueCreated(
         });
 
         // 🆕 v6.38.96: SMS-Queue — Buchungsbestätigung an Kunden senden (via Macrodroid auf Admin-Handy)
-        if (ride.customerPhone) {
+        // v6.62.225: Patrick (03.05. 18:50): Hasbargen bekam keine Vorbestellungs-SMS — phone="" + mobilePhone gefuellt.
+        // Fallback auf customerMobile/mobilePhone wie schon in den Telegram-Pushes (v6.62.222).
+        const _smsCustPhone = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+        if (_smsCustPhone) {
             try {
                 // Nutzt den bestehenden SMS-Toggle aus Admin → Einstellungen → SMS
                 const _smsSettingsSnap = await db.ref('settings/sms').once('value');
@@ -18842,15 +18845,15 @@ exports.onRideCreated = onValueCreated(
                     }
 
                     await db.ref('smsQueue').push({
-                        phone: ride.customerPhone,
+                        phone: _smsCustPhone,
                         text: _smsText,
                         rideId: rideId,
                         type: isSofort ? 'sofort_confirmation' : 'vorbestellung_confirmation',
                         status: 'pending',
                         createdAt: Date.now()
                     });
-                    console.log(`📲 SMS-Queue: Bestätigung für ${ride.customerPhone} eingetragen`);
-                    await addRideLog(rideId, '📲', 'SMS-Bestätigung in Queue', { phone: ride.customerPhone, typ: isSofort ? 'Sofort' : 'Vorbestellung' });
+                    console.log(`📲 SMS-Queue: Bestätigung für ${_smsCustPhone} eingetragen`);
+                    await addRideLog(rideId, '📲', 'SMS-Bestätigung in Queue', { phone: _smsCustPhone, typ: isSofort ? 'Sofort' : 'Vorbestellung' });
                 }
             } catch (_smsErr) {
                 console.warn('⚠️ SMS-Queue Fehler:', _smsErr.message);

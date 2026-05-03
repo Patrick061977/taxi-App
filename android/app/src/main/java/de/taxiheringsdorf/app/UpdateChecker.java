@@ -222,7 +222,31 @@ public final class UpdateChecker {
         }
     }
 
+    // v6.62.209: Profi-Update-Flow. Patrick: "erst Schicht beenden + abmelden,
+    // dann Update installieren — keine Geist-Schichten in Firebase".
+    // Wenn aktive Schicht laeuft → Confirm + cleanShutdownForUpdate vor Install.
+    // Sonst (LoginActivity, Admin ohne Schicht): direkt installieren.
     private static void launchInstallIntent(Activity activity, File apk) {
+        if (activity instanceof DriverDashboardActivity) {
+            DriverDashboardActivity dash = (DriverDashboardActivity) activity;
+            if (dash.isShiftActive()) {
+                new androidx.appcompat.app.AlertDialog.Builder(activity)
+                    .setTitle("Update installieren")
+                    .setMessage("Die laufende Schicht wird zuerst sauber beendet, danach startet die Installation.\n\nWeiter?")
+                    .setCancelable(false)
+                    .setPositiveButton("Schicht beenden + Update", (d, w) -> {
+                        Toast.makeText(activity, "Schicht wird beendet…", Toast.LENGTH_SHORT).show();
+                        dash.cleanShutdownForUpdate(() -> doInstallApk(activity, apk));
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+                return;
+            }
+        }
+        doInstallApk(activity, apk);
+    }
+
+    static void doInstallApk(Activity activity, File apk) {
         try {
             Uri apkUri = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", apk);
             Intent install = new Intent(Intent.ACTION_VIEW);

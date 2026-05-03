@@ -553,6 +553,44 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // v6.52.1: checkForUpdate / downloadAndInstall sind jetzt in UpdateChecker.java
     // (auch von LoginActivity benutzt damit Patrick auch ohne Login updaten kann).
 
+    // v6.62.209: Public Getter fuer UpdateChecker.
+    public boolean isShiftActive() {
+        return shiftActive;
+    }
+
+    // v6.62.209: Profi-Update-Flow. Patrick: "Schicht sauber beenden bevor
+    // Update installiert wird, dann App schliessen, dann Update — keine
+    // Geist-Schichten in Firebase". Beendet Schicht, stoppt Service, loescht
+    // Lock, ruft onDone nach 800ms (damit Firebase-Updates committet sind).
+    // Auth + SharedPrefs bleiben — nach Update landet der Fahrer wieder
+    // direkt am Dashboard und kann eine neue Schicht starten.
+    public void cleanShutdownForUpdate(Runnable onDone) {
+        if (shiftActive && currentVehicleId != null && db != null) {
+            try {
+                DatabaseReference shiftRef = db.getReference("vehicles/" + currentVehicleId + "/shift");
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("status", "ended");
+                updates.put("endedAt", System.currentTimeMillis());
+                updates.put("endedReason", "app_update");
+                shiftRef.updateChildren(updates);
+                db.getReference("vehicles/" + currentVehicleId + "/online").setValue(false);
+                shiftActive = false;
+                Log.i(TAG, "🛑 Schicht beendet wegen App-Update (vehicle=" + currentVehicleId + ")");
+            } catch (Throwable t) {
+                Log.w(TAG, "Schicht-Ende vor Update fehlgeschlagen: " + t.getMessage());
+            }
+        }
+        try {
+            Intent stopSvc = new Intent(this, ShiftForegroundService.class);
+            stopSvc.setAction(ShiftForegroundService.ACTION_STOP);
+            startService(stopSvc);
+        } catch (Throwable _t) {}
+        clearVehicleLock();
+        // 800ms warten damit Firebase die Updates committet bevor System-Installer
+        // die App killt. Auth + SharedPrefs bleiben absichtlich erhalten.
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(onDone, 800);
+    }
+
     private void doLogout() {
         // v6.62.93: Wenn Schicht noch aktiv ist beim Abmelden → automatisch beenden.
         // Patrick: 'erst Schicht stoppen und dann abmelden' war die manuelle Lösung —

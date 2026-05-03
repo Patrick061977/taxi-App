@@ -27,6 +27,11 @@
       ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
     },
 
+    "invoiceRequests": {
+      ".read": "auth != null",
+      ".write": true
+    },
+
     "tracking": {
       ".read": true,
       ".write": "auth != null"

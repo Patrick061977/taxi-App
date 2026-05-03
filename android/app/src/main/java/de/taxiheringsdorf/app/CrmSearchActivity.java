@@ -422,7 +422,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         String displayName = isAuftrag ? guestName : e.name;
         new AlertDialog.Builder(this)
             .setTitle("🚗 SOFORT-Fahrt anlegen?")
-            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Adresse fehlt!") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nStatus 'angenommen' → du tippst dann Losfahren / BIN DA / Eingestiegen.")
+            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Adresse fehlt!") + "\n📞 " + (telOrMobile(e)) + "\n\nStatus 'angenommen' → du tippst dann Losfahren / BIN DA / Eingestiegen.")
             .setPositiveButton("✅ Anlegen", (d, w) -> {
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
@@ -483,7 +483,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         String displayName = isAuftrag ? guestName : e.name;
         new AlertDialog.Builder(this)
             .setTitle("🚖 EINSTEIGER anlegen?")
-            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Standort Fahrer") + "\n📞 " + (e.phone != null ? e.phone : "—") + "\n\nFahrt sofort als 'abgeholt' eingetragen.")
+            .setMessage((isAuftrag ? "🏨 Auftraggeber: " + e.name + "\n👤 Gast: " + guestName : "Kunde: " + e.name) + "\n📍 Pickup: " + (e.address != null ? e.address : "Standort Fahrer") + "\n📞 " + (telOrMobile(e)) + "\n\nFahrt sofort als 'abgeholt' eingetragen.")
             .setPositiveButton("✅ Anlegen", (d, w) -> {
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
@@ -812,6 +812,16 @@ public class CrmSearchActivity extends AppCompatActivity {
             .show();
     }
 
+    // v6.62.222: Telefonnummer-Anzeige mit mobilePhone-Fallback. Hasbargen-Fall:
+    // phone="" (Empty-String, nicht null) + mobilePhone gefuellt → vorher zeigte
+    // Dialog "📞 " (leer hinter Symbol). Jetzt: erst phone, sonst mobile, sonst "—".
+    private static String telOrMobile(CrmEntry e) {
+        if (e == null) return "—";
+        if (e.phone != null && !e.phone.trim().isEmpty()) return e.phone;
+        if (e.mobilePhone != null && !e.mobilePhone.trim().isEmpty()) return e.mobilePhone;
+        return "—";
+    }
+
     static class CrmEntry {
         String id, name, phone, mobilePhone, email, address, customerKind;
         Double lat, lon;
@@ -861,8 +871,12 @@ public class CrmSearchActivity extends AppCompatActivity {
                 }
                 t1.setText(namePrefix + (e.name != null ? e.name : "?"));
                 String sub = "";
-                if (e.phone != null) sub += "📞 " + e.phone;
-                if (e.mobilePhone != null && !e.mobilePhone.equals(e.phone)) sub += "  📱 " + e.mobilePhone;
+                // v6.62.222: Empty-String ignorieren (Hasbargen hatte phone="" → vorher
+                // wurde "📞 " mit leerem Wert angezeigt → sah aus als wäre keine Nummer da).
+                boolean hasPhone = e.phone != null && !e.phone.trim().isEmpty();
+                boolean hasMobile = e.mobilePhone != null && !e.mobilePhone.trim().isEmpty();
+                if (hasPhone) sub += "📞 " + e.phone;
+                if (hasMobile && !e.mobilePhone.equals(e.phone)) sub += (hasPhone ? "  " : "") + "📱 " + e.mobilePhone;
                 if (e.address != null && !e.address.isEmpty()) {
                     String addrLabel = (e.lat != null && e.lon != null) ? "📍 " : "📍❓ ";
                     sub += (sub.isEmpty() ? "" : "\n") + addrLabel + e.address;

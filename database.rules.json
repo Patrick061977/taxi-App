@@ -21,6 +21,12 @@
       ".write": "auth != null"
     },
 
+    "invoices": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
+    },
+
     "tracking": {
       ".read": true,
       ".write": "auth != null"

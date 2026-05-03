@@ -4,47 +4,33 @@ Konsolidierte Liste der nächsten Schritte. Bei jedem Session-Start öffnen + ab
 
 ---
 
-## Sa 03.05.2026 — Schichtplan + Healthcheck
+## Sa 03.05.2026 Vormittag — ABGEHAKT (15 PRs)
 
-### Vormittag — Schichtplan + ECOVIS-Lohnexport
-**Voraussetzung:** Patrick schickt früh Foto/PDF des aktuellen Stundenzettels (ECOVIS-Format).
+✅ **Block A komplett** (Schichtplan + ECOVIS-Lohnexport):
+- ✅ Phase 1: `mitarbeiter.html` — Mitarbeiter-Stammdaten (CRUD)
+- ✅ Phase 2: `schichtplan.html` — Wochenraster Mo-So pro Mitarbeiter
+- ✅ Phase 3 (v6.62.211): Auto-Erfassung Ist-Zeiten aus `/shiftHistory`, Soll-vs-Ist-Ampel
+- ✅ Phase 4 (v6.62.213): Detail-Modal pro Tag (Plan vs Ist Diff, Pause, Fahrten, Umsatz)
+- ✅ Phase 5 (v6.62.215): ECOVIS-XLSX-Export (inline strings, ZIP via JSZip CDN)
 
-- [ ] **Phase 1:** Mitarbeiter-Stammdaten erweitern (~1 h)
-  - Pro Fahrer: Stundenlohn EUR/h, Bankverbindung, SV-Nr, Steuer-ID, Wochenarbeitszeit Soll
-  - Speicherort: `/users/{uid}/payroll` oder `/drivers/{id}/payroll`
-- [ ] **Phase 2:** Wochenplan-UI (~2 h)
-  - Mo–So Raster pro Mitarbeiter, Drag & Drop oder Tabelle
-  - Schichten: 06–14 / 14–22 / Nacht / individuell
-  - Wiederholungs-Pattern für Standardwochen
-  - Speicherort: `/drivers/{id}/shiftPlan`
-- [ ] **Phase 3:** Auto-Erfassung Ist-Zeiten (~1,5 h)
-  - Cloud Function bei Driver-Login/Logout → `/driverShifts/{driverId}/{date}`
-  - Felder: `startedAt`, `endedAt`, `vehicleId`, `totalMinutes`
-- [ ] **Phase 4:** Wochen-/Monatsansicht (~1 h)
-  - Pro Fahrer Soll vs Ist Stunden, Differenzen rot/grün
-  - Summe Stunden + Brutto-Lohn
-- [ ] **Phase 5:** ECOVIS-Export (~2 h)
-  - Excel/CSV im Format des Stundenzettels
-  - PDF-Lohnaufstellung pro Fahrer
-  - Email-Versand-Knopf an ECOVIS
+✅ **Schicht-Healthcheck** war schon in v6.62.203/204 fertig (OnboardingHealthcheckActivity).
 
-**Klärung morgen früh:** Patrick sagte „Jahresschic..." (abgeschnitten) — Jahresplan? Jahres-Statistik? Jahres-Urlaubsübersicht? Nachfragen.
+✅ Weitere PRs heute:
+- v6.62.206 Pauschalpreis-Display (anfrage.html toggleRabatt synchronisiert Preis-Anzeige + Notiz)
+- v6.62.207 Bewertungen öffentlich (kein Google-Login mehr) + 5★ zuerst
+- v6.62.208 CRM-Schnellbuchung Adress-Modus-Toolbar (🏠➡️📍 / 📍➡️🏠 / 📍➡️📍)
+- v6.62.208b `/todo`-Bot-Befehl (`@Funktaxiclaudebot todo` → Liste aus `/claudeBridge/tasks`)
+- v6.62.209 Profi-Update-Flow (Schicht beenden + Lock weg vor APK-Install)
+- v6.62.210 Auto-Preis-Berechnung in `onRideCreated` (Native Vorbestellung 0€-Bug)
+- v6.62.211b Apps-Script v5.4 — 🏷️ Pauschalpreis-Marker (manueller Deploy nötig!)
+- v6.62.212 Google-Places Init Stub-Closure-Sync (Web-CRM)
+- v6.62.213b Places-Sync auch in Standard-Buchung + Edit-Waypoint
+- v6.62.214 Native-Places-Key auf Web-Key umgestellt (Native-Key war API_KEY_SERVICE_BLOCKED)
+- v6.62.216 Losfahrt-Telegram an Admins (parallel zum FCM-Push, scheduledAutoAssign)
 
-### Nachmittag — Schicht-Healthcheck nach Driver-Login
-
-9 Checks bei jedem Schicht-Login:
-1. Standort-Berechtigung „Immer erlauben" (Danilos IK-Bug)
-2. GPS am Gerät aktiv
-3. Letzter GPS-Update <60 s alt
-4. Foreground-Service läuft
-5. Akku-Optimierung deaktiviert
-6. Notification-Permission
-7. FCM-Token vorhanden
-8. Internet-Verbindung
-9. Mikrofon (Voice-Buchungen)
-
-Pro Punkt: ✅ / ⚠️ / ❌. Bei ❌ → „Jetzt fixen"-Button mit Settings-Intent.
-Plus: Telegram-Alert an Patrick wenn Fahrer-Healthcheck failed.
+### Manuelle Aktionen offen:
+- [ ] **Apps Script v5.4 deployen** — `kalender-sync-v5.4.js` ins Google-Apps-Script-Projekt kopieren (Pauschalpreis-Marker im Kalender)
+- [ ] **Schicht S20 FE beenden** — wenn Patrick am Handy: Hamburger-Menü → Pause/Offline; ODER beim Update auf v6.62.214 wird sie automatisch sauber beendet (Profi-Update-Flow v6.62.209)
 
 ### Falls Zeit — FCM-Push für Web-Anfragen (Stufe 2/3)
 

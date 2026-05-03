@@ -5,14 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schichtplan — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.211: Schichtplan + ECOVIS-Lohnexport — Phase 3 (Ist-Erfassung).
-        Patrick (03.05.2026): autonom umgesetzt waehrend er live testet.
+        v6.62.213: Schichtplan + ECOVIS-Lohnexport — Phase 4 (Detail-Modal).
+        Patrick (02-03.05.2026): autonom umgesetzt waehrend er live testet.
 
         Phase 1 ✓ Mitarbeiter-Stammdaten (mitarbeiter.html)
         Phase 2 ✓ Wochenplan-UI (Mo-So Raster pro Mitarbeiter)
         Phase 3 ✓ Auto-Erfassung Ist-Zeiten aus /shiftHistory pro Mitarbeiter
                   + Soll vs Ist Ampel + ungeplante Schicht-Markierung
-        Phase 4 → Detail-Ansicht pro Tag (Pause, Fahrten, Umsatz)
+        Phase 4 ✓ Klick auf Zelle mit Ist → Detail-Modal: Plan vs Ist Diff,
+                  Pause, Fahrten, Umsatz, Liste aller Schichten an dem Tag
         Phase 5 → ECOVIS-xlsx-Export
 
         Datenmodelle:
@@ -347,6 +348,7 @@
         let currentWeekStart = null;     // Date (Mo)
         let currentShifts = {};          // {staffId: {0..6: {type, ...}}}
         let currentIstHours = {};        // v6.62.211: {staffId: {0..6: hoursDecimal}} aus /shiftHistory
+        let currentIstShifts = {};       // v6.62.213: {staffId: {0..6: [{vehicleId, shiftId, sh}, ...]}} fuer Detail-Modal
         let editing = null;              // {staffId, dayIdx}
         let selectedType = null;
 
@@ -468,6 +470,7 @@
         // workMs pro staff.linkedDriverId pro Wochentag (basierend auf startTime).
         async function loadIstHoursForWeek() {
             currentIstHours = {};
+            currentIstShifts = {};
             try {
                 const weekStartTs = currentWeekStart.getTime();
                 const weekEndTs = addDays(currentWeekStart, 7).getTime();
@@ -498,11 +501,118 @@
                         if (!currentIstHours[staffId]) currentIstHours[staffId] = {};
                         currentIstHours[staffId][dayIdx] = (currentIstHours[staffId][dayIdx] || 0)
                             + (workMs / 3600000);
+                        // v6.62.213: Phase 4 — rohe Schicht-Eintraege fuer Detail-Modal merken
+                        if (!currentIstShifts[staffId]) currentIstShifts[staffId] = {};
+                        if (!currentIstShifts[staffId][dayIdx]) currentIstShifts[staffId][dayIdx] = [];
+                        currentIstShifts[staffId][dayIdx].push({ vehicleId, shiftId, sh });
                     }
                 }
             } catch (e) {
                 console.warn('loadIstHoursForWeek Fehler:', e.message);
             }
+        }
+
+        // v6.62.213 — Block A Phase 4: Detail-Modal pro Tag mit Pause/Fahrten/Umsatz.
+        // Patrick (02.05.): Block A Phase 4 (Soll vs Ist + Detail-Ansicht). Klick auf
+        // eine Zelle die bereits Ist-Stunden hat → zeigt Modal mit Schicht-Details.
+        function openShiftDetail(staffId, dayIdx) {
+            const shifts = (currentIstShifts[staffId] || {})[dayIdx] || [];
+            if (shifts.length === 0) {
+                openCell(staffId, dayIdx); // Kein Ist → Plan-Modal wie vorher
+                return;
+            }
+            const s = allStaff.find((x) => x.id === staffId);
+            const date = addDays(currentWeekStart, dayIdx);
+            const dateStr = DAY_NAMES[dayIdx] + '. ' + date.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+            const totalWorkMs = shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
+            const totalPauseMs = shifts.reduce((sum, x) => sum + (x.sh.pauseMs || 0), 0);
+            const totalRides = shifts.reduce((sum, x) => sum + ((x.sh.stats || {}).rideCount || 0), 0);
+            const totalRevenue = shifts.reduce((sum, x) => sum + ((x.sh.stats || {}).revenue || 0), 0);
+            const totalCancel = shifts.reduce((sum, x) => sum + ((x.sh.stats || {}).cancellations || 0), 0);
+            const planEntry = (currentShifts[staffId] || {})[dayIdx];
+            const planHours = planEntry && planEntry.hours ? planEntry.hours : 0;
+            const istHours = totalWorkMs / 3600000;
+            const diffH = istHours - planHours;
+            const diffStr = planHours > 0
+                ? (diffH >= 0 ? '+' : '') + formatHours(diffH) + 'h vs Plan'
+                : '<i>kein Plan eingetragen</i>';
+            const diffColor = !planHours ? '#6b7280'
+                : (Math.abs(diffH) < 1 ? '#10b981' : (diffH > 0 ? '#f59e0b' : '#dc2626'));
+
+            const shiftLines = shifts.map((x, i) => {
+                const start = x.sh.startTime ? new Date(x.sh.startTime) : null;
+                const end = x.sh.endTime ? new Date(x.sh.endTime) : null;
+                const fmt = (d) => d ? d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '?';
+                const work = (x.sh.workMs || 0) / 3600000;
+                const pause = (x.sh.pauseMs || 0) / 3600000;
+                const stats = x.sh.stats || {};
+                return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;background:#f9fafb;">
+                    <div style="font-weight:700;margin-bottom:4px;">🚗 ${escHtml(x.sh.vehicleName || x.vehicleId)}</div>
+                    <div style="font-size:12px;color:#374151;">⏰ ${fmt(start)} – ${end ? fmt(end) : '<i>noch aktiv</i>'} (${formatHours(work)}h Arbeit${pause > 0 ? ', ' + formatHours(pause) + 'h Pause' : ''})</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">🚕 ${stats.rideCount || 0} Fahrten · 💰 ${(stats.revenue || 0).toFixed(2)}€${stats.cancellations ? ' · ❌ ' + stats.cancellations + ' storniert' : ''}</div>
+                </div>`;
+            }).join('');
+
+            const html = `
+                <div style="padding:16px;">
+                    <div style="font-weight:700;font-size:18px;margin-bottom:4px;">${escHtml(([s.firstName, s.lastName].filter(Boolean).join(' ')) || '—')}</div>
+                    <div style="color:#6b7280;font-size:13px;margin-bottom:14px;">${dateStr}</div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+                        <div style="padding:10px;background:#dbeafe;border-radius:8px;">
+                            <div style="font-size:11px;color:#1e3a8a;">Plan</div>
+                            <div style="font-size:18px;font-weight:700;color:#1e3a8a;">${planHours > 0 ? formatHours(planHours) + 'h' : '—'}</div>
+                        </div>
+                        <div style="padding:10px;background:#dcfce7;border-radius:8px;">
+                            <div style="font-size:11px;color:#065f46;">Ist</div>
+                            <div style="font-size:18px;font-weight:700;color:#065f46;">${formatHours(istHours)}h</div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;font-size:13px;color:${diffColor};font-weight:600;margin-bottom:16px;">
+                        ${diffStr}
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px;text-align:center;">
+                        <div style="padding:8px;background:#f3f4f6;border-radius:6px;">
+                            <div style="font-size:11px;color:#6b7280;">Pause</div>
+                            <div style="font-size:14px;font-weight:700;">${formatHours(totalPauseMs / 3600000)}h</div>
+                        </div>
+                        <div style="padding:8px;background:#f3f4f6;border-radius:6px;">
+                            <div style="font-size:11px;color:#6b7280;">Fahrten</div>
+                            <div style="font-size:14px;font-weight:700;">${totalRides}</div>
+                        </div>
+                        <div style="padding:8px;background:#f3f4f6;border-radius:6px;">
+                            <div style="font-size:11px;color:#6b7280;">Umsatz</div>
+                            <div style="font-size:14px;font-weight:700;">${totalRevenue.toFixed(2)}€</div>
+                        </div>
+                    </div>
+
+                    <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#374151;">📋 Schichten an diesem Tag</div>
+                    ${shiftLines}
+
+                    <div style="display:flex;gap:8px;margin-top:14px;">
+                        <button class="btn" style="flex:1;" onclick="closeDetail()">Schließen</button>
+                        <button class="btn btn-primary" style="flex:1;" onclick="closeDetail();openCell('${staffId}',${dayIdx})">📝 Plan bearbeiten</button>
+                    </div>
+                </div>
+            `;
+            // Eigenes Modal-Overlay verwenden (nicht das vom openCell)
+            let detail = document.getElementById('detail-modal');
+            if (!detail) {
+                detail = document.createElement('div');
+                detail.id = 'detail-modal';
+                detail.className = 'modal-overlay';
+                detail.style.zIndex = '1100';
+                detail.innerHTML = '<div class="modal" id="detail-modal-inner"></div>';
+                document.body.appendChild(detail);
+            }
+            document.getElementById('detail-modal-inner').innerHTML = html;
+            detail.classList.add('show');
+        }
+
+        function closeDetail() {
+            const d = document.getElementById('detail-modal');
+            if (d) d.classList.remove('show');
         }
 
         function renderGrid() {
@@ -563,12 +673,17 @@
             const cls = 'grid-cell shift-cell' + (isWeekend ? ' is-weekend' : '');
             // v6.62.211: Ist-Anzeige unter dem Plan-Eintrag (oder allein wenn kein Plan).
             const istLine = (istHours && istHours > 0)
-                ? `<div class="shift-hours" style="color:#0369a1;" title="Tatsaechliche Schicht (Ist) aus shiftHistory">📊 ${formatHours(istHours)}h Ist</div>`
+                ? `<div class="shift-hours" style="color:#0369a1;" title="Tatsaechliche Schicht (Ist) aus shiftHistory — klick fuer Detail">📊 ${formatHours(istHours)}h Ist</div>`
                 : '';
+            // v6.62.213: Bei Ist-Daten -> openShiftDetail (Phase 4 Detail-Modal),
+            // sonst openCell (Plan-Modal) wie bisher.
+            const handler = (istHours && istHours > 0)
+                ? `openShiftDetail('${staffId}',${dayIdx})`
+                : `openCell('${staffId}',${dayIdx})`;
             if (!shift || shift.type === 'free') {
                 if (istHours && istHours > 0) {
                     // Kein Plan, aber Fahrer hat gearbeitet — Hinweis anzeigen.
-                    return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})" style="background:#fef9c3;">
+                    return `<div class="${cls}" onclick="${handler}" style="background:#fef9c3;">
                         <span class="shift-badge" style="background:#fde68a;color:#92400e;">⚠ ungeplant</span>
                         ${istLine}
                     </div>`;
@@ -580,7 +695,7 @@
             const t = TYPES.find((x) => x.id === shift.type) || TYPES[0];
             const time = (shift.start && shift.end) ? `${shift.start}–${shift.end}` : '';
             const hrs = shift.hours != null ? `${formatHours(shift.hours)}h` : '';
-            return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})">
+            return `<div class="${cls}" onclick="${handler}">
                 <span class="shift-badge type-${shift.type}">${t.short}</span>
                 ${time ? `<div class="shift-time">${time}</div>` : ''}
                 ${hrs ? `<div class="shift-hours">${hrs} Plan</div>` : ''}

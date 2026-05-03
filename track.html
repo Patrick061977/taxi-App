@@ -329,6 +329,11 @@
             📍 Warte auf GPS-Position...
         </div>
 
+        <!-- v6.62.225: ETA-Anzeige fuer Kunde — Patrick (03.05. 18:51): 'Hasbargen sieht
+             nicht wie lange ich noch brauche'. OSRM-Route Tesla→Pickup (oder Tesla→Ziel
+             wenn schon eingestiegen) berechnet jede 30 Sek + bei jedem GPS-Update. -->
+        <div id="eta-info" style="display:none; margin:8px 0; padding:10px 14px; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:8px; font-size:14px; color:#065f46; font-weight:600;"></div>
+
         <!-- v6.62.85: Lifecycle-Verlauf rausgenommen aus track.html (Kunden-Page).
              Patrick: 'fuer wen soll der Verlauf sichtbar sein? Fuer den Kunden oder was?'
              Audit-Trail gehoert in Admin-Bereich, nicht zum Kunden. Daten bleiben in
@@ -781,7 +786,62 @@
                         ${driver.lat.toFixed(4)}, ${driver.lon.toFixed(4)}
                     </small>
                 `;
+
+                // v6.62.225: ETA aktualisieren (Tesla → Pickup oder Tesla → Ziel)
+                updateEtaFromVehicle(driver.lat, driver.lon);
             });
+
+            // v6.62.225: ETA-Berechnung. Patrick (03.05. 18:51): 'Hasbargen sieht nicht
+            // wie lange ich noch brauche'. OSRM-Route Tesla→Pickup (vor Einstieg) bzw.
+            // Tesla→Ziel (nach Einstieg). Throttle: max alle 25 Sek pro fetch (sonst hämmern wir
+            // OSRM bei jedem GPS-Update).
+            let _lastEtaFetch = 0;
+            let _lastEtaPos = null;
+            async function updateEtaFromVehicle(vlat, vlon) {
+                if (!window._currentRide) return;
+                const r = window._currentRide.data;
+                if (!r) return;
+                // Welcher Status? → welches Ziel
+                const _terminalStatus = ['completed','cancelled','storniert','deleted'];
+                if (_terminalStatus.includes(r.status)) {
+                    document.getElementById('eta-info').style.display = 'none';
+                    return;
+                }
+                let targetLat, targetLon, label;
+                if (['picked_up','arrived'].includes(r.status)) {
+                    targetLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
+                    targetLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
+                    label = '🎯 Ankunft am Ziel';
+                } else if (['accepted','on_way','assigned'].includes(r.status)) {
+                    targetLat = r.pickupLat || (r.pickupCoords && r.pickupCoords.lat);
+                    targetLon = r.pickupLon || (r.pickupCoords && r.pickupCoords.lon);
+                    label = '🚕 Anfahrt zu Ihnen';
+                } else {
+                    document.getElementById('eta-info').style.display = 'none';
+                    return;
+                }
+                if (!targetLat || !targetLon) return;
+                const _now = Date.now();
+                // Throttle: nur fetch wenn >25s seit letzter Berechnung ODER Position >200m gewandert
+                const _moved = !_lastEtaPos || (Math.abs(_lastEtaPos.lat - vlat) > 0.002 || Math.abs(_lastEtaPos.lon - vlon) > 0.002);
+                if (_now - _lastEtaFetch < 25000 && !_moved) return;
+                _lastEtaFetch = _now;
+                _lastEtaPos = { lat: vlat, lon: vlon };
+                try {
+                    const _url = `https://router.project-osrm.org/route/v1/driving/${vlon},${vlat};${targetLon},${targetLat}?overview=false`;
+                    const _resp = await fetch(_url);
+                    const _data = await _resp.json();
+                    if (_data.code === 'Ok' && _data.routes && _data.routes[0]) {
+                        const _min = Math.max(1, Math.round(_data.routes[0].duration / 60));
+                        const _km = (_data.routes[0].distance / 1000).toFixed(1);
+                        const _eta = new Date(Date.now() + _min * 60000);
+                        const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                        const _box = document.getElementById('eta-info');
+                        _box.style.display = 'block';
+                        _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;
+                    }
+                } catch(_e) { /* OSRM down → nichts anzeigen, kein crash */ }
+            }
             
             // Prüfe regelmäßig ob Tracking noch aktiv
             setInterval(async () => {

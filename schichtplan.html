@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schichtplan — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.213: Schichtplan + ECOVIS-Lohnexport — Phase 4 (Detail-Modal).
+        v6.62.215: Schichtplan + ECOVIS-Lohnexport — ALLE PHASEN FERTIG.
         Patrick (02-03.05.2026): autonom umgesetzt waehrend er live testet.
 
         Phase 1 ✓ Mitarbeiter-Stammdaten (mitarbeiter.html)
@@ -14,7 +14,10 @@
                   + Soll vs Ist Ampel + ungeplante Schicht-Markierung
         Phase 4 ✓ Klick auf Zelle mit Ist → Detail-Modal: Plan vs Ist Diff,
                   Pause, Fahrten, Umsatz, Liste aller Schichten an dem Tag
-        Phase 5 → ECOVIS-xlsx-Export
+        Phase 5 ✓ ECOVIS-xlsx-Lohnexport pro Mitarbeiter, gepackt als ZIP.
+                  Format: Inline-Strings sheet1.xml (kompatibel mit den
+                  Vorlagen Maerz 2026 von Dombrowski/Kargoll/Kulpa).
+                  Defaults: 13.90€/h Schicht + 2.50€/h Rufbereitschaft.
 
         Datenmodelle:
         - Plan: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx 0=Mo..6=So} = { type, start, end, hours, note }
@@ -252,6 +255,7 @@
                     <button class="btn" onclick="goToCurrentWeek()">Heute</button>
                     <button class="btn btn-icon" onclick="changeWeek(1)">▶</button>
                     <input type="week" id="week-picker" class="week-input">
+                    <button class="btn" style="background:#059669;color:white;" onclick="openEcovisExport()">📊 ECOVIS-Export</button>
                 </div>
             </div>
 
@@ -307,11 +311,48 @@
         </div>
     </div>
 
+    <!-- v6.62.215: ECOVIS-Export-Modal — Phase 5 von Block A -->
+    <div id="ecovis-modal" class="modal-overlay" onclick="if(event.target===this) closeEcovisModal()">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <div>
+                    <h2>📊 ECOVIS-Lohnexport</h2>
+                    <div class="sub" style="color:#6b7280;font-size:13px;">XLSX pro Mitarbeiter, gepackt als ZIP</div>
+                </div>
+                <button class="btn btn-ghost" onclick="closeEcovisModal()" style="font-size:20px;">×</button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px;">
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Monat</label>
+                    <input type="month" id="ecovis-month" class="form-input">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Stundenlohn Schicht (€/h)</label>
+                    <input type="number" id="ecovis-rate-shift" class="form-input" value="13.90" step="0.01" min="0">
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Stundenlohn Rufbereitschaft (€/h)</label>
+                    <input type="number" id="ecovis-rate-standby" class="form-input" value="2.50" step="0.01" min="0">
+                </div>
+                <div style="font-size:12px;color:#6b7280;line-height:1.5;background:#f9fafb;padding:10px;border-radius:8px;">
+                    💡 Generiert eine xlsx-Datei pro Mitarbeiter (mit linkedDriverId in Stammdaten + Schichten in dem Monat). Inline-Strings-Format wie in den ECOVIS-Vorlagen Mär2026 (Dombrowski/Kargoll/Kulpa).
+                </div>
+                <div id="ecovis-progress" style="display:none;margin-top:14px;font-size:13px;color:#374151;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeEcovisModal()">Abbrechen</button>
+                <button class="btn btn-primary" onclick="runEcovisExport()" id="ecovis-run-btn">📥 Export starten</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- v6.62.215: JSZip fuer ECOVIS-xlsx-Generation client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <script>
         // ─── v6.62.203: Schichtplan-Wochenraster ───
@@ -859,7 +900,350 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && document.getElementById('modal').classList.contains('show')) closeModal();
+            if (e.key === 'Escape' && document.getElementById('ecovis-modal').classList.contains('show')) closeEcovisModal();
+            if (e.key === 'Escape' && document.getElementById('detail-modal') && document.getElementById('detail-modal').classList.contains('show')) closeDetail();
         });
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.215 — Block A Phase 5: ECOVIS-Lohnexport (XLSX als ZIP)
+        // Patrick (03.05. 11:02): "Genau das sind erstmal die Zahlen" → Default
+        // 13.90€/h Schicht + 2.50€/h Rufbereitschaft. Format aus den Vorlagen
+        // Dombrowski/Kargoll/Kulpa März 2026 (siehe docs/ecovis-stundenzettel-format.md).
+        // ═══════════════════════════════════════════════════════════════
+
+        function openEcovisExport() {
+            // Default = aktueller Wochen-Monat
+            const m = currentWeekStart || new Date();
+            const ym = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
+            document.getElementById('ecovis-month').value = ym;
+            document.getElementById('ecovis-progress').style.display = 'none';
+            document.getElementById('ecovis-progress').innerHTML = '';
+            document.getElementById('ecovis-run-btn').disabled = false;
+            document.getElementById('ecovis-modal').classList.add('show');
+        }
+
+        function closeEcovisModal() {
+            document.getElementById('ecovis-modal').classList.remove('show');
+        }
+
+        // Monats-Aggregation aller Schichten + Pläne pro Mitarbeiter pro Tag.
+        // Ergebnis: { staffId: { 'YYYY-MM-DD': { plan, shifts: [shiftHistoryEntry,...] } } }
+        async function aggregateMonthForEcovis(year, month) {
+            // month: 1-12
+            const monthStart = new Date(year, month - 1, 1).getTime();
+            const nextMonth = new Date(year, month, 1).getTime();
+            const out = {};
+            for (const s of allStaff) out[s.id] = {};
+
+            // ─── /shiftHistory laden + filtern ───
+            const driverIdToStaff = {};
+            const emailToStaff = {};
+            for (const s of allStaff) {
+                if (s.linkedDriverId) driverIdToStaff[s.linkedDriverId] = s.id;
+                if (s.driverEmail) emailToStaff[String(s.driverEmail).toLowerCase()] = s.id;
+                if (s.email) emailToStaff[String(s.email).toLowerCase()] = s.id;
+            }
+            const histSnap = await db.ref('shiftHistory').once('value');
+            const histData = histSnap.val() || {};
+            for (const vehicleId of Object.keys(histData)) {
+                const vshifts = histData[vehicleId] || {};
+                for (const shiftId of Object.keys(vshifts)) {
+                    const sh = vshifts[shiftId];
+                    if (!sh) continue;
+                    const startTs = sh.startTime || Number(shiftId);
+                    if (!startTs || startTs < monthStart || startTs >= nextMonth) continue;
+                    const staffId = driverIdToStaff[sh.driverId]
+                        || emailToStaff[String(sh.driverEmail || '').toLowerCase()];
+                    if (!staffId || !out[staffId]) continue;
+                    const dateKey = ymd(new Date(startTs));
+                    if (!out[staffId][dateKey]) out[staffId][dateKey] = { plan: null, shifts: [] };
+                    out[staffId][dateKey].shifts.push({ vehicleId, shiftId, sh });
+                }
+            }
+
+            // ─── /shiftPlan über alle ISO-Wochen die diesen Monat berühren ───
+            const planWeeks = new Set();
+            const cursor = new Date(year, month - 1, 1);
+            const lastDay = new Date(year, month, 0);
+            while (cursor <= lastDay) {
+                planWeeks.add(isoWeekKey(cursor));
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            for (const wk of planWeeks) {
+                try {
+                    const wkSnap = await db.ref('shiftPlan/' + wk).once('value');
+                    const wkData = wkSnap.val() || {};
+                    for (const staffId of Object.keys(wkData)) {
+                        if (!out[staffId]) continue;
+                        const days = wkData[staffId] || {};
+                        // wk = YYYY-WW → Mo dieser Woche bestimmen
+                        const wkParts = wk.split('-');
+                        const wkYear = parseInt(wkParts[0]);
+                        const wkNum = parseInt(wkParts[1]);
+                        const jan4 = new Date(wkYear, 0, 4);
+                        const jan4Day = (jan4.getDay() + 6) % 7;
+                        const monday = addDays(jan4, (wkNum - 1) * 7 - jan4Day);
+                        for (let i = 0; i < 7; i++) {
+                            const d = addDays(monday, i);
+                            if (d.getTime() < monthStart || d.getTime() >= nextMonth) continue;
+                            const entry = days[i];
+                            if (!entry) continue;
+                            const dateKey = ymd(d);
+                            if (!out[staffId][dateKey]) out[staffId][dateKey] = { plan: null, shifts: [] };
+                            out[staffId][dateKey].plan = entry;
+                        }
+                    }
+                } catch (e) { console.warn('Plan-Woche ' + wk + ' Fehler:', e.message); }
+            }
+            return out;
+        }
+
+        function ymd(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+        }
+
+        // Rufbereitschaft-Erkennung: type==='standby' im Plan ODER Notiz "rufber" → Rufbereitschaft.
+        // Sonst: alles andere ist Schicht (auch ungeplante shiftHistory-Einträge).
+        function isStandbyShift(plan) {
+            if (!plan) return false;
+            if (plan.type === 'standby') return true;
+            const note = (plan.note || '').toLowerCase();
+            return note.includes('rufber') || note.includes('standby');
+        }
+
+        // Format Zeitfenster wie ECOVIS: "HH.MM-HH.MM (X)" mit X = Stunden
+        function fmtTimeRange(start, end, hours) {
+            const s = (start || '').replace(':', '.');
+            const e = (end || '').replace(':', '.');
+            return s + '-' + e + ' (' + (hours || 0) + ')';
+        }
+
+        // Hauptlauf: für jeden Mitarbeiter ein xlsx, alle in zip
+        async function runEcovisExport() {
+            const monthInput = document.getElementById('ecovis-month').value; // YYYY-MM
+            if (!monthInput || !monthInput.match(/^\d{4}-\d{2}$/)) {
+                showToast('Monat ungültig', true);
+                return;
+            }
+            const [yearStr, monthStr] = monthInput.split('-');
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr);
+            const rateShift = parseFloat(document.getElementById('ecovis-rate-shift').value) || 13.90;
+            const rateStandby = parseFloat(document.getElementById('ecovis-rate-standby').value) || 2.50;
+
+            const btn = document.getElementById('ecovis-run-btn');
+            const prog = document.getElementById('ecovis-progress');
+            btn.disabled = true;
+            prog.style.display = 'block';
+            prog.innerHTML = '⏳ Lade Schicht-Daten…';
+
+            try {
+                const data = await aggregateMonthForEcovis(year, month);
+                const monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month - 1];
+
+                // Welche Mitarbeiter haben Daten?
+                const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);
+                if (staffWithData.length === 0) {
+                    prog.innerHTML = '⚠️ Keine Schichten in diesem Monat gefunden. Sind die linkedDriverId in mitarbeiter.html gesetzt?';
+                    btn.disabled = false;
+                    return;
+                }
+
+                prog.innerHTML = `📦 Generiere xlsx für ${staffWithData.length} Mitarbeiter…`;
+                const zip = new JSZip();
+                for (const s of staffWithData) {
+                    const fileName = `${monthName}_${year}_${(s.lastName || s.firstName || s.id).toUpperCase()}_PAUSE_KORREKT.xlsx`;
+                    const xlsxBlob = await buildEcovisXlsx(s, year, month, monthName, data[s.id] || {}, rateShift, rateStandby);
+                    zip.file(fileName, xlsxBlob);
+                }
+                const zipName = `ECOVIS_${monthName}_${year}.zip`;
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = zipName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                prog.innerHTML = `✅ Fertig — ${staffWithData.length} Datei(en) in <b>${zipName}</b>`;
+                btn.disabled = false;
+            } catch (e) {
+                console.error('ECOVIS-Export Fehler:', e);
+                prog.innerHTML = '❌ Fehler: ' + e.message;
+                btn.disabled = false;
+            }
+        }
+
+        // Generiert eine ECOVIS-konforme xlsx-Datei (zip mit XML-Files).
+        // Returns Promise<Blob>.
+        async function buildEcovisXlsx(staff, year, month, monthName, dailyData, rateShift, rateStandby) {
+            const lastName = staff.lastName || staff.firstName || staff.id;
+            const headerTitle = `${lastName} ${monthName} ${year}`;
+
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const dayShortNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            const rows = [];
+            // Zeile 1: Header (merged A1:L1)
+            rows.push(rowXml(1, [['A', 'inlineStr', headerTitle]]));
+            // Zeile 2: Spalten-Header
+            const headers = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','So.-zul. 50%','Nacht 25%','Nacht 40%'];
+            rows.push(rowXml(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h])));
+            // Zeile 3: Hinweis "20.00-00.00" in J3 (analog zu Vorlage)
+            rows.push(rowXml(3, [['J', 'inlineStr', '20.00-00.00']]));
+
+            let totalShiftHours = 0;
+            let totalStandbyHours = 0;
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month - 1, day);
+                const dateKey = ymd(date);
+                const dataD = dailyData[dateKey] || { plan: null, shifts: [] };
+                const dayLabel = String(day).padStart(2, '0') + '.' + String(month).padStart(2, '0') + '.';
+                const tagShort = dayShortNames[date.getDay()];
+
+                // Klassifizierung: Plan kann 'standby' sein (Rufbereitschaft) oder 'day/late/night' (Schicht)
+                // Falls keine Plan-Info: shiftHistory.workMs als Schicht zählen.
+                let shiftRange = '';
+                let shiftH = 0;
+                let standbyRange1 = '';
+                let standbyH1 = 0;
+                let standbyRange2 = '';
+                let standbyH2 = 0;
+
+                if (dataD.plan) {
+                    const planH = dataD.plan.hours || 0;
+                    if (isStandbyShift(dataD.plan)) {
+                        standbyRange1 = fmtTimeRange(dataD.plan.start, dataD.plan.end, planH);
+                        standbyH1 = planH;
+                    } else if (dataD.plan.type === 'day' || dataD.plan.type === 'late' || dataD.plan.type === 'night') {
+                        shiftRange = fmtTimeRange(dataD.plan.start, dataD.plan.end, planH);
+                        shiftH = planH;
+                    }
+                }
+                // Ist-Schichten: Differenz zu Plan-Schicht als Mehrarbeit zur Schicht zählen.
+                // Wenn kein Plan vorhanden: Ist-Schicht direkt einsetzen.
+                if (dataD.shifts && dataD.shifts.length > 0 && shiftH === 0 && standbyH1 === 0) {
+                    const totalIstMs = dataD.shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
+                    const istH = +(totalIstMs / 3600000).toFixed(2);
+                    if (istH > 0) {
+                        // ohne Plan-Range: simulierte Range aus erstem/letztem
+                        const firstStart = dataD.shifts[0].sh.startTime;
+                        const lastEnd = dataD.shifts[dataD.shifts.length - 1].sh.endTime || dataD.shifts[dataD.shifts.length - 1].sh.startTime;
+                        const fmt = (ts) => {
+                            const d = new Date(ts);
+                            return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+                        };
+                        shiftRange = fmt(firstStart) + '-' + fmt(lastEnd) + ' (' + istH + ')';
+                        shiftH = istH;
+                    }
+                }
+
+                totalShiftHours += shiftH;
+                totalStandbyHours += standbyH1 + standbyH2;
+                const standbySum = standbyH1 + standbyH2;
+
+                const cells = [
+                    ['A', 'inlineStr', dayLabel],
+                    ['B', 'inlineStr', tagShort]
+                ];
+                if (standbyRange1) cells.push(['C', 'inlineStr', standbyRange1]);
+                if (shiftRange) cells.push(['D', 'inlineStr', shiftRange]);
+                cells.push(['E', 'inlineStr', '-']);
+                cells.push(['F', 'inlineStr', '-']);
+                if (shiftH > 0) cells.push(['G', 'n', shiftH]);
+                if (standbyRange2) cells.push(['H', 'inlineStr', standbyRange2]);
+                if (standbySum > 0) cells.push(['I', 'n', standbySum]);
+                rows.push(rowXml(3 + day, cells));
+            }
+
+            // Summen-Zeilen
+            const sumRowIdx = 3 + daysInMonth + 1;
+            rows.push(rowXml(sumRowIdx, [
+                ['A', 'inlineStr', 'Summe Stunden:'],
+                ['G', 'n', totalShiftHours],
+                ['H', 'inlineStr', 'Summe Rufber.:'],
+                ['I', 'n', totalStandbyHours]
+            ]));
+            const lohnRowIdx = sumRowIdx + 1;
+            const lohnShift = +(totalShiftHours * rateShift).toFixed(2);
+            const lohnStandby = +(totalStandbyHours * rateStandby).toFixed(2);
+            rows.push(rowXml(lohnRowIdx, [
+                ['A', 'inlineStr', 'Brutto-Lohn:'],
+                ['G', 'n', lohnShift],
+                ['H', 'inlineStr', 'Brutto Rufber.:'],
+                ['I', 'n', lohnStandby]
+            ]));
+
+            const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+    <cols>
+        <col min="1" max="1" width="9"/>
+        <col min="2" max="2" width="5"/>
+        <col min="3" max="4" width="20"/>
+        <col min="5" max="6" width="11"/>
+        <col min="7" max="9" width="13"/>
+        <col min="10" max="12" width="13"/>
+    </cols>
+    <sheetData>
+${rows.join('\n')}
+    </sheetData>
+    <mergeCells count="1">
+        <mergeCell ref="A1:L1"/>
+    </mergeCells>
+</worksheet>`;
+
+            const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheets>
+        <sheet name="Stundenzettel" sheetId="1" r:id="rId1"/>
+    </sheets>
+</workbook>`;
+
+            const wbRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`;
+
+            const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+            const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`;
+
+            const xlsx = new JSZip();
+            xlsx.file('[Content_Types].xml', contentTypesXml);
+            xlsx.folder('_rels').file('.rels', rootRelsXml);
+            xlsx.folder('xl').file('workbook.xml', wbXml);
+            xlsx.folder('xl/_rels').file('workbook.xml.rels', wbRelsXml);
+            xlsx.folder('xl/worksheets').file('sheet1.xml', sheetXml);
+            return await xlsx.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        }
+
+        function colLetter(idx0) {
+            // 0=A, 1=B, ..., 25=Z, 26=AA — wir brauchen nur A-L
+            return String.fromCharCode(65 + idx0);
+        }
+
+        function rowXml(r, cells) {
+            const cellsXml = cells.map(([col, type, val]) => {
+                const ref = col + r;
+                if (type === 'inlineStr') {
+                    const safe = String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    return `        <c r="${ref}" t="inlineStr"><is><t>${safe}</t></is></c>`;
+                } else {
+                    return `        <c r="${ref}"><v>${val}</v></c>`;
+                }
+            }).join('\n');
+            return `    <row r="${r}">\n${cellsXml}\n    </row>`;
+        }
     </script>
 </body>
 </html>

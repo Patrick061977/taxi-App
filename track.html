@@ -504,7 +504,13 @@
                                 const _coords = _data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
                                 if (_fallbackLine) { map.removeLayer(_fallbackLine); _fallbackLine = null; }
                                 const _routeLine = L.polyline(_coords, { color: '#3b82f6', weight: 5, opacity: 0.75 }).addTo(map);
-                                map.fitBounds(_routeLine.getBounds(), { padding: [60, 60], maxZoom: 14 });
+                                // v6.62.224: Vehicle-Marker in fitBounds einbeziehen wenn er schon da ist
+                                // (Race-Condition: vehicle-Listener feuert vor OSRM-Response → Tesla
+                                // wurde in fitBounds(routeLine) wieder rausgezoomt → Patrick sah nur
+                                // Route ohne Wagen-Standort).
+                                const _b = _routeLine.getBounds();
+                                if (vehicleMarker) _b.extend(vehicleMarker.getLatLng());
+                                map.fitBounds(_b, { padding: [60, 60], maxZoom: 14 });
                             }
                         } catch (_e) { /* Fallback bleibt sichtbar */ }
                     })();

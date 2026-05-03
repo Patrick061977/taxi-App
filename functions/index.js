@@ -18601,6 +18601,50 @@ exports.onRideCreated = onValueCreated(
         // 🔧 v6.38.43: Detailliertes Logging für Debugging
         console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}, pickupLat=${ride.pickupLat}, destLat=${ride.destinationLat}`);
 
+        // v6.62.210: Auto-Preis-Berechnung wenn Buchungsquelle keinen Preis liefert.
+        // Patrick (03.05. 09:36): "Native-App Vorbestellung Frau Lübke zeigt 0€ obwohl
+        // Geocoding klappte". Native-CallLog (CallLogActivity) speichert nur pickup/dest/
+        // coords aber kein price-Feld -> Telegram-Notif zeigt "Preis: 0€". Fix: Cloud-
+        // Function holt OSRM-Distanz + calculatePrice und schreibt das Ergebnis zurueck.
+        if ((!ride.price || ride.price === '0' || ride.price === 0) &&
+            ride.pickupLat && ride.pickupLon && ride.destinationLat && ride.destinationLon) {
+            try {
+                console.log(`💰 onRideCreated: Kein Preis gesetzt — berechne via OSRM (${rideId})`);
+                const _route = await calculateRoute(
+                    { lat: parseFloat(ride.pickupLat), lon: parseFloat(ride.pickupLon) },
+                    { lat: parseFloat(ride.destinationLat), lon: parseFloat(ride.destinationLon) }
+                );
+                if (_route && _route.distance && parseFloat(_route.distance) <= 500) {
+                    const _ts = ride.pickupTimestamp || Date.now();
+                    const _pricing = calculatePrice(parseFloat(_route.distance), _ts);
+                    if (_pricing && _pricing.total) {
+                        const _priceUpdate = {
+                            price: String(_pricing.total),
+                            estimatedPrice: _pricing.total,
+                            distance: _route.distance,
+                            duration: _route.duration,
+                            estimatedDistance: _route.distance,
+                            estimatedDuration: _route.duration,
+                            priceCalculatedAt: Date.now(),
+                            priceCalculatedBy: 'onRideCreated-auto'
+                        };
+                        await db.ref('rides/' + rideId).update(_priceUpdate);
+                        ride.price = _priceUpdate.price;
+                        ride.distance = _route.distance;
+                        ride.duration = _route.duration;
+                        console.log(`✅ Preis nachberechnet: ${_pricing.total}€ für ${_route.distance} km`);
+                        try {
+                            await addRideLog(rideId, '💰',
+                                `Preis nachberechnet: ${_pricing.total}€ (${_route.distance} km)`,
+                                { source: ride.source || 'unbekannt', reason: 'kein price im Initialwurf' });
+                        } catch (_le) {}
+                    }
+                }
+            } catch (_pe) {
+                console.warn(`⚠️ Auto-Preis-Berechnung fehlgeschlagen für ${rideId}: ${_pe.message}`);
+            }
+        }
+
         const timestamp = formatBerlinTime();
 
         // Zeitformatierung

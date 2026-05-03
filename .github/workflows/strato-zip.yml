@@ -8,6 +8,7 @@ on:
     paths:
       - 'index.html'
       - 'kunden.html'
+      - 'mitarbeiter.html'
       - 'buchen.html'
       - 'buchung-test.html'
       - 'landing.html'

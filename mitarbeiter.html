@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitarbeiter — Funk Taxi Heringsdorf</title>
+    <!--
+        v6.62.203: Schichtplan + ECOVIS-Lohnexport — Phase 1 (Mitarbeiter-Stammdaten).
+        Patrick (02.05.2026): "Schichtplan + ECOVIS-Lohnexport — Stammdaten zuerst,
+        dann Wochenplan, dann Auto-Erfassung, dann Export".
+
+        Diese Seite verwaltet nur die Stammdaten — Wochenplan / Ist-Zeiten / Export
+        kommen in Phase 2-5. Lese-/Schreibrechte: nur Admins (Email/Phone-Whitelist
+        oder /users/{uid}/role == 'admin'). Datenmodell: /staff/{staffId} in Firebase.
+    -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f3f4f6;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+            color: white;
+            padding: 18px 16px;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 12px rgba(30, 64, 175, 0.3);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header-back {
+            background: rgba(255,255,255,0.2); color: white;
+            padding: 8px 14px; border-radius: 8px;
+            text-decoration: none; font-size: 13px; font-weight: 600;
+        }
+        .container { max-width: 920px; margin: 0 auto; padding: 16px; }
+        .toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .search-input {
+            flex: 1; min-width: 200px;
+            padding: 10px 14px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 14px; outline: none;
+        }
+        .search-input:focus { border-color: #2563eb; }
+        .btn {
+            padding: 10px 16px; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background: #d1d5db; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-ghost { background: transparent; color: #6b7280; }
+        .btn-ghost:hover { background: #f3f4f6; }
+
+        /* Mitarbeiter-Liste */
+        .staff-list { display: flex; flex-direction: column; gap: 10px; }
+        .staff-card {
+            background: white; border-radius: 12px; padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .staff-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .staff-card.inactive { opacity: 0.55; }
+        .staff-info { flex: 1; min-width: 0; }
+        .staff-name {
+            font-size: 16px; font-weight: 700; color: #1f2937;
+            margin-bottom: 4px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .staff-meta {
+            font-size: 12px; color: #6b7280;
+            display: flex; gap: 14px; flex-wrap: wrap;
+        }
+        .staff-meta span::before { content: "·"; margin-right: 6px; opacity: 0.5; }
+        .staff-meta span:first-child::before { content: ""; margin: 0; }
+        .badge {
+            font-size: 11px; padding: 3px 8px; border-radius: 999px;
+            background: #dbeafe; color: #1e40af; font-weight: 600;
+        }
+        .badge-inactive { background: #fee2e2; color: #991b1b; }
+
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: #6b7280;
+            background: white; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
+        .empty-state h2 { font-size: 18px; color: #1f2937; margin-bottom: 8px; }
+        .empty-state p { font-size: 14px; margin-bottom: 16px; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white; border-radius: 14px;
+            max-width: 560px; width: 100%; max-height: 92vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .modal-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; background: white; z-index: 10;
+        }
+        .modal-header h2 { font-size: 18px; font-weight: 700; }
+        .modal-body { padding: 20px; }
+        .modal-footer {
+            padding: 16px 20px; border-top: 1px solid #e5e7eb;
+            display: flex; justify-content: flex-end; gap: 10px;
+            position: sticky; bottom: 0; background: white;
+        }
+
+        .form-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .form-grid .full { grid-column: 1 / -1; }
+        @media (max-width: 540px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-label { font-size: 12px; font-weight: 600; color: #374151; }
+        .form-input, .form-select {
+            padding: 10px 12px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 14px; outline: none;
+            font-family: inherit;
+        }
+        .form-input:focus, .form-select:focus { border-color: #2563eb; }
+        .form-hint { font-size: 11px; color: #9ca3af; }
+        .form-section-title {
+            grid-column: 1 / -1;
+            font-size: 13px; font-weight: 700; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-top: 8px; padding-bottom: 6px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .form-section-title:first-child { margin-top: 0; }
+
+        .toggle-row {
+            display: flex; align-items: center; gap: 10px;
+            grid-column: 1 / -1;
+        }
+        .toggle-row input[type=checkbox] { width: 18px; height: 18px; }
+        .toggle-row label { font-size: 14px; color: #374151; }
+
+        /* Login / Auth */
+        #not-admin, #not-logged-in {
+            display: none;
+            text-align: center; padding: 60px 20px;
+            background: white; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-top: 40px;
+        }
+        #not-admin .icon, #not-logged-in .icon {
+            font-size: 48px; margin-bottom: 12px;
+        }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px; border-radius: 10px;
+            background: #1f2937; color: white;
+            font-size: 14px; font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 2000;
+            opacity: 0; transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .toast.error { background: #dc2626; }
+        .toast.success { background: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="header-back">← Zurück</a>
+        <h1>👥 Mitarbeiter</h1>
+        <div style="width: 80px;"></div>
+    </div>
+
+    <div class="container">
+        <div id="loading" style="text-align:center;padding:40px;color:#6b7280;">Prüfe Login…</div>
+
+        <div id="not-logged-in">
+            <div class="icon">🔒</div>
+            <h2>Nicht eingeloggt</h2>
+            <p style="font-size:14px;color:#6b7280;margin-bottom:20px;">
+                Bitte erst in der Admin-App einloggen.
+            </p>
+            <a href="index.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Zur Admin-App</a>
+        </div>
+
+        <div id="not-admin">
+            <div class="icon">🚫</div>
+            <h2>Kein Zugriff</h2>
+            <p style="font-size:14px;color:#6b7280;">
+                Mitarbeiter-Verwaltung ist nur für Admins.<br>
+                Eingeloggt als: <span id="not-admin-email" style="font-weight:600;"></span>
+            </p>
+        </div>
+
+        <div id="main-content" style="display:none;">
+            <div class="toolbar">
+                <input type="text" id="search-input" class="search-input" placeholder="🔍 Suche nach Name, Personal-Nr, IBAN…">
+                <select id="filter-select" class="search-input" style="flex:0 0 auto;min-width:150px;">
+                    <option value="active">Nur aktive</option>
+                    <option value="all">Alle</option>
+                    <option value="inactive">Nur inaktive</option>
+                </select>
+                <button class="btn btn-primary" onclick="openModal()">+ Mitarbeiter</button>
+            </div>
+
+            <div id="staff-list" class="staff-list"></div>
+
+            <div id="empty-state" class="empty-state" style="display:none;">
+                <div class="icon">👥</div>
+                <h2>Noch keine Mitarbeiter</h2>
+                <p>Lege jetzt deinen ersten Mitarbeiter an um den Schichtplan zu starten.</p>
+                <button class="btn btn-primary" onclick="openModal()">+ Mitarbeiter anlegen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit/Create Modal -->
+    <div id="modal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Mitarbeiter anlegen</h2>
+                <button class="btn btn-ghost" onclick="closeModal()" style="font-size:20px;">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="staff-form" class="form-grid" onsubmit="event.preventDefault(); saveStaff();">
+                    <div class="form-section-title">Person</div>
+                    <div class="form-group">
+                        <label class="form-label">Vorname *</label>
+                        <input type="text" name="firstName" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nachname *</label>
+                        <input type="text" name="lastName" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Personal-Nummer</label>
+                        <input type="text" name="personalNumber" class="form-input" placeholder="z.B. 042">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Geburtsdatum</label>
+                        <input type="date" name="birthdate" class="form-input">
+                    </div>
+
+                    <div class="form-section-title">Lohn</div>
+                    <div class="form-group">
+                        <label class="form-label">Stundenlohn (€/h) *</label>
+                        <input type="number" step="0.01" name="hourlyRate" class="form-input" required placeholder="z.B. 13.90">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rufber.-Lohn (€/h)</label>
+                        <input type="number" step="0.01" name="standbyRate" class="form-input" placeholder="z.B. 2.50">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Wochen-Soll-Stunden</label>
+                        <input type="number" step="0.5" name="weeklyHoursTarget" class="form-input" placeholder="z.B. 40">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lohnart</label>
+                        <select name="payType" class="form-select">
+                            <option value="hourly">Stundenlohn</option>
+                            <option value="minijob">Minijob (520€)</option>
+                            <option value="midijob">Midijob</option>
+                            <option value="full">Festanstellung</option>
+                        </select>
+                    </div>
+
+                    <div class="form-section-title">Behörden &amp; Bank</div>
+                    <div class="form-group">
+                        <label class="form-label">SV-Nummer</label>
+                        <input type="text" name="svNumber" class="form-input" placeholder="12 345678 A 123">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Steuer-ID</label>
+                        <input type="text" name="taxId" class="form-input" placeholder="11-stellig">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Krankenkasse</label>
+                        <input type="text" name="healthInsurance" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">IBAN</label>
+                        <input type="text" name="iban" class="form-input" placeholder="DE…">
+                    </div>
+
+                    <div class="form-section-title">Vertrag</div>
+                    <div class="form-group">
+                        <label class="form-label">Vertragsbeginn</label>
+                        <input type="date" name="contractStart" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vertragsende</label>
+                        <input type="date" name="contractEnd" class="form-input">
+                        <span class="form-hint">leer = unbefristet</span>
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">App-Login (Driver-User)</label>
+                        <select name="linkedDriverId" class="form-select">
+                            <option value="">— nicht verknüpft —</option>
+                        </select>
+                        <span class="form-hint">Verknüpft Login-Email/Telefon mit diesem Mitarbeiter — für Auto-Erfassung der Schicht-Ist-Zeiten</span>
+                    </div>
+                    <div class="form-group full">
+                        <label class="form-label">Notizen</label>
+                        <textarea name="notes" class="form-input" rows="2"></textarea>
+                    </div>
+
+                    <div class="toggle-row">
+                        <input type="checkbox" id="active-toggle" name="active" checked>
+                        <label for="active-toggle">Aktiv (zählt zum Schichtplan)</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="delete-btn" class="btn btn-danger" onclick="deleteStaff()" style="display:none;">Löschen</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+                <button class="btn btn-primary" onclick="saveStaff()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ─── v6.62.203: Mitarbeiter-Stammdaten-Verwaltung ───
+
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        // Legacy-Admin-Whitelist als Fallback wenn /users/{uid}/role nicht gesetzt
+        const ADMIN_EMAILS = ['patrick061977@gmail.com', 'admin@taxi-heringsdorf.de', 'taxiwydra@googlemail.com'];
+        const ADMIN_PHONES = ['+4915127585179'];
+
+        let allStaff = [];     // Cache aller Mitarbeiter
+        let allUsers = [];     // Cache aller potentiellen Driver-Logins
+        let currentEditId = null;
+
+        // ─── Auth-Flow ───
+        auth.onAuthStateChanged(async (user) => {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'none';
+            if (!user) {
+                document.getElementById('not-logged-in').style.display = 'block';
+                return;
+            }
+            // Admin-Check: 1) /users/{uid}/role == 'admin' ODER 2) Email/Phone-Whitelist
+            const isAdminFlag = await isAdmin(user);
+            if (!isAdminFlag) {
+                document.getElementById('not-admin').style.display = 'block';
+                document.getElementById('not-admin-email').textContent = user.email || user.phoneNumber || user.uid;
+                return;
+            }
+            document.getElementById('main-content').style.display = 'block';
+            attachStaffListener();
+            loadUsersForLink();
+        });
+
+        async function isAdmin(user) {
+            try {
+                const snap = await db.ref('users/' + user.uid + '/role').once('value');
+                if (snap.exists() && String(snap.val()).toLowerCase() === 'admin') return true;
+            } catch (_) {}
+            if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) return true;
+            if (user.phoneNumber && ADMIN_PHONES.includes(user.phoneNumber)) return true;
+            return false;
+        }
+
+        // ─── Staff-Liste ───
+        function attachStaffListener() {
+            db.ref('staff').on('value', (snap) => {
+                allStaff = [];
+                snap.forEach((c) => {
+                    const v = c.val();
+                    if (!v) return;
+                    allStaff.push({ id: c.key, ...v });
+                });
+                allStaff.sort((a, b) => {
+                    const an = ((a.lastName || '') + (a.firstName || '')).toLowerCase();
+                    const bn = ((b.lastName || '') + (b.firstName || '')).toLowerCase();
+                    return an.localeCompare(bn);
+                });
+                renderList();
+            });
+        }
+
+        function renderList() {
+            const search = (document.getElementById('search-input').value || '').toLowerCase().trim();
+            const filter = document.getElementById('filter-select').value;
+            const list = document.getElementById('staff-list');
+            const empty = document.getElementById('empty-state');
+
+            let filtered = allStaff.filter((s) => {
+                if (filter === 'active' && s.active === false) return false;
+                if (filter === 'inactive' && s.active !== false) return false;
+                if (search) {
+                    const haystack = [
+                        s.firstName, s.lastName, s.personalNumber,
+                        s.svNumber, s.taxId, s.iban, s.notes
+                    ].filter(Boolean).join(' ').toLowerCase();
+                    if (!haystack.includes(search)) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = '';
+                empty.style.display = allStaff.length === 0 ? 'block' : 'none';
+                if (allStaff.length > 0 && filtered.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;">Keine Treffer für deine Suche</div>';
+                }
+                return;
+            }
+            empty.style.display = 'none';
+            list.innerHTML = filtered.map((s) => {
+                const name = escapeHtml(([s.firstName, s.lastName].filter(Boolean).join(' ')) || '—');
+                const meta = [];
+                if (s.personalNumber) meta.push(`Nr. ${escapeHtml(s.personalNumber)}`);
+                if (s.hourlyRate != null) meta.push(`${formatRate(s.hourlyRate)} €/h`);
+                if (s.weeklyHoursTarget != null) meta.push(`${s.weeklyHoursTarget}h Soll`);
+                if (s.payType) meta.push(escapeHtml(payTypeLabel(s.payType)));
+                const inactive = s.active === false;
+                return `
+                    <div class="staff-card ${inactive ? 'inactive' : ''}" onclick="openModal('${s.id}')">
+                        <div class="staff-info">
+                            <div class="staff-name">${name}</div>
+                            <div class="staff-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>
+                        </div>
+                        <span class="badge ${inactive ? 'badge-inactive' : ''}">${inactive ? 'inaktiv' : 'aktiv'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function payTypeLabel(t) {
+            return ({ hourly: 'Stundenlohn', minijob: 'Minijob', midijob: 'Midijob', full: 'Festanstellung' }[t]) || t;
+        }
+        function formatRate(r) { return Number(r).toFixed(2).replace('.', ','); }
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ─── User-Liste fürs Link-Dropdown (potentielle Driver-Logins) ───
+        async function loadUsersForLink() {
+            try {
+                const snap = await db.ref('users').once('value');
+                allUsers = [];
+                snap.forEach((c) => {
+                    const v = c.val() || {};
+                    allUsers.push({
+                        uid: c.key,
+                        email: v.email || '',
+                        phone: v.phoneNumber || '',
+                        role: v.role || ''
+                    });
+                });
+                // Im Modal-Dropdown verfügbar — wird beim Modal-Open neu befüllt
+            } catch (e) {
+                console.warn('Users laden fehlgeschlagen', e);
+            }
+        }
+
+        function fillLinkedDriverDropdown(selectedUid) {
+            const sel = document.querySelector('select[name=linkedDriverId]');
+            if (!sel) return;
+            const usedUids = new Set(allStaff.filter((s) => s.linkedDriverId && s.id !== currentEditId).map((s) => s.linkedDriverId));
+            sel.innerHTML = '<option value="">— nicht verknüpft —</option>' + allUsers
+                .filter((u) => !usedUids.has(u.uid))
+                .map((u) => {
+                    const label = [u.email, u.phone].filter(Boolean).join(' / ') || u.uid.slice(0, 8);
+                    return `<option value="${u.uid}">${escapeHtml(label)}${u.role ? ' (' + escapeHtml(u.role) + ')' : ''}</option>`;
+                }).join('');
+            if (selectedUid) sel.value = selectedUid;
+        }
+
+        // ─── Modal ───
+        function openModal(id) {
+            currentEditId = id || null;
+            const form = document.getElementById('staff-form');
+            form.reset();
+            document.getElementById('modal-title').textContent = id ? 'Mitarbeiter bearbeiten' : 'Mitarbeiter anlegen';
+            document.getElementById('delete-btn').style.display = id ? 'inline-block' : 'none';
+
+            if (id) {
+                const s = allStaff.find((x) => x.id === id);
+                if (!s) { showToast('Mitarbeiter nicht gefunden', 'error'); return; }
+                for (const f of form.elements) {
+                    if (!f.name) continue;
+                    if (f.type === 'checkbox') {
+                        f.checked = f.name === 'active' ? s.active !== false : !!s[f.name];
+                    } else {
+                        f.value = s[f.name] != null ? s[f.name] : '';
+                    }
+                }
+            }
+            fillLinkedDriverDropdown(id ? (allStaff.find((x) => x.id === id) || {}).linkedDriverId : '');
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+            currentEditId = null;
+        }
+
+        async function saveStaff() {
+            const form = document.getElementById('staff-form');
+            if (!form.reportValidity()) return;
+            const data = {};
+            for (const f of form.elements) {
+                if (!f.name) continue;
+                if (f.type === 'checkbox') {
+                    data[f.name] = f.checked;
+                } else if (f.type === 'number' && f.value !== '') {
+                    data[f.name] = parseFloat(f.value);
+                } else {
+                    data[f.name] = f.value || null;
+                }
+            }
+            data.updatedAt = Date.now();
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            data.updatedBy = userEmail;
+            if (!currentEditId) {
+                data.createdAt = Date.now();
+                data.createdBy = userEmail;
+            }
+            try {
+                if (currentEditId) {
+                    await db.ref('staff/' + currentEditId).update(data);
+                    showToast('Gespeichert ✓', 'success');
+                } else {
+                    const ref = await db.ref('staff').push(data);
+                    showToast('Angelegt ✓', 'success');
+                    currentEditId = ref.key;
+                }
+                closeModal();
+            } catch (e) {
+                console.error(e);
+                showToast('Fehler beim Speichern: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteStaff() {
+            if (!currentEditId) return;
+            const s = allStaff.find((x) => x.id === currentEditId);
+            const name = s ? ([s.firstName, s.lastName].filter(Boolean).join(' ')) : '';
+            if (!confirm(`Mitarbeiter "${name}" wirklich löschen?\n\nAlle Stammdaten gehen verloren — Schicht-Historie bleibt erhalten.`)) return;
+            try {
+                await db.ref('staff/' + currentEditId).remove();
+                showToast('Gelöscht', 'success');
+                closeModal();
+            } catch (e) {
+                showToast('Fehler beim Löschen: ' + e.message, 'error');
+            }
+        }
+
+        // ─── Toast ───
+        let toastTimer = null;
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (type ? ' ' + type : '');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { t.className = 'toast'; }, 2400);
+        }
+
+        // ─── Suche / Filter ───
+        document.getElementById('search-input').addEventListener('input', renderList);
+        document.getElementById('filter-select').addEventListener('change', renderList);
+
+        // ─── ESC schließt Modal ───
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('modal').classList.contains('show')) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

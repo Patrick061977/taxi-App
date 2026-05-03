@@ -389,39 +389,17 @@ public class CallLogActivity extends AppCompatActivity {
     }
 
     private void launchPlaces(TextView targetField, double[] coordsOut) {
-        try {
-            if (!Places.isInitialized()) {
-                // v6.53.4: Patrick's API-Key hat 'Places API (New)' aktiviert aber NICHT
-                // die Legacy-API. Diagnose via curl: legacy gibt REQUEST_DENIED, new API
-                // funktioniert + liefert Heringsdorf-Vorschläge. SDK muss daher die neue
-                // API nutzen — initializeWithNewPlacesApiEnabled forciert das.
-                // v6.62.15: Android-Key statt Browser-Key — Patrick: 'das hatten wir gestern schon
-                // das Problem' (9011 API-Key not authorized). Browser-Keys haben HTTP-Referrer-
-                // Restriction → für Android-SDK nicht zugelassen. Android-Key f7d12f86 hat
-                // androidKeyRestrictions + Places API enabled (siehe gcloud-Setup 2026-04-27).
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
-            }
-            pendingPlaceField = targetField;
-            pendingPlaceCoords = coordsOut;
-            List<Place.Field> fields = Arrays.asList(
-                Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION
-            );
-            // v6.62.12: FULLSCREEN statt OVERLAY — Patrick: 'kann keine Adresse eingeben'.
-            // OVERLAY-Modus rendert transparent über vorherige Activity, verliert bei
-            // Keyboard-Show den Focus und schließt sich. Diagnose via Live-Logcat:
-            // Activity startet, ClassNotFoundException auf zzkm (harmlos),
-            // dann verschwindet UI ohne user-Action. FULLSCREEN ist stabil.
-            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
-                .setCountries(Arrays.asList("DE"))
-                .build(this);
-            placesLauncher.launch(intent);
-        } catch (Throwable t) {
-            // v6.62.28: Places-Init-Fehler → OSM-Fallback statt blocker Toast
-            Toast.makeText(this, "Places nicht verfuegbar: " + t.getMessage() + " — verwende OSM-Fallback", Toast.LENGTH_LONG).show();
-            pendingPlaceField = targetField;
-            pendingPlaceCoords = coordsOut;
-            showManualAddressDialog();
-        }
+        // v6.62.219: Patrick (03.05. 17:36): "ich hab keinen Bock mehr drauf,
+        // mehr als hier anklicken kann ich nicht machen". Google blockt den
+        // Places-SDK-Call konstant mit 9011 — Cloud-Console-Settings sind
+        // korrekt (Application restrictions: Keine, APIs aktiv) aber das
+        // SDK akzeptiert es nicht. Solange Google das Problem nicht von
+        // sich aus aufhebt, springen wir direkt in den OSM-Manual-Dialog
+        // — Adressen werden via Nominatim gesucht, hat fuer Heringsdorf-
+        // Region ohnehin oft mehr Detail (Ferienwohnungen, Hausnummern).
+        pendingPlaceField = targetField;
+        pendingPlaceCoords = coordsOut;
+        showManualAddressDialog();
     }
 
     @Override

@@ -144,24 +144,74 @@ public class CrmSearchActivity extends AppCompatActivity {
     );
 
     private void launchPlaces(TextView field, double[] coordsOut) {
-        try {
-            if (!Places.isInitialized()) {
-                // v6.62.15: Android-Key statt Browser-Key (siehe CallLogActivity)
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
+        // v6.62.219: Patrick (03.05. 17:36) — Google blockt Places-SDK mit 9011
+        // trotz korrekter Cloud-Console-Settings. Direkt zum manuellen Adress-
+        // Dialog mit Nominatim. Nominatim hat in Heringsdorf-Region oft mehr
+        // Detail (Ferienwohnungen, Hausnummern) als Google Places.
+        pendingPlaceField = field;
+        pendingPlaceCoords = coordsOut;
+        showManualAddressDialog();
+    }
+
+    // v6.62.219: Manual-Adress-Dialog mit Nominatim-Geocode, parallel zu
+    // CallLogActivity.showManualAddressDialog/geocodeWithNominatim.
+    private void showManualAddressDialog() {
+        final EditText input = new EditText(this);
+        input.setHint("z.B. Strandpromenade 12, 17424 Heringsdorf");
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        new AlertDialog.Builder(this)
+            .setTitle("📍 Adresse eingeben")
+            .setMessage("Tippe die Adresse moeglichst vollstaendig (Strasse, Nr, PLZ, Ort).\nWir suchen sie ueber OpenStreetMap.")
+            .setView(input)
+            .setPositiveButton("Suchen", (d, w) -> {
+                String q = input.getText().toString().trim();
+                if (q.isEmpty()) return;
+                geocodeWithNominatim(q);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void geocodeWithNominatim(final String query) {
+        Toast.makeText(this, "🔍 Suche: " + query, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
+                    + java.net.URLEncoder.encode(query, "UTF-8");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/6.62.219 (admin@funk-taxi-heringsdorf.de)");
+                conn.setConnectTimeout(8000); conn.setReadTimeout(8000);
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String line; while ((line = br.readLine()) != null) sb.append(line);
+                br.close(); conn.disconnect();
+                String json = sb.toString();
+                int latIdx = json.indexOf("\"lat\":\"");
+                int lonIdx = json.indexOf("\"lon\":\"");
+                if (latIdx < 0 || lonIdx < 0) {
+                    runOnUiThread(() -> Toast.makeText(this, "❌ Adresse nicht gefunden — bitte detaillierter eingeben", Toast.LENGTH_LONG).show());
+                    return;
+                }
+                latIdx += 7; lonIdx += 7;
+                final double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
+                final double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
+                int dispIdx = json.indexOf("\"display_name\":\"");
+                final String displayRaw = (dispIdx < 0) ? query : json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16));
+                final String display = displayRaw.replace("\\u00fc","ü").replace("\\u00f6","ö").replace("\\u00e4","ä")
+                    .replace("\\u00df","ß").replace("\\u00dc","Ü").replace("\\u00d6","Ö").replace("\\u00c4","Ä")
+                    .replace("\\/","/");
+                runOnUiThread(() -> {
+                    if (pendingPlaceField != null) pendingPlaceField.setText(display);
+                    if (pendingPlaceCoords != null) {
+                        pendingPlaceCoords[0] = lat;
+                        pendingPlaceCoords[1] = lon;
+                    }
+                    Toast.makeText(this, "✅ Gefunden via OpenStreetMap", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ Geocode-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
             }
-            pendingPlaceField = field;
-            pendingPlaceCoords = coordsOut;
-            List<Place.Field> fields = Arrays.asList(
-                Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION
-            );
-            // v6.62.12: FULLSCREEN — siehe CallLogActivity.launchPlaces für Details
-            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
-                .setCountries(Arrays.asList("DE"))
-                .build(this);
-            placesLauncher.launch(intent);
-        } catch (Throwable t) {
-            Toast.makeText(this, "Places-Init: " + t.getMessage(), Toast.LENGTH_LONG).show();
-        }
+        }).start();
     }
 
     @Override

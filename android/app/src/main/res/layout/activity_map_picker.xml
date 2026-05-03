@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F172A">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical"
+        android:background="#1E293B">
+        <ImageButton
+            android:id="@+id/btn_map_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="#FFFFFF"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Schliessen" />
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📍 Adresse waehlen"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginStart="12dp" />
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/et_map_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Suchen oder auf Karte tippen…"
+        android:inputType="text"
+        android:imeOptions="actionSearch"
+        android:padding="14dp"
+        android:textSize="16sp"
+        android:background="#0F172A"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#64748B" />
+
+    <WebView
+        android:id="@+id/wv_map"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/tv_map_addr"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="14dp"
+        android:text="Tippe auf die Karte um eine Adresse auszuwaehlen"
+        android:textColor="#E2E8F0"
+        android:textSize="14sp"
+        android:background="#1E293B" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_map_confirm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="✅ DIESE ADRESSE UEBERNEHMEN"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:enabled="false"
+        app:cornerRadius="12dp"
+        app:backgroundTint="#10B981"
+        xmlns:app="http://schemas.android.com/apk/res-auto" />
+</LinearLayout>

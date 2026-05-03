@@ -95,6 +95,20 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.62.220: MapPickerActivity — Stecknadel-Picker auf OSM-Karte.
+             Patrick (03.05.): "kannst du da so einen Stecknadel-Picker einbauen,
+             dass man vielleicht auch ueber die Stecknadel auf der Karte die
+             Adressen suchen kann?" Tap auf Karte → Marker → Reverse-Geocode
+             via Nominatim → Adresse + Coords zurueck. Alternative + Ergaenzung
+             zum Manual-Adress-Dialog. Wird von CallLogActivity + CrmSearchActivity
+             aus aufgerufen. -->
+        <activity
+            android:name=".MapPickerActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.40.0: Foreground-Service für laufende Schicht (GPS, Dispatch, etc.) -->
         <service
             android:name=".ShiftForegroundService"

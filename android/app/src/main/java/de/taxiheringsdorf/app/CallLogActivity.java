@@ -388,18 +388,42 @@ public class CallLogActivity extends AppCompatActivity {
         Toast.makeText(this, "✅ Gefunden via " + source, Toast.LENGTH_SHORT).show();
     }
 
+    // v6.62.220: ActivityResultLauncher fuer den OSM-Map-Picker.
+    private final androidx.activity.result.ActivityResultLauncher<Intent> mapPickerLauncher =
+        registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                Intent d = result.getData();
+                String addr = d.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                double lat = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
+                double lon = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                if (pendingPlaceField != null && addr != null) pendingPlaceField.setText(addr);
+                if (pendingPlaceCoords != null && !Double.isNaN(lat) && !Double.isNaN(lon)) {
+                    pendingPlaceCoords[0] = lat;
+                    pendingPlaceCoords[1] = lon;
+                }
+            });
+
     private void launchPlaces(TextView targetField, double[] coordsOut) {
-        // v6.62.219: Patrick (03.05. 17:36): "ich hab keinen Bock mehr drauf,
-        // mehr als hier anklicken kann ich nicht machen". Google blockt den
-        // Places-SDK-Call konstant mit 9011 — Cloud-Console-Settings sind
-        // korrekt (Application restrictions: Keine, APIs aktiv) aber das
-        // SDK akzeptiert es nicht. Solange Google das Problem nicht von
-        // sich aus aufhebt, springen wir direkt in den OSM-Manual-Dialog
-        // — Adressen werden via Nominatim gesucht, hat fuer Heringsdorf-
-        // Region ohnehin oft mehr Detail (Ferienwohnungen, Hausnummern).
+        // v6.62.220: Patrick (03.05. 17:49): "kannst du da so einen Stecknadel-
+        // Picker einbauen, dass man vielleicht auch ueber die Stecknadel auf
+        // der Karte die Adressen suchen kann?". Statt Google Places (9011-Block)
+        // oder simplen EditText-Dialog: OSM-Karte mit Tap-zum-Setzen + Suchfeld
+        // oben (Nominatim). Map-Picker ist deutlich besser fuer Adressen
+        // ohne Hausnummer/Ferienwohnungen.
         pendingPlaceField = targetField;
         pendingPlaceCoords = coordsOut;
-        showManualAddressDialog();
+        Intent i = new Intent(this, MapPickerActivity.class);
+        // Vorbefuellung: vorhandener Text als Such-Initial-Query mitgeben
+        if (targetField != null) {
+            String pre = targetField.getText() != null ? targetField.getText().toString() : "";
+            pre = pre.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "")
+                .replaceFirst("^🔶\\s*", "").trim();
+            if (!pre.isEmpty() && !pre.endsWith("wählen…") && !pre.equals("(optional)")) {
+                i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+            }
+        }
+        mapPickerLauncher.launch(i);
     }
 
     @Override

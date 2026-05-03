@@ -324,6 +324,12 @@ function createOrUpdateCalendarEvent(calendar, ride) {
     // zu "aja Strandhotel Ba…". Jetzt: ersten Adressteil (vor Komma — meist Hotel/POI-
     // Name) ungekuerzt + optional Pax-Name in Klammern. Volle Adresse steht weiter
     // in der Beschreibung. Titel ist immer noch lesbar, aber alles ist drin.
+    // v5.4: Pauschalpreis-Marker im Titel — Patrick (03.05.): "Wie wird das nachher
+    // uebernommen? Wird das als Pauschalpreis angezeigt im Kalender?"
+    var _isFlatPrice = ride.priceFixed === true || ride.fixedPrice === true ||
+        (ride.notes && /^pauschalpreis\b/i.test(String(ride.notes).trim())) ||
+        (ride.notes && /\bpauschalpreis\s+\d/i.test(String(ride.notes)));
+    var _flatPrefix = _isFlatPrice ? '🏷️ ' : '';
     if (ride.waypoints && ride.waypoints.length > 0) {
       var wpNames = Array.isArray(ride.waypoints) ? ride.waypoints : [ride.waypoints];
       var wpShort = wpNames.map(function(w) {
@@ -333,9 +339,9 @@ function createOrUpdateCalendarEvent(calendar, ride) {
         if (paxName) shortPart += ' (' + paxName + ')';
         return shortPart || addr;
       });
-      titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → 🔶${wpShort.join(' → 🔶')} → ${ride.destination || 'Unbekannt'}`);
+      titleParts.push(`${_flatPrefix}🚕 ${ride.pickup || 'Unbekannt'} → 🔶${wpShort.join(' → 🔶')} → ${ride.destination || 'Unbekannt'}`);
     } else {
-      titleParts.push(`🚕 ${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}`);
+      titleParts.push(`${_flatPrefix}🚕 ${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}`);
     }
 
     if (EXPORT_SETTINGS.showPassengers) {
@@ -503,7 +509,18 @@ function createEventDescription(ride) {
   lines.push('');
 
   if (EXPORT_SETTINGS.showPrice && ride.price) {
-    lines.push('💰 Preis: ' + ride.price + '€');
+    // 🆕 v5.4: Pauschalpreis-Marker. Erkennung via:
+    //  a) ride.priceFixed === true (Buchung hat Festpreis-Flag, ab v6.62.21x)
+    //  b) ride.notes startet mit 'Pauschalpreis' (Anfrage-Pfad aus anfrage.html)
+    //  c) ride.notes enthaelt 'Pauschalpreis ' und Eurobetrag
+    var _isFlat = ride.priceFixed === true || ride.fixedPrice === true ||
+        (ride.notes && /^pauschalpreis\b/i.test(String(ride.notes).trim())) ||
+        (ride.notes && /\bpauschalpreis\s+\d/i.test(String(ride.notes)));
+    if (_isFlat) {
+      lines.push('🏷️ <b>Pauschalpreis: ' + ride.price + '€</b> (Festpreis, nicht KM-basiert)');
+    } else {
+      lines.push('💰 Preis: ' + ride.price + '€');
+    }
   }
   if (EXPORT_SETTINGS.showDistance && ride.distance) {
     lines.push('📏 Distanz: ' + ride.distance + ' km');

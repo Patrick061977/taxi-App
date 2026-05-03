@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
@@ -81,6 +83,30 @@ public final class UpdateChecker {
             if (dlUrl == null) return;
             final String fLatest = latestTag;
             final String fUrl = dlUrl;
+
+            // v6.62.201: Falls eine APK aus früherem Download bereits liegt UND neuer als installiert ist
+            // → direkt 'Installieren'-Banner statt erneut laden. Schutz für den Fall, dass die Activity
+            // während des Downloads zerstört wurde und der BroadcastReceiver den Banner-Wechsel verpasst hat.
+            File pendingApk = new File(activity.getExternalFilesDir(null), "taxi-app-update.apk");
+            if (pendingApk.exists() && pendingApk.length() > 0) {
+                String apkVer = readApkVersion(activity, pendingApk);
+                if (apkVer != null && compareVersions(apkVer, currentVer) > 0) {
+                    final String fApkVer = apkVer;
+                    final File fApk = pendingApk;
+                    activity.runOnUiThread(() -> {
+                        bannerText.setText("✓ v" + fApkVer + " bereit");
+                        bannerBtn.setText("Installieren");
+                        bannerBtn.setEnabled(true);
+                        bannerBtn.setOnClickListener(_v -> launchInstallIntent(activity, fApk));
+                        banner.setVisibility(View.VISIBLE);
+                    });
+                    return;
+                } else {
+                    // Liegende APK ist veraltet → wegwerfen damit startDownload neu lädt
+                    try { pendingApk.delete(); } catch (Throwable _e) {}
+                }
+            }
+
             activity.runOnUiThread(() -> {
                 // v6.53.1: 2-Schritt-UX — Patrick: 'Lade und Installieren in einem Button verwirrt.
                 // Normalerweise lädt man erst herunter, dann installiert man'.
@@ -94,6 +120,17 @@ public final class UpdateChecker {
             });
         } catch (Throwable t) {
             Log.w(TAG, "Update-Check fehlgeschlagen: " + t.getMessage());
+        }
+    }
+
+    // v6.62.201: Liest versionName aus einer APK-Datei via PackageManager — ohne sie zu installieren.
+    private static String readApkVersion(Activity activity, File apk) {
+        try {
+            PackageManager pm = activity.getPackageManager();
+            PackageInfo info = pm.getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+            return info != null ? info.versionName : null;
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -170,8 +207,12 @@ public final class UpdateChecker {
                 }
             };
             IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            // v6.62.201: RECEIVER_EXPORTED — DownloadManager.ACTION_DOWNLOAD_COMPLETE wird vom
+            // System-Prozess (system_server, UID 1000) gesendet, nicht von uns selbst. Mit
+            // RECEIVER_NOT_EXPORTED wird der Broadcast auf Android 13+ stillschweigend verworfen
+            // → Banner blieb auf 'Lädt…' obwohl die APK längst lag. Genau Patricks Symptom auf S20 FE.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                activity.registerReceiver(onComplete, filter, Context.RECEIVER_NOT_EXPORTED);
+                activity.registerReceiver(onComplete, filter, Context.RECEIVER_EXPORTED);
             } else {
                 activity.registerReceiver(onComplete, filter);
             }

@@ -1942,11 +1942,28 @@
                 const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                 return Math.max(1, Math.round(distKm * 1.6 + 1)); // Strassenfaktor + 1 Min Anlauf
             };
+            // v6.62.205: Patrick: 'Ich habe den Block jetzt gesehen bei Buchen-HTML, dass er
+            // sofort umgesprungen ist auf besetzt'. Eine Vorbestellung um 8:50 die 51 Min vorher
+            // schon vom scheduledAutoAssign auf status=assigned gesetzt wurde, hat den Wagen
+            // faelschlich als besetzt markiert. Fix: nur on_way/picked_up/arrived sind
+            // PHYSIKALISCH besetzt. Reservierte Stati (assigned/accepted/sofort) blocken nur
+            // wenn Pickup nahe genug ist: 15 Min Buffer + drivingTimeToPickup (default 15 Min).
+            const _PHYSICALLY_BUSY = ['on_way', 'picked_up', 'arrived'];
             Object.values(_activeRidesCache || {}).forEach(r => {
                 if (!r) return;
                 if (!_activeStatuses.includes(r.status)) return;
                 const _vid = r.vehicleId || r.assignedVehicle;
                 if (!_vid) return;
+                if (!_PHYSICALLY_BUSY.includes(r.status)) {
+                    // Reservierter Status — nur blocken wenn Pickup nahe ist
+                    if (r.pickupTimestamp) {
+                        const _anfahrt = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0) ? r.drivingTimeToPickup : 15;
+                        const _blockHorizonMs = (15 + _anfahrt) * 60000;
+                        if ((r.pickupTimestamp - Date.now()) > _blockHorizonMs) {
+                            return; // Vorbestellung zu weit in Zukunft → Wagen weiter als frei betrachten
+                        }
+                    }
+                }
                 _busyVids.add(_vid);
                 const _ANFAHRT_BUFFER = 5; // Min fuer Anfahrt zum naechsten Kunden
                 const _vehLive = (_gpsOnlineVehicles || {})[_vid];

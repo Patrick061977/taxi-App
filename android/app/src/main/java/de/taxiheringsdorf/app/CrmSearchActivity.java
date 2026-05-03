@@ -143,14 +143,36 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
     );
 
+    // v6.62.220: ActivityResultLauncher fuer den OSM-Map-Picker.
+    private final androidx.activity.result.ActivityResultLauncher<Intent> mapPickerLauncher =
+        registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                Intent d = result.getData();
+                String addr = d.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                double lat = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
+                double lon = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                if (pendingPlaceField != null && addr != null) pendingPlaceField.setText(addr);
+                if (pendingPlaceCoords != null && !Double.isNaN(lat) && !Double.isNaN(lon)) {
+                    pendingPlaceCoords[0] = lat;
+                    pendingPlaceCoords[1] = lon;
+                }
+            });
+
     private void launchPlaces(TextView field, double[] coordsOut) {
-        // v6.62.219: Patrick (03.05. 17:36) — Google blockt Places-SDK mit 9011
-        // trotz korrekter Cloud-Console-Settings. Direkt zum manuellen Adress-
-        // Dialog mit Nominatim. Nominatim hat in Heringsdorf-Region oft mehr
-        // Detail (Ferienwohnungen, Hausnummern) als Google Places.
+        // v6.62.220: OSM-Map-Picker statt Places-SDK (9011) oder Manual-Dialog.
+        // Patrick: "Stecknadel-Picker einbauen". Tap auf Karte → Reverse-Geocode.
         pendingPlaceField = field;
         pendingPlaceCoords = coordsOut;
-        showManualAddressDialog();
+        Intent i = new Intent(this, MapPickerActivity.class);
+        if (field != null) {
+            String pre = field.getText() != null ? field.getText().toString() : "";
+            pre = pre.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            if (!pre.isEmpty() && !pre.endsWith("wählen…")) {
+                i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+            }
+        }
+        mapPickerLauncher.launch(i);
     }
 
     // v6.62.219: Manual-Adress-Dialog mit Nominatim-Geocode, parallel zu

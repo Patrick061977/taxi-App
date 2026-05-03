@@ -95,8 +95,13 @@ public class OnboardingHealthcheckActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // User kommt aus Settings/Dialog zurueck → re-check
-        if (!autofixInProgress) recheckAll();
+        // v6.62.204: User kommt aus Settings/Dialog zurueck → IMMER re-check.
+        // Vorher: 'if (!autofixInProgress) recheckAll()' — aber bei Settings-Intent (statt
+        // requestPermissions) wurde autofixInProgress NIE zurueckgesetzt, weil
+        // onRequestPermissionsResult nicht getriggert wird. Folge: nach 'Immer zulassen'
+        // im App-Settings blieb der Healthcheck stehen mit ❌ obwohl Permission granted ist.
+        autofixInProgress = false;
+        recheckAll();
     }
 
     private void buildCheckList() {

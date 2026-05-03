@@ -20165,25 +20165,31 @@ exports.onVehicleOnline = onValueUpdated(
         console.log(`🚕 v6.40.34: Fahrzeug ${vehicleId} ist online gegangen — prüfe unzugewiesene Sofort-Fahrten`);
 
         try {
-            // Unzugewiesene Fahrten laden: status=new + kein Fahrzeug
-            const newSnap = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
-            if (!newSnap.exists()) {
-                console.log('   ✓ Keine offenen Sofortfahrten');
-                return;
-            }
-
+            // Unzugewiesene Fahrten laden: status=new ODER warteschlange + kein Fahrzeug
+            // v6.62.231: Patrick (03.05. 22:37): "Was wuerde das System machen wenn eine Fahrt
+            // in der Warteschlange ist und ein neuer Fahrer online geht?". Vorher: nur 'new'
+            // wurde gepickt — 'warteschlange' (= alle Fahrer waren bei Erstellung besetzt)
+            // blieb haengen bis scheduledAutoAssign 10 Min spaeter den naechsten Tick machte.
+            const [newSnap, warteSnap] = await Promise.all([
+                db.ref('rides').orderByChild('status').equalTo('new').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('warteschlange').once('value')
+            ]);
             const openRides = [];
-            newSnap.forEach(c => {
-                const r = c.val();
-                if (r.vehicleId || r.assignedVehicle || r.driverId) return;
-                // Nur Sofort-Fahrten (pickup <=60min oder kein pickupTimestamp)
-                const msUntil = r.pickupTimestamp ? (r.pickupTimestamp - Date.now()) : 0;
-                if (r.pickupTimestamp && msUntil > 60 * 60000) return;
-                openRides.push({ id: c.key, ride: r });
-            });
-
+            const _collect = (snap) => {
+                if (!snap.exists()) return;
+                snap.forEach(c => {
+                    const r = c.val();
+                    if (r.vehicleId || r.assignedVehicle || r.driverId) return;
+                    // Nur Sofort-Fahrten (pickup <=60min oder kein pickupTimestamp)
+                    const msUntil = r.pickupTimestamp ? (r.pickupTimestamp - Date.now()) : 0;
+                    if (r.pickupTimestamp && msUntil > 60 * 60000) return;
+                    openRides.push({ id: c.key, ride: r });
+                });
+            };
+            _collect(newSnap);
+            _collect(warteSnap);
             if (openRides.length === 0) {
-                console.log('   ✓ Keine offenen Sofortfahrten');
+                console.log('   ✓ Keine offenen Sofortfahrten / warteschlange-Fahrten');
                 return;
             }
 

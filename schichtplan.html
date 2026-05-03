@@ -5,15 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schichtplan — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.203: Schichtplan + ECOVIS-Lohnexport — Phase 2 (Wochenplan-UI).
-        Patrick (02.05.2026): "Phase 2: Wochenplan-UI (Mo-So Raster pro Mitarbeiter)".
+        v6.62.211: Schichtplan + ECOVIS-Lohnexport — Phase 3 (Ist-Erfassung).
+        Patrick (03.05.2026): autonom umgesetzt waehrend er live testet.
 
-        Wochenraster mit einem Click-Handler pro Zelle:
-        Modal → Schichttyp (Frei/Tag/Spät/Nacht/Rufbereitschaft/Urlaub/Krank) + Zeiten.
+        Phase 1 ✓ Mitarbeiter-Stammdaten (mitarbeiter.html)
+        Phase 2 ✓ Wochenplan-UI (Mo-So Raster pro Mitarbeiter)
+        Phase 3 ✓ Auto-Erfassung Ist-Zeiten aus /shiftHistory pro Mitarbeiter
+                  + Soll vs Ist Ampel + ungeplante Schicht-Markierung
+        Phase 4 → Detail-Ansicht pro Tag (Pause, Fahrten, Umsatz)
+        Phase 5 → ECOVIS-xlsx-Export
 
-        Datenmodell: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx 0=Mo..6=So} = {
-          type, start, end, hours, note, updatedAt, updatedBy
-        }
+        Datenmodelle:
+        - Plan: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx 0=Mo..6=So} = { type, start, end, hours, note }
+        - Ist:  /shiftHistory/{vehicleId}/{shiftId=startTime} = { driverId, driverEmail, startTime, endTime, workMs, stats }
+
+        Mapping Driver→Staff: staff.linkedDriverId === shiftHistory.driverId,
+        oder staff.email === shiftHistory.driverEmail (Fallback).
     -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -339,6 +346,7 @@
         let currentWeekKey = null;       // YYYY-WW
         let currentWeekStart = null;     // Date (Mo)
         let currentShifts = {};          // {staffId: {0..6: {type, ...}}}
+        let currentIstHours = {};        // v6.62.211: {staffId: {0..6: hoursDecimal}} aus /shiftHistory
         let editing = null;              // {staffId, dayIdx}
         let selectedType = null;
 
@@ -414,6 +422,8 @@
             // ISO-Week zum input umformen (YYYY-Www)
             document.getElementById('week-picker').value = currentWeekKey.replace('-', '-W');
             attachShiftsListener();
+            // v6.62.211: Ist-Stunden aus /shiftHistory laden (snapshot, einmalig).
+            loadIstHoursForWeek().then(() => renderGrid());
         }
 
         document.getElementById('week-picker').addEventListener('change', (e) => {
@@ -449,6 +459,52 @@
             });
         }
 
+        // v6.62.211 — Block A Phase 3: Ist-Stunden aus /shiftHistory aggregieren.
+        // Datenstruktur: /shiftHistory/{vehicleId}/{shiftId} = {
+        //   driverId, driverEmail, startTime, endTime, workMs, ...
+        // }
+        // Wir laden ALLE shiftHistory-Eintraege der aktuellen Woche (snapshot, nicht
+        // live — keine Listener-Lawine bei jeder Schicht-Aktualisierung) und aggregieren
+        // workMs pro staff.linkedDriverId pro Wochentag (basierend auf startTime).
+        async function loadIstHoursForWeek() {
+            currentIstHours = {};
+            try {
+                const weekStartTs = currentWeekStart.getTime();
+                const weekEndTs = addDays(currentWeekStart, 7).getTime();
+                const snap = await db.ref('shiftHistory').once('value');
+                const data = snap.val() || {};
+                // Mapping driverId/Email -> staffId via linkedDriverId und/oder Email
+                const driverIdToStaff = {};
+                const emailToStaff = {};
+                for (const s of allStaff) {
+                    if (s.linkedDriverId) driverIdToStaff[s.linkedDriverId] = s.id;
+                    if (s.driverEmail) emailToStaff[String(s.driverEmail).toLowerCase()] = s.id;
+                    if (s.email) emailToStaff[String(s.email).toLowerCase()] = s.id;
+                }
+                for (const vehicleId of Object.keys(data)) {
+                    const vehicleShifts = data[vehicleId] || {};
+                    for (const shiftId of Object.keys(vehicleShifts)) {
+                        const sh = vehicleShifts[shiftId];
+                        if (!sh) continue;
+                        const startTs = sh.startTime || Number(shiftId);
+                        if (!startTs || startTs < weekStartTs || startTs >= weekEndTs) continue;
+                        const dayIdx = (new Date(startTs).getDay() + 6) % 7; // 0=Mo
+                        const workMs = sh.workMs || (sh.endTime ? (sh.endTime - startTs) : 0);
+                        if (workMs <= 0) continue;
+                        const staffId = driverIdToStaff[sh.driverId]
+                            || emailToStaff[String(sh.driverEmail || '').toLowerCase()]
+                            || null;
+                        if (!staffId) continue;
+                        if (!currentIstHours[staffId]) currentIstHours[staffId] = {};
+                        currentIstHours[staffId][dayIdx] = (currentIstHours[staffId][dayIdx] || 0)
+                            + (workMs / 3600000);
+                    }
+                }
+            } catch (e) {
+                console.warn('loadIstHoursForWeek Fehler:', e.message);
+            }
+        }
+
         function renderGrid() {
             const noStaff = document.getElementById('no-staff');
             const wrap = document.getElementById('grid-wrap');
@@ -479,6 +535,15 @@
                 if (s.weeklyHoursTarget) meta.push(s.weeklyHoursTarget + 'h Soll');
                 const hoursSum = sumHours(s.id);
                 meta.push(`<b>${formatHours(hoursSum)}</b> Plan`);
+                // v6.62.211: Ist-Wochensumme + Ampel gegen Soll/Plan
+                const istSum = sumIstHours(s.id);
+                if (istSum > 0) {
+                    const cmpAgainst = s.weeklyHoursTarget || hoursSum || 0;
+                    const diff = cmpAgainst > 0 ? istSum - cmpAgainst : 0;
+                    const color = !cmpAgainst ? '#6b7280'
+                        : (Math.abs(diff) < 1 ? '#10b981' : (diff > 0 ? '#f59e0b' : '#dc2626'));
+                    meta.push(`<span style="color:${color};"><b>${formatHours(istSum)}</b> Ist</span>`);
+                }
                 html += `<div class="grid-cell staff-cell">
                     <div>${escHtml(([s.firstName, s.lastName].filter(Boolean).join(' ')) || '—')}</div>
                     <div class="meta">${meta.join(' · ')}</div>
@@ -486,16 +551,28 @@
                 for (let i = 0; i < 7; i++) {
                     const isWeekend = i >= 5;
                     const shift = (currentShifts[s.id] || {})[i];
-                    html += renderCell(s.id, i, shift, isWeekend);
+                    const istH = (currentIstHours[s.id] || {})[i] || 0;
+                    html += renderCell(s.id, i, shift, isWeekend, istH);
                 }
             }
 
             grid.innerHTML = html;
         }
 
-        function renderCell(staffId, dayIdx, shift, isWeekend) {
+        function renderCell(staffId, dayIdx, shift, isWeekend, istHours) {
             const cls = 'grid-cell shift-cell' + (isWeekend ? ' is-weekend' : '');
+            // v6.62.211: Ist-Anzeige unter dem Plan-Eintrag (oder allein wenn kein Plan).
+            const istLine = (istHours && istHours > 0)
+                ? `<div class="shift-hours" style="color:#0369a1;" title="Tatsaechliche Schicht (Ist) aus shiftHistory">📊 ${formatHours(istHours)}h Ist</div>`
+                : '';
             if (!shift || shift.type === 'free') {
+                if (istHours && istHours > 0) {
+                    // Kein Plan, aber Fahrer hat gearbeitet — Hinweis anzeigen.
+                    return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})" style="background:#fef9c3;">
+                        <span class="shift-badge" style="background:#fde68a;color:#92400e;">⚠ ungeplant</span>
+                        ${istLine}
+                    </div>`;
+                }
                 return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})">
                     <span style="color:#cbd5e1;font-size:11px;">—</span>
                 </div>`;
@@ -506,7 +583,8 @@
             return `<div class="${cls}" onclick="openCell('${staffId}',${dayIdx})">
                 <span class="shift-badge type-${shift.type}">${t.short}</span>
                 ${time ? `<div class="shift-time">${time}</div>` : ''}
-                ${hrs ? `<div class="shift-hours">${hrs}</div>` : ''}
+                ${hrs ? `<div class="shift-hours">${hrs} Plan</div>` : ''}
+                ${istLine}
                 ${shift.note ? `<div class="shift-time" style="font-style:italic;">${escHtml(shift.note)}</div>` : ''}
             </div>`;
         }
@@ -518,6 +596,13 @@
                 const s = days[i];
                 if (s && s.hours) sum += s.hours;
             }
+            return sum;
+        }
+        // v6.62.211: Ist-Wochensumme aus loadIstHoursForWeek().
+        function sumIstHours(staffId) {
+            const days = currentIstHours[staffId] || {};
+            let sum = 0;
+            for (let i = 0; i < 7; i++) sum += (days[i] || 0);
             return sum;
         }
         function formatHours(h) { return Number(h || 0).toFixed(2).replace(/\.00$/, '').replace('.', ','); }

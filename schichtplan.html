@@ -959,7 +959,10 @@
                 const meta = [];
                 if (s.weeklyHoursTarget) meta.push(s.weeklyHoursTarget + 'h Soll');
                 const hoursSum = sumHours(s.id);
-                meta.push(`<b>${formatHours(hoursSum)}</b> Plan`);
+                meta.push(`<b>${formatHours(hoursSum)}</b> Voll`);
+                // v6.62.243: Rufber-Summe pro Woche
+                const standbySum = sumStandbyHours(s.id);
+                if (standbySum > 0) meta.push(`<span style="color:#7c3aed;"><b>${formatHours(standbySum)}</b> Ruf</span>`);
                 // v6.62.211: Ist-Wochensumme + Ampel gegen Soll/Plan
                 const istSum = sumIstHours(s.id);
                 if (istSum > 0) {
@@ -1010,10 +1013,16 @@
             const t = TYPES.find((x) => x.id === shift.type) || TYPES[0];
             const time = (shift.start && shift.end) ? `${shift.start}–${shift.end}` : '';
             const hrs = shift.hours != null ? `${formatHours(shift.hours)}h` : '';
+            // v6.62.243: Rufbereitschaft (Pre+Post) zusaetzlich anzeigen
+            const standbyTotal = (shift.preStandbyHours || 0) + (shift.postStandbyHours || 0);
+            const standbyLine = standbyTotal > 0
+                ? `<div class="shift-hours" style="color:#7c3aed;" title="Rufbereitschaft Pre+Post">📞 ${formatHours(standbyTotal)}h Ruf</div>`
+                : '';
             return `<div class="${cls}" onclick="${handler}">
                 <span class="shift-badge type-${shift.type}">${t.short}</span>
                 ${time ? `<div class="shift-time">${time}</div>` : ''}
-                ${hrs ? `<div class="shift-hours">${hrs} Plan</div>` : ''}
+                ${hrs ? `<div class="shift-hours">${hrs} Voll</div>` : ''}
+                ${standbyLine}
                 ${istLine}
                 ${shift.note ? `<div class="shift-time" style="font-style:italic;">${escHtml(shift.note)}</div>` : ''}
             </div>`;
@@ -1025,6 +1034,16 @@
             for (let i = 0; i < 7; i++) {
                 const s = days[i];
                 if (s && s.hours) sum += s.hours;
+            }
+            return sum;
+        }
+        // v6.62.243: Rufbereitschafts-Wochensumme (Pre+Post)
+        function sumStandbyHours(staffId) {
+            const days = currentShifts[staffId] || {};
+            let sum = 0;
+            for (let i = 0; i < 7; i++) {
+                const s = days[i];
+                if (s) sum += (s.preStandbyHours || 0) + (s.postStandbyHours || 0);
             }
             return sum;
         }
@@ -2284,7 +2303,7 @@ ${rows.join('\n')}
             for (const s of allStaff) {
                 const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ') || '—';
                 html += `<tr><td class="staff-col" title="${escHtml(fullName)}">${escHtml(fullName)}</td>`;
-                let hoursSum = 0;
+                let hoursSum = 0, standbySum = 0;
                 for (let d = 1; d <= daysInMonth; d++) {
                     const date = new Date(year, month, d);
                     const dow = date.getDay();
@@ -2298,9 +2317,18 @@ ${rows.join('\n')}
                     else if (isWE) cls.push('weekend');
                     if (isToday) cls.push('today');
                     if (sh && sh.hours) hoursSum += sh.hours;
-                    html += `<td class="${cls.join(' ')}" onclick="openCellByDate('${s.id}','${dateKey}')" title="${dateKey}${sh ? ' · ' + (sh.start || '') + '-' + (sh.end || '') + ' (' + (sh.hours || 0) + 'h)' : ''}">${monthBadge(sh)}</td>`;
+                    // v6.62.243: Rufber-Summe + im Tooltip + visueller Marker
+                    const standby = sh ? ((sh.preStandbyHours || 0) + (sh.postStandbyHours || 0)) : 0;
+                    if (standby > 0) standbySum += standby;
+                    const tooltip = dateKey + (sh ? (' · ' + (sh.start || '') + '-' + (sh.end || '') +
+                        ' (' + (sh.hours || 0) + 'h Voll' + (standby > 0 ? ' + ' + standby + 'h Ruf' : '') + ')') : '');
+                    const standbyMark = standby > 0 ? '<span style="position:absolute;bottom:1px;right:2px;font-size:8px;color:#7c3aed;line-height:1;">📞</span>' : '';
+                    html += `<td class="${cls.join(' ')}" style="position:relative;" onclick="openCellByDate('${s.id}','${dateKey}')" title="${escHtml(tooltip)}">${monthBadge(sh)}${standbyMark}</td>`;
                 }
-                html += `<td class="summary-col">${formatHours(hoursSum)}</td>`;
+                const sumText = standbySum > 0
+                    ? `${formatHours(hoursSum)}<br><span style="color:#7c3aed;font-size:10px;">+${formatHours(standbySum)}R</span>`
+                    : formatHours(hoursSum);
+                html += `<td class="summary-col">${sumText}</td>`;
                 html += '</tr>';
             }
             html += '</tbody>';

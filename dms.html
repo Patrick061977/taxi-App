@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dokumente — Funk Taxi Heringsdorf</title>
+    <!--
+        v6.62.235: Document Management System (DMS).
+        Patrick (04.05.2026): "Foto/PDF scannen, KI klassifiziert + sortiert in
+        Ordnerstruktur — TUEV-Berichte, Rechnungen, Lohnzettel etc. — alles
+        suchbar". Quelle: Idee aus project_dms-dokumenten-scanner.md.
+
+        Phase 1 (jetzt): Upload + KI-Analyse via analyzeDocument Cloud Function,
+        Storage in Firebase, Index in /docs/{id}, Such-UI mit Filter.
+        Phase 2 (spaeter): OneDrive-Integration via Microsoft Graph API.
+
+        Datenmodell /docs/{docId}:
+        {
+            kategorie, subKategorie, dokumenttyp, lieferant, datum, betrag, waehrung,
+            vehicleRefId, staffRefId, stichworte[], kurzbeschreibung, volltext,
+            storageUrl, storagePath, originalFilename, mediaType, sizeBytes,
+            confidence, uploadedBy, uploadedAt
+        }
+    -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; color: #1f2937; min-height: 100vh; }
+        .header {
+            background: linear-gradient(135deg, #7c2d12 0%, #ea580c 100%);
+            color: white; padding: 18px 16px;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 12px rgba(124, 45, 18, 0.3);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header-back { background: rgba(255,255,255,0.2); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+
+        .tab-bar { display: flex; gap: 6px; flex-wrap: wrap; background: white; border-radius: 12px; padding: 6px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1 1 auto; min-width: 130px; padding: 11px 14px; border: none; border-radius: 8px; background: transparent; color: #6b7280; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .tab-btn:hover { background: #f3f4f6; }
+        .tab-btn.active { background: #ea580c; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: #e5e7eb; color: #374151; }
+        .btn:hover { background: #d1d5db; }
+        .btn-primary { background: #ea580c; color: white; }
+        .btn-primary:hover { background: #c2410c; }
+        .btn-success { background: #059669; color: white; }
+        .btn-ghost { background: transparent; color: #6b7280; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Upload-Tab */
+        .upload-zone {
+            border: 3px dashed #fed7aa; border-radius: 12px;
+            padding: 40px 20px; text-align: center; cursor: pointer;
+            background: #fffbeb;
+            transition: all 0.2s;
+        }
+        .upload-zone:hover, .upload-zone.dragover { border-color: #ea580c; background: #fff7ed; }
+        .upload-zone .icon { font-size: 48px; margin-bottom: 8px; }
+        .upload-zone .label { font-size: 15px; font-weight: 600; color: #9a3412; }
+        .upload-zone .sub { font-size: 12px; color: #c2410c; margin-top: 4px; }
+
+        .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+        @media (max-width: 760px) { .preview-grid { grid-template-columns: 1fr; } }
+        .preview-img { background: #f9fafb; border-radius: 8px; padding: 8px; max-height: 400px; overflow: auto; }
+        .preview-img img { max-width: 100%; height: auto; border-radius: 4px; }
+        .preview-img .pdf-icon { font-size: 64px; text-align: center; padding: 40px; color: #6b7280; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-label { font-size: 12px; font-weight: 600; color: #374151; display: block; margin-bottom: 4px; }
+        .form-input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; }
+        .form-input:focus, .form-select:focus { border-color: #ea580c; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+        .kat-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+        .kat-A { background: #dbeafe; color: #1e3a8a; }
+        .kat-B { background: #ede9fe; color: #4c1d95; }
+        .kat-C { background: #d1fae5; color: #065f46; }
+        .kat-D { background: #fee2e2; color: #991b1b; }
+        .kat-E { background: #fef3c7; color: #78350f; }
+        .kat-F { background: #fce7f3; color: #831843; }
+        .kat-G { background: #cffafe; color: #155e75; }
+        .kat-H { background: #f3f4f6; color: #6b7280; }
+
+        .doc-list { display: flex; flex-direction: column; gap: 10px; }
+        .doc-row { background: white; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; cursor: pointer; transition: background 0.1s; }
+        .doc-row:hover { background: #f9fafb; }
+        .doc-icon { font-size: 28px; }
+        .doc-meta { min-width: 0; }
+        .doc-meta .title { font-size: 14px; font-weight: 700; color: #111827; }
+        .doc-meta .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .doc-meta .extras { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+        .doc-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 10px; background: #1f2937; color: white; font-size: 14px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+
+        #not-admin, #not-logged-in { display: none; text-align: center; padding: 60px 20px; background: white; border-radius: 12px; margin-top: 40px; }
+        #not-admin .icon, #not-logged-in .icon { font-size: 48px; margin-bottom: 12px; }
+
+        .filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+        .filter-row .form-input, .filter-row .form-select { width: auto; min-width: 140px; flex: 1; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .stat { background: white; border-radius: 10px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .stat-label { font-size: 11px; color: #6b7280; }
+        .stat-value { font-size: 18px; font-weight: 700; color: #111827; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="header-back">← Admin</a>
+        <h1>📁 Dokumente (DMS)</h1>
+        <span style="font-size:11px;opacity:0.7;">v6.62.235</span>
+    </div>
+
+    <div class="container">
+        <div id="loading" style="text-align:center;padding:40px;color:#6b7280;">Prüfe Login…</div>
+        <div id="not-logged-in"><div class="icon">🔒</div><h2>Nicht eingeloggt</h2><p style="font-size:14px;color:#6b7280;margin-bottom:20px;">Bitte erst in der Admin-App einloggen.</p><a href="index.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Zur Admin-App</a></div>
+        <div id="not-admin"><div class="icon">🚫</div><h2>Kein Zugriff</h2><p style="font-size:14px;color:#6b7280;">DMS ist nur für Admins.</p></div>
+
+        <div id="main-content" style="display:none;">
+            <div class="tab-bar">
+                <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📤 Scannen / Hochladen</button>
+                <button class="tab-btn" data-tab="library" onclick="switchTab('library')">📚 Bibliothek</button>
+                <button class="tab-btn" data-tab="search" onclick="switchTab('search')">🔍 Volltext-Suche</button>
+            </div>
+
+            <!-- TAB: UPLOAD -->
+            <div id="tab-upload" class="tab-content active">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">📷 Dokument scannen</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">PDF oder Foto auswählen — KI klassifiziert automatisch (Kategorie, Lieferant, Datum, Betrag).</p>
+                    <input type="file" id="file-input" accept="image/*,application/pdf" style="display:none;" onchange="onFileSelected(event)">
+                    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+                        <div class="icon">📄</div>
+                        <div class="label">Klicken oder Datei hierhin ziehen</div>
+                        <div class="sub">PDF, JPG, PNG · max 10 MB</div>
+                    </div>
+                </div>
+
+                <div id="analysis-card" class="card" style="display:none;">
+                    <div class="preview-grid">
+                        <div>
+                            <h3 style="font-size:14px;margin-bottom:8px;">Vorschau</h3>
+                            <div id="preview-area" class="preview-img"></div>
+                            <div id="file-info" style="font-size:12px;color:#6b7280;margin-top:6px;"></div>
+                        </div>
+                        <div>
+                            <h3 style="font-size:14px;margin-bottom:8px;">🤖 KI-Analyse</h3>
+                            <div id="ki-status" style="padding:14px;background:#fffbeb;border-radius:8px;font-size:13px;color:#92400e;">Drücke „Analysieren" um KI zu starten.</div>
+                            <div id="ki-result" style="display:none;">
+                                <div class="form-group">
+                                    <label class="form-label">Kategorie</label>
+                                    <select id="f-kategorie" class="form-select">
+                                        <option value="A">A · Fahrzeuge (TÜV/Versich./Werkstatt)</option>
+                                        <option value="B">B · Mitarbeiter (Vertrag/Krank)</option>
+                                        <option value="C">C · Buchhaltung (Rechnungen/Bank)</option>
+                                        <option value="D">D · Behörden (Finanzamt/KK)</option>
+                                        <option value="E">E · Verträge</option>
+                                        <option value="F">F · Steuerberater (ECOVIS)</option>
+                                        <option value="G">G · Versicherungen</option>
+                                        <option value="H">H · Sonstiges</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label class="form-label">Sub-Kategorie</label><input id="f-sub" class="form-input" placeholder="z.B. tuev, lohnabrechnung"></div>
+                                    <div class="form-group"><label class="form-label">Dokumenttyp</label><input id="f-typ" class="form-input" placeholder="z.B. Rechnung"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label class="form-label">Lieferant / Absender</label><input id="f-lieferant" class="form-input"></div>
+                                    <div class="form-group"><label class="form-label">Datum</label><input id="f-datum" type="date" class="form-input"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label class="form-label">Betrag (€)</label><input id="f-betrag" type="number" step="0.01" class="form-input"></div>
+                                    <div class="form-group"><label class="form-label">→ Fahrzeug verknüpfen</label><select id="f-vehicle" class="form-select"><option value="">— keins —</option></select></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label class="form-label">→ Mitarbeiter verknüpfen</label><select id="f-staff" class="form-select"><option value="">— keiner —</option></select></div>
+                                    <div class="form-group"><label class="form-label">Stichworte (Komma)</label><input id="f-tags" class="form-input"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Kurzbeschreibung</label>
+                                    <input id="f-beschreibung" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+                        <button class="btn" onclick="resetUpload()">Abbrechen</button>
+                        <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()">🤖 Analysieren</button>
+                        <button class="btn btn-success" id="save-btn" onclick="saveDocument()" style="display:none;">💾 Speichern</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: BIBLIOTHEK -->
+            <div id="tab-library" class="tab-content">
+                <div class="card">
+                    <div class="filter-row">
+                        <select id="lib-kat" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle Kategorien</option>
+                            <option value="A">A · Fahrzeuge</option>
+                            <option value="B">B · Mitarbeiter</option>
+                            <option value="C">C · Buchhaltung</option>
+                            <option value="D">D · Behörden</option>
+                            <option value="E">E · Verträge</option>
+                            <option value="F">F · Steuerberater</option>
+                            <option value="G">G · Versicherungen</option>
+                            <option value="H">H · Sonstiges</option>
+                        </select>
+                        <select id="lib-jahr" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle Jahre</option>
+                        </select>
+                        <input id="lib-filter" class="form-input" placeholder="Lieferant, Stichwort…" oninput="renderLibrary()">
+                    </div>
+                    <div id="lib-stats" class="stat-grid"></div>
+                </div>
+                <div id="library" class="doc-list"></div>
+            </div>
+
+            <!-- TAB: SUCHE -->
+            <div id="tab-search" class="tab-content">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">🔍 Volltext-Suche</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">Sucht im erkannten Text aller Dokumente — z.B. „TÜV LK111", „AOK Beitragsnachweis", Fahrer-Name…</p>
+                    <input id="search-input" class="form-input" placeholder="Suchbegriff eingeben…" oninput="runSearch()">
+                </div>
+                <div id="search-results" class="doc-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+    <script>
+        firebase.initializeApp({
+            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+            messagingSenderId: "889033864088",
+            appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+        });
+        const db = firebase.database();
+        const auth = firebase.auth();
+        const storage = firebase.storage();
+
+        const ADMIN_EMAILS = ['patrick061977@gmail.com', 'admin@taxi-heringsdorf.de', 'taxiwydra@googlemail.com'];
+        const ADMIN_PHONES = ['+4915127585179'];
+        const ANALYZE_URL = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/analyzeDocument';
+
+        // State
+        let currentFile = null;
+        let currentBase64 = null;
+        let kiResult = null;
+        let allDocs = [];
+        let healthCheckKey = 'funk-taxi-heringsdorf-2026';
+
+        auth.onAuthStateChanged(async (user) => {
+            document.getElementById('loading').style.display = 'none';
+            if (!user) { document.getElementById('not-logged-in').style.display = 'block'; return; }
+            if (!(await isAdmin(user))) { document.getElementById('not-admin').style.display = 'block'; return; }
+            document.getElementById('main-content').style.display = 'block';
+            await Promise.all([loadVehiclesAndStaff(), loadDocs(), loadHealthKey()]);
+        });
+
+        async function isAdmin(user) {
+            try {
+                const snap = await db.ref('users/' + user.uid + '/role').once('value');
+                if (snap.exists() && String(snap.val()).toLowerCase() === 'admin') return true;
+            } catch (_) {}
+            if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) return true;
+            if (user.phoneNumber && ADMIN_PHONES.includes(user.phoneNumber)) return true;
+            return false;
+        }
+
+        async function loadHealthKey() {
+            try {
+                const snap = await db.ref('settings/healthCheckKey').once('value');
+                if (snap.exists()) healthCheckKey = snap.val();
+            } catch (_) {}
+        }
+
+        async function loadVehiclesAndStaff() {
+            const [vSnap, sSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('staff').once('value')
+            ]);
+            const veh = vSnap.val() || {};
+            const staff = sSnap.val() || {};
+            const vSel = document.getElementById('f-vehicle');
+            for (const [id, v] of Object.entries(veh)) {
+                const o = document.createElement('option');
+                o.value = id;
+                o.textContent = `${v.licensePlate || id}${v.name ? ' · ' + v.name : ''}`;
+                vSel.appendChild(o);
+            }
+            const sSel = document.getElementById('f-staff');
+            for (const [id, s] of Object.entries(staff)) {
+                const o = document.createElement('option');
+                o.value = id;
+                o.textContent = `${[s.firstName, s.lastName].filter(Boolean).join(' ')} (${id})`;
+                sSel.appendChild(o);
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+            if (tab === 'library') renderLibrary();
+        }
+
+        // ─── Upload ───
+        function onFileSelected(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            handleFile(file);
+        }
+
+        const dropZone = document.getElementById('upload-zone');
+        ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+        ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+        dropZone.addEventListener('drop', (e) => {
+            const f = e.dataTransfer?.files?.[0];
+            if (f) handleFile(f);
+        });
+
+        async function handleFile(file) {
+            if (file.size > 10 * 1024 * 1024) { showToast('Datei zu groß (max 10 MB)', true); return; }
+            currentFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                currentBase64 = dataUrl.split(',')[1];
+                const previewArea = document.getElementById('preview-area');
+                if (file.type.startsWith('image/')) {
+                    previewArea.innerHTML = `<img src="${dataUrl}" alt="Vorschau">`;
+                } else if (file.type === 'application/pdf') {
+                    previewArea.innerHTML = `<embed src="${dataUrl}" type="application/pdf" width="100%" height="380px">`;
+                } else {
+                    previewArea.innerHTML = `<div class="pdf-icon">📄<br><span style="font-size:12px;">Vorschau nicht möglich</span></div>`;
+                }
+                document.getElementById('file-info').textContent = `${file.name} · ${(file.size/1024).toFixed(0)} KB · ${file.type}`;
+                document.getElementById('analysis-card').style.display = 'block';
+                document.getElementById('ki-result').style.display = 'none';
+                document.getElementById('save-btn').style.display = 'none';
+                document.getElementById('analyze-btn').disabled = false;
+                document.getElementById('ki-status').textContent = 'Drücke „Analysieren" um KI zu starten.';
+                document.getElementById('ki-status').style.background = '#fffbeb';
+                document.getElementById('ki-status').style.color = '#92400e';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function runAnalysis() {
+            if (!currentBase64 || !currentFile) return;
+            const status = document.getElementById('ki-status');
+            const btn = document.getElementById('analyze-btn');
+            btn.disabled = true;
+            status.textContent = '⏳ KI analysiert Dokument…';
+            try {
+                const url = `${ANALYZE_URL}?key=${encodeURIComponent(healthCheckKey)}`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileBase64: currentBase64, mediaType: currentFile.type, filename: currentFile.name })
+                });
+                const data = await resp.json();
+                if (!data.ok) throw new Error(data.error || 'KI-Analyse fehlgeschlagen');
+                kiResult = data.parsed || {};
+                fillFormFromKi(kiResult);
+                status.style.background = '#d1fae5'; status.style.color = '#065f46';
+                status.textContent = `✅ Analyse fertig (Confidence: ${Math.round((kiResult.confidence || 0) * 100)}%) — prüfe + speichere.`;
+                document.getElementById('ki-result').style.display = 'block';
+                document.getElementById('save-btn').style.display = 'inline-block';
+                btn.disabled = false;
+            } catch (e) {
+                status.style.background = '#fee2e2'; status.style.color = '#991b1b';
+                status.textContent = '❌ ' + e.message;
+                btn.disabled = false;
+            }
+        }
+
+        function fillFormFromKi(p) {
+            document.getElementById('f-kategorie').value = (p.kategorie || 'H').toUpperCase();
+            document.getElementById('f-sub').value = p.subKategorie || '';
+            document.getElementById('f-typ').value = p.dokumenttyp || '';
+            document.getElementById('f-lieferant').value = p.lieferant || '';
+            document.getElementById('f-datum').value = p.datum || '';
+            document.getElementById('f-betrag').value = p.betrag || '';
+            document.getElementById('f-vehicle').value = p.vehicleRefId || '';
+            document.getElementById('f-staff').value = p.staffRefId || '';
+            document.getElementById('f-tags').value = (p.stichworte || []).join(', ');
+            document.getElementById('f-beschreibung').value = p.kurzbeschreibung || '';
+        }
+
+        async function saveDocument() {
+            if (!currentFile || !kiResult) return;
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.disabled = true;
+            const status = document.getElementById('ki-status');
+            try {
+                const kategorie = document.getElementById('f-kategorie').value;
+                const sub = document.getElementById('f-sub').value || 'allgemein';
+                const datum = document.getElementById('f-datum').value || new Date().toISOString().slice(0,10);
+                const lieferant = document.getElementById('f-lieferant').value || 'unknown';
+                const betrag = parseFloat(document.getElementById('f-betrag').value) || null;
+                const yyyy = datum.slice(0, 4);
+                const safeLief = lieferant.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+                const ext = currentFile.name.split('.').pop() || 'pdf';
+                const fileName = `${datum}_${safeLief}${betrag ? '_' + betrag.toFixed(2) + 'EUR' : ''}.${ext}`;
+                const storagePath = `docs/${kategorie}/${yyyy}/${Date.now()}_${fileName}`;
+
+                status.textContent = '⏳ Lade Datei in Storage…';
+                const ref = storage.ref(storagePath);
+                await ref.put(currentFile);
+                const url = await ref.getDownloadURL();
+
+                const docId = db.ref('docs').push().key;
+                const meta = {
+                    docId,
+                    kategorie,
+                    subKategorie: sub,
+                    dokumenttyp: document.getElementById('f-typ').value || null,
+                    lieferant,
+                    datum,
+                    betrag,
+                    waehrung: 'EUR',
+                    vehicleRefId: document.getElementById('f-vehicle').value || null,
+                    staffRefId: document.getElementById('f-staff').value || null,
+                    stichworte: document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+                    kurzbeschreibung: document.getElementById('f-beschreibung').value || null,
+                    volltext: kiResult.volltext || null,
+                    storageUrl: url,
+                    storagePath,
+                    originalFilename: currentFile.name,
+                    mediaType: currentFile.type,
+                    sizeBytes: currentFile.size,
+                    confidence: kiResult.confidence || null,
+                    uploadedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?',
+                    uploadedAt: Date.now()
+                };
+                await db.ref('docs/' + docId).set(meta);
+                status.textContent = '✅ Gespeichert. Du kannst jetzt das nächste Dokument scannen.';
+                showToast('Dokument gespeichert ✓');
+                resetUpload();
+                await loadDocs();
+            } catch (e) {
+                status.style.background = '#fee2e2'; status.style.color = '#991b1b';
+                status.textContent = '❌ Fehler beim Speichern: ' + e.message;
+                saveBtn.disabled = false;
+            }
+        }
+
+        function resetUpload() {
+            currentFile = null; currentBase64 = null; kiResult = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('analysis-card').style.display = 'none';
+        }
+
+        // ─── Bibliothek + Suche ───
+        async function loadDocs() {
+            const snap = await db.ref('docs').once('value');
+            const data = snap.val() || {};
+            allDocs = Object.entries(data).map(([id, d]) => ({ id, ...d }))
+                .sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0));
+            // Jahre auflisten
+            const years = new Set();
+            for (const d of allDocs) if (d.datum) years.add(d.datum.slice(0, 4));
+            const jSel = document.getElementById('lib-jahr');
+            jSel.innerHTML = '<option value="">Alle Jahre</option>' +
+                Array.from(years).sort().reverse().map(y => `<option value="${y}">${y}</option>`).join('');
+            renderLibrary();
+        }
+
+        function renderLibrary() {
+            const kat = document.getElementById('lib-kat').value;
+            const jahr = document.getElementById('lib-jahr').value;
+            const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
+            let docs = allDocs;
+            if (kat) docs = docs.filter(d => d.kategorie === kat);
+            if (jahr) docs = docs.filter(d => (d.datum || '').startsWith(jahr));
+            if (filter) {
+                docs = docs.filter(d => {
+                    const blob = [d.lieferant, d.subKategorie, d.dokumenttyp, d.kurzbeschreibung, (d.stichworte || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+                    return blob.includes(filter);
+                });
+            }
+            // Stats
+            const stats = document.getElementById('lib-stats');
+            const totalSize = docs.reduce((s, d) => s + (d.sizeBytes || 0), 0);
+            const totalBetrag = docs.reduce((s, d) => s + (d.betrag || 0), 0);
+            stats.innerHTML = `
+                <div class="stat"><div class="stat-label">Dokumente</div><div class="stat-value">${docs.length}</div></div>
+                <div class="stat"><div class="stat-label">Volumen</div><div class="stat-value">${(totalSize / 1024 / 1024).toFixed(1)} MB</div></div>
+                <div class="stat"><div class="stat-label">Σ Beträge</div><div class="stat-value">${totalBetrag.toFixed(2).replace('.', ',')} €</div></div>
+            `;
+            // Liste
+            const lib = document.getElementById('library');
+            if (docs.length === 0) { lib.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">Keine Dokumente passend zum Filter.</div>'; return; }
+            lib.innerHTML = docs.map(docRow).join('');
+        }
+
+        function docRow(d) {
+            const icons = { 'application/pdf': '📄', 'image/jpeg': '🖼', 'image/png': '🖼' };
+            const icon = icons[d.mediaType] || '📎';
+            const tags = (d.stichworte || []).slice(0, 3).map(t => `<span style="background:#f3f4f6;padding:1px 6px;border-radius:4px;font-size:10px;margin-right:3px;">${escHtml(t)}</span>`).join('');
+            const linkRefs = [];
+            if (d.vehicleRefId) linkRefs.push(`🚗 ${escHtml(d.vehicleRefId)}`);
+            if (d.staffRefId) linkRefs.push(`👤 ${escHtml(d.staffRefId)}`);
+            return `<div class="doc-row" onclick="openDoc('${d.id}')">
+                <div class="doc-icon">${icon}</div>
+                <div class="doc-meta">
+                    <div class="title"><span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')}</div>
+                    <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
+                    <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
+                </div>
+                <div class="doc-actions">
+                    <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Öffnen">👁</button>
+                    <button class="btn btn-ghost" onclick="event.stopPropagation();deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g, '')}')" title="Löschen" style="color:#dc2626;">🗑</button>
+                </div>
+            </div>`;
+        }
+
+        function openDoc(id) {
+            const d = allDocs.find(x => x.id === id);
+            if (d && d.storageUrl) window.open(d.storageUrl, '_blank');
+        }
+
+        async function deleteDoc(id, path) {
+            if (!confirm('Wirklich löschen? Original-Datei wird auch gelöscht.')) return;
+            try {
+                await db.ref('docs/' + id).remove();
+                if (path) {
+                    try { await storage.ref(path).delete(); } catch (e) { console.warn('Storage delete:', e.message); }
+                }
+                showToast('Gelöscht');
+                await loadDocs();
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        function runSearch() {
+            const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
+            const out = document.getElementById('search-results');
+            if (!q || q.length < 2) { out.innerHTML = '<div class="card" style="color:#6b7280;text-align:center;">Mindestens 2 Zeichen…</div>'; return; }
+            const matches = allDocs.filter(d => {
+                const blob = [d.lieferant, d.subKategorie, d.dokumenttyp, d.kurzbeschreibung, d.volltext, (d.stichworte || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+                return blob.includes(q);
+            });
+            if (matches.length === 0) { out.innerHTML = '<div class="card" style="color:#6b7280;text-align:center;">Keine Treffer.</div>'; return; }
+            out.innerHTML = `<div class="card" style="font-size:13px;color:#6b7280;">${matches.length} Treffer für „${escHtml(q)}"</div>` + matches.map(docRow).join('');
+        }
+
+        function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+        let toastTimer = null;
+        function showToast(msg, isError) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = isError ? '#dc2626' : '#10b981';
+            t.classList.add('show');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+        }
+    </script>
+</body>
+</html>

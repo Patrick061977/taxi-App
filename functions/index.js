@@ -22482,6 +22482,112 @@ Gib NUR JSON zurueck, kein Markdown, kein Pre-/Post-Text. Wenn nur EINE Fahrt: t
 );
 
 // ═══════════════════════════════════════════════════════════════
+// v6.62.235: DMS — KI-Klassifizierung beliebiger Dokumente (PDF/Bild) via
+// Anthropic Vision. Gibt Kategorie, Lieferant, Datum, Betrag, Dokumenttyp +
+// Volltext zurueck. Client speichert dann in Firebase Storage + /docs/{id}.
+// Aufruf: POST URL?key=SECRET mit { fileBase64, mediaType, filename }
+// ═══════════════════════════════════════════════════════════════
+exports.analyzeDocument = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 120, memory: '512MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'POST required' }); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const { fileBase64, mediaType, filename } = body;
+            if (!fileBase64) { res.status(400).json({ error: 'fileBase64 required' }); return; }
+            const _media = mediaType || 'application/pdf';
+            const anthropicKey = await getAnthropicApiKey();
+            if (!anthropicKey) { res.status(500).json({ error: 'Kein Anthropic API Key konfiguriert' }); return; }
+
+            // Vehicles + Mitarbeiter laden fuer Auto-Verknuepfung
+            const [vehSnap, staffSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('staff').once('value')
+            ]);
+            const vehicles = vehSnap.val() || {};
+            const staff = staffSnap.val() || {};
+            const vehicleNames = Object.entries(vehicles).map(([id, v]) =>
+                `${id}${v?.licensePlate ? ' (' + v.licensePlate + ')' : ''}${v?.name ? ' "' + v.name + '"' : ''}`
+            ).join(', ');
+            const staffNames = Object.entries(staff).map(([id, s]) =>
+                `${id} (${[s?.firstName, s?.lastName].filter(Boolean).join(' ')})`
+            ).join(', ');
+
+            const _today = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            const prompt = `Du klassifizierst Geschaeftsdokumente fuer ein Taxi-Unternehmen (Funk Taxi Heringsdorf). Heute: ${_today}.
+
+Kategorien (waehle GENAU EINE):
+A) fahrzeuge — TUEV/HU, KFZ-Versicherung, Werkstatt-Rechnung, KFZ-Brief/Schein, Konzession, Reparatur, Wartung
+B) mitarbeiter — Arbeitsvertrag, Krankschreibung, Urlaubsantrag, Fuehrerschein/P-Schein, SV-Bescheinigung
+C) buchhaltung — Eingangs- oder Ausgangs-Rechnung, Bankauszug, Kassenbeleg
+D) behoerden — Finanzamt, Gewerbeamt, Berufsgenossenschaft, Krankenkasse-Beitragsnachweis
+E) vertraege — Pacht, Miete, Leasing, Telekom/Strom, Funkzentrale, Hotel-Rahmenvertrag
+F) steuerberater — ECOVIS-Lohnabrechnung, Jahresabschluss, Steuerberater-Korrespondenz/Rechnung
+G) versicherungen — Betriebs-/Privathaftpflicht, BU, Lebensversicherung (NICHT KFZ — das ist A)
+H) sonstiges — alles andere
+
+Bekannte Fahrzeuge (zur Verknuepfung): ${vehicleNames || '(keine)'}
+Bekannte Mitarbeiter: ${staffNames || '(keine)'}
+
+Antwort als striktes JSON, KEIN Markdown, KEIN Pre-/Post-Text:
+
+{
+  "kategorie": "A"-"H",
+  "subKategorie": "tuev|versicherung|werkstatt|arbeitsvertrag|krankschein|eingangsrechnung|ausgangsrechnung|bankauszug|finanzamt|lohnabrechnung|...",
+  "dokumenttyp": "TUEV-Bericht|Rechnung|Mahnung|Bescheid|Vertrag|...",
+  "lieferant": "Wer hat das ausgestellt? (z.B. 'TUEV Sued', 'AOK Nordost', 'ECOVIS', 'Telekom')",
+  "datum": "YYYY-MM-DD aus dem Dokument selbst (Rechnungsdatum/Bescheid-Datum), null wenn nicht erkennbar",
+  "betrag": <Zahl oder null> ,
+  "waehrung": "EUR|USD|...",
+  "vehicleRefId": "id des Fahrzeugs aus der Liste oben, null wenn unklar",
+  "staffRefId": "id des Mitarbeiters aus der Liste oben, null wenn unklar",
+  "stichworte": ["max", "5", "stichworte"],
+  "kurzbeschreibung": "1 Satz auf Deutsch was das Dokument ist",
+  "volltext": "kompletter erkannter Text aus dem Dokument fuer Volltextsuche",
+  "confidence": 0.0-1.0
+}
+
+Beispiele:
+- TUEV-Bericht fuer Tesla LK111 → kategorie A, subKategorie 'tuev', vehicleRefId entsprechend
+- AOK-Beitragsnachweis fuer Juli 2025 → kategorie D, subKategorie 'krankenkasse'
+- ECOVIS-Lohnabrechnung Kargoll → kategorie F, subKategorie 'lohnabrechnung', staffRefId 'kargoll'
+- Telekom-Rechnung → kategorie C, subKategorie 'eingangsrechnung', lieferant 'Telekom'`;
+
+            const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
+                role: 'user',
+                content: [
+                    { type: 'document', source: { type: 'base64', media_type: _media, data: fileBase64 } },
+                    { type: 'text', text: prompt }
+                ]
+            }]);
+            const text = (visionResp.content?.[0]?.text || '').trim();
+            let jsonText = text;
+            const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) jsonText = jsonMatch[1].trim();
+            let parsed = null;
+            try { parsed = JSON.parse(jsonText); }
+            catch (e) {
+                console.error('analyzeDocument JSON-Parse-Fehler:', e.message, 'Text:', text.slice(0, 500));
+                res.status(200).json({ ok: false, error: 'KI-Antwort nicht JSON', rawText: text });
+                return;
+            }
+            res.status(200).json({ ok: true, parsed, filename: filename || null });
+        } catch (e) {
+            console.error('analyzeDocument error:', e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // v6.62.16: Notfall-Vehicle-Fix — Shift beenden + activeDevice clearen.
 // Aufruf: curl -X POST 'URL?key=SECRET' -d '{"vehicleId":"X","action":"endShift"|"clearLock"|"both"}'
 // ═══════════════════════════════════════════════════════════════

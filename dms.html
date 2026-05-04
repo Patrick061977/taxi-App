@@ -546,6 +546,9 @@
                 staffRefId: (ki && ki.staffRefId) || null,
                 stichworte: (ki && Array.isArray(ki.stichworte)) ? ki.stichworte : [],
                 kurzbeschreibung: (ki && ki.kurzbeschreibung) || null,
+                summary: (ki && ki.summary) || null,
+                aktionsEmpfehlung: (ki && ki.aktionsEmpfehlung) || null,
+                wichtigkeit: (ki && ki.wichtigkeit) || null,
                 volltext: (ki && ki.volltext) || null,
                 storageUrl: downloadUrl, storagePath,
                 originalFilename: file.name, mediaType: file.type, sizeBytes: file.size,
@@ -935,6 +938,9 @@
                     staffRefId: document.getElementById('f-staff').value || null,
                     stichworte: document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
                     kurzbeschreibung: document.getElementById('f-beschreibung').value || null,
+                    summary: kiResult.summary || null,
+                    aktionsEmpfehlung: kiResult.aktionsEmpfehlung || null,
+                    wichtigkeit: kiResult.wichtigkeit || null,
                     volltext: kiResult.volltext || null,
                     storageUrl: url,
                     storagePath,
@@ -998,8 +1004,26 @@
             }
         }
 
+        // v6.62.257: Posteingang erweitert — zeigt ALLE Probleme:
+        // - kategorie='_inbox' (KI versagte komplett)
+        // - needsReview=true (Confidence < 80%)
+        // - kiError gesetzt
+        // - Pflichtfelder fehlen (Lieferant, Datum oder Betrag bei Rechnungen)
+        function isInbox(d) {
+            if (!d) return false;
+            if (d.kategorie === '_inbox') return true;
+            if (d.needsReview === true) return true;
+            if (d.kiError) return true;
+            const conf = (d.confidence != null) ? Number(d.confidence) : null;
+            if (conf != null && conf < 0.80) return true;
+            // Rechnungen ohne Pflichtfelder
+            const isRechnung = d.dokumenttyp && /rechnung|mahnung/i.test(d.dokumenttyp);
+            if (isRechnung && (!d.lieferant || !d.datum)) return true;
+            return false;
+        }
+
         function updateInboxBadge() {
-            const inboxCount = allDocs.filter(d => d.kategorie === '_inbox').length;
+            const inboxCount = allDocs.filter(isInbox).length;
             const badge = document.getElementById('inbox-badge');
             if (!badge) return;
             badge.textContent = inboxCount;
@@ -1009,7 +1033,7 @@
         // v6.62.242: Posteingang rendering
         function renderInbox() {
             const list = document.getElementById('inbox-list');
-            const inbox = allDocs.filter(d => d.kategorie === '_inbox')
+            const inbox = allDocs.filter(isInbox)
                 .sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0));
             if (inbox.length === 0) {
                 list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;padding:30px;">📭 Posteingang ist leer — alles gut sortiert!</div>';
@@ -1378,6 +1402,9 @@
         }
 
         function renderDocModal(d) {
+            // v6.62.257: KI-Briefing-Box (oben im Modal-Sub)
+            const wichtig = d.wichtigkeit;
+            const wIcon = wichtig === 'hoch' ? '🔴' : wichtig === 'mittel' ? '🟡' : wichtig === 'niedrig' ? '🟢' : '';
             document.getElementById('doc-modal-title').textContent = (d.lieferant || '?') + ' — ' + (d.dokumenttyp || d.subKategorie || '');
             document.getElementById('doc-modal-sub').textContent =
                 (d.datum || 'kein Datum') + ' · Kategorie ' + d.kategorie + ' · ' +
@@ -1443,6 +1470,15 @@
                     const amt = h.amount != null ? ` <b>(${h.amount.toFixed(2).replace('.',',')}€)</b>` : '';
                     return `<div class="wf-history-item"><div class="ts">${ts} · ${escHtml(h.by || '?')}</div><div><b>${WF_LABELS[h.status] || h.status}</b>${amt}${h.note ? ' — ' + escHtml(h.note) : ''}</div></div>`;
                 }).join('');
+            // v6.62.257: KI-Briefing-Block oben im View-Modus
+            const briefingBlock = editMode ? '' : (
+                (d.summary || d.aktionsEmpfehlung || d.kiError) ? `<div style="background:${wichtig === 'hoch' ? '#fef2f2;border:2px solid #fca5a5' : wichtig === 'mittel' ? '#fffbeb;border:2px solid #fde68a' : '#f0fdf4;border:2px solid #bbf7d0'};border-radius:8px;padding:12px;margin-bottom:14px;">
+                    <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${wIcon} 🤖 KI-Briefing${wichtig ? ' · ' + wichtig.toUpperCase() : ''}</div>
+                    ${d.summary ? `<div style="font-size:13px;line-height:1.5;margin-bottom:8px;">${escHtml(d.summary)}</div>` : ''}
+                    ${d.aktionsEmpfehlung ? `<div style="background:white;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#1e3a8a;">📋 Empfehlung: ${escHtml(d.aktionsEmpfehlung)}</div>` : ''}
+                    ${d.kiError ? `<div style="font-size:11px;color:#991b1b;margin-top:6px;">⚠️ KI-Fehler: ${escHtml(d.kiError)}</div>` : ''}
+                </div>` : ''
+            );
             const workflowBlock = editMode ? '' : `<div style="margin-top:16px;background:#f9fafb;border-radius:8px;padding:14px;">
                 <h3 style="font-size:13px;margin-bottom:10px;">📋 Workflow & Buchungshistorie</h3>
                 <div style="margin-bottom:12px;font-size:13px;">
@@ -1497,7 +1533,7 @@
                             <textarea class="form-input" id="e-text" rows="6" style="font-family:monospace;font-size:11px;">${escHtml(d.volltext || '')}</textarea>
                         </div>
                     </div>
-                </div>${workflowBlock}`;
+                </div>${briefingBlock}${workflowBlock}`;
             } else {
                 body.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div>${previewHtml}</div>
@@ -1514,7 +1550,7 @@
                         ${fmt('Datei', `${d.originalFilename} · ${(d.sizeBytes/1024).toFixed(0)} KB · Confidence ${Math.round((d.confidence || 0) * 100)}%`)}
                         <details style="margin-top:8px;"><summary style="cursor:pointer;color:#6b7280;font-size:11px;">📝 Volltext anzeigen</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f9fafb;padding:8px;border-radius:6px;max-height:250px;overflow:auto;">${escHtml(d.volltext || '— kein Text erkannt —')}</pre></details>
                     </div>
-                </div>${workflowBlock}`;
+                </div>${briefingBlock}${workflowBlock}`;
             }
         }
 

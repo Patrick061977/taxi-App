@@ -1,0 +1,10 @@
+{
+  "_komentar": "Beispiel-Config. Datei umbenennen zu 'belegtransfer.config.json' (ohne .example) damit der Watcher sie nutzt.",
+  "_format": "Beliebig viele Ordner — Watcher legt pro Ordner ein Done/ und Error/ Subfolder an.",
+  "dirs": [
+    "C:/Users/Taxi/OneDrive/Belege/Eingang",
+    "C:/Users/Taxi/OneDrive/Belege/Scanner",
+    "C:/Users/Taxi/OneDrive/Belege/Email-Anhaenge",
+    "D:/Scans"
+  ]
+}

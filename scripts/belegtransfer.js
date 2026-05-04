@@ -26,19 +26,42 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const WATCH_DIR = process.env.BELEG_DIR || 'C:/Users/Taxi/OneDrive/Belege/Eingang';
+// v6.62.257: Multi-Folder-Support — BELEG_DIRS (komma-separiert) ODER config-Datei
+//   node scripts/belegtransfer.js
+//   set BELEG_DIRS=D:\Scans;C:\Users\Taxi\OneDrive\Eingang && node ...
+//   ODER: config-Datei scripts/belegtransfer.config.json mit { "dirs": [...] }
+const CONFIG_PATH = path.join(__dirname, 'belegtransfer.config.json');
+let configDirs = null;
+try {
+    if (fs.existsSync(CONFIG_PATH)) {
+        configDirs = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')).dirs;
+    }
+} catch (_) {}
+
+const ENV_DIRS = process.env.BELEG_DIRS
+    ? process.env.BELEG_DIRS.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+    : null;
+const SINGLE_DIR = process.env.BELEG_DIR;
+const WATCH_DIRS = ENV_DIRS && ENV_DIRS.length > 0
+    ? ENV_DIRS
+    : (configDirs && configDirs.length > 0
+        ? configDirs
+        : (SINGLE_DIR ? [SINGLE_DIR] : ['C:/Users/Taxi/OneDrive/Belege/Eingang']));
 const API_KEY   = process.env.BELEG_KEY || 'funk-taxi-heringsdorf-2026';
 const MODE      = process.env.BELEG_MODE || 'archive'; // 'delete' | 'archive'
 const ENDPOINT  = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/processDocument';
 
 const ALLOWED = ['.pdf', '.jpg', '.jpeg', '.png'];
-const DONE_DIR = path.join(WATCH_DIR, 'Done');
-const ERROR_DIR = path.join(WATCH_DIR, 'Error');
 const PROCESSED = new Set();  // file paths die gerade verarbeitet werden
 
+function doneDirFor(watchDir) { return path.join(watchDir, 'Done'); }
+function errorDirFor(watchDir) { return path.join(watchDir, 'Error'); }
+
 function ensureDirs() {
-    for (const d of [WATCH_DIR, DONE_DIR, ERROR_DIR]) {
-        if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+    for (const w of WATCH_DIRS) {
+        for (const d of [w, doneDirFor(w), errorDirFor(w)]) {
+            if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+        }
     }
 }
 
@@ -46,9 +69,11 @@ function timestamp() {
     return new Date().toLocaleTimeString('de-DE', { hour12: false });
 }
 
-async function processFile(filePath) {
+async function processFile(filePath, watchDir) {
     const fileName = path.basename(filePath);
     const ext = path.extname(fileName).toLowerCase();
+    const ERROR_DIR = errorDirFor(watchDir);
+    const DONE_DIR = doneDirFor(watchDir);
     if (!ALLOWED.includes(ext)) {
         console.log(`[${timestamp()}] ⏭  ${fileName} (kein PDF/Bild)`);
         return;
@@ -122,36 +147,48 @@ async function processFile(filePath) {
 function startWatcher() {
     ensureDirs();
     console.log(`╔══════════════════════════════════════════════════════════════╗`);
-    console.log(`║  📨 Belegtransfer-Watcher v6.62.245                            ║`);
+    console.log(`║  📨 Belegtransfer-Watcher v6.62.257                            ║`);
     console.log(`╠══════════════════════════════════════════════════════════════╣`);
-    console.log(`║  Ordner: ${WATCH_DIR.padEnd(54)}║`);
-    console.log(`║  Modus:  ${MODE === 'delete' ? 'Original löschen nach Upload                          ' : 'Original archivieren in ./Done                        '}║`);
+    for (const w of WATCH_DIRS) {
+        console.log(`║  📂 ${w.slice(0, 60).padEnd(60)}║`);
+    }
+    console.log(`║  Modus:  ${(MODE === 'delete' ? 'Original löschen nach Upload' : 'Original archivieren in ./Done').padEnd(54)}║`);
     console.log(`║  Endpoint: ${ENDPOINT.replace('https://', '').slice(0, 50).padEnd(52)}║`);
     console.log(`╚══════════════════════════════════════════════════════════════╝`);
-    console.log(`\nÜberwacht — leg Dokumente in den Ordner ab, ich verarbeite automatisch.\n`);
+    console.log(`\nÜberwacht ${WATCH_DIRS.length} Ordner — leg Dokumente ab, ich verarbeite automatisch.\n`);
 
-    // Initial: alle vorhandenen Files verarbeiten
-    for (const f of fs.readdirSync(WATCH_DIR)) {
-        const full = path.join(WATCH_DIR, f);
-        if (fs.statSync(full).isFile()) {
-            // 1 Sek warten zwischen Files damit Ratelimit nicht trifft
-            setTimeout(() => processFile(full), 1000);
+    for (const watchDir of WATCH_DIRS) {
+        // Initial: alle vorhandenen Files verarbeiten
+        try {
+            for (const f of fs.readdirSync(watchDir)) {
+                const full = path.join(watchDir, f);
+                try {
+                    if (fs.statSync(full).isFile()) {
+                        setTimeout(() => processFile(full, watchDir), 1000);
+                    }
+                } catch (_) {}
+            }
+        } catch (e) {
+            console.error(`Fehler beim Initial-Scan von ${watchDir}: ${e.message}`);
+        }
+
+        // Live-Watcher pro Ordner
+        try {
+            fs.watch(watchDir, { persistent: true }, (eventType, fileName) => {
+                if (!fileName) return;
+                const full = path.join(watchDir, fileName);
+                setTimeout(() => {
+                    try {
+                        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+                            processFile(full, watchDir);
+                        }
+                    } catch (_) {}
+                }, 2000);
+            });
+        } catch (e) {
+            console.error(`Watcher-Fehler für ${watchDir}: ${e.message}`);
         }
     }
-
-    // Live-Watcher
-    fs.watch(WATCH_DIR, { persistent: true }, (eventType, fileName) => {
-        if (!fileName) return;
-        const full = path.join(WATCH_DIR, fileName);
-        // Warte 2 Sek damit Datei fertig kopiert ist
-        setTimeout(() => {
-            try {
-                if (fs.existsSync(full) && fs.statSync(full).isFile()) {
-                    processFile(full);
-                }
-            } catch (_) {}
-        }, 2000);
-    });
 }
 
 startWatcher();

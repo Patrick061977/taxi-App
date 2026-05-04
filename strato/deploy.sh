@@ -39,6 +39,7 @@ APP_FILES=(
     "kunden.html"
     "mitarbeiter.html"
     "schichtplan.html"
+    "dms.html"
     "buchen.html"
     "buchung-test.html"
     "landing.html"

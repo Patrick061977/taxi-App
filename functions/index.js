@@ -18882,6 +18882,103 @@ exports.onRideCreated = onValueCreated(
             }
         }
 
+        // 🆕 v6.62.277: Hotel-/Auftraggeber-Email-Bestätigung
+        // Patrick (14:51): "Bei Hotels die E-Mail-Adresse nehmen wenn hinterlegt.
+        // Wenn nicht: Information bekommen 'Email nicht hinterlegt, Bestätigung
+        // konnte nicht versendet werden' damit ich nachpflegen kann."
+        if (ride.customerId) {
+            try {
+                const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                const _customer = _custSnap.val() || {};
+                const _isHotel = isAuftraggeber(_customer.kind, _customer.type);
+                if (_isHotel) {
+                    const _hotelEmail = _customer.email || null;
+                    const _hotelName = _customer.name || ride.customerName || '?';
+                    if (!_hotelEmail) {
+                        // Admin-Warnung — Hotel hat keine Email hinterlegt
+                        const _warnMsg = `⚠️ <b>Hotel-Email fehlt</b>\n\n`
+                            + `🏨 <b>${_hotelName}</b> hat keine Email hinterlegt — Buchungsbestätigung konnte nicht gesendet werden.\n\n`
+                            + `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n`
+                            + `🕐 ${pickupTimeFormatted}\n`
+                            + `📍 ${ride.pickup || '?'} → ${ride.destination || '?'}\n\n`
+                            + `<i>Bitte Email-Adresse im CRM nachpflegen damit zukünftige Bestätigungen automatisch gesendet werden.</i>`;
+                        await sendToAllAdmins(_warnMsg, 'hotel-email-missing');
+                        await addRideLog(rideId, '⚠️', `Hotel-Email fehlt: ${_hotelName} — Bestätigung nicht gesendet`, {
+                            quelle: 'onRideCreated v6.62.277',
+                            kunde: _hotelName,
+                            customerId: ride.customerId,
+                            hinweis: 'Email im CRM nachpflegen'
+                        });
+                    } else {
+                        // Email senden via SMTP (nutzt selbe SMTP-Config wie Rechnungs-Mails)
+                        try {
+                            const _smtpSnap = await db.ref('settings/smtp').once('value');
+                            const _smtp = _smtpSnap.val() || {};
+                            if (!_smtp.host || !_smtp.user || !_smtp.pass) {
+                                console.warn('SMTP nicht konfiguriert — Hotel-Email skip');
+                                await addRideLog(rideId, '⚠️', 'SMTP nicht konfiguriert — Hotel-Email skip', { hotel: _hotelName, email: _hotelEmail });
+                            } else {
+                                const _nodemailer = require('nodemailer');
+                                const _transp = _nodemailer.createTransport({
+                                    host: _smtp.host, port: parseInt(_smtp.port) || 587,
+                                    secure: (parseInt(_smtp.port) || 587) === 465,
+                                    auth: { user: _smtp.user, pass: _smtp.pass }
+                                });
+                                const _from = `"${_smtp.fromName || 'Funk Taxi Heringsdorf'}" <${_smtp.fromEmail || _smtp.user}>`;
+                                const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                                const _gWeekday = new Date(pickupTs).toLocaleDateString('de-DE', { weekday: 'long', timeZone: 'Europe/Berlin' });
+                                const _gDate = new Date(pickupTs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });
+                                const _gTime = new Date(pickupTs).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                                const _priceStr = ride.price ? parseFloat(ride.price).toFixed(2).replace('.', ',') + ' €' : '—';
+                                const _typLabel = isSofort ? 'Sofort-Fahrt' : 'Vorbestellung';
+                                const _html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+<div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;padding:20px;border-radius:8px 8px 0 0;">
+<h2 style="margin:0;">🚕 Buchungsbestätigung — ${_typLabel}</h2>
+</div>
+<div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none;">
+<p>Sehr geehrtes Team von <strong>${_hotelName}</strong>,</p>
+<p>vielen Dank für Ihre Buchung. Hier die Details:</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<tr><td style="padding:6px 0;color:#6b7280;">👤 Gast:</td><td style="text-align:right;font-weight:600;">${ride.guestName || ride.customerName || '?'}</td></tr>
+${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:</td><td style="text-align:right;">${ride.passengers}</td></tr>` : ''}
+<tr><td style="padding:6px 0;color:#6b7280;">📅 Termin:</td><td style="text-align:right;">${_gWeekday}, ${_gDate} um ${_gTime} Uhr</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">📍 Abholung:</td><td style="text-align:right;">${ride.pickup || '?'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">🎯 Ziel:</td><td style="text-align:right;">${ride.destination || '?'}</td></tr>
+<tr><td style="padding:6px 0;color:#6b7280;">💰 Preis:</td><td style="text-align:right;font-weight:600;">${_priceStr}</td></tr>
+</table>
+<p style="margin:20px 0;"><a href="${_trackLink}" style="display:inline-block;background:#0ea5e9;color:white;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">📍 Live-Status & Fahrzeug-Standort verfolgen</a></p>
+<p style="font-size:13px;color:#6b7280;">Sobald der Fahrer losfährt, erhalten Sie eine weitere Benachrichtigung. Bei Rückfragen sind wir unter 038378 22022 erreichbar.</p>
+<p>Mit freundlichen Grüßen<br><strong>Funk Taxi Heringsdorf</strong></p>
+</div>
+<div style="background:#f9fafb;padding:14px;border-radius:0 0 8px 8px;text-align:center;font-size:12px;color:#6b7280;border:1px solid #e5e7eb;border-top:none;">
+📞 038378 22022 &nbsp;|&nbsp; ✉️ taxiwydra@googlemail.com &nbsp;|&nbsp; 🌐 funk-taxi-heringsdorf.de
+</div>
+</div>`;
+                                await _transp.sendMail({
+                                    from: _from,
+                                    to: _hotelEmail,
+                                    subject: `🚕 Buchungsbestätigung ${_gDate} ${_gTime} — Funk Taxi Heringsdorf`,
+                                    html: _html
+                                });
+                                console.log(`📧 Hotel-Email an ${_hotelEmail} gesendet (${_hotelName})`);
+                                await addRideLog(rideId, '📧', `Hotel-Bestätigung gesendet: ${_hotelName}`, {
+                                    quelle: 'onRideCreated v6.62.277',
+                                    email: _hotelEmail,
+                                    typ: _typLabel
+                                });
+                            }
+                        } catch (_emailErr) {
+                            console.error('❌ Hotel-Email-Versand fehlgeschlagen:', _emailErr.message);
+                            await addRideLog(rideId, '❌', `Hotel-Email-Versand fehlgeschlagen: ${_emailErr.message}`, { hotel: _hotelName, email: _hotelEmail });
+                            await sendToAllAdmins(`❌ <b>Hotel-Email-Versand fehlgeschlagen</b>\n\n🏨 ${_hotelName}\n📧 ${_hotelEmail}\n\nFehler: ${_emailErr.message}`, 'hotel-email-error');
+                        }
+                    }
+                }
+            } catch (_hotelErr) {
+                console.warn('Hotel-Email-Block Fehler:', _hotelErr.message);
+            }
+        }
+
         // 🔧 v6.38.46: Koordinaten aus pickupCoords/destCoords extrahieren (Browser speichert dort!)
         if (!ride.pickupLat && ride.pickupCoords && ride.pickupCoords.lat) {
             ride.pickupLat = ride.pickupCoords.lat;

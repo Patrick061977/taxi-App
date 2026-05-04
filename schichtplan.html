@@ -464,7 +464,9 @@
                     <div class="lohn-controls">
                         <div class="form-group">
                             <label class="form-label">Monat</label>
-                            <input type="month" id="lohn-month" class="form-input">
+                            <!-- 🆕 v6.62.279: Patrick — Dropdown statt month-Input.
+                                 Optionen werden in initLohnTab() gefüllt: aktueller + 11 Vormonate. -->
+                            <select id="lohn-month" class="form-input"></select>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Stundenlohn Schicht (€/h)</label>
@@ -1388,7 +1390,24 @@
         }
 
         function initLohnTab() {
+            // 🆕 v6.62.279: Dropdown mit aktuellem + 11 Vormonaten füllen
             const lohnMonth = document.getElementById('lohn-month');
+            if (!lohnMonth) return;
+            // Falls schon ein Wert gesetzt ist und Optionen schon befüllt → nicht neu rendern
+            const alreadyFilled = lohnMonth.options && lohnMonth.options.length > 0;
+            if (!alreadyFilled) {
+                const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+                const today = new Date();
+                const opts = [];
+                for (let i = 0; i < 12; i++) {
+                    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                    const value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                    const label = monthNames[d.getMonth()] + ' ' + d.getFullYear();
+                    opts.push(`<option value="${value}">${label}</option>`);
+                }
+                lohnMonth.innerHTML = opts.join('');
+            }
+            // Default-Wert: aktueller Monat
             if (!lohnMonth.value) {
                 const m = currentWeekStart || new Date();
                 lohnMonth.value = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
@@ -1557,10 +1576,13 @@
                 const bruttoVoll = vollBez * rs;
                 const bruttoStandby = standbyGes * rb;
                 const stpflBrutto = bruttoVoll + bruttoStandby;
-                const zuschlSo = sonntag * rs * ZUSCHLAG_SONNTAG;
-                const zuschlN25 = nacht25 * rs * ZUSCHLAG_NACHT_25;
-                const zuschlN40 = nacht40 * rs * ZUSCHLAG_NACHT_40;
-                const zuschlFt = feiertag * rs * ZUSCHLAG_FEIERTAG;
+                // 🆕 v6.62.279: Pro Mitarbeiter Steuerfreie Zuschläge an/aus
+                // Patrick: "Bei Dombrowski steuerfrei zuschläge ausschalten"
+                const surchargesEnabled = s.taxFreeSurchargesEnabled !== false;
+                const zuschlSo = surchargesEnabled ? sonntag * rs * ZUSCHLAG_SONNTAG : 0;
+                const zuschlN25 = surchargesEnabled ? nacht25 * rs * ZUSCHLAG_NACHT_25 : 0;
+                const zuschlN40 = surchargesEnabled ? nacht40 * rs * ZUSCHLAG_NACHT_40 : 0;
+                const zuschlFt = surchargesEnabled ? feiertag * rs * ZUSCHLAG_FEIERTAG : 0;
                 const zuschlSumme = zuschlSo + zuschlN25 + zuschlN40 + zuschlFt;
                 const sv = stpflBrutto * SV_RATE;
                 const lst = stpflBrutto * LST_RATE;
@@ -1571,7 +1593,8 @@
                     rs, rb,
                     bruttoVoll, bruttoStandby, stpflBrutto,
                     zuschlSo, zuschlN25, zuschlN40, zuschlFt, zuschlSumme,
-                    sv, lst, netto
+                    sv, lst, netto,
+                    surchargesEnabled // v6.62.279
                 });
             }
 
@@ -1605,8 +1628,18 @@
             let html = '';
             for (const p of perStaff) {
                 const fullName = [p.staff.firstName, p.staff.lastName].filter(Boolean).join(' ') || '—';
+                // 🆕 v6.62.279: Toggle-Button + Einzel-Export pro Mitarbeiter
+                const surchargeOn = p.surchargesEnabled;
+                const surchargeBtnTxt = surchargeOn ? '✅ Steuerfreie Zuschläge AN' : '🚫 Steuerfreie Zuschläge AUS';
+                const surchargeBtnBg = surchargeOn ? '#10b981' : '#6b7280';
                 html += `<div class="lohn-card">
-                    <h3 style="font-size:15px;margin-bottom:10px;">👤 ${escHtml(fullName)} · ${p.days} Arbeitstage</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                        <h3 style="font-size:15px;margin:0;">👤 ${escHtml(fullName)} · ${p.days} Arbeitstage</h3>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button onclick="toggleStaffSurcharges('${p.staff.id}')" style="padding:6px 10px;background:${surchargeBtnBg};color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">${surchargeBtnTxt}</button>
+                            <button onclick="exportSingleStaff('${p.staff.id}')" style="padding:6px 10px;background:#0ea5e9;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">📥 Nur diesen exportieren</button>
+                        </div>
+                    </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
                             <h4 style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px;">⏱ STUNDEN</h4>
@@ -1642,6 +1675,61 @@
 
             tablesEl.innerHTML = html;
             preview.style.display = 'block';
+        }
+
+        // 🆕 v6.62.279: Toggle steuerfreie Zuschläge pro Mitarbeiter
+        async function toggleStaffSurcharges(staffId) {
+            try {
+                const staff = allStaff.find(s => s.id === staffId);
+                if (!staff) return;
+                const currentlyOn = staff.taxFreeSurchargesEnabled !== false;
+                const newValue = !currentlyOn;
+                await db.ref(`staff/${staffId}/taxFreeSurchargesEnabled`).set(newValue);
+                staff.taxFreeSurchargesEnabled = newValue;
+                showToast(`Steuerfreie Zuschläge für ${staff.firstName || ''} ${staff.lastName || ''}: ${newValue ? 'AN' : 'AUS'}`);
+                // Vorschau neu rendern damit Werte aktualisiert sind
+                if (lohnPreviewData) {
+                    await loadLohnPreview();
+                }
+            } catch (e) {
+                console.error('Toggle Surcharges Fehler:', e);
+                showToast('Fehler: ' + e.message, true);
+            }
+        }
+
+        // 🆕 v6.62.279: Einzel-Mitarbeiter exportieren (nur dessen XLSX)
+        async function exportSingleStaff(staffId) {
+            if (!lohnPreviewData) {
+                showToast('Bitte erst Vorschau laden', true);
+                return;
+            }
+            try {
+                const staff = allStaff.find(s => s.id === staffId);
+                if (!staff) {
+                    showToast('Mitarbeiter nicht gefunden', true);
+                    return;
+                }
+                const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
+                const dailyData = data[staffId] || {};
+                if (Object.keys(dailyData).length === 0) {
+                    showToast('Keine Daten für diesen Mitarbeiter', true);
+                    return;
+                }
+                const fileName = `${monthName}_${year}_${(staff.lastName || staff.firstName || staffId).toUpperCase()}_PAUSE_KORREKT.xlsx`;
+                const xlsxBlob = await buildEcovisXlsx(staff, year, month, monthName, dailyData, staff.hourlyRate || rateShift, staff.standbyRate || rateStandby);
+                const url = URL.createObjectURL(xlsxBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showToast(`✅ ${fileName} heruntergeladen`);
+            } catch (e) {
+                console.error('Einzel-Export Fehler:', e);
+                showToast('Fehler: ' + e.message, true);
+            }
         }
 
         async function runLohnExport() {
@@ -1819,13 +1907,15 @@
             ]));
 
             // Brutto-Zeile (€): Voll-Lohn + Rufber-Lohn, Zuschlaege separat
+            // 🆕 v6.62.279: Pro Mitarbeiter Steuerfreie Zuschläge an/aus
+            const surchargesEnabled = staff.taxFreeSurchargesEnabled !== false;
             const lohnRowIdx = sumRowIdx + 1;
             const bruttoVoll = +(tVollBez * rateShift).toFixed(2);
             const bruttoStandby = +(tStandby * rateStandby).toFixed(2);
-            const zuschlSonntag = +(tSonntag * rateShift * ZUSCHLAG_SONNTAG).toFixed(2);
-            const zuschlNacht25 = +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2);
-            const zuschlNacht40 = +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2);
-            const zuschlFeiertag = +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2);
+            const zuschlSonntag = surchargesEnabled ? +(tSonntag * rateShift * ZUSCHLAG_SONNTAG).toFixed(2) : 0;
+            const zuschlNacht25 = surchargesEnabled ? +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2) : 0;
+            const zuschlNacht40 = surchargesEnabled ? +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2) : 0;
+            const zuschlFeiertag = surchargesEnabled ? +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2) : 0;
             rows.push(rowXml(lohnRowIdx, [
                 ['A', 'inlineStr', 'Brutto-Lohn (€):'],
                 ['G', 'n', bruttoVoll],
@@ -2345,6 +2435,20 @@ ${rows.join('\n')}
         let monthShifts = {};             // { staffId: { 'YYYY-MM-DD': shiftEntry } }
 
         function initMonthTab() {
+            // 🆕 v6.62.279: Patrick — wenn man von Lohnexport (z.B. April) auf Monatsansicht
+            // wechselt, soll der gewählte Monat übernommen werden, nicht 'heute' zeigen.
+            const lohnMonthEl = document.getElementById('lohn-month');
+            if (lohnMonthEl && lohnMonthEl.value) {
+                const [y, m] = lohnMonthEl.value.split('-').map(Number);
+                if (y && m) {
+                    const desired = new Date(y, m - 1, 1);
+                    // Nur setzen wenn currentMonth abweicht (sonst unnötiges Re-Render)
+                    if (!currentMonth || currentMonth.getFullYear() !== y || currentMonth.getMonth() !== m - 1) {
+                        setMonth(desired);
+                        return;
+                    }
+                }
+            }
             if (!currentMonth) goToCurrentMonth();
             else renderMonthGrid();
         }

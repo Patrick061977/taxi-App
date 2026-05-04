@@ -942,14 +942,14 @@ public class CallLogActivity extends AppCompatActivity {
         };
         LinearLayout cardAddr = newCard.get();
         TextView tvAddress = new TextView(this);
-        tvAddress.setText(crm.address != null && !crm.address.isEmpty() ? crm.address : "Tippen — Adresse waehlen");
+        tvAddress.setText(crm.address != null && !crm.address.isEmpty() ? crm.address : "Tippen — Adresse wählen");
         tvAddress.setTextSize(15);
         tvAddress.setTextColor(crm.address != null && !crm.address.isEmpty() ? 0xFF1E293B : 0xFF94A3B8);
         tvAddress.setPadding(0, padHalf, 0, padHalf);
         tvAddress.setOnClickListener(_v -> launchPlaces(tvAddress, addrCoords));
         cardAddr.addView(tvAddress);
         TextView tvAddrHint = new TextView(this);
-        tvAddrHint.setText(crm.lat == null && crm.address != null ? "⚠ Keine Koordinaten — bitte neu auswaehlen" : "Tippen oeffnet Suche (Google + OSM-Fallback)");
+        tvAddrHint.setText(crm.lat == null && crm.address != null ? "⚠ Keine Koordinaten — bitte neu auswählen" : "Tippen öffnet Suche (Google + OSM-Fallback)");
         tvAddrHint.setTextSize(11);
         tvAddrHint.setTextColor(crm.lat == null && crm.address != null ? 0xFFB45309 : 0xFF94A3B8);
         cardAddr.addView(tvAddrHint);
@@ -1008,7 +1008,8 @@ public class CallLogActivity extends AppCompatActivity {
                 if (!email.isEmpty()) updates.put("email", email);
                 String addr = tvAddress.getText().toString().replaceFirst("^📍\\s*", "").trim();
                 // v6.62.37: neuer Hint-Text 'Tippen — Adresse waehlen' statt alter '... wählen…'
-                if (!addr.isEmpty() && !addr.contains("Adresse waehlen") && !addr.endsWith("wählen…")) {
+                // v6.62.253: alle drei Hint-Varianten ignorieren
+                if (!addr.isEmpty() && !addr.contains("Adresse wählen") && !addr.contains("Adresse waehlen") && !addr.endsWith("wählen…")) {
                     updates.put("address", addr);
                     if (!Double.isNaN(addrCoords[0])) {
                         updates.put("addressLat", addrCoords[0]);

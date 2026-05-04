@@ -20075,6 +20075,37 @@ exports.scheduledOpenRideCheck = onSchedule(
                 }).catch(e => console.error('Timeout-Reset Fehler:', e.message));
             });
 
+            // 🐕 v6.62.248: SOFORTFAHRT-WATCHDOG
+            // Patrick (04.05.2026 10:30): Tesla hatte 09:52-Fahrt zugewiesen bekommen,
+            // dann abgelehnt. autoAssignRide lief NICHT erneut → Fahrt blieb 'vorbestellt'
+            // ohne Vehicle. Manuelle Zuweisung war noetig.
+            // Watchdog: Sofortfahrten (pickup <= +25 Min) ohne Vehicle nochmal an
+            // autoAssignRide schicken — falls die Re-Assign-Logik beim Reject nicht greift.
+            // Throttle: max 1 Versuch pro 60 Sek pro Ride (watchdogLastAttempt-Feld).
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
+                if (!['new','vorbestellt','warteschlange'].includes(ride.status)) return;
+                if (!ride.pickupTimestamp) return;
+                if (ride.cloudWatchdogPaused) return; // manuell pausierbar
+                const msUntil = ride.pickupTimestamp - now;
+                if (msUntil > 25 * 60000) return; // nicht Sofortfahrt — scheduledAutoAssign macht Vorbestellungen
+                if (msUntil < -2 * 60 * 60000) return; // > 2h alt → ignorieren (verschollen)
+                if (ride.watchdogLastAttempt && (now - ride.watchdogLastAttempt) < 60000) return;
+                console.log(`🐕 Watchdog: Sofortfahrt ${rideId} ohne Fahrzeug (${ride.customerName || '?'}, ${Math.round(msUntil/60000)}min bis Pickup) → autoAssignRide`);
+                db.ref('rides/' + rideId + '/watchdogLastAttempt').set(now).catch(()=>{});
+                autoAssignRide(rideId, { ...ride, _rejectedVehicles: ride.rejectedVehicles || ride._rejectedVehicles || [] }).then(result => {
+                    if (result && result.vehicleId) {
+                        const _name = result.name || (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
+                        console.log(`✅ Watchdog: ${rideId} → ${_name} zugewiesen`);
+                        addRideLog(rideId, '🐕', `Watchdog: Re-Assigned ${_name}`, { quelle: 'sofortfahrt-watchdog v6.62.248', rejectedVehicles: ride.rejectedVehicles || [] }).catch(()=>{});
+                    } else {
+                        console.log(`⚠️ Watchdog: ${rideId} kein Fahrzeug verfügbar (rejected: ${(ride.rejectedVehicles || []).join(', ') || 'keine'})`);
+                    }
+                }).catch(e => console.error('Watchdog autoAssignRide Fehler:', e.message));
+            });
+
             // 🩹 v6.40.34: STUCK-ASSIGNED-WATCHDOG
             // Heilt Vorbestellungen die fälschlich auf 'assigned' hängen (pickup > 60min Future).
             // onRideUpdated Instant-Heal v6.40.21 greift nur bei Änderung — diese Schleife
@@ -23429,19 +23460,49 @@ exports.rideAction = onRequest(
                 try { await addRideLog(rideId, '✅', `Auftrag via FCM-Notification angenommen`, { quelle: 'rideAction' }); } catch(_) {}
                 res.status(200).json({ ok: true, action: 'accepted' });
             } else if (action === 'reject') {
+                // v6.62.248: rejectedVehicles[]-Array updaten + autoAssignRide direkt
+                // erneut aufrufen. Vorher: nur rejectedBy (singular) wurde gesetzt, kein
+                // Re-Assign — Patrick (10:30): Tesla lehnte ab, autoAssign lief nicht
+                // erneut, Ride blieb manuell-zuweisungsbeduerftig.
+                const _curSnap = await db.ref(`rides/${rideId}`).once('value');
+                const _curRide = _curSnap.val() || {};
+                const existingRejected = Array.isArray(_curRide.rejectedVehicles) ? _curRide.rejectedVehicles : [];
+                const newRejected = vehicleId && !existingRejected.includes(vehicleId)
+                    ? [...existingRejected, vehicleId]
+                    : existingRejected;
                 await db.ref(`rides/${rideId}`).update({
                     assignedVehicle: null,
                     vehicleId: null,
                     vehicle: null,
+                    assignedTo: null,
+                    assignedAt: null,
+                    assignedBy: null,
+                    assignmentExpiresAt: null,
                     status: 'new',
                     rejectedBy: vehicleId || null,
                     rejectedAt: now,
                     rejectedVia: 'fcm-notification-action',
+                    rejectedVehicles: newRejected,
                     updatedAt: now
                 });
-                console.log(`❌ rideAction: ${rideId} → rejected by ${vehicleId}, zurück in den Pool`);
-                try { await addRideLog(rideId, '❌', `Auftrag via FCM-Notification abgelehnt`, { quelle: 'rideAction' }); } catch(_) {}
-                res.status(200).json({ ok: true, action: 'rejected' });
+                console.log(`❌ rideAction: ${rideId} → rejected by ${vehicleId}. Rejected-List: ${newRejected.join(', ')}. Versuche Re-Assign…`);
+                try { await addRideLog(rideId, '❌', `Auftrag via FCM-Notification abgelehnt`, { quelle: 'rideAction', rejectedBy: vehicleId, rejectedVehicles: newRejected }); } catch(_) {}
+                // Sofort autoAssignRide nochmal aufrufen mit aktualisierter Reject-List
+                try {
+                    const _ride = { ..._curRide, rejectedVehicles: newRejected, _rejectedVehicles: newRejected, status: 'new', vehicleId: null, assignedVehicle: null };
+                    const _result = await autoAssignRide(rideId, _ride);
+                    if (_result && _result.vehicleId) {
+                        const _name = _result.name || (OFFICIAL_VEHICLES[_result.vehicleId] || {}).name || _result.vehicleId;
+                        console.log(`✅ Reject-Re-Assign: ${rideId} → ${_name}`);
+                        try { await addRideLog(rideId, '🔄', `Reject-Re-Assign: ${_name}`, { quelle: 'rideAction-reject v6.62.248', rejectedVehicles: newRejected }); } catch(_) {}
+                    } else {
+                        console.log(`⚠️ Reject-Re-Assign: kein anderes Fahrzeug verfügbar für ${rideId}`);
+                        try { await sendToAllAdmins(`⚠️ <b>Re-Assign fehlgeschlagen</b>\n\nFahrt von ${_curRide.customerName || '?'} (${_curRide.pickup || '?'}) wurde abgelehnt — kein anderes Fahrzeug verfügbar.\n\n→ <b>Manuell zuweisen erforderlich!</b>`, 'unassigned'); } catch(_) {}
+                    }
+                } catch (reassignErr) {
+                    console.error('❌ Reject-Re-Assign Fehler:', reassignErr.message);
+                }
+                res.status(200).json({ ok: true, action: 'rejected', rejectedVehicles: newRejected });
             } else {
                 res.status(400).json({ error: 'unknown action' });
             }

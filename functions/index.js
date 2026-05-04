@@ -22588,6 +22588,148 @@ Beispiele:
 );
 
 // ═══════════════════════════════════════════════════════════════
+// v6.62.245: DMS — Komplette Pipeline (KI + Storage + DB-Eintrag) in einem
+// Call. Fuer den Belegtransfer-Watcher (Node-Skript ohne Firebase-Auth).
+// Aufruf: POST URL?key=SECRET mit { fileBase64, mediaType, filename }
+// Antwort: { ok, docId, status: 'saved'|'inbox'|'duplicate', parsed, duplicateOf }
+// ═══════════════════════════════════════════════════════════════
+exports.processDocument = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 180, memory: '1GiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'POST required' }); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const { fileBase64, mediaType, filename } = body;
+            if (!fileBase64) { res.status(400).json({ error: 'fileBase64 required' }); return; }
+            const _media = mediaType || 'application/pdf';
+            const fileBuffer = Buffer.from(fileBase64, 'base64');
+
+            // 1) Hash berechnen + Dubletten-Check
+            const crypto = require('crypto');
+            const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+            const docsSnap = await db.ref('docs').once('value');
+            const allDocs = docsSnap.val() || {};
+            for (const [id, d] of Object.entries(allDocs)) {
+                if (d && d.fileHash === fileHash) {
+                    res.status(200).json({ ok: true, status: 'duplicate', duplicateOf: { id, ...d } });
+                    return;
+                }
+            }
+
+            // 2) KI-Analyse
+            const anthropicKey = await getAnthropicApiKey();
+            let parsed = null, kiError = null;
+            if (anthropicKey) {
+                try {
+                    const [vehSnap, staffSnap] = await Promise.all([
+                        db.ref('vehicles').once('value'),
+                        db.ref('staff').once('value')
+                    ]);
+                    const vehicles = vehSnap.val() || {};
+                    const staff = staffSnap.val() || {};
+                    const vehicleNames = Object.entries(vehicles).map(([id, v]) =>
+                        `${id}${v?.licensePlate ? ' (' + v.licensePlate + ')' : ''}${v?.name ? ' "' + v.name + '"' : ''}`
+                    ).join(', ');
+                    const staffNames = Object.entries(staff).map(([id, s]) =>
+                        `${id} (${[s?.firstName, s?.lastName].filter(Boolean).join(' ')})`
+                    ).join(', ');
+                    const _today = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const prompt = `Du klassifizierst Geschaeftsdokumente fuer ein Taxi-Unternehmen (Funk Taxi Heringsdorf). Heute: ${_today}.
+
+Kategorien (waehle GENAU EINE):
+A) fahrzeuge — TUEV/HU, KFZ-Versicherung, Werkstatt-Rechnung, KFZ-Brief/Schein, Konzession
+B) mitarbeiter — Arbeitsvertrag, Krankschreibung, Urlaubsantrag, Fuehrerschein, SV-Bescheinigung
+C) buchhaltung — Eingangs-/Ausgangs-Rechnung, Bankauszug, Kassenbeleg
+D) behoerden — Finanzamt, Gewerbeamt, BG, Krankenkasse-Beitragsnachweis
+E) vertraege — Pacht, Miete, Leasing, Telekom/Strom, Hotel-Rahmenvertrag
+F) steuerberater — ECOVIS-Lohnabrechnung, Jahresabschluss, Steuerberater-Korrespondenz
+G) versicherungen — Betriebs-/Privathaftpflicht, BU, Lebensversicherung (NICHT KFZ)
+H) sonstiges
+
+Bekannte Fahrzeuge: ${vehicleNames || '(keine)'}
+Bekannte Mitarbeiter: ${staffNames || '(keine)'}
+
+Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "datum": "YYYY-MM-DD", "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "volltext": "...", "confidence": 0.0-1.0 }`;
+                    const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
+                        role: 'user',
+                        content: [
+                            { type: 'document', source: { type: 'base64', media_type: _media, data: fileBase64 } },
+                            { type: 'text', text: prompt }
+                        ]
+                    }]);
+                    const text = (visionResp.content?.[0]?.text || '').trim();
+                    let jsonText = text;
+                    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    if (jsonMatch) jsonText = jsonMatch[1].trim();
+                    parsed = JSON.parse(jsonText);
+                } catch (e) {
+                    kiError = e.message;
+                    console.warn('processDocument KI-Fehler:', e.message);
+                }
+            } else {
+                kiError = 'Kein Anthropic API Key';
+            }
+
+            // 3) Storage-Upload (Service-Account hat Write-Recht)
+            const isInbox = !parsed || (parsed.confidence || 0) < 0.80;
+            const kategorie = isInbox ? '_inbox' : ((parsed.kategorie || 'H').toUpperCase());
+            const datum = (parsed && parsed.datum) || new Date().toISOString().slice(0, 10);
+            const lieferant = (parsed && parsed.lieferant) || 'unbekannt';
+            const betrag = (parsed && parsed.betrag != null) ? Number(parsed.betrag) : null;
+            const yyyy = (datum || '').slice(0, 4) || String(new Date().getFullYear());
+            const safeLief = String(lieferant).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+            const ext = ((filename || '').split('.').pop() || (_media === 'application/pdf' ? 'pdf' : 'jpg')).toLowerCase();
+            const fileName = `${datum}_${safeLief}${betrag ? '_' + betrag.toFixed(2) + 'EUR' : ''}.${ext}`;
+            const storagePath = `docs/${kategorie}/${yyyy}/${Date.now()}_${fileName}`;
+
+            const admin = require('firebase-admin');
+            const bucket = admin.storage().bucket();
+            const fileRef = bucket.file(storagePath);
+            await fileRef.save(fileBuffer, { metadata: { contentType: _media }, resumable: false });
+            await fileRef.makePublic();
+            const downloadUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(storagePath)}`;
+
+            // 4) /docs/{id} schreiben
+            const docId = db.ref('docs').push().key;
+            const meta = {
+                docId, kategorie,
+                subKategorie: (parsed && parsed.subKategorie) || (isInbox ? null : 'allgemein'),
+                dokumenttyp: (parsed && parsed.dokumenttyp) || null,
+                lieferant, datum, betrag, waehrung: 'EUR',
+                vehicleRefId: (parsed && parsed.vehicleRefId) || null,
+                staffRefId: (parsed && parsed.staffRefId) || null,
+                stichworte: (parsed && Array.isArray(parsed.stichworte)) ? parsed.stichworte : [],
+                kurzbeschreibung: (parsed && parsed.kurzbeschreibung) || null,
+                volltext: (parsed && parsed.volltext) || null,
+                storageUrl: downloadUrl, storagePath,
+                originalFilename: filename || fileName,
+                mediaType: _media, sizeBytes: fileBuffer.length,
+                fileHash,
+                confidence: (parsed && parsed.confidence) || null,
+                needsReview: isInbox,
+                kiError,
+                uploadedBy: 'belegtransfer',
+                uploadedAt: Date.now(),
+                autoSaved: true,
+                viaBelegtransfer: true
+            };
+            await db.ref('docs/' + docId).set(meta);
+            res.status(200).json({ ok: true, docId, status: isInbox ? 'inbox' : 'saved', parsed, downloadUrl });
+        } catch (e) {
+            console.error('processDocument error:', e);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // v6.62.16: Notfall-Vehicle-Fix — Shift beenden + activeDevice clearen.
 // Aufruf: curl -X POST 'URL?key=SECRET' -d '{"vehicleId":"X","action":"endShift"|"clearLock"|"both"}'
 // ═══════════════════════════════════════════════════════════════

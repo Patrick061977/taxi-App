@@ -1959,10 +1959,12 @@ ${rows.join('\n')}
                 return { type: 'standby', shift: pattern.standbyShift };
             }
             // alternate: Block-Index relativ zum Anker
-            const anchor = new Date(pattern.anchorDate + 'T00:00:00');
-            const target = new Date(dateObj);
-            target.setHours(0, 0, 0, 0);
-            const deltaDays = Math.floor((target - anchor) / 86400000);
+            // v6.62.234: UTC-Berechnung statt lokal — sonst verschiebt Sommerzeit
+            // (DST-Wechsel z.B. 29.3.2026) den Block um 1 Tag.
+            const [ay, am, ad] = (pattern.anchorDate || '2026-02-05').split('-').map(Number);
+            const anchorUTC = Date.UTC(ay, am - 1, ad);
+            const targetUTC = Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+            const deltaDays = Math.floor((targetUTC - anchorUTC) / 86400000);
             const block = Math.floor(deltaDays / 7);
             const isDay = block % 2 === 0;
             return isDay

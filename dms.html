@@ -118,6 +118,7 @@
         .batch-item.error { background: #fee2e2; }
         .batch-item.pending { background: #fffbeb; }
         .batch-item.processing { background: #dbeafe; }
+        .batch-item.duplicate { background: #e0e7ff; }
         .batch-icon { font-size: 18px; }
         .batch-info { min-width: 0; }
         .batch-info .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -142,6 +143,7 @@
                 <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📤 Scannen / Hochladen</button>
                 <button class="tab-btn" data-tab="library" onclick="switchTab('library')">📚 Bibliothek</button>
                 <button class="tab-btn" data-tab="search" onclick="switchTab('search')">🔍 Volltext-Suche</button>
+                <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')">📥 Posteingang <span id="inbox-badge" style="background:#dc2626;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;display:none;">0</span></button>
             </div>
 
             <!-- TAB: UPLOAD -->
@@ -282,6 +284,19 @@
                 <div id="library" class="doc-list"></div>
             </div>
 
+            <!-- TAB: POSTEINGANG (v6.62.242) — nicht erkannte Dokumente -->
+            <div id="tab-inbox" class="tab-content">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">📥 Posteingang — Dokumente die KI-Review brauchen</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">Hier landet alles wo die KI unsicher war oder fehlgeschlagen ist. Klick auf ein Dokument → manuell kategorisieren oder KI nochmal anstoßen. Gehen NICHT verloren wenn du den Browser schließt — sind alle in Storage.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="reanalyzeAllInbox()" id="inbox-reanalyze-btn">🤖 Alle nochmal analysieren</button>
+                        <button class="btn btn-ghost" onclick="loadDocs()">🔄 Neu laden</button>
+                    </div>
+                </div>
+                <div id="inbox-list" class="doc-list"></div>
+            </div>
+
             <!-- v6.62.241: Detail/Edit-Modal -->
             <div id="doc-modal" class="modal-overlay" onclick="if(event.target===this) closeDocModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px;overflow-y:auto;">
                 <div style="background:white;border-radius:14px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
@@ -408,6 +423,64 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
             if (tab === 'library') renderLibrary();
+            else if (tab === 'inbox') renderInbox();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.242: Dubletten-Erkennung via SHA-256 Hash
+        // Hash wird beim Upload aus File berechnet, in /docs/{id}/fileHash
+        // gespeichert, vor neuem Upload mit allDocs-Hashes verglichen.
+        // ═══════════════════════════════════════════════════════════════
+        async function computeFileHash(file) {
+            const buf = await file.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function findDuplicate(hash) {
+            if (!hash) return null;
+            return allDocs.find(d => d.fileHash === hash) || null;
+        }
+
+        // Speichert eine Datei in Storage + /docs/{id}. Wenn ki fehlt oder
+        // Confidence < 80% → kategorie='_inbox' + needsReview=true (Posteingang).
+        async function saveDocCore(file, fileHash, ki, opts = {}) {
+            const isInbox = !ki || (ki.confidence || 0) < AUTO_SAVE_CONFIDENCE;
+            const kategorie = isInbox ? '_inbox' : ((ki.kategorie || 'H').toUpperCase());
+            const datum = (ki && ki.datum) || new Date().toISOString().slice(0, 10);
+            const lieferant = (ki && ki.lieferant) || 'unbekannt';
+            const betrag = (ki && ki.betrag != null) ? Number(ki.betrag) : null;
+            const yyyy = (datum || '').slice(0, 4) || String(new Date().getFullYear());
+            const safeLief = String(lieferant).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+            const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+            const fileName = `${datum}_${safeLief}${betrag ? '_' + betrag.toFixed(2) + 'EUR' : ''}.${ext}`;
+            const storagePath = `docs/${kategorie}/${yyyy}/${Date.now()}_${fileName}`;
+            const ref = storage.ref(storagePath);
+            await ref.put(file);
+            const downloadUrl = await ref.getDownloadURL();
+            const docId = db.ref('docs').push().key;
+            const meta = {
+                docId, kategorie,
+                subKategorie: (ki && ki.subKategorie) || (isInbox ? null : 'allgemein'),
+                dokumenttyp: (ki && ki.dokumenttyp) || null,
+                lieferant, datum, betrag, waehrung: 'EUR',
+                vehicleRefId: (ki && ki.vehicleRefId) || null,
+                staffRefId: (ki && ki.staffRefId) || null,
+                stichworte: (ki && Array.isArray(ki.stichworte)) ? ki.stichworte : [],
+                kurzbeschreibung: (ki && ki.kurzbeschreibung) || null,
+                volltext: (ki && ki.volltext) || null,
+                storageUrl: downloadUrl, storagePath,
+                originalFilename: file.name, mediaType: file.type, sizeBytes: file.size,
+                fileHash,
+                confidence: (ki && ki.confidence) || null,
+                needsReview: isInbox,
+                kiError: opts.kiError || null,
+                uploadedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?',
+                uploadedAt: Date.now(),
+                autoSaved: opts.autoSaved || false
+            };
+            await db.ref('docs/' + docId).set(meta);
+            return docId;
         }
 
         // ─── Upload — Single oder Batch (v6.62.240) ───
@@ -453,18 +526,35 @@
                 }
                 item.status = 'processing'; renderBatchList();
                 try {
-                    // Read base64
-                    const base64 = await readFileAsBase64(item.file);
-                    // Analyze
-                    const ki = await callAnalyzeAPI(base64, item.file.type, item.file.name);
-                    item.kiResult = ki;
-                    const confidence = ki.confidence || 0;
-                    if (confidence >= AUTO_SAVE_CONFIDENCE) {
-                        // Auto-Save
-                        const docId = await saveDocFromKi(item.file, ki);
+                    // v6.62.242: Hash + Dubletten-Check VOR KI-Call (spart API-Calls)
+                    const fileHash = await computeFileHash(item.file);
+                    item.fileHash = fileHash;
+                    const dup = findDuplicate(fileHash);
+                    if (dup) {
+                        item.status = 'duplicate';
+                        item.duplicateOf = dup;
+                        renderBatchList(); updateBatchProgress();
+                        continue;
+                    }
+                    // KI-Analyse
+                    let ki = null, kiError = null;
+                    try {
+                        const base64 = await readFileAsBase64(item.file);
+                        ki = await callAnalyzeAPI(base64, item.file.type, item.file.name);
+                        item.kiResult = ki;
+                    } catch (e) {
+                        kiError = e.message;
+                    }
+                    const confidence = (ki && ki.confidence) || 0;
+                    if (ki && confidence >= AUTO_SAVE_CONFIDENCE) {
+                        // Auto-Save in normaler Bibliothek
+                        const docId = await saveDocCore(item.file, fileHash, ki, { autoSaved: true });
                         item.docId = docId;
                         item.status = 'success';
                     } else {
+                        // v6.62.242: Speichere TROTZDEM in Storage + Inbox — geht nicht verloren
+                        const docId = await saveDocCore(item.file, fileHash, ki, { autoSaved: true, kiError });
+                        item.docId = docId;
                         item.status = 'review';
                     }
                 } catch (e) {
@@ -562,6 +652,7 @@
                     </div>
                     <div class="batch-action">
                         ${it.status === 'review' ? `<button class="btn btn-primary" onclick="reviewBatchItem(${idx})">Review</button>` : ''}
+                        ${it.status === 'duplicate' && it.duplicateOf ? `<button class="btn btn-ghost" onclick="openDocDetail('${it.duplicateOf.id}')" title="Original ansehen">👁 Original</button>` : ''}
                         ${it.status === 'success' && it.docId ? `<button class="btn btn-ghost" onclick="openDocById('${it.docId}')">👁</button>` : ''}
                     </div>
                 </div>`;
@@ -632,6 +723,20 @@
         async function handleFile(file) {
             if (file.size > 10 * 1024 * 1024) { showToast('Datei zu groß (max 10 MB)', true); return; }
             currentFile = file;
+            // v6.62.242: Dubletten-Check vor KI-Call
+            try {
+                const hash = await computeFileHash(file);
+                window._currentFileHash = hash;
+                const dup = findDuplicate(hash);
+                if (dup) {
+                    const dupDate = dup.uploadedAt ? new Date(dup.uploadedAt).toLocaleDateString('de-DE') : '?';
+                    if (!confirm(`⚠️ DUBLETTE\n\nDieses Dokument wurde bereits am ${dupDate} hochgeladen:\n→ ${dup.lieferant || '?'} · ${dup.kategorie} · ${dup.datum || '?'}\n\nTrotzdem nochmal speichern? (selten gewollt)`)) {
+                        currentFile = null;
+                        showToast('Upload abgebrochen — Original schon vorhanden');
+                        return;
+                    }
+                }
+            } catch (e) { console.warn('Hash-Check fail:', e.message); }
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const dataUrl = e.target.result;
@@ -744,7 +849,9 @@
                     originalFilename: currentFile.name,
                     mediaType: currentFile.type,
                     sizeBytes: currentFile.size,
+                    fileHash: window._currentFileHash || null,
                     confidence: kiResult.confidence || null,
+                    needsReview: false,
                     uploadedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?',
                     uploadedAt: Date.now()
                 };
@@ -792,13 +899,126 @@
             jSel.innerHTML = '<option value="">Alle Jahre</option>' +
                 Array.from(years).sort().reverse().map(y => `<option value="${y}">${y}</option>`).join('');
             renderLibrary();
+            updateInboxBadge();
+            // Wenn aktuell auf Inbox-Tab → re-render
+            if (document.getElementById('tab-inbox') && document.getElementById('tab-inbox').classList.contains('active')) {
+                renderInbox();
+            }
+        }
+
+        function updateInboxBadge() {
+            const inboxCount = allDocs.filter(d => d.kategorie === '_inbox').length;
+            const badge = document.getElementById('inbox-badge');
+            if (!badge) return;
+            badge.textContent = inboxCount;
+            badge.style.display = inboxCount > 0 ? 'inline-block' : 'none';
+        }
+
+        // v6.62.242: Posteingang rendering
+        function renderInbox() {
+            const list = document.getElementById('inbox-list');
+            const inbox = allDocs.filter(d => d.kategorie === '_inbox')
+                .sort((a, b) => (b.uploadedAt || 0) - (a.uploadedAt || 0));
+            if (inbox.length === 0) {
+                list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;padding:30px;">📭 Posteingang ist leer — alles gut sortiert!</div>';
+                return;
+            }
+            list.innerHTML = inbox.map(d => {
+                const icons = { 'application/pdf': '📄', 'image/jpeg': '🖼', 'image/png': '🖼' };
+                const icon = icons[d.mediaType] || '📎';
+                const reason = d.kiError ? `❌ KI-Fehler: ${escHtml(d.kiError)}` :
+                    `🤖 Confidence ${Math.round((d.confidence || 0) * 100)}% — KI war unsicher`;
+                return `<div class="doc-row" style="background:#fffbeb;border-left:4px solid #f59e0b;">
+                    <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
+                    <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
+                        <div class="title">📥 ${escHtml(d.originalFilename || '?')}</div>
+                        <div class="sub">${reason}</div>
+                        <div class="extras">${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
+                    </div>
+                    <div class="doc-actions" style="flex-direction:row;">
+                        <button class="btn btn-primary" onclick="event.stopPropagation();reanalyzeFromInbox('${d.id}')" title="KI nochmal versuchen">🤖</button>
+                        <button class="btn btn-ghost" onclick="event.stopPropagation();openDocDetail('${d.id}')" title="Manuell bearbeiten" style="color:#2563eb;">✏</button>
+                        <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Original">👁</button>
+                        <button class="btn btn-ghost" onclick="event.stopPropagation();deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g,'')}')" title="Löschen" style="color:#dc2626;">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function reanalyzeFromInbox(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d || !d.storageUrl) return;
+            showToast('🤖 Lade Datei + KI startet…');
+            try {
+                // Datei aus Storage als Blob holen
+                const resp = await fetch(d.storageUrl);
+                const blob = await resp.blob();
+                const file = new File([blob], d.originalFilename || 'doc.pdf', { type: d.mediaType });
+                const base64 = await readFileAsBase64(file);
+                const ki = await callAnalyzeAPI(base64, file.type, file.name);
+                const confidence = ki.confidence || 0;
+                if (confidence >= AUTO_SAVE_CONFIDENCE) {
+                    // Update Doc mit KI-Daten + raus aus Inbox
+                    const updates = {
+                        kategorie: (ki.kategorie || 'H').toUpperCase(),
+                        subKategorie: ki.subKategorie || null,
+                        dokumenttyp: ki.dokumenttyp || null,
+                        lieferant: ki.lieferant || d.lieferant,
+                        datum: ki.datum || d.datum,
+                        betrag: ki.betrag != null ? Number(ki.betrag) : d.betrag,
+                        vehicleRefId: ki.vehicleRefId || null,
+                        staffRefId: ki.staffRefId || null,
+                        stichworte: Array.isArray(ki.stichworte) ? ki.stichworte : (d.stichworte || []),
+                        kurzbeschreibung: ki.kurzbeschreibung || null,
+                        volltext: ki.volltext || d.volltext,
+                        confidence,
+                        needsReview: false,
+                        kiError: null,
+                        reanalyzedAt: Date.now()
+                    };
+                    await db.ref('docs/' + docId).update(updates);
+                    showToast(`✅ Erkannt: ${updates.kategorie} · ${updates.lieferant} (${Math.round(confidence*100)}%)`);
+                } else {
+                    // Update mit KI-Vorschlag aber bleibt im Posteingang
+                    await db.ref('docs/' + docId).update({
+                        confidence,
+                        kurzbeschreibung: ki.kurzbeschreibung || d.kurzbeschreibung,
+                        volltext: ki.volltext || d.volltext,
+                        reanalyzedAt: Date.now()
+                    });
+                    showToast(`🤔 KI nur ${Math.round(confidence*100)}% sicher — bitte manuell bearbeiten`);
+                }
+                await loadDocs();
+            } catch (e) {
+                showToast('❌ ' + e.message, true);
+            }
+        }
+
+        async function reanalyzeAllInbox() {
+            const inbox = allDocs.filter(d => d.kategorie === '_inbox');
+            if (inbox.length === 0) { showToast('Posteingang ist leer'); return; }
+            if (!confirm(`${inbox.length} Dokument(e) nochmal an die KI schicken? Dauert ca ${(inbox.length * 10)} Sekunden.`)) return;
+            const btn = document.getElementById('inbox-reanalyze-btn');
+            btn.disabled = true;
+            let ok = 0, still = 0, err = 0;
+            for (const d of inbox) {
+                try {
+                    btn.textContent = `🤖 ${ok+still+err+1}/${inbox.length}…`;
+                    await reanalyzeFromInbox(d.id);
+                    // Nach reanalyzeFromInbox ist allDocs neu geladen — d ist möglicherweise weg/anders
+                } catch (e) { err++; }
+            }
+            btn.disabled = false;
+            btn.textContent = '🤖 Alle nochmal analysieren';
+            await loadDocs();
         }
 
         function renderLibrary() {
             const kat = document.getElementById('lib-kat').value;
             const jahr = document.getElementById('lib-jahr').value;
             const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
-            let docs = allDocs;
+            // v6.62.242: Inbox-Docs (kategorie='_inbox') NICHT in Bibliothek zeigen
+            let docs = allDocs.filter(d => d.kategorie !== '_inbox');
             if (kat) docs = docs.filter(d => d.kategorie === kat);
             if (jahr) docs = docs.filter(d => (d.datum || '').startsWith(jahr));
             if (filter) {

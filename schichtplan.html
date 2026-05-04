@@ -514,6 +514,16 @@
             <div class="modal-body">
                 <div class="type-grid" id="type-grid"></div>
 
+                <!-- v6.62.254: Quick-Fill aus Vorlage (Tag/Nacht-Block) -->
+                <div id="quickfill-row" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;margin-bottom:10px;">
+                    <div style="font-size:11px;color:#1e3a8a;font-weight:700;margin-bottom:8px;">⚡ Schnell aus Vorlage füllen:</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="btn type-day" id="qf-day" onclick="quickFillFromPattern('day')" style="display:none;">☀️ Tag-Block</button>
+                        <button class="btn type-night" id="qf-night" onclick="quickFillFromPattern('night')" style="display:none;">🌙 Nacht-Block</button>
+                        <button class="btn type-standby" id="qf-standby" onclick="quickFillFromPattern('standby')" style="display:none;">📞 Rufber-Block</button>
+                    </div>
+                </div>
+
                 <div class="time-row" id="time-row">
                     <div class="form-group">
                         <label class="form-label">Schicht-Start</label>
@@ -1143,7 +1153,69 @@
             }
             updateTypeUI();
             updateHoursPreview();
+            // v6.62.254: Quick-Fill-Buttons aus Pattern anzeigen
+            updateQuickFillButtons(staffId);
             document.getElementById('modal').classList.add('show');
+        }
+
+        // v6.62.254: zeigt 'Tag-Block' / 'Nacht-Block' / 'Rufber-Block' Buttons
+        // basierend auf dem shiftPattern des Mitarbeiters. Klick fuellt alle
+        // Felder (Schicht/Pause/Pre+Post-Standby) aus dem Pattern.
+        function updateQuickFillButtons(staffId) {
+            const s = allStaff.find(x => x.id === staffId);
+            const p = s && s.shiftPattern;
+            const row = document.getElementById('quickfill-row');
+            const btnDay = document.getElementById('qf-day');
+            const btnNight = document.getElementById('qf-night');
+            const btnStandby = document.getElementById('qf-standby');
+            if (!p || !p.enabled) {
+                // Kein aktives Pattern → Default-Pattern aus name-Match nehmen
+                const def = (typeof defaultPattern === 'function') ? defaultPattern(s) : null;
+                if (def && (def.dayShift || def.nightShift)) {
+                    row.style.display = 'block';
+                    btnDay.style.display = (def.mode !== 'fixed-night' && def.mode !== 'fixed-standby' && def.dayShift) ? 'inline-block' : 'none';
+                    btnNight.style.display = (def.mode !== 'fixed-day' && def.mode !== 'fixed-standby' && def.nightShift && def.nightShift.start) ? 'inline-block' : 'none';
+                    btnStandby.style.display = (def.mode === 'fixed-standby' && def.standbyShift) ? 'inline-block' : 'none';
+                    window._qfPattern = def;
+                    row.querySelector('div:first-child').textContent = '⚡ Schnell aus VORLAGE-DEFAULT füllen (noch nicht gespeichert):';
+                    return;
+                }
+                row.style.display = 'none';
+                window._qfPattern = null;
+                return;
+            }
+            row.style.display = 'block';
+            row.querySelector('div:first-child').textContent = '⚡ Schnell aus deiner Vorlage füllen:';
+            window._qfPattern = p;
+            btnDay.style.display = (p.mode === 'alternate' || p.mode === 'fixed-day') ? 'inline-block' : 'none';
+            btnNight.style.display = (p.mode === 'alternate' || p.mode === 'fixed-night') ? 'inline-block' : 'none';
+            btnStandby.style.display = (p.mode === 'fixed-standby') ? 'inline-block' : 'none';
+        }
+
+        function quickFillFromPattern(blockType) {
+            const p = window._qfPattern;
+            if (!p) return;
+            const sh = blockType === 'day' ? p.dayShift
+                     : blockType === 'night' ? p.nightShift
+                     : blockType === 'standby' ? p.standbyShift
+                     : null;
+            if (!sh) return;
+            selectedType = blockType;
+            const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+            setVal('shift-start', sh.start);
+            setVal('shift-end', sh.end);
+            setVal('shift-pause-start', sh.pauseStart);
+            setVal('shift-pause-end', sh.pauseEnd);
+            setVal('shift-pre-start', sh.preStandbyStart);
+            setVal('shift-pre-end', sh.preStandbyEnd);
+            setVal('shift-post-start', sh.postStandbyStart);
+            setVal('shift-post-end', sh.postStandbyEnd);
+            // Extras-Section aufklappen wenn Pause oder Standby drin
+            const hasExtra = sh.pauseStart || sh.preStandbyStart || sh.postStandbyStart;
+            document.getElementById('extra-fields').open = !!hasExtra;
+            updateTypeUI();
+            updateHoursPreview();
+            showToast(`⚡ ${blockType === 'day' ? 'Tag' : blockType === 'night' ? 'Nacht' : 'Rufber'}-Block übernommen — Speichern nicht vergessen`);
         }
 
         function selectType(t) {

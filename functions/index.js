@@ -22793,6 +22793,93 @@ Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokum
 );
 
 // ═══════════════════════════════════════════════════════════════
+// v6.62.258: DMS-Wiedervorlage — schickt Telegram-Push wenn reminderAt
+// fällig wird. Plus auto-Reminder 5 Tage vor dueDate für unbezahlte
+// Rechnungen. Läuft jede Stunde.
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledReminderCheck = onSchedule(
+    {
+        schedule: 'every 60 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const docsSnap = await db.ref('docs').once('value');
+            const docs = docsSnap.val() || {};
+            const dueReminders = [];
+            const dueDateAlerts = [];
+
+            for (const [docId, d] of Object.entries(docs)) {
+                if (!d) continue;
+                // 1. Manuelle Reminders
+                if (d.reminderAt && !d.reminderSent && d.reminderAt <= now) {
+                    dueReminders.push({ docId, ...d });
+                }
+                // 2. Auto-Reminder 5 Tage vor Faelligkeit (nur unbezahlte Rechnungen)
+                if (d.dueDate && !d.dueDateAlertSent && (d.workflowStatus !== 'bezahlt' && d.workflowStatus !== 'erledigt')) {
+                    const due = new Date(d.dueDate + 'T09:00:00').getTime();
+                    const fiveDaysBefore = due - 5 * 86400000;
+                    if (now >= fiveDaysBefore && now < due + 86400000) {
+                        dueDateAlerts.push({ docId, ...d, _due: due });
+                    }
+                }
+            }
+
+            console.log(`📅 ReminderCheck: ${dueReminders.length} manuelle + ${dueDateAlerts.length} Faelligkeit-Alerts`);
+
+            for (const r of dueReminders) {
+                const wIcon = r.wichtigkeit === 'hoch' ? '🔴' : r.wichtigkeit === 'mittel' ? '🟡' : '🟢';
+                let msg = `⏰ <b>Wiedervorlage</b> ${wIcon}\n\n`;
+                msg += `📄 <b>${r.lieferant || '?'}</b>${r.dokumenttyp ? ' — ' + r.dokumenttyp : ''}\n`;
+                if (r.datum) msg += `📅 ${r.datum}`;
+                if (r.betrag) msg += ` · 💶 ${r.betrag.toFixed(2).replace('.', ',')} €`;
+                msg += '\n';
+                if (r.reminderNote) msg += `\n📝 <b>Notiz:</b> ${r.reminderNote}\n`;
+                if (r.summary) msg += `\n${r.summary}\n`;
+                if (r.aktionsEmpfehlung) msg += `\n📋 <b>KI-Empfehlung:</b> ${r.aktionsEmpfehlung}\n`;
+                if (r.storageUrl) msg += `\n🔗 <a href="${r.storageUrl}">Original ansehen</a>`;
+                try {
+                    await db.ref('claudeBridge/outbox/' + Date.now() + '_rem_' + r.docId).set({
+                        message: msg, targetChatId: 6229490043, via: 'claude', ts: Date.now(),
+                        source: 'reminder', docId: r.docId, parseMode: 'HTML'
+                    });
+                    await db.ref('docs/' + r.docId + '/reminderSent').set(Date.now());
+                    console.log(`✅ Reminder gesendet: ${r.docId}`);
+                } catch (e) {
+                    console.error(`❌ Reminder ${r.docId} failed:`, e.message);
+                }
+            }
+
+            for (const a of dueDateAlerts) {
+                const daysLeft = Math.round((a._due - now) / 86400000);
+                let msg = `⚠️ <b>Fälligkeit-Alarm</b> 🔴\n\n`;
+                msg += `📄 <b>${a.lieferant || '?'}</b>${a.dokumenttyp ? ' — ' + a.dokumenttyp : ''}\n`;
+                msg += `📅 Fällig in <b>${daysLeft >= 0 ? daysLeft + ' Tag(en)' : 'BEREITS ÜBERFÄLLIG'}</b> (${a.dueDate})\n`;
+                if (a.betrag) msg += `💶 Betrag: ${a.betrag.toFixed(2).replace('.', ',')} €\n`;
+                if (a.lieferantEmail) msg += `📧 Email: ${a.lieferantEmail}\n`;
+                if (a.aktionsEmpfehlung) msg += `\n📋 <b>KI-Empfehlung:</b> ${a.aktionsEmpfehlung}\n`;
+                if (a.storageUrl) msg += `\n🔗 <a href="${a.storageUrl}">Original</a>`;
+                try {
+                    await db.ref('claudeBridge/outbox/' + Date.now() + '_due_' + a.docId).set({
+                        message: msg, targetChatId: 6229490043, via: 'claude', ts: Date.now(),
+                        source: 'due-alert', docId: a.docId, parseMode: 'HTML'
+                    });
+                    await db.ref('docs/' + a.docId + '/dueDateAlertSent').set(Date.now());
+                    console.log(`✅ DueDate-Alert gesendet: ${a.docId}`);
+                } catch (e) {
+                    console.error(`❌ DueDate-Alert ${a.docId} failed:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('scheduledReminderCheck error:', e);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // v6.62.16: Notfall-Vehicle-Fix — Shift beenden + activeDevice clearen.
 // Aufruf: curl -X POST 'URL?key=SECRET' -d '{"vehicleId":"X","action":"endShift"|"clearLock"|"both"}'
 // ═══════════════════════════════════════════════════════════════

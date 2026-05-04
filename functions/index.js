@@ -19270,6 +19270,41 @@ exports.onRideUpdated = onValueUpdated(
             }
         }
 
+        // 🆕 v6.62.282: assignedTo + vehicleId + assignedVehicle Konsistenz erzwingen
+        // Patrick (15:41): "IK + Tesla beide auf einer Fahrt" — Hotel Das Ahlbeck hatte
+        // vehicleId=Tesla aber assignedTo=IK weil Native-Dashboard-Grab assignedTo nicht
+        // gesetzt hat. Cloud Function heilt jetzt rückwirkend + zukünftig.
+        try {
+            const v1 = after.vehicleId;
+            const v2 = after.assignedTo;
+            const v3 = after.assignedVehicle;
+            const all = [v1, v2, v3].filter(Boolean);
+            const distinct = [...new Set(all)];
+            if (all.length > 0 && distinct.length > 1) {
+                // Inkonsistenz! Wähle den jüngsten Wert (vehicleId hat Vorrang weil
+                // beim Native-Grab gesetzt, dann assignedVehicle, dann assignedTo)
+                const winner = v1 || v3 || v2;
+                const fixUpd = {};
+                if (v1 !== winner) fixUpd.vehicleId = winner;
+                if (v2 !== winner) fixUpd.assignedTo = winner;
+                if (v3 !== winner) fixUpd.assignedVehicle = winner;
+                if (Object.keys(fixUpd).length > 0) {
+                    fixUpd.consistencyHealedAt = Date.now();
+                    fixUpd.consistencyHealedReason = `vehicleId=${v1||'-'} assignedTo=${v2||'-'} assignedVehicle=${v3||'-'} → ${winner}`;
+                    await db.ref(`rides/${rideId}`).update(fixUpd);
+                    console.log(`🔧 v6.62.282 Consistency-Heal ${rideId}: ${fixUpd.consistencyHealedReason}`);
+                    await addRideLog(rideId, '🔧', `Konsistenz-Heal: alle Vehicle-Felder auf ${winner}`, {
+                        quelle: 'onRideUpdated v6.62.282',
+                        vorher: { vehicleId: v1, assignedTo: v2, assignedVehicle: v3 },
+                        nachher: winner
+                    });
+                    return; // Re-Trigger durch Update — Schleife durch consistencyHealedAt verhindert
+                }
+            }
+        } catch (_consistErr) {
+            console.warn('Consistency-Heal Fehler:', _consistErr.message);
+        }
+
         // 🆕 v6.25.5: Schicht-Check bei Änderung einer zugewiesenen Fahrt
         // 🔧 v6.38.44: Admin-manuelle Zuweisungen werden NICHT mehr automatisch umgeplant!
         // Nur auto-assigns (cloud-auto-assign, auto-assign, cloud-auto-replan) werden geprüft.

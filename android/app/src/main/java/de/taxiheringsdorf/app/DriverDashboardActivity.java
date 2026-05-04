@@ -1960,10 +1960,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         u.put("status", "accepted");
         u.put("vehicleId", currentVehicleId);
         u.put("assignedVehicle", currentVehicleId);
+        // v6.62.282: assignedTo MUSS auch gesetzt werden, sonst Inkonsistenz mit vehicleId
+        // Bug-Sweep: Hotel Das Ahlbeck heute hatte vehicleId=Tesla, assignedTo=IK weil
+        // assignedTo bei nativem Grab vergessen wurde → Patrick verwirrt 'IK + Tesla beide?'
+        u.put("assignedTo", currentVehicleId);
         u.put("assignedAt", System.currentTimeMillis());
         u.put("assignedBy", "native_dashboard_grab");
         u.put("acceptedAt", System.currentTimeMillis());
         u.put("acceptedVia", "native_dashboard");
+        u.put("acceptedByVehicle", currentVehicleId);
         u.put("updatedAt", System.currentTimeMillis());
         u.put("openRideWarned", null);  // Watchdog reset
         db.getReference("rides/" + rideId).updateChildren(u);

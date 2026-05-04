@@ -18622,17 +18622,71 @@ exports.onRideCreated = onValueCreated(
         // das wäre Quatsch."
         if (ride.status === 'completed' && (ride.completedBy === 'auftrag-import-historic' || ride.pastDateBooking === true)) {
             const reason = ride.completedBy === 'auftrag-import-historic' ? 'Historic Past-Date Import' : 'Rückwirkend-Buchung (Rechnungs-Zweck)';
-            console.log(`📦 onRideCreated: ${reason} — Skip Auto-Assign + Telegram + SMS + Hotel-Email (${rideId})`);
+            // 🆕 v6.62.285: Patrick — optional Abschluss-SMS bei Past-Date-Buchung
+            // (Toggle ride.sendCompletionSms aus submitQuickBooking Confirm)
+            const optInSms = ride.sendCompletionSms === true;
+            console.log(`📦 onRideCreated: ${reason} — Skip Auto-Assign + Admin-Notifs (${rideId}) | SMS opt-in: ${optInSms}`);
             try {
-                await addRideLog(rideId, '📦', `Cloud: ${reason} — keine Bestätigungs-Notifications`, {
+                await addRideLog(rideId, '📦', `Cloud: ${reason} — Skip Auto-Assign/Admin-Push${optInSms ? ', aber Abschluss-SMS aktiv' : ', keine SMS'}`, {
                     completedBy: ride.completedBy || null,
                     pastDateBooking: !!ride.pastDateBooking,
+                    sendCompletionSms: optInSms,
                     pickup: ride.pickup,
                     destination: ride.destination,
                     pickupTs: ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toISOString() : null
                 });
             } catch (_logErr) { /* still */ }
-            return; // Komplett raus — keine Notif, kein Auto-Assign, kein Status-Override
+
+            // Wenn opt-in: Abschluss-SMS mit Feedback+Rechnung-Link senden (nur an Mobilnummern)
+            if (optInSms) {
+                try {
+                    const _phone = ride.customerPhone || ride.customerMobile || ride.mobilePhone;
+                    if (_phone && isMobileNumber(_phone)) {
+                        const _smsSettingsSnap = await db.ref('settings/sms').once('value');
+                        const _smsSettings = _smsSettingsSnap.val() || {};
+                        if (_smsSettings.statusUpdatesEnabled !== false) {
+                            const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                            let _googleReviewUrl = null;
+                            try {
+                                const _grSnap = await db.ref('settings/googleReviewUrl').once('value');
+                                _googleReviewUrl = _grSnap.val() || null;
+                            } catch(_) {}
+                            const _custFullName = (ride.guestName || ride.customerName || '').trim();
+                            const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                            let _custAnrede = '';
+                            if (ride.customerId) {
+                                try {
+                                    const _custSnap = await db.ref(`customers/${ride.customerId}`).once('value');
+                                    const _cust = _custSnap.val();
+                                    if (_cust && _cust.anrede) _custAnrede = String(_cust.anrede).trim();
+                                } catch(_) {}
+                            }
+                            let _anrede;
+                            if (/^herr$/i.test(_custAnrede) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
+                            else if (/^frau$/i.test(_custAnrede) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
+                            else _anrede = 'Guten Tag';
+                            const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
+                            const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
+                            await db.ref('smsQueue').push({
+                                phone: _phone,
+                                text: _smsText,
+                                rideId,
+                                type: 'fahrt_abgeschlossen_pastdate',
+                                status: 'pending',
+                                createdAt: Date.now()
+                            });
+                            await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue (Past-Date opt-in)', { phone: _phone });
+                            console.log(`📲 Past-Date Abschluss-SMS in Queue: ${_phone}`);
+                        }
+                    } else if (_phone) {
+                        await addRideLog(rideId, '☎️', 'Past-Date Abschluss-SMS übersprungen (Festnetz)', { phone: _phone });
+                    }
+                } catch (_pdSmsErr) {
+                    console.warn('Past-Date Abschluss-SMS Fehler:', _pdSmsErr.message);
+                }
+            }
+
+            return; // Komplett raus — keine weiteren Notifs, kein Auto-Assign
         }
 
         // Prüfe ob Benachrichtigung schon gesendet wurde (z.B. vom Webhook-Handler selbst)

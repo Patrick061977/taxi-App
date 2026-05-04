@@ -19193,22 +19193,68 @@ exports.onRideUpdated = onValueUpdated(
 
                 if (needsReassign_noShift || needsReassign_sofortToVorbestellung) {
                     const oldVehicleName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || after.vehicle || '?';
-                    const reason = needsReassign_noShift
-                        ? `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`
-                        : `Sofortfahrt → Vorbestellung: Neu-Optimierung (${oldVehicleName} war GPS-basiert)`;
-                    console.log(`🔄 onRideUpdated: ${reason}`);
-                    await addRideLog(rideId, '🔄', `Fahrzeug entfernt: ${reason}`, { altFahrzeug: oldVehicleName, quelle: 'onRideUpdated Schicht-Check' });
-                    await db.ref('rides/' + rideId).update({
-                        assignedVehicle: null, vehicleId: null, assignedTo: null,
-                        vehicle: null, vehicleLabel: null, vehiclePlate: null,
-                        assignedBy: null, assignedAt: null,
-                        status: 'vorbestellt',
-                        reassignReason: reason,
-                        reassignedAt: Date.now(),
-                        updatedAt: Date.now()
-                    });
-                    await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
-                    return;
+
+                    // 🆕 v6.62.274: Live-Shift-Override
+                    // Bug-Sweep: Schindel-Fahrt heute lief 32s lang in Endlos-Schleife,
+                    // weil isVehicleInShift() den Wochenplan prüft, aber Patrick die Schicht
+                    // ad-hoc per Live-Start (vehicles/{id}/shift/status='active') geöffnet hat.
+                    // autoAssignRide hat bereits einen 'Schicht aktiv → erlaubt'-Override (Z762),
+                    // onRideUpdated hatte ihn nicht — daher entfernte er das Fahrzeug, autoAssign
+                    // wählte es wieder, Schleife.
+                    if (needsReassign_noShift) {
+                        try {
+                            const _liveShiftSnap = await db.ref(`vehicles/${newVehicle}/shift/status`).once('value');
+                            const _liveShiftActive = (_liveShiftSnap.val() === 'active');
+                            if (_liveShiftActive) {
+                                console.log(`✅ onRideUpdated v6.62.274: ${oldVehicleName} hat keinen Wochenplan-Dienst, aber Live-Schicht aktiv → Override (kein Reassign)`);
+                                await addRideLog(rideId, '✅', `Schicht-Check Override: ${oldVehicleName} live aktiv (Wochenplan ${pickupDateStr} ${pickupTimeStr} ignoriert)`, {
+                                    altFahrzeug: oldVehicleName,
+                                    quelle: 'onRideUpdated v6.62.274 Live-Shift-Override',
+                                    grund: 'Patrick startete Schicht ad-hoc — Wochenplan-Lücke wird durch shift.status=active überstimmt'
+                                });
+                                // Kein Reassign — Fahrzeug bleibt zugewiesen
+                                // Wir machen NICHT return — die nachfolgenden Logiken (Field-Logging,
+                                // Push-Erinnerungen) sollen weiterlaufen
+                            } else {
+                                // Live-Schicht NICHT aktiv → reassign normal
+                                throw new Error('no_live_override');
+                            }
+                        } catch (_overrideErr) {
+                            // Fehler beim Lesen ODER Live-Schicht nicht aktiv → klassischer Reassign-Pfad
+                            const reason = needsReassign_noShift
+                                ? `${oldVehicleName} hat keinen Dienst am ${pickupDateStr} ${pickupTimeStr}`
+                                : `Sofortfahrt → Vorbestellung: Neu-Optimierung (${oldVehicleName} war GPS-basiert)`;
+                            console.log(`🔄 onRideUpdated: ${reason}`);
+                            await addRideLog(rideId, '🔄', `Fahrzeug entfernt: ${reason}`, { altFahrzeug: oldVehicleName, quelle: 'onRideUpdated Schicht-Check' });
+                            await db.ref('rides/' + rideId).update({
+                                assignedVehicle: null, vehicleId: null, assignedTo: null,
+                                vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                                assignedBy: null, assignedAt: null,
+                                status: 'vorbestellt',
+                                reassignReason: reason,
+                                reassignedAt: Date.now(),
+                                updatedAt: Date.now()
+                            });
+                            await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
+                            return;
+                        }
+                    } else {
+                        // needsReassign_sofortToVorbestellung — kein Live-Override (anderer Grund)
+                        const reason = `Sofortfahrt → Vorbestellung: Neu-Optimierung (${oldVehicleName} war GPS-basiert)`;
+                        console.log(`🔄 onRideUpdated: ${reason}`);
+                        await addRideLog(rideId, '🔄', `Fahrzeug entfernt: ${reason}`, { altFahrzeug: oldVehicleName, quelle: 'onRideUpdated Schicht-Check' });
+                        await db.ref('rides/' + rideId).update({
+                            assignedVehicle: null, vehicleId: null, assignedTo: null,
+                            vehicle: null, vehicleLabel: null, vehiclePlate: null,
+                            assignedBy: null, assignedAt: null,
+                            status: 'vorbestellt',
+                            reassignReason: reason,
+                            reassignedAt: Date.now(),
+                            updatedAt: Date.now()
+                        });
+                        await autoAssignRide(rideId, { ...after, assignedVehicle: null, vehicleId: null });
+                        return;
+                    }
                 }
             } catch(e) { await logError('onRideUpdated.schichtCheck', e, { rideId, severity: 'warning' }); }
         }

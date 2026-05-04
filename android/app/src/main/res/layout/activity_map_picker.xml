@@ -19,12 +19,12 @@
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:tint="#FFFFFF"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Schliessen" />
+            android:contentDescription="Schließen" />
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📍 Adresse waehlen"
+            android:text="📍 Adresse wählen"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -55,7 +55,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="14dp"
-        android:text="Tippe auf die Karte um eine Adresse auszuwaehlen"
+        android:text="Tippe auf die Karte um eine Adresse auszuwählen"
         android:textColor="#E2E8F0"
         android:textSize="14sp"
         android:background="#1E293B" />
@@ -65,7 +65,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:text="✅ DIESE ADRESSE UEBERNEHMEN"
+        android:text="✅ DIESE ADRESSE ÜBERNEHMEN"
         android:textSize="16sp"
         android:textStyle="bold"
         android:enabled="false"

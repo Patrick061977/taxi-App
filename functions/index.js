@@ -19563,7 +19563,16 @@ exports.onRideUpdated = onValueUpdated(
                         } catch(_e) {}
                     }
                     if (!_channel) _channel = (after.customerEmail || (after.customerId && false)) ? 'email' : 'sms';
-                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Ihre Rechnung + Status: ${_trackLink} - Bei Fragen: 038378 22022.`;
+                    // 🆕 v6.62.276: Patrick (14:48) — Rechnung raus, nur Feedback + Google-Link.
+                    // 'Die Rechnung produziert noch zu viele Fehler. Wir wollen nur dass Leute Feedback geben.'
+                    // Plus: 'Auf jeden Fall Google-Link rein — Sie können uns bei Google bewerten.'
+                    let _googleReviewUrl = null;
+                    try {
+                        const _grSnap = await db.ref('settings/googleReviewUrl').once('value');
+                        _googleReviewUrl = _grSnap.val() || null;
+                    } catch(_) {}
+                    const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
+                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
                     if (_channel === 'sms' && after.customerPhone) {
                         // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern (Patrick 14:36)
                         if (!isMobileNumber(after.customerPhone)) {

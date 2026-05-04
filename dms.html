@@ -111,6 +111,21 @@
         .stat-label { font-size: 11px; color: #6b7280; }
         .stat-value { font-size: 18px; font-weight: 700; color: #111827; }
 
+        /* v6.62.246: Workflow-Status-Badges */
+        .wf-badge { display: inline-block; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+        .wf-offen      { background: #dbeafe; color: #1e3a8a; }
+        .wf-pending    { background: #fef3c7; color: #78350f; }
+        .wf-bezahlt    { background: #d1fae5; color: #065f46; }
+        .wf-ueberfaellig { background: #fee2e2; color: #991b1b; animation: pulse 1.5s infinite; }
+        .wf-erledigt   { background: #e5e7eb; color: #4b5563; }
+        .wf-klaerung   { background: #ede9fe; color: #4c1d95; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        .wf-history { margin-top: 12px; border-left: 2px solid #e5e7eb; padding-left: 12px; }
+        .wf-history-item { font-size: 11px; color: #6b7280; padding: 4px 0; position: relative; }
+        .wf-history-item::before { content: '●'; position: absolute; left: -17px; color: #9ca3af; }
+        .wf-history-item .ts { color: #9ca3af; font-size: 10px; }
+
         /* v6.62.240: Batch-Items */
         .batch-item { background: #f9fafb; padding: 8px 10px; border-radius: 6px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 12px; }
         .batch-item.success { background: #d1fae5; }
@@ -251,6 +266,16 @@
                         <select id="lib-jahr" class="form-select" onchange="renderLibrary()">
                             <option value="">Alle Jahre</option>
                         </select>
+                        <select id="lib-wfstatus" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle Status</option>
+                            <option value="open-only">📂 Nur offene Posten</option>
+                            <option value="offen">🆕 Offen</option>
+                            <option value="pending">⏳ In Bearbeitung</option>
+                            <option value="bezahlt">✅ Bezahlt</option>
+                            <option value="ueberfaellig">⚠️ Überfällig</option>
+                            <option value="klaerung">🟣 In Klärung</option>
+                            <option value="erledigt">✓ Erledigt</option>
+                        </select>
                         <input id="lib-filter" class="form-input" placeholder="Lieferant, Stichwort…" oninput="renderLibrary()">
                     </div>
                     <div id="lib-stats" class="stat-grid"></div>
@@ -307,7 +332,7 @@
                         </div>
                         <button class="btn btn-ghost" onclick="closeDocModal()" style="font-size:20px;">×</button>
                     </div>
-                    <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="doc-modal-body">
+                    <div style="padding:20px;" id="doc-modal-body">
                         <!-- gefüllt via JS -->
                     </div>
                     <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
@@ -1013,28 +1038,133 @@
             await loadDocs();
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.246: Workflow-Status + Buchungshistorie
+        // workflowStatus: 'offen' | 'pending' | 'bezahlt' | 'ueberfaellig' | 'erledigt' | 'klaerung'
+        // workflowHistory: [{ ts, status, by, note, amount? }]
+        // dueDate: 'YYYY-MM-DD' — Faelligkeitsdatum (fuer Auto-Ueberfaellig)
+        // paidAmount + paidAt — bei 'bezahlt'
+        // relatedDocId — z.B. Mahnung verknuepft mit Original-Rechnung
+        // ═══════════════════════════════════════════════════════════════
+        const WF_LABELS = {
+            offen: '🆕 Offen',
+            pending: '⏳ In Bearbeitung',
+            bezahlt: '✅ Bezahlt',
+            ueberfaellig: '⚠️ Überfällig',
+            erledigt: '✓ Erledigt',
+            klaerung: '🟣 In Klärung'
+        };
+
+        // Effektiver Status — wenn nicht erledigt/bezahlt + dueDate < heute → ueberfaellig
+        function effectiveStatus(d) {
+            const explicit = d.workflowStatus;
+            if (explicit === 'bezahlt' || explicit === 'erledigt') return explicit;
+            if (d.dueDate && d.dueDate < new Date().toISOString().slice(0, 10)) return 'ueberfaellig';
+            return explicit || 'offen';
+        }
+
+        function statusBadge(d) {
+            const s = effectiveStatus(d);
+            return `<span class="wf-badge wf-${s}">${WF_LABELS[s] || s}</span>`;
+        }
+
+        async function changeWorkflowStatus(docId, newStatus, opts = {}) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d) return;
+            const note = opts.note != null ? opts.note : (prompt(`Notiz zur Statusänderung "${WF_LABELS[newStatus]}"? (optional, ENTER = ohne)`) || '');
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            const event = { ts: Date.now(), status: newStatus, by: userEmail, note: note || null };
+            if (opts.amount != null) event.amount = opts.amount;
+            const newHistory = [...(d.workflowHistory || []), event];
+            const updates = { workflowStatus: newStatus, workflowHistory: newHistory };
+            if (newStatus === 'bezahlt') {
+                updates.paidAt = Date.now();
+                if (opts.amount != null) updates.paidAmount = opts.amount;
+                else if (d.betrag != null) updates.paidAmount = d.betrag;
+            }
+            try {
+                await db.ref('docs/' + docId).update(updates);
+                showToast(`Status: ${WF_LABELS[newStatus]}`);
+                await loadDocs();
+                if (editingDocId === docId) {
+                    const fresh = allDocs.find(x => x.id === docId);
+                    if (fresh) renderDocModal(fresh);
+                }
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        async function setDueDate(docId, dueDate) {
+            try {
+                await db.ref('docs/' + docId + '/dueDate').set(dueDate || null);
+                showToast(dueDate ? `Fälligkeit: ${dueDate}` : 'Fälligkeit entfernt');
+                await loadDocs();
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        async function markAsPaid(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            const amount = parseFloat(prompt('Bezahlter Betrag (€)?', d?.betrag != null ? d.betrag : '') || '0');
+            if (isNaN(amount) || amount <= 0) { showToast('Ungültiger Betrag', true); return; }
+            const note = prompt('Notiz (z.B. Zahlweg)?', '') || '';
+            await changeWorkflowStatus(docId, 'bezahlt', { amount, note });
+        }
+
+        async function createMahnung(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d) return;
+            const note = prompt('Welche Mahn-Stufe? (z.B. "1. Mahnung", "2. Mahnung")', '1. Mahnung') || '1. Mahnung';
+            await changeWorkflowStatus(docId, 'pending', { note: note });
+            // History-Eintrag mit Mahn-Markierung
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            const event = { ts: Date.now(), status: 'mahnung-versendet', by: userEmail, note };
+            const newHistory = [...(d.workflowHistory || []), event];
+            try { await db.ref('docs/' + docId + '/workflowHistory').set(newHistory); }
+            catch (e) {}
+            showToast(`${note} eingetragen`);
+            await loadDocs();
+        }
+
         function renderLibrary() {
             const kat = document.getElementById('lib-kat').value;
             const jahr = document.getElementById('lib-jahr').value;
+            const wfFilter = document.getElementById('lib-wfstatus').value;
             const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
             // v6.62.242: Inbox-Docs (kategorie='_inbox') NICHT in Bibliothek zeigen
             let docs = allDocs.filter(d => d.kategorie !== '_inbox');
             if (kat) docs = docs.filter(d => d.kategorie === kat);
             if (jahr) docs = docs.filter(d => (d.datum || '').startsWith(jahr));
+            // v6.62.246: Workflow-Filter
+            if (wfFilter === 'open-only') {
+                docs = docs.filter(d => {
+                    const s = effectiveStatus(d);
+                    return s !== 'bezahlt' && s !== 'erledigt';
+                });
+            } else if (wfFilter) {
+                docs = docs.filter(d => effectiveStatus(d) === wfFilter);
+            }
             if (filter) {
                 docs = docs.filter(d => {
                     const blob = [d.lieferant, d.subKategorie, d.dokumenttyp, d.kurzbeschreibung, (d.stichworte || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
                     return blob.includes(filter);
                 });
             }
-            // Stats
+            // Stats — v6.62.246: zusätzlich Workflow-Counts
             const stats = document.getElementById('lib-stats');
             const totalSize = docs.reduce((s, d) => s + (d.sizeBytes || 0), 0);
             const totalBetrag = docs.reduce((s, d) => s + (d.betrag || 0), 0);
+            const offenSum = docs.filter(d => {
+                const s = effectiveStatus(d);
+                return s !== 'bezahlt' && s !== 'erledigt';
+            }).reduce((s, d) => s + (d.betrag || 0), 0);
+            const ueberCount = docs.filter(d => effectiveStatus(d) === 'ueberfaellig').length;
+            const bezahltSum = docs.filter(d => effectiveStatus(d) === 'bezahlt').reduce((s, d) => s + (d.paidAmount || d.betrag || 0), 0);
             stats.innerHTML = `
                 <div class="stat"><div class="stat-label">Dokumente</div><div class="stat-value">${docs.length}</div></div>
-                <div class="stat"><div class="stat-label">Volumen</div><div class="stat-value">${(totalSize / 1024 / 1024).toFixed(1)} MB</div></div>
                 <div class="stat"><div class="stat-label">Σ Beträge</div><div class="stat-value">${totalBetrag.toFixed(2).replace('.', ',')} €</div></div>
+                <div class="stat"><div class="stat-label">Offene Posten</div><div class="stat-value" style="color:#ea580c;">${offenSum.toFixed(2).replace('.', ',')} €</div></div>
+                <div class="stat"><div class="stat-label">Bezahlt</div><div class="stat-value" style="color:#059669;">${bezahltSum.toFixed(2).replace('.', ',')} €</div></div>
+                <div class="stat"><div class="stat-label">⚠️ Überfällig</div><div class="stat-value" style="color:#dc2626;">${ueberCount}</div></div>
+                <div class="stat"><div class="stat-label">Volumen</div><div class="stat-value">${(totalSize / 1024 / 1024).toFixed(1)} MB</div></div>
             `;
             // Liste
             const lib = document.getElementById('library');
@@ -1050,12 +1180,14 @@
             if (d.vehicleRefId) linkRefs.push(`🚗 ${escHtml(d.vehicleRefId)}`);
             if (d.staffRefId) linkRefs.push(`👤 ${escHtml(d.staffRefId)}`);
             const checked = selectedDocIds.has(d.id) ? 'checked' : '';
+            const wfBadge = statusBadge(d);
+            const dueInfo = d.dueDate ? `· fällig: ${d.dueDate}` : '';
             return `<div class="doc-row" style="grid-template-columns:auto auto 1fr auto;">
                 <input type="checkbox" class="doc-check" data-id="${d.id}" ${checked} onclick="event.stopPropagation();toggleDocSelected('${d.id}', this.checked)" style="width:18px;height:18px;">
                 <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
                 <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
-                    <div class="title"><span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')}</div>
-                    <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
+                    <div class="title"><span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')} ${wfBadge}</div>
+                    <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${dueInfo} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>
                 <div class="doc-actions">
@@ -1210,8 +1342,61 @@
             const vehSnap = window._vehicleOptions || [];
             const staffSnap = window._staffOptions || [];
 
+            // v6.62.246: Workflow-Section
+            const status = effectiveStatus(d);
+            const history = (d.workflowHistory || []).slice().reverse();
+            let actions = '';
+            if (!editMode) {
+                if (status === 'offen' || status === 'pending' || status === 'ueberfaellig') {
+                    actions = `
+                        <button class="btn btn-success" onclick="markAsPaid('${d.id}')">✅ Bezahlt</button>
+                        <button class="btn btn-primary" onclick="createMahnung('${d.id}')">📨 Mahnung anlegen</button>
+                        <button class="btn" onclick="changeWorkflowStatus('${d.id}','klaerung')">🟣 In Klärung</button>
+                        <button class="btn" onclick="changeWorkflowStatus('${d.id}','erledigt')">✓ Erledigt</button>
+                    `;
+                } else if (status === 'bezahlt') {
+                    actions = `
+                        <button class="btn" onclick="changeWorkflowStatus('${d.id}','erledigt')">✓ Erledigt</button>
+                        <button class="btn btn-ghost" onclick="changeWorkflowStatus('${d.id}','offen')">↩ Wieder öffnen</button>
+                    `;
+                } else if (status === 'erledigt') {
+                    actions = `<button class="btn btn-ghost" onclick="changeWorkflowStatus('${d.id}','offen')">↩ Wieder öffnen</button>`;
+                } else if (status === 'klaerung') {
+                    actions = `
+                        <button class="btn btn-success" onclick="markAsPaid('${d.id}')">✅ Bezahlt</button>
+                        <button class="btn" onclick="changeWorkflowStatus('${d.id}','offen')">↩ Offen</button>
+                        <button class="btn" onclick="changeWorkflowStatus('${d.id}','erledigt')">✓ Erledigt</button>
+                    `;
+                }
+            }
+            const historyHtml = history.length === 0
+                ? '<div style="color:#9ca3af;font-size:11px;padding:6px 0;">Keine Status-Änderungen — gerade erst hochgeladen.</div>'
+                : history.map(h => {
+                    const ts = new Date(h.ts).toLocaleString('de-DE');
+                    const amt = h.amount != null ? ` <b>(${h.amount.toFixed(2).replace('.',',')}€)</b>` : '';
+                    return `<div class="wf-history-item"><div class="ts">${ts} · ${escHtml(h.by || '?')}</div><div><b>${WF_LABELS[h.status] || h.status}</b>${amt}${h.note ? ' — ' + escHtml(h.note) : ''}</div></div>`;
+                }).join('');
+            const workflowBlock = editMode ? '' : `<div style="margin-top:16px;background:#f9fafb;border-radius:8px;padding:14px;">
+                <h3 style="font-size:13px;margin-bottom:10px;">📋 Workflow & Buchungshistorie</h3>
+                <div style="margin-bottom:12px;font-size:13px;">
+                    Status: ${statusBadge(d)}
+                    ${d.dueDate ? `<span style="margin-left:10px;color:#6b7280;">📅 Fällig: ${d.dueDate}</span>` : ''}
+                    ${d.paidAmount ? `<span style="margin-left:10px;color:#059669;">💶 Bezahlt: ${d.paidAmount.toFixed(2).replace('.', ',')}€</span>` : ''}
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+                    <label style="font-size:12px;color:#6b7280;">Fälligkeit:</label>
+                    <input type="date" value="${d.dueDate || ''}" onchange="setDueDate('${d.id}', this.value)" class="form-input" style="width:auto;font-size:12px;padding:5px 8px;">
+                    ${d.relatedDocId ? `<button class="btn btn-ghost" style="font-size:11px;" onclick="openDocDetail('${d.relatedDocId}')">→ Verknüpft mit Original</button>` : ''}
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${actions || '<span style="color:#9ca3af;font-size:11px;">Keine Aktionen verfügbar.</span>'}</div>
+                <details ${history.length > 0 ? 'open' : ''}>
+                    <summary style="cursor:pointer;font-size:12px;color:#6b7280;font-weight:600;">📜 Verlauf (${history.length} Einträge)</summary>
+                    <div class="wf-history">${historyHtml}</div>
+                </details>
+            </div>`;
+
             if (editMode) {
-                body.innerHTML = `
+                body.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div>${previewHtml}</div>
                     <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
                         <div class="form-group">
@@ -1245,9 +1430,9 @@
                             <textarea class="form-input" id="e-text" rows="6" style="font-family:monospace;font-size:11px;">${escHtml(d.volltext || '')}</textarea>
                         </div>
                     </div>
-                `;
+                </div>${workflowBlock}`;
             } else {
-                body.innerHTML = `
+                body.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div>${previewHtml}</div>
                     <div style="font-size:13px;">
                         ${fmt('Kategorie / Sub', d.kategorie + ' · ' + (d.subKategorie || '—'))}
@@ -1262,7 +1447,7 @@
                         ${fmt('Datei', `${d.originalFilename} · ${(d.sizeBytes/1024).toFixed(0)} KB · Confidence ${Math.round((d.confidence || 0) * 100)}%`)}
                         <details style="margin-top:8px;"><summary style="cursor:pointer;color:#6b7280;font-size:11px;">📝 Volltext anzeigen</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f9fafb;padding:8px;border-radius:6px;max-height:250px;overflow:auto;">${escHtml(d.volltext || '— kein Text erkannt —')}</pre></details>
                     </div>
-                `;
+                </div>${workflowBlock}`;
             }
         }
 

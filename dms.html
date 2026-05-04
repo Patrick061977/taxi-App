@@ -1496,6 +1496,23 @@
                     <summary style="cursor:pointer;font-size:12px;color:#6b7280;font-weight:600;">📜 Verlauf (${history.length} Einträge)</summary>
                     <div class="wf-history">${historyHtml}</div>
                 </details>
+
+                <!-- v6.62.258: Wiedervorlage / Reminder -->
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">⏰ Wiedervorlage / Erinnerung per Telegram</div>
+                    ${d.reminderAt ? `<div style="background:#dbeafe;color:#1e3a8a;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:8px;">
+                        ⏰ Erinnerung gesetzt für <b>${new Date(d.reminderAt).toLocaleString('de-DE')}</b>
+                        ${d.reminderNote ? '<br>📝 ' + escHtml(d.reminderNote) : ''}
+                        ${d.reminderSent ? '<br><span style="color:#059669;">✅ Bereits gesendet am ' + new Date(d.reminderSent).toLocaleString('de-DE') + '</span>' : ''}
+                        <br><button class="btn btn-ghost" style="font-size:11px;margin-top:4px;color:#dc2626;" onclick="clearReminder('${d.id}')">🗑 Erinnerung entfernen</button>
+                    </div>` : ''}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;">
+                        <input type="datetime-local" id="reminder-at-${d.id}" class="form-input" style="width:auto;font-size:12px;padding:5px 8px;" value="${d.reminderAt ? new Date(d.reminderAt).toISOString().slice(0,16) : ''}">
+                        <input type="text" id="reminder-note-${d.id}" class="form-input" style="flex:1;min-width:160px;font-size:12px;padding:5px 8px;" placeholder="Notiz (optional)" value="${escHtml(d.reminderNote || '')}">
+                        <button class="btn btn-primary" style="font-size:11px;padding:6px 12px;" onclick="setReminder('${d.id}')">⏰ Setzen</button>
+                    </div>
+                    <div style="font-size:10px;color:#6b7280;margin-top:4px;">→ Du bekommst zur eingestellten Zeit eine Telegram-Nachricht über @Funktaxiclaudebot mit KI-Zusammenfassung + Empfehlung + Original-Link.</div>
+                </div>
             </div>`;
 
             if (editMode) {
@@ -1723,6 +1740,41 @@ Funk Taxi Heringsdorf`;
                 statusEl.textContent = '❌ ' + e.message;
                 btn.disabled = false;
             }
+        }
+
+        // v6.62.258: Wiedervorlage / Reminder
+        async function setReminder(docId) {
+            const at = document.getElementById('reminder-at-' + docId).value;
+            const note = (document.getElementById('reminder-note-' + docId).value || '').trim();
+            if (!at) { showToast('Bitte Datum + Uhrzeit wählen', true); return; }
+            const ts = new Date(at).getTime();
+            if (isNaN(ts)) { showToast('Ungültiges Datum', true); return; }
+            try {
+                await db.ref('docs/' + docId).update({
+                    reminderAt: ts,
+                    reminderNote: note || null,
+                    reminderSent: null  // Reset wenn ein neuer Reminder gesetzt wird
+                });
+                showToast('⏰ Erinnerung gesetzt für ' + new Date(ts).toLocaleString('de-DE'));
+                await loadDocs();
+                const d = allDocs.find(x => x.id === docId);
+                if (d) renderDocModal(d);
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        async function clearReminder(docId) {
+            if (!confirm('Erinnerung wirklich entfernen?')) return;
+            try {
+                await db.ref('docs/' + docId).update({
+                    reminderAt: null,
+                    reminderNote: null,
+                    reminderSent: null
+                });
+                showToast('Erinnerung entfernt');
+                await loadDocs();
+                const d = allDocs.find(x => x.id === docId);
+                if (d) renderDocModal(d);
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
         }
 
         async function deleteDocFromModal() {

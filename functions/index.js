@@ -18616,11 +18616,17 @@ exports.onRideCreated = onValueCreated(
         // Bug vor Fix (Patrick 01.05. 10:43): 'Status: completed → warteschlange' wurde
         // gesetzt, weil isSofort = (pickupTs - now) < 25 Min, was bei pickupTs in Vergangenheit
         // immer true ist → Auto-Zuweisung lief → keine Fahrzeuge → warteschlange.
-        if (ride.status === 'completed' && ride.completedBy === 'auftrag-import-historic') {
-            console.log(`📦 onRideCreated: Historic Past-Date Import — Skip Auto-Assign + Telegram (${rideId})`);
+        // 🆕 v6.62.284: Auch Past-Date-Buchungen aus submitQuickBooking (v6.62.283 markiert
+        // pastDateBooking=true wenn Patrick rückwirkend für Rechnungs-Zwecke einträgt).
+        // Patrick (18:06): "Sonst würden die Leute eine Bestätigungs-Email bekommen davon —
+        // das wäre Quatsch."
+        if (ride.status === 'completed' && (ride.completedBy === 'auftrag-import-historic' || ride.pastDateBooking === true)) {
+            const reason = ride.completedBy === 'auftrag-import-historic' ? 'Historic Past-Date Import' : 'Rückwirkend-Buchung (Rechnungs-Zweck)';
+            console.log(`📦 onRideCreated: ${reason} — Skip Auto-Assign + Telegram + SMS + Hotel-Email (${rideId})`);
             try {
-                await addRideLog(rideId, '📦', 'Cloud: Historic Past-Date Import — Skip Auto-Assign', {
-                    completedBy: 'auftrag-import-historic',
+                await addRideLog(rideId, '📦', `Cloud: ${reason} — keine Bestätigungs-Notifications`, {
+                    completedBy: ride.completedBy || null,
+                    pastDateBooking: !!ride.pastDateBooking,
                     pickup: ride.pickup,
                     destination: ride.destination,
                     pickupTs: ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toISOString() : null

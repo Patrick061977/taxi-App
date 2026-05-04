@@ -22588,7 +22588,13 @@ Antwort als striktes JSON, KEIN Markdown, KEIN Pre-/Post-Text:
   "subKategorie": "tuev|versicherung|werkstatt|arbeitsvertrag|krankschein|eingangsrechnung|ausgangsrechnung|bankauszug|finanzamt|lohnabrechnung|...",
   "dokumenttyp": "TUEV-Bericht|Rechnung|Mahnung|Bescheid|Vertrag|...",
   "lieferant": "Wer hat das ausgestellt? (z.B. 'TUEV Sued', 'AOK Nordost', 'ECOVIS', 'Telekom')",
+  "lieferantEmail": "Email-Adresse des Absenders aus Briefkopf/Fusszeile/Impressum (fuer Schriftverkehr) — null wenn nicht im Dokument",
+  "lieferantPhone": "Telefonnummer des Absenders — null wenn nicht erkennbar",
+  "lieferantAdresse": "Vollstaendige Anschrift Strasse+PLZ+Ort des Absenders — null wenn nicht erkennbar",
+  "lieferantUstId": "USt-IdNr / Steuernummer des Absenders (z.B. 'DE205006336') — null wenn nicht erkennbar",
+  "rechnungsnummer": "Rechnungs-/Bescheid-/Vorgangs-Nummer aus dem Dokument — null wenn keins",
   "datum": "YYYY-MM-DD aus dem Dokument selbst (Rechnungsdatum/Bescheid-Datum), null wenn nicht erkennbar",
+  "faelligkeitsdatum": "YYYY-MM-DD wenn 'Zahlbar bis'/'Faellig am' im Dokument steht, sonst null",
   "betrag": <Zahl oder null> ,
   "waehrung": "EUR|USD|...",
   "vehicleRefId": "id des Fahrzeugs aus der Liste oben, null wenn unklar",
@@ -22700,7 +22706,7 @@ H) sonstiges
 Bekannte Fahrzeuge: ${vehicleNames || '(keine)'}
 Bekannte Mitarbeiter: ${staffNames || '(keine)'}
 
-Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "datum": "YYYY-MM-DD", "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "volltext": "...", "confidence": 0.0-1.0 }`;
+Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "lieferantEmail": "..."|null, "lieferantPhone": "..."|null, "lieferantAdresse": "..."|null, "lieferantUstId": "..."|null, "rechnungsnummer": "..."|null, "datum": "YYYY-MM-DD", "faelligkeitsdatum": "YYYY-MM-DD"|null, "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "volltext": "...", "confidence": 0.0-1.0 }`;
                     const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
                         role: 'user',
                         content: [
@@ -22747,6 +22753,13 @@ Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokum
                 subKategorie: (parsed && parsed.subKategorie) || (isInbox ? null : 'allgemein'),
                 dokumenttyp: (parsed && parsed.dokumenttyp) || null,
                 lieferant, datum, betrag, waehrung: 'EUR',
+                // v6.62.256: Lieferanten-Kontaktdaten + Rechnungsdetails fuer Schriftverkehr
+                lieferantEmail: (parsed && parsed.lieferantEmail) || null,
+                lieferantPhone: (parsed && parsed.lieferantPhone) || null,
+                lieferantAdresse: (parsed && parsed.lieferantAdresse) || null,
+                lieferantUstId: (parsed && parsed.lieferantUstId) || null,
+                rechnungsnummer: (parsed && parsed.rechnungsnummer) || null,
+                faelligkeitsdatum: (parsed && parsed.faelligkeitsdatum) || null,
                 vehicleRefId: (parsed && parsed.vehicleRefId) || null,
                 staffRefId: (parsed && parsed.staffRefId) || null,
                 stichworte: (parsed && Array.isArray(parsed.stichworte)) ? parsed.stichworte : [],

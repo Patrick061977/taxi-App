@@ -1648,10 +1648,10 @@
                                 <tr><td>− Pause</td><td class="num" style="color:#dc2626;">−${fmtH(p.pause)}</td></tr>
                                 <tr><td><b>Voll bezahlt</b></td><td class="num"><b>${fmtH(p.vollBez)}</b></td></tr>
                                 <tr><td>Rufbereitschaft (Pre+Post)</td><td class="num">${fmtH(p.standbyGes)}</td></tr>
-                                ${p.sonntag > 0 ? `<tr><td>Sonntag (50%)</td><td class="num">${fmtH(p.sonntag)}</td></tr>` : ''}
+                                ${p.sonntag > 0 ? `<tr><td>Sonntag (00-24, 50%)</td><td class="num">${fmtH(p.sonntag)}</td></tr>` : ''}
                                 ${p.nacht25 > 0 ? `<tr><td>Nacht 20-00 (25%)</td><td class="num">${fmtH(p.nacht25)}</td></tr>` : ''}
                                 ${p.nacht40 > 0 ? `<tr><td>Nacht 00-06 (40%)</td><td class="num">${fmtH(p.nacht40)}</td></tr>` : ''}
-                                ${p.feiertag > 0 ? `<tr><td>Feiertag (150%)</td><td class="num">${fmtH(p.feiertag)}</td></tr>` : ''}
+                                ${p.feiertag > 0 ? `<tr><td>Feiertag (00-24, 150%)</td><td class="num">${fmtH(p.feiertag)}</td></tr>` : ''}
                             </table>
                         </div>
                         <div>
@@ -1660,10 +1660,10 @@
                                 <tr><td>Voll bezahlt × ${p.rs.toFixed(2).replace('.',',')}</td><td class="num">${fmtE(p.bruttoVoll)}</td></tr>
                                 <tr><td>Rufber. × ${p.rb.toFixed(2).replace('.',',')}</td><td class="num">${fmtE(p.bruttoStandby)}</td></tr>
                                 <tr style="background:#f3f4f6;"><td><b>Stpfl. Brutto</b></td><td class="num"><b>${fmtE(p.stpflBrutto)}</b></td></tr>
-                                ${p.zuschlSo > 0 ? `<tr style="color:#059669;"><td>+ So 50%</td><td class="num">${fmtE(p.zuschlSo)}</td></tr>` : ''}
-                                ${p.zuschlN25 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 25%</td><td class="num">${fmtE(p.zuschlN25)}</td></tr>` : ''}
-                                ${p.zuschlN40 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 40%</td><td class="num">${fmtE(p.zuschlN40)}</td></tr>` : ''}
-                                ${p.zuschlFt > 0 ? `<tr style="color:#059669;"><td>+ Feiertag 150%</td><td class="num">${fmtE(p.zuschlFt)}</td></tr>` : ''}
+                                ${p.zuschlSo > 0 ? `<tr style="color:#059669;"><td>+ Sonntag 00-24 (50%)</td><td class="num">${fmtE(p.zuschlSo)}</td></tr>` : ''}
+                                ${p.zuschlN25 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 20-00 (25%)</td><td class="num">${fmtE(p.zuschlN25)}</td></tr>` : ''}
+                                ${p.zuschlN40 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 00-06 (40%)</td><td class="num">${fmtE(p.zuschlN40)}</td></tr>` : ''}
+                                ${p.zuschlFt > 0 ? `<tr style="color:#059669;"><td>+ Feiertag 00-24 (150%)</td><td class="num">${fmtE(p.zuschlFt)}</td></tr>` : ''}
                                 <tr style="color:#dc2626;"><td>− SV (${(SV_RATE*100)}%)</td><td class="num">−${fmtE(p.sv)}</td></tr>
                                 <tr style="color:#dc2626;"><td>− LSt (${(LST_RATE*100)}%)</td><td class="num">−${fmtE(p.lst)}</td></tr>
                                 <tr class="total-row"><td><b>≈ NETTO</b></td><td class="num"><b>${fmtE(p.netto)}</b></td></tr>
@@ -1849,10 +1849,12 @@
             const daysInMonth = new Date(year, month, 0).getDate();
             const dayShortNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
             const rows = [];
-            rows.push(rowXml(1, [['A', 'inlineStr', headerTitle]]));
-            const headers = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','So.-zul. 50%','Nacht 25%','Nacht 40%'];
-            rows.push(rowXml(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h])));
-            rows.push(rowXml(3, [['J', 'inlineStr', '20.00-00.00']]));
+            // 🆕 v6.62.280: Title in Style 7 (Bold groß zentriert blau)
+            rows.push(rowXmlStyled(1, [['A', 'inlineStr', headerTitle, 7]]));
+            // 🆕 v6.62.280: Sonntag/Feiertag mit Uhrzeit-Hinweis (00-24)
+            // 🆕 v6.62.280: Spalte M ergänzt — Feiertag (war komplett vergessen!)
+            const headers = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','Sonntag 00-24 (50%)','Nacht 20-00 (25%)','Nacht 00-06 (40%)','Feiertag 00-24 (150%)'];
+            rows.push(rowXmlStyled(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h, 1])));
 
             let tVollVor = 0, tPause = 0, tVollBez = 0, tStandby = 0;
             let tSonntag = 0, tNacht25 = 0, tNacht40 = 0, tFeiertag = 0;
@@ -1890,20 +1892,23 @@
                 if (cls.sonntag > 0) cells.push(['J', 'n', +cls.sonntag.toFixed(2)]);
                 if (cls.nacht25 > 0) cells.push(['K', 'n', +cls.nacht25.toFixed(2)]);
                 if (cls.nacht40 > 0) cells.push(['L', 'n', +cls.nacht40.toFixed(2)]);
+                // 🆕 v6.62.280: Feiertag-Spalte M
+                if (cls.feiertag > 0) cells.push(['M', 'n', +cls.feiertag.toFixed(2)]);
                 rows.push(rowXml(3 + day, cells));
             }
 
-            // Summen-Zeile (Stunden)
+            // Summen-Zeile (Stunden) — v6.62.280: Style 5 (fett+grau) + Feiertag M
             const sumRowIdx = 3 + daysInMonth + 1;
-            rows.push(rowXml(sumRowIdx, [
-                ['A', 'inlineStr', 'Summe Std.:'],
-                ['D', 'n', +tVollVor.toFixed(2)],
-                ['E', 'n', +tPause.toFixed(2)],
-                ['G', 'n', +tVollBez.toFixed(2)],
-                ['I', 'n', +tStandby.toFixed(2)],
-                ['J', 'n', +tSonntag.toFixed(2)],
-                ['K', 'n', +tNacht25.toFixed(2)],
-                ['L', 'n', +tNacht40.toFixed(2)]
+            rows.push(rowXmlStyled(sumRowIdx, [
+                ['A', 'inlineStr', 'Summe Std.:', 5],
+                ['D', 'n', +tVollVor.toFixed(2), 3],
+                ['E', 'n', +tPause.toFixed(2), 3],
+                ['G', 'n', +tVollBez.toFixed(2), 3],
+                ['I', 'n', +tStandby.toFixed(2), 3],
+                ['J', 'n', +tSonntag.toFixed(2), 3],
+                ['K', 'n', +tNacht25.toFixed(2), 3],
+                ['L', 'n', +tNacht40.toFixed(2), 3],
+                ['M', 'n', +tFeiertag.toFixed(2), 3]
             ]));
 
             // Brutto-Zeile (€): Voll-Lohn + Rufber-Lohn, Zuschlaege separat
@@ -1916,13 +1921,16 @@
             const zuschlNacht25 = surchargesEnabled ? +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2) : 0;
             const zuschlNacht40 = surchargesEnabled ? +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2) : 0;
             const zuschlFeiertag = surchargesEnabled ? +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2) : 0;
-            rows.push(rowXml(lohnRowIdx, [
-                ['A', 'inlineStr', 'Brutto-Lohn (€):'],
-                ['G', 'n', bruttoVoll],
-                ['I', 'n', bruttoStandby],
-                ['J', 'n', zuschlSonntag],
-                ['K', 'n', zuschlNacht25],
-                ['L', 'n', zuschlNacht40]
+            // 🆕 v6.62.280: Brutto-Zeile mit Style 5 (Summen-Style, fett+hellgrau)
+            // 🆕 v6.62.280: Feiertagszuschlag in Spalte M (war komplett vergessen!)
+            rows.push(rowXmlStyled(lohnRowIdx, [
+                ['A', 'inlineStr', 'Brutto-Lohn (€):', 5],
+                ['G', 'n', bruttoVoll, 8],
+                ['I', 'n', bruttoStandby, 8],
+                ['J', 'n', zuschlSonntag, 8],
+                ['K', 'n', zuschlNacht25, 8],
+                ['L', 'n', zuschlNacht40, 8],
+                ['M', 'n', zuschlFeiertag, 8]
             ]));
 
             // Gesamt + Steuer-Aufstellung
@@ -1931,28 +1939,36 @@
             const sv = +(stpflBrutto * SV_RATE).toFixed(2);
             const lst = +(stpflBrutto * LST_RATE).toFixed(2);
             const netto = +(stpflBrutto - sv - lst + zuschlSumme).toFixed(2);
-            rows.push(rowXml(lohnRowIdx + 2, [['A', 'inlineStr', 'Stpfl. Brutto (Voll + Rufber.):'], ['D', 'n', stpflBrutto]]));
-            rows.push(rowXml(lohnRowIdx + 3, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):'], ['D', 'n', zuschlSumme]]));
-            if (tFeiertag > 0) rows.push(rowXml(lohnRowIdx + 4, [['A', 'inlineStr', 'davon Feiertag 150% (' + tFeiertag.toFixed(2) + 'h):'], ['D', 'n', zuschlFeiertag]]));
-            rows.push(rowXml(lohnRowIdx + 5, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):'], ['D', 'n', -sv]]));
-            rows.push(rowXml(lohnRowIdx + 6, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):'], ['D', 'n', -lst]]));
-            rows.push(rowXml(lohnRowIdx + 7, [['A', 'inlineStr', 'NETTO:'], ['D', 'n', netto]]));
+            rows.push(rowXmlStyled(lohnRowIdx + 2, [['A', 'inlineStr', 'Stpfl. Brutto (Voll + Rufber.):', 2], ['D', 'n', stpflBrutto, 8]]));
+            rows.push(rowXmlStyled(lohnRowIdx + 3, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):', 2], ['D', 'n', zuschlSumme, 8]]));
+            if (tFeiertag > 0) rows.push(rowXmlStyled(lohnRowIdx + 4, [['A', 'inlineStr', 'davon Feiertag 00-24 (150%) ' + tFeiertag.toFixed(2) + 'h:', 2], ['D', 'n', zuschlFeiertag, 8]]));
+            rows.push(rowXmlStyled(lohnRowIdx + 5, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):', 2], ['D', 'n', -sv, 8]]));
+            rows.push(rowXmlStyled(lohnRowIdx + 6, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):', 2], ['D', 'n', -lst, 8]]));
+            // 🆕 v6.62.280: NETTO-Row in Style 6 (fett groß grün)
+            rows.push(rowXmlStyled(lohnRowIdx + 7, [['A', 'inlineStr', 'NETTO:', 6], ['D', 'n', netto, 9]]));
 
             const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
     <cols>
-        <col min="1" max="1" width="9"/>
+        <col min="1" max="1" width="10"/>
         <col min="2" max="2" width="5"/>
-        <col min="3" max="4" width="20"/>
-        <col min="5" max="6" width="11"/>
-        <col min="7" max="9" width="13"/>
-        <col min="10" max="12" width="13"/>
+        <col min="3" max="3" width="13"/>
+        <col min="4" max="4" width="13"/>
+        <col min="5" max="5" width="9"/>
+        <col min="6" max="6" width="13"/>
+        <col min="7" max="7" width="11"/>
+        <col min="8" max="8" width="13"/>
+        <col min="9" max="9" width="11"/>
+        <col min="10" max="10" width="17"/>
+        <col min="11" max="11" width="17"/>
+        <col min="12" max="12" width="17"/>
+        <col min="13" max="13" width="20"/>
     </cols>
     <sheetData>
 ${rows.join('\n')}
     </sheetData>
     <mergeCells count="1">
-        <mergeCell ref="A1:L1"/>
+        <mergeCell ref="A1:M1"/>
     </mergeCells>
 </worksheet>`;
 
@@ -1966,6 +1982,7 @@ ${rows.join('\n')}
             const wbRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
     <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
 
             const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1979,15 +1996,75 @@ ${rows.join('\n')}
     <Default Extension="xml" ContentType="application/xml"/>
     <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
     <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>`;
+
+            // 🆕 v6.62.280: Styles für schickere Excel-Tabelle
+            // Index 0=default, 1=Header (weiß auf blau), 2=Bold, 3=Hours-Number,
+            // 4=reserviert, 5=Summen-Row (fett+hellgrau), 6=NETTO (fett+grün+groß),
+            // 7=Title (fett+groß zentriert), 8=Euro-Wert, 9=NETTO-Euro
+            const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="0.00"/>
+    <numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/>
+  </numFmts>
+  <fonts count="5">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="13"/><color rgb="FF0EA5E9"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="5">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0EA5E9"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFE5E7EB"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF10B981"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFCCCCCC"/></left><right style="thin"><color rgb="FFCCCCCC"/></right><top style="thin"><color rgb="FFCCCCCC"/></top><bottom style="thin"><color rgb="FFCCCCCC"/></bottom><diagonal/></border>
+  </borders>
+  <cellXfs count="10">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="1"/>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1"/>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="1"/>
+    <xf numFmtId="0" fontId="3" fillId="4" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="0" fillId="0" borderId="1"/>
+    <xf numFmtId="165" fontId="3" fillId="4" borderId="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>`;
 
             const xlsx = new JSZip();
             xlsx.file('[Content_Types].xml', contentTypesXml);
             xlsx.folder('_rels').file('.rels', rootRelsXml);
             xlsx.folder('xl').file('workbook.xml', wbXml);
+            xlsx.folder('xl').file('styles.xml', stylesXml);
             xlsx.folder('xl/_rels').file('workbook.xml.rels', wbRelsXml);
             xlsx.folder('xl/worksheets').file('sheet1.xml', sheetXml);
             return await xlsx.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        }
+
+        // 🆕 v6.62.280: rowXml mit optionalem Style-Index pro Zelle
+        // cells: [[col, type, val, styleIdx?], ...]
+        function rowXmlStyled(r, cells) {
+            const cellsXml = cells.map(([col, type, val, styleIdx]) => {
+                const ref = col + r;
+                const styleAttr = (styleIdx !== undefined && styleIdx !== null) ? ` s="${styleIdx}"` : '';
+                if (type === 'inlineStr') {
+                    const safe = String(val || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    return `        <c r="${ref}"${styleAttr} t="inlineStr"><is><t>${safe}</t></is></c>`;
+                } else {
+                    return `        <c r="${ref}"${styleAttr}><v>${val}</v></c>`;
+                }
+            }).join('\n');
+            return `    <row r="${r}">\n${cellsXml}\n    </row>`;
         }
 
         function colLetter(idx0) {

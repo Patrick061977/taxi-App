@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ausflugsziele auf Usedom — Funk Taxi Heringsdorf</title>
 <meta name="description" content="Entdecken Sie die schönsten Ausflugsziele auf der Insel Usedom — Funk Taxi Heringsdorf bringt Sie hin.">
+<!-- 🆕 v6.62.289: Pirata One = antike Schatzkarten-Schrift -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafaf7; color: #1f2937; line-height: 1.5; }
@@ -39,7 +43,7 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 
 /* Karten-Container */
 .map-container { max-width: 900px; margin: 0 auto; padding: 0 16px; position: relative; }
-.usedom-map { width: 100%; height: auto; display: block; background: linear-gradient(180deg, #cfe7f5 0%, #a8d4ec 100%); border-radius: 16px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12); }
+.usedom-map { width: 100%; height: auto; display: block; background: #fef3c7; border-radius: 16px; box-shadow: 0 8px 32px rgba(120, 53, 15, 0.3), inset 0 0 60px rgba(120, 53, 15, 0.15); border: 4px solid #92400e; }
 
 /* Hotspots */
 .poi-hotspot {
@@ -237,186 +241,117 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 
 <div class="map-container">
     <svg viewBox="0 0 800 1100" class="usedom-map" id="usedom-map" xmlns="http://www.w3.org/2000/svg">
-        <!-- 🆕 v6.62.288: Comic-3D-Style — Patrick "ein bisschen schick, nicht bloß Trickfilm" -->
+        <!-- 🆕 v6.62.289: Schatzkarten-Style mit ECHTER Usedom-Geometrie aus OpenStreetMap.
+             Patrick (19:32): "Wie eine Schatzkarte. Vor allem kartentechnisch richtig — eingenordet."
+             285 Polygon-Punkte aus OSM relation 3791269, simplifiziert mit Douglas-Peucker.
+             Bounding: lat 53.80–54.18, lon 13.745–14.345 → viewBox 800x1100, Norden oben. -->
         <defs>
-            <!-- Wasser-Tiefen-Gradient: hell am Ufer, dunkler weiter draußen -->
-            <radialGradient id="waterDepth" cx="50%" cy="50%" r="65%">
-                <stop offset="0%" stop-color="#bae6fd"/>
-                <stop offset="55%" stop-color="#7dd3fc"/>
-                <stop offset="100%" stop-color="#0284c7"/>
-            </radialGradient>
-            <!-- Wellen-Pattern (subtiler als vorher) -->
-            <pattern id="waves" patternUnits="userSpaceOnUse" width="100" height="30">
-                <path d="M 0 15 Q 25 6, 50 15 T 100 15" stroke="#fff" stroke-width="0.8" fill="none" opacity="0.35"/>
-                <path d="M 0 26 Q 25 18, 50 26 T 100 26" stroke="#fff" stroke-width="0.6" fill="none" opacity="0.22"/>
-            </pattern>
-            <!-- Sand mit Volumen-Look (radial highlight) -->
-            <radialGradient id="sandVol" cx="50%" cy="40%" r="60%">
+            <!-- Pergament-Hintergrund (vergilbtes Papier) -->
+            <radialGradient id="parchment" cx="50%" cy="50%" r="80%">
                 <stop offset="0%" stop-color="#fef3c7"/>
                 <stop offset="60%" stop-color="#fde68a"/>
+                <stop offset="100%" stop-color="#d4a574"/>
+            </radialGradient>
+            <!-- Pergament-Textur (Punkt-Pattern für Alterung) -->
+            <pattern id="parchmentTex" patternUnits="userSpaceOnUse" width="40" height="40">
+                <circle cx="5" cy="8" r="0.5" fill="#92400e" opacity="0.18"/>
+                <circle cx="22" cy="14" r="0.7" fill="#78350f" opacity="0.12"/>
+                <circle cx="32" cy="28" r="0.4" fill="#92400e" opacity="0.16"/>
+                <circle cx="14" cy="32" r="0.6" fill="#78350f" opacity="0.14"/>
+                <path d="M 0 20 Q 20 18, 40 20" stroke="#92400e" stroke-width="0.3" fill="none" opacity="0.08"/>
+            </pattern>
+            <!-- Wasser-Wellen Pattern (Schatzkarten-Style mit Tinten-Linien) -->
+            <pattern id="seaInk" patternUnits="userSpaceOnUse" width="60" height="22">
+                <path d="M 0 11 Q 15 5, 30 11 T 60 11" stroke="#1e3a8a" stroke-width="0.7" fill="none" opacity="0.4"/>
+                <path d="M 5 18 Q 18 14, 30 18" stroke="#1e3a8a" stroke-width="0.5" fill="none" opacity="0.25"/>
+            </pattern>
+            <!-- Land-Pattern (Wiesen-Schraffur) -->
+            <pattern id="landGrass" patternUnits="userSpaceOnUse" width="14" height="14">
+                <rect width="14" height="14" fill="#bef264"/>
+                <line x1="2" y1="10" x2="2" y2="6" stroke="#65a30d" stroke-width="0.6"/>
+                <line x1="6" y1="11" x2="6" y2="7" stroke="#65a30d" stroke-width="0.6"/>
+                <line x1="10" y1="9" x2="10" y2="5" stroke="#65a30d" stroke-width="0.6"/>
+                <circle cx="3" cy="3" r="1" fill="#65a30d" opacity="0.7"/>
+            </pattern>
+            <!-- Sand/Strand-Rand -->
+            <radialGradient id="sandRing" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#fde68a"/>
                 <stop offset="100%" stop-color="#d97706"/>
             </radialGradient>
-            <!-- Land mit Highlight (Norden hell von Sonne, Süden Schatten) -->
-            <linearGradient id="landVol" x1="20%" y1="10%" x2="80%" y2="100%">
-                <stop offset="0%" stop-color="#bbf7d0"/>
-                <stop offset="40%" stop-color="#86efac"/>
-                <stop offset="100%" stop-color="#16a34a"/>
-            </linearGradient>
-            <!-- Wald-Volumen (radial gradient für Bäume-Cluster) -->
+            <!-- Wald (cluster mit Tiefe) -->
             <radialGradient id="forestVol" cx="35%" cy="30%" r="80%">
-                <stop offset="0%" stop-color="#4ade80"/>
-                <stop offset="100%" stop-color="#15803d"/>
+                <stop offset="0%" stop-color="#65a30d"/>
+                <stop offset="100%" stop-color="#3f6212"/>
             </radialGradient>
-            <!-- Achterwasser-3D — Innensee mit Tiefen-Effekt -->
+            <!-- Achterwasser-Innensee (Tinte-Look) -->
             <radialGradient id="achterVol" cx="50%" cy="40%" r="60%">
                 <stop offset="0%" stop-color="#a5f3fc"/>
                 <stop offset="55%" stop-color="#22d3ee"/>
                 <stop offset="100%" stop-color="#0e7490"/>
             </radialGradient>
-            <!-- 3D-Drop-Shadow (intensiver) -->
+            <!-- Schatzkarten-Schatten (warmer Sepia) -->
             <filter id="islandShadow" x="-10%" y="-10%" width="120%" height="120%">
-                <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.32"/>
+                <feDropShadow dx="3" dy="6" stdDeviation="6" flood-color="#78350f" flood-opacity="0.45"/>
             </filter>
-            <!-- Soft-Bevel für Land (Highlight oben, Schatten unten) -->
-            <filter id="landBevel" x="-5%" y="-5%" width="110%" height="110%">
-                <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
-                <feSpecularLighting in="blur" surfaceScale="3" specularConstant="0.5" specularExponent="20" lighting-color="#ffffff" result="spec">
-                    <feDistantLight azimuth="45" elevation="55"/>
-                </feSpecularLighting>
-                <feComposite in="spec" in2="SourceAlpha" operator="in" result="specOut"/>
-                <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="0.7" k4="0"/>
-            </filter>
-            <!-- POI-Pin Highlight Gradient (3D rote Tropfen-Form) -->
+            <!-- POI-Pin Highlight (rotes Tropfen-Pin) -->
             <radialGradient id="pinGrad" cx="35%" cy="30%" r="70%">
                 <stop offset="0%" stop-color="#fca5a5"/>
-                <stop offset="50%" stop-color="#ef4444"/>
+                <stop offset="50%" stop-color="#dc2626"/>
                 <stop offset="100%" stop-color="#7f1d1d"/>
             </radialGradient>
-            <!-- POI-Pin Schatten (klein, knapp drunter) -->
             <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000" flood-opacity="0.4"/>
+                <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#78350f" flood-opacity="0.5"/>
             </filter>
-            <!-- Wolken mit weichen Schatten -->
-            <filter id="cloudShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.15"/>
+            <filter id="inkBleed" x="-5%" y="-5%" width="110%" height="110%">
+                <feGaussianBlur stdDeviation="0.3"/>
             </filter>
-            <!-- Pfad für animiertes Boot über das Achterwasser -->
-            <path id="bootPfad" d="M 250 720 Q 320 760, 420 740 Q 500 720, 540 690" fill="none"/>
+            <!-- Pfad für animiertes Boot über das Achterwasser (innen Süd) -->
+            <path id="bootPfad" d="M 280 730 Q 360 760, 450 740 Q 500 720, 510 700" fill="none"/>
         </defs>
 
-        <!-- Wasser-Hintergrund (Ostsee) — 3D-Tiefen-Gradient + Wellen drauf -->
-        <rect width="800" height="1100" fill="url(#waterDepth)" />
-        <rect width="800" height="1100" fill="url(#waves)" />
+        <!-- Pergament-Hintergrund (Schatzkarten-Style) -->
+        <rect width="800" height="1100" fill="url(#parchment)" />
+        <rect width="800" height="1100" fill="url(#parchmentTex)" />
+        <!-- Verbrannte/abgenutzte Ränder mit unregelmäßigen Ecken -->
+        <path d="M 0 0 L 800 0 L 800 30 Q 700 25, 600 35 Q 500 40, 400 30 Q 300 25, 200 35 Q 100 30, 0 35 Z" fill="#92400e" opacity="0.15"/>
+        <path d="M 0 1100 L 800 1100 L 800 1070 Q 700 1075, 600 1065 Q 500 1060, 400 1070 Q 300 1075, 200 1065 Q 100 1070, 0 1065 Z" fill="#92400e" opacity="0.15"/>
+        <!-- Wasser (Ostsee + Bodden) — Schatzkarten-Wellen-Linien -->
+        <rect x="0" y="0" width="800" height="1100" fill="url(#seaInk)" opacity="0.6"/>
 
-        <!-- ═══ INSEL USEDOM — Comic-Style realistischere Form ═══ -->
-        <!-- Form: Norden schmal mit Peenemünde-Lippe, Verengung Koserow Mitte,
-             breiter Süden mit Achterwasser-Innensee, Świnoujście am Ost-Ende -->
+        <!-- ═══ INSEL USEDOM — ECHTE Geometrie aus OpenStreetMap (285 Punkte) ═══ -->
+        <!-- Sand-Strand-Rand (leicht außerhalb der Land-Kontur) -->
+        <path d="M6.3,61.9L10.4,78.0L8.5,87.9L17.3,85.2L9.0,90.1L13.6,101.6L14.1,123.3L17.9,131.9L25.7,132.9L22.2,123.6L25.6,121.5L28.6,132.0L36.5,133.5L42.4,153.3L40.0,174.2L51.5,175.7L61.8,199.4L91.5,208.6L84.4,212.3L90.8,235.5L85.3,257.2L88.3,257.7L84.1,259.4L85.0,285.2L74.5,305.1L69.8,325.1L71.0,341.9L57.2,359.1L60.6,380.2L49.4,394.0L50.5,404.0L47.8,410.1L43.6,401.0L36.6,402.3L25.7,432.4L25.1,448.9L32.5,466.1L55.5,470.9L75.2,466.8L86.4,431.6L95.5,425.5L100.9,412.6L133.2,398.7L137.8,394.8L133.1,391.4L136.2,386.6L147.7,385.1L144.8,381.4L158.6,385.5L167.3,394.9L172.2,409.1L174.9,401.7L173.1,395.4L164.3,387.2L175.0,394.4L179.6,405.0L178.4,416.0L171.6,428.1L166.0,422.3L167.2,415.6L162.3,422.8L158.7,456.9L144.2,481.0L145.3,510.8L155.8,521.8L163.0,499.6L205.8,485.2L216.6,463.9L215.1,458.7L220.2,443.8L227.3,436.6L230.0,424.6L238.9,418.7L227.3,384.9L223.2,383.9L222.3,394.1L216.5,396.3L230.0,344.2L220.7,336.0L262.9,343.1L274.7,351.5L296.1,348.6L296.9,341.6L305.2,333.8L311.1,340.9L302.9,341.1L297.9,348.6L307.4,356.9L310.2,369.1L315.7,368.8L313.3,371.6L317.0,379.3L334.4,395.6L342.8,441.7L345.5,489.4L354.6,492.2L363.7,477.2L359.6,462.2L361.8,457.9L364.2,470.1L379.3,469.3L395.0,496.0L398.2,516.3L394.4,522.4L403.2,528.5L405.0,576.9L401.3,603.3L396.5,612.9L398.4,625.9L386.9,665.6L389.4,675.9L393.2,670.7L398.1,677.2L394.3,692.6L379.8,689.3L376.5,683.4L378.1,679.1L367.5,679.9L355.0,667.0L354.4,651.0L371.5,642.5L370.2,637.1L361.9,637.5L372.8,636.3L370.6,630.0L344.9,639.8L333.6,628.3L319.0,638.9L321.3,631.0L317.2,630.7L290.6,645.4L302.1,664.1L296.3,666.7L285.8,695.5L286.3,712.5L277.3,708.5L275.2,678.6L277.2,667.5L284.5,657.4L273.3,639.3L303.0,608.6L299.5,600.3L291.1,598.2L294.6,582.1L292.2,572.2L295.7,563.8L293.1,547.7L267.5,536.0L252.7,545.9L220.6,546.4L213.7,551.9L212.2,562.4L205.0,573.2L206.2,581.5L198.3,615.7L202.8,630.4L232.0,658.2L239.7,676.1L239.0,687.8L249.4,708.9L251.8,739.3L249.2,751.8L257.5,770.9L256.2,786.5L249.6,788.1L250.3,799.2L237.8,829.5L239.0,836.7L235.3,845.6L212.0,851.7L208.8,855.5L209.5,862.0L196.0,878.1L174.3,873.4L145.9,895.4L127.6,889.2L119.5,894.0L118.0,906.9L113.2,909.3L115.9,913.3L112.4,919.5L113.3,933.5L102.4,934.4L108.4,956.1L135.6,952.8L149.2,964.1L151.2,968.4L148.2,969.8L151.6,973.7L173.0,976.7L182.6,985.4L186.0,980.4L204.0,984.5L226.0,973.1L235.5,956.4L233.7,945.9L240.2,925.9L245.1,921.7L243.1,894.1L246.9,882.3L245.9,891.8L253.5,903.8L280.0,923.4L278.5,945.3L272.7,955.9L256.7,962.5L237.6,949.1L235.4,967.0L259.2,974.1L288.1,967.9L302.4,957.4L329.8,959.7L334.4,954.1L331.5,950.4L334.8,943.3L353.2,929.3L366.8,900.9L376.9,900.4L394.5,884.1L422.0,901.0L454.7,884.1L471.0,895.8L493.0,901.1L507.7,892.2L578.0,895.3L594.0,889.5L615.5,908.7L613.9,905.7L618.3,903.5L638.6,914.1L660.0,942.6L707.0,1024.6L753.4,1039.5L750.5,1043.4L752.8,1045.8L751.3,1061.9L745.9,1059.2L753.6,1071.8L781.6,1070.6L790.3,1079.5L720.4,965.2L710.0,927.0L702.0,878.3L675.0,831.6L668.1,812.0L673.1,813.5L674.5,821.1L675.1,810.7L684.9,792.7L673.2,810.3L671.1,809.3L676.7,792.4L673.1,792.0L667.2,808.3L672.0,790.1L689.1,788.4L706.9,772.7L694.4,779.3L706.1,769.8L711.4,757.3L712.5,742.7L709.9,734.1L711.2,739.4L702.2,744.6L674.2,744.0L609.7,700.2L577.7,663.4L512.7,566.2L402.1,431.1L361.5,365.9L296.8,319.1L256.6,305.5L182.2,241.4L156.2,208.8L125.5,156.0L105.6,105.5L91.4,49.6L94.0,48.5L92.8,40.8L81.0,22.2L66.0,15.9L36.7,23.6L16.6,35.7L18.5,38.3L6.3,61.9Z"
+              transform="scale(1.04) translate(-12,-22)"
+              fill="url(#sandRing)" stroke="#b45309" stroke-width="2.5" filter="url(#islandShadow)"/>
 
-        <!-- 1) Sand-Aussenkante (etwas größer als Land, gibt den Strand-Rand) -->
-        <path d="
-            M 175 75
-            Q 240 55, 295 95
-            Q 330 130, 345 180
-            Q 360 230, 380 270
-            Q 405 305, 420 350
-            Q 425 400, 415 445
-            Q 400 485, 385 520
-            Q 380 560, 395 595
-            Q 415 625, 440 660
-            Q 470 700, 510 735
-            Q 555 755, 605 770
-            Q 660 790, 700 820
-            Q 730 855, 740 905
-            Q 745 955, 720 1000
-            Q 685 1035, 625 1040
-            Q 565 1042, 510 1020
-            Q 460 998, 425 960
-            Q 390 920, 355 905
-            Q 305 905, 270 880
-            Q 235 855, 220 815
-            Q 215 770, 230 730
-            Q 245 700, 250 670
-            Q 240 620, 215 600
-            Q 185 580, 165 540
-            Q 145 495, 145 445
-            Q 145 395, 160 350
-            Q 165 305, 155 260
-            Q 145 220, 130 180
-            Q 130 130, 175 75 Z
-        " fill="url(#sandVol)" stroke="#b45309" stroke-width="3" stroke-linejoin="round" filter="url(#islandShadow)" opacity="1"/>
+        <!-- Land-Hauptkörper (Wiesen-Pattern + Tinten-Outline) -->
+        <path id="usedom-land" d="M6.3,61.9L10.4,78.0L8.5,87.9L17.3,85.2L9.0,90.1L13.6,101.6L14.1,123.3L17.9,131.9L25.7,132.9L22.2,123.6L25.6,121.5L28.6,132.0L36.5,133.5L42.4,153.3L40.0,174.2L51.5,175.7L61.8,199.4L91.5,208.6L84.4,212.3L90.8,235.5L85.3,257.2L88.3,257.7L84.1,259.4L85.0,285.2L74.5,305.1L69.8,325.1L71.0,341.9L57.2,359.1L60.6,380.2L49.4,394.0L50.5,404.0L47.8,410.1L43.6,401.0L36.6,402.3L25.7,432.4L25.1,448.9L32.5,466.1L55.5,470.9L75.2,466.8L86.4,431.6L95.5,425.5L100.9,412.6L133.2,398.7L137.8,394.8L133.1,391.4L136.2,386.6L147.7,385.1L144.8,381.4L158.6,385.5L167.3,394.9L172.2,409.1L174.9,401.7L173.1,395.4L164.3,387.2L175.0,394.4L179.6,405.0L178.4,416.0L171.6,428.1L166.0,422.3L167.2,415.6L162.3,422.8L158.7,456.9L144.2,481.0L145.3,510.8L155.8,521.8L163.0,499.6L205.8,485.2L216.6,463.9L215.1,458.7L220.2,443.8L227.3,436.6L230.0,424.6L238.9,418.7L227.3,384.9L223.2,383.9L222.3,394.1L216.5,396.3L230.0,344.2L220.7,336.0L262.9,343.1L274.7,351.5L296.1,348.6L296.9,341.6L305.2,333.8L311.1,340.9L302.9,341.1L297.9,348.6L307.4,356.9L310.2,369.1L315.7,368.8L313.3,371.6L317.0,379.3L334.4,395.6L342.8,441.7L345.5,489.4L354.6,492.2L363.7,477.2L359.6,462.2L361.8,457.9L364.2,470.1L379.3,469.3L395.0,496.0L398.2,516.3L394.4,522.4L403.2,528.5L405.0,576.9L401.3,603.3L396.5,612.9L398.4,625.9L386.9,665.6L389.4,675.9L393.2,670.7L398.1,677.2L394.3,692.6L379.8,689.3L376.5,683.4L378.1,679.1L367.5,679.9L355.0,667.0L354.4,651.0L371.5,642.5L370.2,637.1L361.9,637.5L372.8,636.3L370.6,630.0L344.9,639.8L333.6,628.3L319.0,638.9L321.3,631.0L317.2,630.7L290.6,645.4L302.1,664.1L296.3,666.7L285.8,695.5L286.3,712.5L277.3,708.5L275.2,678.6L277.2,667.5L284.5,657.4L273.3,639.3L303.0,608.6L299.5,600.3L291.1,598.2L294.6,582.1L292.2,572.2L295.7,563.8L293.1,547.7L267.5,536.0L252.7,545.9L220.6,546.4L213.7,551.9L212.2,562.4L205.0,573.2L206.2,581.5L198.3,615.7L202.8,630.4L232.0,658.2L239.7,676.1L239.0,687.8L249.4,708.9L251.8,739.3L249.2,751.8L257.5,770.9L256.2,786.5L249.6,788.1L250.3,799.2L237.8,829.5L239.0,836.7L235.3,845.6L212.0,851.7L208.8,855.5L209.5,862.0L196.0,878.1L174.3,873.4L145.9,895.4L127.6,889.2L119.5,894.0L118.0,906.9L113.2,909.3L115.9,913.3L112.4,919.5L113.3,933.5L102.4,934.4L108.4,956.1L135.6,952.8L149.2,964.1L151.2,968.4L148.2,969.8L151.6,973.7L173.0,976.7L182.6,985.4L186.0,980.4L204.0,984.5L226.0,973.1L235.5,956.4L233.7,945.9L240.2,925.9L245.1,921.7L243.1,894.1L246.9,882.3L245.9,891.8L253.5,903.8L280.0,923.4L278.5,945.3L272.7,955.9L256.7,962.5L237.6,949.1L235.4,967.0L259.2,974.1L288.1,967.9L302.4,957.4L329.8,959.7L334.4,954.1L331.5,950.4L334.8,943.3L353.2,929.3L366.8,900.9L376.9,900.4L394.5,884.1L422.0,901.0L454.7,884.1L471.0,895.8L493.0,901.1L507.7,892.2L578.0,895.3L594.0,889.5L615.5,908.7L613.9,905.7L618.3,903.5L638.6,914.1L660.0,942.6L707.0,1024.6L753.4,1039.5L750.5,1043.4L752.8,1045.8L751.3,1061.9L745.9,1059.2L753.6,1071.8L781.6,1070.6L790.3,1079.5L720.4,965.2L710.0,927.0L702.0,878.3L675.0,831.6L668.1,812.0L673.1,813.5L674.5,821.1L675.1,810.7L684.9,792.7L673.2,810.3L671.1,809.3L676.7,792.4L673.1,792.0L667.2,808.3L672.0,790.1L689.1,788.4L706.9,772.7L694.4,779.3L706.1,769.8L711.4,757.3L712.5,742.7L709.9,734.1L711.2,739.4L702.2,744.6L674.2,744.0L609.7,700.2L577.7,663.4L512.7,566.2L402.1,431.1L361.5,365.9L296.8,319.1L256.6,305.5L182.2,241.4L156.2,208.8L125.5,156.0L105.6,105.5L91.4,49.6L94.0,48.5L92.8,40.8L81.0,22.2L66.0,15.9L36.7,23.6L16.6,35.7L18.5,38.3L6.3,61.9Z"
+              fill="url(#landGrass)" stroke="#451a03" stroke-width="2.5" stroke-linejoin="round" filter="url(#inkBleed)"/>
 
-        <!-- 2) Land-Hauptkörper (grün, Comic-Style mit dickem Outline) -->
-        <path d="
-            M 200 110
-            Q 240 90, 285 115
-            Q 320 145, 330 195
-            Q 340 240, 360 280
-            Q 385 315, 395 355
-            Q 395 405, 380 445
-            Q 365 480, 355 515
-            Q 365 555, 385 590
-            Q 410 620, 440 650
-            Q 475 685, 520 715
-            Q 565 735, 615 750
-            Q 660 770, 690 800
-            Q 715 830, 720 880
-            Q 720 925, 695 965
-            Q 660 998, 615 1005
-            Q 565 1010, 515 990
-            Q 470 970, 440 935
-            Q 405 900, 370 885
-            Q 320 880, 290 855
-            Q 260 830, 250 795
-            Q 245 755, 260 720
-            Q 270 690, 270 660
-            Q 260 615, 235 590
-            Q 205 565, 185 525
-            Q 168 480, 170 435
-            Q 175 390, 188 350
-            Q 195 305, 188 265
-            Q 178 225, 165 190
-            Q 168 145, 200 110 Z
-        " fill="url(#landVol)" stroke="#14532d" stroke-width="5" stroke-linejoin="round" filter="url(#islandShadow)"/>
-
-        <!-- 3) Wald-Patches mit 3D-Volumen-Gradient -->
-        <g filter="url(#cloudShadow)">
-            <ellipse cx="240" cy="170" rx="40" ry="25" fill="url(#forestVol)" opacity="0.85"/>
-            <ellipse cx="320" cy="280" rx="35" ry="22" fill="url(#forestVol)" opacity="0.85"/>
-            <ellipse cx="380" cy="540" rx="32" ry="20" fill="url(#forestVol)" opacity="0.85"/>
-            <ellipse cx="500" cy="730" rx="42" ry="26" fill="url(#forestVol)" opacity="0.85"/>
-            <ellipse cx="610" cy="900" rx="38" ry="24" fill="url(#forestVol)" opacity="0.85"/>
+        <!-- Wald-Patches (Cluster mit Volumen) -->
+        <g>
+            <ellipse cx="60" cy="180" rx="25" ry="15" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="100" cy="320" rx="30" ry="18" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="180" cy="450" rx="22" ry="14" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="350" cy="500" rx="35" ry="20" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="280" cy="800" rx="25" ry="16" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="500" cy="900" rx="30" ry="18" fill="url(#forestVol)" opacity="0.9"/>
+            <ellipse cx="650" cy="900" rx="25" ry="15" fill="url(#forestVol)" opacity="0.9"/>
         </g>
 
-        <!-- 4) Koserow-Verengung — schmalste Stelle der Insel -->
-        <path d="M 350 480 L 395 480 L 395 525 L 350 525 Z" fill="#86efac" stroke="#15803d" stroke-width="3" opacity="0.6"/>
-
-        <!-- 5) Achterwasser-Innensee mit 3D-Tiefen-Gradient -->
-        <path d="
-            M 280 615
-            Q 340 600, 410 615
-            Q 470 635, 495 685
-            Q 510 730, 485 770
-            Q 445 800, 380 800
-            Q 320 795, 285 765
-            Q 260 730, 265 680
-            Q 270 640, 280 615 Z
-        " fill="url(#achterVol)" stroke="#0e7490" stroke-width="3.5" stroke-linejoin="round" filter="url(#cloudShadow)"/>
-        <!-- Achterwasser-Wellen drinnen -->
-        <g opacity="0.55" stroke="#0891b2" stroke-width="1.2" fill="none" stroke-linecap="round">
-            <path d="M 300 660 Q 320 654, 340 660 T 380 660"/>
-            <path d="M 320 700 Q 340 694, 360 700 T 400 700"/>
-            <path d="M 350 740 Q 370 734, 390 740 T 430 740"/>
-            <path d="M 380 770 Q 400 764, 420 770 T 460 770"/>
+        <!-- Achterwasser (Innensee — grobe Skizze über dem Land-Pattern) -->
+        <ellipse cx="380" cy="730" rx="100" ry="55" fill="url(#achterVol)" stroke="#0e7490" stroke-width="3" filter="url(#inkBleed)"/>
+        <g opacity="0.55" stroke="#0c4a6e" stroke-width="0.8" fill="none" stroke-linecap="round">
+            <path d="M 320 720 Q 340 715, 360 720 T 400 720"/>
+            <path d="M 340 745 Q 360 740, 380 745 T 420 745"/>
         </g>
 
-        <!-- 6) Hover-Zone Achterwasser → Boot fährt -->
-        <ellipse id="achterwasser-hover" cx="385" cy="710" rx="100" ry="80" fill="transparent" style="cursor:pointer" />
+        <!-- Hover-Zone Achterwasser → Boot fährt -->
+        <ellipse id="achterwasser-hover" cx="380" cy="730" rx="100" ry="55" fill="transparent" style="cursor:pointer" />
 
-        <!-- 7) Animiertes Cartoon-Boot — startet versteckt, läuft bei Hover -->
+        <!-- Animiertes Cartoon-Boot — startet versteckt, läuft bei Hover -->
         <g id="boot" opacity="0">
-            <!-- Boot-Rumpf -->
             <path d="M -15 0 L 15 0 L 12 6 L -12 6 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="1.5"/>
-            <!-- Mast + Segel -->
             <line x1="0" y1="-12" x2="0" y2="0" stroke="#7f1d1d" stroke-width="1.5"/>
             <path d="M 0 -12 L 8 -2 L 0 -2 Z" fill="#fff" stroke="#7f1d1d" stroke-width="1.2"/>
             <animateMotion id="bootAnim" dur="4s" begin="indefinite" fill="freeze">
@@ -424,43 +359,71 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
             </animateMotion>
         </g>
 
-        <!-- 8) BALM mit STEG + WEISSE DÜNE (Patrick 19:05) -->
-        <!-- Balm liegt am Westufer des Achterwassers -->
+        <!-- BALM mit Steg + Weiße Düne (Patrick) -->
         <g id="balm-marker">
-            <!-- Steg in das Achterwasser -->
-            <line x1="270" y1="700" x2="305" y2="715" stroke="#92400e" stroke-width="5" stroke-linecap="round"/>
-            <line x1="270" y1="700" x2="305" y2="715" stroke="#fbbf24" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
-            <!-- Weiße Düne (kleines Sand-Hügelchen am Stegende) -->
-            <ellipse cx="310" cy="715" rx="14" ry="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
-            <text x="310" y="735" text-anchor="middle" style="font-family:'Brush Script MT',cursive;font-size:13px;fill:#78350f;font-weight:700;">Weiße Düne</text>
-            <!-- Balm-Ortskreis -->
-            <circle cx="255" cy="690" r="6" fill="#fbbf24" stroke="#78350f" stroke-width="2"/>
-            <text x="245" y="685" text-anchor="end" style="font-family:Georgia,serif;font-size:13px;fill:#78350f;font-weight:700;">Balm</text>
+            <line x1="295" y1="715" x2="320" y2="730" stroke="#92400e" stroke-width="4" stroke-linecap="round"/>
+            <ellipse cx="325" cy="730" rx="12" ry="5" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+            <text x="325" y="748" text-anchor="middle" style="font-family:'Pirata One','Brush Script MT',cursive;font-size:14px;fill:#78350f;font-weight:700;">Weiße Düne</text>
+            <circle cx="288" cy="710" r="5" fill="#fbbf24" stroke="#78350f" stroke-width="1.8"/>
+            <text x="278" y="708" text-anchor="end" style="font-family:'Pirata One',Georgia,serif;font-size:13px;fill:#78350f;font-weight:700;">Balm</text>
         </g>
 
-        <!-- 9) Beschriftungen Hauptorte (Comic-Style fett) -->
-        <g style="font-family: 'Comic Sans MS', 'Marker Felt', sans-serif; font-weight: 700; fill: #1f2937;">
-            <text x="225" y="155" font-size="14">Peenemünde</text>
-            <text x="265" y="220" font-size="13">Karlshagen</text>
-            <text x="320" y="345" font-size="13">Zinnowitz</text>
-            <text x="370" y="500" font-size="13">Koserow</text>
-            <text x="430" y="640" font-size="13">Lüttenort</text>
-            <text x="555" y="765" font-size="13">Ückeritz</text>
-            <text x="600" y="820" font-size="13">Bansin</text>
-            <text x="640" y="880" font-size="14" font-weight="800" fill="#b45309">Heringsdorf</text>
-            <text x="675" y="940" font-size="13">Ahlbeck</text>
-            <text x="700" y="1005" font-size="11">Świnoujście (PL)</text>
-            <text x="345" y="710" font-size="13" font-style="italic" fill="#0c4a6e" opacity="0.85">Achterwasser</text>
+        <!-- ═══ SCHATZKARTEN-DEKORATION ═══ -->
+
+        <!-- Kompass-Rose oben rechts -->
+        <g transform="translate(680, 100)">
+            <circle cx="0" cy="0" r="50" fill="#fef3c7" stroke="#78350f" stroke-width="2"/>
+            <circle cx="0" cy="0" r="42" fill="none" stroke="#78350f" stroke-width="0.8"/>
+            <!-- Hauptachsen N S O W -->
+            <path d="M 0 -45 L 5 0 L 0 45 L -5 0 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="1"/>
+            <path d="M -45 0 L 0 -5 L 45 0 L 0 5 Z" fill="#fff" stroke="#7f1d1d" stroke-width="1"/>
+            <!-- Diagonal-Striche -->
+            <line x1="-32" y1="-32" x2="32" y2="32" stroke="#78350f" stroke-width="0.6"/>
+            <line x1="32" y1="-32" x2="-32" y2="32" stroke="#78350f" stroke-width="0.6"/>
+            <text x="0" y="-52" text-anchor="middle" font-family="'Pirata One',serif" font-size="14" fill="#7f1d1d" font-weight="700">N</text>
+            <text x="0" y="60" text-anchor="middle" font-family="'Pirata One',serif" font-size="14" fill="#78350f">S</text>
+            <text x="55" y="5" text-anchor="middle" font-family="'Pirata One',serif" font-size="14" fill="#78350f">O</text>
+            <text x="-55" y="5" text-anchor="middle" font-family="'Pirata One',serif" font-size="14" fill="#78350f">W</text>
         </g>
 
-        <!-- 10) Cartoon-Beschriftung 'Ostsee' + Wolken -->
-        <text x="60" y="100" style="font-family:'Brush Script MT',cursive;font-size:36px;fill:#0c4a6e;opacity:0.75;font-weight:700;">Ostsee</text>
-        <g opacity="0.7">
-            <ellipse cx="650" cy="140" rx="30" ry="14" fill="#fff"/>
-            <ellipse cx="675" cy="135" rx="22" ry="12" fill="#fff"/>
-            <ellipse cx="700" cy="220" rx="25" ry="11" fill="#fff"/>
-            <ellipse cx="60" cy="500" rx="28" ry="13" fill="#fff"/>
+        <!-- Sea-Monster oben links (Hier wohnen Drachen) -->
+        <g transform="translate(120, 130)" opacity="0.85">
+            <path d="M -25 0 Q -15 -8, 0 -3 Q 15 -10, 25 -2 Q 30 5, 22 10 Q 15 8, 10 12 Q 0 18, -8 12 Q -18 14, -25 8 Z" fill="#0891b2" stroke="#0c4a6e" stroke-width="1.2"/>
+            <circle cx="-15" cy="-2" r="1.5" fill="#fef08a"/>
+            <path d="M -10 6 Q -5 9, 0 6" stroke="#0c4a6e" stroke-width="0.8" fill="none"/>
+            <text x="0" y="35" text-anchor="middle" font-family="'Pirata One',serif" font-size="11" fill="#7f1d1d" font-style="italic">Hier wohnen Drachen</text>
         </g>
+
+        <!-- Schiff oben mittig (deko) -->
+        <g transform="translate(420, 180)" opacity="0.7">
+            <path d="M -18 0 L 18 0 L 14 8 L -14 8 Z" fill="#92400e" stroke="#451a03" stroke-width="1"/>
+            <line x1="0" y1="-22" x2="0" y2="0" stroke="#451a03" stroke-width="1.2"/>
+            <path d="M 0 -22 L 12 -8 L 0 -8 Z" fill="#fff" stroke="#451a03" stroke-width="1"/>
+        </g>
+
+        <!-- Beschriftungen Hauptorte (Pirata One — antike Schatzkarten-Schrift) -->
+        <g style="font-family: 'Pirata One', 'IM Fell English', Georgia, serif; font-weight: 400; fill: #451a03;">
+            <text x="100" y="100" font-size="15">Peenemünde</text>
+            <text x="135" y="180" font-size="13">Karlshagen</text>
+            <text x="220" y="295" font-size="13">Trassenheide</text>
+            <text x="155" y="365" font-size="13">Zinnowitz</text>
+            <text x="180" y="460" font-size="13">Koserow</text>
+            <text x="280" y="535" font-size="12">Loddin</text>
+            <text x="380" y="650" font-size="12">Lüttenort</text>
+            <text x="350" y="900" font-size="13">Ückeritz</text>
+            <text x="430" y="930" font-size="14">Bansin</text>
+            <text x="540" y="935" font-size="15" font-weight="700" fill="#7f1d1d">Heringsdorf</text>
+            <text x="630" y="945" font-size="13">Ahlbeck</text>
+            <text x="720" y="1020" font-size="11">Świnoujście</text>
+        </g>
+
+        <!-- Achterwasser-Beschriftung -->
+        <text x="380" y="735" text-anchor="middle" font-family="'Pirata One',serif" font-size="14" fill="#0c4a6e" font-style="italic" opacity="0.85">Achterwasser</text>
+
+        <!-- Gewässer-Beschriftungen (antik) -->
+        <text x="200" y="60" font-family="'Pirata One',serif" font-size="36" fill="#1e3a8a" opacity="0.4" font-weight="700" letter-spacing="4">~ Ostsee ~</text>
+        <text x="50" y="600" font-family="'Pirata One',serif" font-size="22" fill="#1e3a8a" opacity="0.45" font-weight="700">Peenestrom</text>
+        <text x="600" y="500" font-family="'Pirata One',serif" font-size="20" fill="#1e3a8a" opacity="0.45" font-weight="700">Pommersche Bucht</text>
 
         <!-- 11) POI-Hotspots werden via JS rendered -->
         <g id="poi-layer"></g>
@@ -686,9 +649,10 @@ const CAT_LABELS = {
 };
 
 // Lat/Lon → SVG-Koordinaten (im 800x1100 viewBox)
+// 🆕 v6.62.289: Bounds aus echter OSM-Geometrie
 function latLonToSvg(lat, lon) {
-    const x = ((lon - 13.70) / 0.60) * 800;
-    const y = ((54.20 - lat) / 0.35) * 1100;
+    const x = ((lon - 13.745) / 0.600) * 800;
+    const y = ((54.180 - lat) / 0.380) * 1100;
     return { x, y };
 }
 

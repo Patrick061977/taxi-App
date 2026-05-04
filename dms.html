@@ -489,6 +489,30 @@
             return allDocs.find(d => d.fileHash === hash) || null;
         }
 
+        // v6.62.256: Inhalts-Dubletten-Check — wenn Lieferant + Datum + Betrag matchen
+        // (auch wenn Hash anders, z.B. Re-Scan derselben Rechnung).
+        // Nur als WARNUNG, nicht als Block — der User kann trotzdem speichern.
+        function findContentDuplicate(ki) {
+            if (!ki) return null;
+            const lief = (ki.lieferant || '').toLowerCase().trim();
+            const datum = ki.datum || '';
+            const betrag = ki.betrag != null ? Number(ki.betrag) : null;
+            const rechNr = (ki.rechnungsnummer || '').toLowerCase().trim();
+            if (!lief || !datum) return null;
+            return allDocs.find(d => {
+                if (d.kategorie === '_inbox') return false;
+                const dLief = (d.lieferant || '').toLowerCase().trim();
+                const dDatum = d.datum || '';
+                const dBetrag = d.betrag != null ? Number(d.betrag) : null;
+                const dRechNr = (d.rechnungsnummer || '').toLowerCase().trim();
+                // Stark-Match: Rechnungsnummer + Lieferant
+                if (rechNr && dRechNr && rechNr === dRechNr && dLief === lief) return true;
+                // Mittel-Match: Lieferant + Datum + Betrag
+                if (dLief === lief && dDatum === datum && betrag != null && dBetrag != null && Math.abs(betrag - dBetrag) < 0.01) return true;
+                return false;
+            }) || null;
+        }
+
         // Speichert eine Datei in Storage + /docs/{id}. Wenn ki fehlt oder
         // Confidence < 80% → kategorie='_inbox' + needsReview=true (Posteingang).
         async function saveDocCore(file, fileHash, ki, opts = {}) {
@@ -511,6 +535,13 @@
                 subKategorie: (ki && ki.subKategorie) || (isInbox ? null : 'allgemein'),
                 dokumenttyp: (ki && ki.dokumenttyp) || null,
                 lieferant, datum, betrag, waehrung: 'EUR',
+                // v6.62.256: Lieferanten-Kontaktdaten + Rechnungs-Details (KI-extrahiert)
+                lieferantEmail: (ki && ki.lieferantEmail) || null,
+                lieferantPhone: (ki && ki.lieferantPhone) || null,
+                lieferantAdresse: (ki && ki.lieferantAdresse) || null,
+                lieferantUstId: (ki && ki.lieferantUstId) || null,
+                rechnungsnummer: (ki && ki.rechnungsnummer) || null,
+                faelligkeitsdatum: (ki && ki.faelligkeitsdatum) || null,
                 vehicleRefId: (ki && ki.vehicleRefId) || null,
                 staffRefId: (ki && ki.staffRefId) || null,
                 stichworte: (ki && Array.isArray(ki.stichworte)) ? ki.stichworte : [],
@@ -827,8 +858,15 @@
                 if (!data.ok) throw new Error(data.error || 'KI-Analyse fehlgeschlagen');
                 kiResult = data.parsed || {};
                 fillFormFromKi(kiResult);
-                status.style.background = '#d1fae5'; status.style.color = '#065f46';
-                status.textContent = `✅ Analyse fertig (Confidence: ${Math.round((kiResult.confidence || 0) * 100)}%) — prüfe Felder + drück Speichern.`;
+                // v6.62.256: Inhalts-Dublette warnen
+                const contentDup = findContentDuplicate(kiResult);
+                if (contentDup) {
+                    status.style.background = '#fef3c7'; status.style.color = '#78350f';
+                    status.innerHTML = `⚠️ <b>Möglicherweise Dublette!</b> Es gibt schon ein Dokument von <b>${escHtml(contentDup.lieferant)}</b> vom ${contentDup.datum || '?'}${contentDup.betrag ? ' über ' + contentDup.betrag.toFixed(2).replace('.',',') + '€' : ''}${contentDup.rechnungsnummer ? ' (Nr. ' + escHtml(contentDup.rechnungsnummer) + ')' : ''}. Trotzdem speichern? <button onclick="openDocDetail('${contentDup.id}')" style="margin-left:8px;font-size:11px;padding:3px 8px;border:1px solid #92400e;border-radius:4px;background:white;cursor:pointer;">Original ansehen</button>`;
+                } else {
+                    status.style.background = '#d1fae5'; status.style.color = '#065f46';
+                    status.textContent = `✅ Analyse fertig (Confidence: ${Math.round((kiResult.confidence || 0) * 100)}%) — prüfe Felder + drück Speichern.`;
+                }
                 document.getElementById('ki-result').style.display = 'block';
                 aBtn.style.display = 'inline-block';
                 aBtn.disabled = false;
@@ -886,6 +924,13 @@
                     datum,
                     betrag,
                     waehrung: 'EUR',
+                    // v6.62.256: KI-extrahierte Felder (auch beim manuellen Save uebernehmen)
+                    lieferantEmail: kiResult.lieferantEmail || null,
+                    lieferantPhone: kiResult.lieferantPhone || null,
+                    lieferantAdresse: kiResult.lieferantAdresse || null,
+                    lieferantUstId: kiResult.lieferantUstId || null,
+                    rechnungsnummer: kiResult.rechnungsnummer || null,
+                    faelligkeitsdatum: kiResult.faelligkeitsdatum || null,
                     vehicleRefId: document.getElementById('f-vehicle').value || null,
                     staffRefId: document.getElementById('f-staff').value || null,
                     stichworte: document.getElementById('f-tags').value.split(',').map(t => t.trim()).filter(Boolean),
@@ -1525,7 +1570,7 @@ Funk Taxi Heringsdorf
 Amselring 10, 17424 Heringsdorf
 Tel.: +49 38378 ...
 taxiwydra@googlemail.com`;
-            document.getElementById('email-to').value = '';
+            document.getElementById('email-to').value = d.lieferantEmail || '';
             document.getElementById('email-toname').value = d.lieferant || '';
             document.getElementById('email-subject').value = subject;
             document.getElementById('email-body').value = body;

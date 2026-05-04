@@ -304,6 +304,70 @@
             display: flex; gap: 8px; flex-wrap: wrap;
             border-top: 1px solid #e5e7eb; padding-top: 12px;
         }
+
+        /* v6.62.238: Monats-Grid */
+        .month-nav {
+            background: white; border-radius: 12px;
+            padding: 12px 16px; margin-bottom: 14px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .month-label { font-size: 18px; font-weight: 700; }
+        .month-grid-wrap {
+            background: white; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: auto; max-height: calc(100vh - 240px);
+        }
+        .month-grid {
+            border-collapse: separate; border-spacing: 0;
+            font-size: 11px; min-width: 100%;
+        }
+        .month-grid th, .month-grid td {
+            border-right: 1px solid #f3f4f6;
+            border-bottom: 1px solid #f3f4f6;
+            padding: 4px 2px; text-align: center; min-width: 28px;
+            vertical-align: middle;
+        }
+        .month-grid th.staff-col, .month-grid td.staff-col {
+            position: sticky; left: 0; z-index: 5;
+            background: #f9fafb; font-weight: 700;
+            text-align: left; padding: 6px 10px;
+            min-width: 140px; max-width: 180px;
+            border-right: 2px solid #d1d5db;
+        }
+        .month-grid thead th { position: sticky; top: 0; z-index: 4; background: #f9fafb; }
+        .month-grid thead th.staff-col { z-index: 6; }
+        .month-grid th.day-header {
+            font-weight: 700; padding: 6px 0;
+        }
+        .month-grid th.day-header .num { font-size: 13px; }
+        .month-grid th.day-header .dow { font-size: 10px; color: #6b7280; }
+        .month-grid th.weekend, .month-grid td.weekend { background: #fafbfc; }
+        .month-grid th.holiday, .month-grid td.holiday { background: #fef3c7; }
+        .month-grid th.today, .month-grid td.today { background: #dbeafe; }
+        .month-grid td.shift-cell { cursor: pointer; transition: background 0.1s; }
+        .month-grid td.shift-cell:hover { background: #e0f2fe !important; }
+        .month-grid td.summary-col {
+            background: #f0fdf4; font-weight: 700;
+            border-left: 2px solid #d1d5db;
+            min-width: 50px; padding: 4px 8px;
+        }
+
+        /* Compact-Badges */
+        .m-badge { display: inline-block; min-width: 22px; padding: 3px 4px; border-radius: 4px; font-size: 10px; font-weight: 700; line-height: 1.1; }
+        .m-day      { background: #dbeafe; color: #1e3a8a; }
+        .m-late     { background: #fef3c7; color: #78350f; }
+        .m-night    { background: #1e293b; color: #fde68a; }
+        .m-standby  { background: #ede9fe; color: #4c1d95; }
+        .m-vacation { background: #d1fae5; color: #065f46; }
+        .m-sick     { background: #fee2e2; color: #991b1b; }
+
+        .month-legend {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+            font-size: 11px; padding: 8px 14px; color: #6b7280;
+        }
+        .month-legend span { display: inline-flex; align-items: center; gap: 4px; }
     </style>
 </head>
 <body>
@@ -333,6 +397,7 @@
             <!-- v6.62.232: Tab-Navigation -->
             <div class="tab-bar">
                 <button class="tab-btn active" data-tab="plan" onclick="switchTab('plan')">📅 Wochenplan</button>
+                <button class="tab-btn" data-tab="monat" onclick="switchTab('monat')">📆 Monatsansicht</button>
                 <button class="tab-btn" data-tab="lohn" onclick="switchTab('lohn')">💰 Lohnexport</button>
                 <button class="tab-btn" data-tab="vorlagen" onclick="switchTab('vorlagen')">🔁 Wechselschicht-Vorlagen</button>
             </div>
@@ -361,6 +426,33 @@
 
                 <div id="grid-wrap" class="grid-wrap" style="display:none;">
                     <div id="grid" class="grid"></div>
+                </div>
+            </div>
+
+            <!-- TAB 1b: Monatsansicht (v6.62.238) -->
+            <div id="tab-monat" class="tab-content">
+                <div class="month-nav">
+                    <div>
+                        <div class="month-label" id="month-label">—</div>
+                        <div class="month-legend">
+                            <span><span class="m-badge m-day">T</span>Tag</span>
+                            <span><span class="m-badge m-late">S</span>Spät</span>
+                            <span><span class="m-badge m-night">N</span>Nacht</span>
+                            <span><span class="m-badge m-standby">R</span>Rufber</span>
+                            <span><span class="m-badge m-vacation">U</span>Urlaub</span>
+                            <span><span class="m-badge m-sick">K</span>Krank</span>
+                            <span style="background:#fef3c7;padding:2px 6px;border-radius:4px;">Feiertag</span>
+                        </div>
+                    </div>
+                    <div class="week-buttons">
+                        <button class="btn btn-icon" onclick="changeMonth(-1)">◀</button>
+                        <button class="btn" onclick="goToCurrentMonth()">Heute</button>
+                        <button class="btn btn-icon" onclick="changeMonth(1)">▶</button>
+                        <input type="month" id="month-picker" class="week-input">
+                    </div>
+                </div>
+                <div id="month-grid-wrap" class="month-grid-wrap">
+                    <table id="month-grid" class="month-grid"></table>
                 </div>
             </div>
 
@@ -1053,6 +1145,7 @@
                 }
                 showToast('Gespeichert ✓');
                 closeModal();
+                await refreshMonthIfActive();
             } catch (e) {
                 showToast('Fehler: ' + e.message, true);
             }
@@ -1065,8 +1158,18 @@
                 await db.ref('shiftPlan/' + currentWeekKey + '/' + staffId + '/' + dayIdx).remove();
                 showToast('Entfernt');
                 closeModal();
+                await refreshMonthIfActive();
             } catch (e) {
                 showToast('Fehler: ' + e.message, true);
+            }
+        }
+
+        // v6.62.238: nach jedem Plan-Update Monatsansicht refreshen falls aktiv
+        async function refreshMonthIfActive() {
+            const tabMonth = document.getElementById('tab-monat');
+            if (tabMonth && tabMonth.classList.contains('active') && currentMonth) {
+                await loadMonthShifts();
+                renderMonthGrid();
             }
         }
 
@@ -1105,6 +1208,7 @@
             // Tab-spezifische Init
             if (tab === 'lohn') initLohnTab();
             else if (tab === 'vorlagen') renderVorlagenList();
+            else if (tab === 'monat') initMonthTab();
         }
 
         function initLohnTab() {
@@ -2054,6 +2158,190 @@ ${rows.join('\n')}
             } catch (e) {
                 document.getElementById('vorl-status-' + staffId).innerHTML = '❌ ' + e.message;
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.238 — Monatsansicht-Tab
+        // Grid: Mitarbeiter Y, Tage 1-31 X, kompakte Schicht-Badges,
+        // Klick → Plan-Modal. Wochenende + Feiertage farblich markiert.
+        // ═══════════════════════════════════════════════════════════════
+        let currentMonth = null;          // Date (1. des Monats)
+        let monthShifts = {};             // { staffId: { 'YYYY-MM-DD': shiftEntry } }
+
+        function initMonthTab() {
+            if (!currentMonth) goToCurrentMonth();
+            else renderMonthGrid();
+        }
+
+        function goToCurrentMonth() {
+            const today = new Date();
+            setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+        }
+
+        function changeMonth(delta) {
+            const m = new Date(currentMonth || new Date());
+            m.setMonth(m.getMonth() + delta);
+            m.setDate(1);
+            setMonth(m);
+        }
+
+        async function setMonth(date) {
+            currentMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+            const lbl = document.getElementById('month-label');
+            if (lbl) lbl.textContent = monthNames[currentMonth.getMonth()] + ' ' + currentMonth.getFullYear();
+            const picker = document.getElementById('month-picker');
+            if (picker) picker.value = currentMonth.getFullYear() + '-' + String(currentMonth.getMonth() + 1).padStart(2, '0');
+            await loadMonthShifts();
+            renderMonthGrid();
+        }
+
+        document.getElementById('month-picker').addEventListener('change', (e) => {
+            const v = e.target.value;
+            if (!v) return;
+            const [y, m] = v.split('-').map(Number);
+            setMonth(new Date(y, m - 1, 1));
+        });
+
+        async function loadMonthShifts() {
+            monthShifts = {};
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            const monthStartTs = new Date(year, month, 1).getTime();
+            const nextMonthTs = new Date(year, month + 1, 1).getTime();
+            // Welche Wochen berühren diesen Monat?
+            const weekKeys = new Set();
+            const cursor = new Date(year, month, 1);
+            const last = new Date(year, month + 1, 0);
+            while (cursor <= last) {
+                weekKeys.add(isoWeekKey(cursor));
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            for (const wk of weekKeys) {
+                try {
+                    const snap = await db.ref('shiftPlan/' + wk).once('value');
+                    const data = snap.val() || {};
+                    for (const staffId of Object.keys(data)) {
+                        const days = data[staffId] || {};
+                        // wk = YYYY-WW → Mo dieser Woche
+                        const [wkY, wkN] = wk.split('-').map(Number);
+                        const jan4 = new Date(wkY, 0, 4);
+                        const jan4Day = (jan4.getDay() + 6) % 7;
+                        const monday = addDays(jan4, (wkN - 1) * 7 - jan4Day);
+                        for (let i = 0; i < 7; i++) {
+                            const d = addDays(monday, i);
+                            if (d.getTime() < monthStartTs || d.getTime() >= nextMonthTs) continue;
+                            const entry = days[i];
+                            if (!entry) continue;
+                            const dateKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                            if (!monthShifts[staffId]) monthShifts[staffId] = {};
+                            monthShifts[staffId][dateKey] = entry;
+                        }
+                    }
+                } catch (e) { console.warn('Monats-Wochen-Laden Fehler ' + wk + ':', e.message); }
+            }
+        }
+
+        // Feiertage 2026 (DE/MV) — duplikat-light fuer Monatsansicht-Highlight
+        function isHolidayMV(dateObj) {
+            const k = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+            return !!(typeof FEIERTAGE_2026 !== 'undefined' && FEIERTAGE_2026[k]);
+        }
+
+        function renderMonthGrid() {
+            const grid = document.getElementById('month-grid');
+            if (!currentMonth || allStaff.length === 0) {
+                grid.innerHTML = '<tr><td style="padding:20px;color:#6b7280;">Keine aktiven Mitarbeiter — leg sie erst in der <a href="mitarbeiter.html">Mitarbeiter-Verwaltung</a> an.</td></tr>';
+                return;
+            }
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date(); today.setHours(0,0,0,0);
+            const dayShortNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+            // Header
+            let html = '<thead><tr><th class="staff-col">Mitarbeiter</th>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                const dow = date.getDay();
+                const isWE = dow === 0 || dow === 6;
+                const isFt = isHolidayMV(date);
+                const isToday = date.getTime() === today.getTime();
+                const cls = ['day-header'];
+                if (isFt) cls.push('holiday');
+                else if (isWE) cls.push('weekend');
+                if (isToday) cls.push('today');
+                html += `<th class="${cls.join(' ')}" title="${isFt ? FEIERTAGE_2026[date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')] : ''}">
+                    <div class="num">${d}</div>
+                    <div class="dow">${dayShortNames[dow]}</div>
+                </th>`;
+            }
+            html += '<th class="summary-col">Σh</th>';
+            html += '</tr></thead><tbody>';
+
+            // Pro Mitarbeiter eine Zeile
+            for (const s of allStaff) {
+                const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ') || '—';
+                html += `<tr><td class="staff-col" title="${escHtml(fullName)}">${escHtml(fullName)}</td>`;
+                let hoursSum = 0;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const date = new Date(year, month, d);
+                    const dow = date.getDay();
+                    const isWE = dow === 0 || dow === 6;
+                    const isFt = isHolidayMV(date);
+                    const isToday = date.getTime() === today.getTime();
+                    const dateKey = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+                    const sh = (monthShifts[s.id] || {})[dateKey];
+                    const cls = ['shift-cell'];
+                    if (isFt) cls.push('holiday');
+                    else if (isWE) cls.push('weekend');
+                    if (isToday) cls.push('today');
+                    if (sh && sh.hours) hoursSum += sh.hours;
+                    html += `<td class="${cls.join(' ')}" onclick="openCellByDate('${s.id}','${dateKey}')" title="${dateKey}${sh ? ' · ' + (sh.start || '') + '-' + (sh.end || '') + ' (' + (sh.hours || 0) + 'h)' : ''}">${monthBadge(sh)}</td>`;
+                }
+                html += `<td class="summary-col">${formatHours(hoursSum)}</td>`;
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            grid.innerHTML = html;
+        }
+
+        function monthBadge(shift) {
+            if (!shift || shift.type === 'free') return '';
+            const map = {
+                day: { cls: 'm-day', sym: 'T' },
+                late: { cls: 'm-late', sym: 'S' },
+                night: { cls: 'm-night', sym: 'N' },
+                standby: { cls: 'm-standby', sym: 'R' },
+                vacation: { cls: 'm-vacation', sym: 'U' },
+                sick: { cls: 'm-sick', sym: 'K' }
+            };
+            const e = map[shift.type] || { cls: 'm-day', sym: '?' };
+            return `<span class="m-badge ${e.cls}">${e.sym}</span>`;
+        }
+
+        // Aus Monatsansicht klick → currentWeek auf passende Woche setzen + openCell
+        async function openCellByDate(staffId, dateKey) {
+            const [y, m, d] = dateKey.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            // Setze currentWeek passend zum Datum (damit shiftPlan/{wk}/... richtig adressiert)
+            currentWeekStart = mondayOf(date);
+            currentWeekKey = isoWeekKey(currentWeekStart);
+            const dayIdx = (date.getDay() + 6) % 7;
+            // currentShifts fuer diese Woche aus monthShifts ableiten
+            currentShifts = {};
+            for (const sid of Object.keys(monthShifts)) {
+                currentShifts[sid] = {};
+                for (let i = 0; i < 7; i++) {
+                    const d2 = addDays(currentWeekStart, i);
+                    const k = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0') + '-' + String(d2.getDate()).padStart(2, '0');
+                    if (monthShifts[sid][k]) currentShifts[sid][i] = monthShifts[sid][k];
+                }
+            }
+            // Listener fuer diese Woche scharf schalten — beim Speichern aktualisiert sich der Plan
+            attachShiftsListener();
+            openCell(staffId, dayIdx);
         }
 
         async function clearVorlageRange(staffId) {

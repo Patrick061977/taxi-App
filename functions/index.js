@@ -22601,6 +22601,9 @@ Antwort als striktes JSON, KEIN Markdown, KEIN Pre-/Post-Text:
   "staffRefId": "id des Mitarbeiters aus der Liste oben, null wenn unklar",
   "stichworte": ["max", "5", "stichworte"],
   "kurzbeschreibung": "1 Satz auf Deutsch was das Dokument ist",
+  "summary": "2-3 Saetze: was steht im Dokument konkret drin, worum geht's, was wird gewollt",
+  "aktionsEmpfehlung": "Konkrete Handlungsempfehlung in 1 Satz (z.B. 'Bis 15.05. bezahlen', 'TUEV-Termin in 2 Wochen vereinbaren', 'Steuerberater weiterleiten', 'Nur ablegen'). null wenn nichts zu tun",
+  "wichtigkeit": "hoch|mittel|niedrig",
   "volltext": "kompletter erkannter Text aus dem Dokument fuer Volltextsuche",
   "confidence": 0.0-1.0
 }
@@ -22706,7 +22709,7 @@ H) sonstiges
 Bekannte Fahrzeuge: ${vehicleNames || '(keine)'}
 Bekannte Mitarbeiter: ${staffNames || '(keine)'}
 
-Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "lieferantEmail": "..."|null, "lieferantPhone": "..."|null, "lieferantAdresse": "..."|null, "lieferantUstId": "..."|null, "rechnungsnummer": "..."|null, "datum": "YYYY-MM-DD", "faelligkeitsdatum": "YYYY-MM-DD"|null, "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "volltext": "...", "confidence": 0.0-1.0 }`;
+Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "lieferantEmail": "..."|null, "lieferantPhone": "..."|null, "lieferantAdresse": "..."|null, "lieferantUstId": "..."|null, "rechnungsnummer": "..."|null, "datum": "YYYY-MM-DD", "faelligkeitsdatum": "YYYY-MM-DD"|null, "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "summary": "2-3 Saetze was drin steht", "aktionsEmpfehlung": "..."|null, "wichtigkeit": "hoch|mittel|niedrig", "volltext": "...", "confidence": 0.0-1.0 }`;
                     const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
                         role: 'user',
                         content: [
@@ -22764,6 +22767,9 @@ Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokum
                 staffRefId: (parsed && parsed.staffRefId) || null,
                 stichworte: (parsed && Array.isArray(parsed.stichworte)) ? parsed.stichworte : [],
                 kurzbeschreibung: (parsed && parsed.kurzbeschreibung) || null,
+                summary: (parsed && parsed.summary) || null,
+                aktionsEmpfehlung: (parsed && parsed.aktionsEmpfehlung) || null,
+                wichtigkeit: (parsed && parsed.wichtigkeit) || null,
                 volltext: (parsed && parsed.volltext) || null,
                 storageUrl: downloadUrl, storagePath,
                 originalFilename: filename || fileName,

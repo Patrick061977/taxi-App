@@ -339,8 +339,30 @@
                         <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="deleteDocFromModal()" id="doc-modal-delete">🗑 Löschen</button>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="btn" onclick="closeDocModal()">Schließen</button>
+                            <button class="btn" style="background:#7c3aed;color:white;" onclick="openEmailDialog()" id="doc-modal-email-btn">📧 Email</button>
                             <button class="btn btn-primary" onclick="toggleEditMode()" id="doc-modal-edit-btn">✏ Bearbeiten</button>
                             <button class="btn btn-success" onclick="saveDocEdit()" id="doc-modal-save-btn" style="display:none;">💾 Speichern</button>
+                        </div>
+                    </div>
+
+                    <!-- v6.62.255: Email-Dialog (overlay innerhalb des Doc-Modals) -->
+                    <div id="email-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:10;align-items:center;justify-content:center;padding:20px;">
+                        <div style="background:white;border-radius:12px;padding:20px;max-width:560px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                            <h3 style="margin-bottom:14px;font-size:16px;">📧 Email zum Dokument senden</h3>
+                            <div class="form-group"><label class="form-label">An (Email)</label><input id="email-to" class="form-input" placeholder="empfaenger@beispiel.de"></div>
+                            <div class="form-group"><label class="form-label">Name (optional)</label><input id="email-toname" class="form-input"></div>
+                            <div class="form-group"><label class="form-label">Betreff</label><input id="email-subject" class="form-input"></div>
+                            <div class="form-group"><label class="form-label">Nachricht</label><textarea id="email-body" class="form-input" rows="9" style="resize:vertical;"></textarea></div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                <input type="checkbox" id="email-attach" checked>
+                                <label for="email-attach" style="font-size:13px;cursor:pointer;">📎 Original-Datei als Anhang mitsenden</label>
+                            </div>
+                            <div id="email-status" style="font-size:12px;color:#6b7280;margin-bottom:10px;"></div>
+                            <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+                                <button class="btn" onclick="closeEmailDialog()">Abbrechen</button>
+                                <button class="btn btn-primary" onclick="generateEmailSuggestion()" id="email-ki-btn">🤖 KI-Vorschlag</button>
+                                <button class="btn btn-success" onclick="sendDocEmail()" id="email-send-btn">📤 Senden</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1476,6 +1498,150 @@
                 const d = allDocs.find(x => x.id === editingDocId);
                 if (d) renderDocModal(d);
             } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.255: Email-Dialog — Doc als Anhang an Lieferant senden
+        // ═══════════════════════════════════════════════════════════════
+        const SENDEMAIL_URL = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/sendCrmEmail';
+
+        function openEmailDialog() {
+            if (!editingDocId) return;
+            const d = allDocs.find(x => x.id === editingDocId);
+            if (!d) return;
+            // Default-Felder
+            const subject = `Re: ${d.dokumenttyp || d.subKategorie || 'Dokument'}${d.lieferant ? ' — ' + d.lieferant : ''}${d.datum ? ' (' + d.datum + ')' : ''}`;
+            const greeting = d.lieferant ? `Sehr geehrte Damen und Herren bei ${d.lieferant},` : 'Sehr geehrte Damen und Herren,';
+            const body =
+`${greeting}
+
+bezugnehmend auf Ihr Dokument${d.datum ? ' vom ' + d.datum : ''}${d.betrag ? ' (Betrag ' + d.betrag.toFixed(2).replace('.',',') + ' €)' : ''} möchte ich Folgendes anmerken:
+
+[Hier deine Nachricht]
+
+Mit freundlichen Grüßen
+Patrick Wydra
+Funk Taxi Heringsdorf
+Amselring 10, 17424 Heringsdorf
+Tel.: +49 38378 ...
+taxiwydra@googlemail.com`;
+            document.getElementById('email-to').value = '';
+            document.getElementById('email-toname').value = d.lieferant || '';
+            document.getElementById('email-subject').value = subject;
+            document.getElementById('email-body').value = body;
+            document.getElementById('email-attach').checked = true;
+            document.getElementById('email-status').textContent = '';
+            document.getElementById('email-send-btn').disabled = false;
+            document.getElementById('email-dialog').style.display = 'flex';
+        }
+
+        function closeEmailDialog() {
+            document.getElementById('email-dialog').style.display = 'none';
+        }
+
+        async function generateEmailSuggestion() {
+            // Pragmatischer Fallback ohne KI-Call: füllt Body mit Smart-Template basierend auf Status
+            const d = allDocs.find(x => x.id === editingDocId);
+            if (!d) return;
+            const status = effectiveStatus(d);
+            let template = '';
+            if (status === 'ueberfaellig' || status === 'pending') {
+                template = `Sehr geehrte Damen und Herren${d.lieferant ? ' bei ' + d.lieferant : ''},
+
+Ihr Schreiben${d.datum ? ' vom ' + d.datum : ''} habe ich erhalten. Bitte teilen Sie mir mit, ob die Zahlung zwischenzeitlich bei Ihnen eingegangen ist — ich habe am [DATUM] die Überweisung getätigt.
+
+Falls noch offen, erbitte ich eine kurze Klärung.
+
+Mit freundlichen Grüßen
+Patrick Wydra
+Funk Taxi Heringsdorf`;
+            } else if (status === 'klaerung') {
+                template = `Sehr geehrte Damen und Herren${d.lieferant ? ' bei ' + d.lieferant : ''},
+
+zu Ihrem Dokument${d.datum ? ' vom ' + d.datum : ''} habe ich Klärungsbedarf:
+
+[Hier konkrete Frage formulieren]
+
+Bitte um Rückmeldung. Vielen Dank.
+
+Mit freundlichen Grüßen
+Patrick Wydra
+Funk Taxi Heringsdorf`;
+            } else {
+                template = `Sehr geehrte Damen und Herren${d.lieferant ? ' bei ' + d.lieferant : ''},
+
+bezugnehmend auf Ihr Schreiben${d.datum ? ' vom ' + d.datum : ''} möchte ich Folgendes mitteilen:
+
+[Hier deine Nachricht]
+
+Mit freundlichen Grüßen
+Patrick Wydra
+Funk Taxi Heringsdorf`;
+            }
+            document.getElementById('email-body').value = template;
+            showToast('Template eingefügt — bitte Platzhalter ersetzen');
+        }
+
+        async function sendDocEmail() {
+            const d = allDocs.find(x => x.id === editingDocId);
+            if (!d) return;
+            const to = (document.getElementById('email-to').value || '').trim();
+            const toName = (document.getElementById('email-toname').value || '').trim();
+            const subject = (document.getElementById('email-subject').value || '').trim();
+            const body = (document.getElementById('email-body').value || '').trim();
+            const attach = document.getElementById('email-attach').checked;
+            if (!to || !subject || !body) {
+                showToast('An / Betreff / Nachricht sind Pflicht', true);
+                return;
+            }
+            const btn = document.getElementById('email-send-btn');
+            const statusEl = document.getElementById('email-status');
+            btn.disabled = true;
+            statusEl.textContent = '⏳ Sende Email…';
+            try {
+                let attachment = null;
+                if (attach && d.storageUrl) {
+                    statusEl.textContent = '⏳ Lade Anhang…';
+                    const resp = await fetch(d.storageUrl);
+                    const blob = await resp.blob();
+                    const buf = await blob.arrayBuffer();
+                    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                    attachment = {
+                        filename: d.originalFilename || `${d.lieferant || 'doc'}_${d.datum || ''}.pdf`,
+                        content: base64,
+                        contentType: d.mediaType || 'application/pdf'
+                    };
+                }
+                const htmlBody = body.replace(/\n/g, '<br>');
+                statusEl.textContent = '⏳ Sende über SMTP…';
+                const resp = await fetch(SENDEMAIL_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to, toName, subject, htmlBody, attachment })
+                });
+                const data = await resp.json();
+                if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+                statusEl.style.color = '#059669';
+                statusEl.textContent = `✅ Email an ${to} versendet`;
+                // History-Eintrag im Workflow
+                const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+                const event = {
+                    ts: Date.now(),
+                    status: 'email-gesendet',
+                    by: userEmail,
+                    note: `Email an ${to}: ${subject}`
+                };
+                const newHistory = [...(d.workflowHistory || []), event];
+                await db.ref('docs/' + d.id + '/workflowHistory').set(newHistory).catch(() => {});
+                await loadDocs();
+                showToast('Email versendet ✓');
+                setTimeout(closeEmailDialog, 1500);
+            } catch (e) {
+                console.error('Email-Fehler:', e);
+                statusEl.style.color = '#dc2626';
+                statusEl.textContent = '❌ ' + e.message;
+                btn.disabled = false;
+            }
         }
 
         async function deleteDocFromModal() {

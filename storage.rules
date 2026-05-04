@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// v6.62.236: Storage-Rules fuer DMS — eingeloggte Admins/Driver duerfen
+// Dokumente in /docs/ und /uploads/ ablegen. Originale werden in OneDrive
+// (Phase 2) liegen, Firebase Storage ist Uebergangsspeicher.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Dokumente (DMS) — alle eingeloggten User koennen lesen + schreiben
+    match /docs/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Allgemeine Uploads (z.B. Foto-Bridge, Auftrag-PDFs)
+    match /uploads/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Default: alles andere lesen+schreiben fuer eingeloggte User
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

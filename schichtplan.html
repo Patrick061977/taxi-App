@@ -219,6 +219,91 @@
             pointer-events: none;
         }
         .toast.show { opacity: 1; }
+
+        /* v6.62.232: Tab-Navigation */
+        .tab-bar {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            background: white; border-radius: 12px;
+            padding: 6px; margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .tab-btn {
+            flex: 1 1 auto; min-width: 140px;
+            padding: 11px 14px; border: none; border-radius: 8px;
+            background: transparent; color: #6b7280;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tab-btn:hover { background: #f3f4f6; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* v6.62.232: Lohnexport-View */
+        .lohn-card {
+            background: white; border-radius: 12px;
+            padding: 16px; margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .lohn-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 12px;
+        }
+        .lohn-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .lohn-table th, .lohn-table td {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 8px 10px; text-align: left;
+        }
+        .lohn-table th { background: #f9fafb; font-weight: 700; font-size: 12px; }
+        .lohn-table tr:hover td { background: #f9fafb; }
+        .lohn-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .lohn-table .total-row { font-weight: 700; background: #ecfdf5; }
+        .lohn-table .total-row td { background: #ecfdf5; }
+        .lohn-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px; margin: 14px 0;
+        }
+        .lohn-summary .stat {
+            background: #f9fafb; border-radius: 8px; padding: 10px 12px;
+        }
+        .lohn-summary .stat-label { font-size: 11px; color: #6b7280; }
+        .lohn-summary .stat-value { font-size: 18px; font-weight: 700; color: #111827; }
+
+        /* v6.62.232: Vorlagen-View */
+        .vorlage-card {
+            background: white; border-radius: 12px;
+            padding: 16px; margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .vorlage-card h3 {
+            font-size: 15px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .day-picker {
+            display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;
+        }
+        .day-pick-btn {
+            padding: 6px 11px; border: 2px solid #e5e7eb;
+            border-radius: 8px; background: white; color: #6b7280;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .day-pick-btn.selected {
+            background: #dbeafe; color: #1e3a8a; border-color: #2563eb;
+        }
+        .vorlage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px; margin-bottom: 12px;
+        }
+        .vorlage-actions {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            border-top: 1px solid #e5e7eb; padding-top: 12px;
+        }
     </style>
 </head>
 <body>
@@ -245,29 +330,81 @@
         </div>
 
         <div id="main-content" style="display:none;">
-            <div class="week-nav">
-                <div>
-                    <div class="week-label" id="week-label">KW —</div>
-                    <div class="week-summary" id="week-summary">—</div>
+            <!-- v6.62.232: Tab-Navigation -->
+            <div class="tab-bar">
+                <button class="tab-btn active" data-tab="plan" onclick="switchTab('plan')">📅 Wochenplan</button>
+                <button class="tab-btn" data-tab="lohn" onclick="switchTab('lohn')">💰 Lohnexport</button>
+                <button class="tab-btn" data-tab="vorlagen" onclick="switchTab('vorlagen')">🔁 Wechselschicht-Vorlagen</button>
+            </div>
+
+            <!-- TAB 1: Wochenplan -->
+            <div id="tab-plan" class="tab-content active">
+                <div class="week-nav">
+                    <div>
+                        <div class="week-label" id="week-label">KW —</div>
+                        <div class="week-summary" id="week-summary">—</div>
+                    </div>
+                    <div class="week-buttons">
+                        <button class="btn btn-icon" onclick="changeWeek(-1)">◀</button>
+                        <button class="btn" onclick="goToCurrentWeek()">Heute</button>
+                        <button class="btn btn-icon" onclick="changeWeek(1)">▶</button>
+                        <input type="week" id="week-picker" class="week-input">
+                    </div>
                 </div>
-                <div class="week-buttons">
-                    <button class="btn btn-icon" onclick="changeWeek(-1)">◀</button>
-                    <button class="btn" onclick="goToCurrentWeek()">Heute</button>
-                    <button class="btn btn-icon" onclick="changeWeek(1)">▶</button>
-                    <input type="week" id="week-picker" class="week-input">
-                    <button class="btn" style="background:#059669;color:white;" onclick="openEcovisExport()">📊 ECOVIS-Export</button>
+
+                <div id="no-staff" class="no-staff" style="display:none;">
+                    <div class="icon">👥</div>
+                    <h2 style="font-size:18px;color:#1f2937;margin-bottom:8px;">Noch keine aktiven Mitarbeiter</h2>
+                    <p style="font-size:14px;margin-bottom:16px;">Lege erst in der Mitarbeiter-Verwaltung Mitarbeiter an.</p>
+                    <a href="mitarbeiter.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">→ Zu Mitarbeiter</a>
+                </div>
+
+                <div id="grid-wrap" class="grid-wrap" style="display:none;">
+                    <div id="grid" class="grid"></div>
                 </div>
             </div>
 
-            <div id="no-staff" class="no-staff" style="display:none;">
-                <div class="icon">👥</div>
-                <h2 style="font-size:18px;color:#1f2937;margin-bottom:8px;">Noch keine aktiven Mitarbeiter</h2>
-                <p style="font-size:14px;margin-bottom:16px;">Lege erst in der Mitarbeiter-Verwaltung Mitarbeiter an.</p>
-                <a href="mitarbeiter.html" class="btn btn-primary" style="text-decoration:none;display:inline-block;">→ Zu Mitarbeiter</a>
+            <!-- TAB 2: Lohnexport (v6.62.232) -->
+            <div id="tab-lohn" class="tab-content">
+                <div class="lohn-card">
+                    <h2 style="font-size:17px;margin-bottom:4px;">💰 Lohnexport ECOVIS</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">Vorschau pro Mitarbeiter, dann XLSX-Download (eine Datei pro Mitarbeiter, gepackt als ZIP).</p>
+                    <div class="lohn-controls">
+                        <div class="form-group">
+                            <label class="form-label">Monat</label>
+                            <input type="month" id="lohn-month" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stundenlohn Schicht (€/h)</label>
+                            <input type="number" id="lohn-rate-shift" class="form-input" value="13.90" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stundenlohn Rufber. (€/h)</label>
+                            <input type="number" id="lohn-rate-standby" class="form-input" value="2.50" step="0.01" min="0">
+                        </div>
+                        <div class="form-group" style="justify-content:flex-end;">
+                            <button class="btn btn-primary" onclick="loadLohnPreview()" style="margin-top:auto;">🔄 Vorschau laden</button>
+                        </div>
+                    </div>
+                    <div id="lohn-status" style="font-size:13px;color:#6b7280;"></div>
+                </div>
+
+                <div id="lohn-preview" style="display:none;">
+                    <div class="lohn-summary" id="lohn-summary"></div>
+                    <div id="lohn-tables"></div>
+                    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="runLohnExport()" id="lohn-export-btn" style="background:#059669;">📥 Alle als ZIP herunterladen</button>
+                    </div>
+                </div>
             </div>
 
-            <div id="grid-wrap" class="grid-wrap" style="display:none;">
-                <div id="grid" class="grid"></div>
+            <!-- TAB 3: Wechselschicht-Vorlagen (v6.62.232) -->
+            <div id="tab-vorlagen" class="tab-content">
+                <div class="lohn-card" style="margin-bottom:14px;">
+                    <h2 style="font-size:17px;margin-bottom:4px;">🔁 Wechselschicht-Vorlagen</h2>
+                    <p style="font-size:13px;color:#6b7280;">Definiere pro Mitarbeiter ein Schicht-Muster (Tage + Schicht-Typ + Anker-Datum). Das Muster wird automatisch auf einen Datums-Bereich angewendet — du musst nicht jede Woche manuell klicken.</p>
+                </div>
+                <div id="vorlagen-list"></div>
             </div>
         </div>
     </div>
@@ -307,41 +444,6 @@
                     <button class="btn" onclick="closeModal()">Abbrechen</button>
                     <button class="btn btn-primary" onclick="saveShift()">Speichern</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- v6.62.215: ECOVIS-Export-Modal — Phase 5 von Block A -->
-    <div id="ecovis-modal" class="modal-overlay" onclick="if(event.target===this) closeEcovisModal()">
-        <div class="modal" style="max-width:480px;">
-            <div class="modal-header">
-                <div>
-                    <h2>📊 ECOVIS-Lohnexport</h2>
-                    <div class="sub" style="color:#6b7280;font-size:13px;">XLSX pro Mitarbeiter, gepackt als ZIP</div>
-                </div>
-                <button class="btn btn-ghost" onclick="closeEcovisModal()" style="font-size:20px;">×</button>
-            </div>
-            <div class="modal-body" style="padding:18px 20px;">
-                <div class="form-group" style="margin-bottom:14px;">
-                    <label class="form-label">Monat</label>
-                    <input type="month" id="ecovis-month" class="form-input">
-                </div>
-                <div class="form-group" style="margin-bottom:14px;">
-                    <label class="form-label">Stundenlohn Schicht (€/h)</label>
-                    <input type="number" id="ecovis-rate-shift" class="form-input" value="13.90" step="0.01" min="0">
-                </div>
-                <div class="form-group" style="margin-bottom:14px;">
-                    <label class="form-label">Stundenlohn Rufbereitschaft (€/h)</label>
-                    <input type="number" id="ecovis-rate-standby" class="form-input" value="2.50" step="0.01" min="0">
-                </div>
-                <div style="font-size:12px;color:#6b7280;line-height:1.5;background:#f9fafb;padding:10px;border-radius:8px;">
-                    💡 Generiert eine xlsx-Datei pro Mitarbeiter (mit linkedDriverId in Stammdaten + Schichten in dem Monat). Inline-Strings-Format wie in den ECOVIS-Vorlagen Mär2026 (Dombrowski/Kargoll/Kulpa).
-                </div>
-                <div id="ecovis-progress" style="display:none;margin-top:14px;font-size:13px;color:#374151;"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" onclick="closeEcovisModal()">Abbrechen</button>
-                <button class="btn btn-primary" onclick="runEcovisExport()" id="ecovis-run-btn">📥 Export starten</button>
             </div>
         </div>
     </div>
@@ -400,6 +502,11 @@
             document.getElementById('main-content').style.display = 'block';
             await loadStaff();
             goToCurrentWeek();
+            // v6.62.232: URL-Param ?tab=lohn|vorlagen|plan respektieren
+            const urlTab = new URL(window.location.href).searchParams.get('tab');
+            if (urlTab && ['plan','lohn','vorlagen'].includes(urlTab) && urlTab !== 'plan') {
+                switchTab(urlTab);
+            }
         });
 
         async function isAdmin(user) {
@@ -900,31 +1007,45 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && document.getElementById('modal').classList.contains('show')) closeModal();
-            if (e.key === 'Escape' && document.getElementById('ecovis-modal').classList.contains('show')) closeEcovisModal();
             if (e.key === 'Escape' && document.getElementById('detail-modal') && document.getElementById('detail-modal').classList.contains('show')) closeDetail();
         });
 
         // ═══════════════════════════════════════════════════════════════
-        // v6.62.215 — Block A Phase 5: ECOVIS-Lohnexport (XLSX als ZIP)
-        // Patrick (03.05. 11:02): "Genau das sind erstmal die Zahlen" → Default
-        // 13.90€/h Schicht + 2.50€/h Rufbereitschaft. Format aus den Vorlagen
-        // Dombrowski/Kargoll/Kulpa März 2026 (siehe docs/ecovis-stundenzettel-format.md).
+        // v6.62.232 — Tab-Navigation (Wochenplan / Lohnexport / Vorlagen)
         // ═══════════════════════════════════════════════════════════════
 
-        function openEcovisExport() {
-            // Default = aktueller Wochen-Monat
-            const m = currentWeekStart || new Date();
-            const ym = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
-            document.getElementById('ecovis-month').value = ym;
-            document.getElementById('ecovis-progress').style.display = 'none';
-            document.getElementById('ecovis-progress').innerHTML = '';
-            document.getElementById('ecovis-run-btn').disabled = false;
-            document.getElementById('ecovis-modal').classList.add('show');
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.tab === tab);
+            });
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.toggle('active', c.id === 'tab-' + tab);
+            });
+            // URL-Hash aktualisieren (?tab=...)
+            const url = new URL(window.location.href);
+            if (tab === 'plan') url.searchParams.delete('tab');
+            else url.searchParams.set('tab', tab);
+            history.replaceState(null, '', url.toString());
+
+            // Tab-spezifische Init
+            if (tab === 'lohn') initLohnTab();
+            else if (tab === 'vorlagen') renderVorlagenList();
         }
 
-        function closeEcovisModal() {
-            document.getElementById('ecovis-modal').classList.remove('show');
+        function initLohnTab() {
+            const lohnMonth = document.getElementById('lohn-month');
+            if (!lohnMonth.value) {
+                const m = currentWeekStart || new Date();
+                lohnMonth.value = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
+            }
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.215 — Block A Phase 5: ECOVIS-Lohnexport (XLSX als ZIP)
+        // Default 13.90€/h Schicht + 2.50€/h Rufbereitschaft. Format aus den
+        // Vorlagen Dombrowski/Kargoll/Kulpa März 2026 (docs/ecovis-stundenzettel-format.md).
+        // v6.62.232: aus Modal in Tab-View überführt — mit Vorschau-Tabelle.
+        // ═══════════════════════════════════════════════════════════════
 
         // Monats-Aggregation aller Schichten + Pläne pro Mitarbeiter pro Tag.
         // Ergebnis: { staffId: { 'YYYY-MM-DD': { plan, shifts: [shiftHistoryEntry,...] } } }
@@ -1018,9 +1139,11 @@
             return s + '-' + e + ' (' + (hours || 0) + ')';
         }
 
-        // Hauptlauf: für jeden Mitarbeiter ein xlsx, alle in zip
-        async function runEcovisExport() {
-            const monthInput = document.getElementById('ecovis-month').value; // YYYY-MM
+        // v6.62.232 — Lohn-Vorschau & Export aus Tab-View
+        let lohnPreviewData = null;
+
+        async function loadLohnPreview() {
+            const monthInput = document.getElementById('lohn-month').value;
             if (!monthInput || !monthInput.match(/^\d{4}-\d{2}$/)) {
                 showToast('Monat ungültig', true);
                 return;
@@ -1028,32 +1151,149 @@
             const [yearStr, monthStr] = monthInput.split('-');
             const year = parseInt(yearStr);
             const month = parseInt(monthStr);
-            const rateShift = parseFloat(document.getElementById('ecovis-rate-shift').value) || 13.90;
-            const rateStandby = parseFloat(document.getElementById('ecovis-rate-standby').value) || 2.50;
+            const rateShift = parseFloat(document.getElementById('lohn-rate-shift').value) || 13.90;
+            const rateStandby = parseFloat(document.getElementById('lohn-rate-standby').value) || 2.50;
 
-            const btn = document.getElementById('ecovis-run-btn');
-            const prog = document.getElementById('ecovis-progress');
-            btn.disabled = true;
-            prog.style.display = 'block';
-            prog.innerHTML = '⏳ Lade Schicht-Daten…';
+            const status = document.getElementById('lohn-status');
+            const preview = document.getElementById('lohn-preview');
+            status.textContent = '⏳ Lade Schicht-Daten für ' + monthInput + '…';
+            preview.style.display = 'none';
 
             try {
                 const data = await aggregateMonthForEcovis(year, month);
                 const monthName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][month - 1];
+                lohnPreviewData = { year, month, monthName, data, rateShift, rateStandby };
+                renderLohnPreview();
+                status.textContent = `✅ Vorschau für ${monthName} ${year} geladen — prüfen, dann Export starten.`;
+            } catch (e) {
+                console.error('Lohn-Preview Fehler:', e);
+                status.textContent = '❌ Fehler: ' + e.message;
+            }
+        }
 
-                // Welche Mitarbeiter haben Daten?
-                const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);
-                if (staffWithData.length === 0) {
-                    prog.innerHTML = '⚠️ Keine Schichten in diesem Monat gefunden. Sind die linkedDriverId in mitarbeiter.html gesetzt?';
-                    btn.disabled = false;
-                    return;
+        function renderLohnPreview() {
+            if (!lohnPreviewData) return;
+            const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
+            const preview = document.getElementById('lohn-preview');
+            const summary = document.getElementById('lohn-summary');
+            const tablesEl = document.getElementById('lohn-tables');
+
+            const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);
+            const perStaff = [];
+            let grandShiftH = 0, grandStandbyH = 0;
+
+            for (const s of staffWithData) {
+                let shiftH = 0, standbyH = 0, days = 0;
+                const dailyData = data[s.id] || {};
+                for (const dateKey of Object.keys(dailyData)) {
+                    const d = dailyData[dateKey];
+                    days++;
+                    let dayShift = 0, dayStandby = 0;
+                    if (d.plan) {
+                        if (isStandbyShift(d.plan)) dayStandby = d.plan.hours || 0;
+                        else if (['day','late','night'].includes(d.plan.type)) dayShift = d.plan.hours || 0;
+                    }
+                    if (d.shifts && d.shifts.length > 0 && dayShift === 0 && dayStandby === 0) {
+                        const totalIstMs = d.shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
+                        dayShift = totalIstMs / 3600000;
+                    }
+                    shiftH += dayShift;
+                    standbyH += dayStandby;
                 }
+                const rateShiftStaff = s.hourlyRate || rateShift;
+                const rateStandbyStaff = s.standbyRate || rateStandby;
+                const bruttoShift = shiftH * rateShiftStaff;
+                const bruttoStandby = standbyH * rateStandbyStaff;
+                perStaff.push({
+                    staff: s, days, shiftH, standbyH,
+                    rateShift: rateShiftStaff, rateStandby: rateStandbyStaff,
+                    bruttoShift, bruttoStandby, brutto: bruttoShift + bruttoStandby
+                });
+                grandShiftH += shiftH;
+                grandStandbyH += standbyH;
+            }
 
-                prog.innerHTML = `📦 Generiere xlsx für ${staffWithData.length} Mitarbeiter…`;
+            const grandBruttoShift = perStaff.reduce((s,p)=>s+p.bruttoShift,0);
+            const grandBruttoStandby = perStaff.reduce((s,p)=>s+p.bruttoStandby,0);
+            const grandBrutto = grandBruttoShift + grandBruttoStandby;
+
+            summary.innerHTML = `
+                <div class="stat"><div class="stat-label">Mitarbeiter</div><div class="stat-value">${perStaff.length}</div></div>
+                <div class="stat"><div class="stat-label">Σ Schicht-h</div><div class="stat-value">${formatHours(grandShiftH)}h</div></div>
+                <div class="stat"><div class="stat-label">Σ Rufber.-h</div><div class="stat-value">${formatHours(grandStandbyH)}h</div></div>
+                <div class="stat"><div class="stat-label">Brutto gesamt</div><div class="stat-value">${grandBrutto.toFixed(2).replace('.',',')} €</div></div>
+            `;
+
+            if (perStaff.length === 0) {
+                tablesEl.innerHTML = '<div class="lohn-card"><p style="color:#6b7280;">Keine Schichten für ' + monthName + ' ' + year + ' gefunden. Trage erst Pläne im Wochenplan-Tab ein, oder starte Driver-Logins (Ist-Zeiten aus /shiftHistory).</p></div>';
+                document.getElementById('lohn-export-btn').disabled = true;
+                preview.style.display = 'block';
+                return;
+            }
+            document.getElementById('lohn-export-btn').disabled = false;
+
+            let html = `<div class="lohn-card">
+                <h3 style="font-size:14px;margin-bottom:10px;">📋 Übersicht ${monthName} ${year}</h3>
+                <div style="overflow-x:auto;">
+                <table class="lohn-table">
+                    <thead><tr>
+                        <th>Mitarbeiter</th>
+                        <th class="num">Tage</th>
+                        <th class="num">Schicht-h</th>
+                        <th class="num">€/h</th>
+                        <th class="num">Brutto Schicht</th>
+                        <th class="num">Rufber.-h</th>
+                        <th class="num">€/h</th>
+                        <th class="num">Brutto Rufber.</th>
+                        <th class="num">Brutto gesamt</th>
+                    </tr></thead>
+                    <tbody>`;
+            for (const p of perStaff) {
+                const fullName = [p.staff.firstName, p.staff.lastName].filter(Boolean).join(' ') || '—';
+                html += `<tr>
+                    <td>${escHtml(fullName)}</td>
+                    <td class="num">${p.days}</td>
+                    <td class="num">${formatHours(p.shiftH)}</td>
+                    <td class="num">${p.rateShift.toFixed(2).replace('.',',')}</td>
+                    <td class="num">${p.bruttoShift.toFixed(2).replace('.',',')} €</td>
+                    <td class="num">${formatHours(p.standbyH)}</td>
+                    <td class="num">${p.rateStandby.toFixed(2).replace('.',',')}</td>
+                    <td class="num">${p.bruttoStandby.toFixed(2).replace('.',',')} €</td>
+                    <td class="num"><b>${p.brutto.toFixed(2).replace('.',',')} €</b></td>
+                </tr>`;
+            }
+            html += `<tr class="total-row">
+                <td>Σ Gesamt</td>
+                <td class="num">—</td>
+                <td class="num">${formatHours(grandShiftH)}</td>
+                <td class="num">—</td>
+                <td class="num">${grandBruttoShift.toFixed(2).replace('.',',')} €</td>
+                <td class="num">${formatHours(grandStandbyH)}</td>
+                <td class="num">—</td>
+                <td class="num">${grandBruttoStandby.toFixed(2).replace('.',',')} €</td>
+                <td class="num">${grandBrutto.toFixed(2).replace('.',',')} €</td>
+            </tr></tbody></table></div></div>`;
+
+            tablesEl.innerHTML = html;
+            preview.style.display = 'block';
+        }
+
+        async function runLohnExport() {
+            if (!lohnPreviewData) {
+                showToast('Bitte erst Vorschau laden', true);
+                return;
+            }
+            const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
+            const btn = document.getElementById('lohn-export-btn');
+            const status = document.getElementById('lohn-status');
+            btn.disabled = true;
+            status.textContent = '📦 Generiere XLSX-Dateien…';
+            try {
+                const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);
                 const zip = new JSZip();
                 for (const s of staffWithData) {
                     const fileName = `${monthName}_${year}_${(s.lastName || s.firstName || s.id).toUpperCase()}_PAUSE_KORREKT.xlsx`;
-                    const xlsxBlob = await buildEcovisXlsx(s, year, month, monthName, data[s.id] || {}, rateShift, rateStandby);
+                    const xlsxBlob = await buildEcovisXlsx(s, year, month, monthName, data[s.id] || {}, s.hourlyRate || rateShift, s.standbyRate || rateStandby);
                     zip.file(fileName, xlsxBlob);
                 }
                 const zipName = `ECOVIS_${monthName}_${year}.zip`;
@@ -1066,11 +1306,11 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                prog.innerHTML = `✅ Fertig — ${staffWithData.length} Datei(en) in <b>${zipName}</b>`;
+                status.textContent = `✅ ${staffWithData.length} Datei(en) in ${zipName} heruntergeladen.`;
                 btn.disabled = false;
             } catch (e) {
-                console.error('ECOVIS-Export Fehler:', e);
-                prog.innerHTML = '❌ Fehler: ' + e.message;
+                console.error('Lohn-Export Fehler:', e);
+                status.textContent = '❌ Fehler: ' + e.message;
                 btn.disabled = false;
             }
         }
@@ -1243,6 +1483,293 @@ ${rows.join('\n')}
                 }
             }).join('\n');
             return `    <row r="${r}">\n${cellsXml}\n    </row>`;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.232 — Wechselschicht-Vorlagen pro Mitarbeiter
+        // Datenmodell: /staff/{staffId}/shiftPattern = {
+        //   enabled, days:[0..6], mode:'alternate'|'fixed-day'|'fixed-night'|'fixed-standby',
+        //   anchorDate:'YYYY-MM-DD' (TAG-Anker bei alternate),
+        //   dayShift:{start,end}, nightShift:{start,end}, standbyShift:{start,end}
+        // }
+        // Apply: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx} pro passendem Tag.
+        // ═══════════════════════════════════════════════════════════════
+
+        function defaultPattern(s) {
+            return {
+                enabled: false,
+                days: [3, 4, 5, 6, 0], // Do, Fr, Sa, So, Mo (Kargoll-Default)
+                mode: 'alternate',
+                anchorDate: '2026-02-05', // KW6 Februar = TAG (aus Vorlage abgeleitet)
+                dayShift: { start: '09:00', end: '17:30' },
+                nightShift: { start: '21:00', end: '03:00' },
+                standbyShift: { start: '19:00', end: '22:00' }
+            };
+        }
+
+        function renderVorlagenList() {
+            const list = document.getElementById('vorlagen-list');
+            if (allStaff.length === 0) {
+                list.innerHTML = '<div class="lohn-card"><p style="color:#6b7280;">Noch keine aktiven Mitarbeiter — leg sie erst in der <a href="mitarbeiter.html">Mitarbeiter-Verwaltung</a> an.</p></div>';
+                return;
+            }
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10);
+            const in30 = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+            list.innerHTML = allStaff.map(s => {
+                const p = s.shiftPattern || defaultPattern(s);
+                const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ') || '—';
+                const dayBtns = ['Mo','Di','Mi','Do','Fr','Sa','So'].map((label, idx) =>
+                    `<button class="day-pick-btn ${(p.days || []).includes(idx) ? 'selected' : ''}" data-staff="${s.id}" data-day="${idx}" onclick="toggleVorlagenDay('${s.id}',${idx})">${label}</button>`
+                ).join('');
+                return `<div class="vorlage-card" data-staff="${s.id}">
+                    <h3>👤 ${escHtml(fullName)} ${p.enabled ? '<span style="color:#10b981;font-size:11px;">● aktiv</span>' : '<span style="color:#9ca3af;font-size:11px;">○ inaktiv</span>'}</h3>
+
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label class="form-label">Arbeits-Tage</label>
+                        <div class="day-picker" id="vorl-days-${s.id}">${dayBtns}</div>
+                    </div>
+
+                    <div class="vorlage-grid">
+                        <div class="form-group">
+                            <label class="form-label">Modus</label>
+                            <select class="form-input" id="vorl-mode-${s.id}" onchange="updateVorlagenUI('${s.id}')">
+                                <option value="alternate" ${p.mode === 'alternate' ? 'selected' : ''}>Alternierend Tag↔Nacht (pro Block-Wechsel)</option>
+                                <option value="fixed-day" ${p.mode === 'fixed-day' ? 'selected' : ''}>Fix Tagschicht</option>
+                                <option value="fixed-night" ${p.mode === 'fixed-night' ? 'selected' : ''}>Fix Nachtschicht</option>
+                                <option value="fixed-standby" ${p.mode === 'fixed-standby' ? 'selected' : ''}>Fix Rufbereitschaft</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="vorl-anchor-wrap-${s.id}">
+                            <label class="form-label">Anker-Datum (TAG)</label>
+                            <input type="date" class="form-input" id="vorl-anchor-${s.id}" value="${p.anchorDate || '2026-02-05'}">
+                            <span style="font-size:11px;color:#6b7280;">Datum eines TAG-Schicht-Blocks. Ab da alterniert es alle 7 Tage.</span>
+                        </div>
+                    </div>
+
+                    <div class="vorlage-grid">
+                        <div class="form-group">
+                            <label class="form-label">Tag-Schicht Start</label>
+                            <input type="time" class="form-input" id="vorl-day-start-${s.id}" value="${p.dayShift?.start || '09:00'}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tag-Schicht Ende</label>
+                            <input type="time" class="form-input" id="vorl-day-end-${s.id}" value="${p.dayShift?.end || '17:30'}">
+                        </div>
+                    </div>
+                    <div class="vorlage-grid" id="vorl-night-wrap-${s.id}">
+                        <div class="form-group">
+                            <label class="form-label">Nacht-Schicht Start</label>
+                            <input type="time" class="form-input" id="vorl-night-start-${s.id}" value="${p.nightShift?.start || '21:00'}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Nacht-Schicht Ende</label>
+                            <input type="time" class="form-input" id="vorl-night-end-${s.id}" value="${p.nightShift?.end || '03:00'}">
+                        </div>
+                    </div>
+                    <div class="vorlage-grid" id="vorl-standby-wrap-${s.id}" style="display:none;">
+                        <div class="form-group">
+                            <label class="form-label">Rufber. Start</label>
+                            <input type="time" class="form-input" id="vorl-standby-start-${s.id}" value="${p.standbyShift?.start || '19:00'}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rufber. Ende</label>
+                            <input type="time" class="form-input" id="vorl-standby-end-${s.id}" value="${p.standbyShift?.end || '22:00'}">
+                        </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:10px;margin:10px 0;">
+                        <input type="checkbox" id="vorl-enabled-${s.id}" ${p.enabled ? 'checked' : ''}>
+                        <label for="vorl-enabled-${s.id}" style="font-size:13px;">Vorlage aktiv (kann angewendet werden)</label>
+                    </div>
+
+                    <div class="vorlage-grid">
+                        <div class="form-group">
+                            <label class="form-label">Anwenden von</label>
+                            <input type="date" class="form-input" id="vorl-from-${s.id}" value="${todayStr}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">bis</label>
+                            <input type="date" class="form-input" id="vorl-to-${s.id}" value="${in30}">
+                        </div>
+                    </div>
+
+                    <div class="vorlage-actions">
+                        <button class="btn btn-primary" onclick="saveVorlage('${s.id}')">💾 Vorlage speichern</button>
+                        <button class="btn" style="background:#059669;color:white;" onclick="applyVorlage('${s.id}')">▶ Auf Datums-Bereich anwenden</button>
+                        <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="clearVorlageRange('${s.id}')">🗑 Range löschen</button>
+                    </div>
+                    <div id="vorl-status-${s.id}" style="font-size:12px;color:#374151;margin-top:8px;"></div>
+                </div>`;
+            }).join('');
+            // Mode-UI initial setzen
+            for (const s of allStaff) updateVorlagenUI(s.id);
+        }
+
+        function toggleVorlagenDay(staffId, dayIdx) {
+            const btn = document.querySelector(`#vorl-days-${staffId} [data-day="${dayIdx}"]`);
+            if (btn) btn.classList.toggle('selected');
+        }
+
+        function updateVorlagenUI(staffId) {
+            const mode = document.getElementById('vorl-mode-' + staffId).value;
+            const anchorWrap = document.getElementById('vorl-anchor-wrap-' + staffId);
+            const nightWrap = document.getElementById('vorl-night-wrap-' + staffId);
+            const standbyWrap = document.getElementById('vorl-standby-wrap-' + staffId);
+            anchorWrap.style.display = (mode === 'alternate') ? '' : 'none';
+            nightWrap.style.display = (mode === 'alternate' || mode === 'fixed-night') ? '' : 'none';
+            standbyWrap.style.display = (mode === 'fixed-standby') ? '' : 'none';
+        }
+
+        function readVorlagenForm(staffId) {
+            const days = Array.from(document.querySelectorAll(`#vorl-days-${staffId} .day-pick-btn.selected`))
+                .map(b => parseInt(b.dataset.day));
+            return {
+                enabled: document.getElementById('vorl-enabled-' + staffId).checked,
+                days,
+                mode: document.getElementById('vorl-mode-' + staffId).value,
+                anchorDate: document.getElementById('vorl-anchor-' + staffId).value,
+                dayShift: {
+                    start: document.getElementById('vorl-day-start-' + staffId).value,
+                    end: document.getElementById('vorl-day-end-' + staffId).value
+                },
+                nightShift: {
+                    start: document.getElementById('vorl-night-start-' + staffId).value,
+                    end: document.getElementById('vorl-night-end-' + staffId).value
+                },
+                standbyShift: {
+                    start: document.getElementById('vorl-standby-start-' + staffId).value,
+                    end: document.getElementById('vorl-standby-end-' + staffId).value
+                }
+            };
+        }
+
+        async function saveVorlage(staffId) {
+            const pattern = readVorlagenForm(staffId);
+            try {
+                await db.ref('staff/' + staffId + '/shiftPattern').set(pattern);
+                // local cache aktualisieren
+                const s = allStaff.find(x => x.id === staffId);
+                if (s) s.shiftPattern = pattern;
+                document.getElementById('vorl-status-' + staffId).innerHTML = '✅ Gespeichert.';
+                showToast('Vorlage gespeichert ✓');
+            } catch (e) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '❌ ' + e.message;
+            }
+        }
+
+        // Bestimmt für ein Datum, welcher Schicht-Typ in dem Pattern aktiv ist.
+        // Returns null wenn der Tag nicht zu pattern.days gehört.
+        function patternShiftForDate(pattern, dateObj) {
+            const dayIdx = (dateObj.getDay() + 6) % 7; // 0=Mo
+            if (!(pattern.days || []).includes(dayIdx)) return null;
+            if (pattern.mode === 'fixed-day') {
+                return { type: 'day', start: pattern.dayShift.start, end: pattern.dayShift.end };
+            }
+            if (pattern.mode === 'fixed-night') {
+                return { type: 'night', start: pattern.nightShift.start, end: pattern.nightShift.end };
+            }
+            if (pattern.mode === 'fixed-standby') {
+                return { type: 'standby', start: pattern.standbyShift.start, end: pattern.standbyShift.end };
+            }
+            // alternate: Block-Index relativ zum Anker
+            const anchor = new Date(pattern.anchorDate + 'T00:00:00');
+            const target = new Date(dateObj);
+            target.setHours(0, 0, 0, 0);
+            const deltaDays = Math.floor((target - anchor) / 86400000);
+            // Block-Wechsel pro 7 Tage. Negative deltas korrekt floor:
+            const block = Math.floor(deltaDays / 7);
+            const isDay = block % 2 === 0;
+            if (isDay) return { type: 'day', start: pattern.dayShift.start, end: pattern.dayShift.end };
+            return { type: 'night', start: pattern.nightShift.start, end: pattern.nightShift.end };
+        }
+
+        async function applyVorlage(staffId) {
+            const pattern = readVorlagenForm(staffId);
+            if (!pattern.enabled) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '⚠️ Vorlage ist nicht aktiv — erst Häkchen + Speichern.';
+                return;
+            }
+            if (pattern.days.length === 0) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '⚠️ Keine Arbeits-Tage gewählt.';
+                return;
+            }
+            // Speichern, falls noch nicht gespeichert
+            await saveVorlage(staffId);
+
+            const fromStr = document.getElementById('vorl-from-' + staffId).value;
+            const toStr = document.getElementById('vorl-to-' + staffId).value;
+            if (!fromStr || !toStr) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '⚠️ Datums-Bereich unvollständig.';
+                return;
+            }
+            const from = new Date(fromStr + 'T00:00:00');
+            const to = new Date(toStr + 'T00:00:00');
+            if (from > to) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '⚠️ Von > Bis.';
+                return;
+            }
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            let written = 0, skipped = 0;
+            const cursor = new Date(from);
+            const updates = {};
+            while (cursor <= to) {
+                const shift = patternShiftForDate(pattern, cursor);
+                if (shift) {
+                    const wk = isoWeekKey(cursor);
+                    const dayIdx = (cursor.getDay() + 6) % 7;
+                    const hours = calcHours(shift.start, shift.end);
+                    updates[`shiftPlan/${wk}/${staffId}/${dayIdx}`] = {
+                        type: shift.type,
+                        start: shift.start,
+                        end: shift.end,
+                        hours: Number(hours.toFixed(2)),
+                        note: 'Pattern v6.62.232',
+                        updatedAt: Date.now(),
+                        updatedBy: userEmail
+                    };
+                    written++;
+                } else {
+                    skipped++;
+                }
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            try {
+                await db.ref().update(updates);
+                document.getElementById('vorl-status-' + staffId).innerHTML =
+                    `✅ ${written} Schichten geschrieben (${skipped} Tage übersprungen). Zum prüfen: Wochenplan-Tab.`;
+                showToast(`${written} Schichten geschrieben ✓`);
+            } catch (e) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '❌ ' + e.message;
+            }
+        }
+
+        async function clearVorlageRange(staffId) {
+            const fromStr = document.getElementById('vorl-from-' + staffId).value;
+            const toStr = document.getElementById('vorl-to-' + staffId).value;
+            if (!fromStr || !toStr) return;
+            const fullName = (() => {
+                const s = allStaff.find(x => x.id === staffId);
+                return s ? ([s.firstName, s.lastName].filter(Boolean).join(' ') || '—') : '—';
+            })();
+            if (!confirm(`Wirklich ALLE Schicht-Plan-Einträge von ${fullName} zwischen ${fromStr} und ${toStr} löschen?`)) return;
+            const from = new Date(fromStr + 'T00:00:00');
+            const to = new Date(toStr + 'T00:00:00');
+            const updates = {};
+            const cursor = new Date(from);
+            while (cursor <= to) {
+                const wk = isoWeekKey(cursor);
+                const dayIdx = (cursor.getDay() + 6) % 7;
+                updates[`shiftPlan/${wk}/${staffId}/${dayIdx}`] = null;
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            try {
+                await db.ref().update(updates);
+                document.getElementById('vorl-status-' + staffId).innerHTML = '🗑 Range gelöscht.';
+                showToast('Range gelöscht');
+            } catch (e) {
+                document.getElementById('vorl-status-' + staffId).innerHTML = '❌ ' + e.message;
+            }
         }
     </script>
 </body>

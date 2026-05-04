@@ -18857,16 +18857,25 @@ exports.onRideCreated = onValueCreated(
                         _smsText = _lines.join('\n');
                     }
 
-                    await db.ref('smsQueue').push({
-                        phone: _smsCustPhone,
-                        text: _smsText,
-                        rideId: rideId,
-                        type: isSofort ? 'sofort_confirmation' : 'vorbestellung_confirmation',
-                        status: 'pending',
-                        createdAt: Date.now()
-                    });
-                    console.log(`📲 SMS-Queue: Bestätigung für ${_smsCustPhone} eingetragen`);
-                    await addRideLog(rideId, '📲', 'SMS-Bestätigung in Queue', { phone: _smsCustPhone, typ: isSofort ? 'Sofort' : 'Vorbestellung' });
+                    // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern.
+                    // Patrick (14:36): "An Festnetz-Nummern bitte keine Nachrichten verschicken,
+                    // nur an Handynummern SMS." Wenn Festnetz: Log-Eintrag + skip (Hotels
+                    // sollen Email bekommen — separater Email-Pfad folgt).
+                    if (!isMobileNumber(_smsCustPhone)) {
+                        console.log(`☎️ SMS skip (Festnetz): ${_smsCustPhone} — keine SMS an Festnetz`);
+                        await addRideLog(rideId, '☎️', 'SMS übersprungen (Festnetz)', { phone: _smsCustPhone, grund: 'isMobileNumber=false', kunde: ride.customerName || '?' });
+                    } else {
+                        await db.ref('smsQueue').push({
+                            phone: _smsCustPhone,
+                            text: _smsText,
+                            rideId: rideId,
+                            type: isSofort ? 'sofort_confirmation' : 'vorbestellung_confirmation',
+                            status: 'pending',
+                            createdAt: Date.now()
+                        });
+                        console.log(`📲 SMS-Queue: Bestätigung für ${_smsCustPhone} eingetragen`);
+                        await addRideLog(rideId, '📲', 'SMS-Bestätigung in Queue', { phone: _smsCustPhone, typ: isSofort ? 'Sofort' : 'Vorbestellung' });
+                    }
                 }
             } catch (_smsErr) {
                 console.warn('⚠️ SMS-Queue Fehler:', _smsErr.message);
@@ -19406,15 +19415,21 @@ exports.onRideUpdated = onValueUpdated(
                     const _smsSettingsSnap = await db.ref('settings/sms').once('value');
                     const _smsSettings = _smsSettingsSnap.val() || {};
                     if (_smsSettings.statusUpdatesEnabled !== false) { // Default ON, kann ueber Settings deaktiviert werden
-                        await db.ref('smsQueue').push({
-                            phone: _custPhone,
-                            text: _smsBody,
-                            rideId,
-                            type: _smsType,
-                            status: 'pending',
-                            createdAt: Date.now()
-                        });
-                        await addRideLog(rideId, '📲', `SMS-Status: ${_smsType}`, { phone: _custPhone });
+                        // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern (Patrick 14:36)
+                        if (!isMobileNumber(_custPhone)) {
+                            console.log(`☎️ Status-SMS skip (Festnetz): ${_custPhone}`);
+                            await addRideLog(rideId, '☎️', `Status-SMS übersprungen (Festnetz): ${_smsType}`, { phone: _custPhone, grund: 'isMobileNumber=false' });
+                        } else {
+                            await db.ref('smsQueue').push({
+                                phone: _custPhone,
+                                text: _smsBody,
+                                rideId,
+                                type: _smsType,
+                                status: 'pending',
+                                createdAt: Date.now()
+                            });
+                            await addRideLog(rideId, '📲', `SMS-Status: ${_smsType}`, { phone: _custPhone });
+                        }
                     }
                 }
             } catch (_smsStatusErr) {
@@ -19550,15 +19565,21 @@ exports.onRideUpdated = onValueUpdated(
                     if (!_channel) _channel = (after.customerEmail || (after.customerId && false)) ? 'email' : 'sms';
                     const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Ihre Rechnung + Status: ${_trackLink} - Bei Fragen: 038378 22022.`;
                     if (_channel === 'sms' && after.customerPhone) {
-                        await db.ref('smsQueue').push({
-                            phone: after.customerPhone,
-                            text: _smsText,
-                            rideId,
-                            type: 'fahrt_abgeschlossen',
-                            status: 'pending',
-                            createdAt: Date.now()
-                        });
-                        await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue', { phone: after.customerPhone, channel: 'sms' });
+                        // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern (Patrick 14:36)
+                        if (!isMobileNumber(after.customerPhone)) {
+                            console.log(`☎️ Abschluss-SMS skip (Festnetz): ${after.customerPhone}`);
+                            await addRideLog(rideId, '☎️', 'Abschluss-SMS übersprungen (Festnetz)', { phone: after.customerPhone, grund: 'isMobileNumber=false', hinweis: 'Hotels sollten Email-Bestätigung bekommen — separater Pfad noch nicht implementiert' });
+                        } else {
+                            await db.ref('smsQueue').push({
+                                phone: after.customerPhone,
+                                text: _smsText,
+                                rideId,
+                                type: 'fahrt_abgeschlossen',
+                                status: 'pending',
+                                createdAt: Date.now()
+                            });
+                            await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue', { phone: after.customerPhone, channel: 'sms' });
+                        }
                     } else if (_channel === 'email') {
                         // Email wird über Stripe-Webhook (bei Bezahlung) bzw. ueber existing
                         // sendInvoiceEmail Pfad gesendet — beim completed-Trigger nur Log.

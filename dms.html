@@ -193,8 +193,8 @@
                     </div>
                     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
                         <button class="btn" onclick="resetUpload()">Abbrechen</button>
-                        <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()">🤖 Analysieren</button>
-                        <button class="btn btn-success" id="save-btn" onclick="saveDocument()" style="display:none;">💾 Speichern</button>
+                        <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()" style="display:none;">🤖 Erneut analysieren</button>
+                        <button class="btn btn-success" id="save-btn" onclick="saveDocument()" disabled>💾 Speichern</button>
                     </div>
                 </div>
             </div>
@@ -341,7 +341,7 @@
             if (file.size > 10 * 1024 * 1024) { showToast('Datei zu groß (max 10 MB)', true); return; }
             currentFile = file;
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 const dataUrl = e.target.result;
                 currentBase64 = dataUrl.split(',')[1];
                 const previewArea = document.getElementById('preview-area');
@@ -355,11 +355,10 @@
                 document.getElementById('file-info').textContent = `${file.name} · ${(file.size/1024).toFixed(0)} KB · ${file.type}`;
                 document.getElementById('analysis-card').style.display = 'block';
                 document.getElementById('ki-result').style.display = 'none';
-                document.getElementById('save-btn').style.display = 'none';
-                document.getElementById('analyze-btn').disabled = false;
-                document.getElementById('ki-status').textContent = 'Drücke „Analysieren" um KI zu starten.';
-                document.getElementById('ki-status').style.background = '#fffbeb';
-                document.getElementById('ki-status').style.color = '#92400e';
+                document.getElementById('save-btn').disabled = true;
+                document.getElementById('analyze-btn').style.display = 'none';
+                // v6.62.239: Auto-Analyse direkt nach Datei-Auswahl
+                await runAnalysis();
             };
             reader.readAsDataURL(file);
         }
@@ -367,9 +366,12 @@
         async function runAnalysis() {
             if (!currentBase64 || !currentFile) return;
             const status = document.getElementById('ki-status');
-            const btn = document.getElementById('analyze-btn');
-            btn.disabled = true;
-            status.textContent = '⏳ KI analysiert Dokument…';
+            const aBtn = document.getElementById('analyze-btn');
+            const sBtn = document.getElementById('save-btn');
+            aBtn.disabled = true;
+            sBtn.disabled = true;
+            status.style.background = '#fffbeb'; status.style.color = '#92400e';
+            status.textContent = '⏳ KI analysiert Dokument… (5-15 Sek)';
             try {
                 const url = `${ANALYZE_URL}?key=${encodeURIComponent(healthCheckKey)}`;
                 const resp = await fetch(url, {
@@ -382,14 +384,16 @@
                 kiResult = data.parsed || {};
                 fillFormFromKi(kiResult);
                 status.style.background = '#d1fae5'; status.style.color = '#065f46';
-                status.textContent = `✅ Analyse fertig (Confidence: ${Math.round((kiResult.confidence || 0) * 100)}%) — prüfe + speichere.`;
+                status.textContent = `✅ Analyse fertig (Confidence: ${Math.round((kiResult.confidence || 0) * 100)}%) — prüfe Felder + drück Speichern.`;
                 document.getElementById('ki-result').style.display = 'block';
-                document.getElementById('save-btn').style.display = 'inline-block';
-                btn.disabled = false;
+                aBtn.style.display = 'inline-block';
+                aBtn.disabled = false;
+                sBtn.disabled = false; // jetzt grün+klickbar
             } catch (e) {
                 status.style.background = '#fee2e2'; status.style.color = '#991b1b';
                 status.textContent = '❌ ' + e.message;
-                btn.disabled = false;
+                aBtn.style.display = 'inline-block';
+                aBtn.disabled = false;
             }
         }
 
@@ -468,6 +472,8 @@
             currentFile = null; currentBase64 = null; kiResult = null;
             document.getElementById('file-input').value = '';
             document.getElementById('analysis-card').style.display = 'none';
+            document.getElementById('save-btn').disabled = true;
+            document.getElementById('analyze-btn').style.display = 'none';
         }
 
         // ─── Bibliothek + Suche ───

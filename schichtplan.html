@@ -516,14 +516,54 @@
 
                 <div class="time-row" id="time-row">
                     <div class="form-group">
-                        <label class="form-label">Start</label>
+                        <label class="form-label">Schicht-Start</label>
                         <input type="time" id="shift-start" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Ende</label>
+                        <label class="form-label">Schicht-Ende</label>
                         <input type="time" id="shift-end" class="form-input">
                     </div>
                 </div>
+
+                <!-- v6.62.244: Pause + Pre/Post-Standby (manuell pro Schicht) -->
+                <details id="extra-fields" style="margin-bottom:10px;">
+                    <summary style="cursor:pointer;font-size:13px;color:#2563eb;font-weight:600;padding:6px 0;">+ Pause / Rufbereitschaft hinzufügen</summary>
+                    <div style="border-left:3px solid #fde68a;padding-left:10px;margin-top:6px;">
+                        <div class="time-row">
+                            <div class="form-group">
+                                <label class="form-label">⏸ Pause Start</label>
+                                <input type="time" id="shift-pause-start" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">⏸ Pause Ende</label>
+                                <input type="time" id="shift-pause-end" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="border-left:3px solid #ddd6fe;padding-left:10px;margin-top:6px;">
+                        <div class="time-row">
+                            <div class="form-group">
+                                <label class="form-label">📞 Rufber. davor — Start</label>
+                                <input type="time" id="shift-pre-start" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📞 Rufber. davor — Ende</label>
+                                <input type="time" id="shift-pre-end" class="form-input">
+                            </div>
+                        </div>
+                        <div class="time-row">
+                            <div class="form-group">
+                                <label class="form-label">📞 Rufber. danach — Start</label>
+                                <input type="time" id="shift-post-start" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📞 Rufber. danach — Ende</label>
+                                <input type="time" id="shift-post-end" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
                 <div class="form-group" style="margin-bottom:8px;">
                     <label class="form-label">Notiz</label>
                     <input type="text" id="shift-note" class="form-input" placeholder="optional">
@@ -1078,16 +1118,28 @@
             ).join('');
 
             const existing = (currentShifts[staffId] || {})[dayIdx];
+            const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
             if (existing) {
                 selectedType = existing.type;
-                document.getElementById('shift-start').value = existing.start || '';
-                document.getElementById('shift-end').value = existing.end || '';
-                document.getElementById('shift-note').value = existing.note || '';
+                setVal('shift-start', existing.start);
+                setVal('shift-end', existing.end);
+                setVal('shift-note', existing.note);
+                setVal('shift-pause-start', existing.pauseStart);
+                setVal('shift-pause-end', existing.pauseEnd);
+                setVal('shift-pre-start', existing.preStandbyStart);
+                setVal('shift-pre-end', existing.preStandbyEnd);
+                setVal('shift-post-start', existing.postStandbyStart);
+                setVal('shift-post-end', existing.postStandbyEnd);
+                // Extras-Toggle aufklappen wenn was drin
+                const hasExtra = existing.pauseStart || existing.preStandbyStart || existing.postStandbyStart;
+                document.getElementById('extra-fields').open = !!hasExtra;
             } else {
                 selectedType = 'free';
-                document.getElementById('shift-start').value = '';
-                document.getElementById('shift-end').value = '';
-                document.getElementById('shift-note').value = '';
+                ['shift-start','shift-end','shift-note',
+                 'shift-pause-start','shift-pause-end',
+                 'shift-pre-start','shift-pre-end',
+                 'shift-post-start','shift-post-end'].forEach(id => setVal(id, ''));
+                document.getElementById('extra-fields').open = false;
             }
             updateTypeUI();
             updateHoursPreview();
@@ -1114,10 +1166,15 @@
             });
             const showTime = !['free', 'vacation', 'sick'].includes(selectedType);
             document.getElementById('time-row').style.display = showTime ? 'grid' : 'none';
+            document.getElementById('extra-fields').style.display = showTime ? '' : 'none';
         }
 
-        document.getElementById('shift-start').addEventListener('input', updateHoursPreview);
-        document.getElementById('shift-end').addEventListener('input', updateHoursPreview);
+        // v6.62.244: alle Zeit-Felder triggern Live-Preview
+        ['shift-start','shift-end','shift-pause-start','shift-pause-end',
+         'shift-pre-start','shift-pre-end','shift-post-start','shift-post-end'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateHoursPreview);
+        });
 
         function calcHours(start, end) {
             if (!start || !end) return 0;
@@ -1128,11 +1185,19 @@
             return mins / 60;
         }
         function updateHoursPreview() {
-            const start = document.getElementById('shift-start').value;
-            const end = document.getElementById('shift-end').value;
-            const hrs = calcHours(start, end);
-            document.getElementById('hours-preview').textContent =
-                hrs > 0 ? `Stunden: ${formatHours(hrs)}` : '';
+            const v = (id) => document.getElementById(id)?.value || '';
+            const fullVor = calcHours(v('shift-start'), v('shift-end'));
+            const pause = calcHours(v('shift-pause-start'), v('shift-pause-end'));
+            const bezahlt = Math.max(0, fullVor - pause);
+            const pre = calcHours(v('shift-pre-start'), v('shift-pre-end'));
+            const post = calcHours(v('shift-post-start'), v('shift-post-end'));
+            const ruf = pre + post;
+            const parts = [];
+            if (fullVor > 0) parts.push(`Voll vor Pause ${formatHours(fullVor)}h`);
+            if (pause > 0) parts.push(`<span style="color:#dc2626;">−Pause ${formatHours(pause)}h</span>`);
+            if (bezahlt > 0) parts.push(`<b>= Voll bezahlt ${formatHours(bezahlt)}h</b>`);
+            if (ruf > 0) parts.push(`<span style="color:#7c3aed;">+ Rufber ${formatHours(ruf)}h</span>`);
+            document.getElementById('hours-preview').innerHTML = parts.join(' · ');
         }
 
         function closeModal() {
@@ -1143,15 +1208,35 @@
         async function saveShift() {
             if (!editing) return;
             const { staffId, dayIdx } = editing;
-            const start = document.getElementById('shift-start').value || null;
-            const end = document.getElementById('shift-end').value || null;
-            const note = document.getElementById('shift-note').value || null;
-            const hours = (start && end) ? calcHours(start, end) : 0;
+            const v = (id) => document.getElementById(id)?.value || null;
+            const start = v('shift-start');
+            const end = v('shift-end');
+            const note = v('shift-note');
+            const pauseStart = v('shift-pause-start');
+            const pauseEnd = v('shift-pause-end');
+            const preStart = v('shift-pre-start');
+            const preEnd = v('shift-pre-end');
+            const postStart = v('shift-post-start');
+            const postEnd = v('shift-post-end');
+            // Berechnungen — mit Pause-Abzug
+            const fullVor = (start && end) ? calcHours(start, end) : 0;
+            const pauseH = (pauseStart && pauseEnd) ? calcHours(pauseStart, pauseEnd) : 0;
+            const bezahlt = Math.max(0, fullVor - pauseH);
+            const preH = (preStart && preEnd) ? calcHours(preStart, preEnd) : 0;
+            const postH = (postStart && postEnd) ? calcHours(postStart, postEnd) : 0;
             const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
             const data = {
                 type: selectedType,
                 start, end,
-                hours: Number(hours.toFixed(2)),
+                hours: Number(bezahlt.toFixed(2)),                // = Voll bezahlt (kompatibel mit Lohnexport)
+                hoursAttendance: Number(fullVor.toFixed(2)),       // = Voll vor Pause
+                pauseHours: Number(pauseH.toFixed(2)),
+                pauseStart, pauseEnd,
+                preStandbyStart: preStart, preStandbyEnd: preEnd,
+                preStandbyHours: Number(preH.toFixed(2)),
+                postStandbyStart: postStart, postStandbyEnd: postEnd,
+                postStandbyHours: Number(postH.toFixed(2)),
+                standbyHoursTotal: Number((preH + postH).toFixed(2)),
                 note,
                 updatedAt: Date.now(),
                 updatedBy: userEmail

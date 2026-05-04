@@ -252,8 +252,58 @@
                         <input id="lib-filter" class="form-input" placeholder="Lieferant, Stichwort…" oninput="renderLibrary()">
                     </div>
                     <div id="lib-stats" class="stat-grid"></div>
+                    <!-- v6.62.241: Bulk-Aktions-Bar -->
+                    <div id="bulk-bar" style="display:none;background:#fef3c7;border-radius:8px;padding:10px 14px;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <span id="bulk-count" style="font-weight:700;color:#78350f;">0 ausgewählt</span>
+                        <select id="bulk-action-kat" class="form-select" style="width:auto;min-width:180px;">
+                            <option value="">Kategorie ändern auf…</option>
+                            <option value="A">A · Fahrzeuge</option>
+                            <option value="B">B · Mitarbeiter</option>
+                            <option value="C">C · Buchhaltung</option>
+                            <option value="D">D · Behörden</option>
+                            <option value="E">E · Verträge</option>
+                            <option value="F">F · Steuerberater</option>
+                            <option value="G">G · Versicherungen</option>
+                            <option value="H">H · Sonstiges</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="bulkChangeCategory()">→ Anwenden</button>
+                        <input id="bulk-tag-input" class="form-input" style="width:auto;min-width:140px;" placeholder="Tag hinzufügen…">
+                        <button class="btn btn-primary" onclick="bulkAddTag()">+ Tag</button>
+                        <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="bulkDelete()">🗑 Löschen</button>
+                        <button class="btn btn-ghost" onclick="bulkClearSelection()">Auswahl aufheben</button>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <label style="font-size:12px;color:#6b7280;cursor:pointer;">
+                            <input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll()" style="margin-right:6px;">
+                            Alle sichtbaren auswählen
+                        </label>
+                    </div>
                 </div>
                 <div id="library" class="doc-list"></div>
+            </div>
+
+            <!-- v6.62.241: Detail/Edit-Modal -->
+            <div id="doc-modal" class="modal-overlay" onclick="if(event.target===this) closeDocModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px;overflow-y:auto;">
+                <div style="background:white;border-radius:14px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+                    <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                        <div>
+                            <h2 style="font-size:17px;font-weight:700;" id="doc-modal-title">Dokument</h2>
+                            <div style="font-size:12px;color:#6b7280;" id="doc-modal-sub"></div>
+                        </div>
+                        <button class="btn btn-ghost" onclick="closeDocModal()" style="font-size:20px;">×</button>
+                    </div>
+                    <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="doc-modal-body">
+                        <!-- gefüllt via JS -->
+                    </div>
+                    <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                        <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="deleteDocFromModal()" id="doc-modal-delete">🗑 Löschen</button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn" onclick="closeDocModal()">Schließen</button>
+                            <button class="btn btn-primary" onclick="toggleEditMode()" id="doc-modal-edit-btn">✏ Bearbeiten</button>
+                            <button class="btn btn-success" onclick="saveDocEdit()" id="doc-modal-save-btn" style="display:none;">💾 Speichern</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- TAB: SUCHE -->
@@ -332,21 +382,27 @@
             ]);
             const veh = vSnap.val() || {};
             const staff = sSnap.val() || {};
+            // v6.62.241: Listen global cachen fuer Edit-Modal
+            window._vehicleOptions = Object.entries(veh).map(([id, v]) => ({
+                id, label: `${v.licensePlate || id}${v.name ? ' · ' + v.name : ''}`
+            }));
+            window._staffOptions = Object.entries(staff).map(([id, s]) => ({
+                id, label: `${[s.firstName, s.lastName].filter(Boolean).join(' ')} (${id})`
+            }));
             const vSel = document.getElementById('f-vehicle');
-            for (const [id, v] of Object.entries(veh)) {
-                const o = document.createElement('option');
-                o.value = id;
-                o.textContent = `${v.licensePlate || id}${v.name ? ' · ' + v.name : ''}`;
-                vSel.appendChild(o);
+            for (const v of window._vehicleOptions) {
+                const o = document.createElement('option'); o.value = v.id; o.textContent = v.label; vSel.appendChild(o);
             }
             const sSel = document.getElementById('f-staff');
-            for (const [id, s] of Object.entries(staff)) {
-                const o = document.createElement('option');
-                o.value = id;
-                o.textContent = `${[s.firstName, s.lastName].filter(Boolean).join(' ')} (${id})`;
-                sSel.appendChild(o);
+            for (const s of window._staffOptions) {
+                const o = document.createElement('option'); o.value = s.id; o.textContent = s.label; sSel.appendChild(o);
             }
         }
+
+        // ESC-Handler für Doc-Modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('doc-modal').style.display === 'flex') closeDocModal();
+        });
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -773,15 +829,18 @@
             const linkRefs = [];
             if (d.vehicleRefId) linkRefs.push(`🚗 ${escHtml(d.vehicleRefId)}`);
             if (d.staffRefId) linkRefs.push(`👤 ${escHtml(d.staffRefId)}`);
-            return `<div class="doc-row" onclick="openDoc('${d.id}')">
-                <div class="doc-icon">${icon}</div>
-                <div class="doc-meta">
+            const checked = selectedDocIds.has(d.id) ? 'checked' : '';
+            return `<div class="doc-row" style="grid-template-columns:auto auto 1fr auto;">
+                <input type="checkbox" class="doc-check" data-id="${d.id}" ${checked} onclick="event.stopPropagation();toggleDocSelected('${d.id}', this.checked)" style="width:18px;height:18px;">
+                <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
+                <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
                     <div class="title"><span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')}</div>
                     <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>
                 <div class="doc-actions">
-                    <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Öffnen">👁</button>
+                    <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Original öffnen">👁</button>
+                    <button class="btn btn-ghost" onclick="event.stopPropagation();openDocDetail('${d.id}')" title="Bearbeiten" style="color:#2563eb;">✏</button>
                     <button class="btn btn-ghost" onclick="event.stopPropagation();deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g, '')}')" title="Löschen" style="color:#dc2626;">🗑</button>
                 </div>
             </div>`;
@@ -790,6 +849,242 @@
         function openDoc(id) {
             const d = allDocs.find(x => x.id === id);
             if (d && d.storageUrl) window.open(d.storageUrl, '_blank');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.241: Multi-Select + Bulk-Actions + Detail/Edit-Modal
+        // ═══════════════════════════════════════════════════════════════
+        const selectedDocIds = new Set();
+        let editingDocId = null;
+        let editMode = false;
+
+        function toggleDocSelected(id, checked) {
+            if (checked) selectedDocIds.add(id);
+            else selectedDocIds.delete(id);
+            updateBulkBar();
+        }
+
+        function toggleSelectAll() {
+            const checkbox = document.getElementById('bulk-select-all');
+            const visibleIds = Array.from(document.querySelectorAll('.doc-check')).map(c => c.dataset.id);
+            if (checkbox.checked) visibleIds.forEach(id => selectedDocIds.add(id));
+            else visibleIds.forEach(id => selectedDocIds.delete(id));
+            renderLibrary();
+            updateBulkBar();
+        }
+
+        function bulkClearSelection() {
+            selectedDocIds.clear();
+            document.getElementById('bulk-select-all').checked = false;
+            renderLibrary();
+            updateBulkBar();
+        }
+
+        function updateBulkBar() {
+            const cnt = selectedDocIds.size;
+            const bar = document.getElementById('bulk-bar');
+            bar.style.display = cnt > 0 ? 'flex' : 'none';
+            document.getElementById('bulk-count').textContent = cnt + ' ausgewählt';
+        }
+
+        async function bulkDelete() {
+            if (selectedDocIds.size === 0) return;
+            if (!confirm(`Wirklich ${selectedDocIds.size} Dokument(e) löschen? Originale gehen mit weg.`)) return;
+            const ids = Array.from(selectedDocIds);
+            for (const id of ids) {
+                const d = allDocs.find(x => x.id === id);
+                if (!d) continue;
+                try {
+                    await db.ref('docs/' + id).remove();
+                    if (d.storagePath) await storage.ref(d.storagePath).delete().catch(() => {});
+                } catch (e) { console.warn('bulk-delete fail ' + id + ':', e.message); }
+            }
+            showToast(`${ids.length} gelöscht`);
+            selectedDocIds.clear();
+            await loadDocs();
+        }
+
+        async function bulkChangeCategory() {
+            const newKat = document.getElementById('bulk-action-kat').value;
+            if (!newKat) { showToast('Erst Kategorie wählen', true); return; }
+            if (selectedDocIds.size === 0) return;
+            if (!confirm(`${selectedDocIds.size} Dokument(e) auf Kategorie "${newKat}" setzen?`)) return;
+            const ids = Array.from(selectedDocIds);
+            for (const id of ids) {
+                try { await db.ref('docs/' + id + '/kategorie').set(newKat); }
+                catch (e) { console.warn('bulk-cat fail ' + id + ':', e.message); }
+            }
+            showToast(`${ids.length} → Kategorie ${newKat}`);
+            await loadDocs();
+        }
+
+        async function bulkAddTag() {
+            const tag = (document.getElementById('bulk-tag-input').value || '').trim();
+            if (!tag) { showToast('Erst Tag eingeben', true); return; }
+            if (selectedDocIds.size === 0) return;
+            const ids = Array.from(selectedDocIds);
+            for (const id of ids) {
+                const d = allDocs.find(x => x.id === id);
+                const existing = Array.isArray(d?.stichworte) ? d.stichworte : [];
+                if (existing.includes(tag)) continue;
+                try { await db.ref('docs/' + id + '/stichworte').set([...existing, tag]); }
+                catch (e) { console.warn('bulk-tag fail ' + id + ':', e.message); }
+            }
+            document.getElementById('bulk-tag-input').value = '';
+            showToast(`Tag "${tag}" → ${ids.length} Dokument(e)`);
+            await loadDocs();
+        }
+
+        // Detail-Modal
+        function openDocDetail(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d) return;
+            editingDocId = docId;
+            editMode = false;
+            const modal = document.getElementById('doc-modal');
+            modal.style.display = 'flex';
+            renderDocModal(d);
+        }
+
+        function closeDocModal() {
+            document.getElementById('doc-modal').style.display = 'none';
+            editingDocId = null;
+            editMode = false;
+        }
+
+        function toggleEditMode() {
+            editMode = !editMode;
+            const d = allDocs.find(x => x.id === editingDocId);
+            if (d) renderDocModal(d);
+        }
+
+        function renderDocModal(d) {
+            document.getElementById('doc-modal-title').textContent = (d.lieferant || '?') + ' — ' + (d.dokumenttyp || d.subKategorie || '');
+            document.getElementById('doc-modal-sub').textContent =
+                (d.datum || 'kein Datum') + ' · Kategorie ' + d.kategorie + ' · ' +
+                (d.betrag != null ? d.betrag.toFixed(2).replace('.', ',') + ' €' : 'kein Betrag') +
+                ' · hochgeladen ' + new Date(d.uploadedAt).toLocaleDateString('de-DE');
+            const editBtn = document.getElementById('doc-modal-edit-btn');
+            const saveBtn = document.getElementById('doc-modal-save-btn');
+            editBtn.style.display = editMode ? 'none' : 'inline-block';
+            saveBtn.style.display = editMode ? 'inline-block' : 'none';
+
+            const veh = d.vehicleRefId || '';
+            const staff = d.staffRefId || '';
+            const tags = (d.stichworte || []).join(', ');
+            const body = document.getElementById('doc-modal-body');
+
+            // Vorschau
+            let previewHtml = '';
+            if (d.mediaType === 'application/pdf') {
+                previewHtml = `<embed src="${d.storageUrl}" type="application/pdf" width="100%" height="500px" style="border-radius:8px;">`;
+            } else if (d.mediaType && d.mediaType.startsWith('image/')) {
+                previewHtml = `<img src="${d.storageUrl}" style="max-width:100%;max-height:500px;border-radius:8px;">`;
+            } else {
+                previewHtml = `<div style="text-align:center;padding:40px;background:#f9fafb;border-radius:8px;"><div style="font-size:48px;">📎</div><a href="${d.storageUrl}" target="_blank">Original öffnen</a></div>`;
+            }
+
+            const fmt = (label, val) => `<div style="margin-bottom:6px;"><span style="color:#6b7280;font-size:11px;">${label}</span><br><span style="font-weight:500;">${escHtml(val || '—')}</span></div>`;
+
+            // Vehicle/Staff Optionen für Edit
+            const vehSnap = window._vehicleOptions || [];
+            const staffSnap = window._staffOptions || [];
+
+            if (editMode) {
+                body.innerHTML = `
+                    <div>${previewHtml}</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+                        <div class="form-group">
+                            <label class="form-label">Kategorie</label>
+                            <select class="form-select" id="e-kat">
+                                ${['A','B','C','D','E','F','G','H'].map(k => `<option value="${k}" ${d.kategorie === k ? 'selected' : ''}>${k}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Sub</label><input class="form-input" id="e-sub" value="${escHtml(d.subKategorie || '')}"></div>
+                            <div class="form-group"><label class="form-label">Typ</label><input class="form-input" id="e-typ" value="${escHtml(d.dokumenttyp || '')}"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Lieferant</label><input class="form-input" id="e-lief" value="${escHtml(d.lieferant || '')}"></div>
+                            <div class="form-group"><label class="form-label">Datum</label><input type="date" class="form-input" id="e-datum" value="${d.datum || ''}"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Betrag (€)</label><input type="number" step="0.01" class="form-input" id="e-betrag" value="${d.betrag != null ? d.betrag : ''}"></div>
+                            <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-select" id="e-veh"><option value="">— keins —</option>${vehSnap.map(v => `<option value="${v.id}" ${veh === v.id ? 'selected' : ''}>${escHtml(v.label)}</option>`).join('')}</select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Mitarbeiter</label><select class="form-select" id="e-staff"><option value="">— keiner —</option>${staffSnap.map(s => `<option value="${s.id}" ${staff === s.id ? 'selected' : ''}>${escHtml(s.label)}</option>`).join('')}</select></div>
+                            <div class="form-group"><label class="form-label">Stichworte</label><input class="form-input" id="e-tags" value="${escHtml(tags)}"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Beschreibung</label>
+                            <input class="form-input" id="e-besch" value="${escHtml(d.kurzbeschreibung || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Volltext (KI-erkannt, editierbar für bessere Suche)</label>
+                            <textarea class="form-input" id="e-text" rows="6" style="font-family:monospace;font-size:11px;">${escHtml(d.volltext || '')}</textarea>
+                        </div>
+                    </div>
+                `;
+            } else {
+                body.innerHTML = `
+                    <div>${previewHtml}</div>
+                    <div style="font-size:13px;">
+                        ${fmt('Kategorie / Sub', d.kategorie + ' · ' + (d.subKategorie || '—'))}
+                        ${fmt('Dokumenttyp', d.dokumenttyp)}
+                        ${fmt('Lieferant', d.lieferant)}
+                        ${fmt('Datum', d.datum)}
+                        ${fmt('Betrag', d.betrag != null ? d.betrag.toFixed(2).replace('.',',') + ' €' : '')}
+                        ${fmt('Fahrzeug', d.vehicleRefId)}
+                        ${fmt('Mitarbeiter', d.staffRefId)}
+                        ${fmt('Stichworte', (d.stichworte || []).join(', '))}
+                        ${fmt('Beschreibung', d.kurzbeschreibung)}
+                        ${fmt('Datei', `${d.originalFilename} · ${(d.sizeBytes/1024).toFixed(0)} KB · Confidence ${Math.round((d.confidence || 0) * 100)}%`)}
+                        <details style="margin-top:8px;"><summary style="cursor:pointer;color:#6b7280;font-size:11px;">📝 Volltext anzeigen</summary><pre style="white-space:pre-wrap;font-size:11px;background:#f9fafb;padding:8px;border-radius:6px;max-height:250px;overflow:auto;">${escHtml(d.volltext || '— kein Text erkannt —')}</pre></details>
+                    </div>
+                `;
+            }
+        }
+
+        async function saveDocEdit() {
+            if (!editingDocId) return;
+            const updates = {
+                kategorie: document.getElementById('e-kat').value,
+                subKategorie: document.getElementById('e-sub').value || null,
+                dokumenttyp: document.getElementById('e-typ').value || null,
+                lieferant: document.getElementById('e-lief').value || null,
+                datum: document.getElementById('e-datum').value || null,
+                betrag: parseFloat(document.getElementById('e-betrag').value) || null,
+                vehicleRefId: document.getElementById('e-veh').value || null,
+                staffRefId: document.getElementById('e-staff').value || null,
+                stichworte: document.getElementById('e-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+                kurzbeschreibung: document.getElementById('e-besch').value || null,
+                volltext: document.getElementById('e-text').value || null,
+                editedAt: Date.now(),
+                editedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?'
+            };
+            try {
+                await db.ref('docs/' + editingDocId).update(updates);
+                showToast('Geändert ✓');
+                editMode = false;
+                await loadDocs();
+                const d = allDocs.find(x => x.id === editingDocId);
+                if (d) renderDocModal(d);
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
+        }
+
+        async function deleteDocFromModal() {
+            if (!editingDocId) return;
+            const d = allDocs.find(x => x.id === editingDocId);
+            if (!d) return;
+            if (!confirm('Wirklich löschen?')) return;
+            try {
+                await db.ref('docs/' + editingDocId).remove();
+                if (d.storagePath) await storage.ref(d.storagePath).delete().catch(() => {});
+                showToast('Gelöscht');
+                closeDocModal();
+                await loadDocs();
+            } catch (e) { showToast('Fehler: ' + e.message, true); }
         }
 
         async function deleteDoc(id, path) {

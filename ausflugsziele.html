@@ -79,6 +79,51 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     pointer-events: none;
 }
 
+/* 🆕 v6.62.287: Comic-Animationen pro POI */
+.poi-anim { animation: animFadeIn 0.3s ease-out forwards, animFadeOut 0.5s ease-in 2.5s forwards; }
+@keyframes animFadeIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+@keyframes animFadeOut { to { opacity: 0; } }
+/* 🚀 Rakete fliegt hoch */
+.rocket-anim > g { animation: rocketFly 2.5s ease-out forwards; }
+@keyframes rocketFly { 0% { transform: translate(0, 10px); } 100% { transform: translate(0, -60px); } }
+.rocket-flames path { animation: flameFlicker 0.15s linear infinite; transform-origin: center top; }
+@keyframes flameFlicker { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.4); } }
+/* 🦋 Schmetterlinge flattern */
+.bf { transform-origin: center; }
+.bf-1 { animation: bfFly1 2.5s ease-in-out infinite; }
+.bf-2 { animation: bfFly2 2.2s ease-in-out infinite 0.3s; }
+.bf-3 { animation: bfFly3 2.8s ease-in-out infinite 0.6s; }
+@keyframes bfFly1 { 0%,100% { transform: translate(0,0) scale(1); } 25% { transform: translate(-15px,-10px) scale(0.8); } 50% { transform: translate(-25px,-25px) scale(1); } 75% { transform: translate(-10px,-15px) scale(0.9); } }
+@keyframes bfFly2 { 0%,100% { transform: translate(20px,-15px); } 50% { transform: translate(35px,-30px) rotate(15deg); } }
+@keyframes bfFly3 { 0%,100% { transform: translate(-15px,-10px); } 50% { transform: translate(-30px,-5px) rotate(-15deg); } }
+/* 🍓 Erdbeere wackelt + glitzert */
+.strawberry-anim > g { animation: strawberryWiggle 0.4s ease-in-out infinite; transform-origin: center bottom; }
+@keyframes strawberryWiggle { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+.sparkle { animation: sparkleFlash 0.6s ease-in-out infinite; }
+@keyframes sparkleFlash { 0%,100% { opacity: 0; } 50% { opacity: 1; } }
+/* 🔭 Panorama-Pfeil dreht 360 */
+.panorama-arrow { transform-origin: center; animation: panoramaSpin 2.5s linear; }
+@keyframes panoramaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* 🍺 Bierschaum quillt */
+.beer-foam circle { animation: foamRise 1s ease-out infinite; }
+.beer-foam circle:nth-child(1) { animation-delay: 0.1s; }
+.beer-foam circle:nth-child(2) { animation-delay: 0.3s; }
+.beer-foam circle:nth-child(3) { animation-delay: 0.5s; }
+.beer-foam circle:nth-child(4) { animation-delay: 0.7s; }
+.beer-foam circle:nth-child(5) { animation-delay: 0.9s; }
+@keyframes foamRise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-15px); opacity: 0; } }
+/* 🪶 Möwe gleitet */
+.gull-fly { animation: gullGlide 2.5s ease-in-out forwards; }
+@keyframes gullGlide { 0% { transform: translate(-30px, 0); } 100% { transform: translate(30px, -10px); } }
+/* 🚂 Zug fährt + Rauch */
+.train-move { animation: trainMove 2.5s linear forwards; }
+@keyframes trainMove { 0% { transform: translate(-25px, 0); } 100% { transform: translate(25px, 0); } }
+.train-smoke circle { animation: smokeRise 1.5s ease-out infinite; }
+@keyframes smokeRise { 0% { transform: translateY(5px); opacity: 0.9; } 100% { transform: translateY(-10px); opacity: 0; } }
+/* 🇵🇱 Flagge weht */
+.flag-wave { transform-origin: 0 -25px; animation: flagWave 1s ease-in-out infinite; }
+@keyframes flagWave { 0%,100% { transform: skewY(0deg); } 50% { transform: skewY(-8deg) translateX(2px); } }
+
 /* Tooltip-Karte (Desktop) */
 .poi-tooltip {
     position: absolute;
@@ -414,34 +459,132 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 // y wird invertiert weil oben in SVG = niedrige Y aber Nord = hohe Lat.
 
 const POIS = [
+    // 🆕 v6.62.287: 'anim' Property pro POI für Comic-Animation beim Hover
     { name: 'Peenemünde HTM', cat: 'kultur', lat: 54.137, lon: 13.775, address: 'Im Kraftwerk, 17449 Peenemünde',
       desc: 'Historisch-Technisches Museum — wo die Raumfahrt begann.',
-      img: 'https://picsum.photos/seed/peenemuende/400/240' },
+      img: 'https://picsum.photos/seed/peenemuende/400/240', anim: 'rocket' },
     { name: 'Schmetterlingsfarm Trassenheide', cat: 'familie', lat: 54.062, lon: 13.892, address: 'Schmetterlingsfarm, Hauptstraße, 17449 Trassenheide',
       desc: '1.000 lebende Falter aus aller Welt — Familien-Highlight.',
-      img: 'https://picsum.photos/seed/schmetterling/400/240' },
+      img: 'https://picsum.photos/seed/schmetterling/400/240', anim: 'butterfly' },
     { name: 'Karls Erlebnis-Dorf Koserow', cat: 'familie', lat: 54.040, lon: 14.026, address: 'Karls Erlebnis-Dorf Koserow, Zur Seebrücke, 17459 Koserow',
       desc: 'Hofladen, Erdbeerwelt, Riesenrutsche — Spaß für die ganze Familie.',
-      img: 'https://picsum.photos/seed/karls/400/240' },
+      img: 'https://picsum.photos/seed/karls/400/240', anim: 'strawberry' },
     { name: 'Streckelsberg Koserow', cat: 'natur', lat: 54.041, lon: 14.060, address: 'Streckelsberg, 17459 Koserow',
       desc: 'Höchster Punkt der Insel (58 m) — Aussicht über die ganze Küste.',
-      img: 'https://picsum.photos/seed/streckelsberg/400/240' },
+      img: 'https://picsum.photos/seed/streckelsberg/400/240', anim: 'panorama' },
     { name: 'Wasserschloss Mellenthin', cat: 'kultur', lat: 54.013, lon: 13.946, address: 'Schlossstraße 1, 17429 Mellenthin',
       desc: 'Mittelalterliches Wasserschloss mit eigener Brauerei und Restaurant.',
-      img: 'https://picsum.photos/seed/mellenthin/400/240' },
+      img: 'https://picsum.photos/seed/mellenthin/400/240', anim: 'beer' },
     { name: 'Seebrücke Heringsdorf', cat: 'strand', lat: 53.951, lon: 14.171, address: 'Kulmstraße, 17424 Heringsdorf',
       desc: 'Längste Seebrücke Deutschlands (508 m) — über dem Meer schlendern.',
-      img: 'https://picsum.photos/seed/seebruecke/400/240' },
+      img: 'https://picsum.photos/seed/seebruecke/400/240', anim: 'gull' },
     { name: 'Bahnhof Ahlbeck', cat: 'kultur', lat: 53.943, lon: 14.198, address: 'Dünenstraße 25a, 17419 Ahlbeck',
       desc: 'Schönster Bahnhof an der Ostsee — historischer Holzbau seit 1911.',
-      img: 'https://picsum.photos/seed/bahnhof-ahlbeck/400/240' },
+      img: 'https://picsum.photos/seed/bahnhof-ahlbeck/400/240', anim: 'train' },
     { name: 'Świnoujście Promenade', cat: 'strand', lat: 53.911, lon: 14.247, address: 'Promenada Zdrojowa, 72-600 Świnoujście, Polen',
       desc: 'Polnische Seebadepromenade — Polen zu Fuß erreichbar.',
-      img: 'https://picsum.photos/seed/swinoujscie/400/240' },
+      img: 'https://picsum.photos/seed/swinoujscie/400/240', anim: 'flag' },
     { name: 'Schmetterling Park Trassenheide', cat: 'natur', lat: 54.063, lon: 13.890, address: 'Trassenheide',
       desc: 'Tropische Atmosphäre mit den größten Schmetterlingen der Welt.',
-      img: 'https://picsum.photos/seed/falter/400/240' }
+      img: 'https://picsum.photos/seed/falter/400/240', anim: 'butterfly' }
 ];
+
+// 🆕 v6.62.287: Comic-Animations-SVGs pro POI-Typ (8 verschiedene Mini-Cartoons)
+// Werden bei Hover dynamisch in die Karte eingefügt + nach 3s wieder entfernt
+const POI_ANIMATIONS = {
+    // 🚀 Rakete steigt mit Flammen (Peenemünde HTM)
+    rocket: () => `
+        <g class="poi-anim rocket-anim">
+            <g transform="translate(0, 10)">
+                <path d="M 0 -25 L 6 -10 L 6 5 L -6 5 L -6 -10 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="1.5"/>
+                <circle cx="0" cy="-12" r="3" fill="#fbbf24" stroke="#7f1d1d" stroke-width="1"/>
+                <path d="M -6 -10 L -10 -5 L -6 5 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="1"/>
+                <path d="M 6 -10 L 10 -5 L 6 5 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="1"/>
+                <g class="rocket-flames">
+                    <path d="M -3 5 L 0 18 L 3 5 Z" fill="#fb923c"/>
+                    <path d="M -2 5 L 0 13 L 2 5 Z" fill="#fbbf24"/>
+                </g>
+            </g>
+        </g>`,
+    // 🦋 3 Schmetterlinge flattern
+    butterfly: () => `
+        <g class="poi-anim">
+            <g class="bf bf-1"><path d="M -5 0 Q -10 -6, -8 -2 Q -3 -1, 0 0 Q 3 -1, 8 -2 Q 10 -6, 5 0 Q 0 4, -5 0" fill="#f472b6" stroke="#831843" stroke-width="0.8"/></g>
+            <g class="bf bf-2" transform="translate(20, -15)"><path d="M -4 0 Q -8 -5, -6 -2 Q -2 -1, 0 0 Q 2 -1, 6 -2 Q 8 -5, 4 0 Q 0 3, -4 0" fill="#a78bfa" stroke="#4c1d95" stroke-width="0.8"/></g>
+            <g class="bf bf-3" transform="translate(-15, -10)"><path d="M -3 0 Q -6 -4, -5 -1 Q -1 0, 0 0 Q 1 0, 5 -1 Q 6 -4, 3 0 Q 0 2, -3 0" fill="#facc15" stroke="#78350f" stroke-width="0.8"/></g>
+        </g>`,
+    // 🍓 Erdbeere wackelt + glitzert
+    strawberry: () => `
+        <g class="poi-anim strawberry-anim">
+            <g transform="translate(0, -10)">
+                <path d="M 0 -5 L -8 -2 Q -10 8, 0 14 Q 10 8, 8 -2 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="1.5"/>
+                <circle cx="-3" cy="3" r="0.8" fill="#fde047"/>
+                <circle cx="3" cy="5" r="0.8" fill="#fde047"/>
+                <circle cx="0" cy="9" r="0.8" fill="#fde047"/>
+                <circle cx="-4" cy="7" r="0.8" fill="#fde047"/>
+                <path d="M -5 -5 L 0 -10 L 5 -5 Z" fill="#22c55e" stroke="#14532d" stroke-width="1"/>
+                <text x="14" y="-2" font-size="14" class="sparkle">✨</text>
+            </g>
+        </g>`,
+    // 🔭 Aussichts-Pfeil dreht 360°
+    panorama: () => `
+        <g class="poi-anim">
+            <circle cx="0" cy="0" r="14" fill="#fff" stroke="#0c4a6e" stroke-width="2" opacity="0.85"/>
+            <g class="panorama-arrow">
+                <path d="M 0 -12 L -3 -7 L 3 -7 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="1.2"/>
+                <line x1="0" y1="-7" x2="0" y2="0" stroke="#7f1d1d" stroke-width="1.5"/>
+            </g>
+        </g>`,
+    // 🍺 Bierkrug schäumt
+    beer: () => `
+        <g class="poi-anim beer-anim">
+            <g transform="translate(0, -8)">
+                <rect x="-7" y="0" width="14" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1.5" rx="1"/>
+                <path d="M 7 3 Q 12 3, 12 8 Q 12 13, 7 11" fill="none" stroke="#78350f" stroke-width="1.5"/>
+                <ellipse cx="0" cy="0" rx="8" cy-ext="0" ry="3" fill="#fff" stroke="#78350f" stroke-width="1.2"/>
+                <g class="beer-foam">
+                    <circle cx="-4" cy="-3" r="2" fill="#fff"/>
+                    <circle cx="0" cy="-5" r="2.5" fill="#fff"/>
+                    <circle cx="4" cy="-3" r="2" fill="#fff"/>
+                    <circle cx="-2" cy="-7" r="1.5" fill="#fff"/>
+                    <circle cx="3" cy="-7" r="1.5" fill="#fff"/>
+                </g>
+            </g>
+        </g>`,
+    // 🪶 Möwe gleitet
+    gull: () => `
+        <g class="poi-anim gull-anim">
+            <g class="gull-fly">
+                <path d="M -10 0 Q -5 -8, 0 -3 Q 5 -8, 10 0 Q 5 -3, 0 -1 Q -5 -3, -10 0 Z" fill="#fff" stroke="#1f2937" stroke-width="1.2"/>
+                <circle cx="0" cy="-1" r="1.5" fill="#fef3c7" stroke="#1f2937" stroke-width="0.8"/>
+            </g>
+        </g>`,
+    // 🚂 Kleiner Zug pufft
+    train: () => `
+        <g class="poi-anim train-anim">
+            <g class="train-move">
+                <rect x="-12" y="0" width="20" height="8" fill="#dc2626" stroke="#7f1d1d" stroke-width="1.2" rx="1"/>
+                <rect x="-10" y="-4" width="6" height="4" fill="#1f2937" stroke="#000" stroke-width="0.8"/>
+                <circle cx="-8" cy="9" r="2" fill="#1f2937"/>
+                <circle cx="0" cy="9" r="2" fill="#1f2937"/>
+                <circle cx="6" cy="9" r="2" fill="#1f2937"/>
+                <g class="train-smoke">
+                    <circle cx="-8" cy="-7" r="2" fill="#fff" opacity="0.8"/>
+                    <circle cx="-10" cy="-11" r="2.5" fill="#fff" opacity="0.7"/>
+                    <circle cx="-13" cy="-15" r="3" fill="#fff" opacity="0.6"/>
+                </g>
+            </g>
+        </g>`,
+    // 🇵🇱 Polen-Flagge weht
+    flag: () => `
+        <g class="poi-anim">
+            <line x1="0" y1="-5" x2="0" y2="-25" stroke="#78350f" stroke-width="1.5"/>
+            <g class="flag-wave">
+                <rect x="0" y="-25" width="14" height="6" fill="#fff" stroke="#78350f" stroke-width="0.8"/>
+                <rect x="0" y="-19" width="14" height="6" fill="#dc2626" stroke="#78350f" stroke-width="0.8"/>
+            </g>
+        </g>`
+};
 
 const CAT_LABELS = {
     strand: '🏖 Strand & See',
@@ -504,9 +647,38 @@ function renderPois() {
     });
 }
 
+// 🆕 v6.62.287: Comic-Animation pro POI starten
+function playPoiAnimation(idx, x, y) {
+    const p = POIS[idx];
+    if (!p || !p.anim) return;
+    const factory = POI_ANIMATIONS[p.anim];
+    if (!factory) return;
+    const svg = document.getElementById('usedom-map');
+    if (!svg) return;
+    let layer = document.getElementById('poi-anim-layer');
+    if (!layer) {
+        layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        layer.id = 'poi-anim-layer';
+        layer.setAttribute('pointer-events', 'none');
+        svg.appendChild(layer);
+    }
+    // Vorhandene Animation für diesen POI entfernen + neue starten
+    const oldAnim = layer.querySelector(`[data-anim-idx="${idx}"]`);
+    if (oldAnim) oldAnim.remove();
+    const wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    wrapper.setAttribute('transform', `translate(${x}, ${y})`);
+    wrapper.setAttribute('data-anim-idx', idx);
+    wrapper.innerHTML = factory();
+    layer.appendChild(wrapper);
+    // Auto-Cleanup nach 3s
+    setTimeout(() => { if (wrapper.parentNode) wrapper.remove(); }, 3000);
+}
+
 function showTooltip(idx, x, y, sticky) {
     const p = POIS[idx];
     if (!p) return;
+    // 🆕 v6.62.287: Animation parallel zum Tooltip
+    playPoiAnimation(idx, x, y);
     const tt = document.getElementById('poi-tooltip');
     document.getElementById('tt-img').src = p.img;
     document.getElementById('tt-cat').textContent = CAT_LABELS[p.cat] || p.cat;

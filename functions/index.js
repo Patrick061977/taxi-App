@@ -743,18 +743,31 @@ async function autoAssignRide(rideId, rideData) {
             const _shiftOk = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
             const _verifyOk = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
 
-            // 🔧 v6.38.63: Schichtplan ist Pflicht — kein Override über GPS-Ping
-            // Nur Fahrer die AKTIV ihre Schicht gestartet haben (shift.status='active') dürfen ohne Schichtplan
+            // v6.62.249: live shift.status='active' = Pflicht bei Sofortfahrten,
+            // Wochenplan wird dann IGNORIERT. Patrick (10:42): "wer JETZT online ist
+            // soll fahren — Wochenplan egal bei Sofortfahrten". Bei Vorbestellungen
+            // bleibt Wochenplan-Pflicht (Pickup in Zukunft, Live-Status sagt nichts).
             const _isShiftActive = _vData.shift && _vData.shift.status === 'active';
 
-            if (!_shiftOk || !_verifyOk.ok) {
-                if (_isShiftActive) {
-                    console.log(`   ⚠️ ${info.name}: Kein Schichtplan, aber Fahrer hat Schicht aktiv gestartet → erlaubt`);
-                } else {
-                    if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
-                    console.log(`   ❌ ${info.name}: Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
-                    vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
+            if (isSofort) {
+                // Sofortfahrt — nur live aktive Schicht zählt
+                if (!_isShiftActive) {
+                    console.log(`   ❌ ${info.name}: Sofortfahrt — Schicht nicht live aktiv (status=${_vData.shift?.status || 'kein shift'})`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: 'Sofortfahrt: Schicht nicht live aktiv', check: 'live-shift-required', shiftStatus: _vData.shift?.status || null };
                     continue;
+                }
+                console.log(`   ✅ ${info.name}: Sofortfahrt — Schicht live aktiv (Wochenplan ignoriert)`);
+            } else {
+                // Vorbestellung — Wochenplan ist Pflicht (mit live-Override)
+                if (!_shiftOk || !_verifyOk.ok) {
+                    if (_isShiftActive) {
+                        console.log(`   ⚠️ ${info.name}: Vorbestellung — Kein Schichtplan, aber Schicht aktiv → erlaubt (Override)`);
+                    } else {
+                        if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
+                        console.log(`   ❌ ${info.name}: Vorbestellung — Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
+                        vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
+                        continue;
+                    }
                 }
             }
 

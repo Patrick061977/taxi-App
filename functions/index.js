@@ -23326,9 +23326,34 @@ exports.onDebugErrorForwardToBridge = onValueCreated(
         if (!data || !data.kind) return;
         const realErrorKinds = ['window.error', 'unhandledrejection', 'console.error', 'native'];
         if (!realErrorKinds.includes(data.kind)) return; // battery_check etc. nicht spammen
+
+        // v6.62.247: Throttle — pro identischer (kind+message)-Kombination max 1 Push pro 5 Min.
+        // Verhindert Spam wenn Patrick eine cached Page hat die im Loop crasht.
+        // Patrick (10:11): pw-ik-222 Cache-Crash spammte 1x/5sec.
+        const fingerprint = require('crypto').createHash('md5')
+            .update((data.kind || '') + '|' + (data.message || '').slice(0, 200))
+            .digest('hex').slice(0, 16);
+        const throttleRef = db.ref(`debugErrorThrottle/${fingerprint}`);
+        const lastSnap = await throttleRef.once('value');
+        const lastTs = lastSnap.val();
+        const now = Date.now();
+        if (lastTs && (now - lastTs) < 5 * 60 * 1000) {
+            // Throttled — increment counter, kein Bridge-Push
+            await db.ref(`debugErrorThrottle/${fingerprint}_count`).transaction(c => (c || 0) + 1);
+            console.log(`🔇 debugError ${errorId} throttled (Fingerprint ${fingerprint}, letzte Push vor ${Math.round((now - lastTs)/1000)}s)`);
+            return;
+        }
+        await throttleRef.set(now);
+        const cntSnap = await db.ref(`debugErrorThrottle/${fingerprint}_count`).once('value');
+        const skippedCount = cntSnap.val() || 0;
+        if (skippedCount > 0) {
+            await db.ref(`debugErrorThrottle/${fingerprint}_count`).remove();
+        }
+
         try {
             const ts = Date.now();
-            const summary = `🚨 JS-Crash: ${data.kind} | ${(data.message || '').slice(0, 200)} | App ${data.appVersion || '?'} | Vehicle ${data.vehicleId || '?'} | Akku ${data.battery_level || '?'}%`;
+            const skipNote = skippedCount > 0 ? ` (vorher ${skippedCount}× wiederholt — gedrosselt)` : '';
+            const summary = `🚨 JS-Crash: ${data.kind} | ${(data.message || '').slice(0, 200)} | App ${data.appVersion || '?'} | Vehicle ${data.vehicleId || '?'} | Akku ${data.battery_level || '?'}%${skipNote}`;
             await db.ref(`claudeBridge/inbox/${ts}`).set({
                 ts,
                 fromName: 'system',
@@ -23337,7 +23362,7 @@ exports.onDebugErrorForwardToBridge = onValueCreated(
                 source: 'auto-debugError',
                 originalRef: `/debugErrors/${errorId}`
             });
-            console.log(`✅ debugError ${errorId} an Bridge weitergeleitet`);
+            console.log(`✅ debugError ${errorId} an Bridge weitergeleitet (Fingerprint ${fingerprint})`);
         } catch (err) {
             console.error('❌ onDebugErrorForwardToBridge Fehler:', err.message);
         }

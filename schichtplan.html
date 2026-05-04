@@ -474,6 +474,81 @@
         const ADMIN_EMAILS = ['patrick061977@gmail.com', 'admin@taxi-heringsdorf.de', 'taxiwydra@googlemail.com'];
         const ADMIN_PHONES = ['+4915127585179'];
 
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.233 — Feiertage MV/Heringsdorf 2026 + Zuschlags-Konstanten
+        // §3b EStG: Sonntag 50%, Nacht 25% (20-00), Nacht 40% (00-06), Feiertag 150%
+        // ═══════════════════════════════════════════════════════════════
+        const FEIERTAGE_2026 = {
+            '2026-01-01': 'Neujahr',
+            '2026-04-03': 'Karfreitag',
+            '2026-04-06': 'Ostermontag',
+            '2026-05-01': 'Tag der Arbeit',
+            '2026-05-14': 'Christi Himmelfahrt',
+            '2026-05-25': 'Pfingstmontag',
+            '2026-10-03': 'Tag der dt. Einheit',
+            '2026-12-25': '1. Weihnachtstag',
+            '2026-12-26': '2. Weihnachtstag'
+        };
+        const ZUSCHLAG_SONNTAG = 0.50;
+        const ZUSCHLAG_NACHT_25 = 0.25;   // 20:00–00:00
+        const ZUSCHLAG_NACHT_40 = 0.40;   // 00:00–06:00
+        const ZUSCHLAG_FEIERTAG = 1.50;
+        const SV_RATE = 0.20;             // Sozialversicherung 20% vom Stpfl. Brutto
+        const LST_RATE = 0.06;            // Lohnsteuer 6% vom Stpfl. Brutto
+
+        function isHolidayDE(dateObj) {
+            const ymdKey = dateObj.getFullYear() + '-'
+                + String(dateObj.getMonth() + 1).padStart(2, '0') + '-'
+                + String(dateObj.getDate()).padStart(2, '0');
+            return !!FEIERTAGE_2026[ymdKey];
+        }
+        function timeToMin(hhmm) {
+            if (!hhmm) return null;
+            const [h, m] = hhmm.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        // Bestimmt Zuschlags-Stunden auf Voll-bezahlte-Range (Schicht minus Pause).
+        // shiftStart/end in HH:MM, kann ueber Mitternacht laufen (z.B. 21:00 -> 03:00).
+        // pauseStart/end in HH:MM relativ zum gleichen Tag wie shiftStart.
+        // Returns: { sonntag, nacht25, nacht40, feiertag } in Stunden.
+        function calcZuschlagsStunden(dateObj, shiftStart, shiftEnd, pauseStart, pauseEnd) {
+            const out = { sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0 };
+            if (!shiftStart || !shiftEnd) return out;
+            const sStart = timeToMin(shiftStart);
+            let sEnd = timeToMin(shiftEnd);
+            if (sEnd <= sStart) sEnd += 24 * 60; // ueber Mitternacht
+            // Pause als globale Range
+            let pStart = pauseStart != null ? timeToMin(pauseStart) : null;
+            let pEnd = pauseEnd != null ? timeToMin(pauseEnd) : null;
+            if (pStart != null && pEnd != null && pEnd <= pStart) pEnd += 24 * 60;
+
+            // Iteriere Minuten der Schicht-Range; ueberspringe Pause; klassifiziere.
+            const baseDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+            for (let m = sStart; m < sEnd; m++) {
+                if (pStart != null && pEnd != null && m >= pStart && m < pEnd) continue;
+                const totalMin = m;
+                const dayOffset = Math.floor(totalMin / (24 * 60));
+                const minOfDay = totalMin % (24 * 60);
+                const dt = new Date(baseDay.getTime() + dayOffset * 86400000);
+                const dow = dt.getDay(); // 0=So, 6=Sa
+                const isSonntag = dow === 0;
+                const isFeiertag = isHolidayDE(dt);
+                const isNacht25 = (minOfDay >= 20 * 60 && minOfDay < 24 * 60);
+                const isNacht40 = (minOfDay >= 0 && minOfDay < 6 * 60);
+                if (isFeiertag) out.feiertag += 1 / 60;
+                else if (isSonntag) out.sonntag += 1 / 60;
+                if (isNacht25) out.nacht25 += 1 / 60;
+                if (isNacht40) out.nacht40 += 1 / 60;
+            }
+            // Auf 2 Nachkommastellen runden
+            out.sonntag = Math.round(out.sonntag * 100) / 100;
+            out.nacht25 = Math.round(out.nacht25 * 100) / 100;
+            out.nacht40 = Math.round(out.nacht40 * 100) / 100;
+            out.feiertag = Math.round(out.feiertag * 100) / 100;
+            return out;
+        }
+
         // Schichttypen mit Default-Zeiten
         const TYPES = [
             { id: 'free',     label: '🚫 Frei',         time: null,                  short: 'Frei' },
@@ -1171,6 +1246,7 @@
             }
         }
 
+        // v6.62.233: Vorschau mit Pause + Zuschlaegen + Netto-Schaetzung
         function renderLohnPreview() {
             if (!lohnPreviewData) return;
             const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
@@ -1180,99 +1256,109 @@
 
             const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);
             const perStaff = [];
-            let grandShiftH = 0, grandStandbyH = 0;
 
             for (const s of staffWithData) {
-                let shiftH = 0, standbyH = 0, days = 0;
+                let days = 0;
+                let vollVor = 0, pause = 0, vollBez = 0, standbyGes = 0;
+                let sonntag = 0, nacht25 = 0, nacht40 = 0, feiertag = 0;
                 const dailyData = data[s.id] || {};
                 for (const dateKey of Object.keys(dailyData)) {
                     const d = dailyData[dateKey];
+                    const date = new Date(dateKey + 'T00:00:00');
+                    const cls = classifyDay(d, date);
+                    if (!cls.hasData) continue;
                     days++;
-                    let dayShift = 0, dayStandby = 0;
-                    if (d.plan) {
-                        if (isStandbyShift(d.plan)) dayStandby = d.plan.hours || 0;
-                        else if (['day','late','night'].includes(d.plan.type)) dayShift = d.plan.hours || 0;
-                    }
-                    if (d.shifts && d.shifts.length > 0 && dayShift === 0 && dayStandby === 0) {
-                        const totalIstMs = d.shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
-                        dayShift = totalIstMs / 3600000;
-                    }
-                    shiftH += dayShift;
-                    standbyH += dayStandby;
+                    vollVor += cls.vollVor; pause += cls.pauseH; vollBez += cls.vollBezahlt;
+                    standbyGes += cls.standbyGes;
+                    sonntag += cls.sonntag; nacht25 += cls.nacht25; nacht40 += cls.nacht40; feiertag += cls.feiertag;
                 }
-                const rateShiftStaff = s.hourlyRate || rateShift;
-                const rateStandbyStaff = s.standbyRate || rateStandby;
-                const bruttoShift = shiftH * rateShiftStaff;
-                const bruttoStandby = standbyH * rateStandbyStaff;
+                const rs = s.hourlyRate || rateShift;
+                const rb = s.standbyRate || rateStandby;
+                const bruttoVoll = vollBez * rs;
+                const bruttoStandby = standbyGes * rb;
+                const stpflBrutto = bruttoVoll + bruttoStandby;
+                const zuschlSo = sonntag * rs * ZUSCHLAG_SONNTAG;
+                const zuschlN25 = nacht25 * rs * ZUSCHLAG_NACHT_25;
+                const zuschlN40 = nacht40 * rs * ZUSCHLAG_NACHT_40;
+                const zuschlFt = feiertag * rs * ZUSCHLAG_FEIERTAG;
+                const zuschlSumme = zuschlSo + zuschlN25 + zuschlN40 + zuschlFt;
+                const sv = stpflBrutto * SV_RATE;
+                const lst = stpflBrutto * LST_RATE;
+                const netto = stpflBrutto - sv - lst + zuschlSumme;
                 perStaff.push({
-                    staff: s, days, shiftH, standbyH,
-                    rateShift: rateShiftStaff, rateStandby: rateStandbyStaff,
-                    bruttoShift, bruttoStandby, brutto: bruttoShift + bruttoStandby
+                    staff: s, days, vollVor, pause, vollBez, standbyGes,
+                    sonntag, nacht25, nacht40, feiertag,
+                    rs, rb,
+                    bruttoVoll, bruttoStandby, stpflBrutto,
+                    zuschlSo, zuschlN25, zuschlN40, zuschlFt, zuschlSumme,
+                    sv, lst, netto
                 });
-                grandShiftH += shiftH;
-                grandStandbyH += standbyH;
             }
 
-            const grandBruttoShift = perStaff.reduce((s,p)=>s+p.bruttoShift,0);
-            const grandBruttoStandby = perStaff.reduce((s,p)=>s+p.bruttoStandby,0);
-            const grandBrutto = grandBruttoShift + grandBruttoStandby;
+            const sumKey = (k) => perStaff.reduce((s, p) => s + p[k], 0);
+            const grandVollBez = sumKey('vollBez');
+            const grandStandby = sumKey('standbyGes');
+            const grandStpfl = sumKey('stpflBrutto');
+            const grandZuschl = sumKey('zuschlSumme');
+            const grandNetto = sumKey('netto');
 
             summary.innerHTML = `
                 <div class="stat"><div class="stat-label">Mitarbeiter</div><div class="stat-value">${perStaff.length}</div></div>
-                <div class="stat"><div class="stat-label">Σ Schicht-h</div><div class="stat-value">${formatHours(grandShiftH)}h</div></div>
-                <div class="stat"><div class="stat-label">Σ Rufber.-h</div><div class="stat-value">${formatHours(grandStandbyH)}h</div></div>
-                <div class="stat"><div class="stat-label">Brutto gesamt</div><div class="stat-value">${grandBrutto.toFixed(2).replace('.',',')} €</div></div>
+                <div class="stat"><div class="stat-label">Σ Voll bezahlt</div><div class="stat-value">${formatHours(grandVollBez)}h</div></div>
+                <div class="stat"><div class="stat-label">Σ Rufber.</div><div class="stat-value">${formatHours(grandStandby)}h</div></div>
+                <div class="stat"><div class="stat-label">Stpfl. Brutto</div><div class="stat-value">${grandStpfl.toFixed(2).replace('.',',')} €</div></div>
+                <div class="stat"><div class="stat-label">+ Zuschläge</div><div class="stat-value" style="color:#059669;">${grandZuschl.toFixed(2).replace('.',',')} €</div></div>
+                <div class="stat"><div class="stat-label">≈ Σ Netto</div><div class="stat-value" style="color:#10b981;">${grandNetto.toFixed(2).replace('.',',')} €</div></div>
             `;
 
             if (perStaff.length === 0) {
-                tablesEl.innerHTML = '<div class="lohn-card"><p style="color:#6b7280;">Keine Schichten für ' + monthName + ' ' + year + ' gefunden. Trage erst Pläne im Wochenplan-Tab ein, oder starte Driver-Logins (Ist-Zeiten aus /shiftHistory).</p></div>';
+                tablesEl.innerHTML = '<div class="lohn-card"><p style="color:#6b7280;">Keine Schichten für ' + monthName + ' ' + year + ' gefunden. Trage erst Pläne im Wochenplan-Tab ein, oder starte Driver-Logins.</p></div>';
                 document.getElementById('lohn-export-btn').disabled = true;
                 preview.style.display = 'block';
                 return;
             }
             document.getElementById('lohn-export-btn').disabled = false;
 
-            let html = `<div class="lohn-card">
-                <h3 style="font-size:14px;margin-bottom:10px;">📋 Übersicht ${monthName} ${year}</h3>
-                <div style="overflow-x:auto;">
-                <table class="lohn-table">
-                    <thead><tr>
-                        <th>Mitarbeiter</th>
-                        <th class="num">Tage</th>
-                        <th class="num">Schicht-h</th>
-                        <th class="num">€/h</th>
-                        <th class="num">Brutto Schicht</th>
-                        <th class="num">Rufber.-h</th>
-                        <th class="num">€/h</th>
-                        <th class="num">Brutto Rufber.</th>
-                        <th class="num">Brutto gesamt</th>
-                    </tr></thead>
-                    <tbody>`;
+            const fmtE = (v) => v.toFixed(2).replace('.', ',') + ' €';
+            const fmtH = (v) => formatHours(v) + 'h';
+
+            let html = '';
             for (const p of perStaff) {
                 const fullName = [p.staff.firstName, p.staff.lastName].filter(Boolean).join(' ') || '—';
-                html += `<tr>
-                    <td>${escHtml(fullName)}</td>
-                    <td class="num">${p.days}</td>
-                    <td class="num">${formatHours(p.shiftH)}</td>
-                    <td class="num">${p.rateShift.toFixed(2).replace('.',',')}</td>
-                    <td class="num">${p.bruttoShift.toFixed(2).replace('.',',')} €</td>
-                    <td class="num">${formatHours(p.standbyH)}</td>
-                    <td class="num">${p.rateStandby.toFixed(2).replace('.',',')}</td>
-                    <td class="num">${p.bruttoStandby.toFixed(2).replace('.',',')} €</td>
-                    <td class="num"><b>${p.brutto.toFixed(2).replace('.',',')} €</b></td>
-                </tr>`;
+                html += `<div class="lohn-card">
+                    <h3 style="font-size:15px;margin-bottom:10px;">👤 ${escHtml(fullName)} · ${p.days} Arbeitstage</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <h4 style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px;">⏱ STUNDEN</h4>
+                            <table class="lohn-table" style="font-size:12px;">
+                                <tr><td>Voll-Schicht (Anwesenheit)</td><td class="num">${fmtH(p.vollVor)}</td></tr>
+                                <tr><td>− Pause</td><td class="num" style="color:#dc2626;">−${fmtH(p.pause)}</td></tr>
+                                <tr><td><b>Voll bezahlt</b></td><td class="num"><b>${fmtH(p.vollBez)}</b></td></tr>
+                                <tr><td>Rufbereitschaft (Pre+Post)</td><td class="num">${fmtH(p.standbyGes)}</td></tr>
+                                ${p.sonntag > 0 ? `<tr><td>Sonntag (50%)</td><td class="num">${fmtH(p.sonntag)}</td></tr>` : ''}
+                                ${p.nacht25 > 0 ? `<tr><td>Nacht 20-00 (25%)</td><td class="num">${fmtH(p.nacht25)}</td></tr>` : ''}
+                                ${p.nacht40 > 0 ? `<tr><td>Nacht 00-06 (40%)</td><td class="num">${fmtH(p.nacht40)}</td></tr>` : ''}
+                                ${p.feiertag > 0 ? `<tr><td>Feiertag (150%)</td><td class="num">${fmtH(p.feiertag)}</td></tr>` : ''}
+                            </table>
+                        </div>
+                        <div>
+                            <h4 style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px;">💰 LOHN (€)</h4>
+                            <table class="lohn-table" style="font-size:12px;">
+                                <tr><td>Voll bezahlt × ${p.rs.toFixed(2).replace('.',',')}</td><td class="num">${fmtE(p.bruttoVoll)}</td></tr>
+                                <tr><td>Rufber. × ${p.rb.toFixed(2).replace('.',',')}</td><td class="num">${fmtE(p.bruttoStandby)}</td></tr>
+                                <tr style="background:#f3f4f6;"><td><b>Stpfl. Brutto</b></td><td class="num"><b>${fmtE(p.stpflBrutto)}</b></td></tr>
+                                ${p.zuschlSo > 0 ? `<tr style="color:#059669;"><td>+ So 50%</td><td class="num">${fmtE(p.zuschlSo)}</td></tr>` : ''}
+                                ${p.zuschlN25 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 25%</td><td class="num">${fmtE(p.zuschlN25)}</td></tr>` : ''}
+                                ${p.zuschlN40 > 0 ? `<tr style="color:#059669;"><td>+ Nacht 40%</td><td class="num">${fmtE(p.zuschlN40)}</td></tr>` : ''}
+                                ${p.zuschlFt > 0 ? `<tr style="color:#059669;"><td>+ Feiertag 150%</td><td class="num">${fmtE(p.zuschlFt)}</td></tr>` : ''}
+                                <tr style="color:#dc2626;"><td>− SV (${(SV_RATE*100)}%)</td><td class="num">−${fmtE(p.sv)}</td></tr>
+                                <tr style="color:#dc2626;"><td>− LSt (${(LST_RATE*100)}%)</td><td class="num">−${fmtE(p.lst)}</td></tr>
+                                <tr class="total-row"><td><b>≈ NETTO</b></td><td class="num"><b>${fmtE(p.netto)}</b></td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>`;
             }
-            html += `<tr class="total-row">
-                <td>Σ Gesamt</td>
-                <td class="num">—</td>
-                <td class="num">${formatHours(grandShiftH)}</td>
-                <td class="num">—</td>
-                <td class="num">${grandBruttoShift.toFixed(2).replace('.',',')} €</td>
-                <td class="num">${formatHours(grandStandbyH)}</td>
-                <td class="num">—</td>
-                <td class="num">${grandBruttoStandby.toFixed(2).replace('.',',')} €</td>
-                <td class="num">${grandBrutto.toFixed(2).replace('.',',')} €</td>
-            </tr></tbody></table></div></div>`;
 
             tablesEl.innerHTML = html;
             preview.style.display = 'block';
@@ -1315,7 +1401,78 @@
             }
         }
 
+        // v6.62.233: Tag-Klassifizierung — gibt Pro-Tag-Werte fuer ECOVIS zurueck
+        // Eingabe: dataD = { plan, shifts } (aus aggregateMonthForEcovis)
+        // Ausgabe: { vollVor, pauseH, vollBezahlt, preH, postH, standbyGes, sonntag, nacht25, nacht40, feiertag,
+        //            ranges:{shift,pre,post,pause}, hasData }
+        function classifyDay(dataD, dateObj) {
+            const out = {
+                vollVor: 0, pauseH: 0, vollBezahlt: 0,
+                preH: 0, postH: 0, standbyGes: 0,
+                sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0,
+                ranges: { shift: '', pre: '', post: '', pause: '' },
+                hasData: false
+            };
+            const plan = dataD && dataD.plan;
+            if (plan && (plan.type === 'day' || plan.type === 'late' || plan.type === 'night')) {
+                out.hasData = true;
+                // Voll-Schicht aus Plan-Range
+                const fullVor = plan.hoursAttendance != null ? plan.hoursAttendance : (calcHours(plan.start, plan.end));
+                const pauseH = plan.pauseHours || 0;
+                const vollBezahlt = plan.pauseHours != null
+                    ? (plan.hours || (fullVor - pauseH))   // neuer Plan: hours = bezahlt
+                    : fullVor;                              // alter Plan ohne Pause-Info
+                out.vollVor = fullVor;
+                out.pauseH = pauseH;
+                out.vollBezahlt = vollBezahlt;
+                out.ranges.shift = fmtTimeRange(plan.start, plan.end, fullVor);
+                if (plan.pauseStart && plan.pauseEnd) {
+                    out.ranges.pause = (plan.pauseStart + '-' + plan.pauseEnd).replace(/:/g, '.');
+                }
+                // Pre/Post-Standby
+                if (plan.preStandbyStart && plan.preStandbyEnd) {
+                    out.preH = plan.preStandbyHours || calcHours(plan.preStandbyStart, plan.preStandbyEnd);
+                    out.ranges.pre = fmtTimeRange(plan.preStandbyStart, plan.preStandbyEnd, out.preH);
+                }
+                if (plan.postStandbyStart && plan.postStandbyEnd) {
+                    out.postH = plan.postStandbyHours || calcHours(plan.postStandbyStart, plan.postStandbyEnd);
+                    out.ranges.post = fmtTimeRange(plan.postStandbyStart, plan.postStandbyEnd, out.postH);
+                }
+                out.standbyGes = out.preH + out.postH;
+                // Zuschlags-Stunden auf Voll-bezahlte Range (Schicht minus Pause)
+                const z = calcZuschlagsStunden(dateObj, plan.start, plan.end, plan.pauseStart, plan.pauseEnd);
+                out.sonntag = z.sonntag;
+                out.nacht25 = z.nacht25;
+                out.nacht40 = z.nacht40;
+                out.feiertag = z.feiertag;
+            } else if (plan && isStandbyShift(plan)) {
+                out.hasData = true;
+                const h = plan.hours || calcHours(plan.start, plan.end);
+                out.preH = h;
+                out.standbyGes = h;
+                out.ranges.pre = fmtTimeRange(plan.start, plan.end, h);
+            } else if (dataD && dataD.shifts && dataD.shifts.length > 0) {
+                // Nur Ist-Daten ohne Plan
+                const totalIstMs = dataD.shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
+                const istH = +(totalIstMs / 3600000).toFixed(2);
+                if (istH > 0) {
+                    out.hasData = true;
+                    out.vollVor = istH; out.vollBezahlt = istH;
+                    const firstStart = dataD.shifts[0].sh.startTime;
+                    const lastEnd = dataD.shifts[dataD.shifts.length - 1].sh.endTime
+                                  || dataD.shifts[dataD.shifts.length - 1].sh.startTime;
+                    const fmt = (ts) => {
+                        const d = new Date(ts);
+                        return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+                    };
+                    out.ranges.shift = fmt(firstStart) + '-' + fmt(lastEnd) + ' (' + istH + ')';
+                }
+            }
+            return out;
+        }
+
         // Generiert eine ECOVIS-konforme xlsx-Datei (zip mit XML-Files).
+        // v6.62.233: Pause + Pre/Post-Standby + Zuschlaege (So 50%, Nacht 25/40%) + Feiertage 150%.
         // Returns Promise<Blob>.
         async function buildEcovisXlsx(staff, year, month, monthName, dailyData, rateShift, rateStandby) {
             const lastName = staff.lastName || staff.firstName || staff.id;
@@ -1324,96 +1481,92 @@
             const daysInMonth = new Date(year, month, 0).getDate();
             const dayShortNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
             const rows = [];
-            // Zeile 1: Header (merged A1:L1)
             rows.push(rowXml(1, [['A', 'inlineStr', headerTitle]]));
-            // Zeile 2: Spalten-Header
             const headers = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','So.-zul. 50%','Nacht 25%','Nacht 40%'];
             rows.push(rowXml(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h])));
-            // Zeile 3: Hinweis "20.00-00.00" in J3 (analog zu Vorlage)
             rows.push(rowXml(3, [['J', 'inlineStr', '20.00-00.00']]));
 
-            let totalShiftHours = 0;
-            let totalStandbyHours = 0;
+            let tVollVor = 0, tPause = 0, tVollBez = 0, tStandby = 0;
+            let tSonntag = 0, tNacht25 = 0, tNacht40 = 0, tFeiertag = 0;
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month - 1, day);
                 const dateKey = ymd(date);
                 const dataD = dailyData[dateKey] || { plan: null, shifts: [] };
+                const cls = classifyDay(dataD, date);
                 const dayLabel = String(day).padStart(2, '0') + '.' + String(month).padStart(2, '0') + '.';
                 const tagShort = dayShortNames[date.getDay()];
 
-                // Klassifizierung: Plan kann 'standby' sein (Rufbereitschaft) oder 'day/late/night' (Schicht)
-                // Falls keine Plan-Info: shiftHistory.workMs als Schicht zählen.
-                let shiftRange = '';
-                let shiftH = 0;
-                let standbyRange1 = '';
-                let standbyH1 = 0;
-                let standbyRange2 = '';
-                let standbyH2 = 0;
-
-                if (dataD.plan) {
-                    const planH = dataD.plan.hours || 0;
-                    if (isStandbyShift(dataD.plan)) {
-                        standbyRange1 = fmtTimeRange(dataD.plan.start, dataD.plan.end, planH);
-                        standbyH1 = planH;
-                    } else if (dataD.plan.type === 'day' || dataD.plan.type === 'late' || dataD.plan.type === 'night') {
-                        shiftRange = fmtTimeRange(dataD.plan.start, dataD.plan.end, planH);
-                        shiftH = planH;
-                    }
-                }
-                // Ist-Schichten: Differenz zu Plan-Schicht als Mehrarbeit zur Schicht zählen.
-                // Wenn kein Plan vorhanden: Ist-Schicht direkt einsetzen.
-                if (dataD.shifts && dataD.shifts.length > 0 && shiftH === 0 && standbyH1 === 0) {
-                    const totalIstMs = dataD.shifts.reduce((sum, x) => sum + (x.sh.workMs || 0), 0);
-                    const istH = +(totalIstMs / 3600000).toFixed(2);
-                    if (istH > 0) {
-                        // ohne Plan-Range: simulierte Range aus erstem/letztem
-                        const firstStart = dataD.shifts[0].sh.startTime;
-                        const lastEnd = dataD.shifts[dataD.shifts.length - 1].sh.endTime || dataD.shifts[dataD.shifts.length - 1].sh.startTime;
-                        const fmt = (ts) => {
-                            const d = new Date(ts);
-                            return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
-                        };
-                        shiftRange = fmt(firstStart) + '-' + fmt(lastEnd) + ' (' + istH + ')';
-                        shiftH = istH;
-                    }
-                }
-
-                totalShiftHours += shiftH;
-                totalStandbyHours += standbyH1 + standbyH2;
-                const standbySum = standbyH1 + standbyH2;
+                tVollVor += cls.vollVor;
+                tPause += cls.pauseH;
+                tVollBez += cls.vollBezahlt;
+                tStandby += cls.standbyGes;
+                tSonntag += cls.sonntag;
+                tNacht25 += cls.nacht25;
+                tNacht40 += cls.nacht40;
+                tFeiertag += cls.feiertag;
 
                 const cells = [
                     ['A', 'inlineStr', dayLabel],
                     ['B', 'inlineStr', tagShort]
                 ];
-                if (standbyRange1) cells.push(['C', 'inlineStr', standbyRange1]);
-                if (shiftRange) cells.push(['D', 'inlineStr', shiftRange]);
-                cells.push(['E', 'inlineStr', '-']);
-                cells.push(['F', 'inlineStr', '-']);
-                if (shiftH > 0) cells.push(['G', 'n', shiftH]);
-                if (standbyRange2) cells.push(['H', 'inlineStr', standbyRange2]);
-                if (standbySum > 0) cells.push(['I', 'n', standbySum]);
+                if (cls.ranges.pre) cells.push(['C', 'inlineStr', cls.ranges.pre]);
+                if (cls.ranges.shift) cells.push(['D', 'inlineStr', cls.ranges.shift]);
+                if (cls.pauseH > 0) cells.push(['E', 'n', cls.pauseH]);
+                else cells.push(['E', 'inlineStr', '-']);
+                if (cls.ranges.pause) cells.push(['F', 'inlineStr', cls.ranges.pause]);
+                else cells.push(['F', 'inlineStr', '-']);
+                if (cls.vollBezahlt > 0) cells.push(['G', 'n', +cls.vollBezahlt.toFixed(2)]);
+                if (cls.ranges.post) cells.push(['H', 'inlineStr', cls.ranges.post]);
+                if (cls.standbyGes > 0) cells.push(['I', 'n', +cls.standbyGes.toFixed(2)]);
+                if (cls.sonntag > 0) cells.push(['J', 'n', +cls.sonntag.toFixed(2)]);
+                if (cls.nacht25 > 0) cells.push(['K', 'n', +cls.nacht25.toFixed(2)]);
+                if (cls.nacht40 > 0) cells.push(['L', 'n', +cls.nacht40.toFixed(2)]);
                 rows.push(rowXml(3 + day, cells));
             }
 
-            // Summen-Zeilen
+            // Summen-Zeile (Stunden)
             const sumRowIdx = 3 + daysInMonth + 1;
             rows.push(rowXml(sumRowIdx, [
-                ['A', 'inlineStr', 'Summe Stunden:'],
-                ['G', 'n', totalShiftHours],
-                ['H', 'inlineStr', 'Summe Rufber.:'],
-                ['I', 'n', totalStandbyHours]
+                ['A', 'inlineStr', 'Summe Std.:'],
+                ['D', 'n', +tVollVor.toFixed(2)],
+                ['E', 'n', +tPause.toFixed(2)],
+                ['G', 'n', +tVollBez.toFixed(2)],
+                ['I', 'n', +tStandby.toFixed(2)],
+                ['J', 'n', +tSonntag.toFixed(2)],
+                ['K', 'n', +tNacht25.toFixed(2)],
+                ['L', 'n', +tNacht40.toFixed(2)]
             ]));
+
+            // Brutto-Zeile (€): Voll-Lohn + Rufber-Lohn, Zuschlaege separat
             const lohnRowIdx = sumRowIdx + 1;
-            const lohnShift = +(totalShiftHours * rateShift).toFixed(2);
-            const lohnStandby = +(totalStandbyHours * rateStandby).toFixed(2);
+            const bruttoVoll = +(tVollBez * rateShift).toFixed(2);
+            const bruttoStandby = +(tStandby * rateStandby).toFixed(2);
+            const zuschlSonntag = +(tSonntag * rateShift * ZUSCHLAG_SONNTAG).toFixed(2);
+            const zuschlNacht25 = +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2);
+            const zuschlNacht40 = +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2);
+            const zuschlFeiertag = +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2);
             rows.push(rowXml(lohnRowIdx, [
-                ['A', 'inlineStr', 'Brutto-Lohn:'],
-                ['G', 'n', lohnShift],
-                ['H', 'inlineStr', 'Brutto Rufber.:'],
-                ['I', 'n', lohnStandby]
+                ['A', 'inlineStr', 'Brutto-Lohn (€):'],
+                ['G', 'n', bruttoVoll],
+                ['I', 'n', bruttoStandby],
+                ['J', 'n', zuschlSonntag],
+                ['K', 'n', zuschlNacht25],
+                ['L', 'n', zuschlNacht40]
             ]));
+
+            // Gesamt + Steuer-Aufstellung
+            const stpflBrutto = +(bruttoVoll + bruttoStandby).toFixed(2);
+            const zuschlSumme = +(zuschlSonntag + zuschlNacht25 + zuschlNacht40 + zuschlFeiertag).toFixed(2);
+            const sv = +(stpflBrutto * SV_RATE).toFixed(2);
+            const lst = +(stpflBrutto * LST_RATE).toFixed(2);
+            const netto = +(stpflBrutto - sv - lst + zuschlSumme).toFixed(2);
+            rows.push(rowXml(lohnRowIdx + 2, [['A', 'inlineStr', 'Stpfl. Brutto (Voll + Rufber.):'], ['D', 'n', stpflBrutto]]));
+            rows.push(rowXml(lohnRowIdx + 3, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):'], ['D', 'n', zuschlSumme]]));
+            if (tFeiertag > 0) rows.push(rowXml(lohnRowIdx + 4, [['A', 'inlineStr', 'davon Feiertag 150% (' + tFeiertag.toFixed(2) + 'h):'], ['D', 'n', zuschlFeiertag]]));
+            rows.push(rowXml(lohnRowIdx + 5, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):'], ['D', 'n', -sv]]));
+            rows.push(rowXml(lohnRowIdx + 6, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):'], ['D', 'n', -lst]]));
+            rows.push(rowXml(lohnRowIdx + 7, [['A', 'inlineStr', 'NETTO:'], ['D', 'n', netto]]));
 
             const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -1495,12 +1648,76 @@ ${rows.join('\n')}
         // Apply: /shiftPlan/{YYYY-WW}/{staffId}/{dayIdx} pro passendem Tag.
         // ═══════════════════════════════════════════════════════════════
 
+        // v6.62.233: name-spezifische Default-Vorlagen aus Markdown-Spec
+        // Kargoll/Kulpa: Wechselschicht entgegengesetzt, Dombrowski fix.
         function defaultPattern(s) {
+            const lname = (s.lastName || '').toLowerCase();
+            // KARGOLL: Do-Mo, alternierend Tag↔Nacht, Anker = 05.02.2026 (TAG)
+            //   Tag 09-17:30, Pause 14:00-14:30, preRufber 07:30-09:00, postRufber 14:30-17:30
+            //   Nacht 21-03:00, Pause 21:00-21:30
+            if (lname.includes('kargoll')) {
+                return {
+                    enabled: false,
+                    days: [3, 4, 5, 6, 0],
+                    mode: 'alternate',
+                    anchorDate: '2026-02-05',
+                    dayShift: {
+                        start: '09:00', end: '14:00',  // 5h Voll-vor-Pause
+                        pauseStart: '14:00', pauseEnd: '14:30',
+                        preStandbyStart: '07:30', preStandbyEnd: '09:00',  // 1.5h
+                        postStandbyStart: '14:30', postStandbyEnd: '17:30' // 3h
+                    },
+                    nightShift: {
+                        start: '21:00', end: '03:00',  // 6h Voll-vor-Pause
+                        pauseStart: '21:00', pauseEnd: '21:30'
+                    },
+                    standbyShift: { start: '19:00', end: '22:00' }
+                };
+            }
+            // KULPA: Di-Sa, alternierend (entgegengesetzt zu Kargoll → Anker = 12.02.2026 (TAG))
+            //   Tag 09-17:00 (8h Anwesenheit, 6h Voll, Pause 14:00-14:30, postRufber 14:30-17:00=2.5h ... eigentlich 2h aus Markdown)
+            //   Nacht 21-04:30, Pause 21:00-21:30, preRufber 20:00-21:00 (1h)
+            if (lname.includes('kulpa')) {
+                return {
+                    enabled: false,
+                    days: [1, 2, 3, 4, 5],  // Di, Mi, Do, Fr, Sa
+                    mode: 'alternate',
+                    anchorDate: '2026-02-12', // ein TAG-Block-Mittwoch falls Kulpa Tag, gegenteilig zu Kargoll
+                    dayShift: {
+                        start: '09:00', end: '14:00',  // 5h Voll bis Pause
+                        pauseStart: '14:00', pauseEnd: '14:30',
+                        postStandbyStart: '14:30', postStandbyEnd: '17:00' // 2.5h Rufber
+                    },
+                    nightShift: {
+                        start: '21:00', end: '04:30',  // 7.5h
+                        pauseStart: '21:00', pauseEnd: '21:30',
+                        preStandbyStart: '20:00', preStandbyEnd: '21:00'   // 1h
+                    },
+                    standbyShift: { start: '19:00', end: '22:00' }
+                };
+            }
+            // DOMBROWSKI: Do/Fr/Sa, fix 20:00-22:00 Schicht (2h) + Rufber 19-20 + 22-23 (je 1h)
+            if (lname.includes('dombrowski')) {
+                return {
+                    enabled: false,
+                    days: [3, 4, 5],  // Do, Fr, Sa
+                    mode: 'fixed-day',
+                    anchorDate: '2026-02-05',
+                    dayShift: {
+                        start: '20:00', end: '22:00',
+                        preStandbyStart: '19:00', preStandbyEnd: '20:00',
+                        postStandbyStart: '22:00', postStandbyEnd: '23:00'
+                    },
+                    nightShift: { start: '21:00', end: '03:00' },
+                    standbyShift: { start: '19:00', end: '23:00' }
+                };
+            }
+            // Generischer Default
             return {
                 enabled: false,
-                days: [3, 4, 5, 6, 0], // Do, Fr, Sa, So, Mo (Kargoll-Default)
+                days: [3, 4, 5, 6, 0],
                 mode: 'alternate',
-                anchorDate: '2026-02-05', // KW6 Februar = TAG (aus Vorlage abgeleitet)
+                anchorDate: '2026-02-05',
                 dayShift: { start: '09:00', end: '17:30' },
                 nightShift: { start: '21:00', end: '03:00' },
                 standbyShift: { start: '19:00', end: '22:00' }
@@ -1547,26 +1764,81 @@ ${rows.join('\n')}
                         </div>
                     </div>
 
-                    <div class="vorlage-grid">
-                        <div class="form-group">
-                            <label class="form-label">Tag-Schicht Start</label>
-                            <input type="time" class="form-input" id="vorl-day-start-${s.id}" value="${p.dayShift?.start || '09:00'}">
+                    <fieldset style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px;">
+                        <legend style="font-size:12px;font-weight:700;padding:0 6px;color:#1e3a8a;">☀️ Tagschicht</legend>
+                        <div class="vorlage-grid">
+                            <div class="form-group">
+                                <label class="form-label">Voll-Schicht Start</label>
+                                <input type="time" class="form-input" id="vorl-day-start-${s.id}" value="${p.dayShift?.start || '09:00'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Voll-Schicht Ende</label>
+                                <input type="time" class="form-input" id="vorl-day-end-${s.id}" value="${p.dayShift?.end || '17:30'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pause Start</label>
+                                <input type="time" class="form-input" id="vorl-day-pstart-${s.id}" value="${p.dayShift?.pauseStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pause Ende</label>
+                                <input type="time" class="form-input" id="vorl-day-pend-${s.id}" value="${p.dayShift?.pauseEnd || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. davor Start</label>
+                                <input type="time" class="form-input" id="vorl-day-prestart-${s.id}" value="${p.dayShift?.preStandbyStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. davor Ende</label>
+                                <input type="time" class="form-input" id="vorl-day-preend-${s.id}" value="${p.dayShift?.preStandbyEnd || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. danach Start</label>
+                                <input type="time" class="form-input" id="vorl-day-poststart-${s.id}" value="${p.dayShift?.postStandbyStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. danach Ende</label>
+                                <input type="time" class="form-input" id="vorl-day-postend-${s.id}" value="${p.dayShift?.postStandbyEnd || ''}">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Tag-Schicht Ende</label>
-                            <input type="time" class="form-input" id="vorl-day-end-${s.id}" value="${p.dayShift?.end || '17:30'}">
+                    </fieldset>
+
+                    <fieldset id="vorl-night-wrap-${s.id}" style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:10px;">
+                        <legend style="font-size:12px;font-weight:700;padding:0 6px;color:#1e293b;">🌙 Nachtschicht</legend>
+                        <div class="vorlage-grid">
+                            <div class="form-group">
+                                <label class="form-label">Voll-Schicht Start</label>
+                                <input type="time" class="form-input" id="vorl-night-start-${s.id}" value="${p.nightShift?.start || '21:00'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Voll-Schicht Ende</label>
+                                <input type="time" class="form-input" id="vorl-night-end-${s.id}" value="${p.nightShift?.end || '03:00'}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pause Start</label>
+                                <input type="time" class="form-input" id="vorl-night-pstart-${s.id}" value="${p.nightShift?.pauseStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pause Ende</label>
+                                <input type="time" class="form-input" id="vorl-night-pend-${s.id}" value="${p.nightShift?.pauseEnd || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. davor Start</label>
+                                <input type="time" class="form-input" id="vorl-night-prestart-${s.id}" value="${p.nightShift?.preStandbyStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. davor Ende</label>
+                                <input type="time" class="form-input" id="vorl-night-preend-${s.id}" value="${p.nightShift?.preStandbyEnd || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. danach Start</label>
+                                <input type="time" class="form-input" id="vorl-night-poststart-${s.id}" value="${p.nightShift?.postStandbyStart || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Rufber. danach Ende</label>
+                                <input type="time" class="form-input" id="vorl-night-postend-${s.id}" value="${p.nightShift?.postStandbyEnd || ''}">
+                            </div>
                         </div>
-                    </div>
-                    <div class="vorlage-grid" id="vorl-night-wrap-${s.id}">
-                        <div class="form-group">
-                            <label class="form-label">Nacht-Schicht Start</label>
-                            <input type="time" class="form-input" id="vorl-night-start-${s.id}" value="${p.nightShift?.start || '21:00'}">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Nacht-Schicht Ende</label>
-                            <input type="time" class="form-input" id="vorl-night-end-${s.id}" value="${p.nightShift?.end || '03:00'}">
-                        </div>
-                    </div>
+                    </fieldset>
                     <div class="vorlage-grid" id="vorl-standby-wrap-${s.id}" style="display:none;">
                         <div class="form-group">
                             <label class="form-label">Rufber. Start</label>
@@ -1624,22 +1896,35 @@ ${rows.join('\n')}
         function readVorlagenForm(staffId) {
             const days = Array.from(document.querySelectorAll(`#vorl-days-${staffId} .day-pick-btn.selected`))
                 .map(b => parseInt(b.dataset.day));
+            const v = (id) => (document.getElementById(id) || {}).value || '';
             return {
                 enabled: document.getElementById('vorl-enabled-' + staffId).checked,
                 days,
-                mode: document.getElementById('vorl-mode-' + staffId).value,
-                anchorDate: document.getElementById('vorl-anchor-' + staffId).value,
+                mode: v('vorl-mode-' + staffId),
+                anchorDate: v('vorl-anchor-' + staffId),
                 dayShift: {
-                    start: document.getElementById('vorl-day-start-' + staffId).value,
-                    end: document.getElementById('vorl-day-end-' + staffId).value
+                    start: v('vorl-day-start-' + staffId),
+                    end: v('vorl-day-end-' + staffId),
+                    pauseStart: v('vorl-day-pstart-' + staffId) || null,
+                    pauseEnd: v('vorl-day-pend-' + staffId) || null,
+                    preStandbyStart: v('vorl-day-prestart-' + staffId) || null,
+                    preStandbyEnd: v('vorl-day-preend-' + staffId) || null,
+                    postStandbyStart: v('vorl-day-poststart-' + staffId) || null,
+                    postStandbyEnd: v('vorl-day-postend-' + staffId) || null
                 },
                 nightShift: {
-                    start: document.getElementById('vorl-night-start-' + staffId).value,
-                    end: document.getElementById('vorl-night-end-' + staffId).value
+                    start: v('vorl-night-start-' + staffId),
+                    end: v('vorl-night-end-' + staffId),
+                    pauseStart: v('vorl-night-pstart-' + staffId) || null,
+                    pauseEnd: v('vorl-night-pend-' + staffId) || null,
+                    preStandbyStart: v('vorl-night-prestart-' + staffId) || null,
+                    preStandbyEnd: v('vorl-night-preend-' + staffId) || null,
+                    postStandbyStart: v('vorl-night-poststart-' + staffId) || null,
+                    postStandbyEnd: v('vorl-night-postend-' + staffId) || null
                 },
                 standbyShift: {
-                    start: document.getElementById('vorl-standby-start-' + staffId).value,
-                    end: document.getElementById('vorl-standby-end-' + staffId).value
+                    start: v('vorl-standby-start-' + staffId),
+                    end: v('vorl-standby-end-' + staffId)
                 }
             };
         }
@@ -1660,28 +1945,58 @@ ${rows.join('\n')}
 
         // Bestimmt für ein Datum, welcher Schicht-Typ in dem Pattern aktiv ist.
         // Returns null wenn der Tag nicht zu pattern.days gehört.
+        // v6.62.233: gibt das vollstaendige Schicht-Objekt zurueck (mit Pause + Pre/Post-Standby)
         function patternShiftForDate(pattern, dateObj) {
             const dayIdx = (dateObj.getDay() + 6) % 7; // 0=Mo
             if (!(pattern.days || []).includes(dayIdx)) return null;
             if (pattern.mode === 'fixed-day') {
-                return { type: 'day', start: pattern.dayShift.start, end: pattern.dayShift.end };
+                return { type: 'day', shift: pattern.dayShift };
             }
             if (pattern.mode === 'fixed-night') {
-                return { type: 'night', start: pattern.nightShift.start, end: pattern.nightShift.end };
+                return { type: 'night', shift: pattern.nightShift };
             }
             if (pattern.mode === 'fixed-standby') {
-                return { type: 'standby', start: pattern.standbyShift.start, end: pattern.standbyShift.end };
+                return { type: 'standby', shift: pattern.standbyShift };
             }
             // alternate: Block-Index relativ zum Anker
             const anchor = new Date(pattern.anchorDate + 'T00:00:00');
             const target = new Date(dateObj);
             target.setHours(0, 0, 0, 0);
             const deltaDays = Math.floor((target - anchor) / 86400000);
-            // Block-Wechsel pro 7 Tage. Negative deltas korrekt floor:
             const block = Math.floor(deltaDays / 7);
             const isDay = block % 2 === 0;
-            if (isDay) return { type: 'day', start: pattern.dayShift.start, end: pattern.dayShift.end };
-            return { type: 'night', start: pattern.nightShift.start, end: pattern.nightShift.end };
+            return isDay
+                ? { type: 'day', shift: pattern.dayShift }
+                : { type: 'night', shift: pattern.nightShift };
+        }
+
+        // v6.62.233: Pattern-Schicht in vollstaendigen Plan-Eintrag konvertieren.
+        // Berechnet Voll-vor-Pause (Anwesenheit), Pause-Dauer, Voll-bezahlt, Rufber-Summe.
+        function buildPlanEntryFromPattern(typeAndShift) {
+            const t = typeAndShift.type;
+            const sh = typeAndShift.shift || {};
+            const fullVor = calcHours(sh.start, sh.end);
+            const pauseH = (sh.pauseStart && sh.pauseEnd) ? calcHours(sh.pauseStart, sh.pauseEnd) : 0;
+            const fullBezahlt = Math.max(0, fullVor - pauseH);
+            const preH = (sh.preStandbyStart && sh.preStandbyEnd) ? calcHours(sh.preStandbyStart, sh.preStandbyEnd) : 0;
+            const postH = (sh.postStandbyStart && sh.postStandbyEnd) ? calcHours(sh.postStandbyStart, sh.postStandbyEnd) : 0;
+            return {
+                type: t,
+                start: sh.start || null,
+                end: sh.end || null,
+                hours: Number(fullBezahlt.toFixed(2)),       // bezahlte Voll-Stunden
+                hoursAttendance: Number(fullVor.toFixed(2)), // Anwesenheit vor Pause
+                pauseHours: Number(pauseH.toFixed(2)),
+                pauseStart: sh.pauseStart || null,
+                pauseEnd: sh.pauseEnd || null,
+                preStandbyStart: sh.preStandbyStart || null,
+                preStandbyEnd: sh.preStandbyEnd || null,
+                preStandbyHours: Number(preH.toFixed(2)),
+                postStandbyStart: sh.postStandbyStart || null,
+                postStandbyEnd: sh.postStandbyEnd || null,
+                postStandbyHours: Number(postH.toFixed(2)),
+                standbyHoursTotal: Number((preH + postH).toFixed(2))
+            };
         }
 
         async function applyVorlage(staffId) {
@@ -1714,20 +2029,15 @@ ${rows.join('\n')}
             const cursor = new Date(from);
             const updates = {};
             while (cursor <= to) {
-                const shift = patternShiftForDate(pattern, cursor);
-                if (shift) {
+                const tas = patternShiftForDate(pattern, cursor);
+                if (tas) {
                     const wk = isoWeekKey(cursor);
                     const dayIdx = (cursor.getDay() + 6) % 7;
-                    const hours = calcHours(shift.start, shift.end);
-                    updates[`shiftPlan/${wk}/${staffId}/${dayIdx}`] = {
-                        type: shift.type,
-                        start: shift.start,
-                        end: shift.end,
-                        hours: Number(hours.toFixed(2)),
-                        note: 'Pattern v6.62.232',
-                        updatedAt: Date.now(),
-                        updatedBy: userEmail
-                    };
+                    const planEntry = buildPlanEntryFromPattern(tas);
+                    planEntry.note = 'Pattern v6.62.233';
+                    planEntry.updatedAt = Date.now();
+                    planEntry.updatedBy = userEmail;
+                    updates[`shiftPlan/${wk}/${staffId}/${dayIdx}`] = planEntry;
                     written++;
                 } else {
                     skipped++;

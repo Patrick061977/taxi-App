@@ -20202,6 +20202,87 @@ exports.onRideUpdated = onValueUpdated(
         } catch (e) {
             console.error('⚠️ vehicleScores-Refresh Fehler:', e.message);
         }
+
+        // 🆕 v6.62.310: Patrick (05.05. 15:43): "können wir das auch per SMS verschicken,
+        //   wenn wir eine Aenderung gemacht haben, dass die Leute dann beruhigt sind?"
+        //   → Trigger bei Aenderung von Pickup / Ziel / Abholzeit / Zwischenstops, egal
+        //   ob aus Native-App, Web-Admin oder Telegram. Status muss aktiv sein
+        //   (vorbestellt/accepted/on_way) — bei completed/cancelled keine Aenderungs-SMS
+        //   (waere verwirrend).
+        try {
+            // Nur aktive Buchungen
+            const _aktivStati = ['vorbestellt','assigned','accepted','sofort','on_way','warteschlange'];
+            if (!_aktivStati.includes(newStatus)) {
+                // Skip
+            } else if (newStatus !== oldStatus) {
+                // Status hat sich geaendert — die Standard-Status-SMS (sendCustomerNotifications)
+                // greift, nicht hier. Sonst doppelte SMS.
+            } else {
+                // Aktiver Status, kein Status-Wechsel → checke Aenderungen
+                const _norm = (v) => (v == null ? '' : String(v).trim());
+                const _normTs = (v) => (v == null ? 0 : Number(v));
+                const _changed = [];
+                if (_norm(before.pickup) !== _norm(after.pickup)) _changed.push('Abholort');
+                if (_norm(before.destination) !== _norm(after.destination)) _changed.push('Zielort');
+                if (_normTs(before.pickupTimestamp) !== _normTs(after.pickupTimestamp)) _changed.push('Abholzeit');
+                // Zwischenstops: vergleichen via JSON-stringify (waypoints kann Array oder Object sein)
+                const _wpBefore = JSON.stringify(before.waypoints || []);
+                const _wpAfter = JSON.stringify(after.waypoints || []);
+                if (_wpBefore !== _wpAfter) _changed.push('Zwischenstop(s)');
+
+                if (_changed.length > 0) {
+                    // Idempotenz: Pro Aenderung nur einmal SMS (Hash der geaenderten Werte)
+                    const _changeHash = require('crypto').createHash('md5')
+                        .update(_changed.join('|') + '|' + _norm(after.pickup) + '|' + _norm(after.destination) + '|' + _normTs(after.pickupTimestamp) + '|' + _wpAfter)
+                        .digest('hex').slice(0, 12);
+                    const _alreadySent = (after.changeSmsHashes && after.changeSmsHashes[_changeHash]) ? true : false;
+                    if (_alreadySent) {
+                        console.log(`📲 ChangeSMS skip (already sent hash=${_changeHash}) ${rideId}`);
+                    } else {
+                        const _phone = after.customerPhone || after.customerMobile || after.mobilePhone;
+                        if (!_phone || !isMobileNumber(_phone)) {
+                            console.log(`📲 ChangeSMS skip (kein Mobil) ${rideId} phone=${_phone}`);
+                            await addRideLog(rideId, '📲', `Aenderungs-SMS uebersprungen (kein Mobil)`, { phone: _phone, changes: _changed.join(', ') });
+                        } else {
+                            // Anrede aus CRM
+                            let _anrede = 'Guten Tag';
+                            const _custFullName = (after.guestName || after.customerName || '').trim();
+                            const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                            if (after.customerId) {
+                                try {
+                                    const _cs = await db.ref(`customers/${after.customerId}/anrede`).once('value');
+                                    const _aRaw = (_cs.val() || '').toString();
+                                    if (/^herr$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
+                                    else if (/^frau$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
+                                } catch(_e) {}
+                            }
+                            // Pickup-Zeit Berlin
+                            const _pickupTimeStr = after.pickupTimestamp
+                                ? new Date(after.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                                : (after.pickupTime || '?');
+                            const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                            // Kurze, klare SMS
+                            const _smsText = `${_anrede}, Ihre Funk-Taxi-Buchung wurde aktualisiert (${_changed.join(', ')}).\nAbholung: ${_pickupTimeStr}\nVon: ${after.pickup || '?'}\nNach: ${after.destination || '?'}\nDetails: ${_trackLink}`;
+                            await db.ref('smsQueue').push({
+                                phone: _phone,
+                                text: _smsText,
+                                rideId,
+                                type: 'buchung_geaendert',
+                                changeFields: _changed,
+                                status: 'pending',
+                                createdAt: Date.now()
+                            });
+                            // Hash markieren damit kein Doppel
+                            await db.ref(`rides/${rideId}/changeSmsHashes/${_changeHash}`).set(Date.now());
+                            await addRideLog(rideId, '📲', `Aenderungs-SMS in Queue (${_changed.join(', ')})`, { phone: _phone, changes: _changed });
+                            console.log(`📲 ChangeSMS in Queue ${rideId} (${_changed.join(', ')})`);
+                        }
+                    }
+                }
+            }
+        } catch (_changeErr) {
+            console.warn(`⚠️ Aenderungs-SMS Fehler ${rideId}:`, _changeErr.message);
+        }
     }
 );
 

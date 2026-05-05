@@ -53,6 +53,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private static final String TRACKING_BASE = "https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=";
 
     private TextView tvVehicleInfo, tvShiftStatus, tvShiftDetail, tvShiftTimer, tvTodayEarnings;
+    // v6.62.304: Patrick (05.05. 14:11): Fahrer-Name unter dem App-Titel anzeigen
+    private TextView tvDriverName;
     private TextView tvPauseBanner; // v6.62.26: grosser Pause-Banner
     private MaterialButton btnMenu, btnEinsteiger, btnCallLog;
     // v6.50.0: Update-Banner
@@ -132,6 +134,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
 
         tvVehicleInfo = findViewById(R.id.tv_vehicle_info);
+        tvDriverName = findViewById(R.id.tv_driver_name);
         tvShiftStatus = findViewById(R.id.tv_shift_status);
         tvPauseBanner = findViewById(R.id.tv_pause_banner);
         // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
@@ -192,6 +195,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String vText = (vehicleName != null ? vehicleName + " (" + currentVehicleId + ")" : "Fahrzeug: " + currentVehicleId)
             + " · v" + appVer;
         tvVehicleInfo.setText(vText);
+        // v6.62.304: Fahrer-Namen aus /staff laden + anzeigen
+        loadAndShowDriverName(_curUser);
         connectFirebase();
 
         btnMenu.setOnClickListener(v -> showHamburgerMenu(v));
@@ -263,6 +268,47 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // Fallback bei Init-Fehler
             sendLockHeartbeat();
             lockHandler.postDelayed(lockHeartbeatTick, LOCK_HEARTBEAT_MS);
+        }
+    }
+
+    // v6.62.304: Patrick (05.05. 14:11): Fahrer soll oben sehen, dass er eingeloggt ist
+    // mit seinem Namen (aktuell stand da nur "Taxi-App-Fahrer").
+    // Sucht in /staff den Eintrag mit linkedDriverId == currentUid → zeigt firstName+lastName.
+    // Fallback: Email oder Telefonnummer aus Auth.
+    private void loadAndShowDriverName(com.google.firebase.auth.FirebaseUser user) {
+        if (tvDriverName == null || user == null) return;
+        // Sofort-Fallback: Email/Telefon zeigen damit der User SOFORT was sieht
+        String fallback = user.getEmail() != null ? user.getEmail() :
+                         (user.getPhoneNumber() != null ? user.getPhoneNumber() : null);
+        if (fallback != null) {
+            tvDriverName.setText("👤 " + fallback);
+            tvDriverName.setVisibility(View.VISIBLE);
+        }
+        // Asynchron /staff durchsuchen — wenn match → mit echtem Namen ersetzen
+        final String uid = user.getUid();
+        try {
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("staff")
+                .orderByChild("linkedDriverId").equalTo(uid).limitToFirst(1)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                        for (DataSnapshot child : snap.getChildren()) {
+                            String first = child.child("firstName").getValue(String.class);
+                            String last = child.child("lastName").getValue(String.class);
+                            String fullName = (first != null ? first : "") + (last != null ? " " + last : "");
+                            fullName = fullName.trim();
+                            if (!fullName.isEmpty()) {
+                                tvDriverName.setText("👤 " + fullName);
+                                tvDriverName.setVisibility(View.VISIBLE);
+                            }
+                            return;
+                        }
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError err) {
+                        Log.w(TAG, "loadAndShowDriverName: " + err.getMessage());
+                    }
+                });
+        } catch (Throwable t) {
+            Log.w(TAG, "loadAndShowDriverName fehlgeschlagen: " + t.getMessage());
         }
     }
 

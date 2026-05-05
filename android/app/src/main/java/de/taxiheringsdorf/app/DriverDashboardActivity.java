@@ -490,7 +490,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (lastCall != null && (now - lastCall) < 20_000L) continue;
             if (isPrePickup) {
                 if (r.pickupLat == null || r.pickupLon == null) continue;
-                if (r.pickupTimestamp == null || r.pickupTimestamp <= now) continue;
+                // v6.62.313: Patrick (05.05. 19:51): "Entfernung bei annehmen schon sehr
+                //   gut aber bleibt dann stehen". Bug: 'pickupTimestamp <= now' filterte
+                //   Sofort-Fahrten (pickupTs ~ createdAt = sofort Vergangenheit) und
+                //   accepted/on_way-Fahrten weg → ETA wurde nach Annehmen nie aktualisiert.
+                //   Fix: Timestamp-Check NUR fuer 'vorbestellt'/'assigned' wo Pickup wirklich
+                //   in Zukunft ist. accepted/on_way/sofort: IMMER ETA weiter rechnen.
+                if ((st.equals("vorbestellt") || st.equals("assigned"))
+                        && r.pickupTimestamp != null
+                        && r.pickupTimestamp <= now - 5L * 60_000L) {
+                    continue; // sehr alte Vorbestellung (>5 Min ueberfaellig) → skip
+                }
                 lastEtaCalc.put(r.id, now);
                 fetchOsrmETA(r.id, vLat, vLon, r.pickupLat, r.pickupLon, "pickup");
             } else if (isPostPickup) {

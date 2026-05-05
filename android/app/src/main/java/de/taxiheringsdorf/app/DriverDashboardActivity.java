@@ -1428,23 +1428,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         etPrice.setSelectAllOnFocus(true);
         layout.addView(etPrice);
 
-        // v6.62.314: Patrick (05.05. 20:22): "Mach Rechnungsablauf doch genau wie in
-        //   der Fahrer Web app". Web hat im Preis-Modal eine Rechnung-Checkbox
-        //   (needsInvoice) und ZUERST Preis+Rechnung, DANN Zahlart. Native auf
-        //   gleichen Flow umstellt — Checkbox direkt unter dem Preis-Eingabefeld.
-        final android.widget.CheckBox cbInvoice = new android.widget.CheckBox(this);
-        cbInvoice.setText("🧾 Rechnung erstellen (Kunde sieht sie in track.html)");
-        cbInvoice.setChecked(true); // Default: Ja — wie im Web
-        cbInvoice.setPadding(0, pad / 2, 0, 0);
-        cbInvoice.setTextSize(13);
-        layout.addView(cbInvoice);
-        TextView hint = new TextView(this);
-        hint.setText("Bei Walk-In-Bargeld ohne Rechnung Häkchen entfernen.");
-        hint.setTextSize(11);
-        hint.setTextColor(0xFF6B7280);
-        hint.setPadding(0, 0, 0, pad / 2);
-        layout.addView(hint);
-
+        // v6.62.316: Patrick (05.05. 20:40): "Kann ich die Rechnung nicht nach der
+        //   Barzahlung oder stripe Zahlung erstellen". → Rechnung-Checkbox aus
+        //   Preis-Modal raus, Frage kommt JETZT NACH der Zahlart-Wahl als Receipt-
+        //   Screen (genau wie Web showReceiptScreen mit 'Rechnung erstellen' Button).
         new AlertDialog.Builder(this)
             .setTitle("💰 Fahrt abschließen — " + (r.customerName != null ? r.customerName : "?"))
             .setView(layout)
@@ -1455,27 +1442,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     Toast.makeText(this, "Gültigen Preis eingeben", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                final boolean wantsInvoice = cbInvoice.isChecked();
-                // v6.59.2: Sofort in Firebase persistieren — Preis + Rechnungs-Wunsch.
                 if (db != null && r.id != null) {
                     Map<String, Object> upd = new HashMap<>();
                     upd.put("actualPrice", price);
                     upd.put("priceUpdatedAt", System.currentTimeMillis());
-                    upd.put("needsInvoice", wantsInvoice); // v6.62.314: Web-kompatibles Feld
-                    upd.put("invoiceRequested", wantsInvoice); // v6.62.312-Backwards
                     db.getReference("rides/" + r.id).updateChildren(upd);
                 }
-                showPaymentMethodStage(r, price, hotelName, hasAuftraggeber, wantsInvoice);
+                showPaymentMethodStage(r, price, hotelName, hasAuftraggeber);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
     }
 
 
-    // v6.62.314: showPaymentMethodStage erweitert — wantsInvoice ist jetzt aus dem
-    //   Preis-Modal upfront bekannt (wie Web-Driver-Flow). Keine zusaetzliche
-    //   Rechnungs-Frage nach Zahlart noetig.
-    private void showPaymentMethodStage(Ride r, double amount, String hotelName, boolean hasAuftraggeber, boolean wantsInvoice) {
+    // v6.62.316: showPaymentMethodStage. Nach Zahlart-Wahl ruft NEU showReceiptStage()
+    //   auf — Web-Style: Bezahlart bestaetigt → 'Rechnung erstellen?' Frage als
+    //   prominenter Button-Screen.
+    private void showPaymentMethodStage(Ride r, double amount, String hotelName, boolean hasAuftraggeber) {
         String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
         List<String> options = new ArrayList<>();
         List<String> methods = new ArrayList<>();
@@ -1489,26 +1472,33 @@ public class DriverDashboardActivity extends AppCompatActivity {
         options.add("✉ Email-Rechnung");                                  methods.add("invoice_email");
         options.add("✗ Abbrechen (Fahrt offen lassen)");                  methods.add("cancel");
 
-        String title = wantsInvoice
-            ? "💰 Bezahlung — wie? (🧾 Rechnung wird erstellt)"
-            : "💰 Bezahlung — wie? (ohne Rechnung)";
-
         new AlertDialog.Builder(this)
-            .setTitle(title)
+            .setTitle("💰 Bezahlung — wie?")
             .setItems(options.toArray(new String[0]), (d, which) -> {
                 String m = methods.get(which);
                 switch (m) {
                     case "cash":
+                        // v6.62.316: Erst markComplete, DANN Receipt-Screen
                         markCompleted(r.id, "cash", amount, null);
+                        showReceiptStage(r, amount, "cash");
                         break;
                     case "izettle":
                         payViaZettle(r.id, amount);
+                        // payViaZettle endet asynchron; Receipt-Screen wird vom Zettle-Callback
+                        // aufgerufen oder hier nach Erfolg. Vereinfacht: direkt zeigen.
+                        showReceiptStage(r, amount, "izettle");
                         break;
                     case "stripe":
                         showStripeQrStage(r, amount);
+                        // Stripe-Stage hat eigenen Confirm-Button "Als bezahlt markieren"
+                        // → Receipt-Screen kommt von dort (renderStripeQrDialog v6.62.316)
                         break;
                     case "invoice_auftraggeber":
-                        // Auftraggeber-Rechnung: hat eigene Rechnungs-Logik (Bezahlart IST Rechnung)
+                        // Auftraggeber-Rechnung: das IST die Bezahlart, automatisch invoiceRequested
+                        if (db != null && r.id != null) {
+                            db.getReference("rides/" + r.id).child("invoiceRequested").setValue(true);
+                            db.getReference("rides/" + r.id).child("needsInvoice").setValue(true);
+                        }
                         markCompleted(r.id, "invoice_auftraggeber", amount, hotelName);
                         break;
                     case "invoice_email":
@@ -1516,11 +1506,50 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         break;
                     case "cancel":      /* nichts tun, Status bleibt picked_up */ break;
                 }
-                // wantsInvoice wurde schon im renderPriceStage in Firebase persisted
-                // (needsInvoice + invoiceRequested) → Cloud-Function generiert Rechnung
-                // bei status:completed automatisch
             })
             .setOnCancelListener(d -> {/* nichts */})
+            .show();
+    }
+
+    // v6.62.316: Patrick (05.05. 20:40): "Kann ich die Rechnung nicht nach der
+    //   Barzahlung oder stripe Zahlung erstellen". → Receipt-Screen analog Web
+    //   showReceiptScreen — nach Bezahlung 2 grosse Buttons: 'Rechnung erstellen'
+    //   oder 'Kein Beleg, fertig'. Cloud-Function generiert dann automatisch
+    //   die Rechnung (oder Patrick kann sie auch manuell im Admin nachtraeglich
+    //   anlegen wenn er auf 'Kein Beleg' geklickt hat).
+    private void showReceiptStage(Ride r, double amount, String paymentMethod) {
+        String methodLabel;
+        switch (paymentMethod) {
+            case "cash":    methodLabel = "💵 Bar bezahlt"; break;
+            case "izettle": methodLabel = "💳 Karte bezahlt"; break;
+            case "stripe":  methodLabel = "📱 Stripe bezahlt"; break;
+            default:        methodLabel = paymentMethod;
+        }
+        String amountStr = String.format(Locale.GERMANY, "%.2f €", amount);
+        new AlertDialog.Builder(this)
+            .setTitle("✅ " + methodLabel + " — " + amountStr)
+            .setMessage("Soll für " + (r.customerName != null ? r.customerName : "den Kunden") +
+                " eine Rechnung erstellt werden?\n\n" +
+                "Wenn Ja → Kunde sieht in track.html '⬇️ Rechnung herunterladen'.\n" +
+                "Wenn Nein → keine Rechnung (Walk-In ohne Beleg).")
+            .setPositiveButton("✅ Ja, Rechnung", (d, w) -> {
+                if (db != null && r.id != null) {
+                    Map<String, Object> upd = new HashMap<>();
+                    upd.put("invoiceRequested", true);
+                    upd.put("needsInvoice", true);
+                    db.getReference("rides/" + r.id).updateChildren(upd);
+                }
+                Toast.makeText(this, "🧾 Rechnung wird erstellt", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("❌ Nein, kein Beleg", (d, w) -> {
+                if (db != null && r.id != null) {
+                    Map<String, Object> upd = new HashMap<>();
+                    upd.put("invoiceRequested", false);
+                    upd.put("needsInvoice", false);
+                    db.getReference("rides/" + r.id).updateChildren(upd);
+                }
+            })
+            .setCancelable(false)
             .show();
     }
 
@@ -1612,8 +1641,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             new AlertDialog.Builder(this)
                 .setTitle("📱 Stripe-Online-Zahlung")
                 .setView(layout)
-                .setPositiveButton("✅ Als bezahlt markieren", (d, w) ->
-                    markCompleted(r.id, "stripe", amount, checkoutUrl))
+                .setPositiveButton("✅ Als bezahlt markieren", (d, w) -> {
+                    markCompleted(r.id, "stripe", amount, checkoutUrl);
+                    // v6.62.316: Receipt-Screen mit Rechnung-Frage nach Stripe-Bezahlung
+                    showReceiptStage(r, amount, "stripe");
+                })
                 .setNeutralButton("📋 Link kopieren", (d, w) -> {
                     android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (cm != null) {

@@ -1790,7 +1790,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         @Override public int getItemCount() { return data.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            TextView tvBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist;
+            TextView tvBadge, tvTime, tvName, tvPickup, tvDest, tvPriceDist, tvLiveEta;
             MaterialButton btnAccept, btnReject, btnNavigate, btnCall, btnSmsTrack, btnStatusNext, btnCancelRide;
             LinearLayout actionRow, activeToolbar;
             VH(View v) {
@@ -1801,6 +1801,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 tvPickup = v.findViewById(R.id.tv_pickup);
                 tvDest = v.findViewById(R.id.tv_destination);
                 tvPriceDist = v.findViewById(R.id.tv_price_distance);
+                tvLiveEta = v.findViewById(R.id.tv_live_eta);
                 btnAccept = v.findViewById(R.id.btn_accept);
                 btnReject = v.findViewById(R.id.btn_reject);
                 actionRow = v.findViewById(R.id.action_row);
@@ -1871,6 +1872,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     _displayTime += " → ⏱️ " + r.drivingTimeToDestination + "min";
                 }
                 tvTime.setText(_displayTime);
+
+                // v6.62.303: Patrick (05.05. 13:48): "in der native app sieht der fahrer
+                // nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige unter
+                // den Adressen — gross + farbig + zentriert. Sichtbar nur wenn Status
+                // aktiv UND drivingTimeToPickup/Destination gesetzt.
+                String _stLow2 = r.status != null ? r.status.toLowerCase() : "";
+                String _liveEtaText = null;
+                int _liveEtaColor = 0xFF1E40AF; // Blau Default (zum Kunden)
+                if ((_stLow2.equals("accepted") || _stLow2.equals("on_way")) && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
+                    _liveEtaText = "🚗 LIVE-ETA: " + r.drivingTimeToPickup + " Min zum Kunden";
+                    _liveEtaColor = r.drivingTimeToPickup <= 3 ? 0xFFDC2626 : (r.drivingTimeToPickup <= 7 ? 0xFFF59E0B : 0xFF1E40AF);
+                } else if (_stLow2.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
+                    _liveEtaText = "🎯 LIVE-ETA: " + r.drivingTimeToDestination + " Min zum Ziel";
+                    _liveEtaColor = 0xFF059669; // Grün (zum Ziel)
+                } else if (_stLow2.equals("arrived")) {
+                    _liveEtaText = "📍 BIN DA — Kunde wartet auf Einsteigen";
+                    _liveEtaColor = 0xFF3B82F6;
+                }
+                if (_liveEtaText != null) {
+                    tvLiveEta.setText(_liveEtaText);
+                    tvLiveEta.setBackgroundColor(_liveEtaColor);
+                    tvLiveEta.setVisibility(View.VISIBLE);
+                } else {
+                    tvLiveEta.setVisibility(View.GONE);
+                }
+
                 String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",
                     r.price != null ? String.format(Locale.GERMANY, "%.2f", r.price) : "--",
                     r.distance != null ? String.format(Locale.GERMANY, "%.1f", r.distance) : "--");

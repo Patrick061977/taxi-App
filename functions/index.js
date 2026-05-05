@@ -20284,6 +20284,115 @@ exports.onRideUpdated = onValueUpdated(
             console.warn(`⚠️ Aenderungs-SMS Fehler ${rideId}:`, _changeErr.message);
         }
 
+        // 🆕 v6.62.312: AUTO-RECHNUNG bei Fahrt-Abschluss mit invoiceRequested:true.
+        //   Patrick (05.05. 19:48): "Ich will den Workflow einfach und effizient. Ohne
+        //   unnoetige Umwege. Nach Bar druecken Rechnung ja oder nein."
+        //   Driver in Native-App tippt "Ja, Rechnung" nach Zahlart-Wahl → ride.
+        //   invoiceRequested=true UND status:completed → wir erstellen automatisch
+        //   einen /invoices/{rideId}-Eintrag mit lueckenloser Belegnr (GoBD-konform),
+        //   Kunde sieht Rechnung in track.html (HTML-Render kommt in v6.62.313).
+        try {
+            const _statusBefore = before.status || '';
+            const _statusAfter = after.status || '';
+            const _justCompleted = _statusAfter === 'completed' && _statusBefore !== 'completed';
+            const _invoiceWanted = after.invoiceRequested === true;
+            const _hasNoInvoiceYet = !after.invoiceNumber;
+            const _hasPriceData = (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
+            if (_justCompleted && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {
+                console.log(`🧾 v6.62.312 Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
+                // Belegnr aus Counter (yyyy-mm-AUSR-NNNN, GoBD lueckenlos)
+                const _belegDate = after.completedAt
+                    ? new Date(after.completedAt).toISOString().slice(0, 10)
+                    : new Date().toISOString().slice(0, 10);
+                const _yyyymm = _belegDate.slice(0, 7);
+                const _counterRef = db.ref(`belegCounter/${_yyyymm}/AUSR`);
+                const _counterTx = await _counterRef.transaction(curr => (curr || 0) + 1);
+                const _counterValue = _counterTx.snapshot.val() || 1;
+                const _belegNr = `${_yyyymm}-AUSR-${String(_counterValue).padStart(4, '0')}`;
+
+                // Kunde-Daten aus CRM nachladen (Adresse, anrede)
+                let _custData = {};
+                if (after.customerId) {
+                    try {
+                        const _cs = await db.ref(`customers/${after.customerId}`).once('value');
+                        _custData = _cs.val() || {};
+                    } catch(_e) {}
+                }
+
+                const _gross = parseFloat(after.price) || parseFloat(after.actualPrice) || 0;
+                // 7% USt fuer Personenbefoerderung (NahverkehrUstSatz)
+                const _ustSatz = 7;
+                const _netto = +(_gross / 1.07).toFixed(2);
+                const _ustBetrag = +(_gross - _netto).toFixed(2);
+
+                const _waypoints = Array.isArray(after.waypoints)
+                    ? after.waypoints
+                    : Object.values(after.waypoints || {});
+                const _waypointStr = _waypoints
+                    .map(w => w && w.address ? w.address : null)
+                    .filter(Boolean)
+                    .join(' → ');
+                const _routeText = _waypointStr
+                    ? `${after.pickup || '?'} → ${_waypointStr} → ${after.destination || '?'}`
+                    : `${after.pickup || '?'} → ${after.destination || '?'}`;
+
+                const _invoiceData = {
+                    invoiceNumber: _belegNr,
+                    rideId,
+                    customerName: after.guestName || after.customerName || _custData.name || 'Kunde',
+                    customerAnrede: _custData.anrede || '',
+                    customerAddress: _custData.billingAddress || _custData.address || '',
+                    customerEmail: _custData.email || after.customerEmail || '',
+                    customerPhone: after.customerPhone || after.customerMobile || _custData.mobilePhone || _custData.phone || '',
+                    customerKundennummer: _custData.kundennummer || '',
+                    invoiceDate: _belegDate,
+                    rideDate: after.pickupTimestamp ? new Date(after.pickupTimestamp).toISOString().slice(0,10) : _belegDate,
+                    pickup: after.pickup || '',
+                    destination: after.destination || '',
+                    waypoints: _waypoints.map(w => ({ address: w.address, lat: w.lat, lon: w.lon })),
+                    distance: parseFloat(after.distance) || 0,
+                    duration: parseInt(after.duration) || 0,
+                    paymentMethod: after.paymentMethod || 'cash',
+                    paymentStatus: after.paymentMethod === 'cash' ? 'paid' : 'pending',
+                    paidAt: after.paymentMethod === 'cash' ? Date.now() : null,
+                    positions: [{
+                        description: `Taxifahrt: ${_routeText}`,
+                        quantity: 1,
+                        unit: 'Fahrt',
+                        amount: _gross,
+                        netAmount: _netto,
+                        vatAmount: _ustBetrag,
+                        vatRate: _ustSatz
+                    }],
+                    totalNet: _netto,
+                    totalVat: _ustBetrag,
+                    totalGross: _gross,
+                    vatRate: _ustSatz,
+                    skr03Konto: 8400, // Erloese Personenbefoerderung Nahverkehr 7% USt
+                    physOrdner: `${_yyyymm}-AUSR`,
+                    physPosition: _counterValue,
+                    autoCreated: true,
+                    autoCreatedAt: Date.now(),
+                    autoCreatedBy: 'cloud-function-v6.62.312',
+                    pdfUrl: null // wird spaeter durch Admin-Pflege oder track.html-jsPDF gefuellt
+                };
+
+                // /invoices/{belegNr} schreiben + ride.invoiceNumber setzen
+                await db.ref(`invoices/${_belegNr}`).set(_invoiceData);
+                await db.ref(`rides/${rideId}`).update({
+                    invoiceNumber: _belegNr,
+                    invoiceCreatedAt: Date.now(),
+                    invoiceCreatedBy: 'cloud-auto-v6.62.312'
+                });
+                await addRideLog(rideId, '🧾', `Rechnung automatisch erstellt: ${_belegNr}`, {
+                    belegNr: _belegNr, gross: _gross, paymentMethod: after.paymentMethod
+                });
+                console.log(`✅ v6.62.312: Rechnung ${_belegNr} fuer ${rideId} angelegt (${_gross}€)`);
+            }
+        } catch (_invErr) {
+            console.warn(`⚠️ v6.62.312 Auto-Rechnung Fehler ${rideId}:`, _invErr.message);
+        }
+
         // 🆕 v6.62.311: Pending Invoice-Request → Re-Trigger nach Rechnungs-Erstellung.
         //   Wenn Kunde 'Rechnung anfordern' geklickt hat ABER ride.invoiceNumber war leer,
         //   wurde der Request 'pending' markiert + Patrick per Telegram benachrichtigt.

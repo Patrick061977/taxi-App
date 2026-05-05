@@ -1851,9 +1851,15 @@
             const rows = [];
             // 🆕 v6.62.280: Title in Style 7 (Bold groß zentriert blau)
             rows.push(rowXmlStyled(1, [['A', 'inlineStr', headerTitle, 7]]));
-            // 🆕 v6.62.280: Sonntag/Feiertag mit Uhrzeit-Hinweis (00-24)
-            // 🆕 v6.62.280: Spalte M ergänzt — Feiertag (war komplett vergessen!)
-            const headers = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','Sonntag 00-24 (50%)','Nacht 20-00 (25%)','Nacht 00-06 (40%)','Feiertag 00-24 (150%)'];
+            // 🆕 v6.62.279: Pro Mitarbeiter Steuerfreie Zuschläge an/aus — bestimmt
+            //              ob die Zuschlags-Spalten J/K/L/M ueberhaupt erscheinen.
+            // 🆕 v6.62.294: Patrick (05.05. 10:18): "Beim Lohnexport werden steuerfreie
+            //              Zuschlaege trotz AUS in der Excel uebertragen". Vorher: Spalten
+            //              standen mit Stunden im Sheet, nur die Euro-Werte waren 0.
+            //              Jetzt: Spalten komplett raus wenn AUS.
+            const surchargesEnabled = staff.taxFreeSurchargesEnabled !== false;
+            const allHeaders = ['Datum','Tag','Rufber.(h)','Schichtzeit (h)','(h) Pause','Pause Zeit','geleist.Std.','Rufber.(h)','Rufber.ges.','Sonntag 00-24 (50%)','Nacht 20-00 (25%)','Nacht 00-06 (40%)','Feiertag 00-24 (150%)'];
+            const headers = surchargesEnabled ? allHeaders : allHeaders.slice(0, 9);
             rows.push(rowXmlStyled(2, headers.map((h, i) => [colLetter(i), 'inlineStr', h, 1])));
 
             let tVollVor = 0, tPause = 0, tVollBez = 0, tStandby = 0;
@@ -1889,49 +1895,62 @@
                 if (cls.vollBezahlt > 0) cells.push(['G', 'n', +cls.vollBezahlt.toFixed(2)]);
                 if (cls.ranges.post) cells.push(['H', 'inlineStr', cls.ranges.post]);
                 if (cls.standbyGes > 0) cells.push(['I', 'n', +cls.standbyGes.toFixed(2)]);
-                if (cls.sonntag > 0) cells.push(['J', 'n', +cls.sonntag.toFixed(2)]);
-                if (cls.nacht25 > 0) cells.push(['K', 'n', +cls.nacht25.toFixed(2)]);
-                if (cls.nacht40 > 0) cells.push(['L', 'n', +cls.nacht40.toFixed(2)]);
-                // 🆕 v6.62.280: Feiertag-Spalte M
-                if (cls.feiertag > 0) cells.push(['M', 'n', +cls.feiertag.toFixed(2)]);
+                // v6.62.294: Zuschlags-Stunden nur wenn Steuerfreie Zuschlaege AN
+                if (surchargesEnabled) {
+                    if (cls.sonntag > 0) cells.push(['J', 'n', +cls.sonntag.toFixed(2)]);
+                    if (cls.nacht25 > 0) cells.push(['K', 'n', +cls.nacht25.toFixed(2)]);
+                    if (cls.nacht40 > 0) cells.push(['L', 'n', +cls.nacht40.toFixed(2)]);
+                    if (cls.feiertag > 0) cells.push(['M', 'n', +cls.feiertag.toFixed(2)]);
+                }
                 rows.push(rowXml(3 + day, cells));
             }
 
             // Summen-Zeile (Stunden) — v6.62.280: Style 5 (fett+grau) + Feiertag M
             const sumRowIdx = 3 + daysInMonth + 1;
-            rows.push(rowXmlStyled(sumRowIdx, [
+            const sumCells = [
                 ['A', 'inlineStr', 'Summe Std.:', 5],
                 ['D', 'n', +tVollVor.toFixed(2), 3],
                 ['E', 'n', +tPause.toFixed(2), 3],
                 ['G', 'n', +tVollBez.toFixed(2), 3],
-                ['I', 'n', +tStandby.toFixed(2), 3],
-                ['J', 'n', +tSonntag.toFixed(2), 3],
-                ['K', 'n', +tNacht25.toFixed(2), 3],
-                ['L', 'n', +tNacht40.toFixed(2), 3],
-                ['M', 'n', +tFeiertag.toFixed(2), 3]
-            ]));
+                ['I', 'n', +tStandby.toFixed(2), 3]
+            ];
+            if (surchargesEnabled) {
+                sumCells.push(['J', 'n', +tSonntag.toFixed(2), 3]);
+                sumCells.push(['K', 'n', +tNacht25.toFixed(2), 3]);
+                sumCells.push(['L', 'n', +tNacht40.toFixed(2), 3]);
+                sumCells.push(['M', 'n', +tFeiertag.toFixed(2), 3]);
+            }
+            rows.push(rowXmlStyled(sumRowIdx, sumCells));
 
-            // Brutto-Zeile (€): Voll-Lohn + Rufber-Lohn, Zuschlaege separat
-            // 🆕 v6.62.279: Pro Mitarbeiter Steuerfreie Zuschläge an/aus
-            const surchargesEnabled = staff.taxFreeSurchargesEnabled !== false;
-            const lohnRowIdx = sumRowIdx + 1;
+            // 🆕 v6.62.294: Prominenter KPI-Block direkt nach Summe Std.
+            // Patrick (05.05. 10:18): "kannst du die gesammt stunden pluss
+            // rufgereitschadt sichtbarer machen in der exel tabelle".
+            // Style 7 = fett groß zentriert blau (gleicher Style wie Title).
+            const totalH = +(tVollBez + tStandby).toFixed(2);
+            const kpiText = `📊 GESAMT: ${tVollBez.toFixed(2)}h geleistet  +  ${tStandby.toFixed(2)}h Rufbereitschaft  =  ${totalH.toFixed(2)}h`;
+            rows.push(rowXmlStyled(sumRowIdx + 1, [['A', 'inlineStr', kpiText, 7]]));
+
+            // Brutto-Zeile (€): Voll-Lohn + Rufber-Lohn, Zuschlaege separat (wenn AN)
+            let currentRow = sumRowIdx + 3; // KPI + 1 Leerzeile
             const bruttoVoll = +(tVollBez * rateShift).toFixed(2);
             const bruttoStandby = +(tStandby * rateStandby).toFixed(2);
             const zuschlSonntag = surchargesEnabled ? +(tSonntag * rateShift * ZUSCHLAG_SONNTAG).toFixed(2) : 0;
             const zuschlNacht25 = surchargesEnabled ? +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2) : 0;
             const zuschlNacht40 = surchargesEnabled ? +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2) : 0;
             const zuschlFeiertag = surchargesEnabled ? +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2) : 0;
-            // 🆕 v6.62.280: Brutto-Zeile mit Style 5 (Summen-Style, fett+hellgrau)
-            // 🆕 v6.62.280: Feiertagszuschlag in Spalte M (war komplett vergessen!)
-            rows.push(rowXmlStyled(lohnRowIdx, [
+            const bruttoCells = [
                 ['A', 'inlineStr', 'Brutto-Lohn (€):', 5],
                 ['G', 'n', bruttoVoll, 8],
-                ['I', 'n', bruttoStandby, 8],
-                ['J', 'n', zuschlSonntag, 8],
-                ['K', 'n', zuschlNacht25, 8],
-                ['L', 'n', zuschlNacht40, 8],
-                ['M', 'n', zuschlFeiertag, 8]
-            ]));
+                ['I', 'n', bruttoStandby, 8]
+            ];
+            if (surchargesEnabled) {
+                bruttoCells.push(['J', 'n', zuschlSonntag, 8]);
+                bruttoCells.push(['K', 'n', zuschlNacht25, 8]);
+                bruttoCells.push(['L', 'n', zuschlNacht40, 8]);
+                bruttoCells.push(['M', 'n', zuschlFeiertag, 8]);
+            }
+            rows.push(rowXmlStyled(currentRow, bruttoCells));
+            currentRow += 2; // 1 Leerzeile
 
             // Gesamt + Steuer-Aufstellung
             const stpflBrutto = +(bruttoVoll + bruttoStandby).toFixed(2);
@@ -1939,13 +1958,16 @@
             const sv = +(stpflBrutto * SV_RATE).toFixed(2);
             const lst = +(stpflBrutto * LST_RATE).toFixed(2);
             const netto = +(stpflBrutto - sv - lst + zuschlSumme).toFixed(2);
-            rows.push(rowXmlStyled(lohnRowIdx + 2, [['A', 'inlineStr', 'Stpfl. Brutto (Voll + Rufber.):', 2], ['D', 'n', stpflBrutto, 8]]));
-            rows.push(rowXmlStyled(lohnRowIdx + 3, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):', 2], ['D', 'n', zuschlSumme, 8]]));
-            if (tFeiertag > 0) rows.push(rowXmlStyled(lohnRowIdx + 4, [['A', 'inlineStr', 'davon Feiertag 00-24 (150%) ' + tFeiertag.toFixed(2) + 'h:', 2], ['D', 'n', zuschlFeiertag, 8]]));
-            rows.push(rowXmlStyled(lohnRowIdx + 5, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):', 2], ['D', 'n', -sv, 8]]));
-            rows.push(rowXmlStyled(lohnRowIdx + 6, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):', 2], ['D', 'n', -lst, 8]]));
+            rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Stpfl. Brutto (Voll + Rufber.):', 2], ['D', 'n', stpflBrutto, 8]]));
+            // v6.62.294: Steuerfreie-Zuschlaege-Zeilen nur wenn AN
+            if (surchargesEnabled) {
+                rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Steuerfreie Zuschlaege (§3b EStG):', 2], ['D', 'n', zuschlSumme, 8]]));
+                if (tFeiertag > 0) rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'davon Feiertag 00-24 (150%) ' + tFeiertag.toFixed(2) + 'h:', 2], ['D', 'n', zuschlFeiertag, 8]]));
+            }
+            rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Sozialversicherung (' + (SV_RATE * 100) + '%):', 2], ['D', 'n', -sv, 8]]));
+            rows.push(rowXmlStyled(currentRow++, [['A', 'inlineStr', 'Lohnsteuer (' + (LST_RATE * 100) + '%):', 2], ['D', 'n', -lst, 8]]));
             // 🆕 v6.62.280: NETTO-Row in Style 6 (fett groß grün)
-            rows.push(rowXmlStyled(lohnRowIdx + 7, [['A', 'inlineStr', 'NETTO:', 6], ['D', 'n', netto, 9]]));
+            rows.push(rowXmlStyled(currentRow, [['A', 'inlineStr', 'NETTO:', 6], ['D', 'n', netto, 9]]));
 
             const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -1967,8 +1989,9 @@
     <sheetData>
 ${rows.join('\n')}
     </sheetData>
-    <mergeCells count="1">
-        <mergeCell ref="A1:M1"/>
+    <mergeCells count="2">
+        <mergeCell ref="A1:${surchargesEnabled ? 'M' : 'I'}1"/>
+        <mergeCell ref="A${sumRowIdx + 1}:${surchargesEnabled ? 'M' : 'I'}${sumRowIdx + 1}"/>
     </mergeCells>
 </worksheet>`;
 

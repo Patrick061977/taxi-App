@@ -18083,36 +18083,16 @@ exports.scheduledAutoAssign = onSchedule(
                                 isVorbestellung: 'false',
                                 isReminder: 'true'
                             });
-                            // 🆕 v6.62.216: Patrick (03.05. 11:30): "werde ich auch noch
-                            // irgendwie so ein bisschen darauf hingewiesen, dass ich langsam
-                            // losfahren müsste". Zusätzlich Telegram-Push an alle Admins —
-                            // FCM allein reicht nicht wenn Patrick gerade auf dem Tesla
-                            // (Web-CRM) sitzt und kein Native-Dashboard offen hat.
-                            try {
-                                const _custName = r.customerName || r.guestName || 'Kunde';
-                                const _anfahrtStr = (r.drivingTimeToPickup && r.drivingTimeToPickup > 0)
-                                    ? `${r.drivingTimeToPickup} Min Anfahrt` : 'unbekannte Anfahrt';
-                                // v6.62.222: Fallback auf customerMobile auch in der Anzeige (vorher nur in WhatsApp-Link).
-                                const _telForShow = r.customerPhone || r.customerMobile || r.mobilePhone;
-                                const _waLink = formatWhatsAppLink(_telForShow);
-                                const _phoneLine = _telForShow
-                                    ? `📱 <code>${_telForShow}</code>${_waLink}\n` : '';
-                                const _losMsg =
-                                    `⏰ <b>LOSFAHREN — ${_pickupLabel} Uhr</b>\n` +
-                                    `🚗 ${_vName}\n` +
-                                    `👤 ${_custName}\n` +
-                                    _phoneLine +
-                                    `📍 ${r.pickup || '?'}\n` +
-                                    `🎯 ${r.destination || '?'}\n` +
-                                    `⏱ ${_anfahrtStr} · in ${_minUntil} Min Pickup`;
-                                await sendToAllAdmins(_losMsg, 'losfahrt');
-                                await db.ref('rides/' + r.firebaseId).update({
-                                    losfahrtTelegramSent: true,
-                                    losfahrtTelegramAt: now
-                                });
-                            } catch (_lErr) {
-                                console.warn(`⚠️ Losfahrt-Telegram fehlgeschlagen ${r.firebaseId}: ${_lErr.message}`);
-                            }
+                            // v6.62.307: Patrick (05.05. 15:01): "Nee. In der Telegram-App
+                            // brauche ich es nicht." → LOSFAHREN-Telegram an Admins entfaellt.
+                            // Die Native-Driver-App zeigt seit v6.62.303 einen prominenten
+                            // LIVE-ETA-Banner ("🚗 LIVE-ETA: 5 Min zum Kunden") direkt im
+                            // Ride-Card der Fahrer-App. Plus FCM-Push an den zugewiesenen
+                            // Fahrer wird weiter via sendNotificationToFcmToken oben gesendet.
+                            // Reaktivierung: Block kommt aus Git-History v6.62.216, einfach
+                            // hierhin zurueckkopieren wenn Telegram-Reminder spaeter wieder
+                            // gewuenscht wird (oder Settings-Flag /settings/notifications/
+                            // losfahrtTelegram einbauen).
                         } catch (_pErr) {
                             console.error(`   ❌ Push-Reminder fehlgeschlagen ${r.firebaseId}:`, _pErr.message);
                         }

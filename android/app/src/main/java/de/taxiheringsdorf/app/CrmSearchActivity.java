@@ -683,8 +683,15 @@ public class CrmSearchActivity extends AppCompatActivity {
         final double[] pickupCoords = { Double.NaN, Double.NaN };
         final double[] destCoords = { Double.NaN, Double.NaN };
 
+        // v6.62.315: Patrick (05.05. 20:28): "Warum wird bei Stammkunden nicht der
+        //   Abholort nicht automatisch gesetzt?" + (17:33): "warum wird bei der CRM-Suche
+        //   nicht gleich der Abholort, also die Heimadresse, uebernommen". Vorher: bei
+        //   Stammkunden Pickup vorausgefuellt, bei Hotels Adresse als Ziel (50/50-Annahme).
+        //   Jetzt: ALLE CRM-Eintraege haben Pickup = e.address (Default = Adresse ist
+        //   Abholort). Patrick fuellt nur Zielort. Tausch-Button kehrt um falls Gast
+        //   ZUM Hotel/Kunden gefahren werden soll.
         TextView tvPickup = new TextView(this);
-        if (!isHotel && e.address != null && !e.address.isEmpty()) {
+        if (e.address != null && !e.address.isEmpty()) {
             tvPickup.setText("📍 " + e.address);
             if (e.lat != null && e.lon != null) {
                 pickupCoords[0] = e.lat; pickupCoords[1] = e.lon;
@@ -714,18 +721,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         layout.addView(btnSwap);
 
         TextView tvDest = new TextView(this);
-        if (isHotel && e.address != null && !e.address.isEmpty()) {
-            tvDest.setText("🎯 " + e.address);
-            if (e.lat != null && e.lon != null) {
-                destCoords[0] = e.lat; destCoords[1] = e.lon;
-            } else {
-                geocodeAddressIfNeeded(e, (lat, lon) -> {
-                    if (lat != null) { destCoords[0] = lat; destCoords[1] = lon; }
-                });
-            }
-        } else {
-            tvDest.setText("🎯 Zielort wählen…");
-        }
+        // v6.62.315: Zielort immer leer beim Oeffnen (Patrick fuellt aus)
+        tvDest.setText("🎯 Zielort wählen…");
         tvDest.setPadding(pad / 2, pad, pad / 2, pad);
         tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
         layout.addView(tvDest);

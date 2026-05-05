@@ -333,10 +333,11 @@
                         </select>
                         <span class="form-hint">Verknüpft Login-Email/Telefon mit einem bereits existierenden Driver-User — für Auto-Erfassung der Schicht-Ist-Zeiten</span>
                         <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-secondary" onclick="prepareDriverLogin()" style="font-size:12px;">📱 Driver-Login vorbereiten (Phone)</button>
+                            <button type="button" class="btn btn-secondary" onclick="prepareDriverLogin()" style="font-size:12px;">📱 Phone-Login vorbereiten</button>
+                            <button type="button" class="btn btn-secondary" onclick="createDriverEmailLogin()" style="font-size:12px;">📧 Email-Login anlegen</button>
                             <span id="prepLoginStatus" style="font-size:12px;color:#6b7280;"></span>
                         </div>
-                        <span class="form-hint">Schreibt Handy-Nummer als „preauthorized driver" in Firebase. Beim ersten SMS-Login in der Fahrer-App wird die Rolle 'driver' + Verknüpfung automatisch übernommen.</span>
+                        <span class="form-hint">📱 = Handy-Nummer als „preauthorized driver" merken; beim ersten SMS-Login in der App wird automatisch übernommen. <br>📧 = Legt sofort einen Email-Auth-User mit Zufalls-Passwort an + schickt Passwort-Reset-Mail an die Adresse; Fahrer setzt sein Passwort selbst und loggt sich danach ein.</span>
                     </div>
                     <div class="form-group full">
                         <label class="form-label">Notizen</label>
@@ -635,6 +636,81 @@
             } catch (e) {
                 console.error(e);
                 status.textContent = '❌ Fehler: ' + e.message;
+                status.style.color = '#dc2626';
+            }
+        }
+
+        // 🆕 v6.62.296: Email-Login direkt anlegen — Patrick: "warum sollen sich die
+        //   Leute nicht mit Email einloggen". Trick: SECONDARY Firebase-App-Instanz
+        //   benutzen damit createUserWithEmailAndPassword den Admin nicht ausloggt
+        //   (wuerde sonst passieren weil die Haupt-Auth-State auf den neuen User springt).
+        let _secondaryApp = null;
+        function getSecondaryAuth() {
+            if (_secondaryApp) return _secondaryApp.auth();
+            _secondaryApp = firebase.initializeApp({
+                apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+                authDomain: "taxi-heringsdorf.firebaseapp.com",
+                databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+                projectId: "taxi-heringsdorf",
+                storageBucket: "taxi-heringsdorf.firebasestorage.app",
+                messagingSenderId: "889033864088",
+                appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
+            }, 'secondary-create-user');
+            return _secondaryApp.auth();
+        }
+
+        async function createDriverEmailLogin() {
+            const status = document.getElementById('prepLoginStatus');
+            const emailInput = document.querySelector('input[name=email]');
+            const email = emailInput ? emailInput.value.trim() : '';
+            if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+                status.textContent = '❌ Email-Adresse fehlt oder ungültig.';
+                status.style.color = '#dc2626';
+                emailInput && emailInput.focus();
+                return;
+            }
+            if (!currentEditId) {
+                status.textContent = '⚠️ Erst Mitarbeiter speichern, dann Login anlegen.';
+                status.style.color = '#b45309';
+                return;
+            }
+            const adminEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            // Zufalls-Passwort 16 Zeichen — User setzt eigenes Passwort via Reset-Mail
+            const tempPwd = 'Pwd-' + Math.random().toString(36).slice(2, 12) + '-' + Math.random().toString(36).slice(2, 8) + 'X9!';
+            try {
+                status.textContent = '⏳ Lege Email-User an…';
+                status.style.color = '#6b7280';
+                const secAuth = getSecondaryAuth();
+                const cred = await secAuth.createUserWithEmailAndPassword(email, tempPwd);
+                const newUid = cred.user.uid;
+                // /users/{newUid} mit role:'fahrer' + Staff-Verknuepfung
+                await db.ref('users/' + newUid).update({
+                    email: email,
+                    role: 'fahrer',
+                    linkedStaffId: currentEditId,
+                    createdAt: Date.now(),
+                    createdBy: adminEmail,
+                    source: 'mitarbeiter-email-create'
+                });
+                // Staff-Eintrag mit linkedDriverId verknuepfen
+                await db.ref('staff/' + currentEditId + '/linkedDriverId').set(newUid);
+                // Passwort-Reset-Mail schicken — Fahrer setzt eigenes Passwort
+                await secAuth.sendPasswordResetEmail(email);
+                // Secondary signOut damit naechster Aufruf sauber ist
+                await secAuth.signOut();
+                status.textContent = '✅ Email-User angelegt + Reset-Mail an ' + email + ' verschickt.';
+                status.style.color = '#059669';
+                showToast('Email-Login angelegt ✓', 'success');
+                // Dropdown refresh + auto-select
+                await loadUsersForLink();
+                fillLinkedDriverDropdown(newUid);
+            } catch (e) {
+                console.error(e);
+                let msg = e.message;
+                if (e.code === 'auth/email-already-in-use') {
+                    msg = 'Email bereits vergeben — bitte aus Dropdown wählen statt neu anlegen.';
+                }
+                status.textContent = '❌ ' + msg;
                 status.style.color = '#dc2626';
             }
         }

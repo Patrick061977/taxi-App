@@ -578,30 +578,30 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setNegativeButton("Abbrechen", null).show();
     }
 
-    // v6.62.92: Vor Vorbestellung-Workflow Gast abfragen wenn Hotel/Firma
-    private String _vorbestGuestName = null;
-    private String _vorbestGuestPhone = null;
+    // v6.62.293: Unified Vorbestellungs-Maske. Patrick (04.05. 22:30):
+    // "Diese ganze CRM-Vorbestellungs-Dingsbums in der CRM-Suche ist nicht so wie eigentlich
+    // wieder schoen waere — die gleiche Maske moechte ich haben fuer Stammkunden, aber halt
+    // schon vorausgefuellt mit den Werten, die man so hat. Auch fuer Hotel mit Gastname und
+    // Telefonnummer. Die gleiche Maske als wenn ein Fremder anruft und man darueber eine
+    // Vorbestellung macht — Tausch-Button + Zwischenstops + Personen-Spinner + Datum/Zeit."
+    // → Frueheres askGuestName-Popup entfaellt; Felder sind jetzt in der Maske.
     private void showVorbestellungDialogWithGuest(CrmEntry e) {
-        askGuestName(e, (guestName, guestPhone) -> {
-            _vorbestGuestName = guestName;
-            _vorbestGuestPhone = guestPhone;
-            showVorbestellungDialog(e);
-        });
+        showVorbestellungDialog(e);
     }
 
-    // v6.62.78: Vorbestellungs-Dialog mit haeufigsten Zielen dieses Kunden als Quick-Buttons
+    // v6.62.293: Top-5 Ziele dieses Kunden laden, dann unified Maske oeffnen.
     private void showVorbestellungDialog(CrmEntry e) {
         if (e.id == null) {
-            Toast.makeText(this, "CRM ohne ID — kann nicht nach haeufigen Zielen suchen", Toast.LENGTH_LONG).show();
+            // Kein CRM-ID → Maske ohne Quick-Ziele oeffnen
+            showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>());
             return;
         }
-        // Lade alle Rides dieses Kunden
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
             .orderByChild("customerId").equalTo(e.id).limitToLast(80)
             .addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override public void onDataChange(@NonNull DataSnapshot snap) {
                     Map<String, Integer> destCount = new HashMap<>();
-                    Map<String, double[]> destCoords = new HashMap<>();
+                    Map<String, double[]> destCoordsMap = new HashMap<>();
                     for (DataSnapshot c : snap.getChildren()) {
                         String dest = c.child("destination").getValue(String.class);
                         if (dest == null || dest.isEmpty()) continue;
@@ -610,168 +610,372 @@ public class CrmSearchActivity extends AppCompatActivity {
                         Object dn = c.child("destinationLon").getValue();
                         if (dl == null) dl = c.child("destCoords").child("lat").getValue();
                         if (dn == null) dn = c.child("destCoords").child("lon").getValue();
-                        if (dl instanceof Number && dn instanceof Number && !destCoords.containsKey(dest)) {
-                            destCoords.put(dest, new double[]{((Number)dl).doubleValue(), ((Number)dn).doubleValue()});
+                        if (dl instanceof Number && dn instanceof Number && !destCoordsMap.containsKey(dest)) {
+                            destCoordsMap.put(dest, new double[]{((Number)dl).doubleValue(), ((Number)dn).doubleValue()});
                         }
                     }
                     List<Map.Entry<String,Integer>> sorted = new ArrayList<>(destCount.entrySet());
                     sorted.sort((a,b) -> b.getValue() - a.getValue());
                     List<Map.Entry<String,Integer>> top = sorted.subList(0, Math.min(5, sorted.size()));
-                    showVorbestellungOptions(e, top, destCoords);
+                    showVorbestellungMaske(e, top, destCoordsMap);
                 }
                 @Override public void onCancelled(@NonNull DatabaseError err) {
-                    showVorbestellungOptions(e, new ArrayList<>(), new HashMap<>());
+                    showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>());
                 }
             });
     }
 
-    private void showVorbestellungOptions(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoords) {
-        List<String> items = new ArrayList<>();
-        for (Map.Entry<String,Integer> d : topDests) {
-            items.add("⭐ " + d.getKey() + "  (" + d.getValue() + "x)");
+    // v6.62.293: Die unified Vorbestellungs-Maske. Felder analog zu CallLogActivity:
+    // Name, Pickup, Tausch, Quick-Ziele (Chips), Zielort, Zwischenstops, Personen-Spinner,
+    // Datum/Zeit, Anlegen. Stammkunde: Pickup vorausgefuellt mit CRM-Adresse.
+    // Hotel/Firma: Pickup leer, Ziel = Hotel-Adresse, plus Gastname + Gast-Telefon-Felder.
+    private void showVorbestellungMaske(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoordsMap) {
+        final boolean isHotel = isAuftraggeberCrm(e);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        int padHalf = (int) (getResources().getDisplayMetrics().density * 8);
+        layout.setPadding(pad, pad, pad, pad);
+
+        // Name-Feld — Hotel/Firma = Gastname (leer); Stammkunde = Kundenname (vorausgefuellt)
+        EditText etName = new EditText(this);
+        etName.setHint(isHotel ? "Gastname (für den gebucht wird)" : "Kundenname");
+        etName.setText(isHotel ? "" : (e.name != null ? e.name : ""));
+        etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        layout.addView(etName);
+
+        if (isHotel) {
+            TextView tvAuftrag = new TextView(this);
+            tvAuftrag.setText("📨 Auftraggeber: " + e.name + " (" + e.customerKind + ")");
+            tvAuftrag.setTextSize(11);
+            tvAuftrag.setTextColor(0xFF64748B);
+            tvAuftrag.setPadding(0, 0, 0, padHalf);
+            layout.addView(tvAuftrag);
         }
-        // v6.62.88: Manuell-Ziel-Eingabe direkt im Dialog (war bisher Toast 'kommt spaeter')
-        items.add("📍 Ziel via Google Places suchen");
-        items.add("❌ Abbrechen");
-        String[] options = items.toArray(new String[0]);
-        String title = "📅 Vorbestellung — " + e.name;
-        if (topDests.isEmpty()) title += "\n(Kein vorheriges Ziel im CRM — Ziel via Places eingeben)";
-        else title += "\nHaeufigste Ziele:";
-        new AlertDialog.Builder(this)
-            .setTitle(title)
-            .setItems(options, (d, w) -> {
-                if (w < topDests.size()) {
-                    String dest = topDests.get(w).getKey();
-                    double[] coords = destCoords.get(dest);
-                    askPickupTimeForVorbestellung(e, dest, coords);
-                } else if (w == topDests.size()) {
-                    // v6.62.88: Places-Picker fuer freies Ziel
-                    askDestinationViaPlaces(e);
+
+        // Gast-Telefon nur fuer Hotel/Firma sichtbar (wenn leer → Hotel-Tel als Fallback)
+        final EditText etGuestPhone;
+        if (isHotel) {
+            etGuestPhone = new EditText(this);
+            etGuestPhone.setHint("Telefon des Gastes (optional)");
+            etGuestPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+            layout.addView(etGuestPhone);
+        } else {
+            etGuestPhone = null;
+        }
+
+        // Pickup + Destination als TextView-Buttons (Tap → MapPicker via launchPlaces)
+        // Stammkunde: Pickup = CRM-Adresse, Ziel leer.
+        // Hotel: Pickup leer, Ziel = Hotel-Adresse (per Tausch-Button umkehrbar).
+        final double[] pickupCoords = { Double.NaN, Double.NaN };
+        final double[] destCoords = { Double.NaN, Double.NaN };
+
+        TextView tvPickup = new TextView(this);
+        if (!isHotel && e.address != null && !e.address.isEmpty()) {
+            tvPickup.setText("📍 " + e.address);
+            if (e.lat != null && e.lon != null) {
+                pickupCoords[0] = e.lat; pickupCoords[1] = e.lon;
+            } else {
+                geocodeAddressIfNeeded(e, (lat, lon) -> {
+                    if (lat != null) { pickupCoords[0] = lat; pickupCoords[1] = lon; }
+                });
+            }
+        } else {
+            tvPickup.setText("📍 Abholort wählen…");
+        }
+        tvPickup.setPadding(pad / 2, pad, pad / 2, pad);
+        tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
+        layout.addView(tvPickup);
+
+        TextView btnSwap = new TextView(this);
+        btnSwap.setText("⇅ Abholort ↔ Ziel tauschen");
+        btnSwap.setTextSize(13);
+        btnSwap.setTextColor(0xFF1E40AF);
+        btnSwap.setBackgroundColor(0xFFEFF6FF);
+        btnSwap.setGravity(android.view.Gravity.CENTER);
+        btnSwap.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams swapLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        swapLp.setMargins(0, padHalf / 2, 0, padHalf / 2);
+        btnSwap.setLayoutParams(swapLp);
+        layout.addView(btnSwap);
+
+        TextView tvDest = new TextView(this);
+        if (isHotel && e.address != null && !e.address.isEmpty()) {
+            tvDest.setText("🎯 " + e.address);
+            if (e.lat != null && e.lon != null) {
+                destCoords[0] = e.lat; destCoords[1] = e.lon;
+            } else {
+                geocodeAddressIfNeeded(e, (lat, lon) -> {
+                    if (lat != null) { destCoords[0] = lat; destCoords[1] = lon; }
+                });
+            }
+        } else {
+            tvDest.setText("🎯 Zielort wählen…");
+        }
+        tvDest.setPadding(pad / 2, pad, pad / 2, pad);
+        tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
+        layout.addView(tvDest);
+
+        btnSwap.setOnClickListener(_v -> {
+            String pickTxt = tvPickup.getText().toString();
+            String destTxt = tvDest.getText().toString();
+            String pickAddr = pickTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            String destAddr = destTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            tvPickup.setText("📍 " + (destAddr.endsWith("wählen…") ? "Abholort wählen…" : destAddr));
+            tvDest.setText("🎯 " + (pickAddr.endsWith("wählen…") ? "Zielort wählen…" : pickAddr));
+            double pl = pickupCoords[0], pn = pickupCoords[1];
+            pickupCoords[0] = destCoords[0]; pickupCoords[1] = destCoords[1];
+            destCoords[0] = pl; destCoords[1] = pn;
+            Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
+        });
+
+        // Haeufige Ziele als Quick-Tap-Chips (Tap fuellt Zielfeld + Coords)
+        if (!topDests.isEmpty()) {
+            TextView tvQuickHeader = new TextView(this);
+            tvQuickHeader.setText("⭐ Häufige Ziele (Tap füllt Zielort):");
+            tvQuickHeader.setTextSize(12);
+            tvQuickHeader.setTextColor(0xFF64748B);
+            tvQuickHeader.setPadding(0, padHalf, 0, padHalf / 2);
+            layout.addView(tvQuickHeader);
+
+            for (Map.Entry<String, Integer> d : topDests) {
+                final String destStr = d.getKey();
+                final double[] coords = destCoordsMap.get(destStr);
+                TextView chip = new TextView(this);
+                chip.setText("⭐ " + destStr + "  (" + d.getValue() + "x)");
+                chip.setTextSize(13);
+                chip.setTextColor(0xFF1E40AF);
+                chip.setBackgroundColor(0xFFEFF6FF);
+                chip.setPadding(padHalf, padHalf, padHalf, padHalf);
+                LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                chipLp.setMargins(0, padHalf / 4, 0, padHalf / 4);
+                chip.setLayoutParams(chipLp);
+                chip.setOnClickListener(_v -> {
+                    tvDest.setText("🎯 " + destStr);
+                    if (coords != null) { destCoords[0] = coords[0]; destCoords[1] = coords[1]; }
+                    else { destCoords[0] = Double.NaN; destCoords[1] = Double.NaN; }
+                    Toast.makeText(this, "🎯 Ziel: " + destStr, Toast.LENGTH_SHORT).show();
+                });
+                layout.addView(chip);
+            }
+        }
+
+        // Zwischenstops-Sektion
+        TextView tvWpHeader = new TextView(this);
+        tvWpHeader.setText("🔶 Zwischenstops");
+        tvWpHeader.setTextSize(13);
+        tvWpHeader.setTextColor(0xFF374151);
+        tvWpHeader.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvWpHeader);
+
+        final LinearLayout wpContainer = new LinearLayout(this);
+        wpContainer.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(wpContainer);
+
+        final List<TextView> waypointFields = new ArrayList<>();
+        final List<double[]> waypointCoords = new ArrayList<>();
+
+        TextView btnAddWp = new TextView(this);
+        btnAddWp.setText("+ Zwischenstopp hinzufügen");
+        btnAddWp.setTextSize(13);
+        btnAddWp.setTextColor(0xFF1E40AF);
+        btnAddWp.setBackgroundColor(0xFFEFF6FF);
+        btnAddWp.setGravity(android.view.Gravity.CENTER);
+        btnAddWp.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams addLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        addLp.setMargins(0, padHalf / 2, 0, padHalf);
+        btnAddWp.setLayoutParams(addLp);
+        btnAddWp.setOnClickListener(_v -> {
+            final double[] wpC = new double[]{Double.NaN, Double.NaN};
+            waypointCoords.add(wpC);
+
+            LinearLayout wpRow = new LinearLayout(this);
+            wpRow.setOrientation(LinearLayout.HORIZONTAL);
+
+            TextView tvWp = new TextView(this);
+            tvWp.setText("🔶 Zwischenstopp wählen…");
+            tvWp.setPadding(pad / 2, pad, pad / 2, pad);
+            LinearLayout.LayoutParams wpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            tvWp.setLayoutParams(wpLp);
+            tvWp.setOnClickListener(__v -> launchPlaces(tvWp, wpC));
+            wpRow.addView(tvWp);
+            waypointFields.add(tvWp);
+
+            TextView btnRemove = new TextView(this);
+            btnRemove.setText("✕");
+            btnRemove.setTextSize(18);
+            btnRemove.setTextColor(0xFFDC2626);
+            btnRemove.setPadding(pad, pad, pad, pad);
+            btnRemove.setOnClickListener(__v -> {
+                int pos = waypointFields.indexOf(tvWp);
+                if (pos >= 0) {
+                    waypointFields.remove(pos);
+                    waypointCoords.remove(pos);
                 }
-            }).show();
-    }
+                wpContainer.removeView(wpRow);
+            });
+            wpRow.addView(btnRemove);
 
-    // v6.62.88: Places-Autocomplete fuer freies Ziel bei Vorbestellung
-    private CrmEntry _vorbestPendingCrm = null;
-    private void askDestinationViaPlaces(CrmEntry e) {
-        _vorbestPendingCrm = e;
-        // pendingPlaceField = ein temporaerer TextView um den Label zu fangen
-        TextView tv = new TextView(this);
-        double[] coords = new double[]{ Double.NaN, Double.NaN };
-        pendingPlaceField = tv;
-        pendingPlaceCoords = coords;
-        // Wenn Places-Result kommt → in placesLauncher-Callback wird tv gesetzt; danach hier weiter
-        // Wir hooken einen kurzen Polling-Mechanismus weil Places-Result async kommt
-        try {
-            if (!Places.isInitialized()) {
-                Places.initializeWithNewPlacesApiEnabled(getApplicationContext(), "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE");
-            }
-            List<Place.Field> fields = Arrays.asList(Place.Field.ID, Place.Field.DISPLAY_NAME, Place.Field.FORMATTED_ADDRESS, Place.Field.LOCATION);
-            Intent intent = new Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
-                .setCountries(Arrays.asList("DE"))
-                .build(this);
-            // Eigener Launcher mit Spezial-Handling
-            vorbestPlacesLauncher.launch(intent);
-        } catch (Throwable t) {
-            Toast.makeText(this, "Places-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
+            wpContainer.addView(wpRow);
+            launchPlaces(tvWp, wpC);
+        });
+        layout.addView(btnAddWp);
 
-    private final ActivityResultLauncher<Intent> vorbestPlacesLauncher = registerForActivityResult(
-        new ActivityResultContracts.StartActivityForResult(),
-        result -> {
-            if (result.getResultCode() != RESULT_OK || result.getData() == null || _vorbestPendingCrm == null) {
-                _vorbestPendingCrm = null;
-                return;
-            }
-            try {
-                Place p = Autocomplete.getPlaceFromIntent(result.getData());
-                String name = p.getDisplayName();
-                String addr = p.getFormattedAddress();
-                String label = (name == null || name.isEmpty()) ? (addr != null ? addr : "")
-                    : (addr == null || addr.isEmpty() || addr.equals(name) ? name
-                    : (addr.startsWith(name) ? addr : name + ", " + addr));
-                double[] coords = null;
-                if (p.getLocation() != null) coords = new double[]{ p.getLocation().latitude, p.getLocation().longitude };
-                askPickupTimeForVorbestellung(_vorbestPendingCrm, label, coords);
-            } catch (Throwable t) {
-                Toast.makeText(this, "Places-Parse: " + t.getMessage(), Toast.LENGTH_LONG).show();
-            } finally {
-                _vorbestPendingCrm = null;
-            }
-        }
-    );
+        // Personen-Spinner (1-8, ab 5 = Bus)
+        TextView tvPaxLabel = new TextView(this);
+        tvPaxLabel.setText("👥 Personen:");
+        tvPaxLabel.setTextSize(13);
+        tvPaxLabel.setTextColor(0xFF374151);
+        tvPaxLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvPaxLabel);
 
-    private void askPickupTimeForVorbestellung(CrmEntry e, String destination, double[] destCoords) {
-        // Datum + Uhrzeit Picker
+        final android.widget.Spinner spnPax = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> paxAdapter = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item,
+            new String[]{"1 Person", "2 Personen", "3 Personen", "4 Personen",
+                         "5 Personen (Bus)", "6 Personen (Bus)", "7 Personen (Bus)", "8 Personen (Bus)"});
+        paxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spnPax.setAdapter(paxAdapter);
+        spnPax.setSelection(0);
+        layout.addView(spnPax);
+
+        // Datum + Zeit (Default: jetzt + 1h)
         java.util.Calendar cal = java.util.Calendar.getInstance();
-        new android.app.DatePickerDialog(this, (dp, year, month, day) -> {
-            cal.set(year, month, day);
-            new android.app.TimePickerDialog(this, (tp, hour, minute) -> {
-                cal.set(java.util.Calendar.HOUR_OF_DAY, hour);
-                cal.set(java.util.Calendar.MINUTE, minute);
-                cal.set(java.util.Calendar.SECOND, 0);
-                cal.set(java.util.Calendar.MILLISECOND, 0);
-                long pickupTs = cal.getTimeInMillis();
+        cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
+        final long[] datetime = { cal.getTimeInMillis() };
+
+        TextView tvDate = new TextView(this);
+        java.text.SimpleDateFormat dateFmt = new java.text.SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY);
+        tvDate.setText("📅 " + dateFmt.format(cal.getTime()));
+        tvDate.setPadding(0, pad, 0, pad);
+        tvDate.setOnClickListener(v -> {
+            java.util.Calendar curr = java.util.Calendar.getInstance();
+            curr.setTimeInMillis(datetime[0]);
+            new android.app.DatePickerDialog(this, (dp, y, mo, d) -> {
+                new android.app.TimePickerDialog(this, (tp, h, mi) -> {
+                    java.util.Calendar nc = java.util.Calendar.getInstance();
+                    nc.set(y, mo, d, h, mi, 0);
+                    datetime[0] = nc.getTimeInMillis();
+                    tvDate.setText("📅 " + dateFmt.format(nc.getTime()));
+                }, curr.get(java.util.Calendar.HOUR_OF_DAY), curr.get(java.util.Calendar.MINUTE), true).show();
+            }, curr.get(java.util.Calendar.YEAR), curr.get(java.util.Calendar.MONTH), curr.get(java.util.Calendar.DAY_OF_MONTH)).show();
+        });
+        layout.addView(tvDate);
+
+        ScrollView scrollWrap = new ScrollView(this);
+        scrollWrap.addView(layout);
+
+        String message = isHotel
+            ? "🏨 " + e.name + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e))
+            : "Kunde: " + (e.name != null ? e.name : "?") + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e));
+
+        new AlertDialog.Builder(this)
+            .setTitle("📅 Vorbestellung anlegen")
+            .setMessage(message)
+            .setView(scrollWrap)
+            .setPositiveButton("Anlegen", (d, w) -> {
+                String name = etName.getText().toString().trim();
+                String pickup = tvPickup.getText().toString()
+                    .replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+                String dest = tvDest.getText().toString()
+                    .replaceFirst("^🎯\\s*", "").replaceFirst("^📍\\s*", "").trim();
+                if (name.isEmpty() || pickup.isEmpty() || pickup.endsWith("wählen…") ||
+                    dest.isEmpty() || dest.endsWith("wählen…")) {
+                    Toast.makeText(this, "Name + Abholort + Zielort wählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (Double.isNaN(pickupCoords[0]) || Double.isNaN(destCoords[0])) {
+                    Toast.makeText(this, "❌ Adresse(n) noch nicht geocodiert — bitte Abholort/Zielort antippen + auswählen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                int pax = spnPax.getSelectedItemPosition() + 1;
+                if (pax < 1) pax = 1;
+                if (pax > 8) pax = 8;
+
+                long pickupTs = datetime[0];
                 long now = System.currentTimeMillis();
-                // v6.62.88: Patrick: 'es duerfte jetzt keine Fahrt eingetragen werden koennen
-                // die in der Vergangenheit liegt'. Mindestens 5 Min Vorlauf erzwingen.
                 if (pickupTs < now + 5L * 60_000L) {
                     long minutesPast = (now - pickupTs) / 60_000L;
                     String msg = pickupTs < now
-                        ? "❌ Pickup-Zeit liegt " + minutesPast + " Min in der Vergangenheit. Wähle eine Zeit in der Zukunft."
+                        ? "❌ Pickup-Zeit liegt " + minutesPast + " Min in der Vergangenheit. Bitte Datum/Zeit ändern."
                         : "⚠️ Pickup-Zeit ist zu nah am Jetzt (<5 Min). Nutze SOFORT-Fahrt statt Vorbestellung.";
-                    new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Ungueltige Pickup-Zeit")
-                        .setMessage(msg)
-                        .setPositiveButton("Andere Zeit waehlen", (d, w) -> askPickupTimeForVorbestellung(e, destination, destCoords))
-                        .setNegativeButton("Abbrechen", null)
-                        .show();
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
                     return;
                 }
-                createVorbestellung(e, destination, destCoords, pickupTs);
-            }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), true).show();
-        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show();
-    }
 
-    private void createVorbestellung(CrmEntry e, String destination, double[] destCoords, long pickupTs) {
-        long now = System.currentTimeMillis();
-        Map<String, Object> r = new HashMap<>();
-        boolean isAuftrag = isAuftraggeberCrm(e) && _vorbestGuestName != null;
-        if (isAuftrag) {
-            r.put("customerName", e.name);
-            r.put("guestName", _vorbestGuestName);
-            r.put("_isAuftraggeberBooking", true);
-            r.put("_auftraggeberAddress", e.address != null ? e.address : "");
-            r.put("_auftraggeberKind", e.customerKind);
-            if (e.lat != null) { r.put("_auftraggeberLat", e.lat); r.put("_auftraggeberLon", e.lon); }
-            if (_vorbestGuestPhone != null) { r.put("customerPhone", _vorbestGuestPhone); r.put("customerMobile", _vorbestGuestPhone); }
-            else if (e.phone != null) r.put("customerPhone", e.phone);
-        } else {
-            r.put("customerName", e.name);
-            if (e.phone != null) r.put("customerPhone", e.phone);
-            if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
-        }
-        r.put("customerId", e.id);
-        r.put("status", "vorbestellt");
-        r.put("pickup", e.address != null ? e.address : "");
-        if (e.lat != null) { r.put("pickupLat", e.lat); r.put("pickupLon", e.lon); }
-        r.put("destination", destination);
-        if (destCoords != null) { r.put("destinationLat", destCoords[0]); r.put("destinationLon", destCoords[1]); }
-        r.put("pickupTimestamp", pickupTs);
-        java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
-        tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-        r.put("pickupTime", tf.format(new java.util.Date(pickupTs)));
-        r.put("createdAt", now);
-        r.put("updatedAt", now);
-        r.put("source", "native_vorbestellung_crmsearch");
-        r.put("passengers", 1);
-        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
-            .addOnSuccessListener(_v -> {
-                Toast.makeText(this, "✅ Vorbestellung: " + e.name + " → " + destination, Toast.LENGTH_LONG).show();
-                finish();
+                final List<Map<String, Object>> waypointsList = new ArrayList<>();
+                for (int wi = 0; wi < waypointFields.size(); wi++) {
+                    String wpAddr = waypointFields.get(wi).getText().toString()
+                        .replaceFirst("^🔶\\s*", "").replaceFirst("^📍\\s*", "").trim();
+                    if (wpAddr.isEmpty() || wpAddr.endsWith("wählen…")) continue;
+                    double[] wpC = waypointCoords.get(wi);
+                    Map<String, Object> wpData = new HashMap<>();
+                    wpData.put("address", wpAddr);
+                    if (!Double.isNaN(wpC[0])) {
+                        wpData.put("lat", wpC[0]);
+                        wpData.put("lon", wpC[1]);
+                    }
+                    waypointsList.add(wpData);
+                }
+
+                Map<String, Object> r = new HashMap<>();
+                if (isHotel) {
+                    r.put("customerName", e.name);
+                    r.put("guestName", name);
+                    r.put("_isAuftraggeberBooking", true);
+                    r.put("_auftraggeberAddress", e.address != null ? e.address : "");
+                    r.put("_auftraggeberKind", e.customerKind);
+                    if (e.lat != null) r.put("_auftraggeberLat", e.lat);
+                    if (e.lon != null) r.put("_auftraggeberLon", e.lon);
+                    String guestPhone = etGuestPhone != null ? etGuestPhone.getText().toString().trim() : "";
+                    if (!guestPhone.isEmpty()) {
+                        r.put("customerPhone", guestPhone);
+                        r.put("customerMobile", guestPhone);
+                    } else if (e.phone != null && !e.phone.isEmpty()) {
+                        r.put("customerPhone", e.phone);
+                    } else if (e.mobilePhone != null && !e.mobilePhone.isEmpty()) {
+                        r.put("customerMobile", e.mobilePhone);
+                    }
+                } else {
+                    r.put("customerName", name);
+                    if (e.phone != null) r.put("customerPhone", e.phone);
+                    if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
+                }
+                r.put("customerId", e.id);
+                r.put("status", "vorbestellt");
+                r.put("pickup", pickup);
+                r.put("pickupLat", pickupCoords[0]);
+                r.put("pickupLon", pickupCoords[1]);
+                Map<String, Object> pc = new HashMap<>();
+                pc.put("lat", pickupCoords[0]); pc.put("lon", pickupCoords[1]);
+                r.put("pickupCoords", pc);
+                r.put("destination", dest);
+                r.put("destinationLat", destCoords[0]);
+                r.put("destinationLon", destCoords[1]);
+                Map<String, Object> dc = new HashMap<>();
+                dc.put("lat", destCoords[0]); dc.put("lon", destCoords[1]);
+                r.put("destCoords", dc);
+                if (!waypointsList.isEmpty()) r.put("waypoints", waypointsList);
+                r.put("pickupTimestamp", pickupTs);
+                java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                r.put("pickupTime", tf.format(new java.util.Date(pickupTs)));
+                r.put("createdAt", now);
+                r.put("updatedAt", now);
+                r.put("source", "native_vorbestellung_crmsearch");
+                r.put("passengers", pax);
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
+                    .addOnSuccessListener(_v -> {
+                        String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
+                        Toast.makeText(this, "✅ Vorbestellung: " + label, Toast.LENGTH_LONG).show();
+                        finish();
+                    })
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
-            .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            .setNegativeButton("Abbrechen", null).show();
     }
 
     private void openEditDialog(CrmEntry e) {

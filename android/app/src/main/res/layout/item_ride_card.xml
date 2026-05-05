@@ -85,6 +85,24 @@
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
+        <!-- v6.62.303: Patrick (05.05. 13:48): "in der native app sieht der fahrer
+             nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige —
+             gross + farbig + zentriert. Wird nur sichtbar wenn drivingTimeToPickup
+             oder drivingTimeToDestination > 0 ist (also nach OSRM-Refresh). -->
+        <TextView
+            android:id="@+id/tv_live_eta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="12dp"
+            android:background="#1E40AF"
+            android:gravity="center"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Annehmen/Ablehnen — bei NEU/ZUGEWIESEN/SOFORT/VORBESTELLT -->
         <LinearLayout
             android:id="@+id/action_row"

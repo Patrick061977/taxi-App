@@ -586,6 +586,37 @@
                     showToast('Angelegt ✓', 'success');
                     currentEditId = ref.key;
                 }
+
+                // 🆕 v6.62.297: Patrick (05.05. 11:18): "minimal-invasiv beide UIs sync".
+                // Wenn Email gesetzt → parallel /preRegisteredUsers anlegen/aktualisieren,
+                // damit der Mitarbeiter in der "Benutzer-Verwaltung"-Liste in index.html
+                // auftaucht UND beim ersten Web-Login die Rolle automatisch uebernommen wird.
+                if (data.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) {
+                    try {
+                        const emailLower = data.email.toLowerCase();
+                        const emailKey = emailLower.replace(/\./g, '_').replace(/@/g, '_at_');
+                        const preSnap = await db.ref('preRegisteredUsers/' + emailKey).once('value');
+                        const existing = preSnap.val() || {};
+                        const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
+                        await db.ref('preRegisteredUsers/' + emailKey).update({
+                            displayName: displayName || existing.displayName || '?',
+                            email: emailLower,
+                            phone: data.mobilePhone || existing.phone || '',
+                            role: existing.role || 'fahrer',
+                            vehicle: existing.vehicle || '',
+                            preRegistered: true,
+                            linkedStaffId: currentEditId,
+                            updatedAt: Date.now(),
+                            createdAt: existing.createdAt || Date.now(),
+                            updatedBy: data.updatedBy
+                        });
+                        console.log('✅ /preRegisteredUsers gespiegelt:', emailKey);
+                    } catch (mirrorErr) {
+                        console.warn('⚠️ /preRegisteredUsers-Spiegelung fehlgeschlagen:', mirrorErr);
+                        // Nicht abbrechen — Stammdaten sind gespeichert, Spiegelung ist Bonus
+                    }
+                }
+
                 closeModal();
             } catch (e) {
                 console.error(e);

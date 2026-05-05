@@ -637,6 +637,19 @@ public class CrmSearchActivity extends AppCompatActivity {
         int padHalf = (int) (getResources().getDisplayMetrics().density * 8);
         layout.setPadding(pad, pad, pad, pad);
 
+        // v6.62.298: Patrick (05.05. 11:25): "speichern fehlt" — auf S9 wurde die
+        // Buttons-Reihe vom AlertDialog abgeschnitten weil setMessage + langer setView
+        // zusammen die Dialog-Hoehe ueberlaufen liessen. Loesung: Message in Layout-
+        // TextView statt setMessage → Buttons-Reihe bleibt unten sichtbar.
+        TextView tvKundeInfo = new TextView(this);
+        tvKundeInfo.setText(isHotel
+            ? "🏨 " + e.name + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e))
+            : "Kunde: " + (e.name != null ? e.name : "?") + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e)));
+        tvKundeInfo.setTextSize(12);
+        tvKundeInfo.setTextColor(0xFF64748B);
+        tvKundeInfo.setPadding(0, 0, 0, padHalf);
+        layout.addView(tvKundeInfo);
+
         // Name-Feld — Hotel/Firma = Gastname (leer); Stammkunde = Kundenname (vorausgefuellt)
         EditText etName = new EditText(this);
         etName.setHint(isHotel ? "Gastname (für den gebucht wird)" : "Kundenname");
@@ -868,13 +881,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         ScrollView scrollWrap = new ScrollView(this);
         scrollWrap.addView(layout);
 
-        String message = isHotel
-            ? "🏨 " + e.name + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e))
-            : "Kunde: " + (e.name != null ? e.name : "?") + (telOrMobile(e).equals("—") ? "" : "  📞 " + telOrMobile(e));
-
+        // v6.62.298: KEIN setMessage hier — Kunde-Info ist als TextView oben in der Layout
+        // (sonst wird auf S9 die positiveButton-Reihe vom Bildschirm abgeschnitten).
         new AlertDialog.Builder(this)
             .setTitle("📅 Vorbestellung anlegen")
-            .setMessage(message)
             .setView(scrollWrap)
             .setPositiveButton("Anlegen", (d, w) -> {
                 String name = etName.getText().toString().trim();

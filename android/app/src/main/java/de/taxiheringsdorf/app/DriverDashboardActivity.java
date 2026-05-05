@@ -1461,18 +1461,68 @@ public class DriverDashboardActivity extends AppCompatActivity {
             .setItems(options.toArray(new String[0]), (d, which) -> {
                 String m = methods.get(which);
                 switch (m) {
-                    case "cash":        markCompleted(r.id, "cash", amount, null); break;
-                    case "izettle":     payViaZettle(r.id, amount); break;
-                    case "stripe":      showStripeQrStage(r, amount); break;
+                    // v6.62.312: Patrick (05.05. 19:48): "Ich will den Workflow einfach
+                    //   und effizient. Ohne unnoetige Umwege. Nach Bar druecken Rechnung
+                    //   ja oder nein". → Bei Bar/iZettle/Stripe nach Methodenwahl ein
+                    //   2-Button-Confirm "Rechnung erstellen?" — Default Ja damit Kunde
+                    //   in track.html sofort eine Rechnung sieht. Cloud-Function generiert
+                    //   automatisch, kein manueller Klick im Admin noetig.
+                    case "cash":
+                        askRechnungYesNo(yes -> markCompletedWithInvoice(r.id, "cash", amount, null, yes));
+                        break;
+                    case "izettle":
+                        askRechnungYesNo(yes -> {
+                            // Zettle-Flow setzt invoiceRequested-Flag VOR payViaZettle damit
+                            // markCompleted spaeter im Zettle-Callback es korrekt schreibt.
+                            if (db != null && r.id != null) {
+                                db.getReference("rides/" + r.id).child("invoiceRequested").setValue(yes);
+                            }
+                            payViaZettle(r.id, amount);
+                        });
+                        break;
+                    case "stripe":
+                        askRechnungYesNo(yes -> {
+                            if (db != null && r.id != null) {
+                                db.getReference("rides/" + r.id).child("invoiceRequested").setValue(yes);
+                            }
+                            showStripeQrStage(r, amount);
+                        });
+                        break;
                     case "invoice_auftraggeber":
-                                        markCompleted(r.id, "invoice_auftraggeber", amount, hotelName); break;
+                        // Auftraggeber-Rechnung: implicit immer Ja (das IST ja die Bezahlart)
+                        markCompletedWithInvoice(r.id, "invoice_auftraggeber", amount, hotelName, true);
+                        break;
                     case "invoice_email":
-                                        showMailInvoiceDialog(r, amount); break;
+                        // Email-Rechnung-Flow legt eh eine Rechnung an
+                        showMailInvoiceDialog(r, amount);
+                        break;
                     case "cancel":      /* nichts tun, Status bleibt picked_up */ break;
                 }
             })
             .setOnCancelListener(d -> {/* nichts */})
             .show();
+    }
+
+    // v6.62.312: 2-Button-Frage "Rechnung erstellen?" — Default Ja (90% der Faelle).
+    // Walk-In-Bargeld-Kunden klicken einmal Nein, sonst Ja → Cloud-Function erstellt
+    // automatisch Invoice-Datensatz, Kunde sieht Rechnung in track.html.
+    private interface InvoiceWantedCallback { void onAnswer(boolean wantsInvoice); }
+    private void askRechnungYesNo(InvoiceWantedCallback cb) {
+        new AlertDialog.Builder(this)
+            .setTitle("🧾 Rechnung erstellen?")
+            .setMessage("Soll für diesen Kunden eine Rechnung erstellt werden?\n\nDer Kunde bekommt dann den Track-Link mit Rechnungs-Download.")
+            .setPositiveButton("✅ Ja, Rechnung", (d, w) -> cb.onAnswer(true))
+            .setNegativeButton("❌ Nein, ohne", (d, w) -> cb.onAnswer(false))
+            .setCancelable(false)
+            .show();
+    }
+
+    // v6.62.312: markCompleted-Wrapper der invoiceRequested-Flag mitschreibt.
+    private void markCompletedWithInvoice(String rideId, String paymentMethod, double amount, String note, boolean invoiceRequested) {
+        if (db != null && rideId != null) {
+            db.getReference("rides/" + rideId).child("invoiceRequested").setValue(invoiceRequested);
+        }
+        markCompleted(rideId, paymentMethod, amount, note);
     }
 
     // v6.59.0: Stripe-QR-Stage — ruft createStripeCheckout Cloud Function, zeigt QR-Code

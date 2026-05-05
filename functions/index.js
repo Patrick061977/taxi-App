@@ -20295,7 +20295,9 @@ exports.onRideUpdated = onValueUpdated(
             const _statusBefore = before.status || '';
             const _statusAfter = after.status || '';
             const _justCompleted = _statusAfter === 'completed' && _statusBefore !== 'completed';
-            const _invoiceWanted = after.invoiceRequested === true;
+            // v6.62.314: Auch needsInvoice-Feld erkennen (Web-Driver-Flow nutzt das, Native
+            //   v6.62.312+ schreibt beide Felder fuer Backwards-Kompatibilitaet).
+            const _invoiceWanted = after.invoiceRequested === true || after.needsInvoice === true;
             const _hasNoInvoiceYet = !after.invoiceNumber;
             const _hasPriceData = (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
             if (_justCompleted && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {

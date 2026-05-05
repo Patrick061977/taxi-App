@@ -82,13 +82,20 @@ public final class PermissionsHelper {
                         if (role != null && !role.isEmpty()) {
                             e.putString("role", role.toLowerCase());
                             Log.i(TAG, "✅ Rolle geladen: " + role);
+                            e.apply();
                         } else {
-                            // Web-App-Fallback: Legacy-Admin oder default 'fahrer'
-                            String legacy = isLegacyAdmin() ? "admin" : "fahrer";
-                            e.putString("role", legacy);
-                            Log.i(TAG, "⚠️ Keine /users/{uid}/role gesetzt, nutze Legacy: " + legacy);
+                            // v6.62.295: Patrick: 'kann mann auch beien mitarbeiter stammdaten
+                            // die login fuer die fahrer app erstellen'. mitarbeiter.html schreibt
+                            // /preauthorizedDrivers/{phoneKey} = {staffId, role:'driver', ...}.
+                            // Beim ersten SMS-Login uebernehmen wir das hierhin: User-Eintrag
+                            // anlegen, Staff verknuepfen, Pre-Auth-Eintrag entfernen.
+                            tryMigratePreauthorizedDriver(ctx, uid, () -> {
+                                String legacy = isLegacyAdmin() ? "admin" : "fahrer";
+                                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                                    .putString("role", legacy).apply();
+                                Log.i(TAG, "⚠️ Keine /users/{uid}/role gesetzt + keine Pre-Auth — Legacy: " + legacy);
+                            });
                         }
-                        e.apply();
                     }
                     @Override public void onCancelled(DatabaseError error) {
                         Log.w(TAG, "Role-Load: " + error.getMessage());
@@ -122,6 +129,60 @@ public final class PermissionsHelper {
         } catch (Throwable t) {
             Log.w(TAG, "loadRoleAsync: " + t.getMessage());
         }
+    }
+
+    // v6.62.295: Pre-Authorized-Driver-Migration. Wird aufgerufen wenn /users/{uid}/role
+    // leer ist. Wenn die Telefon-Nummer des aktuellen Users in /preauthorizedDrivers/
+    // {phoneKey} liegt, wird der Eintrag nach /users/{uid} migriert + /staff/{staffId}/
+    // linkedDriverId gesetzt + /preauthorizedDrivers/{phoneKey} geloescht.
+    private interface OnNotMigrated { void run(); }
+    private static void tryMigratePreauthorizedDriver(Context ctx, String uid, OnNotMigrated onNotMigrated) {
+        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+        if (u == null || u.getPhoneNumber() == null || u.getPhoneNumber().isEmpty()) {
+            onNotMigrated.run();
+            return;
+        }
+        // E.164-Phone → reine Ziffern als Firebase-Key (kein '+')
+        final String phoneKey = u.getPhoneNumber().replaceAll("[^0-9]", "");
+        final String phoneE164 = u.getPhoneNumber();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("preauthorizedDrivers/" + phoneKey)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot s) {
+                    if (!s.exists()) {
+                        Log.i(TAG, "Keine Pre-Auth fuer Phone " + phoneKey);
+                        onNotMigrated.run();
+                        return;
+                    }
+                    String staffId = s.child("staffId").getValue(String.class);
+                    String role = s.child("role").getValue(String.class);
+                    if (role == null || role.isEmpty()) role = "fahrer"; // 'driver' aus Web wird als 'fahrer' im Native-Permissions-System genutzt
+                    final String roleNorm = "driver".equalsIgnoreCase(role) ? "fahrer" : role.toLowerCase();
+                    Log.i(TAG, "✅ Pre-Auth gefunden — migriere: phone=" + phoneKey + " staffId=" + staffId + " role=" + roleNorm);
+
+                    java.util.Map<String, Object> userEntry = new java.util.HashMap<>();
+                    userEntry.put("phoneNumber", phoneE164);
+                    userEntry.put("role", roleNorm);
+                    userEntry.put("createdAt", System.currentTimeMillis());
+                    userEntry.put("source", "mitarbeiter-pre-auth-migration");
+                    if (staffId != null) userEntry.put("linkedStaffId", staffId);
+
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("users/" + uid)
+                        .updateChildren(userEntry);
+                    if (staffId != null) {
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("staff/" + staffId + "/linkedDriverId").setValue(uid);
+                    }
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                        .getReference("preauthorizedDrivers/" + phoneKey).removeValue();
+
+                    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString("role", roleNorm).apply();
+                }
+                @Override public void onCancelled(DatabaseError error) {
+                    Log.w(TAG, "Pre-Auth-Lookup: " + error.getMessage());
+                    onNotMigrated.run();
+                }
+            });
     }
 
     public static boolean hasTab(Context ctx, String tabId) {

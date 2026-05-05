@@ -287,6 +287,17 @@
                         </select>
                     </div>
 
+                    <div class="form-section-title">Kontakt</div>
+                    <div class="form-group">
+                        <label class="form-label">Handy (für SMS-Login der Fahrer-App)</label>
+                        <input type="tel" name="mobilePhone" class="form-input" placeholder="+4915xxxxxxxx">
+                        <span class="form-hint">Internationale Schreibweise mit +49 — wird vom „Driver-Login anlegen"-Button als SMS-Login-Whitelist gespeichert</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email (optional)</label>
+                        <input type="email" name="email" class="form-input" placeholder="vorname@example.com">
+                    </div>
+
                     <div class="form-section-title">Behörden &amp; Bank</div>
                     <div class="form-group">
                         <label class="form-label">SV-Nummer</label>
@@ -320,7 +331,12 @@
                         <select name="linkedDriverId" class="form-select">
                             <option value="">— nicht verknüpft —</option>
                         </select>
-                        <span class="form-hint">Verknüpft Login-Email/Telefon mit diesem Mitarbeiter — für Auto-Erfassung der Schicht-Ist-Zeiten</span>
+                        <span class="form-hint">Verknüpft Login-Email/Telefon mit einem bereits existierenden Driver-User — für Auto-Erfassung der Schicht-Ist-Zeiten</span>
+                        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="prepareDriverLogin()" style="font-size:12px;">📱 Driver-Login vorbereiten (Phone)</button>
+                            <span id="prepLoginStatus" style="font-size:12px;color:#6b7280;"></span>
+                        </div>
+                        <span class="form-hint">Schreibt Handy-Nummer als „preauthorized driver" in Firebase. Beim ersten SMS-Login in der Fahrer-App wird die Rolle 'driver' + Verknüpfung automatisch übernommen.</span>
                     </div>
                     <div class="form-group full">
                         <label class="form-label">Notizen</label>
@@ -573,6 +589,53 @@
             } catch (e) {
                 console.error(e);
                 showToast('Fehler beim Speichern: ' + e.message, 'error');
+            }
+        }
+
+        // 🆕 v6.62.295: Driver-Login vorbereiten — schreibt Handynummer in
+        //   /preauthorizedDrivers/{normalizedPhone} = { staffId, role:'driver',...}.
+        //   Native PermissionsHelper liest diesen Eintrag beim ersten SMS-Login der App
+        //   und migriert nach /users/{actualAuthUid} mit role='driver' + linkedStaffId.
+        async function prepareDriverLogin() {
+            const status = document.getElementById('prepLoginStatus');
+            const phoneInput = document.querySelector('input[name=mobilePhone]');
+            const phoneRaw = phoneInput ? phoneInput.value.trim() : '';
+            if (!phoneRaw) {
+                status.textContent = '❌ Handy-Nummer fehlt — erst eingeben.';
+                status.style.color = '#dc2626';
+                phoneInput && phoneInput.focus();
+                return;
+            }
+            // E.164-Normalisierung — DE-Mobil 015/016/017 → +491...
+            let phone = phoneRaw.replace(/[\s\-()]/g, '');
+            if (/^0(15|16|17)/.test(phone)) phone = '+49' + phone.slice(1);
+            if (!phone.startsWith('+')) {
+                status.textContent = '❌ Bitte mit +49 oder 015/016/017 schreiben.';
+                status.style.color = '#dc2626';
+                return;
+            }
+            if (!currentEditId) {
+                status.textContent = '⚠️ Erst Mitarbeiter speichern, dann Login vorbereiten.';
+                status.style.color = '#b45309';
+                return;
+            }
+            const userEmail = (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?';
+            const phoneKey = phone.replace(/[^0-9]/g, ''); // Firebase keys dürfen kein '+' enthalten
+            try {
+                await db.ref('preauthorizedDrivers/' + phoneKey).set({
+                    staffId: currentEditId,
+                    role: 'driver',
+                    phoneNumber: phone,
+                    createdAt: Date.now(),
+                    createdBy: userEmail
+                });
+                status.textContent = '✅ Vorbereitet — Fahrer kann sich mit ' + phone + ' per SMS anmelden.';
+                status.style.color = '#059669';
+                showToast('Driver-Login vorbereitet ✓', 'success');
+            } catch (e) {
+                console.error(e);
+                status.textContent = '❌ Fehler: ' + e.message;
+                status.style.color = '#dc2626';
             }
         }
 

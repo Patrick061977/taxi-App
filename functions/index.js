@@ -24137,3 +24137,191 @@ exports.setupClaudeBot = onRequest(
         }
     }
 );
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.308: BUCHHALTUNGS-FOUNDATION — Belege → SKR03 → DATEV-CSV
+// (Original-Idee aus PR #1098 v6.62.129 vom 29.04. — Branch zu alt
+// fuer Merge, daher fresh in v6.62.308 portiert auf aktuelles main.)
+//
+// Workflow:
+// 1. Patrick scannt Beleg (Foto/PDF) → POST /classifyReceipt
+// 2. Anthropic Vision (claude-sonnet-4-6) extrahiert: lieferant, datum,
+//    brutto/netto/ustSatz, skr03Konto-Vorschlag, confidence
+// 3. Gespeichert in /belegImport/{batchId}/{belegId} mit bestaetigt:false
+// 4. Patrick bestaetigt im DMS (UI in v6.62.309)
+// 5. GET /datevExport?batchId=X liefert DATEV-CSV (nur bestaetigte Zeilen)
+//
+// Belegnr-Schema v6.62.308 (GoBD-konform, lueckenlos pro Typ+Monat):
+//   JJJJ-MM-TYP-NNNN  z.B. 2026-05-EINR-0042
+//   Typen: EINR (Eingangsrechnung), AUSR (Ausgangsrechnung), KAS, BANK,
+//          LOHN, SONST, PRIV (privat). Counter atomar via DB-Transaction.
+// ═══════════════════════════════════════════════════════════════
+
+const SKR03_KONTEN_PROMPT = [
+    '4530 Treibstoff Kfz (Tankstellen: Aral, Shell, Total, JET, Star, Esso, BFT, Avia, Ladestation Tesla/Ionity)',
+    '4540 Wartung/Inspektion Kfz (Werkstatt: Inspektion, Oelwechsel)',
+    '4570 Reparatur Kfz (Werkstatt: Reparatur, Reifen, TUEV, AU, Bremsen, Auspuff)',
+    '4520 Kfz-Versicherung (HUK-Coburg, Allianz, AXA, R+V, etc.)',
+    '4510 Kfz-Steuer (Hauptzollamt, Bundeskasse)',
+    '4580 Garagenmiete / Stellplatz',
+    '4210 Miete / Pacht Geschaeftsraeume (Vermieter)',
+    '4220 Heizung / Strom / Wasser (Stadtwerke, E.ON, Vattenfall — wenn Geschaeftsraum)',
+    '4910 Werbekosten (Druckerei, Visitenkarten, Werbeflyer, Plakat)',
+    '4920 Telefon/Internet/Mobilfunk (Telekom, Vodafone, 1&1, O2)',
+    '4930 Buerobedarf / Software-Abos (Anthropic, Stripe, Google, Firebase, Microsoft)',
+    '4940 Porto / Versand (DHL, Hermes, DPD)',
+    '4920 Steuerberatung (ECOVIS Baltic GmbH, vorher VKO)',
+    '4922 Rechtsberatung (Avoka.law, Kanzlei)',
+    '4360 Versicherungen Betrieb (Inhaltsversicherung, Rechtsschutz, Betriebshaftpflicht)',
+    '4380 Beitraege IHK / BG Verkehr / Verbaende',
+    '4120 Lohn/Gehalt (an Mitarbeiter)',
+    '4140 Aushilfsloehne / Mini-Job',
+    '4150 Sozialabgaben (AG-Anteil Krankenkasse/Rente)',
+    '0320 Pkw-Anschaffung (Tesla, Prius, Toyota — Anlagevermoegen)',
+    '0420 GWG <800 EUR (Drucker, Tablet, Kabel, Werkzeug)',
+    '8400 Erloese 7% USt — Personenbefoerderung Nahverkehr (NUR wenn Beleg Einnahme)',
+    '8401 Erloese 19% USt — Fernverkehr/Kurier',
+    '4980 Sonstige Aufwendungen (catch-all wenn nichts passt)'
+].join('\n');
+
+exports.classifyReceipt = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 120, memory: '512MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'POST required' }); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        try {
+            const body = (typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
+            const { fileBase64, mediaType, filename, batchId } = body;
+            if (!fileBase64) { res.status(400).json({ error: 'fileBase64 required' }); return; }
+            const _media = mediaType || 'application/pdf';
+            const anthropicKey = await getAnthropicApiKey();
+            if (!anthropicKey) { res.status(500).json({ error: 'Kein Anthropic API Key' }); return; }
+
+            const prompt = `Du analysierst einen deutschen Beleg/Rechnung/Quittung fuer die Buchhaltung von "Funk Taxi Heringsdorf" (Patrick Wydra, Kanalstr. 1, 17424 Heringsdorf).
+
+Extrahiere als striktes JSON:
+- lieferant: Firmenname (z.B. "Aral Tankstelle Heringsdorf", "Werkstatt Mueller GmbH", "Telekom Deutschland")
+- datum: Belegdatum im Format "YYYY-MM-DD"
+- brutto: Endbetrag inkl. USt (Number, Euro)
+- netto: Nettobetrag (Number, Euro)
+- ustBetrag: USt-Betrag (Number, Euro)
+- ustSatz: 7 oder 19 (Number)
+- belegNr: Beleg-/Rechnungsnummer wenn erkennbar (String oder null)
+- zahlungsart: "bar"|"karte"|"ueberweisung"|"unbekannt"
+- bereich: Vermutung wer den Beleg verbucht: "taxi" (Standardfall fuer Funk Taxi), "ferienwohnung" (wenn Wasser/Strom/Reinigung fuer eine private Ferienwohnung), "privat" (eindeutig privat)
+- skr03Konto: 4-stelliges SKR03-Konto aus DIESER Liste:
+${SKR03_KONTEN_PROMPT}
+- skr03Bezeichnung: lesbarer Name des Kontos
+- confidence: 0.0-1.0 wie sicher du bist mit der Konto-Zuordnung
+- hint: 1 kurzer Satz Begruendung fuer die Zuordnung (Deutsch)
+- rawText: alle sichtbaren Texte des Belegs wortgenau
+
+Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Feldern: null. Achte besonders darauf, ob der Beleg ueberhaupt eine Ausgabe ist — wenn es eine eingehende Zahlung/Erloes ist, nutze 8400/8401.`;
+
+            const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
+                role: 'user',
+                content: [
+                    { type: 'document', source: { type: 'base64', media_type: _media, data: fileBase64 } },
+                    { type: 'text', text: prompt }
+                ]
+            }]);
+            const text = (visionResp.content?.[0]?.text || '').trim();
+            let jsonText = text;
+            const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (m) jsonText = m[1].trim();
+            let parsed = null;
+            try { parsed = JSON.parse(jsonText); }
+            catch (parseErr) {
+                console.error('classifyReceipt JSON-Parse:', parseErr.message);
+                res.status(200).json({ ok: false, error: 'KI-Antwort kein valides JSON', rawText: text });
+                return;
+            }
+
+            // v6.62.308: Belegnr-Schema JJJJ-MM-TYP-NNNN — lueckenlos pro Typ+Monat (GoBD)
+            const _isErloes = parsed.skr03Konto && String(parsed.skr03Konto).startsWith('84');
+            const _typForBelegNr = _isErloes ? 'AUSR' : 'EINR';
+            const _belegDate = parsed.datum && /^\d{4}-\d{2}-\d{2}$/.test(parsed.datum)
+                ? parsed.datum
+                : new Date().toISOString().slice(0, 10);
+            const _yyyymm = _belegDate.slice(0, 7); // YYYY-MM
+            const _counterRef = db.ref(`belegCounter/${_yyyymm}/${_typForBelegNr}`);
+            const _counterTx = await _counterRef.transaction(curr => (curr || 0) + 1);
+            const _counterValue = _counterTx.snapshot.val() || 1;
+            const _belegNrFormatted = `${_yyyymm}-${_typForBelegNr}-${String(_counterValue).padStart(4, '0')}`;
+            const _physOrdner = `${_yyyymm}-${_typForBelegNr}`;
+
+            const _batchId = batchId || ('batch_' + new Date().toISOString().slice(0, 10));
+            const belegRef = db.ref(`belegImport/${_batchId}`).push();
+            await belegRef.set({
+                t: Date.now(),
+                filename: filename || 'unbekannt',
+                mediaType: _media,
+                parsed,
+                bestaetigt: false,
+                belegNr: _belegNrFormatted,
+                typ: _typForBelegNr,
+                physOrdner: _physOrdner,
+                physPosition: _counterValue,
+                eingangsDatum: new Date().toISOString().slice(0, 10),
+                belegDatum: _belegDate
+            });
+
+            res.status(200).json({
+                ok: true, parsed, belegId: belegRef.key, batchId: _batchId,
+                belegNr: _belegNrFormatted, physOrdner: _physOrdner, physPosition: _counterValue
+            });
+        } catch (err) {
+            console.error('classifyReceipt Fehler:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+exports.datevExport = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        const batchId = req.query.batchId;
+        if (!batchId) { res.status(400).json({ error: 'batchId required' }); return; }
+        try {
+            const snap = await db.ref(`belegImport/${batchId}`).once('value');
+            const data = snap.val() || {};
+            const lines = ['Datum;Belegnr;Konto;Gegenkonto;Betrag;USt-Satz;Buchungstext;PhysOrdner'];
+            for (const [id, b] of Object.entries(data)) {
+                if (!b || !b.parsed || !b.bestaetigt) continue;
+                const p = b.parsed;
+                const datum = (p.datum || '').replace(/-/g, '');
+                const beleg = b.belegNr || p.belegNr || id.slice(-8);
+                const konto = p.skr03Konto || '4980';
+                const isErloes = String(konto).startsWith('84');
+                const gegen = isErloes
+                    ? (p.zahlungsart === 'karte' ? '1361' : '1000')
+                    : (p.zahlungsart === 'bar' ? '1000' : '1200');
+                const betrag = (p.brutto || 0).toFixed(2).replace('.', ',');
+                const ust = p.ustSatz || '';
+                const txt = ((p.lieferant || '') + ' — ' + (p.skr03Bezeichnung || '')).slice(0, 60).replace(/[;\n\r]/g, ' ');
+                const ordner = b.physOrdner || '';
+                lines.push(`${datum};${beleg};${konto};${gegen};${betrag};${ust};${txt};${ordner}`);
+            }
+            const csv = lines.join('\n') + '\n';
+            res.set('Content-Type', 'text/csv; charset=utf-8');
+            res.set('Content-Disposition', `attachment; filename="datev-stapel-${batchId}.csv"`);
+            res.status(200).send(csv);
+        } catch (err) {
+            console.error('datevExport Fehler:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);

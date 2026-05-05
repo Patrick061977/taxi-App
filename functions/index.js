@@ -18722,9 +18722,22 @@ exports.onRideCreated = onValueCreated(
             ride.pickupLat && ride.pickupLon && ride.destinationLat && ride.destinationLon) {
             try {
                 console.log(`💰 onRideCreated: Kein Preis gesetzt — berechne via OSRM (${rideId})`);
+                // 🆕 v6.62.309: Patrick (05.05. 15:40): Zwischenstopp wird in der Native-App
+                //   nicht in den Preis eingerechnet. Fix: ride.waypoints in OSRM-Call mitgeben,
+                //   damit Distanz inkl. Umweg gerechnet wird.
+                const _wpRaw = Array.isArray(ride.waypoints)
+                    ? ride.waypoints
+                    : Object.values(ride.waypoints || {});
+                const _waypointCoordsForRoute = _wpRaw
+                    .filter(wp => wp && typeof wp.lat === 'number' && typeof wp.lon === 'number')
+                    .map(wp => ({ lat: parseFloat(wp.lat), lon: parseFloat(wp.lon) }));
+                if (_waypointCoordsForRoute.length > 0) {
+                    console.log(`🛑 onRideCreated: ${_waypointCoordsForRoute.length} Zwischenstopp(s) in Routen-Berechnung`);
+                }
                 const _route = await calculateRoute(
                     { lat: parseFloat(ride.pickupLat), lon: parseFloat(ride.pickupLon) },
-                    { lat: parseFloat(ride.destinationLat), lon: parseFloat(ride.destinationLon) }
+                    { lat: parseFloat(ride.destinationLat), lon: parseFloat(ride.destinationLon) },
+                    _waypointCoordsForRoute
                 );
                 if (_route && _route.distance && parseFloat(_route.distance) <= 500) {
                     const _ts = ride.pickupTimestamp || Date.now();

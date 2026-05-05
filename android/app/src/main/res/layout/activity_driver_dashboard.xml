@@ -88,6 +88,20 @@
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
+                <!-- v6.62.304: Patrick (05.05. 14:11): "der Fahrer müsste sehen,
+                     dass er auch eingeloggt ist mit seinem Namen". Zeigt den Namen
+                     aus /staff (über linkedDriverId) bzw. Fallback auf User-Email. -->
+                <TextView
+                    android:id="@+id/tv_driver_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text=""
+                    android:textColor="#10B981"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/tv_vehicle_info"
                     android:layout_width="match_parent"

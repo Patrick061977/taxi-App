@@ -18064,7 +18064,14 @@ exports.scheduledAutoAssign = onSchedule(
                             });
                             // FCM direkt senden — onRideUpdated würde ihn nicht senden weil
                             // newVehicle === oldVehicle (kein Vehicle-Change, nur Status-Change).
-                            const _pickupLabel = r.pickupTime || new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', timeZone: 'Europe/Berlin'});
+                            // v6.62.306: Patrick (05.05. 14:58): "hier steht 11.45 Uhr, die
+                            // Fahrt war 13.45 Uhr, da musst du mal UDC machen". r.pickupTime
+                            // kann ISO-UTC sein ('2026-05-05T11:45:00.000Z'); in dem Fall
+                            // ignorieren + aus pickupTimestamp Berlin-Zeit formatieren.
+                            const _isIsoPickup = typeof r.pickupTime === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(r.pickupTime);
+                            const _pickupLabel = (r.pickupTime && !_isIsoPickup)
+                                ? r.pickupTime
+                                : new Date(r.pickupTimestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', timeZone: 'Europe/Berlin'});
                             await sendFCMToVehicle(_vid, {
                                 type: 'new_ride',
                                 rideId: r.firebaseId,

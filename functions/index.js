@@ -20283,6 +20283,42 @@ exports.onRideUpdated = onValueUpdated(
         } catch (_changeErr) {
             console.warn(`⚠️ Aenderungs-SMS Fehler ${rideId}:`, _changeErr.message);
         }
+
+        // 🆕 v6.62.311: Pending Invoice-Request → Re-Trigger nach Rechnungs-Erstellung.
+        //   Wenn Kunde 'Rechnung anfordern' geklickt hat ABER ride.invoiceNumber war leer,
+        //   wurde der Request 'pending' markiert + Patrick per Telegram benachrichtigt.
+        //   Jetzt: sobald Patrick die Rechnung erstellt → after.invoiceNumber neu gesetzt
+        //   → wir loeschen den /invoiceRequests-Eintrag und schreiben ihn neu mit der
+        //   invoiceNumber drin. Das triggert onValueCreated → Email geht raus.
+        try {
+            if (!before.invoiceNumber && after.invoiceNumber && after.pendingInvoiceRequestEmail) {
+                console.log(`📧 onRideUpdated: invoiceNumber neu gesetzt + pending request → re-trigger ${rideId}`);
+                const _email = after.pendingInvoiceRequestEmail;
+                const _existingRefSnap = await db.ref(`invoiceRequests/${rideId}`).once('value');
+                const _existing = _existingRefSnap.val() || {};
+                // Eintrag loeschen damit onValueCreated beim Wiederanlegen feuert
+                await db.ref(`invoiceRequests/${rideId}`).remove();
+                // Mini-Pause damit Trigger-Reset durch ist
+                await new Promise(r => setTimeout(r, 500));
+                await db.ref(`invoiceRequests/${rideId}`).set({
+                    rideId,
+                    email: _email,
+                    customerName: after.customerName || _existing.customerName || null,
+                    invoiceNumber: after.invoiceNumber,
+                    requestedAt: _existing.requestedAt || Date.now(),
+                    retriggeredAt: Date.now(),
+                    source: 'auto-retrigger-after-invoice-created'
+                });
+                // ride-Flag entfernen damit nicht erneut beim naechsten Update re-triggert
+                await db.ref(`rides/${rideId}`).update({
+                    pendingInvoiceRequestEmail: null,
+                    pendingInvoiceRequestSince: null,
+                    invoiceRequestRetriggeredAt: Date.now()
+                });
+            }
+        } catch (_reTrigErr) {
+            console.warn(`⚠️ Invoice-Request Re-Trigger Fehler ${rideId}:`, _reTrigErr.message);
+        }
     }
 );
 
@@ -23730,11 +23766,32 @@ exports.onInvoiceRequested = onValueCreated(
                 customerName = customerName || ride.customerName;
             }
             if (!invoiceNumber) {
+                // 🆕 v6.62.311: Patrick (05.05. 19:25): "1 Rechnung kommt nicht beim Kunden an".
+                //   Cause: Kunde klickt 'Rechnung anfordern' BEVOR Patrick die Rechnung im
+                //   Admin erstellt hat. Jetzt: Telegram-Push an Patrick + ride markieren
+                //   damit onRideUpdated bei nachtraeglicher Rechnungs-Erstellung re-triggert.
                 await event.data.ref.update({
-                    error: 'Keine invoiceNumber an der Ride hinterlegt — Rechnung muss erst angelegt werden.',
-                    errorAt: Date.now()
+                    pending: true,
+                    pendingReason: 'invoice-not-created-yet',
+                    pendingAt: Date.now(),
+                    error: null,
+                    errorAt: null
                 });
-                console.warn(`onInvoiceRequested ${rideId}: invoiceNumber fehlt`);
+                try {
+                    await db.ref(`rides/${rideId}`).update({
+                        pendingInvoiceRequestEmail: data.email,
+                        pendingInvoiceRequestSince: Date.now()
+                    });
+                } catch (_e) {}
+                try {
+                    const _custName = customerName || 'Kunde';
+                    const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                    const _msg = `🧾 <b>Rechnung angefordert</b>\n\n👤 <b>Kunde:</b> ${_custName}\n📧 <b>Email:</b> ${data.email}\n🆔 <b>Ride:</b> <code>${rideId}</code>\n\n⚠️ <i>Du hast die Rechnung noch nicht erstellt.</i>\n\nBitte im Admin-Tab Rechnung anlegen — sobald <code>invoiceNumber</code> gesetzt ist, geht die Email automatisch raus.\n\n${_trackLink}`;
+                    await sendToAllAdmins(_msg, 'invoice-request-pending');
+                } catch (_tgErr) {
+                    console.warn('onInvoiceRequested Telegram-Push Fehler:', _tgErr.message);
+                }
+                console.log(`📧 onInvoiceRequested ${rideId}: invoiceNumber fehlt → pending + Admin-Telegram`);
                 return;
             }
             // PDF-URL fuer Anhang ermitteln

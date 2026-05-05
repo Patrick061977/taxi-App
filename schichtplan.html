@@ -2201,8 +2201,13 @@ ${rows.join('\n')}
                 return;
             }
             const today = new Date();
-            const todayStr = today.toISOString().slice(0, 10);
-            const in30 = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+            // 🆕 v6.62.302: Patrick (05.05. 13:00): "hier müsste der aktuelle monat stehen
+            //   also datumsbereich anwenden auf aktuellen monat". Default-Range = 1. bis
+            //   letzten dieses Monats statt heute + 30 Tage.
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Tag 0 = letzter Tag des Vormonats = letzter Tag dieses Monats
+            const todayStr = monthStart.toISOString().slice(0, 10);
+            const in30 = monthEnd.toISOString().slice(0, 10);
             list.innerHTML = allStaff.map(s => {
                 const p = s.shiftPattern || defaultPattern(s);
                 const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ') || '—';
@@ -2339,6 +2344,7 @@ ${rows.join('\n')}
                     <div class="vorlage-actions">
                         <button class="btn btn-primary" onclick="saveVorlage('${s.id}')">💾 Vorlage speichern</button>
                         <button class="btn" style="background:#059669;color:white;" onclick="applyVorlage('${s.id}')">▶ Auf Datums-Bereich anwenden</button>
+                        <button class="btn" style="background:#0ea5e9;color:white;" onclick="applyVorlageJahr('${s.id}')" title="Wendet das Pattern automatisch von heute auf 12 Monate vor an (alle Schichten überschrieben)">📅 Jahresplan (12 Monate ab heute)</button>
                         <button class="btn" style="background:#fee2e2;color:#991b1b;" onclick="clearVorlageRange('${s.id}')">🗑 Range löschen</button>
                     </div>
                     <div id="vorl-status-${s.id}" style="font-size:12px;color:#374151;margin-top:8px;"></div>
@@ -2469,6 +2475,34 @@ ${rows.join('\n')}
                 postStandbyHours: Number(postH.toFixed(2)),
                 standbyHoursTotal: Number((preH + postH).toFixed(2))
             };
+        }
+
+        // 🆕 v6.62.302: Patrick (05.05. 13:00): "kannst du auch einen jahresplan machen
+        //   auf annahme dieses wechselschicht modells". Setzt temporaer das Range-Field auf
+        //   heute → heute+365 Tage und ruft applyVorlage auf — damit das ganze Wechselschicht-
+        //   Pattern (Tag/Nacht-Block alternierend) fuer 12 Monate vorgerechnet wird.
+        async function applyVorlageJahr(staffId) {
+            const fromInput = document.getElementById('vorl-from-' + staffId);
+            const toInput = document.getElementById('vorl-to-' + staffId);
+            if (!fromInput || !toInput) return;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yearLater = new Date(today.getTime() + 365 * 86400000);
+            const fromStr = today.toISOString().slice(0, 10);
+            const toStr = yearLater.toISOString().slice(0, 10);
+            // Bestaetigung — der Bulk-Write ist heftig (~365 Eintraege werden ueberschrieben)
+            if (!confirm(`📅 Jahresplan anwenden: Pattern wird von ${fromStr} bis ${toStr} (12 Monate) angewendet.\n\nBestehende Schicht-Plaene in diesem Zeitraum werden ÜBERSCHRIEBEN.\n\nFortfahren?`)) return;
+            // Range-Felder fuellen damit applyVorlage die richtigen Daten nimmt
+            const oldFrom = fromInput.value, oldTo = toInput.value;
+            fromInput.value = fromStr;
+            toInput.value = toStr;
+            try {
+                await applyVorlage(staffId);
+            } finally {
+                // Range-Felder wieder auf Monats-Default zurueck (User soll nicht versehentlich
+                // den Jahres-Range nochmal mit dem normalen "Anwenden"-Button triggern)
+                fromInput.value = oldFrom;
+                toInput.value = oldTo;
+            }
         }
 
         async function applyVorlage(staffId) {

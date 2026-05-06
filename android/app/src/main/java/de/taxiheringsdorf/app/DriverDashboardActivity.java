@@ -992,10 +992,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (r == null) continue;
             if (r.status == null) continue;
             String st = r.status.toLowerCase();
+            // v6.62.358 (06.05.): Patrick: "der fahrer sieht die stornierte fahrt nicht mehr".
+            // Bisher wurden cancelled/storniert komplett ausgefiltert → Fahrer wusste nicht
+            // warum die Fahrt weg war. Jetzt: in den letzten 30 Min stornierte Fahrten die
+            // diesem Fahrzeug zugewiesen waren bleiben sichtbar (mit rotem Banner in der UI).
             if (st.equals("completed") || st.equals("abgeschlossen") ||
-                st.equals("cancelled") || st.equals("canceled") || st.equals("storniert") ||
                 st.equals("deleted") || st.equals("gelöscht") || st.equals("rejected") ||
                 st.equals("done")) continue;
+            boolean isCancelled = st.equals("cancelled") || st.equals("canceled") || st.equals("storniert");
+            if (isCancelled) {
+                Long ca = r.cancelledAt;
+                long age = ca != null ? (now - ca) : Long.MAX_VALUE;
+                boolean wasMine = currentVehicleId != null
+                    && (currentVehicleId.equals(r.assignedVehicle) || currentVehicleId.equals(r.vehicleId));
+                if (age > 30L * 60L * 1000L || !wasMine) continue;
+                // sichtbar bleiben — Adapter zeigt Storno-Banner anhand r.status
+            }
             // v6.62.132: Patrick: 'warum erscheint die Vorbestellung jetzt nicht in meiner Liste?'
             // Bug: angenommene Vorbestellungen (status=assigned/accepted) wurden durchs 20-Min-
             // Fenster gefiltert, obwohl der Fahrer sie schon angenommen hat. Wenn der Fahrer
@@ -1957,6 +1969,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Integer drivingTimeToDestination; // v6.62.75: Min bis Ziel (live, nach picked_up)
         Double drivingDistanceToPickupKm; // v6.62.318: km-Distanz zum Pickup (Patrick: 'Fahrer sieht nicht wie weit weg')
         Double drivingDistanceToDestKm; // v6.62.318: km-Distanz zum Ziel
+        // v6.62.358: Patrick "der fahrer sieht die stornierte fahrt nicht mehr"
+        Long cancelledAt;
+        String cancelledBy, cancelledVia, cancelReason;
+        String assignedVehicle, vehicleId;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -2023,6 +2039,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 Object dtd = s.child("drivingTimeToDestination").getValue();
                 if (dtd instanceof Number) r.drivingTimeToDestination = ((Number) dtd).intValue();
+                // v6.62.358: cancellation-Felder + Vehicle-Zuweisung
+                Object ca = s.child("cancelledAt").getValue();
+                if (ca instanceof Number) r.cancelledAt = ((Number) ca).longValue();
+                r.cancelledBy = s.child("cancelledBy").getValue(String.class);
+                r.cancelledVia = s.child("cancelledVia").getValue(String.class);
+                r.cancelReason = s.child("cancelReason").getValue(String.class);
+                if (r.cancelReason == null) r.cancelReason = s.child("cancellationReason").getValue(String.class);
+                r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
+                r.vehicleId = s.child("vehicleId").getValue(String.class);
                 return r;
             } catch (Throwable _t) { return null; }
         }
@@ -2063,6 +2088,37 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 btnCancelRide = v.findViewById(R.id.btn_cancel_ride);
             }
             void bind(Ride r) {
+                // v6.62.358: Storno-Banner — Patrick "der fahrer sieht die stornierte fahrt nicht mehr"
+                String _stLow = r.status != null ? r.status.toLowerCase() : "";
+                boolean _isCancelled = _stLow.equals("cancelled") || _stLow.equals("canceled") || _stLow.equals("storniert");
+                if (_isCancelled) {
+                    String _cancelTime = "";
+                    if (r.cancelledAt != null) {
+                        java.text.SimpleDateFormat _f = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                        _f.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                        _cancelTime = " um " + _f.format(new java.util.Date(r.cancelledAt));
+                    }
+                    String _by = r.cancelledBy != null && !r.cancelledBy.isEmpty() ? (" von " + r.cancelledBy) : "";
+                    String _reason = r.cancelReason != null && !r.cancelReason.isEmpty() ? ("\n📝 Grund: " + r.cancelReason) : "";
+                    itemView.setBackgroundColor(Color.parseColor("#451818"));  // dunkles Rot
+                    tvName.setText("❌ STORNIERT" + _cancelTime + _by + _reason);
+                    tvName.setTextColor(Color.parseColor("#fca5a5"));
+                    tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
+                    tvDest.setText("🎯 " + (r.destination != null ? r.destination : "-")
+                        + "\n👤 " + (r.customerName != null ? r.customerName : "(Kunde)"));
+                    if (tvTime != null) tvTime.setText("");
+                    if (tvBadge != null) tvBadge.setText("❌ Storniert");
+                    if (tvPriceDist != null) tvPriceDist.setText("");
+                    if (tvLiveEta != null) tvLiveEta.setVisibility(View.GONE);
+                    if (actionRow != null) actionRow.setVisibility(View.GONE);
+                    if (activeToolbar != null) activeToolbar.setVisibility(View.GONE);
+                    return;
+                }
+                // Reset (falls View recycled aus storniert-State)
+                itemView.setBackgroundColor(Color.parseColor("#1E293B"));
+                tvName.setTextColor(Color.parseColor("#F8FAFC"));
+                if (tvLiveEta != null) tvLiveEta.setVisibility(View.VISIBLE);
+
                 tvName.setText(r.customerName != null ? r.customerName : "(Kunde)");
                 tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
                 // v6.62.2: Patrick: 'Zwischenstopp wird nicht angezeigt bei Frau Balzer'.

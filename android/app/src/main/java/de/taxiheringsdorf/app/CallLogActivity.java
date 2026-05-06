@@ -1151,9 +1151,52 @@ public class CallLogActivity extends AppCompatActivity {
         int padHalf = (int) (getResources().getDisplayMetrics().density * 8);
         layout.setPadding(pad, pad, pad, pad);
 
+        // v6.62.332: Patrick (06.05. 08:43): "Aus der Telefonliste gleich den Kunden mit
+        // Herr/Frau einstellen koennen, Vorname (optional), Nachname — vernuenftiger Flow,
+        // nicht erst Kunde anlegen muss". Quick-Anrede + Vorname + Nachname direkt im
+        // Vorbestellungs-Dialog. Bei Stammkunden: Pre-Fill aus crm.firstName/lastName/anrede.
+        // Bei Hotels: 3-Felder fuer den GAST (Hotel selbst ist Auftraggeber).
+        android.widget.Spinner spSal = new android.widget.Spinner(this);
+        final String[] _qfSalutations = { "—", "Herr", "Frau", "Divers" };
+        android.widget.ArrayAdapter<String> _qfSalAdapt = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, _qfSalutations);
+        _qfSalAdapt.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spSal.setAdapter(_qfSalAdapt);
+        layout.addView(spSal);
+
+        EditText etFirstName = new EditText(this);
+        etFirstName.setHint(isHotelCustomer ? "Vorname (Gast)" : "Vorname (optional)");
+        layout.addView(etFirstName);
+
+        EditText etLastName = new EditText(this);
+        etLastName.setHint(isHotelCustomer ? "Nachname (Gast)" : "Nachname");
+        layout.addView(etLastName);
+
+        // Pre-Fill aus CRM oder e.name (auto-split)
+        String _preSal = !isHotelCustomer && crm != null && (crm.salutation != null || crm.anrede != null)
+            ? (crm.salutation != null ? crm.salutation : crm.anrede) : "";
+        for (int _i = 0; _i < _qfSalutations.length; _i++) if (_qfSalutations[_i].equals(_preSal)) spSal.setSelection(_i);
+        String _preFn = !isHotelCustomer && crm != null && crm.firstName != null ? crm.firstName : "";
+        String _preLn = !isHotelCustomer && crm != null && crm.lastName != null ? crm.lastName : "";
+        if (_preFn.isEmpty() && _preLn.isEmpty()) {
+            String _src = isHotelCustomer ? "" : (crm != null && crm.name != null ? crm.name : (e.name != null ? e.name : ""));
+            if (!_src.trim().isEmpty()) {
+                String _t = _src.trim();
+                if (_t.startsWith("Frau ")) { spSal.setSelection(2); _t = _t.substring(5).trim(); }
+                else if (_t.startsWith("Herr ")) { spSal.setSelection(1); _t = _t.substring(5).trim(); }
+                String[] _p = _t.split("\\s+", 2);
+                if (_p.length == 2) { _preFn = _p[0]; _preLn = _p[1]; }
+                else _preLn = _t;
+            }
+        }
+        etFirstName.setText(_preFn);
+        etLastName.setText(_preLn);
+
+        // Legacy etName (hidden) — der bestehende Speichern-Code nutzt es. Wird beim Save aus
+        // firstname+lastname befuellt.
         EditText etName = new EditText(this);
-        etName.setHint(isHotelCustomer ? "Gastname (fuer den gebucht wird)" : "Kundenname");
-        etName.setText(isHotelCustomer ? "" : (crm != null ? crm.name : (e.name != null ? e.name : "")));
+        etName.setVisibility(View.GONE);
+        etName.setText((_preFn + " " + _preLn).trim());
         layout.addView(etName);
 
         // Hotel-Auftraggeber-Hint
@@ -1353,7 +1396,31 @@ public class CallLogActivity extends AppCompatActivity {
             .setMessage("Telefonnummer: " + e.number)
             .setView(scrollWrap)
             .setPositiveButton("Anlegen", (d, w) -> {
-                String name = etName.getText().toString().trim();
+                // v6.62.332: Quick-Flow — Name aus Vorname + Nachname concat (Anrede separat)
+                String _qfFn = etFirstName.getText().toString().trim();
+                String _qfLn = etLastName.getText().toString().trim();
+                String _qfName = (_qfFn + " " + _qfLn).trim();
+                if (_qfName.isEmpty()) _qfName = etName.getText().toString().trim();
+                String name = _qfName;
+                int _qfSalPos = spSal.getSelectedItemPosition();
+                final String _qfSalutation = _qfSalPos > 0 ? _qfSalutations[_qfSalPos] : "";
+                // CRM-Update wenn schon Customer existiert + Felder leer waren — sonst neuen anlegen
+                final String _qfFirstName = _qfFn;
+                final String _qfLastName = _qfLn;
+                if (crm != null && !isHotelCustomer) {
+                    Map<String, Object> _crmUpd = new HashMap<>();
+                    if (!_qfSalutation.isEmpty() && (crm.salutation == null || crm.salutation.isEmpty())) {
+                        _crmUpd.put("salutation", _qfSalutation);
+                        _crmUpd.put("anrede", _qfSalutation);
+                    }
+                    if (!_qfFirstName.isEmpty() && (crm.firstName == null || crm.firstName.isEmpty())) _crmUpd.put("firstName", _qfFirstName);
+                    if (!_qfLastName.isEmpty() && (crm.lastName == null || crm.lastName.isEmpty())) _crmUpd.put("lastName", _qfLastName);
+                    if (!_crmUpd.isEmpty()) {
+                        _crmUpd.put("name", _qfName);
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("customers/" + crm.id).updateChildren(_crmUpd);
+                    }
+                }
                 // v6.62.42: defensive — Symbol-Prefix von BEIDEN moeglichen Symbolen entfernen
                 // (📍 oder 🎯), falls geocodeAndFill oder Tausch den falschen Prefix
                 // hineingeschrieben hat (Promenadenhotel-Admiral 27.04. landete mit
@@ -1425,6 +1492,13 @@ public class CallLogActivity extends AppCompatActivity {
                         autoCustomerId = custRef.getKey();
                         Map<String, Object> custData = new HashMap<>();
                         custData.put("name", name);
+                        // v6.62.332: Quick-Flow-Felder ans Auto-CRM weitergeben
+                        if (!_qfFirstName.isEmpty()) custData.put("firstName", _qfFirstName);
+                        if (!_qfLastName.isEmpty()) custData.put("lastName", _qfLastName);
+                        if (!_qfSalutation.isEmpty()) {
+                            custData.put("salutation", _qfSalutation);
+                            custData.put("anrede", _qfSalutation);
+                        }
                         // Mobil/Festnetz routen anhand 015/016/017-Prefix (DE) oder +491
                         String _digits = e.number.replaceAll("[^0-9+]", "");
                         boolean _isMobile = _digits.startsWith("+4915") || _digits.startsWith("+4916")

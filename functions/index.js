@@ -794,14 +794,26 @@ async function autoAssignRide(rideId, rideData) {
             // 🔧 v6.38.50 BUG-05 FIX: accepted + on_way + picked_up blockieren!
             // Fahrer der gerade zum Kunden fährt (accepted) darf keine zweite Fahrt bekommen
             // v6.62.43: + arrived als busy — Fahrer wartet vor Ort auf Kunde
+            // 🆕 v6.62.319: Patrick (06.05. 07:00 Hasbargen 22:00): Tesla=Patrick war aktuell
+            // besetzt → wurde fuer Vorbestellung um 22:00 NICHT als Kandidat eingeplant,
+            // obwohl er bis 22:00 laengst fertig waere. Bug: pauschaler busyRide-Filter
+            // blockierte das Fahrzeug komplett. Fix: bei VORBESTELLUNGEN den Filter NICHT
+            // anwenden — der Zeitkonflikt-Check unten (Z.808+) prueft sauber ob die
+            // bestehende Fahrt vor dem neuen Pickup endet.
             const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
                 (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'arrived' || (isSofort && r.status === 'accepted'))
             );
-            if (busyRide) {
-                console.log(`   ❌ ${info.name}: Aktuell besetzt (${isSofort ? 'Sofort' : 'Vorbestellung'})`);
+            if (busyRide && isSofort) {
+                // Sofortfahrt: Fahrer kann nicht parallel fahren → klares Aus
+                console.log(`   ❌ ${info.name}: Aktuell besetzt (Sofort)`);
                 vehicleScores[vehicleId] = { status: 'busy', reason: `Aktuell besetzt: ${busyRide.customerName || '?'} (${busyRide.status})`, check: 'busy', blockingRideCustomer: busyRide.customerName, blockingRideStatus: busyRide.status };
                 continue;
+            }
+            if (busyRide && !isSofort) {
+                // Vorbestellung: nicht ausschliessen — Zeitkonflikt-Check unten entscheidet
+                // ob die laufende Fahrt vor dem neuen Pickup endet.
+                console.log(`   ℹ️ ${info.name}: aktuell besetzt mit ${busyRide.customerName || '?'} (${busyRide.status}) — pruefe Zeitkonflikt fuer Vorbestellung`);
             }
 
             // Zeitkonflikt mit bestehenden Fahrten prüfen

@@ -114,6 +114,8 @@ public class CallLogActivity extends AppCompatActivity {
                 } else {
                     label = _name + ", " + _addr;
                 }
+                // v6.62.348: Patrick (06.05. 10:35) "mach das Kaiserbaeder weg".
+                label = CrmSearchActivity.stripTouristAndRegion(label);
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
                 if (pendingPlaceCoords != null && place.getLocation() != null) {
                     pendingPlaceCoords[0] = place.getLocation().latitude;

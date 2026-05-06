@@ -84,6 +84,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                 } else {
                     label = _name + ", " + _addr;
                 }
+                // v6.62.348: Patrick (06.05. 10:35) "mach das Kaiserbaeder weg bei der Adresse".
+                // Google Places haengt oft Tourismus-Region (Kaiserbaeder), Landkreis (Vorpommern-
+                // Greifswald), Bundesland (Mecklenburg-Vorpommern) oder Land (Deutschland) an.
+                // → strip aus dem fertigen Label.
+                label = stripTouristAndRegion(label);
                 if (pendingPlaceField != null) pendingPlaceField.setText(label);
                 if (pendingPlaceCoords != null && p.getLocation() != null) {
                     pendingPlaceCoords[0] = p.getLocation().latitude;
@@ -220,7 +225,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // v6.62.230: Patrick (03.05. 22:18): "Kaiserbäder, Vorpommern-Greifswald,
                 // Mecklenburg-Vorpommern, Deutschland brauchen wir nicht — Straße zuerst,
                 // dann Hausnummer". Compact-Format aus addressdetails statt display_name.
-                final String display = compactNominatimAddress(json, query);
+                // v6.62.348: zusaetzlich Kaiserbäder/Region rausfiltern (compact macht das nicht 100%ig)
+                final String display = stripTouristAndRegion(compactNominatimAddress(json, query));
                 runOnUiThread(() -> {
                     if (pendingPlaceField != null) pendingPlaceField.setText(display);
                     if (pendingPlaceCoords != null) {
@@ -286,6 +292,33 @@ public class CrmSearchActivity extends AppCompatActivity {
         return s.replace("\\u00fc","ü").replace("\\u00f6","ö").replace("\\u00e4","ä")
                 .replace("\\u00df","ß").replace("\\u00dc","Ü").replace("\\u00d6","Ö")
                 .replace("\\u00c4","Ä").replace("\\/","/");
+    }
+
+    // v6.62.348: Patrick (06.05. 10:35): "mach das Kaiserbaeder weg bei der Adresse".
+    // Entfernt aus Google-Places-Antworten die Tourismus-Region, den Landkreis, das
+    // Bundesland und das Land — alle als ", X" oder " X" am String-Ende oder mittendrin.
+    // Beispiel:
+    //   "Hotel Vineta, Vinetastr. 1, 17424 Heringsdorf, Kaiserbäder, Vorpommern-Greifswald,
+    //    Mecklenburg-Vorpommern, Deutschland"
+    // → "Hotel Vineta, Vinetastr. 1, 17424 Heringsdorf"
+    public static String stripTouristAndRegion(String s) {
+        if (s == null || s.isEmpty()) return s;
+        String[] junk = {
+            "Kaiserbäder", "Kaiserbaeder",
+            "Vorpommern-Greifswald", "Vorpommern Greifswald",
+            "Mecklenburg-Vorpommern", "Mecklenburg Vorpommern",
+            "Deutschland", "Germany"
+        };
+        String out = s;
+        for (String j : junk) {
+            // Vor dem Junk-Token koennte ein Komma+Space stehen — beides mit weghauen.
+            out = out.replaceAll("\\s*,\\s*" + java.util.regex.Pattern.quote(j) + "(?=\\s*(,|$))", "");
+            // Auch wenn das Token am Anfang steht (sehr unwahrscheinlich, aber sicher).
+            out = out.replaceAll("^\\s*" + java.util.regex.Pattern.quote(j) + "\\s*,\\s*", "");
+        }
+        // Trailing-Komma falls vorhanden weg
+        out = out.replaceAll(",\\s*$", "").trim();
+        return out;
     }
 
     @Override

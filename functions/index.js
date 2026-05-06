@@ -23630,6 +23630,13 @@ Antwort als striktes JSON, KEIN Markdown, KEIN Pre-/Post-Text:
   "skr03Bezeichnung": "lesbare Bezeichnung des Kontos",
   "hauptKategorie": "Hauptkategorie aus dem skr03Konto (Fahrzeuge|Verträge|Krankenkasse|Personal|Büro|Steuer/Behörden|Marketing/Werbung|Telekommunikation|Bank/Kasse|Erlöse|Anlagevermögen|Privat|Wareneingang|Reisekosten|Forderungen|Sonstiges|...)",
   "skr03SubKategorie": "Sub-Kategorie aus dem skr03Konto (TÜV|Versicherung|Tanken|Werkstatt|AOK|DAK|...) — vom System spaeter aus skr03Konto abgeleitet falls leer",
+  "kilometerstand": "Kilometerstand des Fahrzeugs in km als Integer, null wenn nicht erkennbar (TÜV/Werkstatt/Inspektion)",
+  "fgnVin": "Fahrgestellnummer/VIN (17 Zeichen, alphanumerisch), null wenn nicht erkennbar",
+  "hsn": "HSN — Herstellerschluesselnummer (4 Ziffern, im KFZ-Schein), null wenn nicht erkennbar",
+  "tsn": "TSN — Typschluesselnummer (3 Zeichen alphanumerisch), null wenn nicht erkennbar",
+  "naechsterTuev": "Naechster TUEV-Termin als YYYY-MM falls auf TUEV-Plakette/Bericht, null wenn nicht erkennbar",
+  "fahrzeugModell": "Modell-Bezeichnung des Fahrzeugs (z.B. 'VW Caravelle T6', 'Tesla Model Y Long Range'), null wenn nicht erkennbar",
+  "fahrzeugBaujahr": "Baujahr/Erstzulassung als Integer, null wenn nicht erkennbar",
   "confidence": 0.0-1.0
 }
 

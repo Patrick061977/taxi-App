@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.360</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.368</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -186,6 +186,7 @@
                 <button class="tab-btn" data-tab="search" onclick="switchTab('search')">🔍 Volltext-Suche</button>
                 <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')">📥 Posteingang <span id="inbox-badge" style="background:#dc2626;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;display:none;">0</span></button>
                 <button class="tab-btn" data-tab="konten" onclick="switchTab('konten')">📊 SKR03-Konten</button>
+                <button class="tab-btn" data-tab="vehicles" onclick="switchTab('vehicles')">🚗 Fahrzeuge</button>
             </div>
 
             <!-- TAB: UPLOAD -->
@@ -412,6 +413,20 @@
                 <div id="search-results" class="doc-list"></div>
             </div>
 
+            <!-- TAB: FAHRZEUGE (v6.62.368) — Patrick: 'lueckenlos km vorm Finanzamt' -->
+            <div id="tab-vehicles" class="tab-content">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                        <div>
+                            <h2 style="font-size:17px;margin-bottom:4px;">🚗 Fahrzeug-Verwaltung</h2>
+                            <p style="font-size:12px;color:#6b7280;">Aktuelle Flotte + archivierte Fahrzeuge mit Belegen + TÜV-Historie.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openVehicleEditModal(null)">➕ Neues Fahrzeug</button>
+                    </div>
+                </div>
+                <div id="vehicles-list"><div class="card" style="text-align:center;color:#6b7280;">Lade Fahrzeuge…</div></div>
+            </div>
+
             <!-- TAB: SKR03-KONTEN (v6.62.343) -->
             <div id="tab-konten" class="tab-content">
                 <div class="card">
@@ -521,6 +536,205 @@
             if (tab === 'library') renderLibrary();
             else if (tab === 'inbox') renderInbox();
             else if (tab === 'konten') loadSkr03Konten();
+            else if (tab === 'vehicles') renderVehiclesTab();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 🚗 v6.62.368: Fahrzeug-Verwaltung + TÜV-Reminder-Foundation
+        // Patrick (06.05. 15:25): "Fahrzeuge anlegen, Daten ergaenzen,
+        // TÜV-Erinnerung, lueckenlos km vorm Finanzamt"
+        // ═══════════════════════════════════════════════════════════════
+        let _vehiclesCache = null;
+        async function renderVehiclesTab() {
+            const list = document.getElementById('vehicles-list');
+            list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">Lade Fahrzeuge…</div>';
+            try {
+                const snap = await db.ref('vehicles').once('value');
+                _vehiclesCache = snap.val() || {};
+                const ids = Object.keys(_vehiclesCache);
+                if (ids.length === 0) {
+                    list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">Noch keine Fahrzeuge — auf "➕ Neues Fahrzeug" klicken.</div>';
+                    return;
+                }
+                // Sortierung: aktive zuerst, dann archivierte; in jeder Gruppe nach Plate
+                const active = [], archived = [];
+                for (const id of ids) {
+                    const v = _vehiclesCache[id]; if (!v) continue;
+                    const entry = { id, ...v };
+                    if (v.archived) archived.push(entry); else active.push(entry);
+                }
+                const cmp = (a, b) => (a.plate || '').localeCompare(b.plate || '');
+                active.sort(cmp); archived.sort(cmp);
+                const docsCountByVeh = {};
+                if (allDocs && allDocs.length) {
+                    for (const d of allDocs) {
+                        if (!d || !d.vehicleRefId) continue;
+                        docsCountByVeh[d.vehicleRefId] = (docsCountByVeh[d.vehicleRefId] || 0) + 1;
+                    }
+                }
+                const renderRow = (v) => {
+                    const docCount = docsCountByVeh[v.id] || 0;
+                    const tuevWarning = v.naechsterTuev ? tuevReminderBadge(v.naechsterTuev) : '';
+                    const archivedTag = v.archived ? '<span style="background:#9ca3af;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;">ARCHIVIERT</span>' : '';
+                    return `<div class="card" style="cursor:pointer;" onclick="openVehicleEditModal('${v.id}')">
+                        <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px;">
+                            <div style="flex:1;min-width:200px;">
+                                <div style="font-size:16px;font-weight:700;color:#111827;">
+                                    🚗 ${escHtml(v.label || v.name || v.id)}${archivedTag}
+                                </div>
+                                <div style="font-family:monospace;font-size:14px;color:#374151;margin-top:4px;">${escHtml(v.plate || '?')}</div>
+                                ${v.model ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escHtml(v.model)}${v.modelYear ? ' · BJ ' + v.modelYear : ''}</div>` : ''}
+                                ${v.fgnVin ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px;font-family:monospace;">FGN: ${escHtml(v.fgnVin)}</div>` : ''}
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                                <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">📄 ${docCount} Belege</span>
+                                ${tuevWarning}
+                            </div>
+                        </div>
+                    </div>`;
+                };
+                let html = '';
+                if (active.length) html += '<h3 style="font-size:13px;margin:8px 4px 8px 4px;color:#059669;">🟢 Aktiv (' + active.length + ')</h3>' + active.map(renderRow).join('');
+                if (archived.length) html += '<h3 style="font-size:13px;margin:14px 4px 8px 4px;color:#9ca3af;">📦 Archiviert (' + archived.length + ')</h3>' + archived.map(renderRow).join('');
+                list.innerHTML = html;
+            } catch (e) {
+                list.innerHTML = '<div class="card" style="color:#dc2626;">Fehler: ' + escHtml(e.message) + '</div>';
+            }
+        }
+
+        function tuevReminderBadge(tuevDate) {
+            // tuevDate: "2026-08" oder "2026-08-15" — berechne Tage bis dahin
+            try {
+                const d = new Date(tuevDate.length <= 7 ? tuevDate + '-01' : tuevDate);
+                const days = Math.round((d - Date.now()) / 86400000);
+                if (days < 0) return '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⚠️ TÜV ABGELAUFEN</span>';
+                if (days < 30) return '<span style="background:#f59e0b;color:white;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">⏰ TÜV in ' + days + ' T</span>';
+                if (days < 90) return '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">📅 TÜV ' + tuevDate + '</span>';
+                return '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">✓ TÜV ' + tuevDate + '</span>';
+            } catch (_) { return ''; }
+        }
+
+        let _editingVehicleId = null;
+        function openVehicleEditModal(vehId) {
+            _editingVehicleId = vehId;
+            const v = vehId && _vehiclesCache ? (_vehiclesCache[vehId] || {}) : {};
+            const isNew = !vehId;
+            // Modal aufbauen
+            const oldM = document.getElementById('vehicle-modal'); if (oldM) oldM.remove();
+            const m = document.createElement('div');
+            m.id = 'vehicle-modal';
+            m.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:20000;padding:10px;';
+            m.innerHTML = `<div style="background:white;border-radius:12px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="background:linear-gradient(135deg,#7c2d12,#ea580c);color:white;padding:14px 18px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-size:17px;font-weight:700;">🚗 ${isNew ? 'Neues Fahrzeug' : 'Fahrzeug bearbeiten'}</h3>
+                    <button onclick="document.getElementById('vehicle-modal').remove()" style="background:none;border:none;font-size:24px;color:white;cursor:pointer;">×</button>
+                </div>
+                <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                    ${isNew ? `<div class="form-group">
+                        <label class="form-label">ID (klein, mit Bindestrich, z.B. pw-sj-222)</label>
+                        <input class="form-input" id="vh-id" value="${escHtml(vehId || '')}" placeholder="pw-xx-999">
+                    </div>` : `<div style="font-size:11px;color:#6b7280;font-family:monospace;">ID: ${escHtml(vehId)}</div>`}
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="vh-name" value="${escHtml(v.name || '')}" placeholder="z.B. Tesla Model Y"></div>
+                        <div class="form-group"><label class="form-label">Modell</label><input class="form-input" id="vh-model" value="${escHtml(v.model || '')}" placeholder="z.B. Caravelle T6"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Kennzeichen</label><input class="form-input" id="vh-plate" value="${escHtml(v.plate || '')}" placeholder="PW-XX 999"></div>
+                        <div class="form-group"><label class="form-label">Baujahr</label><input class="form-input" id="vh-year" type="number" value="${v.modelYear || ''}" placeholder="2020"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">FGN / VIN</label><input class="form-input" id="vh-fgn" value="${escHtml(v.fgnVin || '')}" placeholder="WVW...17 Zeichen"></div>
+                        <div class="form-group"><label class="form-label">HSN / TSN</label><input class="form-input" id="vh-hsntsn" value="${escHtml((v.hsn || '') + (v.tsn ? '/' + v.tsn : ''))}" placeholder="0603/AAB"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">📅 Kaufdatum</label><input class="form-input" id="vh-kauf" type="date" value="${v.kaufdatum || ''}"></div>
+                        <div class="form-group"><label class="form-label">📅 Verkauf/Verschrottet</label><input class="form-input" id="vh-verkauf" type="date" value="${v.verkaufsdatum || ''}"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">💰 Anschaffung €</label><input class="form-input" id="vh-preis" type="number" step="0.01" value="${v.anschaffungspreis || ''}" placeholder="18500"></div>
+                        <div class="form-group"><label class="form-label">⏰ Nächster TÜV (YYYY-MM)</label><input class="form-input" id="vh-tuev" value="${escHtml(v.naechsterTuev || '')}" placeholder="2026-08"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">📋 Kennzeichen-Historie (eine pro Zeile)</label>
+                        <textarea class="form-input" id="vh-platehist" rows="3" placeholder="OVP II 600 (bis 2011)&#10;PW-SJ 222 (ab 2011)">${escHtml((v.plateHistory || []).join('\n'))}</textarea>
+                    </div>
+                    <div class="form-group"><label class="form-label">📝 Notizen</label><textarea class="form-input" id="vh-notes" rows="2" placeholder="Auffaelligkeiten, Reparatur-Historie, ...">${escHtml(v.notes || '')}</textarea></div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="vh-archived" ${v.archived ? 'checked' : ''}>
+                            <span>📦 Archiviert (nicht in aktiver Flotte, aber im DMS-Dropdown sichtbar)</span>
+                        </label>
+                    </div>
+                    ${vehId ? `<button class="btn" onclick="fillVehicleFromTuvBeleg('${vehId}')" style="background:#3b82f6;color:white;">📋 Aus TÜV-Bericht ausfuellen</button>` : ''}
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="btn btn-success" onclick="saveVehicle()" style="flex:1;font-size:15px;padding:12px;">💾 Speichern</button>
+                        <button class="btn" onclick="document.getElementById('vehicle-modal').remove()">Abbrechen</button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.appendChild(m);
+        }
+
+        async function saveVehicle() {
+            try {
+                const isNew = !_editingVehicleId;
+                let id = _editingVehicleId;
+                if (isNew) {
+                    id = (document.getElementById('vh-id').value || '').trim().toLowerCase();
+                    if (!id || !/^[a-z0-9-]+$/.test(id)) { showToast('Ungueltige ID — nur Kleinbuchstaben, Ziffern, Bindestrich.'); return; }
+                }
+                const hsnTsn = (document.getElementById('vh-hsntsn').value || '').trim();
+                const [hsn, tsn] = hsnTsn.split('/').map(s => (s || '').trim());
+                const platehist = (document.getElementById('vh-platehist').value || '')
+                    .split('\n').map(l => l.trim()).filter(l => l);
+                const data = {
+                    name: document.getElementById('vh-name').value.trim() || null,
+                    model: document.getElementById('vh-model').value.trim() || null,
+                    label: document.getElementById('vh-name').value.trim() || null,
+                    plate: document.getElementById('vh-plate').value.trim() || null,
+                    modelYear: parseInt(document.getElementById('vh-year').value) || null,
+                    fgnVin: document.getElementById('vh-fgn').value.trim() || null,
+                    hsn: hsn || null,
+                    tsn: tsn || null,
+                    kaufdatum: document.getElementById('vh-kauf').value || null,
+                    verkaufsdatum: document.getElementById('vh-verkauf').value || null,
+                    anschaffungspreis: parseFloat(document.getElementById('vh-preis').value) || null,
+                    naechsterTuev: document.getElementById('vh-tuev').value.trim() || null,
+                    plateHistory: platehist,
+                    notes: document.getElementById('vh-notes').value.trim() || null,
+                    archived: document.getElementById('vh-archived').checked,
+                    updatedAt: Date.now(),
+                    updatedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?'
+                };
+                if (isNew) { data.createdAt = Date.now(); data.createdBy = data.updatedBy; }
+                await db.ref('vehicles/' + id).update(data);
+                showToast('✅ Fahrzeug ' + (isNew ? 'angelegt' : 'aktualisiert'));
+                document.getElementById('vehicle-modal').remove();
+                renderVehiclesTab();
+            } catch (e) { showToast('Fehler: ' + e.message); }
+        }
+
+        async function fillVehicleFromTuvBeleg(vehId) {
+            // Nimmt den neuesten TÜV-Beleg dieses Fahrzeugs und übernimmt KI-Felder
+            try {
+                const tuvDocs = (allDocs || []).filter(d =>
+                    d && d.vehicleRefId === vehId &&
+                    (/tuev|tüv|haupt[- ]?untersuchung/i.test(d.dokumenttyp || '') ||
+                     /tuev|tüv/i.test(d.subKategorie || ''))
+                );
+                if (tuvDocs.length === 0) {
+                    showToast('Kein TÜV-Beleg fuer dieses Fahrzeug gefunden — erst Beleg hochladen + zuordnen.');
+                    return;
+                }
+                tuvDocs.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+                const ki = tuvDocs[0];
+                if (ki.fahrzeugModell) document.getElementById('vh-model').value = ki.fahrzeugModell;
+                if (ki.fahrzeugBaujahr) document.getElementById('vh-year').value = ki.fahrzeugBaujahr;
+                if (ki.fgnVin) document.getElementById('vh-fgn').value = ki.fgnVin;
+                if (ki.hsn || ki.tsn) document.getElementById('vh-hsntsn').value = (ki.hsn || '') + (ki.tsn ? '/' + ki.tsn : '');
+                if (ki.naechsterTuev) document.getElementById('vh-tuev').value = ki.naechsterTuev;
+                showToast('📋 Daten aus TÜV-Bericht ' + (ki.datum || '') + ' uebernommen — Speichern nicht vergessen.');
+            } catch (e) { showToast('Fehler: ' + e.message); }
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -679,6 +893,14 @@
                 faelligkeitsdatum: (ki && ki.faelligkeitsdatum) || null,
                 vehicleRefId: (ki && ki.vehicleRefId) || null,
                 staffRefId: (ki && ki.staffRefId) || null,
+                // 🆕 v6.62.368: KFZ-Felder fuer lueckenlose Kilometer-Historie (Patrick: 'Finanzamt')
+                kilometerstand: (ki && ki.kilometerstand != null) ? Number(ki.kilometerstand) : null,
+                fgnVin: (ki && ki.fgnVin) || null,
+                hsn: (ki && ki.hsn) || null,
+                tsn: (ki && ki.tsn) || null,
+                naechsterTuev: (ki && ki.naechsterTuev) || null,
+                fahrzeugModell: (ki && ki.fahrzeugModell) || null,
+                fahrzeugBaujahr: (ki && ki.fahrzeugBaujahr) || null,
                 stichworte: (ki && Array.isArray(ki.stichworte)) ? ki.stichworte : [],
                 kurzbeschreibung: (ki && ki.kurzbeschreibung) || null,
                 summary: (ki && ki.summary) || null,

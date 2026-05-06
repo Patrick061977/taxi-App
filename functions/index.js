@@ -23449,6 +23449,10 @@ Antwort als striktes JSON, KEIN Markdown, KEIN Pre-/Post-Text:
   "aktionsEmpfehlung": "Konkrete Handlungsempfehlung in 1 Satz (z.B. 'Bis 15.05. bezahlen', 'TUEV-Termin in 2 Wochen vereinbaren', 'Steuerberater weiterleiten', 'Nur ablegen'). null wenn nichts zu tun",
   "wichtigkeit": "hoch|mittel|niedrig",
   "volltext": "kompletter erkannter Text aus dem Dokument fuer Volltextsuche",
+  "skr03Konto": "4-stelliges SKR03-Konto aus DIESER Liste (eines davon, das am besten passt):\n${_skr03.SKR03_KONTEN_PROMPT}",
+  "skr03Bezeichnung": "lesbare Bezeichnung des Kontos",
+  "hauptKategorie": "Hauptkategorie aus dem skr03Konto (Fahrzeuge|Verträge|Krankenkasse|Personal|Büro|Steuer/Behörden|Marketing/Werbung|Telekommunikation|Bank/Kasse|Erlöse|Anlagevermögen|Privat|Wareneingang|Reisekosten|Forderungen|Sonstiges|...)",
+  "skr03SubKategorie": "Sub-Kategorie aus dem skr03Konto (TÜV|Versicherung|Tanken|Werkstatt|AOK|DAK|...) — vom System spaeter aus skr03Konto abgeleitet falls leer",
   "confidence": 0.0-1.0
 }
 

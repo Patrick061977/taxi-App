@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dokumente — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.341: Document Management System (DMS).
+        v6.62.342: Document Management System (DMS).
         Patrick (04.05.2026): "Foto/PDF scannen, KI klassifiziert + sortiert in
         Ordnerstruktur — TUEV-Berichte, Rechnungen, Lohnzettel etc. — alles
         suchbar". Quelle: Idee aus project_dms-dokumenten-scanner.md.
@@ -145,7 +145,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.341</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.342</span>
     </div>
 
     <div class="container">
@@ -1282,7 +1282,7 @@
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>
                 <div class="doc-actions">
-                    <!-- 🆕 v6.62.341: Direkt-Buttons fuer Anrufen/Email/Lieferant→CRM (Patrick: 'Anruf-Button am Beleg') -->
+                    <!-- 🆕 v6.62.342: Direkt-Buttons fuer Anrufen/Email/Lieferant→CRM (Patrick: 'Anruf-Button am Beleg') -->
                     ${d.lieferantPhone ? `<a class="btn btn-ghost" href="tel:${d.lieferantPhone}" onclick="event.stopPropagation();" title="📞 ${d.lieferantPhone}" style="color:#10b981;text-decoration:none;">📞</a>` : ''}
                     ${d.lieferantEmail ? `<a class="btn btn-ghost" href="mailto:${d.lieferantEmail}" onclick="event.stopPropagation();" title="✉ ${d.lieferantEmail}" style="color:#3b82f6;text-decoration:none;">✉</a>` : ''}
                     ${(d.lieferant && (d.lieferantPhone || d.lieferantEmail)) ? `<button class="btn btn-ghost" onclick="event.stopPropagation();dmsLieferantToCrm2('${d.id}')" title="👤 Lieferant ins CRM uebernehmen" style="color:#7c3aed;">👤</button>` : ''}
@@ -1292,7 +1292,7 @@
                 </div>
             </div>`;
         }
-        // 🆕 v6.62.341: Lieferant aus DMS-Doc als CRM-Eintrag uebernehmen (analog index.html)
+        // 🆕 v6.62.342: Lieferant aus DMS-Doc als CRM-Eintrag uebernehmen (analog index.html)
         async function dmsLieferantToCrm2(docId) {
             const d = allDocs.find(x => x.id === docId);
             if (!d || !d.lieferant) { alert('Kein Lieferant erkannt'); return; }
@@ -1507,8 +1507,21 @@
                     return `<div class="wf-history-item"><div class="ts">${ts} · ${escHtml(h.by || '?')}</div><div><b>${WF_LABELS[h.status] || h.status}</b>${amt}${h.note ? ' — ' + escHtml(h.note) : ''}</div></div>`;
                 }).join('');
             // v6.62.257: KI-Briefing-Block oben im View-Modus
+            // 🆕 v6.62.342: Patrick (06.05. 10:04): "Telefonnummer finde ich immer noch nicht
+            // im Dokument wenn ich darauf klicke". Direkt-Action-Leiste oben im Doc-Modal mit
+            // Anrufen / Email / Web / Lieferant→CRM Buttons.
+            const _quickActionsBlock = editMode ? '' : `<div style="background:#f0fdfa;border:1px solid #5eead4;border-radius:8px;padding:10px;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:12px;color:#0f766e;font-weight:600;margin-right:4px;">⚡ Direkt-Aktionen:</span>
+                ${d.lieferantPhone ? `<a href="tel:${d.lieferantPhone}" style="padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">📞 ${escHtml(d.lieferantPhone)}</a>` : '<span style="font-size:11px;color:#9ca3af;">📞 keine Telefonnummer im Dokument erkannt</span>'}
+                ${d.lieferantEmail ? `<a href="mailto:${d.lieferantEmail}" style="padding:8px 12px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">✉ ${escHtml(d.lieferantEmail)}</a>` : ''}
+                ${d.lieferantAdresse ? `<a href="https://www.google.com/maps/search/${encodeURIComponent(d.lieferantAdresse)}" target="_blank" style="padding:8px 12px;background:#6b7280;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">📍 Karte</a>` : ''}
+                ${(d.lieferant && (d.lieferantPhone || d.lieferantEmail)) ? `<button class="btn" onclick="dmsLieferantToCrm2('${d.id}')" style="background:#7c3aed;color:white;padding:8px 12px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">👤 Lieferant ins CRM</button>` : ''}
+                ${d.skr03Konto ? `<span style="background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;">📊 SKR03 ${escHtml(d.skr03Konto)} ${escHtml(d.skr03Bezeichnung || '')}</span>` : ''}
+                ${d.hauptKategorie ? `<span style="background:#e0f2fe;color:#0c4a6e;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;">📁 ${escHtml(d.hauptKategorie)}${d.skr03SubKategorie ? ' › ' + escHtml(d.skr03SubKategorie) : ''}</span>` : ''}
+            </div>`;
+
             const briefingBlock = editMode ? '' : (
-                (d.summary || d.aktionsEmpfehlung || d.kiError) ? `<div style="background:${wichtig === 'hoch' ? '#fef2f2;border:2px solid #fca5a5' : wichtig === 'mittel' ? '#fffbeb;border:2px solid #fde68a' : '#f0fdf4;border:2px solid #bbf7d0'};border-radius:8px;padding:12px;margin-bottom:14px;">
+                _quickActionsBlock + ((d.summary || d.aktionsEmpfehlung || d.kiError) ? `<div style="background:${wichtig === 'hoch' ? '#fef2f2;border:2px solid #fca5a5' : wichtig === 'mittel' ? '#fffbeb;border:2px solid #fde68a' : '#f0fdf4;border:2px solid #bbf7d0'};border-radius:8px;padding:12px;margin-bottom:14px;">
                     <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${wIcon} 🤖 KI-Briefing${wichtig ? ' · ' + wichtig.toUpperCase() : ''}</div>
                     ${d.summary ? `<div style="font-size:13px;line-height:1.5;margin-bottom:8px;">${escHtml(d.summary)}</div>` : ''}
                     ${d.aktionsEmpfehlung ? `<div style="background:white;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#1e3a8a;">📋 Empfehlung: ${escHtml(d.aktionsEmpfehlung)}</div>` : ''}

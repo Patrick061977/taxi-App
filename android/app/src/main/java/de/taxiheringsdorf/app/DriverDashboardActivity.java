@@ -1113,26 +1113,63 @@ public class DriverDashboardActivity extends AppCompatActivity {
             updates.put("startedBy", "native_dashboard");
             updates.put("lastHeartbeat", System.currentTimeMillis());
             // v6.62.98: Patrick: 'Fahrer-SMS soll Namen enthalten — Ihr Fahrer Patrick
-            // ist jetzt unterwegs'. Schreiben den eingeloggten User mit Display-Name
-            // ans Shift damit die Cloud-Function in onRideUpdated.on_way die Vorname-
-            // Variable hat. Fallback auf email-Praefix wenn DisplayName leer.
+            // ist jetzt unterwegs'.
+            // 🆕 v6.62.333: Patrick (06.05. 09:05): "warum steht da Patrick?" — IK ist mit
+            // funktaxi.dk@gmail.com angemeldet (Mitarbeiter Kulpa), aber Auth-DisplayName
+            // ist 'Patrick Wydra'. Bug: Code las Auth-DisplayName direkt → falsch.
+            // Fix: User-Doc aus /users/{uid} laden → linkedStaffId → /staff/{id}.firstName +
+            // lastName. Auth-DisplayName + Email-Praefix nur als letzter Fallback.
             try {
                 com.google.firebase.auth.FirebaseUser _user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
                 if (_user != null) {
-                    updates.put("userId", _user.getUid());
-                    String _dn = _user.getDisplayName();
-                    if (_dn == null || _dn.trim().isEmpty()) {
-                        String _em = _user.getEmail();
-                        if (_em != null && _em.contains("@")) _dn = _em.substring(0, _em.indexOf("@"));
-                    }
-                    if (_dn != null && !_dn.trim().isEmpty()) {
-                        updates.put("driverName", _dn.trim());
-                    }
+                    final String _uid = _user.getUid();
+                    final String _authDn = _user.getDisplayName();
+                    final String _authEm = _user.getEmail();
+                    updates.put("userId", _uid);
+                    // Erst nur die sicheren Felder schreiben
+                    ref.updateChildren(updates);
+                    // Async: korrekten Namen aus /staff/{linkedStaffId} nachziehen
+                    db.getReference("users/" + _uid).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override public void onDataChange(@NonNull DataSnapshot _us) {
+                            String _staffId = _us.child("linkedStaffId").getValue(String.class);
+                            Runnable _fallback = () -> {
+                                String _dn = _authDn;
+                                if (_dn == null || _dn.trim().isEmpty()) {
+                                    if (_authEm != null && _authEm.contains("@")) _dn = _authEm.substring(0, _authEm.indexOf("@"));
+                                }
+                                if (_dn != null && !_dn.trim().isEmpty()) {
+                                    ref.child("driverName").setValue(_dn.trim());
+                                }
+                            };
+                            if (_staffId == null || _staffId.trim().isEmpty()) { _fallback.run(); return; }
+                            db.getReference("staff/" + _staffId).addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override public void onDataChange(@NonNull DataSnapshot _ss) {
+                                    String _fn = _ss.child("firstName").getValue(String.class);
+                                    String _ln = _ss.child("lastName").getValue(String.class);
+                                    String _composed = ((_fn != null ? _fn : "") + " " + (_ln != null ? _ln : "")).trim();
+                                    if (_composed.isEmpty()) { _fallback.run(); return; }
+                                    ref.child("driverName").setValue(_composed);
+                                    Log.i(TAG, "✅ shift.driverName aus /staff/" + _staffId + " gesetzt: " + _composed);
+                                }
+                                @Override public void onCancelled(@NonNull DatabaseError e) { _fallback.run(); }
+                            });
+                        }
+                        @Override public void onCancelled(@NonNull DatabaseError e) {
+                            // ohne /users/{uid} → Auth-DisplayName-Fallback
+                            String _dn = _authDn;
+                            if (_dn == null || _dn.trim().isEmpty()) {
+                                if (_authEm != null && _authEm.contains("@")) _dn = _authEm.substring(0, _authEm.indexOf("@"));
+                            }
+                            if (_dn != null && !_dn.trim().isEmpty()) ref.child("driverName").setValue(_dn.trim());
+                        }
+                    });
+                } else {
+                    ref.updateChildren(updates);
                 }
             } catch (Throwable _shiftIdErr) {
                 Log.w(TAG, "Shift driverName Schreibfehler: " + _shiftIdErr.getMessage());
+                ref.updateChildren(updates);
             }
-            ref.updateChildren(updates);
             db.getReference("vehicles/" + currentVehicleId + "/online").setValue(true);
             Intent svc = new Intent(this, ShiftForegroundService.class);
             svc.setAction(ShiftForegroundService.ACTION_START);

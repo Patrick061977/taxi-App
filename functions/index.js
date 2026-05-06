@@ -20259,7 +20259,10 @@ exports.onRideUpdated = onValueUpdated(
                         const _amt = parseFloat(after.actualPrice || after.price || 0);
                         const _amtStr = isNaN(_amt) ? '?' : _amt.toFixed(2).replace('.', ',') + ' €';
                         const _custDisplay = after.customerName || '?';
-                        const _dispoLink = `https://taxi-heringsdorf.web.app/?openInvoice=${rideId}`;
+                        // 🆕 v6.62.394: Patrick (06.05. 22:01): "Der oeffnet der gleiche
+                        // Link wie Hasbargen!" — taxi-heringsdorf.web.app ist Firebase
+                        // Hosting (alt/leer). Echte Web-App ist auf Strato.
+                        const _dispoLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/index.html?openInvoice=${rideId}`;
                         const _pushMsg = `🧾 <b>Rechnung wartet</b>\n\n` +
                             `👤 ${_custDisplay}\n` +
                             `💰 ${_amtStr}\n` +

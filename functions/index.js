@@ -17729,6 +17729,25 @@ exports.scheduledReachabilityCheck = onSchedule(
                         );
                         if (!route || route.duration == null) return;
                         const eta = route.duration; // Minuten
+                        // 🆕 v6.62.361: Patrick (06.05. 14:35): "Anfahrt 2 Min obwohl 5 km
+                        // entfernt". Bug: drivingTimeToPickup wurde nur beim Zuweisen
+                        // geschrieben (z.B. vom vorherigen Fahrzeug) und nie aktualisiert
+                        // wenn Patrick auf Tesla umplant. Jetzt: bei jedem Reachability-Run
+                        // aktuellen OSRM-Wert zurueckschreiben → Native-App + Browser-Admin
+                        // sehen die LAUFENDE ETA.
+                        const _etaUpdate = {};
+                        if (ride.drivingTimeToPickup !== eta) {
+                            _etaUpdate.drivingTimeToPickup = eta;
+                        }
+                        const _distKm = route.distance ? parseFloat(route.distance) : null;
+                        if (_distKm != null && Math.abs((ride.drivingDistanceToPickupKm || 0) - _distKm) > 0.1) {
+                            _etaUpdate.drivingDistanceToPickupKm = _distKm;
+                        }
+                        if (Object.keys(_etaUpdate).length) {
+                            _etaUpdate.etaUpdatedAt = now;
+                            _etaUpdate.etaUpdatedBy = 'scheduledReachabilityCheck';
+                            await db.ref(`rides/${rideId}`).update(_etaUpdate);
+                        }
                         const minBisPickup = Math.round((ride.pickupTimestamp - now) / 60000);
                         const missedBy = (eta + BOARDING_BUFFER_MIN) - minBisPickup;
                         if (missedBy <= 0) {

@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dokumente — Funk Taxi Heringsdorf</title>
     <!--
+        v6.62.347 (06.05. 10:35): Lieferant-Kontaktdaten manuell editierbar.
+        Patrick (06.05. 10:04): "Telefonnummer finde ich immer noch nicht
+        in den Dokumenten". Wenn die KI die Kontaktdaten beim Upload nicht
+        erkennt, kann Patrick jetzt im Edit-Modus drei neue Felder ausfuellen:
+        📞 Lieferant Telefon, ✉ Lieferant Email, 📍 Lieferant Adresse.
+        Beim Speichern landen sie in d.lieferantPhone/-Email/-Adresse und
+        werden in der Direkt-Aktionen-Leiste oben (📞-Button, ✉-Button,
+        📍-Karte) sofort sichtbar.
+
         v6.62.344 (06.05. 10:18): HOTFIX — fehlende Klammer in renderDocModal()
         Zeile 1601-1608. v6.62.342 hatte das briefingBlock-Konstrukt
         umgebaut und EINE schliessende Klammer vergessen. Folge: der
@@ -157,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.344</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.347</span>
     </div>
 
     <div class="container">
@@ -1666,6 +1675,15 @@
                             <div class="form-group"><label class="form-label">Lieferant</label><input class="form-input" id="e-lief" value="${escHtml(d.lieferant || '')}"></div>
                             <div class="form-group"><label class="form-label">Datum</label><input type="date" class="form-input" id="e-datum" value="${d.datum || ''}"></div>
                         </div>
+                        <!-- v6.62.347: Lieferant-Kontaktdaten editierbar (Patrick: 'Telefonnummer finde ich nicht in den Dokumenten') -->
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">📞 Lieferant Telefon</label><input class="form-input" id="e-lief-phone" value="${escHtml(d.lieferantPhone || '')}" placeholder="z.B. 038378 22022"></div>
+                            <div class="form-group"><label class="form-label">✉ Lieferant Email</label><input class="form-input" id="e-lief-email" type="email" value="${escHtml(d.lieferantEmail || '')}" placeholder="z.B. info@lieferant.de"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">📍 Lieferant Adresse</label>
+                            <input class="form-input" id="e-lief-adresse" value="${escHtml(d.lieferantAdresse || '')}" placeholder="z.B. Musterstr. 1, 12345 Musterstadt">
+                        </div>
                         <div class="form-row">
                             <div class="form-group"><label class="form-label">Betrag (€)</label><input type="number" step="0.01" class="form-input" id="e-betrag" value="${d.betrag != null ? d.betrag : ''}"></div>
                             <div class="form-group"><label class="form-label">Fahrzeug</label><select class="form-select" id="e-veh"><option value="">— keins —</option>${vehSnap.map(v => `<option value="${v.id}" ${veh === v.id ? 'selected' : ''}>${escHtml(v.label)}</option>`).join('')}</select></div>
@@ -1706,11 +1724,18 @@
 
         async function saveDocEdit() {
             if (!editingDocId) return;
+            // v6.62.347: lieferantPhone/Email/Adresse manuell editierbar
+            const _liefPhone = (document.getElementById('e-lief-phone') || {}).value || '';
+            const _liefEmail = (document.getElementById('e-lief-email') || {}).value || '';
+            const _liefAdresse = (document.getElementById('e-lief-adresse') || {}).value || '';
             const updates = {
                 kategorie: document.getElementById('e-kat').value,
                 subKategorie: document.getElementById('e-sub').value || null,
                 dokumenttyp: document.getElementById('e-typ').value || null,
                 lieferant: document.getElementById('e-lief').value || null,
+                lieferantPhone: _liefPhone || null,
+                lieferantEmail: _liefEmail || null,
+                lieferantAdresse: _liefAdresse || null,
                 datum: document.getElementById('e-datum').value || null,
                 betrag: parseFloat(document.getElementById('e-betrag').value) || null,
                 vehicleRefId: document.getElementById('e-veh').value || null,

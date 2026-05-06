@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.357</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.360</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -695,8 +695,34 @@
                 uploadedAt: Date.now(),
                 autoSaved: opts.autoSaved || false
             };
+            // 🆕 v6.62.360: Atomic Belegnummer-Vergabe pro Quartal (Patrick: 'Belege Ecovis-maessig
+            // zuordnen, in Oberflaeche zeigen wo'). Format: YYYY-QN-NNNN. Nutzt Firebase
+            // Transaction um Race-Conditions bei parallelen Uploads zu verhindern.
+            try {
+                const _belegInfo = await assignBelegnummer(datum);
+                meta.belegnummer = _belegInfo.belegnummer;
+                meta.belegQuartal = _belegInfo.quartal;
+                meta.belegJahr = _belegInfo.jahr;
+            } catch (e) {
+                console.warn('Belegnummer-Vergabe fehlgeschlagen:', e.message);
+                // weiter ohne — Beleg wird trotzdem gespeichert, Belegnummer kann manuell nachgetragen werden
+            }
             await db.ref('docs/' + docId).set(meta);
             return docId;
+        }
+
+        // 🆕 v6.62.360: Belegnummer-Counter pro Quartal — atomic via Firebase Transaction
+        async function assignBelegnummer(datumStr) {
+            const dt = datumStr ? new Date(datumStr) : new Date();
+            const jahr = dt.getFullYear();
+            const monat = dt.getMonth() + 1; // 1-12
+            const quartal = Math.ceil(monat / 3); // 1-4
+            const counterKey = `${jahr}-Q${quartal}`;
+            const counterRef = db.ref('settings/dms/belegCounter/' + counterKey);
+            const result = await counterRef.transaction(curr => (curr || 0) + 1);
+            const nr = result.snapshot.val();
+            const belegnummer = `${jahr}-Q${quartal}-${String(nr).padStart(4, '0')}`;
+            return { belegnummer, quartal: 'Q' + quartal, jahr };
         }
 
         // ─── Upload — Single oder Batch (v6.62.240) ───
@@ -1475,8 +1501,8 @@
                 <input type="checkbox" class="doc-check" data-id="${d.id}" ${checked} onclick="event.stopPropagation();toggleDocSelected('${d.id}', this.checked)" style="width:18px;height:18px;">
                 <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
                 <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
-                    <div class="title"><span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')} ${wfBadge}</div>
-                    <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${dueInfo} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
+                    <div class="title">${d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:6px;">#${escHtml(d.belegnummer)}</span>` : ''}<span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')} ${wfBadge}</div>
+                    <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${dueInfo} ${d.skr03Konto ? '· 📊 ' + escHtml(d.skr03Konto) : ''} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>
                 <div class="doc-actions">
@@ -1704,6 +1730,31 @@
                     const amt = h.amount != null ? ` <b>(${h.amount.toFixed(2).replace('.',',')}€)</b>` : '';
                     return `<div class="wf-history-item"><div class="ts">${ts} · ${escHtml(h.by || '?')}</div><div><b>${WF_LABELS[h.status] || h.status}</b>${amt}${h.note ? ' — ' + escHtml(h.note) : ''}</div></div>`;
                 }).join('');
+            // 🆕 v6.62.360: Ecovis-Ablage-Anzeige — Patrick "Belege Ecovis-maessig zuordnen, in
+            // Oberflaeche zeigen wo das zugeordnet wird". Belegnummer + Aktenordner oben prominent.
+            const _ablageBlock = editMode ? '' : (() => {
+                const bn = d.belegnummer || null;
+                const bq = d.belegQuartal || null;
+                const bj = d.belegJahr || null;
+                const konto = d.skr03Konto ? `Konto ${escHtml(d.skr03Konto)}${d.skr03Bezeichnung ? ' (' + escHtml(d.skr03Bezeichnung) + ')' : ''}` : '';
+                if (!bn) return `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;color:#92400e;">⚠️ Keine Belegnummer vergeben — alter Beleg, manuell vergeben oder neu hochladen.</div>`;
+                return `<div style="background:#1e293b;color:white;border-radius:8px;padding:12px 14px;margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+                    <div style="display:flex;flex-direction:column;">
+                        <span style="font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:1px;">Belegnummer</span>
+                        <span style="font-size:18px;font-weight:800;font-family:monospace;color:#fcd34d;">${escHtml(bn)}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;">
+                        <span style="font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:1px;">Aktenordner</span>
+                        <span style="font-size:14px;font-weight:600;">📂 ${escHtml(bq || '')}-${escHtml(String(bj || ''))}</span>
+                    </div>
+                    ${konto ? `<div style="display:flex;flex-direction:column;">
+                        <span style="font-size:10px;opacity:0.7;text-transform:uppercase;letter-spacing:1px;">Sachkonto</span>
+                        <span style="font-size:14px;font-weight:600;">📊 ${konto}</span>
+                    </div>` : ''}
+                    <div style="margin-left:auto;font-size:11px;opacity:0.7;">Heften nach Belegnr. fortlaufend</div>
+                </div>`;
+            })();
+
             // v6.62.257: KI-Briefing-Block oben im View-Modus
             // 🆕 v6.62.342: Patrick (06.05. 10:04): "Telefonnummer finde ich immer noch nicht
             // im Dokument wenn ich darauf klicke". Direkt-Action-Leiste oben im Doc-Modal mit
@@ -1719,7 +1770,7 @@
             </div>`;
 
             const briefingBlock = editMode ? '' : (
-                _quickActionsBlock + ((d.summary || d.aktionsEmpfehlung || d.kiError) ? `<div style="background:${wichtig === 'hoch' ? '#fef2f2;border:2px solid #fca5a5' : wichtig === 'mittel' ? '#fffbeb;border:2px solid #fde68a' : '#f0fdf4;border:2px solid #bbf7d0'};border-radius:8px;padding:12px;margin-bottom:14px;">
+                _ablageBlock + _quickActionsBlock + ((d.summary || d.aktionsEmpfehlung || d.kiError) ? `<div style="background:${wichtig === 'hoch' ? '#fef2f2;border:2px solid #fca5a5' : wichtig === 'mittel' ? '#fffbeb;border:2px solid #fde68a' : '#f0fdf4;border:2px solid #bbf7d0'};border-radius:8px;padding:12px;margin-bottom:14px;">
                     <div style="font-size:13px;font-weight:700;margin-bottom:6px;">${wIcon} 🤖 KI-Briefing${wichtig ? ' · ' + wichtig.toUpperCase() : ''}</div>
                     ${d.summary ? `<div style="font-size:13px;line-height:1.5;margin-bottom:8px;">${escHtml(d.summary)}</div>` : ''}
                     ${d.aktionsEmpfehlung ? `<div style="background:white;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#1e3a8a;">📋 Empfehlung: ${escHtml(d.aktionsEmpfehlung)}</div>` : ''}

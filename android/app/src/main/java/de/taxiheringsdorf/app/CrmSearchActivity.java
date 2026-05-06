@@ -1,10 +1,16 @@
 package de.taxiheringsdorf.app;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.text.Editable;
 import android.text.InputType;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -147,6 +153,48 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
         }
     );
+
+    // v6.62.388: Kontakt-Picker fuer "Aus Telefonbuch waehlen" beim Neuer-Kunde-Dialog.
+    // Patrick (06.05. 20:25): "Kunden aus dem Handy importieren beim CRM-Anlegen".
+    private EditText pendingContactName;
+    private EditText pendingContactPhone;
+    private final androidx.activity.result.ActivityResultLauncher<Intent> contactPickerLauncher =
+        registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                android.net.Uri uri = result.getData().getData();
+                if (uri == null) return;
+                String[] proj = { ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                                  ContactsContract.CommonDataKinds.Phone.NUMBER };
+                try (Cursor c = getContentResolver().query(uri, proj, null, null, null)) {
+                    if (c != null && c.moveToFirst()) {
+                        String cName = c.getString(0);
+                        String cPhone = c.getString(1);
+                        if (pendingContactName != null && cName != null && pendingContactName.getText().length() == 0) {
+                            pendingContactName.setText(cName);
+                        }
+                        if (pendingContactPhone != null && cPhone != null) {
+                            pendingContactPhone.setText(cPhone.replaceAll("\\s+", ""));
+                        }
+                        Toast.makeText(this, "✅ Kontakt uebernommen: " + cName, Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Throwable t) {
+                    Toast.makeText(this, "Kontakt-Import: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+
+    private void launchContactPicker(EditText nameField, EditText phoneField) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CONTACTS}, 91);
+            Toast.makeText(this, "Kontakte-Berechtigung wird angefragt — bitte erneut tippen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingContactName = nameField;
+        pendingContactPhone = phoneField;
+        Intent i = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+        contactPickerLauncher.launch(i);
+    }
 
     // v6.62.220: ActivityResultLauncher fuer den OSM-Map-Picker.
     private final androidx.activity.result.ActivityResultLauncher<Intent> mapPickerLauncher =
@@ -1045,6 +1093,29 @@ public class CrmSearchActivity extends AppCompatActivity {
         etName.setText(e.name != null ? e.name : "");
         layout.addView(etName);
 
+        // v6.62.388: Patrick (06.05. 20:25): "Aus Handy-Kontakten importieren beim CRM-Anlegen".
+        // Nur beim Anlegen sinnvoll (nicht beim Bearbeiten).
+        if (isNew) {
+            android.widget.Button btnContact = new android.widget.Button(this);
+            btnContact.setText("📱 Aus Telefonbuch waehlen");
+            btnContact.setAllCaps(false);
+            btnContact.setTextSize(13);
+            btnContact.setBackgroundColor(0xFFE0E7FF);
+            btnContact.setTextColor(0xFF3730A3);
+            LinearLayout.LayoutParams bcLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            bcLp.setMargins(0, pad / 2, 0, pad / 2);
+            btnContact.setLayoutParams(bcLp);
+            layout.addView(btnContact);
+            // Click-Handler kommt unten gesetzt — etMobile muss zuerst angelegt sein.
+            btnContact.setOnClickListener(v -> {
+                // Nutze etMobile als Telefonziel (= Mobilnummer ist Standard fuer Handy-Kontakte)
+                EditText nameRef = etName;
+                EditText phoneRef = (EditText) layout.findViewWithTag("contactPhoneTarget");
+                launchContactPicker(nameRef, phoneRef);
+            });
+        }
+
         // v6.62.384: Mobil ZUERST (wichtigste Spalte fuer SMS) + klare Beschriftung
         TextView lblMobile = new TextView(this);
         lblMobile.setText("📱 Mobilnummer  (fuer SMS, WhatsApp, Track-Link)");
@@ -1055,6 +1126,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         etMobile.setHint("z.B. +491731234567");
         etMobile.setInputType(InputType.TYPE_CLASS_PHONE);
         etMobile.setText(e.mobilePhone != null ? e.mobilePhone : "");
+        etMobile.setTag("contactPhoneTarget");
         layout.addView(etMobile);
 
         TextView lblPhone = new TextView(this);

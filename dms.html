@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.375</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.376</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -856,9 +856,25 @@
                         <button class="btn" onclick="document.getElementById('vehicle-modal').remove()">Abbrechen</button>
                     </div>
                     ${vehId ? `<button class="btn" onclick="deleteVehicle('${vehId}')" style="background:#fee2e2;color:#991b1b;margin-top:8px;font-size:12px;">🗑 Fahrzeug löschen…</button>` : ''}
+                    ${vehId ? `
+                    <!-- v6.62.376: Zugeordnete Belege im Vehicle-Modal (Patrick: 'wo seh ich Belege') -->
+                    <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:14px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                            <h3 style="font-size:14px;color:#7c2d12;">📄 Zugeordnete Belege</h3>
+                            <div id="veh-docs-sort" style="display:flex;gap:4px;font-size:11px;">
+                                <button class="btn" onclick="setVehDocSort('km')" data-sort="km" style="padding:3px 8px;font-size:10px;background:#1e293b;color:white;">🛣️ km ↑</button>
+                                <button class="btn" onclick="setVehDocSort('datum')" data-sort="datum" style="padding:3px 8px;font-size:10px;">📅 Datum ↓</button>
+                                <button class="btn" onclick="setVehDocSort('belegnr')" data-sort="belegnr" style="padding:3px 8px;font-size:10px;">🔢 Belegnr</button>
+                                <button class="btn" onclick="setVehDocSort('lieferant')" data-sort="lieferant" style="padding:3px 8px;font-size:10px;">🏢 Lieferant</button>
+                            </div>
+                        </div>
+                        <div id="veh-docs-list"></div>
+                    </div>` : ''}
                 </div>
             </div>`;
             document.body.appendChild(m);
+            // v6.62.376: Belege-Liste fuer das Fahrzeug rendern (nach DOM-Append)
+            if (vehId) setTimeout(renderVehicleDocList, 50);
         }
 
         async function saveVehicle() {
@@ -898,6 +914,59 @@
                 document.getElementById('vehicle-modal').remove();
                 renderVehiclesTab();
             } catch (e) { showToast('Fehler: ' + e.message); }
+        }
+
+        // 🆕 v6.62.376: Belege-Liste im Vehicle-Modal — sortierbar nach km/Datum/Belegnr/Lieferant
+        // Patrick (06.05. 17:00): "wo seh ich Belege wenn ich Fahrzeug oeffne — und nach km sortiert oder sortierbar"
+        let _vehDocSort = 'km';
+        function setVehDocSort(sortKey) {
+            _vehDocSort = sortKey;
+            // Button-Styling refresh
+            document.querySelectorAll('#veh-docs-sort button').forEach(b => {
+                if (b.dataset.sort === sortKey) {
+                    b.style.background = '#1e293b'; b.style.color = 'white';
+                } else {
+                    b.style.background = ''; b.style.color = '';
+                }
+            });
+            renderVehicleDocList();
+        }
+        function renderVehicleDocList() {
+            const list = document.getElementById('veh-docs-list');
+            if (!list || !_editingVehicleId) return;
+            const docs = (allDocs || []).filter(d => d && d.vehicleRefId === _editingVehicleId && d.kategorie !== '_inbox');
+            if (docs.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:14px;color:#9ca3af;font-size:12px;">Keine Belege fuer dieses Fahrzeug zugeordnet. Lade einen TUEV-Bericht oder eine Werkstatt-Rechnung hoch und ordne sie diesem Fahrzeug zu.</div>';
+                return;
+            }
+            // Sortierung
+            const sorted = [...docs];
+            if (_vehDocSort === 'km') {
+                sorted.sort((a, b) => {
+                    const ka = a.kilometerstand != null ? Number(a.kilometerstand) : Infinity;
+                    const kb = b.kilometerstand != null ? Number(b.kilometerstand) : Infinity;
+                    return ka - kb;
+                });
+            } else if (_vehDocSort === 'datum') {
+                sorted.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+            } else if (_vehDocSort === 'belegnr') {
+                sorted.sort((a, b) => (a.belegnummer || 'z').localeCompare(b.belegnummer || 'z'));
+            } else if (_vehDocSort === 'lieferant') {
+                sorted.sort((a, b) => (a.lieferant || '').localeCompare(b.lieferant || ''));
+            }
+            // Render
+            const rows = sorted.map(d => {
+                const km = d.kilometerstand != null ? Number(d.kilometerstand).toLocaleString('de-DE') + ' km' : '—';
+                const bn = d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;">#${escHtml(d.belegnummer)}</span>` : '';
+                return `<div style="background:#f9fafb;border-left:3px solid #ea580c;border-radius:6px;padding:8px 10px;margin-bottom:4px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;cursor:pointer;" onclick="openDocDetail('${d.id}'); document.getElementById('vehicle-modal')?.remove();">
+                    <div>
+                        <div style="font-size:12px;font-weight:600;">${bn} ${escHtml(d.lieferant || '?')} · ${escHtml(d.dokumenttyp || d.subKategorie || '')}</div>
+                        <div style="font-size:11px;color:#6b7280;">${d.datum || '?'} · ${km}${d.naechsterTuev ? ' · TÜV bis ' + d.naechsterTuev : ''}</div>
+                    </div>
+                    <button class="btn btn-ghost" style="font-size:11px;color:#3b82f6;">👁</button>
+                </div>`;
+            }).join('');
+            list.innerHTML = rows;
         }
 
         // 🆕 v6.62.374: Fahrzeug löschen mit Bestätigung

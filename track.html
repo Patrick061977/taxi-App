@@ -489,11 +489,12 @@
                 const pickup = ride.pickup || 'Start';
                 const destination = ride.destination || 'Ziel';
                 
-                document.getElementById('vehicle-info').innerHTML = `
-                    <div class="info-line"><span class="label">Fahrgast:</span> ${customerName}</div>
-                    <div class="info-line">📍 ${pickup}</div>
-                    <div class="info-line">🎯 ${destination}</div>
-                `;
+                // 🆕 v6.62.331: Patrick (06.05. 08:50): "Bestaetigungskarte — unter den
+                // Termin-Einfuegen Buttons steht das nochmal das gleiche wie oben (Fahrgast/
+                // Abholort/Zielort), das kann theoretisch raus." Diese Info ist schon in
+                // #booking-details oben enthalten. vehicle-info wird leer geblendet.
+                const _vi = document.getElementById('vehicle-info');
+                if (_vi) _vi.style.display = 'none';
                 
                 // 🔧 v6.39.5: Koordinaten aus Rides — pickupCoords/destCoords oder pickupLat/pickupLon
                 const pickupLat = ride.pickupCoords?.lat || ride.pickupLat;
@@ -745,9 +746,33 @@
                 if (!_vehicleVisible) {
                     // Marker entfernen falls vorhanden (Status-Wechsel zurueck)
                     if (vehicleMarker) { try { map.removeLayer(vehicleMarker); } catch(_) {} vehicleMarker = null; }
-                    showWarning('🕒 Vorbestellung erfasst — Fahrzeug wird angezeigt sobald der Fahrer zu Ihnen losfährt');
+                    // 🆕 v6.62.331: Patrick (06.05. 08:50): "Wenn der Fahrer zugeteilt wird,
+                    // dass da vielleicht eine Linie zum Abholort gezeichnet wird, wo das Taxi
+                    // gerade losfaehrt und welches Taxi das ist." Bei accepted/assigned
+                    // Status: Fahrzeug-Name anzeigen + Standort→Pickup-Linie (gestrichelt)
+                    // ohne Live-Marker.
+                    const _r = window._currentRide?.data;
+                    const _vehName = _r?.assignedVehicleName || _r?.vehicle || _r?.assignedVehicle;
+                    if (_vehName && ['accepted', 'assigned'].includes(_statusForVehicleVisibility)) {
+                        showWarning(`🚕 ${_vehName} wurde Ihnen zugeteilt — faehrt zur geplanten Abholzeit los`);
+                        // Standort→Pickup-Linie wenn Fahrzeug-GPS bekannt
+                        const _v = driversData[vehicleId];
+                        const _ridePLat = _r?.pickupCoords?.lat || _r?.pickupLat;
+                        const _ridePLon = _r?.pickupCoords?.lon || _r?.pickupLon;
+                        if (_v?.lat && _v?.lon && _ridePLat && _ridePLon && !window._preLine) {
+                            try {
+                                window._preLine = L.polyline([[_v.lat, _v.lon], [_ridePLat, _ridePLon]], {
+                                    color: '#94a3b8', weight: 2, opacity: 0.5, dashArray: '6 6'
+                                }).addTo(map);
+                            } catch(_) {}
+                        }
+                    } else {
+                        showWarning('🕒 Vorbestellung erfasst — Fahrzeug wird angezeigt sobald der Fahrer zu Ihnen losfährt');
+                    }
                     return;
                 }
+                // Vehicle wird sichtbar → pre-Line entfernen falls noch da
+                if (window._preLine) { try { map.removeLayer(window._preLine); } catch(_) {} window._preLine = null; }
 
                 // Finde das richtige Fahrzeug
                 const driver = driversData[vehicleId];
@@ -934,9 +959,13 @@
         loadTrackingData();
         
         function showError(msg) {
-            document.getElementById('vehicle-info').innerHTML = `
-                <div class="error-box">${msg}</div>
-            `;
+            // v6.62.331: vehicle-info ist normalerweise hidden (Duplikat-Cleanup) — bei
+            // Fehler wieder einblenden damit der Kunde die Meldung sieht.
+            const _ve = document.getElementById('vehicle-info');
+            if (_ve) {
+                _ve.style.display = 'block';
+                _ve.innerHTML = `<div class="error-box">${msg}</div>`;
+            }
         }
         
         function showWarning(msg) {

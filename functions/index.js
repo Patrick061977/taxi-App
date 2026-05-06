@@ -18965,12 +18965,42 @@ exports.onRideCreated = onValueCreated(
                 // 🆕 v6.62.309: Patrick (05.05. 15:40): Zwischenstopp wird in der Native-App
                 //   nicht in den Preis eingerechnet. Fix: ride.waypoints in OSRM-Call mitgeben,
                 //   damit Distanz inkl. Umweg gerechnet wird.
+                // 🆕 v6.62.331: Patrick (06.05. 08:43): Bug immer noch — wenn Native-User
+                //   keinen Place-Picker fuer Stopp nutzt sondern nur Text, fehlen lat/lon.
+                //   Vorher wurden diese Stopps weggefiltert → ignoriert. Fix: fuer waypoints
+                //   ohne Coords jetzt Geocoding ausfuehren + zurueck in /rides/{id}/waypoints
+                //   schreiben (damit Native-Anzeige die Coords sieht).
                 const _wpRaw = Array.isArray(ride.waypoints)
                     ? ride.waypoints
                     : Object.values(ride.waypoints || {});
-                const _waypointCoordsForRoute = _wpRaw
-                    .filter(wp => wp && typeof wp.lat === 'number' && typeof wp.lon === 'number')
-                    .map(wp => ({ lat: parseFloat(wp.lat), lon: parseFloat(wp.lon) }));
+                const _waypointCoordsForRoute = [];
+                let _wpUpdated = false;
+                for (let _wpI = 0; _wpI < _wpRaw.length; _wpI++) {
+                    const wp = _wpRaw[_wpI];
+                    if (!wp) continue;
+                    if (typeof wp.lat === 'number' && typeof wp.lon === 'number') {
+                        _waypointCoordsForRoute.push({ lat: parseFloat(wp.lat), lon: parseFloat(wp.lon) });
+                        continue;
+                    }
+                    const _wpAddr = typeof wp === 'string' ? wp : (wp.address || '');
+                    if (!_wpAddr.trim()) continue;
+                    try {
+                        const _wpCoords = await geocode(_wpAddr);
+                        if (_wpCoords && _wpCoords.lat && _wpCoords.lon) {
+                            _waypointCoordsForRoute.push({ lat: _wpCoords.lat, lon: _wpCoords.lon });
+                            _wpRaw[_wpI] = { address: _wpAddr, lat: _wpCoords.lat, lon: _wpCoords.lon };
+                            _wpUpdated = true;
+                            console.log(`🛑 onRideCreated: Zwischenstopp "${_wpAddr}" geocodiert → ${_wpCoords.lat}, ${_wpCoords.lon}`);
+                        } else {
+                            console.warn(`⚠️ onRideCreated: Zwischenstopp "${_wpAddr}" konnte nicht geocodiert werden — wird im Preis ignoriert`);
+                        }
+                    } catch (_geoErr) {
+                        console.warn(`⚠️ onRideCreated: Geocode-Fehler fuer Zwischenstopp "${_wpAddr}":`, _geoErr.message);
+                    }
+                }
+                if (_wpUpdated) {
+                    try { await db.ref(`rides/${rideId}/waypoints`).set(_wpRaw); } catch(_) {}
+                }
                 if (_waypointCoordsForRoute.length > 0) {
                     console.log(`🛑 onRideCreated: ${_waypointCoordsForRoute.length} Zwischenstopp(s) in Routen-Berechnung`);
                 }

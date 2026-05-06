@@ -4431,8 +4431,18 @@
                 return;
             }
             try {
+                // 🆕 v6.62.359: Patrick (06.05. 13:55): "Workflow ist kaputt" — Bug: hier wurden
+                // bisher deletedAt/deletedBy gesetzt waehrend ALLE anderen Stellen (index.html,
+                // track.html, kunden.html, Cloud Functions) cancelledAt/cancelledBy lesen. Folge:
+                // Tesla-Fahrer sah Patrick-Wydra-Storno nicht, Cloud-Function behandelte's nicht
+                // als richtige Storno. Jetzt: beide Felder setzen (compat zu altem Code) plus
+                // die kanonischen cancelled*-Felder.
                 await db.ref('rides/' + rideId).update({
                     status: 'storniert',
+                    cancelledAt: Date.now(),
+                    cancelledBy: 'web-customer',
+                    cancelledVia: 'buchen.html',
+                    cancelReason: 'Vom Kunden online storniert',
                     deletedBy: 'web-customer',
                     deletedAt: Date.now(),
                     updatedAt: Date.now()

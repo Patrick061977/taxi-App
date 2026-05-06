@@ -25207,6 +25207,62 @@ function extractGermanPhoneFromText(text) {
     return null;
 }
 
+// 🆕 v6.62.367: Belegnummern-Backfill fuer alte Belege ohne Nummer
+// Patrick (06.05. 15:10): "Belegnummern-Backfill als 1. Punkt" — gelbe Warnungen
+// 'keine Belegnummer' bei alten Belegen weg.
+//
+// Geht alle /docs ohne belegnummer durch, sortiert chronologisch nach datum
+// (Fallback: uploadedAt), vergibt pro Quartal fortlaufend Nummern via atomic
+// Firebase-Transaction. Format: YYYY-QN-NNNN — gleich wie Live-Vergabe.
+exports.backfillBelegnummern = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 120, memory: '256MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        try {
+            const dryRun = req.query.dryRun === '1' || req.query.dry === '1';
+            const docsSnap = await db.ref('docs').once('value');
+            const docs = docsSnap.val() || {};
+            const todo = Object.entries(docs)
+                .filter(([_, d]) => d && !d.belegnummer)
+                .map(([id, d]) => {
+                    const ts = d.datum ? new Date(d.datum + 'T12:00:00').getTime() : (d.uploadedAt || Date.now());
+                    return { id, doc: d, ts };
+                })
+                .sort((a, b) => a.ts - b.ts);
+
+            const results = [];
+            for (const item of todo) {
+                const dt = new Date(item.ts);
+                const jahr = dt.getFullYear();
+                const monat = dt.getMonth() + 1;
+                const quartal = Math.ceil(monat / 3);
+                const counterKey = `${jahr}-Q${quartal}`;
+                const belegEntry = { id: item.id, lieferant: item.doc.lieferant, datum: item.doc.datum, quartal: counterKey };
+                if (dryRun) {
+                    belegEntry.wouldAssign = `${jahr}-Q${quartal}-???? (dry-run)`;
+                } else {
+                    const counterRef = db.ref('settings/dms/belegCounter/' + counterKey);
+                    const result = await counterRef.transaction(curr => (curr || 0) + 1);
+                    const nr = result.snapshot.val();
+                    const belegnummer = `${jahr}-Q${quartal}-${String(nr).padStart(4, '0')}`;
+                    await db.ref(`docs/${item.id}`).update({
+                        belegnummer,
+                        belegQuartal: 'Q' + quartal,
+                        belegJahr: jahr,
+                        belegnummerSource: 'backfill_v6.62.367'
+                    });
+                    belegEntry.assigned = belegnummer;
+                }
+                results.push(belegEntry);
+            }
+            res.status(200).json({ ok: true, dryRun, totalDocs: Object.keys(docs).length, processed: results.length, results });
+        } catch (e) {
+            res.status(500).json({ ok: false, error: e.message });
+        }
+    }
+);
+
 exports.backfillDocPhones = onRequest(
     { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
     async (req, res) => {

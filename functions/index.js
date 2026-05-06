@@ -17348,7 +17348,18 @@ exports.autoResolveConflicts = onSchedule(
                 if (reassignableRides.length > 0) {
                     reassignableRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
                     const fixedRides = allRides.filter(r => !reassignableRides.find(rr => rr.firebaseId === r.firebaseId));
-                    // Slot-Tabelle pro Fahrzeug initialisieren mit fixed-rides
+                    // 🆕 v6.62.323: Patrick (06.05. 08:04): "Du musst auch immer die Rueckfahrt
+                    // mit berechnen, wann er wieder am naechsten Abholort sein kann."
+                    // Slot enthaelt jetzt destLat/destLon → spaetere Konfliktpruefung kann
+                    // Leerfahrt vom Slot-Ziel zum naechsten Pickup einrechnen.
+                    function _quickLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
+                        if (!fromLat || !fromLon || !toLat || !toLon) return 10;
+                        const dLat = (fromLat - toLat) * Math.PI / 180;
+                        const dLon = (fromLon - toLon) * Math.PI / 180;
+                        const a = Math.sin(dLat/2)**2 + Math.cos(fromLat*Math.PI/180)*Math.cos(toLat*Math.PI/180)*Math.sin(dLon/2)**2;
+                        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        return Math.max(2, Math.round(distKm * 1.3 / 40 * 60));
+                    }
                     const slotsPerVehicle = {};
                     Object.keys(OFFICIAL_VEHICLES).forEach(vid => {
                         slotsPerVehicle[vid] = fixedRides
@@ -17356,6 +17367,8 @@ exports.autoResolveConflicts = onSchedule(
                             .map(r => ({
                                 start: r.pickupTimestamp,
                                 end: r.pickupTimestamp + ((r.duration || r.estimatedDuration || 20) * 60000) + bufferMs,
+                                destLat: r.destinationLat || r.destCoords?.lat,
+                                destLon: r.destinationLon || r.destCoords?.lon,
                                 customer: r.customerName || '?'
                             }));
                     });
@@ -17370,19 +17383,59 @@ exports.autoResolveConflicts = onSchedule(
                         const rideEnd = ride.pickupTimestamp
                             + ((ride.duration || ride.estimatedDuration || 20) * 60000)
                             + bufferMs;
+                        const ridePickupLat = ride.pickupLat || ride.pickupCoords?.lat;
+                        const ridePickupLon = ride.pickupLon || ride.pickupCoords?.lon;
 
                         // Hoechst-priorisiertes verfuegbares Fahrzeug suchen
                         let bestVehicle = null;
+                        let bestVehicleLeerfahrtMin = 0;
                         for (const vid of vehiclesByPrio) {
                             const vInfo = OFFICIAL_VEHICLES[vid];
                             if (!vInfo) continue;
                             if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
                             if (!isVehicleInShift(vid, shiftsData, dateStr, timeStr)) continue;
-                            const hasConflict = slotsPerVehicle[vid].some(slot =>
-                                ride.pickupTimestamp < slot.end && slot.start < rideEnd
-                            );
+                            // 🆕 v6.62.323: Konflikt-Check + Leerfahrt-Check zusammen.
+                            // Fuer jeden Slot des Fahrzeugs: schafft der Fahrer es vom Slot-Ziel
+                            // zum neuen Pickup rechtzeitig? bzw. schafft er nach dem neuen Pickup-
+                            // Ziel zum naechsten Slot rechtzeitig?
+                            let hasConflict = false;
+                            let _leerfahrtForRide = 0;
+                            for (const slot of slotsPerVehicle[vid]) {
+                                if (slot.start < rideEnd && ride.pickupTimestamp < slot.end) {
+                                    // Direkter Zeit-Overlap
+                                    hasConflict = true;
+                                    break;
+                                }
+                                if (slot.end <= ride.pickupTimestamp) {
+                                    // Slot endet vor neuer Fahrt — Leerfahrt-Check Slot-Ziel → neuer Pickup
+                                    const leerfahrtMin = _quickLeerfahrtMin(slot.destLat, slot.destLon, ridePickupLat, ridePickupLon);
+                                    if (slot.end + leerfahrtMin * 60000 > ride.pickupTimestamp) {
+                                        hasConflict = true; // Schafft es nicht rechtzeitig
+                                        break;
+                                    }
+                                    if (leerfahrtMin > _leerfahrtForRide) _leerfahrtForRide = leerfahrtMin;
+                                } else if (slot.start >= rideEnd) {
+                                    // Slot beginnt nach neuer Fahrt — Leerfahrt-Check neues Ziel → Slot-Pickup
+                                    // Slot-Pickup-Coords haben wir nicht direkt, aber slot.destLat ist Ziel des
+                                    // Slots — wir nehmen den Pickup des Slots als bekannte Coords aus fixedRides.
+                                    // Lookup aus fixedRides via start-Zeit:
+                                    const _matchedFixed = fixedRides.find(fr => fr.pickupTimestamp === slot.start && (fr.assignedVehicle === vid || fr.vehicleId === vid));
+                                    if (_matchedFixed) {
+                                        const slotPickLat = _matchedFixed.pickupLat || _matchedFixed.pickupCoords?.lat;
+                                        const slotPickLon = _matchedFixed.pickupLon || _matchedFixed.pickupCoords?.lon;
+                                        const rideDestLat = ride.destinationLat || ride.destCoords?.lat;
+                                        const rideDestLon = ride.destinationLon || ride.destCoords?.lon;
+                                        const leerfahrtMin = _quickLeerfahrtMin(rideDestLat, rideDestLon, slotPickLat, slotPickLon);
+                                        if (rideEnd + leerfahrtMin * 60000 > slot.start) {
+                                            hasConflict = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                             if (hasConflict) continue;
                             bestVehicle = vid;
+                            bestVehicleLeerfahrtMin = _leerfahrtForRide;
                             break;
                         }
 
@@ -17390,7 +17443,7 @@ exports.autoResolveConflicts = onSchedule(
                             phase3DebugLines.push(`⚠️ ${timeStr} ${ride.customerName || '?'} → kein Prio-Fahrzeug verfuegbar`);
                             // Slot trotzdem fuer alten Fahrzeug eintragen
                             if (oldVehicle && slotsPerVehicle[oldVehicle]) {
-                                slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                                slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             }
                             continue;
                         }
@@ -17398,13 +17451,13 @@ exports.autoResolveConflicts = onSchedule(
                         if (bestVehicle === oldVehicle) {
                             // Schon optimal
                             phase3DebugLines.push(`✓ ${timeStr} ${ride.customerName || '?'} → bereits ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio})`);
-                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
                         }
                         if (newPrio >= oldPrio) {
                             // Neues Fahrzeug hat KEINE bessere Prio → kein Tausch
                             phase3DebugLines.push(`⏭️ ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio}) bleibt (Alternative ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} P${newPrio} nicht besser)`);
-                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
                         }
 
@@ -17432,7 +17485,7 @@ exports.autoResolveConflicts = onSchedule(
                         if (oldVehicle && slotsPerVehicle[oldVehicle]) {
                             slotsPerVehicle[oldVehicle] = slotsPerVehicle[oldVehicle].filter(s => s.start !== ride.pickupTimestamp || s.customer !== ride.customerName);
                         }
-                        slotsPerVehicle[bestVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                        slotsPerVehicle[bestVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                         // ride.assignedVehicle aktualisieren fuer nachfolgende Iterationen
                         ride.assignedVehicle = bestVehicle;
                     }

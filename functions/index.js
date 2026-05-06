@@ -17662,6 +17662,126 @@ exports.autoResolveConflicts = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.354 (06.05.): scheduledReachabilityCheck
+// Patrick (06.05. 11:53): "Wenn das GPS an ist muesstest du doch sehen
+// dass das nicht klappt mit dem Fahrzeug." — bisher gab's nur die Live-
+// ETA-Anzeige fuer den Beobachter, aber keinen proaktiven Alarm wenn
+// das zugewiesene Fahrzeug per GPS+OSRM-Route die Pickup-Zeit nicht
+// schaffen kann.
+//
+// Diese Function laeuft alle 60 Sekunden, prueft fuer jede aktive
+// Fahrt mit assignedVehicle und Pickup in [now, now+30min]:
+//   1. vehicles[ride.assignedVehicle].lat/lon vorhanden + frisch (<10min)?
+//   2. OSRM-Route Vehicle → ride.pickupLat/Lon → ETA in Min
+//   3. minBisPickup = (ride.pickupTimestamp - now) / 60s
+//   4. Wenn ETA + boardingBuffer (3min) > minBisPickup → unreachable
+//      → Telegram-Push an Admins (1x pro Fahrt, Re-Alarm alle 10min)
+//      → Schreibe ride.unreachableAlert={firstAt, lastAt, eta, missedBy}
+//      → Admin-UI kann das Flag rot markieren
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledReachabilityCheck = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 90,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const windowEnd = now + 30 * 60 * 1000;
+            const REALARM_COOLDOWN_MS = 10 * 60 * 1000;
+            const STALE_GPS_MS = 10 * 60 * 1000;
+            const BOARDING_BUFFER_MIN = 3;
+
+            const [ridesSnap, vehiclesSnap] = await Promise.all([
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(windowEnd).once('value'),
+                db.ref('vehicles').once('value')
+            ]);
+            const vehicles = vehiclesSnap.val() || {};
+
+            let checkedCount = 0;
+            let alertCount = 0;
+            const promises = [];
+
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                if (!ride) return;
+                if (!['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange'].includes(ride.status)) return;
+                const vid = ride.assignedVehicle || ride.vehicleId || ride.vehicle;
+                if (!vid) return;
+                const v = vehicles[vid];
+                if (!v || !v.lat || !v.lon) return;
+                const vLastSeen = v.lastSeen || v.lastUpdate || 0;
+                if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) return;
+                if (!ride.pickupLat || !ride.pickupLon) return;
+                const pickupLat = parseFloat(ride.pickupLat);
+                const pickupLon = parseFloat(ride.pickupLon);
+                if (isNaN(pickupLat) || isNaN(pickupLon)) return;
+                checkedCount++;
+
+                promises.push((async () => {
+                    try {
+                        const route = await calculateRoute(
+                            { lat: parseFloat(v.lat), lon: parseFloat(v.lon) },
+                            { lat: pickupLat, lon: pickupLon }
+                        );
+                        if (!route || route.duration == null) return;
+                        const eta = route.duration; // Minuten
+                        const minBisPickup = Math.round((ride.pickupTimestamp - now) / 60000);
+                        const missedBy = (eta + BOARDING_BUFFER_MIN) - minBisPickup;
+                        if (missedBy <= 0) {
+                            // Fahrer schafft es noch — alten Alarm aufheben falls vorhanden
+                            if (ride.unreachableAlert) {
+                                await db.ref(`rides/${rideId}/unreachableAlert`).remove();
+                            }
+                            return;
+                        }
+                        // Unreachable. Re-Alarm-Cooldown pruefen.
+                        const lastAlarm = ride.unreachableAlert?.lastAt || 0;
+                        if (lastAlarm && (now - lastAlarm) < REALARM_COOLDOWN_MS) return;
+
+                        const isFirstAlarm = !ride.unreachableAlert;
+                        const alertObj = {
+                            firstAt: ride.unreachableAlert?.firstAt || now,
+                            lastAt: now,
+                            eta,
+                            minBisPickup,
+                            missedBy,
+                            vehicleLat: parseFloat(v.lat),
+                            vehicleLon: parseFloat(v.lon),
+                            distanceKm: route.distance ? parseFloat(route.distance) : null
+                        };
+                        await db.ref(`rides/${rideId}/unreachableAlert`).set(alertObj);
+                        alertCount++;
+
+                        const vehicleName = v.label || vid;
+                        const customerName = ride.customerName || '?';
+                        const pickupAddr = ride.pickup || '?';
+                        const tag = isFirstAlarm ? '🚨 SCHAFFBARKEIT' : '🔁 STILL UNREACHABLE';
+                        const msg = `${tag}\n\n${vehicleName} schafft die Pickup-Zeit nicht:\n` +
+                            `👤 ${customerName}\n` +
+                            `📍 ${pickupAddr}\n` +
+                            `⏰ Pickup in ${minBisPickup} Min · ETA Anfahrt ${eta} Min (+${BOARDING_BUFFER_MIN} Boarding) → ${missedBy} Min zu spät\n` +
+                            `📏 Distanz noch ${route.distance || '?'} km\n\n` +
+                            `Bitte umplanen oder anderes Fahrzeug zuweisen.`;
+                        await sendToAllAdmins(msg);
+                    } catch (innerErr) {
+                        console.warn(`Reachability rideId=${rideId} fehler:`, innerErr.message);
+                    }
+                })());
+            });
+
+            await Promise.all(promises);
+            console.log(`📡 ReachabilityCheck: ${checkedCount} Fahrten geprüft, ${alertCount} Alarm(e) gesendet`);
+        } catch (e) {
+            console.error('❌ scheduledReachabilityCheck Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🔧 v6.25.4: Homebase aus Schichtplan ermitteln (wie getVehicleHomeForTime in index.html)
 // Unterstützt: Split-Schicht (timeRanges), Tagesausnahmen, defaultTimes
 // 🔧 v6.38.35: Bekannte Standorte mit Koordinaten (für Schichtplan-Auflösung)

@@ -20247,27 +20247,28 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
-                // 🆕 v6.62.391: Patrick (06.05. 20:39 + 20:50): "Native-App setzt
-                //   needsInvoice beim Bezahl-Abschluss → Cloud Function erstellt PDF
-                //   serverseitig → SMS wartet bis PDF fertig ist und enthaelt Link".
-                // Hier vor der Vielen-Dank-SMS: wenn needsInvoice && !invoiceNumber,
-                // baue PDF synchron, dann laeuft der SMS-Code mit pdfUrl-Lookup
-                // (PR #1396, v6.62.389) der bereits existiert.
+                // 🆕 v6.62.392: Patrick (06.05. 20:53): "Ich will das gleiche Layout
+                //   wie wir das jetzt haben. Kein neues, nicht irgendwelche Tests".
+                //   Cloud-Function-Auto-PDF (pdfkit) deaktiviert — ergibt anderes Layout
+                //   als die Web-Rechnung. Stattdessen: Telegram-Push an alle Admins mit
+                //   Disposition-Link. Patrick tippt → Browser-Listener (v6.62.390)
+                //   triggert openInvoiceModal+generateInvoicePDFv2 = pixel-identisches
+                //   Web-Layout.
                 if (after.needsInvoice === true && !after.invoiceNumber) {
                     try {
-                        const invoiceModule = require('./invoice-pdf');
-                        const result = await invoiceModule.processAutoInvoice(rideId, after, db, admin);
-                        if (result && result.invoiceNumber) {
-                            // after-Daten anreichern damit der nachfolgende SMS-Code den
-                            // pdfUrl-Lookup ueber after.invoiceNumber findet
-                            after.invoiceNumber = result.invoiceNumber;
-                            after.invoicePdfUrl = result.pdfUrl;
-                            await addRideLog(rideId, '🧾', 'Auto-Rechnung erstellt', { invoiceNumber: result.invoiceNumber, pdfUrl: result.pdfUrl, via: 'cloud_function_pdfkit' });
-                        }
-                    } catch (autoInvErr) {
-                        console.error('❌ Auto-Invoice fehlgeschlagen:', rideId, autoInvErr);
-                        await addRideLog(rideId, '❌', 'Auto-Invoice fehlgeschlagen', { error: autoInvErr.message || String(autoInvErr) });
-                        // SMS trotzdem senden — ohne PDF-Link
+                        const _amt = parseFloat(after.actualPrice || after.price || 0);
+                        const _amtStr = isNaN(_amt) ? '?' : _amt.toFixed(2).replace('.', ',') + ' €';
+                        const _custDisplay = after.customerName || '?';
+                        const _dispoLink = `https://taxi-heringsdorf.web.app/?openInvoice=${rideId}`;
+                        const _pushMsg = `🧾 <b>Rechnung wartet</b>\n\n` +
+                            `👤 ${_custDisplay}\n` +
+                            `💰 ${_amtStr}\n` +
+                            `📍 ${after.pickup || '?'} → ${after.destination || '?'}\n\n` +
+                            `<a href="${_dispoLink}">Disposition oeffnen</a> — Browser-Listener erstellt automatisch PDF mit deinem gewohnten Layout.`;
+                        await sendToAllAdmins(_pushMsg);
+                        await addRideLog(rideId, '🧾', 'Rechnung-Wartet-Push gesendet', { rideId, amount: _amt, dispoLink: _dispoLink });
+                    } catch (pushErr) {
+                        console.error('❌ Rechnung-Wartet-Push fehlgeschlagen:', rideId, pushErr);
                     }
                 }
 

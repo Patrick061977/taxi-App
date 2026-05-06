@@ -20289,7 +20289,18 @@ exports.onRideUpdated = onValueUpdated(
                         _googleReviewUrl = _grSnap.val() || null;
                     } catch(_) {}
                     const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
-                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
+                    // 🆕 v6.62.389: Patrick (06.05. 20:34): "Vielen-Dank-SMS soll Rechnung-
+                    // Download-Link enthalten, wenn die Rechnung schon erstellt wurde".
+                    // Lookup ueber after.invoiceNumber → invoices/<n>/pdfUrl.
+                    let _invoiceLine = '';
+                    if (after.invoiceNumber) {
+                        try {
+                            const _invSnap = await db.ref(`invoices/${after.invoiceNumber}/pdfUrl`).once('value');
+                            const _pdfUrl = _invSnap.val();
+                            if (_pdfUrl) _invoiceLine = `\nRechnung: ${_pdfUrl}`;
+                        } catch(_e) {}
+                    }
+                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}${_invoiceLine}\nBei Fragen: 038378 22022.`;
                     // 🆕 v6.62.382: Patrick (06.05. 18:41): "Hasbargen — Vielen-Dank-SMS kam nicht".
                     // Bug: nur customerPhone gepruefte, nicht customerMobile als Fallback.
                     // Hasbargen hat customerPhone='' und customerMobile='+491732...' → SMS skipte.

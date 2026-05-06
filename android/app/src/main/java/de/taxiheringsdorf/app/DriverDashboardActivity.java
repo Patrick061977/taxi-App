@@ -1033,12 +1033,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             assigned.add(r);
         }
         myAssignedRides = assigned;
-        // 🆕 v6.62.377: Patrick (06.05. 18:04): "Hasbargen-Fahrt da, Banner sagt 'keine Fahrt
-        // in Sicht'" — Bug: 20-Min-Fenster filtert Vorbestellungen aus, Banner sah sie nicht.
-        // Separat: alle Vorbestellungen dieses Fahrzeugs mit Pickup in den naechsten 4h fuer
-        // den Banner sammeln (unabhaengig vom 20-Min-Filter).
+        // 🆕 v6.62.377+v6.62.379: Patrick: "20 Min sind nicht schlecht, 4h Quatsch".
+        // Kompromiss: 30 Min Banner-Lookahead — sieht naechste Vorbestellung etwas frueher
+        // als die 20-Min-Listenanzeige aber nicht 4h vorher.
         List<Ride> banner4h = new ArrayList<>();
-        long bannerWindow = now + 4L * 3600L * 1000L;
+        long bannerWindow = now + 30L * 60L * 1000L;
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
             if (r == null || r.status == null || r.pickupTimestamp == null) continue;

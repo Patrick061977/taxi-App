@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dokumente — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.343: Document Management System (DMS).
+        v6.62.344 (06.05. 10:18): HOTFIX — fehlende Klammer in renderDocModal()
+        Zeile 1601-1608. v6.62.342 hatte das briefingBlock-Konstrukt
+        umgebaut und EINE schliessende Klammer vergessen. Folge: der
+        gesamte Script-Block warf einen Parse-Fehler, onAuthStateChanged
+        wurde NIE registriert, Patrick sah dauerhaft "Prüfe Login..."
+        beim Aufruf von dms.html.
+
         v6.62.343 (06.05. 10:13): Tab "📊 SKR03-Konten" — komplette Liste der ~183 SKR03-
         Sachkonten mit Suche + Hauptkategorie-Filter. Patrick: "ich hab die Sachkonten
         nicht gefunden" → Cloud-Endpoint getSkr03Konten war live, aber im Frontend nicht
@@ -151,7 +157,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.343</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.344</span>
     </div>
 
     <div class="container">
@@ -1604,7 +1610,7 @@
                     ${d.summary ? `<div style="font-size:13px;line-height:1.5;margin-bottom:8px;">${escHtml(d.summary)}</div>` : ''}
                     ${d.aktionsEmpfehlung ? `<div style="background:white;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#1e3a8a;">📋 Empfehlung: ${escHtml(d.aktionsEmpfehlung)}</div>` : ''}
                     ${d.kiError ? `<div style="font-size:11px;color:#991b1b;margin-top:6px;">⚠️ KI-Fehler: ${escHtml(d.kiError)}</div>` : ''}
-                </div>` : ''
+                </div>` : '')
             );
             const workflowBlock = editMode ? '' : `<div style="margin-top:16px;background:#f9fafb;border-radius:8px;padding:14px;">
                 <h3 style="font-size:13px;margin-bottom:10px;">📋 Workflow & Buchungshistorie</h3>

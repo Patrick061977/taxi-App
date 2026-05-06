@@ -17230,6 +17230,53 @@ exports.autoResolveConflicts = onSchedule(
 
                 console.log(`   🚀 OPTIMIERUNG: ${ride.customerName || '?'} (${rideDateFormatted} ${rideTime}) | ${currInfo.name} (${currentKm} km, ${currentMin} Min, ${currentResult.method}) → ${altInfo.name} (${bestKm} km, ${bestMin} Min, ${bestMethod}) | Vorteil: ${vorteilMin} Min`);
 
+                // 🆕 v6.62.338: Patrick (06.05. 09:37): "Frau Giese 10:45 wieder auf IK
+                // — geht logisch nicht weil IK 10:30 Jaster hat". Phase 2 hatte zwar
+                // Konflikt-Check pro Kandidat, ABER: Konflikt-Check passierte VOR der
+                // bestAlt-Auswahl basierend auf zu dem Zeitpunkt aktuellen Daten. Race-
+                // Condition oder fehlerhafte Annahme: Jaster war evtl. noch NICHT auf IK
+                // als der Check lief. Defensive Doppel-Pruefung kurz vor dem Update:
+                // jetzt nochmal frischen Konflikt-Snapshot lesen + abbrechen wenn jetzt
+                // ein Konflikt entstehen wuerde.
+                try {
+                    const _freshSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(bestAlt).once('value');
+                    const _rideEnd = ride.pickupTimestamp + ((ride.duration || ride.estimatedDuration || 20) * 60000) + bufferMs;
+                    let _hasConflictNow = false;
+                    let _conflictWith = null;
+                    _freshSnap.forEach(_c => {
+                        const _r = _c.val();
+                        if (!_r || _c.key === ride.firebaseId) return;
+                        if (['deleted', 'cancelled', 'storniert', 'completed'].includes(_r.status)) return;
+                        if (!_r.pickupTimestamp) return;
+                        const _rEnd = _r.pickupTimestamp + ((_r.duration || _r.estimatedDuration || 20) * 60000) + bufferMs;
+                        if (ride.pickupTimestamp < _rEnd && _r.pickupTimestamp < _rideEnd) {
+                            _hasConflictNow = true;
+                            _conflictWith = _r;
+                        }
+                    });
+                    if (_hasConflictNow) {
+                        console.warn(`🚨 Phase 2 ABBRUCH: Re-Assign zu ${altInfo.name} wuerde Konflikt mit ${_conflictWith?.customerName || '?'} (${berlinTime(_conflictWith?.pickupTimestamp)}) erzeugen`);
+                        debugPhase2Lines.push(`🚨 ${ride.customerName || '?'}: ABBRUCH Re-Assign — Konflikt mit ${_conflictWith?.customerName || '?'} entstanden seit Konflikt-Check`);
+                        try {
+                            await db.ref('optimierungsLog').push({
+                                timestamp: Date.now(),
+                                type: 'phase2-abort-conflict',
+                                rideId: ride.firebaseId,
+                                rideName: ride.customerName,
+                                bestAltVehicle: bestAlt,
+                                conflictWith: _conflictWith?.customerName,
+                                conflictWithTime: berlinTime(_conflictWith?.pickupTimestamp || 0)
+                            });
+                        } catch(_) {}
+                        continue; // Skip diese Optimierung, naechste Ride
+                    }
+                } catch (_dbCheckErr) {
+                    console.warn('Phase 2 fresh-conflict-check Fehler:', _dbCheckErr.message);
+                    // Bei Fehler: defensiv abbrechen statt blind zu re-assignen
+                    debugPhase2Lines.push(`⚠️ ${ride.customerName || '?'}: Fresh-check Fehler — Re-Assign abgebrochen`);
+                    continue;
+                }
+
                 // vehicleScores für Browser-Anzeige erstellen
                 const optimizeScores = {};
                 optimizeScores[currentVehicle] = {

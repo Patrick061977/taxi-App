@@ -24808,6 +24808,9 @@ ${SKR03_KONTEN_PROMPT}
 - lieferantEmail: Email-Adresse des Lieferanten wenn auf dem Beleg sichtbar (z.B. info@aral.de) oder null
 - lieferantTelefon: Telefonnummer des Lieferanten im internationalen oder deutschen Format (z.B. +49 30 12345678 oder 030 12345678) oder null
 - lieferantWebsite: Website des Lieferanten wenn sichtbar (z.B. www.aral.de) oder null
+- hauptKategorie: Hauptkategorie aus DIESER Liste: "Fahrzeuge", "Verträge", "Krankenkasse", "Büro", "Steuer/Behörden", "Marketing/Werbung", "Telekommunikation", "Reisekosten", "Sonstiges"
+- subKategorie: passende Unter-Kategorie z.B. "TÜV", "Werkstatt", "Tanken", "Versicherung", "Stromvertrag", "Mobilfunk", "Internet", "Software-Abo", "Berufsverband", "Bank", "Steuerberater", "Lohnsteuer", "USt-Voranmeldung", "Angestellten-KK", "Privat-KK", "Buero-Material", "Werbeflyer", "Hotel" (oder eine sinnvolle neue Kategorie wenn keiner passt)
+- lieferantOrdner: Kurzname des Lieferanten als Ordnername (z.B. "TÜV Rheinland", "AOK Nordost", "Aral", "Telekom" — wie er im Filing-System gefuhrt wird)
 - rawText: alle sichtbaren Texte des Belegs wortgenau
 
 Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Feldern: null. Achte besonders darauf, ob der Beleg ueberhaupt eine Ausgabe ist — wenn es eine eingehende Zahlung/Erloes ist, nutze 8400/8401.`;

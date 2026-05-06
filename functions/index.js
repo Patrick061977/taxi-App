@@ -17317,6 +17317,150 @@ exports.autoResolveConflicts = onSchedule(
 
             console.log(`✅ Auto-Optimierung abgeschlossen: ${totalReplanned} Konflikt-Umplanung(en), ${totalOptimized} Leerfahrt-Optimierung(en)`);
 
+            // ═══════════════════════════════════════════════════════════
+            // 🆕 v6.62.322: PHASE 3 — PRIO-TIME-RE-SORT (Vorbestellungen)
+            // Patrick (06.05. 07:58): "10:30 ist FRUEHER als 10:45 — wenn IK
+            // Prio 1 hat, MUSS er die FRUEHERE Fahrt bekommen, nicht die spaetere.
+            // Es muss geprueft werden welche Uhrzeit + welche Prio."
+            //
+            // Algorithmus:
+            // 1. Vorbestellungen >60min in Zukunft sammeln (Status vorbestellt/assigned)
+            // 2. Nach pickupTimestamp sortieren (frueheste zuerst)
+            // 3. Fahrzeuge nach Prio sortieren (1=hoechste)
+            // 4. Iteriere zeitlich: weise jeder Fahrt das HOECHST-priorisierte
+            //    verfuegbare Fahrzeug zu (Schicht + Kapazitaet + kein Konflikt
+            //    mit fixed-rides UND mit den schon zugewiesenen aus diesem Pass)
+            // 5. Wenn anders als alt UND neue Prio besser → umlegen
+            //
+            // Fixed-Rides (nicht umverteilbar): accepted/on_way/picked_up + alles
+            // mit Pickup <60 Min in Zukunft (zu nah).
+            // ═══════════════════════════════════════════════════════════
+            console.log('🎯 Phase 3: Prio-Time-Re-Sort gestartet...');
+            let prioReassignCount = 0;
+            const phase3DebugLines = [];
+            try {
+                const reassignableRides = allRides.filter(r =>
+                    r.pickupTimestamp > now + 60 * 60 * 1000 &&
+                    ['vorbestellt', 'assigned'].includes(r.status) &&
+                    r.pickupLat && r.destinationLat &&
+                    (r.duration || r.estimatedDuration)
+                );
+                if (reassignableRides.length > 0) {
+                    reassignableRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+                    const fixedRides = allRides.filter(r => !reassignableRides.find(rr => rr.firebaseId === r.firebaseId));
+                    // Slot-Tabelle pro Fahrzeug initialisieren mit fixed-rides
+                    const slotsPerVehicle = {};
+                    Object.keys(OFFICIAL_VEHICLES).forEach(vid => {
+                        slotsPerVehicle[vid] = fixedRides
+                            .filter(r => (r.assignedVehicle === vid || r.vehicleId === vid) && r.pickupTimestamp)
+                            .map(r => ({
+                                start: r.pickupTimestamp,
+                                end: r.pickupTimestamp + ((r.duration || r.estimatedDuration || 20) * 60000) + bufferMs,
+                                customer: r.customerName || '?'
+                            }));
+                    });
+                    const vehiclesByPrio = Object.keys(OFFICIAL_VEHICLES)
+                        .sort((a, b) => getVehiclePriority(a) - getVehiclePriority(b));
+
+                    for (const ride of reassignableRides) {
+                        const oldVehicle = ride.assignedVehicle;
+                        const oldPrio = oldVehicle ? getVehiclePriority(oldVehicle) : 99;
+                        const dateStr = berlinDate(ride.pickupTimestamp);
+                        const timeStr = berlinTime(ride.pickupTimestamp);
+                        const rideEnd = ride.pickupTimestamp
+                            + ((ride.duration || ride.estimatedDuration || 20) * 60000)
+                            + bufferMs;
+
+                        // Hoechst-priorisiertes verfuegbares Fahrzeug suchen
+                        let bestVehicle = null;
+                        for (const vid of vehiclesByPrio) {
+                            const vInfo = OFFICIAL_VEHICLES[vid];
+                            if (!vInfo) continue;
+                            if ((vInfo.capacity || 4) < (ride.passengers || 1)) continue;
+                            if (!isVehicleInShift(vid, shiftsData, dateStr, timeStr)) continue;
+                            const hasConflict = slotsPerVehicle[vid].some(slot =>
+                                ride.pickupTimestamp < slot.end && slot.start < rideEnd
+                            );
+                            if (hasConflict) continue;
+                            bestVehicle = vid;
+                            break;
+                        }
+
+                        if (!bestVehicle) {
+                            phase3DebugLines.push(`⚠️ ${timeStr} ${ride.customerName || '?'} → kein Prio-Fahrzeug verfuegbar`);
+                            // Slot trotzdem fuer alten Fahrzeug eintragen
+                            if (oldVehicle && slotsPerVehicle[oldVehicle]) {
+                                slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                            }
+                            continue;
+                        }
+                        const newPrio = getVehiclePriority(bestVehicle);
+                        if (bestVehicle === oldVehicle) {
+                            // Schon optimal
+                            phase3DebugLines.push(`✓ ${timeStr} ${ride.customerName || '?'} → bereits ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio})`);
+                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                            continue;
+                        }
+                        if (newPrio >= oldPrio) {
+                            // Neues Fahrzeug hat KEINE bessere Prio → kein Tausch
+                            phase3DebugLines.push(`⏭️ ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio}) bleibt (Alternative ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} P${newPrio} nicht besser)`);
+                            slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                            continue;
+                        }
+
+                        // RE-ASSIGN auf hoeher-priorisiertes Fahrzeug
+                        const newVInfo = OFFICIAL_VEHICLES[bestVehicle] || {};
+                        const oldVInfo = OFFICIAL_VEHICLES[oldVehicle] || {};
+                        await db.ref(`rides/${ride.firebaseId}`).update({
+                            assignedVehicle: bestVehicle,
+                            vehicleId: bestVehicle,
+                            assignedTo: bestVehicle,
+                            vehicle: newVInfo.name || bestVehicle,
+                            vehicleLabel: newVInfo.name || bestVehicle,
+                            vehiclePlate: newVInfo.plate || '',
+                            assignedVehicleName: newVInfo.name || bestVehicle,
+                            assignedVehiclePlate: newVInfo.plate || '',
+                            assignedBy: 'cloud-prio-time-resort',
+                            assignedAt: Date.now(),
+                            updatedAt: Date.now(),
+                            replanReason: `Phase 3 Prio-Time: ${oldVInfo.name || oldVehicle} (P${oldPrio}) → ${newVInfo.name || bestVehicle} (P${newPrio})`
+                        });
+                        prioReassignCount++;
+                        phase3DebugLines.push(`✅ ${timeStr} ${ride.customerName || '?'} → ${newVInfo.name || bestVehicle} (P${newPrio} statt ${oldVInfo.name || oldVehicle} P${oldPrio})`);
+                        console.log(`🎯 Phase 3: ${ride.customerName} → ${oldVInfo.name} (P${oldPrio}) ⇒ ${newVInfo.name} (P${newPrio})`);
+                        // Slots aktualisieren — alte Zuordnung raus, neue rein
+                        if (oldVehicle && slotsPerVehicle[oldVehicle]) {
+                            slotsPerVehicle[oldVehicle] = slotsPerVehicle[oldVehicle].filter(s => s.start !== ride.pickupTimestamp || s.customer !== ride.customerName);
+                        }
+                        slotsPerVehicle[bestVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, customer: ride.customerName });
+                        // ride.assignedVehicle aktualisieren fuer nachfolgende Iterationen
+                        ride.assignedVehicle = bestVehicle;
+                    }
+                }
+                console.log(`🎯 Phase 3 abgeschlossen: ${prioReassignCount} Prio-Re-Assignment(s)`);
+                if (prioReassignCount > 0) {
+                    const msg = `🎯 *Phase 3: Prio-Time-Re-Sort*\n${prioReassignCount} Vorbestellung(en) auf hoeher-priorisierte Fahrzeuge umgelegt:\n\n${phase3DebugLines.filter(l => l.startsWith('✅')).slice(0, 10).join('\n')}`;
+                    try {
+                        await sendToAllAdmins(msg, 'optimization');
+                        await sendToSystemChannel(msg, 'optimization');
+                    } catch(_) {}
+                }
+                // Optimierungs-Log immer schreiben (auch ohne Re-Assignment) zur Diagnose
+                if (phase3DebugLines.length > 0) {
+                    try {
+                        await db.ref('optimierungsLog').push({
+                            timestamp: Date.now(),
+                            type: 'phase3-prio-time-resort',
+                            reassignmentCount: prioReassignCount,
+                            checkedRides: phase3DebugLines.length,
+                            details: phase3DebugLines.join('\n').substring(0, 4000)
+                        });
+                    } catch(_) {}
+                }
+            } catch (p3err) {
+                console.error('❌ Phase 3 Fehler:', p3err.message, p3err.stack);
+            }
+
             // 🔧 v6.34.0: Debug Phase 2 per Telegram senden
             // Sende IMMER wenn optimizableRides > 0 und debugOptimierung = true
             // Oder speichere Log immer in Firebase für Analyse

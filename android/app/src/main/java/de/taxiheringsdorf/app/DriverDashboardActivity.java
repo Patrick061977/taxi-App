@@ -117,6 +117,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         // v6.62.86: Periodischer ETA-Trigger starten (v6.62.318: alle 15s)
         etaTickHandler.postDelayed(etaTick, 15_000L);
+        // v6.62.320: Display-Tick alle 5s — rendert Adapter-Items neu damit der
+        // 'in N Min'-Sekundenzaehler im LIVE-ETA runterzaehlt, ohne OSRM-Call.
+        displayTickHandler.postDelayed(displayTick, 5_000L);
 
         // v6.62.71: FullScreen-Notification-Permission pruefen.
         // Patrick: 'wenn der Push kommt soll die App in den Vordergrund springen'.
@@ -818,6 +821,20 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private Runnable pauseResumeTask = null;
 
     // v6.62.86: Periodischer ETA-Trigger — alle 30s. vehicles/{id}-Listener feuert
+    // v6.62.320: Display-Tick — rendert NUR die Adapter-Items neu (kein OSRM).
+    // So zaehlt 'Losfahren in 25 Min' alle 5s sichtbar runter ohne Battery-Drain.
+    private final Handler displayTickHandler = new Handler(Looper.getMainLooper());
+    private final Runnable displayTick = new Runnable() {
+        @Override public void run() {
+            try {
+                if (rideAdapter != null && rideAdapter.getItemCount() > 0) {
+                    rideAdapter.notifyDataSetChanged();
+                }
+            } catch (Throwable _t) {}
+            displayTickHandler.postDelayed(this, 5_000L);
+        }
+    };
+
     // nur bei Wert-Aenderung; im Stillstand kein Update. Dieser Loop zwingt Recalc.
     private final Handler etaTickHandler = new Handler(Looper.getMainLooper());
     private final Runnable etaTick = new Runnable() {
@@ -1885,6 +1902,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // Beim expliziten Logout/Lock-Stolen wird der Lock anders gehandhabt.
         try { lockHandler.removeCallbacks(lockHeartbeatTick); } catch (Throwable _t) {}
         try { etaTickHandler.removeCallbacks(etaTick); } catch (Throwable _t) {}
+        try { displayTickHandler.removeCallbacks(displayTick); } catch (Throwable _t) {} // v6.62.320
         if (vehicleRef != null && shiftListener != null) vehicleRef.removeEventListener(shiftListener);
         if (ridesQuery != null && ridesListener != null) ridesQuery.removeEventListener(ridesListener);
         if (todayCompletedQuery != null && todayCompletedListener != null) todayCompletedQuery.removeEventListener(todayCompletedListener);
@@ -2068,27 +2086,68 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 }
                 tvTime.setText(_displayTime);
 
-                // v6.62.303: Patrick (05.05. 13:48): "in der native app sieht der fahrer
-                // nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige unter
-                // den Adressen — gross + farbig + zentriert. Sichtbar nur wenn Status
-                // aktiv UND drivingTimeToPickup/Destination gesetzt.
+                // v6.62.320: Patrick (06.05. 07:35): Native uebernimmt 1:1 die Web-Logik
+                // aus index.html:27258 updateLiveEtaForRideCards. Vier klare Status-Phasen:
+                //   • assigned/sofort/new: 'Anfahrt zum Kunden: N Min · X km'
+                //   • accepted: 'Losfahren um HH:MM (in N Min) · Anfahrt N Min'
+                //              + GELB ab ≤5 Min vor Losfahrt
+                //              + ROT 'JETZT LOSFAHREN! · Anfahrt N Min · ⚠️ N Min zu spaet'
+                //   • on_way: 'Noch N Min zum Kunden — Ankunft ca. HH:MM'
+                //   • picked_up: 'Noch N Min zum Ziel — Ankunft ca. HH:MM'
                 String _stLow2 = r.status != null ? r.status.toLowerCase() : "";
                 String _liveEtaText = null;
-                int _liveEtaColor = 0xFF1E40AF; // Blau Default (zum Kunden)
-                if ((_stLow2.equals("accepted") || _stLow2.equals("on_way")) && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
-                    // v6.62.318: km-Distanz ergaenzen wenn vorhanden (Patrick: 'Fahrer sieht
-                    // nicht wie weit er weg ist'). Format: "🚗 LIVE-ETA: 5 Min · 4,3 km zum Kunden"
+                int _liveEtaColor = 0xFF1E40AF; // Blau Default
+                long _nowMs = System.currentTimeMillis();
+                java.text.SimpleDateFormat _hmFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                _hmFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+
+                if ((_stLow2.equals("assigned") || _stLow2.equals("new") || _stLow2.equals("sofort"))
+                        && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
+                    // Vorgesehen oder Sofort, noch nicht angenommen
                     String _kmStr = (r.drivingDistanceToPickupKm != null && r.drivingDistanceToPickupKm > 0)
-                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm)
-                        : "";
-                    _liveEtaText = "🚗 LIVE-ETA: " + r.drivingTimeToPickup + " Min" + _kmStr + " zum Kunden";
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm) : "";
+                    _liveEtaText = "🚗 Anfahrt zum Kunden: " + r.drivingTimeToPickup + " Min" + _kmStr;
+                    _liveEtaColor = 0xFF1E40AF;
+                } else if (_stLow2.equals("accepted")
+                        && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
+                    // Vorbestellung angenommen → zeige Losfahrt-Zeit
+                    String _kmStr = (r.drivingDistanceToPickupKm != null && r.drivingDistanceToPickupKm > 0)
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm) : "";
+                    if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                        long _losfahrtAt = r.pickupTimestamp - r.drivingTimeToPickup * 60_000L;
+                        String _losfahrtHM = _hmFmt.format(new java.util.Date(_losfahrtAt));
+                        long _minBisLos = Math.round((_losfahrtAt - _nowMs) / 60_000.0);
+                        if (_minBisLos <= 0) {
+                            long _minSpaet = -_minBisLos;
+                            String _lateText = _minSpaet > 0 ? " · ⚠️ " + _minSpaet + " Min zu spaet" : "";
+                            _liveEtaText = "⚠️ JETZT LOSFAHREN! · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr + _lateText;
+                            _liveEtaColor = 0xFFDC2626; // ROT
+                        } else if (_minBisLos <= 5) {
+                            _liveEtaText = "⏰ Losfahren um " + _losfahrtHM + " (in " + _minBisLos + " Min) · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr;
+                            _liveEtaColor = 0xFFF59E0B; // GELB
+                        } else {
+                            _liveEtaText = "⏰ Losfahren um " + _losfahrtHM + " (in " + _minBisLos + " Min) · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr;
+                            _liveEtaColor = 0xFF1E40AF; // BLAU
+                        }
+                    } else {
+                        // Sofort accepted — kein pickupTimestamp → einfach Anfahrt
+                        _liveEtaText = "🚗 Anfahrt zum Kunden: " + r.drivingTimeToPickup + " Min" + _kmStr;
+                        _liveEtaColor = 0xFF1E40AF;
+                    }
+                } else if (_stLow2.equals("on_way") && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
+                    // Auf dem Weg zum Kunden
+                    String _kmStr = (r.drivingDistanceToPickupKm != null && r.drivingDistanceToPickupKm > 0)
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm) : "";
+                    String _ankunftHM = _hmFmt.format(new java.util.Date(_nowMs + r.drivingTimeToPickup * 60_000L));
+                    _liveEtaText = "⏱️ Noch " + r.drivingTimeToPickup + " Min zum Kunden" + _kmStr + " — Ankunft ca. " + _ankunftHM;
                     _liveEtaColor = r.drivingTimeToPickup <= 3 ? 0xFFDC2626 : (r.drivingTimeToPickup <= 7 ? 0xFFF59E0B : 0xFF1E40AF);
                 } else if (_stLow2.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
+                    // Kunde an Bord, auf dem Weg zum Ziel
                     String _kmStr = (r.drivingDistanceToDestKm != null && r.drivingDistanceToDestKm > 0)
-                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToDestKm)
-                        : "";
-                    _liveEtaText = "🎯 LIVE-ETA: " + r.drivingTimeToDestination + " Min" + _kmStr + " zum Ziel";
-                    _liveEtaColor = 0xFF059669; // Grün (zum Ziel)
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToDestKm) : "";
+                    String _ankunftHM = _hmFmt.format(new java.util.Date(_nowMs + r.drivingTimeToDestination * 60_000L));
+                    _liveEtaText = "🎯 Noch " + r.drivingTimeToDestination + " Min zum Ziel" + _kmStr + " — Ankunft ca. " + _ankunftHM;
+                    _liveEtaColor = 0xFF059669; // GRUEN
                 } else if (_stLow2.equals("arrived")) {
                     _liveEtaText = "📍 BIN DA — Kunde wartet auf Einsteigen";
                     _liveEtaColor = 0xFF3B82F6;

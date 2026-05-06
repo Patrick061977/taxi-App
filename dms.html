@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dokumente — Funk Taxi Heringsdorf</title>
     <!--
-        v6.62.235: Document Management System (DMS).
+        v6.62.341: Document Management System (DMS).
         Patrick (04.05.2026): "Foto/PDF scannen, KI klassifiziert + sortiert in
         Ordnerstruktur — TUEV-Berichte, Rechnungen, Lohnzettel etc. — alles
         suchbar". Quelle: Idee aus project_dms-dokumenten-scanner.md.
@@ -145,7 +145,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.235</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.341</span>
     </div>
 
     <div class="container">
@@ -1282,11 +1282,47 @@
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>
                 <div class="doc-actions">
+                    <!-- 🆕 v6.62.341: Direkt-Buttons fuer Anrufen/Email/Lieferant→CRM (Patrick: 'Anruf-Button am Beleg') -->
+                    ${d.lieferantPhone ? `<a class="btn btn-ghost" href="tel:${d.lieferantPhone}" onclick="event.stopPropagation();" title="📞 ${d.lieferantPhone}" style="color:#10b981;text-decoration:none;">📞</a>` : ''}
+                    ${d.lieferantEmail ? `<a class="btn btn-ghost" href="mailto:${d.lieferantEmail}" onclick="event.stopPropagation();" title="✉ ${d.lieferantEmail}" style="color:#3b82f6;text-decoration:none;">✉</a>` : ''}
+                    ${(d.lieferant && (d.lieferantPhone || d.lieferantEmail)) ? `<button class="btn btn-ghost" onclick="event.stopPropagation();dmsLieferantToCrm2('${d.id}')" title="👤 Lieferant ins CRM uebernehmen" style="color:#7c3aed;">👤</button>` : ''}
                     <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Original öffnen">👁</button>
                     <button class="btn btn-ghost" onclick="event.stopPropagation();openDocDetail('${d.id}')" title="Bearbeiten" style="color:#2563eb;">✏</button>
                     <button class="btn btn-ghost" onclick="event.stopPropagation();deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g, '')}')" title="Löschen" style="color:#dc2626;">🗑</button>
                 </div>
             </div>`;
+        }
+        // 🆕 v6.62.341: Lieferant aus DMS-Doc als CRM-Eintrag uebernehmen (analog index.html)
+        async function dmsLieferantToCrm2(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d || !d.lieferant) { alert('Kein Lieferant erkannt'); return; }
+            try {
+                let _existingId = null;
+                const _allCust = await db.ref('customers').once('value');
+                _allCust.forEach(c => {
+                    const cd = c.val();
+                    if (!cd) return;
+                    if (d.lieferantEmail && cd.email && cd.email.toLowerCase() === d.lieferantEmail.toLowerCase()) _existingId = c.key;
+                    else if (d.lieferantPhone && cd.phone && cd.phone.replace(/[^0-9]/g,'').endsWith(d.lieferantPhone.replace(/[^0-9]/g,'').slice(-8))) _existingId = c.key;
+                });
+                if (_existingId) {
+                    if (!confirm(`Lieferant "${d.lieferant}" existiert schon im CRM. Aktualisieren?`)) return;
+                    const _u = { name: d.lieferant, type: 'supplier', anrede: 'Firma', updatedAt: Date.now(), updatedBy: 'dms-html-lieferant-to-crm' };
+                    if (d.lieferantEmail) _u.email = d.lieferantEmail;
+                    if (d.lieferantPhone) _u.phone = d.lieferantPhone;
+                    if (d.lieferantAdresse) _u.address = d.lieferantAdresse;
+                    await db.ref('customers/' + _existingId).update(_u);
+                    showToast('✅ Lieferant aktualisiert');
+                } else {
+                    const _r = db.ref('customers').push();
+                    const _data = { name: d.lieferant, anrede: 'Firma', type: 'supplier', customerKind: 'Firma', createdAt: Date.now(), createdBy: 'dms-html-lieferant-to-crm', source: 'dms_html_extraction', notes: 'Aus DMS-Dokument ' + (d.originalFilename || docId) };
+                    if (d.lieferantEmail) _data.email = d.lieferantEmail;
+                    if (d.lieferantPhone) _data.phone = d.lieferantPhone;
+                    if (d.lieferantAdresse) _data.address = d.lieferantAdresse;
+                    await _r.set(_data);
+                    showToast(`✅ Lieferant "${d.lieferant}" ins CRM uebernommen`);
+                }
+            } catch (err) { alert('Fehler: ' + err.message); }
         }
 
         function openDoc(id) {

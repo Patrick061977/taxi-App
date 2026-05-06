@@ -115,8 +115,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
 
-        // v6.62.86: Periodischer ETA-Trigger starten (alle 30s)
-        etaTickHandler.postDelayed(etaTick, 30_000L);
+        // v6.62.86: Periodischer ETA-Trigger starten (v6.62.318: alle 15s)
+        etaTickHandler.postDelayed(etaTick, 15_000L);
 
         // v6.62.71: FullScreen-Notification-Permission pruefen.
         // Patrick: 'wenn der Push kommt soll die App in den Vordergrund springen'.
@@ -470,7 +470,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // v6.62.62: Pro Ride throttle — nicht oefter als alle 20s OSRM-Call
+    // v6.62.62: Pro Ride throttle — nicht oefter als alle 10s OSRM-Call
+    // (v6.62.318: 20s → 10s, Patrick: ETA zeigt Wert aber bewegt sich nicht beim Fahren)
     private final java.util.Map<String, Long> lastEtaCalc = new java.util.HashMap<>();
 
     private void recalculateETAsForActiveRides(double vLat, double vLon) {
@@ -485,11 +486,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
             boolean isPrePickup = st.equals("assigned") || st.equals("accepted") || st.equals("sofort") || st.equals("vorbestellt") || st.equals("on_way");
             boolean isPostPickup = st.equals("picked_up");
             if (!isPrePickup && !isPostPickup) continue;
-            // Throttle: max 1 Call pro 20s pro Ride
+            // v6.62.318: Throttle 20s → 10s (Patrick: ETA aktualisiert nicht beim Fahren).
+            // Plus: bei jedem Skip einen Debug-Counter inkrementieren — hilft Diagnose
+            // wenn die ETA trotzdem noch steht.
             Long lastCall = lastEtaCalc.get(r.id);
-            if (lastCall != null && (now - lastCall) < 20_000L) continue;
+            if (lastCall != null && (now - lastCall) < 10_000L) {
+                logEtaDebug(r.id, "skip-throttle", vLat, vLon, (now - lastCall) + "ms-since-last");
+                continue;
+            }
             if (isPrePickup) {
-                if (r.pickupLat == null || r.pickupLon == null) continue;
+                if (r.pickupLat == null || r.pickupLon == null) {
+                    logEtaDebug(r.id, "skip-no-pickup-coords", vLat, vLon, "");
+                    continue;
+                }
                 // v6.62.313: Patrick (05.05. 19:51): "Entfernung bei annehmen schon sehr
                 //   gut aber bleibt dann stehen". Bug: 'pickupTimestamp <= now' filterte
                 //   Sofort-Fahrten (pickupTs ~ createdAt = sofort Vergangenheit) und
@@ -499,16 +508,50 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if ((st.equals("vorbestellt") || st.equals("assigned"))
                         && r.pickupTimestamp != null
                         && r.pickupTimestamp <= now - 5L * 60_000L) {
+                    logEtaDebug(r.id, "skip-overdue-vorbestellt", vLat, vLon, "pickupTs=" + r.pickupTimestamp);
                     continue; // sehr alte Vorbestellung (>5 Min ueberfaellig) → skip
                 }
                 lastEtaCalc.put(r.id, now);
+                logEtaDebug(r.id, "fetch-pickup", vLat, vLon, "to=" + r.pickupLat + "," + r.pickupLon);
                 fetchOsrmETA(r.id, vLat, vLon, r.pickupLat, r.pickupLon, "pickup");
             } else if (isPostPickup) {
-                if (r.destinationLat == null || r.destinationLon == null) continue;
+                if (r.destinationLat == null || r.destinationLon == null) {
+                    logEtaDebug(r.id, "skip-no-dest-coords", vLat, vLon, "");
+                    continue;
+                }
                 lastEtaCalc.put(r.id, now);
+                logEtaDebug(r.id, "fetch-destination", vLat, vLon, "to=" + r.destinationLat + "," + r.destinationLon);
                 fetchOsrmETA(r.id, vLat, vLon, r.destinationLat, r.destinationLon, "destination");
             }
         }
+    }
+
+    // v6.62.318: ETA-Debug-Logging in /errorLogs damit wir bei naechster Fahrt sehen
+    // wo recalculateETAsForActiveRides haengt. Patrick (06.05. 07:10): "B = ETA
+    // zeigt Wert, bewegt sich nicht beim Fahren". Wir wissen nicht ob der Skip-Pfad
+    // greift, der Throttle blockiert oder OSRM keine andere Zahl liefert. Log enthaelt
+    // jeden Aufruf — nach naechster Fahrt grep nach [ETA-DEBUG].
+    private long _lastEtaDebugLog = 0;
+    private void logEtaDebug(String rideId, String event, double vLat, double vLon, String extra) {
+        try {
+            if (db == null) return;
+            long now = System.currentTimeMillis();
+            // Throttle 5s — sonst spammen wir bei vielen rides die errorLogs voll
+            if (now - _lastEtaDebugLog < 5_000L) return;
+            _lastEtaDebugLog = now;
+            String key = "etadbg-" + now + "-" + (rideId != null ? rideId.substring(Math.max(0, rideId.length() - 6)) : "x");
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("ts", now);
+            entry.put("type", "ETA-DEBUG");
+            entry.put("source", "native-driver-app");
+            entry.put("rideId", rideId);
+            entry.put("event", event);
+            entry.put("vLat", vLat);
+            entry.put("vLon", vLon);
+            entry.put("extra", extra);
+            entry.put("appVersion", BuildConfig.VERSION_NAME);
+            db.getReference("errorLogs/" + key).setValue(entry);
+        } catch (Throwable _t) {}
     }
 
     private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
@@ -535,6 +578,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if (routes.length() == 0) return;
                 double durationSec = routes.getJSONObject(0).getDouble("duration");
                 int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
+                // v6.62.318: Patrick (06.05. 07:12): "Fahrer sieht nicht, wie weit er
+                // jetzt vom Kunden entfernt ist". OSRM liefert auch distance in Metern
+                // → wir speichern km zusaetzlich zur Min-Anzeige.
+                double distanceMeters = routes.getJSONObject(0).optDouble("distance", 0);
+                final double distanceKm = Math.round(distanceMeters / 100.0) / 10.0; // 1 Nachkommastelle
                 // Local update + UI redraw
                 final String _mode = mode;
                 runOnUiThread(() -> {
@@ -546,9 +594,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                     rr.drivingTimeToDestination = durationMin;
                                     changed = true;
                                 }
+                                if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - distanceKm) > 0.05) {
+                                    rr.drivingDistanceToDestKm = distanceKm;
+                                    changed = true;
+                                }
                             } else {
                                 if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durationMin) {
                                     rr.drivingTimeToPickup = durationMin;
+                                    changed = true;
+                                }
+                                if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - distanceKm) > 0.05) {
+                                    rr.drivingDistanceToPickupKm = distanceKm;
                                     changed = true;
                                 }
                             }
@@ -560,10 +616,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // Firebase update damit Admin-Dashboard den Live-Wert sieht
                 if (db != null) {
                     String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
+                    String distField = "destination".equals(mode) ? "drivingDistanceToDestKm" : "drivingDistanceToPickupKm";
                     db.getReference("rides/" + rideId + "/" + field).setValue(durationMin);
+                    db.getReference("rides/" + rideId + "/" + distField).setValue(distanceKm);
+                    db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
                 }
+                logEtaDebug(rideId, "fetch-success", fromLat, fromLon, durationMin + "min " + distanceKm + "km");
             } catch (Exception e) {
                 Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
+                logEtaDebug(rideId, "fetch-error", fromLat, fromLon, e.getMessage());
             }
         }, "osrm-eta-" + rideId).start();
     }
@@ -779,7 +840,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     });
                 }
             } catch (Throwable _e) {}
-            etaTickHandler.postDelayed(this, 30_000L);
+            etaTickHandler.postDelayed(this, 15_000L); // v6.62.318: 30s → 15s
         }
     };
 
@@ -1839,6 +1900,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Double pickupLat, pickupLon; // v6.62.62: für Live-ETA-Neuberechnung via OSRM
         Double destinationLat, destinationLon; // v6.62.75: für ETA bis Ziel nach picked_up
         Integer drivingTimeToDestination; // v6.62.75: Min bis Ziel (live, nach picked_up)
+        Double drivingDistanceToPickupKm; // v6.62.318: km-Distanz zum Pickup (Patrick: 'Fahrer sieht nicht wie weit weg')
+        Double drivingDistanceToDestKm; // v6.62.318: km-Distanz zum Ziel
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -1870,6 +1933,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 else if (ts instanceof Number) r.pickupTimestamp = ((Number) ts).longValue();
                 Object dt = s.child("drivingTimeToPickup").getValue();
                 if (dt instanceof Number) r.drivingTimeToPickup = ((Number) dt).intValue();
+                // v6.62.318: km-Distanz aus Firebase laden (von vorigem fetchOsrmETA gespeichert)
+                Object dpkm = s.child("drivingDistanceToPickupKm").getValue();
+                if (dpkm instanceof Number) r.drivingDistanceToPickupKm = ((Number) dpkm).doubleValue();
+                Object ddkm = s.child("drivingDistanceToDestKm").getValue();
+                if (ddkm instanceof Number) r.drivingDistanceToDestKm = ((Number) ddkm).doubleValue();
                 // v6.62.62: pickupCoords als {lat, lon} ODER Top-Level pickupLat/pickupLon
                 DataSnapshot pcSnap = s.child("pickupCoords");
                 if (pcSnap.exists()) {
@@ -2008,10 +2076,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String _liveEtaText = null;
                 int _liveEtaColor = 0xFF1E40AF; // Blau Default (zum Kunden)
                 if ((_stLow2.equals("accepted") || _stLow2.equals("on_way")) && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
-                    _liveEtaText = "🚗 LIVE-ETA: " + r.drivingTimeToPickup + " Min zum Kunden";
+                    // v6.62.318: km-Distanz ergaenzen wenn vorhanden (Patrick: 'Fahrer sieht
+                    // nicht wie weit er weg ist'). Format: "🚗 LIVE-ETA: 5 Min · 4,3 km zum Kunden"
+                    String _kmStr = (r.drivingDistanceToPickupKm != null && r.drivingDistanceToPickupKm > 0)
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm)
+                        : "";
+                    _liveEtaText = "🚗 LIVE-ETA: " + r.drivingTimeToPickup + " Min" + _kmStr + " zum Kunden";
                     _liveEtaColor = r.drivingTimeToPickup <= 3 ? 0xFFDC2626 : (r.drivingTimeToPickup <= 7 ? 0xFFF59E0B : 0xFF1E40AF);
                 } else if (_stLow2.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
-                    _liveEtaText = "🎯 LIVE-ETA: " + r.drivingTimeToDestination + " Min zum Ziel";
+                    String _kmStr = (r.drivingDistanceToDestKm != null && r.drivingDistanceToDestKm > 0)
+                        ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToDestKm)
+                        : "";
+                    _liveEtaText = "🎯 LIVE-ETA: " + r.drivingTimeToDestination + " Min" + _kmStr + " zum Ziel";
                     _liveEtaColor = 0xFF059669; // Grün (zum Ziel)
                 } else if (_stLow2.equals("arrived")) {
                     _liveEtaText = "📍 BIN DA — Kunde wartet auf Einsteigen";

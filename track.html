@@ -910,10 +910,17 @@
                     return;
                 }
                 let targetLat, targetLon, label;
-                if (['picked_up','arrived'].includes(r.status)) {
+                // 🆕 v6.62.381: Patrick (06.05. 18:21): "Ankunft am Ziel braucht's nicht
+                // wenn Fahrer noch nicht weiss wann der Kunde einsteigt". 'arrived' heisst
+                // Fahrer wartet beim Pickup → kein Ziel-ETA. Nur 'picked_up' = Fahrt laeuft.
+                if (r.status === 'picked_up') {
                     targetLat = r.destinationLat || (r.destCoords && r.destCoords.lat);
                     targetLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
                     label = '🎯 Ankunft am Ziel';
+                } else if (r.status === 'arrived') {
+                    // Fahrer wartet — keine ETA-Box anzeigen
+                    document.getElementById('eta-info').style.display = 'none';
+                    return;
                 } else if (['accepted','on_way','assigned'].includes(r.status)) {
                     targetLat = r.pickupLat || (r.pickupCoords && r.pickupCoords.lat);
                     targetLon = r.pickupLon || (r.pickupCoords && r.pickupCoords.lon);
@@ -944,8 +951,19 @@
                         // wir 'Fahrer ist vor Ort' statt der OSRM-Restzeit.
                         const _isAtPickup = (_km < 0.2) && ['accepted','on_way','assigned'].includes(r.status);
                         if (_isAtPickup) {
-                            _box.innerHTML = `🏁 <b>Fahrer ist vor Ort</b> — bitte einsteigen`;
+                            // 🆕 v6.62.381: Patrick (06.05. 18:22): "muss groesser sein, Kunde uebersieht das".
+                            // Vollbild-prominenter Block + Vibration einmalig damit Kunde es merkt.
+                            _box.style.cssText = 'display:block;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:24px;border-radius:14px;text-align:center;margin:14px 0;box-shadow:0 8px 24px rgba(16,185,129,0.4);animation:pulse 1.4s infinite;';
+                            _box.innerHTML = `<div style="font-size:48px;margin-bottom:6px;">🏁</div><div style="font-size:24px;font-weight:800;letter-spacing:0.5px;">Fahrer ist vor Ort!</div><div style="font-size:15px;margin-top:6px;opacity:0.95;">Bitte einsteigen 👋</div>`;
+                            // Vibration einmalig pro 'arrived'-Erkennung
+                            if (!window._vibedAtPickup && navigator.vibrate) {
+                                try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(_) {}
+                                window._vibedAtPickup = true;
+                            }
                         } else {
+                            // Reset Style falls vorher 'vor Ort' war
+                            _box.style.cssText = '';
+                            window._vibedAtPickup = false;
                             const _eta = new Date(Date.now() + _min * 60000);
                             const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
                             _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km.toFixed(1)} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;

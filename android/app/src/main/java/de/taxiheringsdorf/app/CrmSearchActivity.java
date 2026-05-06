@@ -303,13 +303,17 @@ public class CrmSearchActivity extends AppCompatActivity {
     // → "Hotel Vineta, Vinetastr. 1, 17424 Heringsdorf"
     public static String stripTouristAndRegion(String s) {
         if (s == null || s.isEmpty()) return s;
+        String out = s;
+        // v6.62.364: Patrick (06.05. 14:42): "Ahlbeck-Kaiserbäder, Heringsdorf-Kaiserbäder
+        // verwirrt die Leute". Erst Kombi-Stadtnamen mit Bindestrich abschneiden:
+        // "Heringsdorf-Kaiserbaeder" → "Heringsdorf", "Ahlbeck-Kaiserbäder" → "Ahlbeck".
+        out = out.replaceAll("(?i)(Heringsdorf|Ahlbeck|Bansin|Zinnowitz|Trassenheide|Karlshagen|Koserow|Loddin|Ueckeritz|Stubbenfelde|Kolpinsee|Peenemuende|Wolgast)-Kaiserb[äa]eder", "$1");
         String[] junk = {
             "Kaiserbäder", "Kaiserbaeder",
             "Vorpommern-Greifswald", "Vorpommern Greifswald",
             "Mecklenburg-Vorpommern", "Mecklenburg Vorpommern",
             "Deutschland", "Germany"
         };
-        String out = s;
         for (String j : junk) {
             // Vor dem Junk-Token koennte ein Komma+Space stehen — beides mit weghauen.
             out = out.replaceAll("\\s*,\\s*" + java.util.regex.Pattern.quote(j) + "(?=\\s*(,|$))", "");

@@ -81,6 +81,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 double lat = rd.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
                 double lon = rd.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
                 if (addr == null || Double.isNaN(lat) || Double.isNaN(lon)) return;
+                // v6.62.364: Patrick (06.05. 14:42): Kaiserbaeder auch in MapPickerActivity-Result strippen
+                addr = CrmSearchActivity.stripTouristAndRegion(addr);
                 if (pickerForPickup) {
                     if (editPickupTextRef != null) editPickupTextRef.setText(addr);
                     editPickupCoords[0] = lat; editPickupCoords[1] = lon;
@@ -88,6 +90,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     if (editDestTextRef != null) editDestTextRef.setText(addr);
                     editDestCoords[0] = lat; editDestCoords[1] = lon;
                 }
+                // v6.62.364: Patrick (06.05. 14:42): "kann nach Bearbeiten Adresse nicht
+                // speichern". Bestaetigungs-Toast damit Patrick sieht dass der Picker-Result
+                // angekommen ist + Coords gespeichert wurden — sonst Diagnose unmoeglich.
+                Toast.makeText(this, "📍 " + addr.substring(0, Math.min(50, addr.length())) + " uebernommen — jetzt 'Speichern' klicken", Toast.LENGTH_LONG).show();
             });
 
     @Override
@@ -653,11 +659,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
         ScrollView sv = new ScrollView(this);
         sv.addView(layout);
 
+        // v6.62.364: Patrick (06.05. 14:42): "kann nach Bearbeiten Adresse nicht speichern".
+        // Diagnose-Toasts hinzugefuegt um zu sehen welcher Schritt fehlschlaegt.
         new AlertDialog.Builder(this)
             .setTitle("✏️ Fahrt bearbeiten")
             .setMessage("ID: " + r.id)
             .setView(sv)
             .setPositiveButton("💾 Speichern", (d, w) -> {
+                // v6.62.364: Sofort Toast damit Patrick sieht dass Click registriert wurde
+                Toast.makeText(this, "💾 Speichere…", Toast.LENGTH_SHORT).show();
                 Map<String, Object> upd = new HashMap<>();
                 upd.put("customerName", etName.getText().toString().trim());
                 upd.put("customerPhone", etPhone.getText().toString().trim());

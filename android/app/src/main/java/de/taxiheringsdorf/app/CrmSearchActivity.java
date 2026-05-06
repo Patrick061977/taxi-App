@@ -1084,16 +1084,44 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvAddr.setOnClickListener(_v -> launchPlaces(tvAddr, addrCoords));
         layout.addView(tvAddr);
 
+        // v6.62.385: Patrick (06.05. 19:44): "Kundenart soll auswaehlbar sein, nicht
+        // tippen-zum-wechseln". 4 sichtbare Toggle-Buttons als RadioGroup-Ersatz.
         final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
+        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenheit", "🏨 Hotel", "🏢 Firma" };
         final int[] kindIdx = { Math.max(0, Arrays.asList(kinds).indexOf(e.customerKind != null ? e.customerKind : "Stammkunde")) };
-        TextView tvKind = new TextView(this);
-        tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
-        tvKind.setPadding(pad / 2, pad, pad / 2, pad);
-        tvKind.setOnClickListener(_v -> {
-            kindIdx[0] = (kindIdx[0] + 1) % kinds.length;
-            tvKind.setText("👥 " + kinds[kindIdx[0]] + " (tippen zum Wechseln)");
-        });
-        layout.addView(tvKind);
+        TextView lblKind = new TextView(this);
+        lblKind.setText("👥 Kundenart");
+        lblKind.setPadding(0, pad, 0, pad / 4);
+        lblKind.setTextSize(12);
+        layout.addView(lblKind);
+
+        LinearLayout kindRow = new LinearLayout(this);
+        kindRow.setOrientation(LinearLayout.HORIZONTAL);
+        final android.widget.Button[] kindBtns = new android.widget.Button[kinds.length];
+        Runnable refreshKind = () -> {
+            for (int i = 0; i < kindBtns.length; i++) {
+                boolean sel = (i == kindIdx[0]);
+                kindBtns[i].setBackgroundColor(sel ? 0xFF10B981 : 0xFFE2E8F0);
+                kindBtns[i].setTextColor(sel ? 0xFFFFFFFF : 0xFF1E293B);
+            }
+        };
+        for (int i = 0; i < kinds.length; i++) {
+            final int idx = i;
+            android.widget.Button b = new android.widget.Button(this);
+            b.setText(kindLabels[i]);
+            b.setTextSize(11);
+            b.setAllCaps(false);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMargins(pad / 8, 0, pad / 8, 0);
+            b.setLayoutParams(lp);
+            b.setMinimumWidth(0);
+            b.setPadding(pad / 4, pad / 3, pad / 4, pad / 3);
+            b.setOnClickListener(_v -> { kindIdx[0] = idx; refreshKind.run(); });
+            kindBtns[i] = b;
+            kindRow.addView(b);
+        }
+        refreshKind.run();
+        layout.addView(kindRow);
 
         String dialogTitle = isNew
             ? "➕ Neuen Kunden anlegen"

@@ -24134,7 +24134,15 @@ exports.onClaudeBridgeOutbox = onValueCreated(
         }
         if (!data || data.sent || !data.message) return;
         try {
-            const text = '🤖 ' + String(data.message).slice(0, 3500);
+            // 🆕 v6.62.352: Patrick (06.05. 11:03): "Telegram-Nachrichten kommen schon wieder
+            // nicht an" — Cloud Function sendet mit parse_mode='HTML', der "5", "<5" oder
+            // "Hans <Mueller>" wird von Telegram als ungueltiger HTML-Tag abgelehnt → Bot
+            // returned null → deliveryFailed. Fix: alle unsafe Zeichen HTML-escapen.
+            const _esc = String(data.message)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            const text = '🤖 ' + _esc.slice(0, 3500);
             const useClaudeBot = data.via === 'claude' || data.source === 'claudeBot';
             let textMsgResult = null;
             if (data.targetChatId) {

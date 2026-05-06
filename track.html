@@ -735,9 +735,23 @@
 
                 console.log('📊 Live-Update: Alle Fahrzeuge:', Object.keys(driversData));
 
+                // 🆕 v6.62.330: Patrick (06.05. 08:49): "Bei Vorbestellungs-SMS darf
+                // theoretisch nicht jetzt schon das Fahrzeug zu sehen sein. Erst wenn
+                // das Fahrzeug unterwegs ist."
+                // → Status-Check vor Vehicle-Anzeige. Nur on_way/picked_up/arrived zeigt
+                // Fahrzeug-Marker. Bei vorbestellt/assigned/accepted: nur Hinweis.
+                const _statusForVehicleVisibility = window._currentRide?.data?.status || 'vorbestellt';
+                const _vehicleVisible = ['on_way', 'picked_up', 'arrived'].includes(_statusForVehicleVisibility);
+                if (!_vehicleVisible) {
+                    // Marker entfernen falls vorhanden (Status-Wechsel zurueck)
+                    if (vehicleMarker) { try { map.removeLayer(vehicleMarker); } catch(_) {} vehicleMarker = null; }
+                    showWarning('🕒 Vorbestellung erfasst — Fahrzeug wird angezeigt sobald der Fahrer zu Ihnen losfährt');
+                    return;
+                }
+
                 // Finde das richtige Fahrzeug
                 const driver = driversData[vehicleId];
-                
+
                 // 🔧 v6.62.118: Patrick: 'auf der Karte Fahrzeug nicht gefunden — sollte
                 // der Kunde gar nicht sehen, verwirrt'. Vor Fahrer-Zuweisung / GPS-Start
                 // freundlichere Nachricht statt Tech-Warnung.

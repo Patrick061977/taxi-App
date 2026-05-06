@@ -79,6 +79,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // v6.43.1: Cache der zugewiesenen + offenen Fahrten getrennt → mergen vor Anzeige
     private List<Ride> myAssignedRides = new ArrayList<>();
     private List<Ride> openUnassignedRides = new ArrayList<>();
+    // v6.62.377: separate Liste fuer Banner — Vorbestellungen <4h ohne 20-Min-Filter
+    private List<Ride> myBannerLookaheadRides = new ArrayList<>();
 
     private boolean shiftActive = false;
     private boolean onlineState = true;
@@ -1031,6 +1033,21 @@ public class DriverDashboardActivity extends AppCompatActivity {
             assigned.add(r);
         }
         myAssignedRides = assigned;
+        // 🆕 v6.62.377: Patrick (06.05. 18:04): "Hasbargen-Fahrt da, Banner sagt 'keine Fahrt
+        // in Sicht'" — Bug: 20-Min-Fenster filtert Vorbestellungen aus, Banner sah sie nicht.
+        // Separat: alle Vorbestellungen dieses Fahrzeugs mit Pickup in den naechsten 4h fuer
+        // den Banner sammeln (unabhaengig vom 20-Min-Filter).
+        List<Ride> banner4h = new ArrayList<>();
+        long bannerWindow = now + 4L * 3600L * 1000L;
+        for (DataSnapshot child : s.getChildren()) {
+            Ride r = Ride.fromSnap(child);
+            if (r == null || r.status == null || r.pickupTimestamp == null) continue;
+            String st = r.status.toLowerCase();
+            if (!(st.equals("vorbestellt") || st.equals("accepted") || st.equals("assigned") || st.equals("new"))) continue;
+            if (r.pickupTimestamp <= now || r.pickupTimestamp > bannerWindow) continue;
+            banner4h.add(r);
+        }
+        myBannerLookaheadRides = banner4h;
         renderRides();
     }
 
@@ -1106,10 +1123,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
         if (hasActive) { banner.setVisibility(View.GONE); return; }
         // Nächste Vorbestellung mit pickupTimestamp > now suchen
+        // v6.62.377: nutze myBannerLookaheadRides (4h-Lookahead, kein 20-Min-Filter)
         long now = System.currentTimeMillis();
         Ride nextRide = null;
         long nextPickup = Long.MAX_VALUE;
-        for (Ride r : rides) {
+        List<Ride> bannerSource = (myBannerLookaheadRides != null && !myBannerLookaheadRides.isEmpty())
+            ? myBannerLookaheadRides : rides;
+        for (Ride r : bannerSource) {
             if (r == null || r.pickupTimestamp == null || r.status == null) continue;
             String st = r.status.toLowerCase();
             if (!st.equals("vorbestellt") && !st.equals("accepted") && !st.equals("assigned") && !st.equals("new")) continue;

@@ -29,12 +29,27 @@
             android:textSize="22sp" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="📋 CRM-Suche"
             android:textColor="#F8FAFC"
             android:textSize="17sp"
             android:textStyle="bold" />
+
+        <!-- v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App" -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_crm_new"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="➕ Neu"
+            android:textColor="#F8FAFC"
+            android:textSize="13sp"
+            app:backgroundTint="#10B981" />
     </LinearLayout>
 
     <com.google.android.material.textfield.TextInputLayout

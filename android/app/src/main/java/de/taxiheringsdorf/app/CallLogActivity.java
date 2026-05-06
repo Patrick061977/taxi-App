@@ -953,12 +953,47 @@ public class CallLogActivity extends AppCompatActivity {
         };
 
         // ─── STAMMDATEN ───────────────
+        // v6.62.326: Patrick: "Vornahme und Nachnahme — sauber separat"
         addSection.accept("👤", "Stammdaten");
         LinearLayout cardName = newCard.get();
+        // Anrede-Spinner
+        android.widget.Spinner spSalutation = new android.widget.Spinner(this);
+        final String[] _editSalutations = { "—", "Herr", "Frau", "Divers" };
+        android.widget.ArrayAdapter<String> _salAdapt = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, _editSalutations);
+        _salAdapt.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spSalutation.setAdapter(_salAdapt);
+        // Pre-Fill anrede aus CRM (firstName/lastName/salutation -- wenn nicht da, aus name splitten)
+        String _initSal = crm.salutation != null ? crm.salutation : (crm.anrede != null ? crm.anrede : "");
+        for (int _i = 0; _i < _editSalutations.length; _i++) if (_editSalutations[_i].equals(_initSal)) spSalutation.setSelection(_i);
+        cardName.addView(spSalutation);
+        // Vorname
+        EditText etFirstName = new EditText(this);
+        etFirstName.setHint("Vorname");
+        etFirstName.setTextSize(15);
+        cardName.addView(etFirstName);
+        // Nachname
+        EditText etLastName = new EditText(this);
+        etLastName.setHint("Nachname");
+        etLastName.setTextSize(15);
+        cardName.addView(etLastName);
+        // Pre-Fill: firstName/lastName aus CRM, sonst aus name splitten
+        String _initFn = crm.firstName != null ? crm.firstName : "";
+        String _initLn = crm.lastName != null ? crm.lastName : "";
+        if (_initFn.isEmpty() && _initLn.isEmpty() && crm.name != null && !crm.name.trim().isEmpty()) {
+            String _trim = crm.name.trim();
+            if (_trim.startsWith("Frau ")) { spSalutation.setSelection(2); _trim = _trim.substring(5).trim(); }
+            else if (_trim.startsWith("Herr ")) { spSalutation.setSelection(1); _trim = _trim.substring(5).trim(); }
+            String[] _parts = _trim.split("\\s+", 2);
+            if (_parts.length == 2) { _initFn = _parts[0]; _initLn = _parts[1]; }
+            else _initLn = _trim;
+        }
+        etFirstName.setText(_initFn);
+        etLastName.setText(_initLn);
+        // Versteckter Legacy etName fuer Backwards-Compat im Speichern-Pfad weiter unten
         EditText etName = new EditText(this);
-        etName.setHint("Name (Pflicht)");
+        etName.setVisibility(View.GONE);
         etName.setText(crm.name != null ? crm.name : "");
-        etName.setTextSize(16);
         cardName.addView(etName);
         layout.addView(cardName);
 
@@ -1043,13 +1078,24 @@ public class CallLogActivity extends AppCompatActivity {
             .setTitle("📋 " + (crm.name != null ? crm.name : "CRM-Kunde") + " bearbeiten")
             .setView(scroll)
             .setPositiveButton("Speichern", (d, w) -> {
-                String name = etName.getText().toString().trim();
-                if (name.isEmpty()) {
-                    Toast.makeText(this, "Name ist Pflicht", Toast.LENGTH_SHORT).show();
+                // v6.62.326: Vor/Nachname/Anrede getrennt — name = concat fuer Backwards-Compat
+                String _eFirstName = etFirstName.getText().toString().trim();
+                String _eLastName = etLastName.getText().toString().trim();
+                String _eName = (_eFirstName + " " + _eLastName).trim();
+                if (_eName.isEmpty()) _eName = etName.getText().toString().trim();
+                if (_eName.isEmpty()) {
+                    Toast.makeText(this, "Name ist Pflicht (Vor- und/oder Nachname)", Toast.LENGTH_SHORT).show();
                     return;
                 }
+                final String name = _eName;
+                int _eSalPos = spSalutation.getSelectedItemPosition();
+                String _eSalutation = _eSalPos > 0 ? _editSalutations[_eSalPos] : "";
                 Map<String, Object> updates = new HashMap<>();
                 updates.put("name", name);
+                updates.put("firstName", _eFirstName.isEmpty() ? null : _eFirstName);
+                updates.put("lastName", _eLastName.isEmpty() ? null : _eLastName);
+                updates.put("salutation", _eSalutation.isEmpty() ? null : _eSalutation);
+                updates.put("anrede", _eSalutation.isEmpty() ? null : _eSalutation);
                 String phone = etPhone.getText().toString().trim();
                 String mobile = etMobile.getText().toString().trim();
                 String email = etEmail.getText().toString().trim();
@@ -1440,6 +1486,8 @@ public class CallLogActivity extends AppCompatActivity {
 
     static class CrmCustomer {
         String id, name, phone, mobilePhone, address, customerKind;
+        // v6.62.326: getrennte Felder fuer Anrede + Vor/Nachname
+        String salutation, anrede, firstName, lastName;
         Double lat, lon;
         static CrmCustomer fromSnap(DataSnapshot s) {
             try {
@@ -1450,6 +1498,10 @@ public class CallLogActivity extends AppCompatActivity {
                 c.mobilePhone = s.child("mobilePhone").getValue(String.class);
                 c.address = s.child("address").getValue(String.class);
                 c.customerKind = s.child("customerKind").getValue(String.class);
+                c.salutation = s.child("salutation").getValue(String.class);
+                c.anrede = s.child("anrede").getValue(String.class);
+                c.firstName = s.child("firstName").getValue(String.class);
+                c.lastName = s.child("lastName").getValue(String.class);
                 Object lat = s.child("addressLat").getValue();
                 if (lat instanceof Number) c.lat = ((Number) lat).doubleValue();
                 Object lon = s.child("addressLon").getValue();

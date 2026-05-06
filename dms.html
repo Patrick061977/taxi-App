@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.374</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.375</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -188,6 +188,7 @@
                 <button class="tab-btn" data-tab="konten" onclick="switchTab('konten')">📊 SKR03-Konten</button>
                 <button class="tab-btn" data-tab="vehicles" onclick="switchTab('vehicles')">🚗 Fahrzeuge</button>
                 <button class="tab-btn" data-tab="dubletten" onclick="switchTab('dubletten')">🔍 Dubletten</button>
+                <button class="tab-btn" data-tab="vernichtbar" onclick="switchTab('vernichtbar')">🗑 Vernichtbar</button>
             </div>
 
             <!-- TAB: UPLOAD -->
@@ -439,6 +440,16 @@
                 <div id="dubletten-list"></div>
             </div>
 
+            <!-- TAB: VERNICHTBAR (v6.62.375) — Patrick: 'bei aelteren Belegen sagen kann weg' -->
+            <div id="tab-vernichtbar" class="tab-content">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">🗑 Vernichtbare Belege (§ 147 AO)</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">10 Jahre Aufbewahrung für Buchungsbelege (Standard), 6 Jahre für Geschäftspapiere/Personal. Frist beginnt 31.12. des Beleg-Jahres.</p>
+                    <p style="font-size:11px;color:#92400e;background:#fef3c7;padding:8px;border-radius:6px;margin-bottom:10px;">⚠️ Bei laufender Steuerprüfung oder offenem Verfahren ruht die Frist — vor Vernichtung mit Ecovis abklären!</p>
+                </div>
+                <div id="vernichtbar-list"></div>
+            </div>
+
             <!-- TAB: SKR03-KONTEN (v6.62.343) -->
             <div id="tab-konten" class="tab-content">
                 <div class="card">
@@ -552,6 +563,101 @@
             else if (tab === 'konten') loadSkr03Konten();
             else if (tab === 'vehicles') renderVehiclesTab();
             else if (tab === 'dubletten') renderDubletten();
+            else if (tab === 'vernichtbar') renderVernichtbar();
+        }
+
+        // 🆕 v6.62.375: Aufbewahrungsfrist-Berechnung pro Beleg
+        // Patrick (06.05. 16:50): "bei aelteren Belegen sagen kann weg"
+        function getAufbewahrungsInfo(d) {
+            if (!d || !d.datum) return null;
+            // Default 10 Jahre (Buchungsbelege § 147 AO)
+            // 6 Jahre fuer Personal-Akten / Geschaeftspapiere
+            const sixYearKats = ['Personal', 'Marketing/Werbung', 'Geschäftspapiere'];
+            const isSixYear = sixYearKats.includes(d.hauptKategorie);
+            const years = isSixYear ? 6 : 10;
+            const belegYear = parseInt((d.datum || '').slice(0, 4));
+            if (!belegYear) return null;
+            // Frist beginnt 31.12. des Beleg-Jahres → endet 31.12. + N Jahre
+            const fristEnde = new Date(belegYear + years, 11, 31, 23, 59, 59);
+            const now = Date.now();
+            const vernichtbar = fristEnde.getTime() < now;
+            const tageBis = Math.ceil((fristEnde.getTime() - now) / 86400000);
+            return { fristEnde, years, vernichtbar, tageBis, belegYear };
+        }
+
+        function vernichtbarBadge(d) {
+            const info = getAufbewahrungsInfo(d);
+            if (!info) return '';
+            if (info.vernichtbar) {
+                return `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;">🗑 KANN WEG (Frist seit ${info.fristEnde.getFullYear()})</span>`;
+            }
+            if (info.tageBis < 365) {
+                return `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;">⏰ ${Math.round(info.tageBis/30)} Mon</span>`;
+            }
+            return '';
+        }
+
+        function renderVernichtbar() {
+            const list = document.getElementById('vernichtbar-list');
+            const docs = (allDocs || []).filter(d => d && d.kategorie !== '_inbox')
+                .map(d => ({ d, info: getAufbewahrungsInfo(d) }))
+                .filter(x => x.info)
+                .sort((a, b) => a.info.fristEnde - b.info.fristEnde);
+            const vernichtbar = docs.filter(x => x.info.vernichtbar);
+            const baldVernichtbar = docs.filter(x => !x.info.vernichtbar && x.info.tageBis < 365);
+            if (vernichtbar.length === 0 && baldVernichtbar.length === 0) {
+                list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">✅ Keine Belege deren Aufbewahrungsfrist abläuft. Frühester Beleg: ' + (docs[0]?.info.fristEnde.toLocaleDateString('de-DE') || '—') + ' vernichtbar.</div>';
+                return;
+            }
+            const renderRow = (x) => {
+                const d = x.d;
+                const info = x.info;
+                const datum = d.datum || '?';
+                const lieferant = escHtml(d.lieferant || '?');
+                const belegNr = d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;padding:1px 5px;border-radius:3px;">#${escHtml(d.belegnummer)}</span>` : '';
+                const fristEnde = info.fristEnde.toLocaleDateString('de-DE');
+                if (info.vernichtbar) {
+                    return `<div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:grid;grid-template-columns:1fr auto;gap:10px;">
+                        <div>
+                            <div style="font-size:13px;font-weight:600;">${belegNr} ${lieferant}</div>
+                            <div style="font-size:11px;color:#6b7280;">Beleg ${datum} · Frist abgelaufen seit ${fristEnde} · ${info.years}J Aufbewahrung</div>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn btn-ghost" onclick="openDocDetail('${d.id}')" style="color:#3b82f6;">👁</button>
+                            <button class="btn" style="background:#fee2e2;color:#991b1b;font-size:11px;" onclick="deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g,'')}'); setTimeout(renderVernichtbar, 600);">🗑 Löschen</button>
+                        </div>
+                    </div>`;
+                }
+                const monatsBis = Math.round(info.tageBis / 30);
+                return `<div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+                    <div style="font-size:13px;font-weight:600;">${belegNr} ${lieferant}</div>
+                    <div style="font-size:11px;color:#92400e;">Beleg ${datum} · Frist endet ${fristEnde} (in ${monatsBis} Mon, ${info.years}J)</div>
+                </div>`;
+            };
+            let html = '';
+            if (vernichtbar.length) html += '<h3 style="font-size:13px;margin:8px 4px;color:#dc2626;">🔴 Frist abgelaufen — kann weg (' + vernichtbar.length + ')</h3>' +
+                vernichtbar.map(renderRow).join('') +
+                `<div style="text-align:center;margin-top:14px;"><button class="btn" style="background:#dc2626;color:white;font-size:14px;padding:12px 24px;" onclick="bulkDeleteVernichtbar()">🗑 Alle ${vernichtbar.length} vernichtbaren Belege löschen</button></div>`;
+            if (baldVernichtbar.length) html += '<h3 style="font-size:13px;margin:14px 4px 8px;color:#f59e0b;">🟡 Bald vernichtbar (<1 Jahr Restzeit) — ' + baldVernichtbar.length + '</h3>' +
+                baldVernichtbar.slice(0, 30).map(renderRow).join('');
+            list.innerHTML = html;
+        }
+
+        async function bulkDeleteVernichtbar() {
+            const docs = (allDocs || []).filter(d => d && d.kategorie !== '_inbox')
+                .map(d => ({ d, info: getAufbewahrungsInfo(d) }))
+                .filter(x => x.info && x.info.vernichtbar);
+            if (docs.length === 0) return;
+            if (!confirm(`${docs.length} Belege mit abgelaufener Aufbewahrungsfrist löschen?\n\n⚠️ Vorher mit Ecovis abklären falls Steuerprüfung läuft!\n\nVorgang nicht rückgängig.`)) return;
+            let ok = 0, err = 0;
+            for (const x of docs) {
+                try {
+                    await deleteDoc(x.d.id, x.d.storagePath || '', { skipConfirm: true });
+                    ok++;
+                } catch (_) { err++; }
+            }
+            showToast(`🗑 ${ok} Belege gelöscht${err ? ' · ' + err + ' Fehler' : ''}`);
+            renderVernichtbar();
         }
 
         // 🔍 v6.62.370: Dubletten-Erkennung
@@ -1915,7 +2021,7 @@
                 <input type="checkbox" class="doc-check" data-id="${d.id}" ${checked} onclick="event.stopPropagation();toggleDocSelected('${d.id}', this.checked)" style="width:18px;height:18px;">
                 <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
                 <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
-                    <div class="title">${d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:6px;">#${escHtml(d.belegnummer)}</span>` : ''}<span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')} ${wfBadge}</div>
+                    <div class="title">${d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:6px;">#${escHtml(d.belegnummer)}</span>` : ''}<span class="kat-badge kat-${d.kategorie}">${d.kategorie}</span>${escHtml(d.lieferant || '?')} — ${escHtml(d.dokumenttyp || d.subKategorie || '')} ${wfBadge}${vernichtbarBadge(d)}</div>
                     <div class="sub">${escHtml(d.datum || '')} ${d.betrag ? '· ' + d.betrag.toFixed(2).replace('.',',') + ' €' : ''} ${dueInfo} ${d.skr03Konto ? '· 📊 ' + escHtml(d.skr03Konto) : ''} ${linkRefs.length ? '· ' + linkRefs.join(' · ') : ''}</div>
                     <div class="extras">${tags} ${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                 </div>

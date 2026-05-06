@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.372</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.373</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -744,7 +744,7 @@
                             <span>📦 Archiviert (nicht in aktiver Flotte, aber im DMS-Dropdown sichtbar)</span>
                         </label>
                     </div>
-                    ${vehId ? `<button class="btn" onclick="fillVehicleFromTuvBeleg('${vehId}')" style="background:#3b82f6;color:white;">📋 Aus TÜV-Bericht ausfuellen</button>` : ''}
+                    ${vehId ? `<button class="btn" onclick="fillVehicleFromTuvBeleg('${vehId}')" style="background:#3b82f6;color:white;">📋 Aus TÜV / Fahrzeugschein ausfuellen</button>` : ''}
                     <div style="display:flex;gap:8px;margin-top:8px;">
                         <button class="btn btn-success" onclick="saveVehicle()" style="flex:1;font-size:15px;padding:12px;">💾 Speichern</button>
                         <button class="btn" onclick="document.getElementById('vehicle-modal').remove()">Abbrechen</button>
@@ -794,25 +794,36 @@
         }
 
         async function fillVehicleFromTuvBeleg(vehId) {
-            // Nimmt den neuesten TÜV-Beleg dieses Fahrzeugs und übernimmt KI-Felder
+            // v6.62.373: Erweitert um Fahrzeugschein (Patrick: 'TÜV oder Fahrzeugschein hochladen').
+            // Nimmt den NEUESTEN passenden Beleg dieses Fahrzeugs (TÜV ODER Schein) und uebernimmt KI-Felder.
             try {
-                const tuvDocs = (allDocs || []).filter(d =>
+                const matchPatterns = /tuev|tüv|haupt[- ]?untersuchung|fahrzeugschein|zulassungsbescheinigung|kfz[- ]?schein|kraftfahrzeug[- ]?brief|fahrzeug[- ]?brief|teil\s*[1i]/i;
+                const docs = (allDocs || []).filter(d =>
                     d && d.vehicleRefId === vehId &&
-                    (/tuev|tüv|haupt[- ]?untersuchung/i.test(d.dokumenttyp || '') ||
-                     /tuev|tüv/i.test(d.subKategorie || ''))
+                    (matchPatterns.test(d.dokumenttyp || '') ||
+                     matchPatterns.test(d.subKategorie || '') ||
+                     matchPatterns.test(d.lieferant || '') ||
+                     // Fallback: Beleg hat KI-extrahierte Fahrzeug-Daten (egal welcher Doc-Typ)
+                     d.fgnVin || d.hsn || d.naechsterTuev)
                 );
-                if (tuvDocs.length === 0) {
-                    showToast('Kein TÜV-Beleg fuer dieses Fahrzeug gefunden — erst Beleg hochladen + zuordnen.');
+                if (docs.length === 0) {
+                    showToast('Kein passender Beleg gefunden — TÜV-Bericht oder Fahrzeugschein erst hochladen + diesem Fahrzeug zuordnen.', 6000);
                     return;
                 }
-                tuvDocs.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
-                const ki = tuvDocs[0];
-                if (ki.fahrzeugModell) document.getElementById('vh-model').value = ki.fahrzeugModell;
-                if (ki.fahrzeugBaujahr) document.getElementById('vh-year').value = ki.fahrzeugBaujahr;
-                if (ki.fgnVin) document.getElementById('vh-fgn').value = ki.fgnVin;
-                if (ki.hsn || ki.tsn) document.getElementById('vh-hsntsn').value = (ki.hsn || '') + (ki.tsn ? '/' + ki.tsn : '');
-                if (ki.naechsterTuev) document.getElementById('vh-tuev').value = ki.naechsterTuev;
-                showToast('📋 Daten aus TÜV-Bericht ' + (ki.datum || '') + ' uebernommen — Speichern nicht vergessen.');
+                docs.sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+                const ki = docs[0];
+                let count = 0;
+                const set = (el, val) => { if (val && document.getElementById(el)) { document.getElementById(el).value = val; count++; } };
+                set('vh-model', ki.fahrzeugModell);
+                set('vh-year', ki.fahrzeugBaujahr);
+                set('vh-fgn', ki.fgnVin);
+                if (ki.hsn || ki.tsn) set('vh-hsntsn', (ki.hsn || '') + (ki.tsn ? '/' + ki.tsn : ''));
+                set('vh-tuev', ki.naechsterTuev);
+                if (count === 0) {
+                    showToast('Beleg hat keine extrahierten Fahrzeug-Daten — KI nochmal versuchen via 🤖-Button im Posteingang.', 6000);
+                } else {
+                    showToast('📋 ' + count + ' Felder aus Beleg ' + (ki.datum || '') + ' uebernommen — Speichern nicht vergessen.', 5000);
+                }
             } catch (e) { showToast('Fehler: ' + e.message); }
         }
 

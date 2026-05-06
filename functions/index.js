@@ -24742,32 +24742,11 @@ exports.setupClaudeBot = onRequest(
 //          LOHN, SONST, PRIV (privat). Counter atomar via DB-Transaction.
 // ═══════════════════════════════════════════════════════════════
 
-const SKR03_KONTEN_PROMPT = [
-    '4530 Treibstoff Kfz (Tankstellen: Aral, Shell, Total, JET, Star, Esso, BFT, Avia, Ladestation Tesla/Ionity)',
-    '4540 Wartung/Inspektion Kfz (Werkstatt: Inspektion, Oelwechsel)',
-    '4570 Reparatur Kfz (Werkstatt: Reparatur, Reifen, TUEV, AU, Bremsen, Auspuff)',
-    '4520 Kfz-Versicherung (HUK-Coburg, Allianz, AXA, R+V, etc.)',
-    '4510 Kfz-Steuer (Hauptzollamt, Bundeskasse)',
-    '4580 Garagenmiete / Stellplatz',
-    '4210 Miete / Pacht Geschaeftsraeume (Vermieter)',
-    '4220 Heizung / Strom / Wasser (Stadtwerke, E.ON, Vattenfall — wenn Geschaeftsraum)',
-    '4910 Werbekosten (Druckerei, Visitenkarten, Werbeflyer, Plakat)',
-    '4920 Telefon/Internet/Mobilfunk (Telekom, Vodafone, 1&1, O2)',
-    '4930 Buerobedarf / Software-Abos (Anthropic, Stripe, Google, Firebase, Microsoft)',
-    '4940 Porto / Versand (DHL, Hermes, DPD)',
-    '4920 Steuerberatung (ECOVIS Baltic GmbH, vorher VKO)',
-    '4922 Rechtsberatung (Avoka.law, Kanzlei)',
-    '4360 Versicherungen Betrieb (Inhaltsversicherung, Rechtsschutz, Betriebshaftpflicht)',
-    '4380 Beitraege IHK / BG Verkehr / Verbaende',
-    '4120 Lohn/Gehalt (an Mitarbeiter)',
-    '4140 Aushilfsloehne / Mini-Job',
-    '4150 Sozialabgaben (AG-Anteil Krankenkasse/Rente)',
-    '0320 Pkw-Anschaffung (Tesla, Prius, Toyota — Anlagevermoegen)',
-    '0420 GWG <800 EUR (Drucker, Tablet, Kabel, Werkzeug)',
-    '8400 Erloese 7% USt — Personenbefoerderung Nahverkehr (NUR wenn Beleg Einnahme)',
-    '8401 Erloese 19% USt — Fernverkehr/Kurier',
-    '4980 Sonstige Aufwendungen (catch-all wenn nichts passt)'
-].join('\n');
+// 🆕 v6.62.337: Patrick (06.05. 09:25): "Kannst du die Kontenlisten nicht aus dem Internet
+// laden... Das System muesste auch gleich die richtige Zuordnung machen."
+// → Ausgelagert nach functions/skr03.js mit ~70 kuratierten Konten (statt 24 hardcoded).
+const _skr03 = require('./skr03');
+const SKR03_KONTEN_PROMPT = _skr03.SKR03_KONTEN_PROMPT;
 
 exports.classifyReceipt = onRequest(
     { region: 'europe-west1', invoker: 'public', timeoutSeconds: 120, memory: '512MiB' },
@@ -24909,6 +24888,21 @@ Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Felde
 // dem Empfaenger antworten kann oder fragen bezugnehmend auf dieses Dokument".
 // Cloud Function liest parsed.rawText + Lieferant-Daten und fragt Anthropic nach
 // 3-5 thematisch passenden Email-Vorlagen (Subject + Body).
+// 🆕 v6.62.337: SKR03-Konten an Web-UI ausgeben — kein Auth (oeffentlich, weil Liste sowieso public)
+exports.getSkr03Konten = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 30, memory: '128MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        res.status(200).json({
+            ok: true,
+            konten: _skr03.SKR03_KONTEN,
+            hauptKategorien: _skr03.getAllHauptKategorien(),
+            count: _skr03.SKR03_KONTEN.length
+        });
+    }
+);
+
 exports.generateEmailTemplates = onRequest(
     { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
     async (req, res) => {

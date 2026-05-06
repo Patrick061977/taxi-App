@@ -166,7 +166,12 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.347</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.357</span>
+        <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
+            <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
+            <span>📥 Vor Speichern bestätigen</span>
+        </label>
     </div>
 
     <div class="container">
@@ -284,6 +289,13 @@
                             <option value="F">F · Steuerberater</option>
                             <option value="G">G · Versicherungen</option>
                             <option value="H">H · Sonstiges</option>
+                        </select>
+                        <!-- v6.62.357: SKR03-Filter (Patrick: 'werden Belege in SKR03-Konten eingeordnet, wo sehe ich das') -->
+                        <select id="lib-haupt" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle SKR03-Hauptkat</option>
+                        </select>
+                        <select id="lib-skr03" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle SKR03-Konten</option>
                         </select>
                         <select id="lib-jahr" class="form-select" onchange="renderLibrary()">
                             <option value="">Alle Jahre</option>
@@ -454,7 +466,7 @@
             if (!user) { document.getElementById('not-logged-in').style.display = 'block'; return; }
             if (!(await isAdmin(user))) { document.getElementById('not-admin').style.display = 'block'; return; }
             document.getElementById('main-content').style.display = 'block';
-            await Promise.all([loadVehiclesAndStaff(), loadDocs(), loadHealthKey()]);
+            await Promise.all([loadVehiclesAndStaff(), loadDocs(), loadHealthKey(), loadConfirmBeforeSave()]);
         });
 
         async function isAdmin(user) {
@@ -518,23 +530,53 @@
         let SKR03_KONTEN_CACHE = null;
         const SKR03_URL = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/getSkr03Konten';
         async function loadSkr03Konten() {
-            if (SKR03_KONTEN_CACHE) { renderKonten(); return; }
+            // v6.62.357: robust gemacht — kann auch aus renderLibrary aufgerufen werden,
+            // wo konten-count/konten-kat DOM-Elemente nicht existieren.
+            if (SKR03_KONTEN_CACHE) { if (document.getElementById('konten-list')) renderKonten(); return; }
             try {
                 const r = await fetch(SKR03_URL);
                 const j = await r.json();
                 if (!j.ok || !Array.isArray(j.konten)) throw new Error('API-Antwort ungueltig');
                 SKR03_KONTEN_CACHE = j.konten;
-                document.getElementById('konten-count').textContent = j.count || j.konten.length;
+                const cntEl = document.getElementById('konten-count');
+                if (cntEl) cntEl.textContent = j.count || j.konten.length;
                 const sel = document.getElementById('konten-kat');
-                sel.innerHTML = '<option value="">Alle Hauptkategorien</option>';
-                for (const h of (j.hauptKategorien || [])) {
-                    const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o);
+                if (sel) {
+                    sel.innerHTML = '<option value="">Alle Hauptkategorien</option>';
+                    for (const h of (j.hauptKategorien || [])) {
+                        const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o);
+                    }
                 }
-                renderKonten();
+                if (document.getElementById('konten-list')) renderKonten();
             } catch (e) {
-                document.getElementById('konten-list').innerHTML = '<div class="card" style="color:#dc2626;">Fehler beim Laden: ' + escHtml(String(e.message || e)) + '</div>';
+                const listEl = document.getElementById('konten-list');
+                if (listEl) listEl.innerHTML = '<div class="card" style="color:#dc2626;">Fehler beim Laden: ' + escHtml(String(e.message || e)) + '</div>';
             }
         }
+        // v6.62.357: Befuelle die Bibliothek-Filter-Selects (Hauptkat + Konto) wenn Cache da ist
+        function populateSkr03LibraryFilters() {
+            if (!SKR03_KONTEN_CACHE) return;
+            const haupt = document.getElementById('lib-haupt');
+            const skr03 = document.getElementById('lib-skr03');
+            if (haupt && haupt.options.length <= 1) {
+                const hauptKats = [...new Set(SKR03_KONTEN_CACHE.map(k => k.hauptKategorie).filter(Boolean))].sort();
+                for (const h of hauptKats) {
+                    const o = document.createElement('option');
+                    o.value = h; o.textContent = h;
+                    haupt.appendChild(o);
+                }
+            }
+            if (skr03 && skr03.options.length <= 1) {
+                const sorted = [...SKR03_KONTEN_CACHE].sort((a,b) => String(a.konto).localeCompare(String(b.konto)));
+                for (const k of sorted) {
+                    const o = document.createElement('option');
+                    o.value = String(k.konto);
+                    o.textContent = k.konto + ' · ' + (k.bezeichnung || '').slice(0, 50);
+                    skr03.appendChild(o);
+                }
+            }
+        }
+
         function renderKonten() {
             if (!SKR03_KONTEN_CACHE) return;
             const q = (document.getElementById('konten-search').value || '').toLowerCase().trim();
@@ -677,6 +719,23 @@
 
         // v6.62.240: Batch-Verarbeitung
         const AUTO_SAVE_CONFIDENCE = 0.80; // bei >= 80% direkt speichern, sonst Review
+        // v6.62.357: Wenn true → alles in Posteingang, kein Auto-Save (auch bei high confidence)
+        let _confirmBeforeSave = false;
+        async function loadConfirmBeforeSave() {
+            try {
+                const snap = await db.ref('settings/dms/confirmBeforeSave').once('value');
+                _confirmBeforeSave = !!snap.val();
+                const cb = document.getElementById('dms-confirm-toggle');
+                if (cb) cb.checked = _confirmBeforeSave;
+            } catch (_) {}
+        }
+        async function setConfirmBeforeSave(val) {
+            _confirmBeforeSave = !!val;
+            try {
+                await db.ref('settings/dms/confirmBeforeSave').set(_confirmBeforeSave);
+                showToast(_confirmBeforeSave ? '✓ Bestätigung aktiv — neue Belege gehen in Posteingang' : '⚡ Auto-Save aktiv — Belege werden direkt klassifiziert');
+            } catch (e) { showToast('Fehler: ' + e.message); }
+        }
         let batchResults = [];
         let batchProcessing = false;
 
@@ -720,7 +779,9 @@
                         kiError = e.message;
                     }
                     const confidence = (ki && ki.confidence) || 0;
-                    if (ki && confidence >= AUTO_SAVE_CONFIDENCE) {
+                    // v6.62.357: Patrick (06.05. 12:56): "ich werde gefragt was mit dem Beleg passiert".
+                    // Bei aktivem Toggle ALLES in Posteingang (kein Auto-Save) → Patrick muss bestaetigen.
+                    if (!_confirmBeforeSave && ki && confidence >= AUTO_SAVE_CONFIDENCE) {
                         // Auto-Save in normaler Bibliothek
                         const docId = await saveDocCore(item.file, fileHash, ki, { autoSaved: true });
                         item.docId = docId;
@@ -1137,14 +1198,24 @@
                 const icon = icons[d.mediaType] || '📎';
                 const reason = d.kiError ? `❌ KI-Fehler: ${escHtml(d.kiError)}` :
                     `🤖 Confidence ${Math.round((d.confidence || 0) * 100)}% — KI war unsicher`;
+                // v6.62.357: Wenn KI-Daten plausibel da sind → "✓ Übernehmen"-Button (1-Klick speichert KI-Vorschlag als final)
+                const hasKiSuggestion = d.kategorie && d.kategorie !== '_inbox' && d.kategorie !== 'H'
+                    || (d.lieferant && d.skr03Konto && d.datum);
+                const acceptBtn = hasKiSuggestion
+                    ? `<button class="btn btn-success" onclick="event.stopPropagation();acceptInboxKiSuggestion('${d.id}')" title="KI-Vorschlag uebernehmen — Beleg in die Bibliothek">✓</button>`
+                    : '';
+                // Vorschlag-Hinweis im Posteingang
+                const skrBadge = d.skr03Konto ? `<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;">📊 ${escHtml(d.skr03Konto)} ${escHtml(d.skr03Bezeichnung || '')}</span>` : '';
+                const liefBadge = d.lieferant ? `<span style="font-size:11px;color:#0f766e;font-weight:600;">${escHtml(d.lieferant)}</span>` : '';
                 return `<div class="doc-row" style="background:#fffbeb;border-left:4px solid #f59e0b;">
                     <div class="doc-icon" onclick="openDocDetail('${d.id}')">${icon}</div>
                     <div class="doc-meta" onclick="openDocDetail('${d.id}')" style="cursor:pointer;">
-                        <div class="title">📥 ${escHtml(d.originalFilename || '?')}</div>
-                        <div class="sub">${reason}</div>
+                        <div class="title">📥 ${escHtml(d.originalFilename || '?')} ${skrBadge}</div>
+                        <div class="sub">${liefBadge} ${reason}</div>
                         <div class="extras">${escHtml(d.kurzbeschreibung || '').slice(0, 100)}</div>
                     </div>
                     <div class="doc-actions" style="flex-direction:row;">
+                        ${acceptBtn}
                         <button class="btn btn-primary" onclick="event.stopPropagation();reanalyzeFromInbox('${d.id}')" title="KI nochmal versuchen">🤖</button>
                         <button class="btn btn-ghost" onclick="event.stopPropagation();openDocDetail('${d.id}')" title="Manuell bearbeiten" style="color:#2563eb;">✏</button>
                         <button class="btn btn-ghost" onclick="event.stopPropagation();window.open('${d.storageUrl}','_blank')" title="Original">👁</button>
@@ -1152,6 +1223,29 @@
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        // v6.62.357: KI-Vorschlag direkt akzeptieren — Beleg verlaesst Posteingang
+        async function acceptInboxKiSuggestion(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d) return;
+            try {
+                // Wenn keine Hauptkategorie da ist, fallback auf 'H' (Sonstiges) — sonst behaelt
+                // er die existierende. confidence auf 1.0 damit isInbox() ihn nicht mehr greift.
+                const updates = {
+                    kategorie: (d.kategorie && d.kategorie !== '_inbox') ? d.kategorie : 'H',
+                    needsReview: false,
+                    confidence: Math.max(d.confidence || 0, 1.0),
+                    kiError: null,
+                    acceptedAt: Date.now(),
+                    acceptedBy: (auth.currentUser || {}).email || (auth.currentUser || {}).phoneNumber || '?'
+                };
+                await db.ref('docs/' + docId).update(updates);
+                showToast(`✓ ${d.lieferant || 'Beleg'} uebernommen — in der Bibliothek sichtbar`);
+                await loadDocs();
+            } catch (e) {
+                showToast('Fehler: ' + e.message);
+            }
         }
 
         async function reanalyzeFromInbox(docId) {
@@ -1309,13 +1403,24 @@
         }
 
         function renderLibrary() {
+            // v6.62.357: SKR03-Filter — Cache laden + Selects befuellen falls noch nicht
+            if (!SKR03_KONTEN_CACHE) {
+                loadSkr03Konten().then(populateSkr03LibraryFilters).catch(() => {});
+            } else {
+                populateSkr03LibraryFilters();
+            }
             const kat = document.getElementById('lib-kat').value;
+            const haupt = document.getElementById('lib-haupt')?.value || '';
+            const skr03 = document.getElementById('lib-skr03')?.value || '';
             const jahr = document.getElementById('lib-jahr').value;
             const wfFilter = document.getElementById('lib-wfstatus').value;
             const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
             // v6.62.242: Inbox-Docs (kategorie='_inbox') NICHT in Bibliothek zeigen
             let docs = allDocs.filter(d => d.kategorie !== '_inbox');
             if (kat) docs = docs.filter(d => d.kategorie === kat);
+            // v6.62.357: SKR03-Filter
+            if (haupt) docs = docs.filter(d => d.hauptKategorie === haupt);
+            if (skr03) docs = docs.filter(d => String(d.skr03Konto || '') === skr03);
             if (jahr) docs = docs.filter(d => (d.datum || '').startsWith(jahr));
             // v6.62.246: Workflow-Filter
             if (wfFilter === 'open-only') {

@@ -1001,7 +1001,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 st.equals("done")) continue;
             boolean isCancelled = st.equals("cancelled") || st.equals("canceled") || st.equals("storniert");
             if (isCancelled) {
-                Long ca = r.cancelledAt;
+                // v6.62.359: Fallback auf deletedAt (alte buchen.html-Stornos vor 13:55 schrieben
+                // nur deletedAt statt cancelledAt). Auch updatedAt als allerletzter Fallback.
+                Long ca = r.cancelledAt != null ? r.cancelledAt
+                       : (r.deletedAt != null ? r.deletedAt : null);
                 long age = ca != null ? (now - ca) : Long.MAX_VALUE;
                 boolean wasMine = currentVehicleId != null
                     && (currentVehicleId.equals(r.assignedVehicle) || currentVehicleId.equals(r.vehicleId));
@@ -1973,6 +1976,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Long cancelledAt;
         String cancelledBy, cancelledVia, cancelReason;
         String assignedVehicle, vehicleId;
+        // v6.62.359: Fallback fuer alte Stornos die nur deletedAt hatten
+        Long deletedAt;
 
         static Ride fromSnap(DataSnapshot s) {
             try {
@@ -2042,6 +2047,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // v6.62.358: cancellation-Felder + Vehicle-Zuweisung
                 Object ca = s.child("cancelledAt").getValue();
                 if (ca instanceof Number) r.cancelledAt = ((Number) ca).longValue();
+                Object da = s.child("deletedAt").getValue();
+                if (da instanceof Number) r.deletedAt = ((Number) da).longValue();
                 r.cancelledBy = s.child("cancelledBy").getValue(String.class);
                 r.cancelledVia = s.child("cancelledVia").getValue(String.class);
                 r.cancelReason = s.child("cancelReason").getValue(String.class);
@@ -2089,8 +2096,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
             void bind(Ride r) {
                 // v6.62.358: Storno-Banner — Patrick "der fahrer sieht die stornierte fahrt nicht mehr"
-                String _stLow = r.status != null ? r.status.toLowerCase() : "";
-                boolean _isCancelled = _stLow.equals("cancelled") || _stLow.equals("canceled") || _stLow.equals("storniert");
+                String _stCancelCheck = r.status != null ? r.status.toLowerCase() : "";
+                boolean _isCancelled = _stCancelCheck.equals("cancelled") || _stCancelCheck.equals("canceled") || _stCancelCheck.equals("storniert");
                 if (_isCancelled) {
                     String _cancelTime = "";
                     if (r.cancelledAt != null) {

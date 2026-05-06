@@ -166,6 +166,37 @@
         .ride-status-cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
         .ride-status-storniert { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
 
+        /* v6.62.383: ETA-Tooltip am Vehicle-Marker auf der Karte */
+        .driver-eta-tip {
+            background: #1e3a8a !important;
+            color: white !important;
+            font-weight: 700 !important;
+            font-size: 13px !important;
+            padding: 6px 12px !important;
+            border-radius: 10px !important;
+            border: 2px solid white !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+            white-space: nowrap;
+        }
+        .driver-eta-tip::before { border-top-color: #1e3a8a !important; }
+
+        /* v6.62.383: Aufklappbare Buchungs-Bestaetigung */
+        details.booking-collapsible > summary {
+            cursor: pointer;
+            padding: 12px 14px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            font-weight: 600;
+            color: #1e293b;
+            list-style: none;
+            user-select: none;
+        }
+        details.booking-collapsible > summary::-webkit-details-marker { display: none; }
+        details.booking-collapsible[open] > summary { background: #e0e7ff; color: #3730a3; }
+        details.booking-collapsible > summary::after { content: ' ▼'; opacity: 0.7; font-size: 12px; }
+        details.booking-collapsible[open] > summary::after { content: ' ▲'; }
+        details.booking-collapsible > div { padding: 12px 14px 4px 14px; }
+
         #vehicle-info {
             font-size: 13.5px;
             color: #475569;
@@ -337,7 +368,12 @@
             <!-- v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen,
                  nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
             <!-- v6.62.97: Padding/Font reduziert damit Panel kompakter wirkt. -->
-            <div id="booking-details" style="display:none; margin-top:8px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; line-height:1.5;"></div>
+            <!-- v6.62.383: Patrick (06.05. 18:45): "Bestaetigung muss aufklappbar sein,
+                 Kunde will eigentlich nur sehen wo der Fahrer ist". Default zugeklappt. -->
+            <details class="booking-collapsible" id="booking-details-wrap" style="display:none; margin-top:8px;">
+                <summary>📋 Buchungsdetails anzeigen</summary>
+                <div id="booking-details" style="font-size:13px; line-height:1.5;"></div>
+            </details>
             <!-- v6.62.134: Kalender-Termin-Download (Patrick: 'Vorbestellung als ICS,
                  dass die Leute sich den Termin in den Kalender bauen koennen'). Sichtbar
                  nur bei Vorbestellungen die noch in der Zukunft sind. -->
@@ -621,7 +657,9 @@
                     }
                     if (_rows.length) {
                         _bd.innerHTML = _rows.join('');
-                        _bd.style.display = 'block';
+                        // v6.62.383: Wrapper sichtbar (details-Element), inneres div bleibt block.
+                        const _bdWrap = document.getElementById('booking-details-wrap');
+                        if (_bdWrap) _bdWrap.style.display = 'block';
                     }
                 }
 
@@ -693,6 +731,12 @@
                         </div>`);
 
                         _bd2.innerHTML += _blocks.join('');
+                        // v6.62.383: Bei completed automatisch aufklappen — Kunde soll
+                        // Rechnung/Bewertung direkt sehen, nicht erst klicken muessen.
+                        try {
+                            const _wrap = document.getElementById('booking-details-wrap');
+                            if (_wrap) { _wrap.open = true; _wrap.style.display = 'block'; }
+                        } catch(_) {}
                     } catch (_invErr) { console.warn('Invoice/Feedback-Lookup-Fehler:', _invErr.message); }
                 }
                 // v6.62.46: Storno-Button sichtbar bei aktiven, nicht-fertigen Stati.
@@ -924,7 +968,9 @@
                 } else if (['accepted','on_way','assigned'].includes(r.status)) {
                     targetLat = r.pickupLat || (r.pickupCoords && r.pickupCoords.lat);
                     targetLon = r.pickupLon || (r.pickupCoords && r.pickupCoords.lon);
-                    label = '🚕 Anfahrt zu Ihnen';
+                    // 🆕 v6.62.383: Patrick (06.05. 18:45): "Ankunft des Fahrers + Ankunft am Ziel"
+                    // sprachlich konsistentes Paar.
+                    label = '🚕 Ankunft des Fahrers';
                 } else {
                     document.getElementById('eta-info').style.display = 'none';
                     return;
@@ -951,15 +997,17 @@
                         // wir 'Fahrer ist vor Ort' statt der OSRM-Restzeit.
                         const _isAtPickup = (_km < 0.2) && ['accepted','on_way','assigned'].includes(r.status);
                         if (_isAtPickup) {
-                            // 🆕 v6.62.381: Patrick (06.05. 18:22): "muss groesser sein, Kunde uebersieht das".
-                            // Vollbild-prominenter Block + Vibration einmalig damit Kunde es merkt.
-                            _box.style.cssText = 'display:block;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:24px;border-radius:14px;text-align:center;margin:14px 0;box-shadow:0 8px 24px rgba(16,185,129,0.4);animation:pulse 1.4s infinite;';
-                            _box.innerHTML = `<div style="font-size:48px;margin-bottom:6px;">🏁</div><div style="font-size:24px;font-weight:800;letter-spacing:0.5px;">Fahrer ist vor Ort!</div><div style="font-size:15px;margin-top:6px;opacity:0.95;">Bitte einsteigen 👋</div>`;
+                            // 🆕 v6.62.383: Patrick (06.05. 18:45): "Fahrer ist vor Ort muss
+                            // noch grosser". Emoji 72px, Text 30px, mehr Padding.
+                            _box.style.cssText = 'display:block;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:34px 24px;border-radius:16px;text-align:center;margin:14px 0;box-shadow:0 10px 30px rgba(16,185,129,0.45);animation:pulse 1.3s infinite;';
+                            _box.innerHTML = `<div style="font-size:72px;margin-bottom:8px;line-height:1;">🏁</div><div style="font-size:30px;font-weight:800;letter-spacing:0.6px;">Fahrer ist vor Ort!</div><div style="font-size:17px;margin-top:8px;opacity:0.95;">Bitte einsteigen 👋</div>`;
                             // Vibration einmalig pro 'arrived'-Erkennung
                             if (!window._vibedAtPickup && navigator.vibrate) {
                                 try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(_) {}
                                 window._vibedAtPickup = true;
                             }
+                            // Tooltip am Vehicle-Marker entfernen wenn vor Ort
+                            try { if (vehicleMarker && vehicleMarker.getTooltip()) vehicleMarker.unbindTooltip(); } catch(_) {}
                         } else {
                             // Reset Style falls vorher 'vor Ort' war
                             _box.style.cssText = '';
@@ -967,6 +1015,21 @@
                             const _eta = new Date(Date.now() + _min * 60000);
                             const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
                             _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km.toFixed(1)} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;
+                            // 🆕 v6.62.383: Patrick (06.05. 18:45): "auf der Karte anzeigen
+                            // Fahrer ist in 5 Min vor Ort". Tooltip direkt am Vehicle-Marker.
+                            try {
+                                if (vehicleMarker && ['accepted','on_way','assigned'].includes(r.status)) {
+                                    const _tipText = `Fahrer in ${_min} Min vor Ort`;
+                                    if (vehicleMarker.getTooltip()) {
+                                        vehicleMarker.setTooltipContent(_tipText);
+                                    } else {
+                                        vehicleMarker.bindTooltip(_tipText, {
+                                            permanent: true, direction: 'top', offset: [0, -22],
+                                            className: 'driver-eta-tip'
+                                        });
+                                    }
+                                }
+                            } catch(_) {}
                         }
                     }
                 } catch(_e) { /* OSRM down → nichts anzeigen, kein crash */ }

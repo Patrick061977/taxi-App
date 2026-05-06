@@ -470,6 +470,32 @@ public class CallLogActivity extends AppCompatActivity {
         };
         new ItemTouchHelper(swipe).attachToRecyclerView(rv);
 
+        // v6.62.386: Patrick (06.05. 19:46): "Andre/Lothar/Wegener nicht in der Anrufliste".
+        // Versehentliches Wegswipen ist die wahrscheinlichste Ursache → Reset-Button macht
+        // die hidden-Liste zentral aufloesbar ohne App-Daten-Cleanup.
+        android.widget.Button btnHidden = findViewById(R.id.btn_calls_hidden);
+        if (btnHidden != null) {
+            btnHidden.setOnClickListener(v -> {
+                java.util.Set<String> hiddenSet = getHiddenNumbers();
+                if (hiddenSet.isEmpty()) {
+                    Toast.makeText(this, "Keine versteckten Anrufe", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                new AlertDialog.Builder(this)
+                    .setTitle("🗑 " + hiddenSet.size() + " versteckte Anrufe")
+                    .setMessage("Versehentlich weggeswipet?\n\nAlle wieder einblenden?")
+                    .setPositiveButton("Alle einblenden", (d, w) -> {
+                        getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().remove(KEY_HIDDEN).apply();
+                        Toast.makeText(this, "✅ " + hiddenSet.size() + " Anrufe wieder sichtbar", Toast.LENGTH_SHORT).show();
+                        loadCalls();
+                        updateHiddenButtonLabel();
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+            });
+            updateHiddenButtonLabel();
+        }
+
         // CRM-Cache parallel laden
         loadCrmCache();
 
@@ -569,6 +595,7 @@ public class CallLogActivity extends AppCompatActivity {
         java.util.Set<String> set = getHiddenNumbers();
         set.add(normalizePhone(phone));
         getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN, set).apply();
+        updateHiddenButtonLabel();
     }
 
     private void removeHiddenNumber(String phone) {
@@ -576,6 +603,15 @@ public class CallLogActivity extends AppCompatActivity {
         java.util.Set<String> set = getHiddenNumbers();
         set.remove(normalizePhone(phone));
         getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().putStringSet(KEY_HIDDEN, set).apply();
+        updateHiddenButtonLabel();
+    }
+
+    // v6.62.386: Anzahl versteckter Nummern im Header-Button anzeigen.
+    private void updateHiddenButtonLabel() {
+        android.widget.Button b = findViewById(R.id.btn_calls_hidden);
+        if (b == null) return;
+        int n = getHiddenNumbers().size();
+        b.setText("🗑 Versteckt (" + n + ")");
     }
 
     // v6.51.0/v6.56.0: Admin-Modus — entweder explizit (AdminDashboardActivity hat

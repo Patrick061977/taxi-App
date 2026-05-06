@@ -13,13 +13,37 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📞 Anrufliste"
-            android:textColor="#F8FAFC"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📞 Anrufliste"
+                android:textColor="#F8FAFC"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <!-- v6.62.386: Patrick (06.05. 19:46): "Andre/Lothar/Wegener nicht in der
+                 Anrufliste". Wahrscheinlich versehentlich weggeswipet → SharedPrefs hidden.
+                 Knopf zeigt Anzahl + erlaubt Reset. -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_calls_hidden"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="🗑 Versteckt (0)"
+                android:textColor="#F8FAFC"
+                android:textSize="12sp"
+                app:backgroundTint="#475569" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"

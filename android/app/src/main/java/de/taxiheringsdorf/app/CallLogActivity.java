@@ -678,78 +678,160 @@ public class CallLogActivity extends AppCompatActivity {
 
     // v6.62.74: SOFORT-Fahrt — Pickup steht beim Anrufer, ich fahre hin.
     // Status='accepted' damit DriverDashboard den vollen Flow zeigt: on_way / BIN DA / Eingestiegen.
-    // CRM-Variante: Pickup = CRM-Adresse des Anrufers
+    // CRM-Variante: Pickup vorbelegt mit CRM-Adresse, Patrick kann via Picker aendern.
     private void createSofortFahrtCrm(CallEntry e, CrmCustomer crm) {
-        String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
-        if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
-        new AlertDialog.Builder(this)
-            .setTitle("🚗 SOFORT-Fahrt anlegen?")
-            .setMessage("Kunde: " + crm.name + "\n📍 Pickup: " + (crm.address != null ? crm.address : "Adresse fehlt!") + "\n📞 " + e.number + "\n\nFahrt wird mit Status 'angenommen' angelegt — du tippst dann 'Losfahren', 'BIN DA', 'Eingestiegen' wie sonst.")
-            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
-                DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
-                long now = System.currentTimeMillis();
-                Map<String, Object> r = new HashMap<>();
-                r.put("customerName", crm.name);
-                r.put("customerId", crm.id);
-                r.put("customerPhone", e.number);
-                r.put("customerMobile", crm.mobilePhone != null ? crm.mobilePhone : e.number);
-                r.put("vehicleId", vehicleId);
-                r.put("assignedVehicle", vehicleId);
-                r.put("status", "accepted");
-                r.put("pickup", crm.address != null ? crm.address : "");
-                if (crm.lat != null) { r.put("pickupLat", crm.lat); r.put("pickupLon", crm.lon); }
-                r.put("destination", "");
-                r.put("pickupTimestamp", now);
-                r.put("createdAt", now);
-                r.put("updatedAt", now);
-                r.put("acceptedAt", now);
-                r.put("assignedAt", now);
-                r.put("assignedBy", "native_sofort_calllog_crm");
-                r.put("acceptedVia", "native_sofort_calllog_crm");
-                r.put("source", "native_sofort_call_crm");
-                r.put("isSofort", true);
-                r.put("passengers", 1);
-                ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt: " + crm.name, Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(this, DriverDashboardActivity.class));
-                    finish();
-                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
-            })
-            .setNegativeButton("Abbrechen", null).show();
+        showSofortFahrtPickerDialog(e, crm);
     }
 
-    // v6.62.74: SOFORT-Fahrt ohne CRM (nur Telefonnummer)
+    // v6.62.74: SOFORT-Fahrt ohne CRM (nur Telefonnummer) — gleicher Picker-Dialog
     private void createSofortFahrtPhone(CallEntry e) {
+        showSofortFahrtPickerDialog(e, null);
+    }
+
+    // v6.62.387: Patrick (06.05. 20:20): "Bei Sofort-Fahrt brauche ich auch den
+    // Kartenpicker, sonst kann ich Pickup/Ziel nicht eingeben". Picker-Dialog wie
+    // bei Vorbestellung, nur ohne Datum/Uhrzeit (sofort = jetzt).
+    private void showSofortFahrtPickerDialog(CallEntry e, CrmCustomer crm) {
         String vehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
         if (vehicleId == null) { Toast.makeText(this, "Kein Fahrzeug ausgewählt", Toast.LENGTH_SHORT).show(); return; }
-        String label = e.name != null && !e.name.isEmpty() ? e.name : "Anrufer";
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        int padHalf = pad / 2;
+        layout.setPadding(pad, pad, pad, pad);
+        scroll.addView(layout);
+
+        String custName = (crm != null) ? crm.name : (e.name != null && !e.name.isEmpty() ? e.name : "Anrufer");
+        TextView tvHead = new TextView(this);
+        tvHead.setText("👤 " + custName + "\n📞 " + e.number);
+        tvHead.setTextSize(13);
+        tvHead.setPadding(0, 0, 0, pad);
+        layout.addView(tvHead);
+
+        boolean isHotel = crm != null && crm.customerKind != null && crm.customerKind.equalsIgnoreCase("Hotel");
+
+        final double[] pickupCoords = { Double.NaN, Double.NaN };
+        final double[] destCoords = { Double.NaN, Double.NaN };
+
+        TextView tvPickup = new TextView(this);
+        if (!isHotel && crm != null && crm.address != null) {
+            tvPickup.setText("📍 " + crm.address);
+            if (crm.lat != null && crm.lon != null) {
+                pickupCoords[0] = crm.lat; pickupCoords[1] = crm.lon;
+            } else if (!crm.address.isEmpty()) {
+                geocodeAndFill(crm.address, tvPickup, pickupCoords);
+            }
+        } else {
+            tvPickup.setText("📍 Abholort wählen…");
+        }
+        tvPickup.setPadding(padHalf, pad, padHalf, pad);
+        tvPickup.setBackgroundColor(0xFFF1F5F9);
+        tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
+        layout.addView(tvPickup);
+
+        TextView btnSwap = new TextView(this);
+        btnSwap.setText("⇅ Abholort ↔ Ziel tauschen");
+        btnSwap.setTextSize(12);
+        btnSwap.setTextColor(0xFF1E40AF);
+        btnSwap.setBackgroundColor(0xFFEFF6FF);
+        btnSwap.setGravity(android.view.Gravity.CENTER);
+        btnSwap.setPadding(padHalf, padHalf, padHalf, padHalf);
+        LinearLayout.LayoutParams swapLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        swapLp.setMargins(0, padHalf, 0, padHalf);
+        btnSwap.setLayoutParams(swapLp);
+        btnSwap.setClickable(true);
+        layout.addView(btnSwap);
+
+        TextView tvDest = new TextView(this);
+        if (isHotel && crm != null && crm.address != null) {
+            tvDest.setText("🎯 " + crm.address);
+            if (crm.lat != null && crm.lon != null) {
+                destCoords[0] = crm.lat; destCoords[1] = crm.lon;
+            } else if (!crm.address.isEmpty()) {
+                geocodeAndFill(crm.address, tvDest, destCoords);
+            }
+        } else {
+            tvDest.setText("🎯 Zielort wählen…");
+        }
+        tvDest.setPadding(padHalf, pad, padHalf, pad);
+        tvDest.setBackgroundColor(0xFFF1F5F9);
+        tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
+        layout.addView(tvDest);
+
+        btnSwap.setOnClickListener(_v -> {
+            String pickTxt = tvPickup.getText().toString();
+            String destTxt = tvDest.getText().toString();
+            String pickAddr = pickTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            String destAddr = destTxt.replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
+            tvPickup.setText("📍 " + (destAddr.endsWith("wählen…") ? "Abholort wählen…" : destAddr));
+            tvDest.setText("🎯 " + (pickAddr.endsWith("wählen…") ? "Zielort wählen…" : pickAddr));
+            double pl = pickupCoords[0], pn = pickupCoords[1];
+            pickupCoords[0] = destCoords[0]; pickupCoords[1] = destCoords[1];
+            destCoords[0] = pl; destCoords[1] = pn;
+            Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
+        });
+
+        // Personenzahl
+        TextView lblPax = new TextView(this);
+        lblPax.setText("👥 Personenzahl");
+        lblPax.setTextSize(12);
+        lblPax.setPadding(0, pad, 0, padHalf);
+        layout.addView(lblPax);
+        android.widget.Spinner spPax = new android.widget.Spinner(this);
+        Integer[] paxOpts = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        spPax.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, paxOpts));
+        spPax.setSelection(0);
+        layout.addView(spPax);
+
         new AlertDialog.Builder(this)
-            .setTitle("🚗 SOFORT-Fahrt anlegen?")
-            .setMessage("Kunde: " + label + "\n📞 " + e.number + "\n\n⚠️ Keine CRM-Adresse — Pickup musst du manuell ergaenzen oder Adresse via Maps nachtragen.\n\nStatus 'angenommen' → du tippst 'Losfahren', 'BIN DA', 'Eingestiegen'.")
-            .setPositiveButton("✅ Ja, anlegen", (d, w) -> {
+            .setTitle("🚗 SOFORT-Fahrt anlegen")
+            .setView(scroll)
+            .setPositiveButton("✅ Anlegen", (d, w) -> {
+                String pickup = tvPickup.getText().toString().replaceFirst("^📍\\s*", "").trim();
+                String destination = tvDest.getText().toString().replaceFirst("^🎯\\s*", "").trim();
+                if (pickup.isEmpty() || pickup.endsWith("wählen…")) {
+                    Toast.makeText(this, "Abholort fehlt", Toast.LENGTH_SHORT).show(); return;
+                }
+                int pax = (Integer) spPax.getSelectedItem();
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
-                r.put("customerName", label);
+                r.put("customerName", custName);
+                if (crm != null) r.put("customerId", crm.id);
                 r.put("customerPhone", e.number);
-                r.put("customerMobile", e.number);
+                r.put("customerMobile", crm != null && crm.mobilePhone != null ? crm.mobilePhone : e.number);
                 r.put("vehicleId", vehicleId);
                 r.put("assignedVehicle", vehicleId);
                 r.put("status", "accepted");
-                r.put("pickup", "");
-                r.put("destination", "");
+                r.put("pickup", pickup);
+                if (!Double.isNaN(pickupCoords[0])) {
+                    r.put("pickupLat", pickupCoords[0]);
+                    r.put("pickupLon", pickupCoords[1]);
+                }
+                if (!destination.isEmpty() && !destination.endsWith("wählen…")) {
+                    r.put("destination", destination);
+                    if (!Double.isNaN(destCoords[0])) {
+                        r.put("destinationLat", destCoords[0]);
+                        r.put("destinationLon", destCoords[1]);
+                    }
+                } else {
+                    r.put("destination", "");
+                }
                 r.put("pickupTimestamp", now);
                 r.put("createdAt", now);
                 r.put("updatedAt", now);
                 r.put("acceptedAt", now);
                 r.put("assignedAt", now);
-                r.put("assignedBy", "native_sofort_calllog");
-                r.put("acceptedVia", "native_sofort_calllog");
-                r.put("source", "native_sofort_call");
+                r.put("assignedBy", crm != null ? "native_sofort_calllog_crm" : "native_sofort_calllog");
+                r.put("acceptedVia", crm != null ? "native_sofort_calllog_crm" : "native_sofort_calllog");
+                r.put("source", crm != null ? "native_sofort_call_crm" : "native_sofort_call");
                 r.put("isSofort", true);
-                r.put("passengers", 1);
+                r.put("passengers", pax);
                 ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt mit " + e.number, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "✅ SOFORT-Fahrt angelegt: " + custName, Toast.LENGTH_SHORT).show();
                     startActivity(new Intent(this, DriverDashboardActivity.class));
                     finish();
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());

@@ -511,6 +511,21 @@ public class AdminDashboardActivity extends AppCompatActivity {
         int padHalf = pad / 2;
         layout.setPadding(pad, pad, pad, pad);
 
+        // v6.62.366: Patrick (06.05. 15:05): "Ich sehe kein Speichern auch nach Bug-Fix".
+        // INLINE-Speichern-Button als erste Zeile im Layout — Patrick sieht ihn sofort
+        // beim Oeffnen des Dialogs, scrollen nicht noetig. Plus Builder-Buttons unten.
+        com.google.android.material.button.MaterialButton btnSaveTop =
+            new com.google.android.material.button.MaterialButton(this);
+        btnSaveTop.setText("💾 SPEICHERN");
+        btnSaveTop.setTextSize(16);
+        btnSaveTop.setBackgroundColor(android.graphics.Color.parseColor("#10b981"));
+        btnSaveTop.setTextColor(android.graphics.Color.WHITE);
+        LinearLayout.LayoutParams _saveTopParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _saveTopParams.setMargins(0, 0, 0, pad);
+        btnSaveTop.setLayoutParams(_saveTopParams);
+        layout.addView(btnSaveTop);
+
         EditText etName = new EditText(this);
         etName.setHint("Kundenname");
         etName.setText(r.customerName != null ? r.customerName : "");
@@ -670,65 +685,70 @@ public class AdminDashboardActivity extends AppCompatActivity {
         };
         sv.addView(layout);
 
-        // v6.62.364: Patrick (06.05. 14:42): "kann nach Bearbeiten Adresse nicht speichern".
-        // Diagnose-Toasts hinzugefuegt um zu sehen welcher Schritt fehlschlaegt.
-        new AlertDialog.Builder(this)
+        // v6.62.366: Save-Logik als Runnable extrahiert — wird vom INLINE-Top-Button
+        // UND vom Builder-positiveButton aufgerufen. Damit hat Patrick einen Speichern-
+        // Button immer sichtbar (oben groß, plus unten als Backup).
+        final java.util.concurrent.atomic.AtomicReference<AlertDialog> _dlgRef =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        Runnable saveAction = () -> {
+            Toast.makeText(this, "💾 Speichere…", Toast.LENGTH_SHORT).show();
+            Map<String, Object> upd = new HashMap<>();
+            upd.put("customerName", etName.getText().toString().trim());
+            upd.put("customerPhone", etPhone.getText().toString().trim());
+            upd.put("pickup", etPickup.getText().toString().trim());
+            upd.put("destination", etDest.getText().toString().trim());
+            if (!Double.isNaN(editPickupCoords[0]) && !Double.isNaN(editPickupCoords[1])) {
+                upd.put("pickupLat", editPickupCoords[0]);
+                upd.put("pickupLon", editPickupCoords[1]);
+            }
+            if (!Double.isNaN(editDestCoords[0]) && !Double.isNaN(editDestCoords[1])) {
+                upd.put("destinationLat", editDestCoords[0]);
+                upd.put("destinationLon", editDestCoords[1]);
+            }
+            upd.put("pickupTimestamp", dateTime[0]);
+            upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
+            upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
+            upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
+            int vIdx = spnVehicle.getSelectedItemPosition();
+            if (vIdx > 0 && vIdx < vehIds.length) {
+                String newVehId = vehIds[vIdx];
+                if (!newVehId.equals(r.assignedVehicle)) {
+                    upd.put("assignedVehicle", newVehId);
+                    upd.put("vehicleId", newVehId);
+                    upd.put("assignedTo", newVehId);
+                    upd.put("assignedVehicleName", vehNames[vIdx]);
+                    upd.put("assignedVehiclePlate", vehPlates[vIdx]);
+                    upd.put("assignedAt", System.currentTimeMillis());
+                    upd.put("assignedBy", "native_admin_dispo_assign");
+                }
+            } else if (vIdx == 0 && r.assignedVehicle != null) {
+                upd.put("assignedVehicle", null);
+                upd.put("vehicleId", null);
+                upd.put("assignedTo", null);
+                upd.put("assignedVehicleName", null);
+                upd.put("assignedVehiclePlate", null);
+                upd.put("unassignedAt", System.currentTimeMillis());
+                upd.put("unassignedBy", "native_admin_dispo_assign");
+            }
+            upd.put("updatedAt", System.currentTimeMillis());
+            upd.put("updatedBy", "native_admin_dispo_edit");
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
+                .updateChildren(upd)
+                .addOnSuccessListener(_v -> {
+                    Toast.makeText(this, "✅ Fahrt aktualisiert", Toast.LENGTH_SHORT).show();
+                    AlertDialog _d = _dlgRef.get();
+                    if (_d != null) _d.dismiss();
+                })
+                .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+        };
+        // INLINE-Top-Button feuert den selben Save
+        btnSaveTop.setOnClickListener(v -> saveAction.run());
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
             .setTitle("✏️ Fahrt bearbeiten")
             .setMessage("ID: " + r.id)
             .setView(sv)
-            .setPositiveButton("💾 Speichern", (d, w) -> {
-                // v6.62.364: Sofort Toast damit Patrick sieht dass Click registriert wurde
-                Toast.makeText(this, "💾 Speichere…", Toast.LENGTH_SHORT).show();
-                Map<String, Object> upd = new HashMap<>();
-                upd.put("customerName", etName.getText().toString().trim());
-                upd.put("customerPhone", etPhone.getText().toString().trim());
-                upd.put("pickup", etPickup.getText().toString().trim());
-                upd.put("destination", etDest.getText().toString().trim());
-                // v6.62.353: Coords aus Maps-Picker uebernehmen — sonst bleibt Lat/Lon stale
-                if (!Double.isNaN(editPickupCoords[0]) && !Double.isNaN(editPickupCoords[1])) {
-                    upd.put("pickupLat", editPickupCoords[0]);
-                    upd.put("pickupLon", editPickupCoords[1]);
-                }
-                if (!Double.isNaN(editDestCoords[0]) && !Double.isNaN(editDestCoords[1])) {
-                    upd.put("destinationLat", editDestCoords[0]);
-                    upd.put("destinationLon", editDestCoords[1]);
-                }
-                upd.put("pickupTimestamp", dateTime[0]);
-                upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
-                upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
-                upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
-                // 🆕 v6.62.193: Fahrzeug-Zuweisung — alle Felder die Cloud Function +
-                // Web-App erwarten setzen, sonst zeigt die Disposition es nicht oder
-                // Telegram-Bot sendet keine Fahrer-Benachrichtigung.
-                int vIdx = spnVehicle.getSelectedItemPosition();
-                if (vIdx > 0 && vIdx < vehIds.length) {
-                    String newVehId = vehIds[vIdx];
-                    if (!newVehId.equals(r.assignedVehicle)) {
-                        upd.put("assignedVehicle", newVehId);
-                        upd.put("vehicleId", newVehId);
-                        upd.put("assignedTo", newVehId);
-                        upd.put("assignedVehicleName", vehNames[vIdx]);
-                        upd.put("assignedVehiclePlate", vehPlates[vIdx]);
-                        upd.put("assignedAt", System.currentTimeMillis());
-                        upd.put("assignedBy", "native_admin_dispo_assign");
-                    }
-                } else if (vIdx == 0 && r.assignedVehicle != null) {
-                    // Patrick hat 'Nicht zugewiesen' gewaehlt → Auto-Zuweisung loeschen
-                    upd.put("assignedVehicle", null);
-                    upd.put("vehicleId", null);
-                    upd.put("assignedTo", null);
-                    upd.put("assignedVehicleName", null);
-                    upd.put("assignedVehiclePlate", null);
-                    upd.put("unassignedAt", System.currentTimeMillis());
-                    upd.put("unassignedBy", "native_admin_dispo_assign");
-                }
-                upd.put("updatedAt", System.currentTimeMillis());
-                upd.put("updatedBy", "native_admin_dispo_edit");
-                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + r.id)
-                    .updateChildren(upd)
-                    .addOnSuccessListener(_v -> Toast.makeText(this, "✅ Fahrt aktualisiert", Toast.LENGTH_SHORT).show())
-                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
-            })
+            .setPositiveButton("💾 Speichern", (d, w) -> saveAction.run())
             // 🆕 v6.62.191: Stornieren-Button war unter "Abbrechen" platziert — Patrick hat
             // versehentlich gedrueckt und Vetter-Touristik 11:20-Tour war weg. Jetzt mit
             // Bestaetigungs-Dialog davor: "Wirklich stornieren?" Yes/No.
@@ -755,6 +775,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     .show();
             })
             .setNegativeButton("Abbrechen", null)
-            .show();
+            .create();
+        _dlgRef.set(dlg);
+        dlg.show();
     }
 }

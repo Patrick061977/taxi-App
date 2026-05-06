@@ -16626,6 +16626,37 @@ exports.autoResolveConflicts = onSchedule(
             }
 
             // ═══════════════════════════════════════════════════════════
+            // 🆕 v6.62.340: PHASE 0.5 — PAST-DATE-AUTO-SOFORT
+            // Patrick (TODO morgen): "Past-Date Sofortfahrt — wenn Vorbestellung 17 Uhr
+            // aber jetzt 17:54 → soll Sofortfahrt werden". Vorbestellungen die ueberfaellig
+            // sind aber max 30 Min werden auf Status='new' + isJetzt=true upgegradet,
+            // damit autoAssignRide sie als Sofort behandelt (GPS-First statt Schichtplan).
+            for (const ride of allRides) {
+                if (ride.status !== 'vorbestellt' && ride.status !== 'assigned') continue;
+                if (!ride.pickupTimestamp) continue;
+                const _overdue = now - ride.pickupTimestamp;
+                if (_overdue <= 0) continue; // noch nicht ueberfaellig
+                if (_overdue > 30 * 60 * 1000) continue; // mehr als 30 Min ueberfaellig → Phase 0 separat (oder STALE-CLEANUP)
+                if (ride.pastDateAutoUpgraded) continue; // schon mal upgegradet
+                const _minOverdue = Math.round(_overdue / 60000);
+                console.log(`🆕 Past-Date-Auto: ${ride.customerName || '?'} ueberfaellig ${_minOverdue} Min → Status auf 'new' + isJetzt`);
+                try {
+                    await db.ref(`rides/${ride.firebaseId}`).update({
+                        status: 'new',
+                        isJetzt: true,
+                        pastDateAutoUpgraded: true,
+                        updatedAt: Date.now(),
+                        replanReason: `Past-Date-Auto: Vorbestellung ${berlinTime(ride.pickupTimestamp)} ist ${_minOverdue} Min ueberfaellig → automatisch zu Sofortfahrt`
+                    });
+                    await addRideLog(ride.firebaseId, '⏰', `Past-Date-Auto-Upgrade: ${_minOverdue} Min ueberfaellig → Sofortfahrt`, { minOverdue: _minOverdue });
+                    // ride lokal updaten fuer nachfolgende Phasen
+                    ride.status = 'new';
+                    ride.isJetzt = true;
+                } catch (_pdErr) {
+                    console.warn('Past-Date-Auto-Upgrade Fehler:', _pdErr.message);
+                }
+            }
+
             // 🚀 v6.26.0: PHASE 0 — SCHICHT-VALIDIERUNG
             // Fahrten auf Fahrzeugen ohne Dienst → sofort umplanen
             // ═══════════════════════════════════════════════════════════

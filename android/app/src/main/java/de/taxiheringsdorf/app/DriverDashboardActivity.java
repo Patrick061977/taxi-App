@@ -1157,22 +1157,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
         String pickupAddr = nextRide.pickup != null
             ? (nextRide.pickup.length() > 40 ? nextRide.pickup.substring(0, 40) + "…" : nextRide.pickup)
             : "?";
+        // 🆕 v6.62.378: Patrick (06.05. 18:07): "4 Min Restzeit — keine Sofortfahrt mehr".
+        // Banner zeigt jetzt realistisch was noch geht: max-Fahrtzeit = restzeit - Puffer
+        // (5 Min Anfahrt zu Sofort + 3 Min Boarding + 5 Min Rueckfahrt).
+        long maxFahrtMin = minBisBlock - 13;
         if (minBisBlock <= 0) {
-            // In Losfahr-Zone — Tesla muss los
+            // In Losfahr-Zone — los
             banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
             statusText.setText("🚗 LOSFAHREN! Pickup " + pickupHM + " · " + anfahrtMin + " Min Anfahrt");
             nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
-        } else if (minBisBlock <= 10) {
-            // Bald
+        } else if (minBisBlock < 15) {
+            // Zu kurz fuer eine sinnvolle Sofortfahrt — rot
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
+            statusText.setText("🔴 Keine Sofortfahrt mehr — in " + minBisBlock + " Min losfahren!");
+            nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
+            nextText.setVisibility(View.VISIBLE);
+        } else if (minBisBlock <= 30) {
+            // Nur kurze Sofortfahrt moeglich — gelb
             banner.setBackgroundColor(android.graphics.Color.parseColor("#f59e0b"));
-            statusText.setText("🟡 Frei bis " + blockHM + " (" + minBisBlock + " Min) — dann Anfahrt");
+            statusText.setText("🟡 Nur kurze Fahrt: max " + maxFahrtMin + " Min Fahrtzeit (frei bis " + blockHM + ")");
             nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else {
-            // Locker
+            // Locker — gruen
             banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
-            statusText.setText("🟢 Frei bis " + blockHM + " (" + minBisBlock + " Min)");
+            statusText.setText("🟢 Frei für Sofort · max " + maxFahrtMin + " Min Fahrtzeit (bis " + blockHM + ")");
             nextText.setText("📅 Nächste Vorbestellung " + pickupHM + " · " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         }

@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.373</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.374</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -749,6 +749,7 @@
                         <button class="btn btn-success" onclick="saveVehicle()" style="flex:1;font-size:15px;padding:12px;">💾 Speichern</button>
                         <button class="btn" onclick="document.getElementById('vehicle-modal').remove()">Abbrechen</button>
                     </div>
+                    ${vehId ? `<button class="btn" onclick="deleteVehicle('${vehId}')" style="background:#fee2e2;color:#991b1b;margin-top:8px;font-size:12px;">🗑 Fahrzeug löschen…</button>` : ''}
                 </div>
             </div>`;
             document.body.appendChild(m);
@@ -789,6 +790,25 @@
                 await db.ref('vehicles/' + id).update(data);
                 showToast('✅ Fahrzeug ' + (isNew ? 'angelegt' : 'aktualisiert'));
                 document.getElementById('vehicle-modal').remove();
+                renderVehiclesTab();
+            } catch (e) { showToast('Fehler: ' + e.message); }
+        }
+
+        // 🆕 v6.62.374: Fahrzeug löschen mit Bestätigung
+        async function deleteVehicle(vehId) {
+            const v = _vehiclesCache && _vehiclesCache[vehId] ? _vehiclesCache[vehId] : {};
+            const label = (v.label || v.name || vehId) + ' (' + (v.plate || '?') + ')';
+            // Pruefe ob Belege auf das Fahrzeug verweisen
+            const linkedDocs = (allDocs || []).filter(d => d && d.vehicleRefId === vehId);
+            const docHint = linkedDocs.length > 0
+                ? '\n\n⚠️ ' + linkedDocs.length + ' Beleg(e) verweisen auf dieses Fahrzeug — die behalten den vehicleRefId aber das Fahrzeug-Profil ist weg.'
+                : '';
+            if (!confirm('Fahrzeug "' + label + '" wirklich löschen?' + docHint + '\n\nBeleg-Daten bleiben unberührt — nur das Fahrzeug-Profil wird entfernt.')) return;
+            try {
+                await db.ref('vehicles/' + vehId).remove();
+                showToast('🗑 Fahrzeug "' + label + '" gelöscht');
+                document.getElementById('vehicle-modal')?.remove();
+                _vehiclesCache = null;
                 renderVehiclesTab();
             } catch (e) { showToast('Fehler: ' + e.message); }
         }

@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dokumente — Funk Taxi Heringsdorf</title>
     <!--
+        v6.62.343: Document Management System (DMS).
+        v6.62.343 (06.05. 10:13): Tab "📊 SKR03-Konten" — komplette Liste der ~183 SKR03-
+        Sachkonten mit Suche + Hauptkategorie-Filter. Patrick: "ich hab die Sachkonten
+        nicht gefunden" → Cloud-Endpoint getSkr03Konten war live, aber im Frontend nicht
+        verlinkt. Jetzt direkt im DMS-Tab abrufbar.
+
         v6.62.342: Document Management System (DMS).
         Patrick (04.05.2026): "Foto/PDF scannen, KI klassifiziert + sortiert in
         Ordnerstruktur — TUEV-Berichte, Rechnungen, Lohnzettel etc. — alles
@@ -145,7 +151,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.342</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.343</span>
     </div>
 
     <div class="container">
@@ -159,6 +165,7 @@
                 <button class="tab-btn" data-tab="library" onclick="switchTab('library')">📚 Bibliothek</button>
                 <button class="tab-btn" data-tab="search" onclick="switchTab('search')">🔍 Volltext-Suche</button>
                 <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')">📥 Posteingang <span id="inbox-badge" style="background:#dc2626;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;display:none;">0</span></button>
+                <button class="tab-btn" data-tab="konten" onclick="switchTab('konten')">📊 SKR03-Konten</button>
             </div>
 
             <!-- TAB: UPLOAD -->
@@ -377,6 +384,21 @@
                 </div>
                 <div id="search-results" class="doc-list"></div>
             </div>
+
+            <!-- TAB: SKR03-KONTEN (v6.62.343) -->
+            <div id="tab-konten" class="tab-content">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">📊 SKR03 Sachkonten-Liste</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">Vollständige DATEV-SKR03-Liste — diese Konten benutzt die KI bei der Beleg-Klassifikation. <span id="konten-count" style="font-weight:700;color:#7c2d12;">…</span> Konten geladen.</p>
+                    <div class="filter-row">
+                        <input id="konten-search" class="form-input" placeholder="Konto-Nr (z.B. 4530) oder Bezeichnung (z.B. Tanken)…" oninput="renderKonten()">
+                        <select id="konten-kat" class="form-select" onchange="renderKonten()">
+                            <option value="">Alle Hauptkategorien</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="konten-list"><div class="card" style="text-align:center;color:#6b7280;">Konten werden geladen…</div></div>
+            </div>
         </div>
     </div>
 
@@ -471,6 +493,62 @@
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
             if (tab === 'library') renderLibrary();
             else if (tab === 'inbox') renderInbox();
+            else if (tab === 'konten') loadSkr03Konten();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // v6.62.343: SKR03-Konten-Liste anzeigen (Cloud-Endpoint getSkr03Konten)
+        // Patrick (06.05. 09:37): "die ganzen Sachkonten ... auch sehen können"
+        // ═══════════════════════════════════════════════════════════════
+        let SKR03_KONTEN_CACHE = null;
+        const SKR03_URL = 'https://europe-west1-taxi-heringsdorf.cloudfunctions.net/getSkr03Konten';
+        async function loadSkr03Konten() {
+            if (SKR03_KONTEN_CACHE) { renderKonten(); return; }
+            try {
+                const r = await fetch(SKR03_URL);
+                const j = await r.json();
+                if (!j.ok || !Array.isArray(j.konten)) throw new Error('API-Antwort ungueltig');
+                SKR03_KONTEN_CACHE = j.konten;
+                document.getElementById('konten-count').textContent = j.count || j.konten.length;
+                const sel = document.getElementById('konten-kat');
+                sel.innerHTML = '<option value="">Alle Hauptkategorien</option>';
+                for (const h of (j.hauptKategorien || [])) {
+                    const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o);
+                }
+                renderKonten();
+            } catch (e) {
+                document.getElementById('konten-list').innerHTML = '<div class="card" style="color:#dc2626;">Fehler beim Laden: ' + escHtml(String(e.message || e)) + '</div>';
+            }
+        }
+        function renderKonten() {
+            if (!SKR03_KONTEN_CACHE) return;
+            const q = (document.getElementById('konten-search').value || '').toLowerCase().trim();
+            const kat = document.getElementById('konten-kat').value;
+            const filtered = SKR03_KONTEN_CACHE.filter(k => {
+                if (kat && k.hauptKategorie !== kat) return false;
+                if (!q) return true;
+                const blob = (String(k.konto) + ' ' + (k.bezeichnung||'') + ' ' + (k.subKategorie||'') + ' ' + (k.hauptKategorie||'')).toLowerCase();
+                return blob.includes(q);
+            });
+            const groups = {};
+            for (const k of filtered) {
+                const g = k.hauptKategorie || 'Sonstiges';
+                if (!groups[g]) groups[g] = [];
+                groups[g].push(k);
+            }
+            const html = Object.keys(groups).sort().map(g => {
+                const rows = groups[g].sort((a,b)=>String(a.konto).localeCompare(String(b.konto))).map(k =>
+                    `<div class="doc-row" style="cursor:default;grid-template-columns:auto 1fr;">
+                        <div style="font-family:monospace;font-size:18px;font-weight:700;color:#ea580c;min-width:70px;">${escHtml(String(k.konto))}</div>
+                        <div class="doc-meta">
+                            <div class="title">${escHtml(k.bezeichnung||'')}</div>
+                            <div class="sub">${escHtml(k.subKategorie||'')}</div>
+                        </div>
+                    </div>`
+                ).join('');
+                return `<div class="card"><h3 style="font-size:14px;margin-bottom:10px;color:#7c2d12;">📁 ${escHtml(g)} <span style="font-size:11px;color:#9ca3af;font-weight:400;">(${groups[g].length})</span></h3><div class="doc-list">${rows}</div></div>`;
+            }).join('');
+            document.getElementById('konten-list').innerHTML = html || '<div class="card" style="text-align:center;color:#6b7280;">Keine Treffer.</div>';
         }
 
         // ═══════════════════════════════════════════════════════════════

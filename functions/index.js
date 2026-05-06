@@ -24775,6 +24775,9 @@ ${SKR03_KONTEN_PROMPT}
 - skr03Bezeichnung: lesbarer Name des Kontos
 - confidence: 0.0-1.0 wie sicher du bist mit der Konto-Zuordnung
 - hint: 1 kurzer Satz Begruendung fuer die Zuordnung (Deutsch)
+- lieferantEmail: Email-Adresse des Lieferanten wenn auf dem Beleg sichtbar (z.B. info@aral.de) oder null
+- lieferantTelefon: Telefonnummer des Lieferanten im internationalen oder deutschen Format (z.B. +49 30 12345678 oder 030 12345678) oder null
+- lieferantWebsite: Website des Lieferanten wenn sichtbar (z.B. www.aral.de) oder null
 - rawText: alle sichtbaren Texte des Belegs wortgenau
 
 Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Feldern: null. Achte besonders darauf, ob der Beleg ueberhaupt eine Ausgabe ist — wenn es eine eingehende Zahlung/Erloes ist, nutze 8400/8401.`;

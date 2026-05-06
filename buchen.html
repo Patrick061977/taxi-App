@@ -4190,14 +4190,35 @@
                 showToast('📨 SMS-Code gesendet!');
             } catch(e) {
                 console.error('Phone Auth Fehler:', e);
-                logBuchen('🔴', 'SMS FEHLER: ' + (e.code || '') + ' ' + (e.message || '').substring(0, 100));
-                if (e.code === 'auth/too-many-requests') {
-                    showToast('Zu viele Versuche — bitte später erneut');
-                } else if (e.code === 'auth/invalid-phone-number') {
-                    showToast('Ungültige Telefonnummer');
+                const _code = e.code || 'unknown';
+                const _msg = (e.message || '').substring(0, 200);
+                logBuchen('🔴', 'SMS FEHLER: ' + _code + ' ' + _msg);
+                // 🆕 v6.62.355: Patrick (06.05. 12:32) "was ist mit dem SMS-Fehler woran liegt das" —
+                // bisher generischer Toast, kein Hinweis auf den echten Fehler. Jetzt: Code +
+                // Diagnose-Hinweis in den Toast, plus Logging des vollen Errors nach Firebase.
+                if (_code === 'auth/too-many-requests') {
+                    showToast('Zu viele SMS-Versuche an diese Nummer — bitte 1 Stunde warten oder anrufen 038378 22022', 8000);
+                } else if (_code === 'auth/invalid-phone-number') {
+                    showToast('Ungültige Telefonnummer — bitte mit Vorwahl eingeben (z.B. 0172...)', 6000);
+                } else if (_code === 'auth/captcha-check-failed' || _code === 'auth/missing-phone-number') {
+                    showToast('Sicherheits-Check fehlgeschlagen — Browser neu laden, Adblocker aus oder anderen Browser nutzen', 8000);
+                } else if (_code === 'auth/quota-exceeded') {
+                    showToast('SMS-Tageslimit erreicht — bitte morgen wieder oder anrufen 038378 22022', 8000);
+                } else if (_code === 'auth/network-request-failed') {
+                    showToast('Netzwerk-Problem — bitte Internet prüfen und erneut versuchen', 6000);
                 } else {
-                    showToast('SMS-Fehler — bitte anrufen: 038378 22022');
+                    showToast('SMS-Fehler [' + _code + '] — bitte anrufen: 038378 22022', 8000);
                 }
+                // Diagnose-Eintrag in /smsAuthErrors damit Patrick im Admin-Panel nachsehen kann
+                try {
+                    db.ref('smsAuthErrors').push({
+                        ts: Date.now(),
+                        phone: customerPhone,
+                        code: _code,
+                        message: _msg,
+                        ua: navigator.userAgent.substring(0, 200)
+                    });
+                } catch (_logErr) {}
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '📨 Code per SMS senden';
@@ -4436,11 +4457,11 @@
             }
         }
 
-        function showToast(msg) {
+        function showToast(msg, duration) {
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.style.display = 'block';
-            setTimeout(() => t.style.display = 'none', 3000);
+            setTimeout(() => t.style.display = 'none', duration || 3000);
         }
 
         // ═══════════════════════════════════════════════════════════════

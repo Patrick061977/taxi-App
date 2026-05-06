@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.368</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.370</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -187,6 +187,7 @@
                 <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')">📥 Posteingang <span id="inbox-badge" style="background:#dc2626;color:white;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;display:none;">0</span></button>
                 <button class="tab-btn" data-tab="konten" onclick="switchTab('konten')">📊 SKR03-Konten</button>
                 <button class="tab-btn" data-tab="vehicles" onclick="switchTab('vehicles')">🚗 Fahrzeuge</button>
+                <button class="tab-btn" data-tab="dubletten" onclick="switchTab('dubletten')">🔍 Dubletten</button>
             </div>
 
             <!-- TAB: UPLOAD -->
@@ -427,6 +428,16 @@
                 <div id="vehicles-list"><div class="card" style="text-align:center;color:#6b7280;">Lade Fahrzeuge…</div></div>
             </div>
 
+            <!-- TAB: DUBLETTEN (v6.62.370) — Patrick: 'paar Dubletten in der Bibliothek' -->
+            <div id="tab-dubletten" class="tab-content">
+                <div class="card">
+                    <h2 style="font-size:17px;margin-bottom:6px;">🔍 Dubletten-Erkennung</h2>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">Findet Belege mit identischem fileHash (echte Doppel-Uploads) ODER gleicher Kombination Lieferant + Datum + Betrag (heuristisch). Du wählst pro Gruppe welchen du löschst.</p>
+                    <button class="btn btn-primary" onclick="renderDubletten()">🔍 Jetzt suchen</button>
+                </div>
+                <div id="dubletten-list"></div>
+            </div>
+
             <!-- TAB: SKR03-KONTEN (v6.62.343) -->
             <div id="tab-konten" class="tab-content">
                 <div class="card">
@@ -537,6 +548,71 @@
             else if (tab === 'inbox') renderInbox();
             else if (tab === 'konten') loadSkr03Konten();
             else if (tab === 'vehicles') renderVehiclesTab();
+            else if (tab === 'dubletten') renderDubletten();
+        }
+
+        // 🔍 v6.62.370: Dubletten-Erkennung
+        // Patrick (06.05. 13:42): 'ein paar Dubletten in der Bibliothek'
+        function renderDubletten() {
+            const list = document.getElementById('dubletten-list');
+            list.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">Suche…</div>';
+            const docs = allDocs.filter(d => d && d.kategorie !== '_inbox');
+            // Gruppe 1: gleicher fileHash (echte Doppel-Uploads)
+            const byHash = {};
+            for (const d of docs) {
+                if (!d.fileHash) continue;
+                (byHash[d.fileHash] = byHash[d.fileHash] || []).push(d);
+            }
+            const hashGroups = Object.values(byHash).filter(g => g.length > 1);
+            // Gruppe 2: heuristisch — gleicher Lieferant + Datum + Betrag (gerundet)
+            const byKey = {};
+            for (const d of docs) {
+                const lf = (d.lieferant || '').trim().toLowerCase();
+                const dt = d.datum || '';
+                const bt = d.betrag != null ? Math.round(d.betrag * 100) / 100 : null;
+                if (!lf || !dt || bt == null) continue;
+                const key = lf + '|' + dt + '|' + bt;
+                (byKey[key] = byKey[key] || []).push(d);
+            }
+            const heuristicGroups = Object.values(byKey).filter(g => {
+                if (g.length < 2) return false;
+                // Wenn Gruppe schon via Hash erkannt → skip
+                const inHashGroup = hashGroups.some(hg => hg.every(d => g.includes(d)));
+                return !inHashGroup;
+            });
+            const total = hashGroups.length + heuristicGroups.length;
+            if (total === 0) {
+                list.innerHTML = '<div class="card" style="text-align:center;color:#059669;">✅ Keine Dubletten gefunden — alles sauber!</div>';
+                return;
+            }
+            const renderGroup = (g, badge) => {
+                const sorted = [...g].sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0));
+                const oldest = sorted[0];
+                const rows = sorted.map((d, idx) => {
+                    const isOldest = d.id === oldest.id;
+                    const date = d.uploadedAt ? new Date(d.uploadedAt).toLocaleString('de-DE', {dateStyle:'short', timeStyle:'short'}) : '?';
+                    const bn = d.belegnummer ? `<span style="background:#1e293b;color:#fcd34d;font-family:monospace;font-size:10px;padding:1px 4px;border-radius:3px;">#${escHtml(d.belegnummer)}</span>` : '';
+                    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:${isOldest ? '#f0fdf4' : '#fffbeb'};border-radius:6px;margin-top:4px;border-left:3px solid ${isOldest ? '#10b981' : '#f59e0b'};">
+                        <div style="font-size:12px;flex:1;min-width:0;">
+                            ${bn} ${isOldest ? '<b style="color:#059669;">älteste — behalten</b>' : '<b style="color:#92400e;">Dublette</b>'}
+                            <div style="color:#6b7280;font-size:11px;">${date} · ${escHtml(d.originalFilename || '?')}</div>
+                        </div>
+                        <button class="btn btn-ghost" onclick="openDocDetail('${d.id}')" style="color:#3b82f6;">👁</button>
+                        <button class="btn btn-ghost" onclick="deleteDoc('${d.id}','${(d.storagePath || '').replace(/'/g, '')}'); setTimeout(renderDubletten, 600);" style="color:#dc2626;" ${isOldest ? '' : ''}>🗑 Löschen</button>
+                    </div>`;
+                }).join('');
+                const hd = oldest;
+                return `<div class="card">
+                    <div style="font-weight:700;color:#7c2d12;font-size:14px;margin-bottom:6px;">${badge} ${escHtml(hd.lieferant || '?')} · ${escHtml(hd.datum || '')} · ${hd.betrag != null ? hd.betrag.toFixed(2).replace('.',',') + ' €' : ''}</div>
+                    ${rows}
+                </div>`;
+            };
+            let html = '';
+            if (hashGroups.length) html += '<h3 style="font-size:13px;margin:8px 4px;color:#dc2626;">🔴 Identische Dateien (gleicher Hash) — ' + hashGroups.length + ' Gruppe(n)</h3>' +
+                hashGroups.map(g => renderGroup(g, '🔴')).join('');
+            if (heuristicGroups.length) html += '<h3 style="font-size:13px;margin:14px 4px 8px;color:#f59e0b;">🟡 Heuristisch (Lieferant+Datum+Betrag) — ' + heuristicGroups.length + ' Gruppe(n)</h3>' +
+                heuristicGroups.map(g => renderGroup(g, '🟡')).join('');
+            list.innerHTML = html;
         }
 
         // ═══════════════════════════════════════════════════════════════

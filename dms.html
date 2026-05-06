@@ -166,7 +166,7 @@
     <div class="header">
         <a href="index.html" class="header-back">← Admin</a>
         <h1>📁 Dokumente (DMS)</h1>
-        <span style="font-size:11px;opacity:0.7;">v6.62.370</span>
+        <span style="font-size:11px;opacity:0.7;">v6.62.372</span>
         <!-- v6.62.357: Toggle 'Vor Speichern bestaetigen' (Patrick: 'gefragt werden was mit dem Beleg passiert') -->
         <label style="display:flex;align-items:center;gap:6px;font-size:11px;background:rgba(255,255,255,0.15);padding:4px 10px;border-radius:6px;cursor:pointer;" title="Wenn aktiv: alle Belege gehen in den Posteingang zur manuellen Bestaetigung statt direkt gespeichert zu werden.">
             <input type="checkbox" id="dms-confirm-toggle" onchange="setConfirmBeforeSave(this.checked)" style="cursor:pointer;">
@@ -376,6 +376,7 @@
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="btn" onclick="closeDocModal()">Schließen</button>
                             <button class="btn" style="background:#7c3aed;color:white;" onclick="openEmailDialog()" id="doc-modal-email-btn">📧 Email</button>
+                            <button class="btn" style="background:#0891b2;color:white;" onclick="printBelegCoversheet(editingDocId)" id="doc-modal-print-btn">🖨 Coversheet drucken</button>
                             <button class="btn btn-primary" onclick="toggleEditMode()" id="doc-modal-edit-btn">✏ Bearbeiten</button>
                             <button class="btn btn-success" onclick="saveDocEdit()" id="doc-modal-save-btn" style="display:none;">💾 Speichern</button>
                         </div>
@@ -457,6 +458,8 @@
 
     <div id="toast" class="toast"></div>
 
+    <!-- v6.62.372: jsPDF fuer Coversheet-Druck (Patrick: 'PDF-Wasserzeichen') -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -1550,6 +1553,88 @@
         }
 
         // v6.62.357: KI-Vorschlag direkt akzeptieren — Beleg verlaesst Posteingang
+        // 🆕 v6.62.372: Coversheet-Druck mit Belegnummer + Hash als "Wasserzeichen"
+        // Patrick (06.05. 13:50): "wie kann ich originale Belege kennzeichnen — Stempel,
+        // Wasserzeichen, fortlaufend sortieren". Loesung: A4-Coversheet generiert via
+        // jsPDF, Patrick druckt + heftet vorne aufs Original. Datev-Tauglich mit Belegnr,
+        // Konto, Hash, Aktenordner.
+        function printBelegCoversheet(docId) {
+            const d = allDocs.find(x => x.id === docId);
+            if (!d) return showToast('Beleg nicht gefunden');
+            if (!window.jspdf || !window.jspdf.jsPDF) return showToast('jsPDF noch nicht geladen — bitte Seite neu laden');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+            const pad = 20;
+            let y = pad;
+            // Header
+            pdf.setFillColor(30, 41, 59);
+            pdf.rect(0, 0, 210, 38, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(11);
+            pdf.text('BELEG-COVERSHEET · Funk Taxi Heringsdorf', pad, 14);
+            pdf.setFontSize(28);
+            pdf.setTextColor(252, 211, 77);
+            pdf.text(d.belegnummer || '(KEINE NUMMER)', pad, 30);
+            y = 52;
+            // Hauptdaten
+            pdf.setTextColor(20, 20, 20);
+            pdf.setFontSize(10);
+            const row = (label, value) => {
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(label, pad, y);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(String(value || '—'), pad + 45, y);
+                y += 7;
+            };
+            row('Lieferant:', d.lieferant);
+            row('Datum:', d.datum);
+            row('Betrag:', d.betrag != null ? d.betrag.toFixed(2).replace('.',',') + ' €' : '—');
+            row('Dokumenttyp:', d.dokumenttyp || d.subKategorie);
+            y += 4;
+            row('Hauptkategorie:', d.hauptKategorie);
+            row('Subkategorie:', d.skr03SubKategorie || d.subKategorie);
+            row('SKR03-Konto:', d.skr03Konto ? d.skr03Konto + ' · ' + (d.skr03Bezeichnung || '') : '—');
+            y += 4;
+            // Fahrzeug + km falls vorhanden (TUEV/Werkstatt)
+            if (d.vehicleRefId || d.kilometerstand) {
+                row('Fahrzeug:', d.vehicleRefId || '—');
+                if (d.kilometerstand) row('km-Stand:', Number(d.kilometerstand).toLocaleString('de-DE') + ' km');
+                if (d.naechsterTuev) row('Nächster TÜV:', d.naechsterTuev);
+                y += 4;
+            }
+            // Workflow
+            row('Workflow-Status:', effectiveStatus(d) || 'offen');
+            if (d.dueDate) row('Fällig:', d.dueDate);
+            if (d.paidAmount) row('Bezahlt:', Number(d.paidAmount).toFixed(2).replace('.',',') + ' €');
+            y += 6;
+            // Aktenordner
+            pdf.setFillColor(240, 253, 244);
+            pdf.rect(pad, y - 2, 170, 16, 'F');
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(6, 95, 70);
+            pdf.text('📂 Ablage:', pad + 2, y + 5);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Ordner ${d.belegQuartal || '?'}-${d.belegJahr || ''} · fortlaufend nach Belegnr.`, pad + 25, y + 5);
+            pdf.setFontSize(9);
+            pdf.text('Heften: vorne aufs Original kleben/tackern, dann nach Belegnr in Quartal-Ordner', pad + 2, y + 11);
+            y += 24;
+            // Footer
+            pdf.setFontSize(8);
+            pdf.setTextColor(120, 120, 120);
+            const hash = (d.fileHash || '').slice(0, 16);
+            const uploaded = d.uploadedAt ? new Date(d.uploadedAt).toLocaleString('de-DE') : '—';
+            pdf.text(`Hash:        ${hash || '—'}`, pad, 280);
+            pdf.text(`Hochgeladen: ${uploaded}`, pad, 285);
+            pdf.text(`Original:    ${d.originalFilename || '—'}`, pad, 290);
+            pdf.text('Funk Taxi Heringsdorf · DMS v6.62.372 · ' + (d.id || ''), pad, 295);
+            // Print
+            pdf.autoPrint();
+            const blob = pdf.output('blob');
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        }
+
         async function acceptInboxKiSuggestion(docId) {
             const d = allDocs.find(x => x.id === docId);
             if (!d) return;

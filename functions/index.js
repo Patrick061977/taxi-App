@@ -25113,6 +25113,76 @@ exports.getSkr03Konten = onRequest(
     }
 );
 
+// 🆕 v6.62.356 (06.05.): Telefonnummern aus Volltext nachziehen
+// Patrick (06.05. 12:56): "Selbst wo Telefonnummern dabei waren, werden
+// keine angezeigt — würde ich gerne kontrolliert haben". Befund: 4 von
+// 10 Belegen haben Nummern im KI-Volltext aber lieferantPhone=null,
+// weil die KI sie nicht ins JSON-Feld uebernommen hat.
+//
+// Diese Function durchsucht den Volltext aller /docs nach deutschen
+// Telefonnummern und schreibt die erste gefundene in lieferantPhone
+// wenn das Feld leer ist. Aufruf via /backfillDocPhones (Admin-Button
+// in dms.html oder direkt URL aufrufen).
+function extractGermanPhoneFromText(text) {
+    if (!text) return null;
+    const t = String(text);
+    // Patterns nach Genauigkeit absteigend
+    const patterns = [
+        /(?:Tel(?:efon)?|Fon|T\.|☎)[\s.:]*\+?(\d[\d\s\-/()]{7,20}\d)/i,
+        /\+49[\s\-/]?\d{2,4}[\s\-/]?\d{3,9}/,
+        /\b0\d{2,4}[\s\-/]?\d{3,9}\b/
+    ];
+    for (const re of patterns) {
+        const m = t.match(re);
+        if (m) {
+            // Erst bei Group 1 nehmen (Tel-Pattern), sonst Match[0]
+            const raw = (m[1] || m[0]).replace(/[\s.\-/()]/g, '');
+            // Nur wenn 6+ Ziffern und kein Datum/Betrag-Match (z.B. 4262 oder 12.05.2026)
+            const digits = raw.replace(/\D/g, '');
+            if (digits.length >= 7 && digits.length <= 14) {
+                // Zurueckformatieren mit '/' nach Vorwahl wenn 0xx
+                if (digits.startsWith('0')) return digits.slice(0, 5) + ' ' + digits.slice(5);
+                if (digits.startsWith('49')) return '+' + digits.slice(0, 2) + ' ' + digits.slice(2);
+                return digits;
+            }
+        }
+    }
+    return null;
+}
+
+exports.backfillDocPhones = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        try {
+            const dryRun = req.query.dryRun === '1' || req.query.dry === '1';
+            const docsSnap = await db.ref('docs').once('value');
+            const docs = docsSnap.val() || {};
+            const results = [];
+            const updates = {};
+            for (const [id, doc] of Object.entries(docs)) {
+                if (!doc) continue;
+                if (doc.lieferantPhone) continue; // schon vorhanden
+                const phone = extractGermanPhoneFromText(doc.volltext);
+                if (phone) {
+                    results.push({ id, lieferant: doc.lieferant, foundPhone: phone });
+                    if (!dryRun) {
+                        updates[`docs/${id}/lieferantPhone`] = phone;
+                        updates[`docs/${id}/lieferantPhoneSource`] = 'volltext_regex_v6.62.356';
+                    }
+                }
+            }
+            if (!dryRun && Object.keys(updates).length) {
+                await db.ref().update(updates);
+            }
+            res.status(200).json({ ok: true, dryRun, totalDocs: Object.keys(docs).length, found: results.length, results });
+        } catch (e) {
+            res.status(500).json({ ok: false, error: e.message });
+        }
+    }
+);
+
 exports.generateEmailTemplates = onRequest(
     { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
     async (req, res) => {

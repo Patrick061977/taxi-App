@@ -4123,16 +4123,56 @@
             });
         }
 
+        // 🆕 v6.62.371: Adress-Validation gegen Boeller-Faelle (Patrick: 'PLZ-only akzeptiert,
+        // Geocoder mappt auf PLZ-Mittelpunkt, Fahrer hat keine Ahnung wo'). Pruefe Adresse
+        // muss Strasse+Hausnummer ODER bekannten POI haben. Reine '17419 Heringsdorf'-Eingaben
+        // werden abgelehnt.
+        function isValidBookingAddress(addr) {
+            if (!addr) return { ok: false, reason: 'leer' };
+            const a = addr.trim();
+            if (a.length < 5) return { ok: false, reason: 'zu kurz' };
+            // Reine PLZ-only-Erkennung: '17419 Heringsdorf' oder '17424 Bansin' ohne weitere Komponenten
+            const plzOnlyPattern = /^\d{5}\s+[A-Za-zäöüÄÖÜß][A-Za-zäöüÄÖÜß\- ]{2,}\s*(,?\s*Deutschland)?\s*$/;
+            if (plzOnlyPattern.test(a)) return { ok: false, reason: 'nur PLZ + Ort, fehlt Strasse oder POI' };
+            // Hat eine Hausnummer? (Ziffern als eigenes Wort)
+            const hasNr = /\b\d{1,4}[a-z]?\b/i.test(a);
+            if (hasNr && /[A-Za-zäöüÄÖÜß]/.test(a)) return { ok: true };
+            // POI-Whitelist (Bahnhof, Hotel, Klinik, Flughafen, Haltestelle, Marina, Pension, Kurhaus, ...)
+            const poiPattern = /(bahnhof|hotel|klinik|krankenhaus|flughafen|haltestelle|kreuzung|marina|pension|kurhaus|jugendherberge|campingplatz|seebrücke|ferienpark|residenz|hostel|gaststätte|restaurant|kirche|schule|werkstatt|tankstelle|supermarkt|aldi|lidl|edeka|rewe|netto|penny|kaufland|tesla|hauptstrasse|hauptstraße|strandpromenade|ortsmitte|innenstadt)/i;
+            if (poiPattern.test(a)) return { ok: true };
+            // Zwei oder mehr Komma-Komponenten = wahrscheinlich Strasse + Stadt
+            const parts = a.split(',').map(s => s.trim()).filter(Boolean);
+            if (parts.length >= 2 && parts[0].length >= 4) return { ok: true };
+            return { ok: false, reason: 'unvollständig — bitte Straße + Hausnummer oder bekannten Ort' };
+        }
+
         function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
+            const pickupAddr = document.getElementById('b-pickup')?.value || '';
+            const destAddr = document.getElementById('b-destination')?.value || '';
+            // v6.62.371: Adress-Vollständigkeit prüfen
+            const _puCheck = isValidBookingAddress(pickupAddr);
+            if (!_puCheck.ok) {
+                showToast('⚠️ Abholort ' + _puCheck.reason + '. Bitte Straße + Hausnummer eingeben oder einen bekannten Ort wie "Heringsdorf Bahnhof".', 8000);
+                document.getElementById('b-pickup')?.focus();
+                logBuchen('⚠️', 'Adress-Validation FAIL Pickup: ' + pickupAddr + ' (' + _puCheck.reason + ')');
+                return;
+            }
+            const _deCheck = isValidBookingAddress(destAddr);
+            if (!_deCheck.ok) {
+                showToast('⚠️ Zielort ' + _deCheck.reason + '. Bitte Straße + Hausnummer eingeben oder einen bekannten Ort wie "Hotel Vineta".', 8000);
+                document.getElementById('b-destination')?.focus();
+                logBuchen('⚠️', 'Adress-Validation FAIL Destination: ' + destAddr + ' (' + _deCheck.reason + ')');
+                return;
+            }
             const nameVal = (document.getElementById('b-name')?.value || '').trim();
             if (!nameVal || nameVal.length < 2) {
                 showToast('⚠️ Bitte Ihren Namen eingeben');
                 document.getElementById('b-name')?.focus();
                 return;
             }
-            const pickup = document.getElementById('b-pickup')?.value || '?';
-            const dest = document.getElementById('b-destination')?.value || '?';
+            const pickup = pickupAddr || '?';
+            const dest = destAddr || '?';
             logBuchen('🚕', 'BUCHUNG GESTARTET: ' + nameVal + ' | ' + pickup + ' → ' + dest + ' | ' + wannModus);
 
             // 🆕 v6.38.97: Bereits eingeloggt → SMS überspringen, direkt buchen!

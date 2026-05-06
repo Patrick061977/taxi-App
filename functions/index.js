@@ -24845,6 +24845,33 @@ Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Felde
             const _physOrdner = `${_yyyymm}-${_typForBelegNr}`;
 
             const _batchId = batchId || ('batch_' + new Date().toISOString().slice(0, 10));
+
+            // 🆕 v6.62.335: Patrick (06.05. 09:18): "Dubletten-Erkennung funktioniert?"
+            // Vor dem Speichern pruefen ob Lieferant + Datum + Brutto schon existiert.
+            let _isDuplicate = false;
+            let _duplicateOf = null;
+            if (parsed.lieferant && parsed.datum && parsed.brutto) {
+                try {
+                    const _allBatches = await db.ref('belegImport').once('value');
+                    _allBatches.forEach(_batch => {
+                        _batch.forEach(_b => {
+                            const _bd = _b.val();
+                            if (!_bd || !_bd.parsed) return;
+                            if (_isDuplicate) return;
+                            if (
+                                _bd.parsed.lieferant && _bd.parsed.datum && _bd.parsed.brutto &&
+                                _bd.parsed.lieferant.toLowerCase().trim() === parsed.lieferant.toLowerCase().trim() &&
+                                _bd.parsed.datum === parsed.datum &&
+                                Math.abs(parseFloat(_bd.parsed.brutto) - parseFloat(parsed.brutto)) < 0.01
+                            ) {
+                                _isDuplicate = true;
+                                _duplicateOf = { batchId: _batch.key, id: _b.key, belegNr: _bd.belegNr };
+                            }
+                        });
+                    });
+                } catch (_dupErr) { console.warn('Dubletten-Check Fehler:', _dupErr.message); }
+            }
+
             const belegRef = db.ref(`belegImport/${_batchId}`).push();
             await belegRef.set({
                 t: Date.now(),
@@ -24857,15 +24884,102 @@ Gib NUR das JSON zurueck, kein Markdown, kein Pre/Post-Text. Bei fehlenden Felde
                 physOrdner: _physOrdner,
                 physPosition: _counterValue,
                 eingangsDatum: new Date().toISOString().slice(0, 10),
-                belegDatum: _belegDate
+                belegDatum: _belegDate,
+                isDuplicate: _isDuplicate,
+                duplicateOf: _duplicateOf
             });
 
             res.status(200).json({
                 ok: true, parsed, belegId: belegRef.key, batchId: _batchId,
-                belegNr: _belegNrFormatted, physOrdner: _physOrdner, physPosition: _counterValue
+                belegNr: _belegNrFormatted, physOrdner: _physOrdner, physPosition: _counterValue,
+                isDuplicate: _isDuplicate, duplicateOf: _duplicateOf
             });
         } catch (err) {
             console.error('classifyReceipt Fehler:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// 🆕 v6.62.335: Patrick (06.05. 09:17): "kannst du das so gestalten dass die KI das
+// Dokument durchliest, weiss was drin steht und mir verschiedene Vorlagen gibt was man
+// dem Empfaenger antworten kann oder fragen bezugnehmend auf dieses Dokument".
+// Cloud Function liest parsed.rawText + Lieferant-Daten und fragt Anthropic nach
+// 3-5 thematisch passenden Email-Vorlagen (Subject + Body).
+exports.generateEmailTemplates = onRequest(
+    { region: 'europe-west1', invoker: 'public', timeoutSeconds: 60, memory: '256MiB' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        const key = req.query.key;
+        const keySnap = await db.ref('settings/healthCheckKey').once('value');
+        const validKey = keySnap.val() || 'funk-taxi-heringsdorf-2026';
+        if (!key || key !== validKey) { res.status(403).json({ error: 'Forbidden' }); return; }
+        const batchId = req.query.batchId;
+        const id = req.query.id;
+        if (!batchId || !id) { res.status(400).json({ error: 'batchId+id required' }); return; }
+        try {
+            const snap = await db.ref(`belegImport/${batchId}/${id}`).once('value');
+            const b = snap.val();
+            if (!b || !b.parsed) { res.status(404).json({ error: 'Beleg nicht gefunden' }); return; }
+            const p = b.parsed;
+            const anthropicKey = await getAnthropicApiKey();
+            if (!anthropicKey) { res.status(500).json({ error: 'Kein Anthropic API Key' }); return; }
+            const prompt = `Du bist Patrick Wydra, Inhaber von "Funk Taxi Heringsdorf" (Kanalstr. 1, 17424 Heringsdorf, Tel 038378/22022).
+
+Analysiere folgenden Beleg und erstelle 4 verschiedene Email-Vorlagen, die ich dem Lieferanten/Aussteller schicken koennte. Jede Vorlage soll konkret auf den INHALT des Belegs Bezug nehmen.
+
+BELEG-DATEN:
+- Lieferant: ${p.lieferant || '?'}
+- Datum: ${p.datum || '?'}
+- Belegnr: ${p.belegNr || b.belegNr || '?'}
+- Brutto: ${p.brutto || '?'} EUR
+- USt-Satz: ${p.ustSatz || '?'}%
+- Zahlungsart: ${p.zahlungsart || '?'}
+- Kategorie: ${p.skr03Bezeichnung || '?'} (${p.skr03Konto || '?'})
+- Volltext-Auszug: ${(p.rawText || '').slice(0, 1500)}
+
+ERSTELLE genau 4 Email-Vorlagen mit unterschiedlicher Intention:
+1. ZAHLUNGSBESTAETIGUNG (Patrick bestaetigt Zahlung oder fragt nach Eingang)
+2. RUECKFRAGE (Frage zu einer Position/Detail im Beleg)
+3. REKLAMATION (etwas stimmt nicht, Berichtigung anfordern)
+4. INFORMATIONSANFRAGE (z.B. Angebot, Folgeauftrag, Vertragsdetails)
+
+Gib als JSON-Array zurueck:
+[
+  { "intent": "Zahlungsbestaetigung", "subject": "...", "body": "..." },
+  { "intent": "Rueckfrage", "subject": "...", "body": "..." },
+  ...
+]
+
+REGELN:
+- Body 4-8 Zeilen, hoeflich, sachlich, deutsch
+- Bezug zum konkreten Beleg (Belegnr, Datum, Betrag)
+- Beginne mit "Sehr geehrte Damen und Herren," wenn keine Person bekannt
+- Schliesse mit "Mit freundlichen Gruessen, Patrick Wydra, Funk Taxi Heringsdorf"
+- KEIN Markdown im Body — reiner Plain-Text fuer mailto:
+- Subject 50-80 Zeichen
+
+NUR das JSON-Array zurueckgeben, kein Markdown, kein Pre/Post-Text.`;
+
+            const resp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
+                role: 'user', content: [{ type: 'text', text: prompt }]
+            }]);
+            const text = (resp.content?.[0]?.text || '').trim();
+            let jsonText = text;
+            const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (m) jsonText = m[1].trim();
+            let templates;
+            try { templates = JSON.parse(jsonText); } catch (parseErr) {
+                console.error('generateEmailTemplates JSON-Parse:', parseErr.message);
+                res.status(200).json({ ok: false, error: 'KI-Antwort kein valides JSON', rawText: text });
+                return;
+            }
+            if (!Array.isArray(templates)) { res.status(200).json({ ok: false, error: 'KI-Antwort kein Array', got: typeof templates }); return; }
+            res.status(200).json({ ok: true, templates });
+        } catch (err) {
+            console.error('generateEmailTemplates Fehler:', err.message);
             res.status(500).json({ error: err.message });
         }
     }

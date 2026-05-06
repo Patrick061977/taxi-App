@@ -1084,6 +1084,79 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rideAdapter.setRides(all);
         emptyState.setVisibility(all.isEmpty() ? View.VISIBLE : View.GONE);
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
+        // v6.62.369: Driver-Banner aktualisieren
+        updateFreeBusyBanner(all);
+    }
+
+    // 🆕 v6.62.369: Banner "🟢 Frei bis HH:MM · Naechste Vorbestellung HH:MM" oben in der Toolbar.
+    // Patrick (06.05. 14:30): "wie kriegen wir dem Fahrer uebermittelt dass irgendwann ne Fahrt
+    // auf ihn zukommt". Phase-1-3-Zonen-Modell (v6.62.362) macht Tesla bis kurz vor Pickup frei
+    // fuer Sofort-Anfragen — Banner zeigt dem Fahrer wann er sich bewegen muss.
+    private void updateFreeBusyBanner(List<Ride> rides) {
+        android.widget.LinearLayout banner = findViewById(R.id.freebusy_banner);
+        TextView statusText = findViewById(R.id.freebusy_status);
+        TextView nextText = findViewById(R.id.freebusy_next);
+        if (banner == null || statusText == null || nextText == null) return;
+        // Wenn aktuell laufende Fahrt (on_way / picked_up) → Banner aus
+        boolean hasActive = false;
+        for (Ride r : rides) {
+            if (r == null || r.status == null) continue;
+            String st = r.status.toLowerCase();
+            if (st.equals("on_way") || st.equals("picked_up") || st.equals("arrived")) { hasActive = true; break; }
+        }
+        if (hasActive) { banner.setVisibility(View.GONE); return; }
+        // Nächste Vorbestellung mit pickupTimestamp > now suchen
+        long now = System.currentTimeMillis();
+        Ride nextRide = null;
+        long nextPickup = Long.MAX_VALUE;
+        for (Ride r : rides) {
+            if (r == null || r.pickupTimestamp == null || r.status == null) continue;
+            String st = r.status.toLowerCase();
+            if (!st.equals("vorbestellt") && !st.equals("accepted") && !st.equals("assigned") && !st.equals("new")) continue;
+            if (r.pickupTimestamp <= now) continue;
+            if (r.pickupTimestamp < nextPickup) { nextPickup = r.pickupTimestamp; nextRide = r; }
+        }
+        if (nextRide == null) {
+            // Kein Termin in Sicht — Fahrer komplett frei
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
+            statusText.setText("🟢 Frei für Sofort-Anfragen — keine Vorbestellung in Sicht");
+            nextText.setVisibility(View.GONE);
+            banner.setVisibility(View.VISIBLE);
+            return;
+        }
+        // Berechnung: blockiert ab pickup - max(15 Min, drivingTimeToPickup + 3 Min)
+        int anfahrtMin = (nextRide.drivingTimeToPickup != null && nextRide.drivingTimeToPickup > 0)
+            ? nextRide.drivingTimeToPickup : 10;
+        int blockBufMin = Math.max(15, anfahrtMin + 3);
+        long blockAt = nextRide.pickupTimestamp - (blockBufMin * 60_000L);
+        long minBisBlock = (blockAt - now) / 60_000L;
+        java.text.SimpleDateFormat hmFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+        hmFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String pickupHM = hmFmt.format(new java.util.Date(nextRide.pickupTimestamp));
+        String blockHM = hmFmt.format(new java.util.Date(blockAt));
+        String pickupAddr = nextRide.pickup != null
+            ? (nextRide.pickup.length() > 40 ? nextRide.pickup.substring(0, 40) + "…" : nextRide.pickup)
+            : "?";
+        if (minBisBlock <= 0) {
+            // In Losfahr-Zone — Tesla muss los
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
+            statusText.setText("🚗 LOSFAHREN! Pickup " + pickupHM + " · " + anfahrtMin + " Min Anfahrt");
+            nextText.setText("📍 " + pickupAddr);
+            nextText.setVisibility(View.VISIBLE);
+        } else if (minBisBlock <= 10) {
+            // Bald
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#f59e0b"));
+            statusText.setText("🟡 Frei bis " + blockHM + " (" + minBisBlock + " Min) — dann Anfahrt");
+            nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
+            nextText.setVisibility(View.VISIBLE);
+        } else {
+            // Locker
+            banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
+            statusText.setText("🟢 Frei bis " + blockHM + " (" + minBisBlock + " Min)");
+            nextText.setText("📅 Nächste Vorbestellung " + pickupHM + " · " + pickupAddr);
+            nextText.setVisibility(View.VISIBLE);
+        }
+        banner.setVisibility(View.VISIBLE);
     }
 
     private static boolean isOpenStatus(String s) {

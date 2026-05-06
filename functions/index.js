@@ -23791,11 +23791,30 @@ exports.onClaudeBridgeOutbox = onValueCreated(
                 } else {
                     textMsgResult = await sendTelegramMessage(data.targetChatId, text);
                 }
+                // 🆕 v6.62.317: Silent-Fail-Schutz — sendXxxMessage returnt null wenn
+                // Telegram-API ablehnt (HTML-Parse-Fehler, Throttle, Bot blockiert,
+                // Token leer). Vorher wurde trotzdem sent:true gesetzt → Push-Verlust
+                // war unsichtbar. Jetzt: deliveryFailed-Flag + KEIN sent:true.
+                if (!textMsgResult) {
+                    await event.data.ref.update({
+                        deliveryFailed: true,
+                        failedAt: Date.now(),
+                        failReason: useClaudeBot
+                            ? 'Claude-Bot sendMessage returned null (siehe Functions-Log)'
+                            : 'Hauptbot sendMessage returned null (siehe Functions-Log)'
+                    });
+                    console.error(`❌ Bridge-OUT silent-fail outbox/${outboxId} → ${data.targetChatId} (${useClaudeBot ? 'Claude-Bot' : 'Hauptbot'})`);
+                    return;
+                }
             } else {
                 // ohne Target → Hauptbot an alle Admins (Claude-Bot hat keine "alle"-Liste)
                 await sendToAllAdmins(text);
             }
-            await event.data.ref.update({ sent: true, sentAt: Date.now() });
+            // 🆕 v6.62.317: telegramMessageId speichern → "grauer Haken" Beweis
+            // dass Telegram die Nachricht akzeptiert hat (nicht: Patrick gelesen).
+            const sentUpdate = { sent: true, sentAt: Date.now() };
+            if (textMsgResult?.message_id) sentUpdate.telegramMessageId = textMsgResult.message_id;
+            await event.data.ref.update(sentUpdate);
             // 🆕 v6.62.60: Jede ausgehende Claude-Nachricht zählt als Heartbeat — egal ob Browser-Tab offen ist.
             try { await db.ref('claudeBridge/heartbeat').set({ ts: Date.now(), pid: 'outbox' }); } catch(_) {}
             console.log(`✅ Claude-Bridge: outbox/${outboxId} an ${data.targetChatId || 'alle Admins'} (${useClaudeBot ? 'Claude-Bot' : 'Hauptbot'}) gesendet`);
@@ -24152,6 +24171,35 @@ exports.rideAction = onRequest(
 // 🆕 v6.41.92: Webhook für separaten Claude-Bot.
 // JEDE Admin-Nachricht hier landet im /claudeBridge/inbox — kein Prefix nötig.
 // Non-Admin → höfliche Abweisung (Bot ist nur für Betreiber).
+// 🆕 v6.62.317: Read-Receipt-Approximation ("blauer Haken").
+// Telegram-Bot-API liefert keine echten Read-Receipts. Wir markieren stattdessen:
+// Wenn Patrick (oder ein anderer Admin) eine Nachricht an den Claude-Bot schickt,
+// gelten ALLE seiner pending Bridge-Pushes als "gelesen" — er ist offensichtlich
+// gerade im Telegram. Wir scannen die letzten 50 outbox-Einträge (mehr braucht
+// es nicht — alte sind eh vergessen).
+async function markOutboxRead(chatId) {
+    if (!chatId) return;
+    try {
+        const snap = await db.ref('claudeBridge/outbox')
+            .orderByKey()
+            .limitToLast(50)
+            .once('value');
+        const updates = {};
+        const now = Date.now();
+        snap.forEach(child => {
+            const o = child.val();
+            if (!o || !o.sent || o.readAt) return;
+            if (Number(o.targetChatId) !== Number(chatId)) return;
+            updates[`${child.key}/readAt`] = now;
+        });
+        if (Object.keys(updates).length > 0) {
+            await db.ref('claudeBridge/outbox').update(updates);
+        }
+    } catch (e) {
+        console.warn('markOutboxRead Fehler:', e.message);
+    }
+}
+
 exports.claudeBotWebhook = onRequest(
     { region: 'europe-west1', timeoutSeconds: 60, memory: '256MiB', minInstances: 0, invoker: 'public' },
     async (req, res) => {
@@ -24177,6 +24225,10 @@ exports.claudeBotWebhook = onRequest(
             if (!msg) { res.status(200).send('OK'); return; }
             const chatId = msg.from?.id || msg.chat?.id;
             const fromName = msg.from?.first_name || msg.from?.username || 'admin';
+            // 🆕 v6.62.317: User schickt was → markiere alle seine pending Pushes
+            // als gelesen ("blauer Haken"-Approximation). Fire-and-forget, blockiert
+            // den Webhook nicht.
+            markOutboxRead(chatId).catch(_ => {});
 
             // 🆕 v6.41.94: Foto / Screenshot → Claude Vision → Beschreibung in Inbox
             if (Array.isArray(msg.photo) && msg.photo.length > 0) {

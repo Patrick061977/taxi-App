@@ -893,19 +893,24 @@
                     }
                 } catch(_) { /* tolerant */ }
 
-                // v6.62.226: Live-Verbindungslinie Tesla → aktuelles Ziel (Pickup oder Destination
-                // je nach Status). Gruene gestrichelte Linie zeigt visuell wo der Wagen hinfaehrt.
+                // v6.62.226: Live-Verbindungslinie Tesla → aktuelles Ziel.
+                // 🆕 v6.62.393: Patrick (06.05. 21:41): "Was soll diese Luftlinie?
+                //   Bei Hasbargen Quatsch — eben war 'Fahrer ist vor Ort' grun".
+                //   Bei status='arrived' Fahrer wartet beim Pickup → KEINE Linie zum
+                //   Ziel zeichnen (Fahrt laeuft noch nicht). Linie nur bei accepted/
+                //   on_way/assigned (zum Pickup) und picked_up (zum Ziel).
                 try {
                     if (window._currentRide && window._currentRide.data) {
                         const _r = window._currentRide.data;
                         let _tLat, _tLon;
-                        if (['picked_up','arrived'].includes(_r.status)) {
+                        if (_r.status === 'picked_up') {
                             _tLat = _r.destinationLat || (_r.destCoords && _r.destCoords.lat);
                             _tLon = _r.destinationLon || (_r.destCoords && _r.destCoords.lon);
                         } else if (['accepted','on_way','assigned'].includes(_r.status)) {
                             _tLat = _r.pickupLat || (_r.pickupCoords && _r.pickupCoords.lat);
                             _tLon = _r.pickupLon || (_r.pickupCoords && _r.pickupCoords.lon);
                         }
+                        // 'arrived' / 'completed' / 'cancelled' / 'storniert': keine Linie
                         if (_tLat && _tLon) {
                             if (window._driverLine) {
                                 window._driverLine.setLatLngs([[driver.lat, driver.lon], [_tLat, _tLon]]);
@@ -962,8 +967,18 @@
                     targetLon = r.destinationLon || (r.destCoords && r.destCoords.lon);
                     label = '🎯 Ankunft am Ziel';
                 } else if (r.status === 'arrived') {
-                    // Fahrer wartet — keine ETA-Box anzeigen
-                    document.getElementById('eta-info').style.display = 'none';
+                    // 🆕 v6.62.393: Patrick (06.05. 21:41): "Bei Hasbargen Quatsch
+                    //   — eben war 'Fahrer ist vor Ort' grun, jetzt nichts!"
+                    // status='arrived' = Fahrer hat manuell BIN-DA geklickt → Banner
+                    // sofort anzeigen, keine OSRM-Berechnung mehr noetig.
+                    const _box2 = document.getElementById('eta-info');
+                    _box2.style.cssText = 'display:block;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:34px 24px;border-radius:16px;text-align:center;margin:14px 0;box-shadow:0 10px 30px rgba(16,185,129,0.45);animation:pulse 1.3s infinite;';
+                    _box2.innerHTML = `<div style="font-size:72px;margin-bottom:8px;line-height:1;">🏁</div><div style="font-size:30px;font-weight:800;letter-spacing:0.6px;">Fahrer ist vor Ort!</div><div style="font-size:17px;margin-top:8px;opacity:0.95;">Bitte einsteigen 👋</div>`;
+                    if (!window._vibedAtPickup && navigator.vibrate) {
+                        try { navigator.vibrate([200, 100, 200, 100, 400]); } catch(_) {}
+                        window._vibedAtPickup = true;
+                    }
+                    try { if (vehicleMarker && vehicleMarker.getTooltip()) vehicleMarker.unbindTooltip(); } catch(_) {}
                     return;
                 } else if (['accepted','on_way','assigned'].includes(r.status)) {
                     targetLat = r.pickupLat || (r.pickupCoords && r.pickupCoords.lat);

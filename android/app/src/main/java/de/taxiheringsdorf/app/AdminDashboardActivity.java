@@ -65,6 +65,31 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
         "warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up");
 
+    // v6.62.353: Patrick (06.05. 11:50): "Abholort kann ich nicht bearbeiten, ist nur ein
+    // Name kein Geopoint" — Edit-Dialog hat fuer pickup/destination nur EditText. Fix:
+    // Picker-Buttons daneben, Result-State pro aktivem Edit-Dialog hier merken.
+    private EditText editPickupTextRef, editDestTextRef;
+    private final double[] editPickupCoords = new double[]{Double.NaN, Double.NaN};
+    private final double[] editDestCoords = new double[]{Double.NaN, Double.NaN};
+    private boolean pickerForPickup = false;
+    private final androidx.activity.result.ActivityResultLauncher<Intent> mapPickerLauncherDispo =
+        registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                Intent rd = result.getData();
+                String addr = rd.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                double lat = rd.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
+                double lon = rd.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                if (addr == null || Double.isNaN(lat) || Double.isNaN(lon)) return;
+                if (pickerForPickup) {
+                    if (editPickupTextRef != null) editPickupTextRef.setText(addr);
+                    editPickupCoords[0] = lat; editPickupCoords[1] = lon;
+                } else {
+                    if (editDestTextRef != null) editDestTextRef.setText(addr);
+                    editDestCoords[0] = lat; editDestCoords[1] = lon;
+                }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -491,15 +516,49 @@ public class AdminDashboardActivity extends AppCompatActivity {
         etPhone.setText(r.customerPhone != null ? r.customerPhone : "");
         layout.addView(etPhone);
 
+        // v6.62.353: Pickup mit Maps-Picker-Button — Patrick: "Abholort ist nur Name kein Geopoint"
+        editPickupCoords[0] = Double.NaN; editPickupCoords[1] = Double.NaN;
+        editDestCoords[0] = Double.NaN; editDestCoords[1] = Double.NaN;
+
+        LinearLayout puRow = new LinearLayout(this);
+        puRow.setOrientation(LinearLayout.HORIZONTAL);
         EditText etPickup = new EditText(this);
         etPickup.setHint("Abholort");
         etPickup.setText(r.pickup != null ? r.pickup : "");
-        layout.addView(etPickup);
+        LinearLayout.LayoutParams puFlex = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        etPickup.setLayoutParams(puFlex);
+        puRow.addView(etPickup);
+        com.google.android.material.button.MaterialButton btnPuPick = new com.google.android.material.button.MaterialButton(this);
+        btnPuPick.setText("📍");
+        btnPuPick.setOnClickListener(v -> {
+            editPickupTextRef = etPickup;
+            pickerForPickup = true;
+            Intent ip = new Intent(this, MapPickerActivity.class);
+            ip.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, etPickup.getText().toString());
+            mapPickerLauncherDispo.launch(ip);
+        });
+        puRow.addView(btnPuPick);
+        layout.addView(puRow);
 
+        LinearLayout deRow = new LinearLayout(this);
+        deRow.setOrientation(LinearLayout.HORIZONTAL);
         EditText etDest = new EditText(this);
         etDest.setHint("Zielort");
         etDest.setText(r.destination != null ? r.destination : "");
-        layout.addView(etDest);
+        LinearLayout.LayoutParams deFlex = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        etDest.setLayoutParams(deFlex);
+        deRow.addView(etDest);
+        com.google.android.material.button.MaterialButton btnDePick = new com.google.android.material.button.MaterialButton(this);
+        btnDePick.setText("📍");
+        btnDePick.setOnClickListener(v -> {
+            editDestTextRef = etDest;
+            pickerForPickup = false;
+            Intent id = new Intent(this, MapPickerActivity.class);
+            id.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, etDest.getText().toString());
+            mapPickerLauncherDispo.launch(id);
+        });
+        deRow.addView(btnDePick);
+        layout.addView(deRow);
 
         // Datum + Zeit
         final long[] dateTime = { r.pickupTimestamp != null ? r.pickupTimestamp : System.currentTimeMillis() };
@@ -604,6 +663,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 upd.put("customerPhone", etPhone.getText().toString().trim());
                 upd.put("pickup", etPickup.getText().toString().trim());
                 upd.put("destination", etDest.getText().toString().trim());
+                // v6.62.353: Coords aus Maps-Picker uebernehmen — sonst bleibt Lat/Lon stale
+                if (!Double.isNaN(editPickupCoords[0]) && !Double.isNaN(editPickupCoords[1])) {
+                    upd.put("pickupLat", editPickupCoords[0]);
+                    upd.put("pickupLon", editPickupCoords[1]);
+                }
+                if (!Double.isNaN(editDestCoords[0]) && !Double.isNaN(editDestCoords[1])) {
+                    upd.put("destinationLat", editDestCoords[0]);
+                    upd.put("destinationLon", editDestCoords[1]);
+                }
                 upd.put("pickupTimestamp", dateTime[0]);
                 upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
                 upd.put("passengers", spnPax.getSelectedItemPosition() + 1);

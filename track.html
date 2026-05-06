@@ -935,12 +935,21 @@
                     const _data = await _resp.json();
                     if (_data.code === 'Ok' && _data.routes && _data.routes[0]) {
                         const _min = Math.max(1, Math.round(_data.routes[0].duration / 60));
-                        const _km = (_data.routes[0].distance / 1000).toFixed(1);
-                        const _eta = new Date(Date.now() + _min * 60000);
-                        const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                        const _km = +(_data.routes[0].distance / 1000).toFixed(2);
                         const _box = document.getElementById('eta-info');
                         _box.style.display = 'block';
-                        _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;
+                        // 🆕 v6.62.380: Patrick (06.05. 18:20): "Karte sagt 'Fahrer in 7 Min'
+                        // obwohl er schon da ist — nicht synchron". Override wenn Fahrzeug
+                        // <200m am Pickup ist (status=on_way/accepted/assigned). Dann zeigen
+                        // wir 'Fahrer ist vor Ort' statt der OSRM-Restzeit.
+                        const _isAtPickup = (_km < 0.2) && ['accepted','on_way','assigned'].includes(r.status);
+                        if (_isAtPickup) {
+                            _box.innerHTML = `🏁 <b>Fahrer ist vor Ort</b> — bitte einsteigen`;
+                        } else {
+                            const _eta = new Date(Date.now() + _min * 60000);
+                            const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+                            _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km.toFixed(1)} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;
+                        }
                     }
                 } catch(_e) { /* OSRM down → nichts anzeigen, kein crash */ }
             }

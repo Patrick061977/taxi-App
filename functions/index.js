@@ -20247,6 +20247,30 @@ exports.onRideUpdated = onValueUpdated(
                     `\n🎯 Fahrt zum Ziel läuft...`;
 
             } else if (newStatus === 'completed') {
+                // 🆕 v6.62.391: Patrick (06.05. 20:39 + 20:50): "Native-App setzt
+                //   needsInvoice beim Bezahl-Abschluss → Cloud Function erstellt PDF
+                //   serverseitig → SMS wartet bis PDF fertig ist und enthaelt Link".
+                // Hier vor der Vielen-Dank-SMS: wenn needsInvoice && !invoiceNumber,
+                // baue PDF synchron, dann laeuft der SMS-Code mit pdfUrl-Lookup
+                // (PR #1396, v6.62.389) der bereits existiert.
+                if (after.needsInvoice === true && !after.invoiceNumber) {
+                    try {
+                        const invoiceModule = require('./invoice-pdf');
+                        const result = await invoiceModule.processAutoInvoice(rideId, after, db, admin);
+                        if (result && result.invoiceNumber) {
+                            // after-Daten anreichern damit der nachfolgende SMS-Code den
+                            // pdfUrl-Lookup ueber after.invoiceNumber findet
+                            after.invoiceNumber = result.invoiceNumber;
+                            after.invoicePdfUrl = result.pdfUrl;
+                            await addRideLog(rideId, '🧾', 'Auto-Rechnung erstellt', { invoiceNumber: result.invoiceNumber, pdfUrl: result.pdfUrl, via: 'cloud_function_pdfkit' });
+                        }
+                    } catch (autoInvErr) {
+                        console.error('❌ Auto-Invoice fehlgeschlagen:', rideId, autoInvErr);
+                        await addRideLog(rideId, '❌', 'Auto-Invoice fehlgeschlagen', { error: autoInvErr.message || String(autoInvErr) });
+                        // SMS trotzdem senden — ohne PDF-Link
+                    }
+                }
+
                 // 🆕 v6.62.126: Patrick: 'wenn der Fahrer abschliesst kriegt der Kunde
                 // automatisch eine Abschluss-Nachricht mit Track-Link wo er die Rechnung
                 // herunterladen kann'. Channel-respektierend: Email wenn email-Anfrage,

@@ -17439,6 +17439,32 @@ exports.autoResolveConflicts = onSchedule(
                             break;
                         }
 
+                        // 🆕 v6.62.324: Pruefe ob oldVehicle (= aktueller assignedVehicle) noch
+                        // WIRKLICH frei ist — durch frueheres Re-Assignment in dieser Iteration
+                        // koennte es jetzt einen Konflikt geben. Wenn ja, MUSS umgelegt werden.
+                        let oldVehicleStillFree = false;
+                        if (oldVehicle && slotsPerVehicle[oldVehicle]) {
+                            const _oldHasConflict = slotsPerVehicle[oldVehicle].some(slot => {
+                                if (slot.start < rideEnd && ride.pickupTimestamp < slot.end) return true;
+                                if (slot.end <= ride.pickupTimestamp) {
+                                    const _lf = _quickLeerfahrtMin(slot.destLat, slot.destLon, ridePickupLat, ridePickupLon);
+                                    if (slot.end + _lf * 60000 > ride.pickupTimestamp) return true;
+                                } else if (slot.start >= rideEnd) {
+                                    const _matched = fixedRides.find(fr => fr.pickupTimestamp === slot.start && (fr.assignedVehicle === oldVehicle || fr.vehicleId === oldVehicle));
+                                    if (_matched) {
+                                        const _spLat = _matched.pickupLat || _matched.pickupCoords?.lat;
+                                        const _spLon = _matched.pickupLon || _matched.pickupCoords?.lon;
+                                        const _rDLat = ride.destinationLat || ride.destCoords?.lat;
+                                        const _rDLon = ride.destinationLon || ride.destCoords?.lon;
+                                        const _lf = _quickLeerfahrtMin(_rDLat, _rDLon, _spLat, _spLon);
+                                        if (rideEnd + _lf * 60000 > slot.start) return true;
+                                    }
+                                }
+                                return false;
+                            });
+                            oldVehicleStillFree = !_oldHasConflict;
+                        }
+
                         if (!bestVehicle) {
                             phase3DebugLines.push(`⚠️ ${timeStr} ${ride.customerName || '?'} → kein Prio-Fahrzeug verfuegbar`);
                             // Slot trotzdem fuer alten Fahrzeug eintragen
@@ -17454,11 +17480,16 @@ exports.autoResolveConflicts = onSchedule(
                             slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
                         }
-                        if (newPrio >= oldPrio) {
-                            // Neues Fahrzeug hat KEINE bessere Prio → kein Tausch
+                        // 🆕 v6.62.324: Wenn oldVehicle noch frei ist UND newPrio nicht besser → bleibt.
+                        // ABER wenn oldVehicle nicht mehr frei ist (Konflikt durch frueheres Re-Assign)
+                        // → MUSS umgelegt werden, auch wenn newPrio schlechter (sonst Doppel-Belegung).
+                        if (newPrio >= oldPrio && oldVehicleStillFree) {
                             phase3DebugLines.push(`⏭️ ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio}) bleibt (Alternative ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} P${newPrio} nicht besser)`);
                             slotsPerVehicle[oldVehicle].push({ start: ride.pickupTimestamp, end: rideEnd, destLat: ride.destinationLat || ride.destCoords?.lat, destLon: ride.destinationLon || ride.destCoords?.lon, customer: ride.customerName });
                             continue;
+                        }
+                        if (!oldVehicleStillFree) {
+                            phase3DebugLines.push(`🚨 ${timeStr} ${ride.customerName || '?'} → ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} hat Konflikt (durch frueheres Re-Assign), MUSS umgelegt auf ${(OFFICIAL_VEHICLES[bestVehicle] || {}).name} (P${newPrio})`);
                         }
 
                         // RE-ASSIGN auf hoeher-priorisiertes Fahrzeug

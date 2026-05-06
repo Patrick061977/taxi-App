@@ -800,9 +800,25 @@ async function autoAssignRide(rideId, rideData) {
             // blockierte das Fahrzeug komplett. Fix: bei VORBESTELLUNGEN den Filter NICHT
             // anwenden — der Zeitkonflikt-Check unten (Z.808+) prueft sauber ob die
             // bestehende Fahrt vor dem neuen Pickup endet.
+            // 🆕 v6.62.362: Phase-1-3-Zonen-Modell (Patrick: 'wenn ich ne Stunde vorher
+            // einen Termin annehme bin ich eine Stunde lang blockiert, das ist Quatsch').
+            // accepted-Vorbestellung blockiert nur wenn now in der Losfahr-Zone ist:
+            //   blockiertAb = pickup - max(15 Min, drivingTimeToPickup + 3 Min Boarding)
+            // Vorher: Fahrzeug bleibt FREI fuer Sofort-Anfragen, der Zeitkonflikt-Check
+            // unten (Z.819+) prueft sauber ob Sofort + Rueckfahrt vor blockiertAb fertig wird.
+            const _nowMs = Date.now();
+            const _isInLosfahrZone = (r) => {
+                if (!r || !r.pickupTimestamp) return true; // ohne Timestamp lieber blockieren (sicher)
+                const _anfahrtMin = (typeof r.drivingTimeToPickup === 'number' && r.drivingTimeToPickup > 0)
+                    ? r.drivingTimeToPickup : 10;
+                const _blockBufMin = Math.max(15, _anfahrtMin + 3);
+                return (r.pickupTimestamp - _nowMs) <= (_blockBufMin * 60 * 1000);
+            };
             const busyRide = allRides.find(r =>
                 (r.vehicleId === vehicleId || r.assignedTo === vehicleId || r.assignedVehicle === vehicleId) &&
-                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'arrived' || (isSofort && r.status === 'accepted'))
+                (r.status === 'on_way' || r.status === 'picked_up' || r.status === 'arrived'
+                  || (isSofort && r.status === 'accepted' && _isInLosfahrZone(r))
+                  || (isSofort && r.status === 'assigned' && _isInLosfahrZone(r)))
             );
             if (busyRide && isSofort) {
                 // Sofortfahrt: Fahrer kann nicht parallel fahren → klares Aus
@@ -17708,46 +17724,68 @@ exports.scheduledReachabilityCheck = onSchedule(
                 const ride = child.val();
                 const rideId = child.key;
                 if (!ride) return;
-                if (!['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange'].includes(ride.status)) return;
+                // 🆕 v6.62.363: Patrick (06.05. 14:37): "ETA-Anzeige bleibt stehen wenn ich losfahre".
+                // Bug: Reachability-Check filterte on_way/picked_up raus → drivingTimeToPickup
+                // wurde eingefroren ab Losfahrt. Jetzt: alle aktiven Status behandeln.
+                //   - accepted/vorbestellt/new/sofort/warteschlange/assigned → ETA zum Pickup
+                //   - on_way → ETA zum Pickup (Restanfahrt) — Fahrer will sehen wie weit
+                //   - picked_up → ETA zum Destination — Fahrer braucht Zielzeit
+                if (!['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange', 'assigned', 'on_way', 'picked_up'].includes(ride.status)) return;
                 const vid = ride.assignedVehicle || ride.vehicleId || ride.vehicle;
                 if (!vid) return;
                 const v = vehicles[vid];
                 if (!v || !v.lat || !v.lon) return;
                 const vLastSeen = v.lastSeen || v.lastUpdate || 0;
                 if (vLastSeen && (now - vLastSeen) > STALE_GPS_MS) return;
-                if (!ride.pickupLat || !ride.pickupLon) return;
-                const pickupLat = parseFloat(ride.pickupLat);
-                const pickupLon = parseFloat(ride.pickupLon);
-                if (isNaN(pickupLat) || isNaN(pickupLon)) return;
+                // Ziel haengt vom Status ab
+                const _isToDest = ride.status === 'picked_up';
+                const tgtLatRaw = _isToDest ? (ride.destinationLat) : (ride.pickupLat);
+                const tgtLonRaw = _isToDest ? (ride.destinationLon) : (ride.pickupLon);
+                if (!tgtLatRaw || !tgtLonRaw) return;
+                const tgtLat = parseFloat(tgtLatRaw);
+                const tgtLon = parseFloat(tgtLonRaw);
+                if (isNaN(tgtLat) || isNaN(tgtLon)) return;
+                // pickupLat/Lon weiter fuer Reachability-Alarm-Logik unten
+                const pickupLat = parseFloat(ride.pickupLat || tgtLat);
+                const pickupLon = parseFloat(ride.pickupLon || tgtLon);
                 checkedCount++;
 
                 promises.push((async () => {
                     try {
+                        // v6.62.363: Route zum aktuellen Ziel (Pickup oder Destination je nach Status)
                         const route = await calculateRoute(
                             { lat: parseFloat(v.lat), lon: parseFloat(v.lon) },
-                            { lat: pickupLat, lon: pickupLon }
+                            { lat: tgtLat, lon: tgtLon }
                         );
                         if (!route || route.duration == null) return;
                         const eta = route.duration; // Minuten
-                        // 🆕 v6.62.361: Patrick (06.05. 14:35): "Anfahrt 2 Min obwohl 5 km
-                        // entfernt". Bug: drivingTimeToPickup wurde nur beim Zuweisen
-                        // geschrieben (z.B. vom vorherigen Fahrzeug) und nie aktualisiert
-                        // wenn Patrick auf Tesla umplant. Jetzt: bei jedem Reachability-Run
-                        // aktuellen OSRM-Wert zurueckschreiben → Native-App + Browser-Admin
-                        // sehen die LAUFENDE ETA.
-                        const _etaUpdate = {};
-                        if (ride.drivingTimeToPickup !== eta) {
-                            _etaUpdate.drivingTimeToPickup = eta;
-                        }
                         const _distKm = route.distance ? parseFloat(route.distance) : null;
-                        if (_distKm != null && Math.abs((ride.drivingDistanceToPickupKm || 0) - _distKm) > 0.1) {
-                            _etaUpdate.drivingDistanceToPickupKm = _distKm;
+                        // v6.62.361 + v6.62.363: laufend zurueckschreiben — pickup ODER destination
+                        const _etaUpdate = {};
+                        if (_isToDest) {
+                            // Restzeit + Distanz zum Ziel (status=picked_up)
+                            if (ride.drivingTimeToDestination !== eta) {
+                                _etaUpdate.drivingTimeToDestination = eta;
+                            }
+                            if (_distKm != null && Math.abs((ride.drivingDistanceToDestKm || 0) - _distKm) > 0.1) {
+                                _etaUpdate.drivingDistanceToDestKm = _distKm;
+                            }
+                        } else {
+                            // Restzeit + Distanz zum Pickup (alle anderen aktiven Status)
+                            if (ride.drivingTimeToPickup !== eta) {
+                                _etaUpdate.drivingTimeToPickup = eta;
+                            }
+                            if (_distKm != null && Math.abs((ride.drivingDistanceToPickupKm || 0) - _distKm) > 0.1) {
+                                _etaUpdate.drivingDistanceToPickupKm = _distKm;
+                            }
                         }
                         if (Object.keys(_etaUpdate).length) {
                             _etaUpdate.etaUpdatedAt = now;
                             _etaUpdate.etaUpdatedBy = 'scheduledReachabilityCheck';
                             await db.ref(`rides/${rideId}`).update(_etaUpdate);
                         }
+                        // Reachability-Alarm nur bei Status VOR der Fahrt (nicht on_way / picked_up)
+                        if (ride.status === 'on_way' || ride.status === 'picked_up') return;
                         const minBisPickup = Math.round((ride.pickupTimestamp - now) / 60000);
                         const missedBy = (eta + BOARDING_BUFFER_MIN) - minBisPickup;
                         if (missedBy <= 0) {

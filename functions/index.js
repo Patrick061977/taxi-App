@@ -20290,21 +20290,25 @@ exports.onRideUpdated = onValueUpdated(
                     } catch(_) {}
                     const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
                     const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
-                    if (_channel === 'sms' && after.customerPhone) {
+                    // 🆕 v6.62.382: Patrick (06.05. 18:41): "Hasbargen — Vielen-Dank-SMS kam nicht".
+                    // Bug: nur customerPhone gepruefte, nicht customerMobile als Fallback.
+                    // Hasbargen hat customerPhone='' und customerMobile='+491732...' → SMS skipte.
+                    const _abPhone = after.customerPhone || after.customerMobile;
+                    if (_channel === 'sms' && _abPhone) {
                         // 🆕 v6.62.275: KEIN SMS an Festnetz-Nummern (Patrick 14:36)
-                        if (!isMobileNumber(after.customerPhone)) {
-                            console.log(`☎️ Abschluss-SMS skip (Festnetz): ${after.customerPhone}`);
-                            await addRideLog(rideId, '☎️', 'Abschluss-SMS übersprungen (Festnetz)', { phone: after.customerPhone, grund: 'isMobileNumber=false', hinweis: 'Hotels sollten Email-Bestätigung bekommen — separater Pfad noch nicht implementiert' });
+                        if (!isMobileNumber(_abPhone)) {
+                            console.log(`☎️ Abschluss-SMS skip (Festnetz): ${_abPhone}`);
+                            await addRideLog(rideId, '☎️', 'Abschluss-SMS übersprungen (Festnetz)', { phone: _abPhone, grund: 'isMobileNumber=false', hinweis: 'Hotels sollten Email-Bestätigung bekommen — separater Pfad noch nicht implementiert' });
                         } else {
                             await db.ref('smsQueue').push({
-                                phone: after.customerPhone,
+                                phone: _abPhone,
                                 text: _smsText,
                                 rideId,
                                 type: 'fahrt_abgeschlossen',
                                 status: 'pending',
                                 createdAt: Date.now()
                             });
-                            await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue', { phone: after.customerPhone, channel: 'sms' });
+                            await addRideLog(rideId, '📲', 'Abschluss-SMS in Queue', { phone: _abPhone, channel: 'sms' });
                         }
                     } else if (_channel === 'email') {
                         // Email wird über Stripe-Webhook (bei Bezahlung) bzw. ueber existing

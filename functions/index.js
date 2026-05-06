@@ -21646,6 +21646,60 @@ async function buildHealthReport() {
     return lines.join('\n');
 }
 
+// 🆕 v6.62.373: TÜV-Reminder — taeglich um 8:30 Berlin alle aktiven Fahrzeuge auf
+// naechsterTuev pruefen und bei <30 Tagen Restzeit Telegram-Push an Admins.
+// Patrick (06.05. 15:25): "Fahrzeuge anlegen + Erinnerung an TÜV etc".
+exports.scheduledVehicleTuevCheck = onSchedule(
+    {
+        schedule: '30 8 * * *', // taeglich 08:30 Berlin
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '128MiB'
+    },
+    async () => {
+        try {
+            const now = Date.now();
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+            const sent = [];
+            for (const [id, v] of Object.entries(vehicles)) {
+                if (!v || v.archived) continue;
+                if (!v.naechsterTuev) continue;
+                const parts = String(v.naechsterTuev).split('-');
+                if (parts.length < 2) continue;
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                if (!year || !month) continue;
+                // Letzter Tag des angegebenen Monats — TUEV laeuft bis Monatsende
+                const tuevEnd = new Date(year, month, 0, 23, 59, 59);
+                const daysToTuev = Math.round((tuevEnd.getTime() - now) / 86400000);
+                // Anti-Spam: einmal pro Tag pro Fahrzeug
+                const lastReminder = v.lastTuevReminderAt || 0;
+                const hoursSince = (now - lastReminder) / 3600000;
+                if (hoursSince < 23) continue;
+                // Push-Schwellen
+                let msg = null;
+                if (daysToTuev < 0) {
+                    msg = `🚨 TÜV ABGELAUFEN seit ${-daysToTuev} Tagen!\n\n🚗 ${v.label || v.name || id}\n🔢 ${v.plate || '?'}\n📅 War gueltig bis ${v.naechsterTuev}\n\nFahrzeug NICHT mehr fahren bis TUEV-Termin!`;
+                } else if (daysToTuev <= 7) {
+                    msg = `⚠️ TÜV LÄUFT IN ${daysToTuev} TAGEN AB — DRINGEND!\n\n🚗 ${v.label || v.name || id}\n🔢 ${v.plate || '?'}\n📅 Gueltig bis Ende ${v.naechsterTuev}\n\nSofort Termin bei TÜV-Stelle vereinbaren.`;
+                } else if (daysToTuev <= 30) {
+                    msg = `📅 TÜV in ${daysToTuev} Tagen faellig\n\n🚗 ${v.label || v.name || id}\n🔢 ${v.plate || '?'}\n📅 Gueltig bis Ende ${v.naechsterTuev}\n\nTermin bei TÜV-Stelle vereinbaren (4 Wochen Vorlauf empfohlen).`;
+                }
+                if (msg) {
+                    await sendToAllAdmins(msg);
+                    await db.ref(`vehicles/${id}/lastTuevReminderAt`).set(now);
+                    sent.push({ id, plate: v.plate, daysToTuev });
+                }
+            }
+            console.log(`📅 scheduledVehicleTuevCheck: ${sent.length} Pushs gesendet`, sent);
+        } catch (e) {
+            console.error('❌ scheduledVehicleTuevCheck Fehler:', e.message, e.stack);
+        }
+    }
+);
+
 exports.scheduledHealthReport = onSchedule(
     {
         schedule: '0 6 * * *', // taeglich 06:00 Berlin

@@ -798,9 +798,43 @@ public class CallLogActivity extends AppCompatActivity {
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
         layout.setPadding(pad, pad, pad, pad);
 
+        // v6.62.325: Patrick (06.05. 08:19): "Anrede + Vorname + Nachname sauber trennen
+        // beim Stammkundenanlegen". 3 Felder statt einem 'name'-String. Backwards-compat:
+        // name = firstName + ' ' + lastName wird trotzdem geschrieben fuer Web-Stellen
+        // die nur customer.name lesen.
+        android.widget.Spinner spSalutation = new android.widget.Spinner(this);
+        String[] _salutations = { "—", "Herr", "Frau", "Divers" };
+        android.widget.ArrayAdapter<String> _adapt = new android.widget.ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, _salutations);
+        _adapt.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spSalutation.setAdapter(_adapt);
+        layout.addView(spSalutation);
+
+        EditText etFirstName = new EditText(this);
+        etFirstName.setHint("Vorname");
+        layout.addView(etFirstName);
+
+        EditText etLastName = new EditText(this);
+        etLastName.setHint("Nachname");
+        layout.addView(etLastName);
+
+        // Pre-fill aus e.name falls vorhanden — versuche zu splitten an Leerzeichen
+        if (e.name != null && !e.name.isEmpty()) {
+            String _trim = e.name.trim();
+            if (_trim.startsWith("Frau ")) { spSalutation.setSelection(2); _trim = _trim.substring(5).trim(); }
+            else if (_trim.startsWith("Herr ")) { spSalutation.setSelection(1); _trim = _trim.substring(5).trim(); }
+            String[] _parts = _trim.split("\\s+", 2);
+            if (_parts.length == 2) {
+                etFirstName.setText(_parts[0]);
+                etLastName.setText(_parts[1]);
+            } else {
+                etLastName.setText(_trim);
+            }
+        }
+
+        // Versteckter Legacy 'name'-Helper: liefert "Vorname Nachname"
         EditText etName = new EditText(this);
-        etName.setHint("Name (Pflicht)");
-        if (e.name != null) etName.setText(e.name);
+        etName.setVisibility(View.GONE);
         layout.addView(etName);
 
         // v6.53.0: Adresse via Places-Autocomplete statt freitext-EditText.
@@ -820,12 +854,28 @@ public class CallLogActivity extends AppCompatActivity {
             .setTitle("👤 Neuer CRM-Kunde — " + e.number)
             .setView(layout)
             .setPositiveButton("Speichern", (d, w) -> {
-                String name = etName.getText().toString().trim();
-                if (name.isEmpty()) { Toast.makeText(this, "Name ist Pflicht", Toast.LENGTH_SHORT).show(); return; }
+                // v6.62.325: Vorname + Nachname + Anrede sauber separat speichern
+                String _firstName = etFirstName.getText().toString().trim();
+                String _lastName = etLastName.getText().toString().trim();
+                String _name = (_firstName + " " + _lastName).trim();
+                if (_name.isEmpty()) {
+                    // Fallback: alter etName-String falls Splitting nichts ergab
+                    _name = etName.getText().toString().trim();
+                }
+                if (_name.isEmpty()) { Toast.makeText(this, "Name ist Pflicht (Vorname und/oder Nachname)", Toast.LENGTH_SHORT).show(); return; }
+                final String name = _name;
+                int _salPos = spSalutation.getSelectedItemPosition();
+                String _salutation = _salPos > 0 ? _salutations[_salPos] : "";
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> c = new HashMap<>();
                 c.put("name", name);
+                if (!_firstName.isEmpty()) c.put("firstName", _firstName);
+                if (!_lastName.isEmpty()) c.put("lastName", _lastName);
+                if (!_salutation.isEmpty()) {
+                    c.put("salutation", _salutation);
+                    c.put("anrede", _salutation); // Web-Code liest 'anrede'
+                }
                 c.put("phone", e.number);
                 c.put("mobilePhone", e.number);
                 String addr = tvAddress.getText().toString().replaceFirst("^📍 ", "").trim();

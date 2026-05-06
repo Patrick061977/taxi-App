@@ -656,7 +656,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
         spnVehicle.setSelection(vehSel);
         layout.addView(spnVehicle);
 
-        ScrollView sv = new ScrollView(this);
+        // v6.62.365: Patrick (06.05. 14:47): "Ich sehe kein Speichern" — Edit-Dialog ist
+        // zu lang, Buttons unten verschwinden vom Screen. Fix: ScrollView begrenzt sich
+        // selbst auf 55% der Screen-Hoehe — Builder-Buttons (Speichern/Abbrechen/Stornieren)
+        // bleiben damit IMMER unten sichtbar.
+        final int _maxScrollHeight = (int)(getResources().getDisplayMetrics().heightPixels * 0.55);
+        ScrollView sv = new ScrollView(this) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                heightMeasureSpec = MeasureSpec.makeMeasureSpec(_maxScrollHeight, MeasureSpec.AT_MOST);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
+        };
         sv.addView(layout);
 
         // v6.62.364: Patrick (06.05. 14:42): "kann nach Bearbeiten Adresse nicht speichern".

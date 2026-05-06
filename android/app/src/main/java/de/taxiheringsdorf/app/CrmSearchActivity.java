@@ -332,6 +332,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         setContentView(R.layout.activity_crm_search);
 
         findViewById(R.id.btn_crm_back).setOnClickListener(v -> finish());
+        // v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App"
+        findViewById(R.id.btn_crm_new).setOnClickListener(v -> openCreateDialog());
         etQuery = findViewById(R.id.et_crm_query);
         tvCount = findViewById(R.id.tv_crm_count);
         rv = findViewById(R.id.rv_crm);
@@ -1022,7 +1024,15 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setNegativeButton("Abbrechen", null).show();
     }
 
+    // v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App".
+    // Leerer Entry → Dialog laeuft im Anlegen-Modus, beim Speichern push() statt update.
+    private void openCreateDialog() {
+        CrmEntry empty = new CrmEntry();
+        openEditDialog(empty);
+    }
+
     private void openEditDialog(CrmEntry e) {
+        final boolean isNew = (e.id == null || e.id.isEmpty());
         ScrollView scroll = new ScrollView(this);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -1031,24 +1041,35 @@ public class CrmSearchActivity extends AppCompatActivity {
         scroll.addView(layout);
 
         EditText etName = new EditText(this);
-        etName.setHint("Name (Pflicht)");
+        etName.setHint("Name (Pflicht, z.B. Mueller Hans oder Hotel Strandblick)");
         etName.setText(e.name != null ? e.name : "");
         layout.addView(etName);
 
-        EditText etPhone = new EditText(this);
-        etPhone.setHint("Telefon");
-        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
-        etPhone.setText(e.phone != null ? e.phone : "");
-        layout.addView(etPhone);
-
+        // v6.62.384: Mobil ZUERST (wichtigste Spalte fuer SMS) + klare Beschriftung
+        TextView lblMobile = new TextView(this);
+        lblMobile.setText("📱 Mobilnummer  (fuer SMS, WhatsApp, Track-Link)");
+        lblMobile.setPadding(0, pad, 0, pad / 4);
+        lblMobile.setTextSize(12);
+        layout.addView(lblMobile);
         EditText etMobile = new EditText(this);
-        etMobile.setHint("Mobil");
+        etMobile.setHint("z.B. +491731234567");
         etMobile.setInputType(InputType.TYPE_CLASS_PHONE);
         etMobile.setText(e.mobilePhone != null ? e.mobilePhone : "");
         layout.addView(etMobile);
 
+        TextView lblPhone = new TextView(this);
+        lblPhone.setText("📞 Festnetz  (fuer Hotels/Anrufer-ID, optional)");
+        lblPhone.setPadding(0, pad, 0, pad / 4);
+        lblPhone.setTextSize(12);
+        layout.addView(lblPhone);
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("z.B. 038378 12345");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        etPhone.setText(e.phone != null ? e.phone : "");
+        layout.addView(etPhone);
+
         EditText etEmail = new EditText(this);
-        etEmail.setHint("Email");
+        etEmail.setHint("Email (optional)");
         etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         etEmail.setText(e.email != null ? e.email : "");
         layout.addView(etEmail);
@@ -1074,17 +1095,26 @@ public class CrmSearchActivity extends AppCompatActivity {
         });
         layout.addView(tvKind);
 
+        String dialogTitle = isNew
+            ? "➕ Neuen Kunden anlegen"
+            : "📋 " + (e.name != null ? e.name : "?") + " bearbeiten";
         new AlertDialog.Builder(this)
-            .setTitle("📋 " + (e.name != null ? e.name : "?") + " bearbeiten")
+            .setTitle(dialogTitle)
             .setView(scroll)
-            .setPositiveButton("Speichern", (d, w) -> {
+            .setPositiveButton(isNew ? "Anlegen" : "Speichern", (d, w) -> {
                 String name = etName.getText().toString().trim();
                 if (name.isEmpty()) { Toast.makeText(this, "Name Pflicht", Toast.LENGTH_SHORT).show(); return; }
-                Map<String, Object> upd = new HashMap<>();
-                upd.put("name", name);
                 String phone = etPhone.getText().toString().trim();
                 String mobile = etMobile.getText().toString().trim();
                 String email = etEmail.getText().toString().trim();
+                // v6.62.384: Mindestens EINE Telefonnummer ist Pflicht — sonst kann der
+                // Kunde weder angerufen noch via SMS erreicht werden.
+                if (isNew && phone.isEmpty() && mobile.isEmpty()) {
+                    Toast.makeText(this, "Mindestens Mobil- oder Festnetznummer angeben", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Map<String, Object> upd = new HashMap<>();
+                upd.put("name", name);
                 if (!phone.isEmpty()) upd.put("phone", phone);
                 if (!mobile.isEmpty()) upd.put("mobilePhone", mobile);
                 if (!email.isEmpty()) upd.put("email", email);
@@ -1099,14 +1129,28 @@ public class CrmSearchActivity extends AppCompatActivity {
                 upd.put("customerKind", kinds[kindIdx[0]]);
                 upd.put("updatedAt", System.currentTimeMillis());
                 upd.put("updatedVia", "native_crm_search");
-                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + e.id)
-                    .updateChildren(upd)
-                    .addOnSuccessListener(_v -> {
-                        Toast.makeText(this, "✅ " + name + " gespeichert", Toast.LENGTH_SHORT).show();
-                        loadAll();
-                    })
-                    .addOnFailureListener(ex ->
-                        Toast.makeText(this, "❌ " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                if (isNew) {
+                    upd.put("type", "customer");
+                    upd.put("createdAt", System.currentTimeMillis());
+                    upd.put("createdVia", "native_crm_search");
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
+                        .push().setValue(upd)
+                        .addOnSuccessListener(_v -> {
+                            Toast.makeText(this, "✅ " + name + " angelegt", Toast.LENGTH_SHORT).show();
+                            loadAll();
+                        })
+                        .addOnFailureListener(ex ->
+                            Toast.makeText(this, "❌ " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                } else {
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + e.id)
+                        .updateChildren(upd)
+                        .addOnSuccessListener(_v -> {
+                            Toast.makeText(this, "✅ " + name + " gespeichert", Toast.LENGTH_SHORT).show();
+                            loadAll();
+                        })
+                        .addOnFailureListener(ex ->
+                            Toast.makeText(this, "❌ " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                }
             })
             .setNegativeButton("Abbrechen", null)
             .show();

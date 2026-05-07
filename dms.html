@@ -306,6 +306,34 @@
                         <select id="lib-jahr" class="form-select" onchange="renderLibrary()">
                             <option value="">Alle Jahre</option>
                         </select>
+                        <!-- 🆕 v6.62.396: Quartal+Monat-Filter & Gruppierung fuer Klarsichthuellen-Ablage -->
+                        <select id="lib-quartal" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle Quartale</option>
+                            <option value="1">Q1 (Jan-Mär)</option>
+                            <option value="2">Q2 (Apr-Jun)</option>
+                            <option value="3">Q3 (Jul-Sep)</option>
+                            <option value="4">Q4 (Okt-Dez)</option>
+                        </select>
+                        <select id="lib-monat" class="form-select" onchange="renderLibrary()">
+                            <option value="">Alle Monate</option>
+                            <option value="01">Januar</option>
+                            <option value="02">Februar</option>
+                            <option value="03">März</option>
+                            <option value="04">April</option>
+                            <option value="05">Mai</option>
+                            <option value="06">Juni</option>
+                            <option value="07">Juli</option>
+                            <option value="08">August</option>
+                            <option value="09">September</option>
+                            <option value="10">Oktober</option>
+                            <option value="11">November</option>
+                            <option value="12">Dezember</option>
+                        </select>
+                        <select id="lib-gruppe" class="form-select" onchange="renderLibrary()" title="Gruppierung für Ordner-Ablage">
+                            <option value="">Liste</option>
+                            <option value="monat">📂 nach Monat</option>
+                            <option value="quartal">📁 nach Quartal</option>
+                        </select>
                         <select id="lib-wfstatus" class="form-select" onchange="renderLibrary()">
                             <option value="">Alle Status</option>
                             <option value="open-only">📂 Nur offene Posten</option>
@@ -2032,6 +2060,10 @@
             const haupt = document.getElementById('lib-haupt')?.value || '';
             const skr03 = document.getElementById('lib-skr03')?.value || '';
             const jahr = document.getElementById('lib-jahr').value;
+            // 🆕 v6.62.396: Quartal/Monat/Gruppierung
+            const quartal = document.getElementById('lib-quartal')?.value || '';
+            const monat = document.getElementById('lib-monat')?.value || '';
+            const gruppe = document.getElementById('lib-gruppe')?.value || '';
             const wfFilter = document.getElementById('lib-wfstatus').value;
             const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
             // v6.62.242: Inbox-Docs (kategorie='_inbox') NICHT in Bibliothek zeigen
@@ -2041,6 +2073,15 @@
             if (haupt) docs = docs.filter(d => d.hauptKategorie === haupt);
             if (skr03) docs = docs.filter(d => String(d.skr03Konto || '') === skr03);
             if (jahr) docs = docs.filter(d => (d.datum || '').startsWith(jahr));
+            // 🆕 v6.62.396: Quartal/Monat-Filter (basiert auf datum YYYY-MM-DD)
+            if (quartal) {
+                docs = docs.filter(d => {
+                    const m = parseInt((d.datum || '').slice(5, 7), 10);
+                    if (!m) return false;
+                    return Math.ceil(m / 3) === parseInt(quartal, 10);
+                });
+            }
+            if (monat) docs = docs.filter(d => (d.datum || '').slice(5, 7) === monat);
             // v6.62.246: Workflow-Filter
             if (wfFilter === 'open-only') {
                 docs = docs.filter(d => {
@@ -2077,7 +2118,51 @@
             // Liste
             const lib = document.getElementById('library');
             if (docs.length === 0) { lib.innerHTML = '<div class="card" style="text-align:center;color:#6b7280;">Keine Dokumente passend zum Filter.</div>'; return; }
-            lib.innerHTML = docs.map(docRow).join('');
+            // 🆕 v6.62.396: Gruppiert nach Monat/Quartal — fuer Klarsichthuelle ablegen
+            // Sortierung innerhalb Gruppe: Datum aufsteigend, dann Belegnummer (matches Heft-Reihenfolge)
+            if (gruppe === 'monat' || gruppe === 'quartal') {
+                const monatNamen = ['','Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+                const groups = {};
+                for (const d of docs) {
+                    const dt = d.datum || '';
+                    const y = dt.slice(0, 4) || '????';
+                    const m = dt.slice(5, 7) || '??';
+                    let key, label;
+                    if (gruppe === 'monat') {
+                        key = `${y}-${m}`;
+                        const mNum = parseInt(m, 10);
+                        label = mNum ? `📂 ${monatNamen[mNum]} ${y}` : `📂 ohne Datum`;
+                    } else {
+                        const mNum = parseInt(m, 10);
+                        const q = mNum ? Math.ceil(mNum / 3) : 0;
+                        key = q ? `${y}-Q${q}` : `${y}-Q0`;
+                        label = q ? `📁 Q${q}/${y}` : `📁 ohne Datum`;
+                    }
+                    if (!groups[key]) groups[key] = { label, docs: [] };
+                    groups[key].docs.push(d);
+                }
+                // Gruppen-Keys aufsteigend (alphabetisch — YYYY-MM bzw YYYY-Qn sortieren naturlich chronologisch)
+                const sortedKeys = Object.keys(groups).sort();
+                lib.innerHTML = sortedKeys.map(k => {
+                    const g = groups[k];
+                    // Innerhalb Gruppe: nach Datum + Belegnummer aufsteigend
+                    g.docs.sort((a, b) => {
+                        const cd = (a.datum || '').localeCompare(b.datum || '');
+                        if (cd) return cd;
+                        return (a.belegnummer || '').localeCompare(b.belegnummer || '');
+                    });
+                    const sumBetrag = g.docs.reduce((s, d) => s + (d.betrag || 0), 0);
+                    return `
+                        <div class="group-header" style="margin:18px 0 8px;padding:10px 14px;background:#1e293b;color:white;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                            <div style="font-weight:700;font-size:14px;">${g.label}</div>
+                            <div style="font-size:12px;opacity:0.85;">${g.docs.length} Belege · Σ ${sumBetrag.toFixed(2).replace('.',',')} €</div>
+                        </div>
+                        ${g.docs.map(docRow).join('')}
+                    `;
+                }).join('');
+            } else {
+                lib.innerHTML = docs.map(docRow).join('');
+            }
         }
 
         function docRow(d) {

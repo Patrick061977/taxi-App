@@ -559,6 +559,26 @@
         </div>
     </div>
 
+    <!-- 🆕 v6.62.399: Pflicht-Modal nach Google-Login wenn keine Telefonnummer -->
+    <div class="modal-overlay" id="phone-required-modal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3>📱 Mobilnummer benötigt</h3>
+            </div>
+            <div style="font-size:13px;color:#374151;margin-bottom:16px;line-height:1.5;">
+                Damit Sie ein Taxi buchen können, brauchen wir Ihre Mobilnummer — der Fahrer erreicht Sie bei Ankunft.
+            </div>
+            <div class="form-group">
+                <label>📱 Mobiltelefon</label>
+                <input type="tel" id="phone-required-input" placeholder="0151 12345678" autofocus>
+                <div id="phone-required-error" style="color:#ef4444;font-size:13px;margin-top:6px;display:none;"></div>
+            </div>
+            <button onclick="savePhoneRequired()" id="btn-phone-required-save" style="width:100%;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">
+                💾 Speichern und weiter
+            </button>
+        </div>
+    </div>
+
     <!-- TOAST -->
     <div class="toast" id="toast"></div>
 
@@ -756,6 +776,11 @@
                 if (!verifiedPhone && customerData.phone) {
                     verifiedPhone = customerData.phone.replace('+', '');
                 }
+                // 🆕 v6.62.399: Phone-Pflicht — wenn weder Google noch CRM eine Nummer haben → Modal
+                if (!verifiedPhone) {
+                    openPhoneRequiredModal();
+                    return;
+                }
                 await loadCustomerData();
             } catch (e) {
                 console.error('Google sign-in:', e);
@@ -911,6 +936,56 @@
             } catch (e) {
                 console.error('Profil speichern Fehler:', e);
                 showToast('Fehler beim Speichern');
+            }
+        }
+
+        // 🆕 v6.62.399: Pflicht-Modal nach Google-Login (wenn weder Google noch CRM eine Nummer hatten)
+        function openPhoneRequiredModal() {
+            document.getElementById('phone-required-modal').classList.add('active');
+            setTimeout(() => {
+                const input = document.getElementById('phone-required-input');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        async function savePhoneRequired() {
+            const errorEl = document.getElementById('phone-required-error');
+            errorEl.style.display = 'none';
+            const raw = document.getElementById('phone-required-input').value.trim();
+            if (!raw) {
+                errorEl.textContent = 'Bitte Mobilnummer eingeben.';
+                errorEl.style.display = 'block';
+                return;
+            }
+            const clean = normalizePhone(raw);
+            if (!/^49(15|16|17)\d{7,9}$/.test(clean)) {
+                errorEl.textContent = 'Bitte gültige deutsche Mobilnummer eingeben (017… / 015… / 016…).';
+                errorEl.style.display = 'block';
+                return;
+            }
+            const btn = document.getElementById('btn-phone-required-save');
+            btn.disabled = true;
+            btn.textContent = 'Speichere…';
+            try {
+                verifiedPhone = clean;
+                if (customerData && customerData.id) {
+                    await db.ref('customers/' + customerData.id).update({
+                        phone: '+' + clean,
+                        mobilePhone: '+' + clean,
+                        updatedAt: Date.now(),
+                        updatedBy: 'kunden-html-google-phone-required'
+                    });
+                    customerData.phone = '+' + clean;
+                    customerData.mobilePhone = '+' + clean;
+                }
+                document.getElementById('phone-required-modal').classList.remove('active');
+                await loadCustomerData();
+            } catch (e) {
+                console.error('Phone save error:', e);
+                errorEl.textContent = 'Speichern fehlgeschlagen. Bitte erneut versuchen.';
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '💾 Speichern und weiter';
             }
         }
 

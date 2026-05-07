@@ -23694,6 +23694,7 @@ D) behoerden — Finanzamt, Gewerbeamt, Berufsgenossenschaft, Krankenkasse-Beitr
 E) vertraege — Pacht, Miete, Leasing, Telekom/Strom, Funkzentrale, Hotel-Rahmenvertrag
 F) steuerberater — ECOVIS-Lohnabrechnung, Jahresabschluss, Steuerberater-Korrespondenz/Rechnung
 G) versicherungen — Betriebs-/Privathaftpflicht, BU, Lebensversicherung (NICHT KFZ — das ist A)
+I) ferienwohnung — alles rund um die private Ferienwohnungs-Vermietung von Patrick: Reinigungs-Rechnungen, Strom/Gas/Wasser/Heizung der FeWo, GEZ/Rundfunk, Internet/WLAN-Anschluss FeWo, Bett-/Kurtaxe, Booking.com/Airbnb/HRS-Provisionen + Auszahlungs-Reports, Möbel/Geräte/Bettwäsche-Anschaffung (AfA), Hausgeld/Wohngeld, Schlüsseldienst, Gartenpflege, Hausmeister, Schornsteinfeger FeWo, Versicherung der FeWo, Reparaturen/Renovierung der FeWo
 H) sonstiges — alles andere
 
 Bekannte Fahrzeuge (zur Verknuepfung): ${vehicleNames || '(keine)'}
@@ -23741,7 +23742,19 @@ Beispiele:
 - TUEV-Bericht fuer Tesla LK111 → kategorie A, subKategorie 'tuev', vehicleRefId entsprechend
 - AOK-Beitragsnachweis fuer Juli 2025 → kategorie D, subKategorie 'krankenkasse'
 - ECOVIS-Lohnabrechnung Kargoll → kategorie F, subKategorie 'lohnabrechnung', staffRefId 'kargoll'
-- Telekom-Rechnung → kategorie C, subKategorie 'eingangsrechnung', lieferant 'Telekom'`;
+- Telekom-Rechnung → kategorie C, subKategorie 'eingangsrechnung', lieferant 'Telekom'
+- Booking.com-Provisionsabrechnung Ferienwohnung → kategorie I, subKategorie 'fewo-provision'
+- Reinigungs-Rechnung Ferienwohnung Sellin → kategorie I, subKategorie 'fewo-reinigung'
+- Strom-Jahresabrechnung Ferienwohnung → kategorie I, subKategorie 'fewo-energie'
+- Möbel-Kauf für Ferienwohnung (Couch, Bett) → kategorie I, subKategorie 'fewo-anschaffung-afa'
+
+WICHTIG fuer Kategorie I (Ferienwohnung) — gib im Feld "aktionsEmpfehlung" einen STEUERLICHEN Hinweis (1 Satz) der zu diesem Belegtyp passt, z.B.:
+- AfA-pflichtige Anschaffung > 800 EUR netto: "Anlagevermoegen — AfA ueber Nutzungsdauer (Moebel 13J, Hausgeraete 8-10J), nicht sofort als WK abziehbar"
+- Reinigung/Energie/Hausmeister: "Sofort abziehbar als Werbungskosten zu Vermietungseinkuenften §21 EStG"
+- Booking/Airbnb-Provision: "Werbungskosten — Bruttoumsatz auch buchen, nicht Netto-Auszahlung"
+- Bett-/Kurtaxe: "Durchlaufender Posten — von Gast vereinnahmt + an Gemeinde abgefuehrt, nicht eigener Aufwand"
+- Reparatur > 4000 EUR netto innerhalb 3J nach Anschaffung: "Pruefen ob anschaffungsnaher Herstellungsaufwand (§6 EStG) → AfA statt Sofortabzug"
+Gib bei Kategorie I zusaetzlich im Feld "stichworte" mindestens "ferienwohnung" als Tag.`;
 
             const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
                 role: 'user',
@@ -23833,12 +23846,15 @@ D) behoerden — Finanzamt, Gewerbeamt, BG, Krankenkasse-Beitragsnachweis
 E) vertraege — Pacht, Miete, Leasing, Telekom/Strom, Hotel-Rahmenvertrag
 F) steuerberater — ECOVIS-Lohnabrechnung, Jahresabschluss, Steuerberater-Korrespondenz
 G) versicherungen — Betriebs-/Privathaftpflicht, BU, Lebensversicherung (NICHT KFZ)
+I) ferienwohnung — Privat-FeWo-Vermietung Patrick: Reinigung, Strom/Gas/Wasser/Heizung FeWo, GEZ, Internet/WLAN, Bett-/Kurtaxe, Booking/Airbnb/HRS-Provisionen+Reports, Moebel/Geraete/Bettwaesche (AfA), Hausgeld, Hausmeister, Gartenpflege, Schornsteinfeger, FeWo-Versicherung, Reparatur/Renovierung
 H) sonstiges
 
 Bekannte Fahrzeuge: ${vehicleNames || '(keine)'}
 Bekannte Mitarbeiter: ${staffNames || '(keine)'}
 
-Antwort als striktes JSON: { "kategorie": "A"-"H", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "lieferantEmail": "..."|null, "lieferantPhone": "..."|null, "lieferantAdresse": "..."|null, "lieferantUstId": "..."|null, "rechnungsnummer": "..."|null, "datum": "YYYY-MM-DD", "faelligkeitsdatum": "YYYY-MM-DD"|null, "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "summary": "2-3 Saetze was drin steht", "aktionsEmpfehlung": "..."|null, "wichtigkeit": "hoch|mittel|niedrig", "volltext": "...", "confidence": 0.0-1.0 }`;
+Bei Kategorie I (Ferienwohnung) gib im Feld "aktionsEmpfehlung" einen kurzen STEUERLICHEN Hinweis (z.B. AfA bei Moebel >800 EUR, Werbungskosten §21 EStG bei Reinigung/Energie, Bett-/Kurtaxe = durchlaufender Posten, Booking-Provision = WK auf Bruttoumsatz). Bei Kategorie I "stichworte" muss "ferienwohnung" enthalten.
+
+Antwort als striktes JSON: { "kategorie": "A"-"I", "subKategorie": "...", "dokumenttyp": "...", "lieferant": "...", "lieferantEmail": "..."|null, "lieferantPhone": "..."|null, "lieferantAdresse": "..."|null, "lieferantUstId": "..."|null, "rechnungsnummer": "..."|null, "datum": "YYYY-MM-DD", "faelligkeitsdatum": "YYYY-MM-DD"|null, "betrag": <Zahl|null>, "waehrung": "EUR", "vehicleRefId": "..."|null, "staffRefId": "..."|null, "stichworte": [...], "kurzbeschreibung": "...", "summary": "2-3 Saetze was drin steht", "aktionsEmpfehlung": "..."|null, "wichtigkeit": "hoch|mittel|niedrig", "volltext": "...", "confidence": 0.0-1.0 }`;
                     const visionResp = await callAnthropicAPI(anthropicKey, 'claude-sonnet-4-6', 4000, [{
                         role: 'user',
                         content: [

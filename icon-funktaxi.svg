@@ -1,63 +1,88 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
   <defs>
-    <linearGradient id="sea" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#0f4c81"/>
-      <stop offset="100%" stop-color="#1e6091"/>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#2bbf48"/>
+      <stop offset="100%" stop-color="#1a9a37"/>
     </linearGradient>
-    <linearGradient id="sand" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#f5d76e"/>
-      <stop offset="100%" stop-color="#e6b94a"/>
-    </linearGradient>
-    <linearGradient id="taxi" x1="0" x2="0" y1="0" y2="1">
+    <linearGradient id="taxi-body" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="#FFD600"/>
       <stop offset="100%" stop-color="#F5B800"/>
     </linearGradient>
+    <linearGradient id="taxi-bumper" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#FFA800"/>
+      <stop offset="100%" stop-color="#E89500"/>
+    </linearGradient>
   </defs>
 
-  <!-- Hintergrund (Meer) mit abgerundeten Ecken für maskable -->
-  <rect width="192" height="192" rx="36" fill="url(#sea)"/>
+  <!-- Hintergrund: Grünes Quadrat mit abgerundeten Ecken -->
+  <rect width="192" height="192" rx="34" fill="url(#bg)"/>
 
-  <!-- Wellen (drei sanfte Linien) -->
-  <path d="M0 138 Q24 130 48 138 T96 138 T144 138 T192 138 L192 192 L0 192 Z" fill="#1e6091" opacity="0.55"/>
-  <path d="M0 152 Q24 144 48 152 T96 152 T144 152 T192 152 L192 192 L0 192 Z" fill="#0f4c81" opacity="0.65"/>
+  <!-- Standort-Pin oben (weiß) -->
+  <g transform="translate(96, 30)">
+    <path d="M 0 -20 C -10 -20 -18 -12 -18 -2 C -18 7 -10 14 0 26 C 10 14 18 7 18 -2 C 18 -12 10 -20 0 -20 Z" fill="#fff" stroke="#fff" stroke-width="0.5"/>
+    <circle cx="0" cy="-3" r="6" fill="#1a9a37"/>
+  </g>
 
-  <!-- Insel-Silhouette (länglich wie Usedom) -->
-  <path d="M28 122 Q60 116 96 118 Q132 120 164 122 Q172 128 164 132 Q132 134 96 132 Q60 130 28 132 Q22 128 28 122 Z" fill="url(#sand)" opacity="0.85"/>
+  <!-- Funkwellen links (drei gebogene Linien) -->
+  <g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity="0.95">
+    <path d="M 22 78 Q 14 95 22 112"/>
+    <path d="M 12 70 Q 0 95 12 120"/>
+    <path d="M 2 64 Q -12 95 2 126"/>
+  </g>
 
-  <!-- Taxi (oben mittig) -->
-  <g transform="translate(56, 38)">
-    <!-- Räder Schatten -->
-    <ellipse cx="20" cy="50" rx="10" ry="3" fill="#000" opacity="0.18"/>
-    <ellipse cx="60" cy="50" rx="10" ry="3" fill="#000" opacity="0.18"/>
+  <!-- Funkwellen rechts (drei gebogene Linien) -->
+  <g fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity="0.95">
+    <path d="M 170 78 Q 178 95 170 112"/>
+    <path d="M 180 70 Q 192 95 180 120"/>
+    <path d="M 190 64 Q 204 95 190 126"/>
+  </g>
 
-    <!-- Karosserie unten -->
-    <rect x="0" y="22" width="80" height="22" rx="6" fill="url(#taxi)" stroke="#a87a00" stroke-width="1.2"/>
-    <!-- Dach -->
-    <path d="M14 22 L24 8 L56 8 L66 22 Z" fill="url(#taxi)" stroke="#a87a00" stroke-width="1.2"/>
-    <!-- Fenster vorne -->
-    <path d="M28 22 L32 12 L40 12 L40 22 Z" fill="#90caf9" opacity="0.85"/>
-    <!-- Fenster hinten -->
-    <path d="M40 22 L40 12 L48 12 L52 22 Z" fill="#90caf9" opacity="0.85"/>
+  <!-- Taxi-Auto frontal (mittig) -->
+  <g transform="translate(96, 95)">
+    <!-- TAXI-Schild auf dem Dach -->
+    <rect x="-16" y="-38" width="32" height="11" rx="1.5" fill="#fff" stroke="#1a1a1a" stroke-width="0.8"/>
+    <text x="0" y="-29.8" font-size="9" font-family="Arial Black, Arial, sans-serif" font-weight="900" text-anchor="middle" fill="#000" letter-spacing="0.5">TAXI</text>
 
-    <!-- Taxi-Schild aufs Dach -->
-    <rect x="32" y="2" width="16" height="7" rx="1.5" fill="#fff" stroke="#a87a00" stroke-width="0.8"/>
-    <text x="40" y="7.6" font-size="5.2" font-family="Arial Black, Arial, sans-serif" font-weight="900" text-anchor="middle" fill="#1f2937" letter-spacing="0.3">TAXI</text>
+    <!-- Schatten unter dem Auto -->
+    <ellipse cx="0" cy="32" rx="42" ry="3" fill="#000" opacity="0.18"/>
 
-    <!-- Reifen -->
-    <circle cx="20" cy="44" r="6.5" fill="#1f2937"/>
-    <circle cx="20" cy="44" r="2.5" fill="#5c6470"/>
-    <circle cx="60" cy="44" r="6.5" fill="#1f2937"/>
-    <circle cx="60" cy="44" r="2.5" fill="#5c6470"/>
+    <!-- Karosserie (frontale Sicht) — mit Dach -->
+    <path d="M -36 6 L -36 -16 Q -34 -25 -22 -27 L 22 -27 Q 34 -25 36 -16 L 36 6 Z" fill="url(#taxi-body)" stroke="#a87a00" stroke-width="1.4"/>
 
-    <!-- Scheinwerfer -->
-    <circle cx="76" cy="33" r="2.2" fill="#fff" opacity="0.95"/>
-    <!-- Türgriff -->
-    <rect x="34" y="29" width="12" height="1.6" rx="0.5" fill="#a87a00"/>
+    <!-- Dach-Trennung Linie -->
+    <line x1="-32" y1="-13" x2="32" y2="-13" stroke="#a87a00" stroke-width="0.8" opacity="0.4"/>
+
+    <!-- Windschutzscheibe (dunkel) -->
+    <path d="M -28 -11 Q -27 -22 -18 -23 L 18 -23 Q 27 -22 28 -11 Z" fill="#1f2937" opacity="0.92"/>
+    <!-- Scheibe-Reflexion -->
+    <path d="M -22 -19 L -8 -22 L -10 -16 Z" fill="#fff" opacity="0.18"/>
+
+    <!-- Front-Stoßstange -->
+    <rect x="-38" y="6" width="76" height="14" rx="3" fill="url(#taxi-bumper)" stroke="#a87a00" stroke-width="1.2"/>
+
+    <!-- Kühlergrill -->
+    <rect x="-12" y="9" width="24" height="6" rx="1" fill="#1f2937" opacity="0.85"/>
+    <line x1="-10" y1="12" x2="10" y2="12" stroke="#a87a00" stroke-width="0.6" opacity="0.6"/>
+
+    <!-- Scheinwerfer links -->
+    <ellipse cx="-26" cy="-2" rx="6" ry="5" fill="#fff" stroke="#a87a00" stroke-width="0.8"/>
+    <circle cx="-26" cy="-2" r="2.4" fill="#FFE680"/>
+
+    <!-- Scheinwerfer rechts -->
+    <ellipse cx="26" cy="-2" rx="6" ry="5" fill="#fff" stroke="#a87a00" stroke-width="0.8"/>
+    <circle cx="26" cy="-2" r="2.4" fill="#FFE680"/>
+
+    <!-- Räder vorne (klein, da frontal) -->
+    <ellipse cx="-30" cy="22" rx="6" ry="4" fill="#1f2937"/>
+    <ellipse cx="30" cy="22" rx="6" ry="4" fill="#1f2937"/>
+
+    <!-- Logo-Stern auf der Motorhaube (kleines Detail) -->
+    <circle cx="0" cy="0" r="1.6" fill="#a87a00" opacity="0.5"/>
   </g>
 
   <!-- Schriftzug FUNK TAXI -->
-  <text x="96" y="106" font-size="20" font-family="Arial Black, Impact, sans-serif" font-weight="900" text-anchor="middle" fill="#fff" letter-spacing="2.4">FUNK TAXI</text>
+  <text x="96" y="158" font-size="17" font-family="Arial Black, Impact, sans-serif" font-weight="900" text-anchor="middle" fill="#fff" letter-spacing="2.2">FUNK TAXI</text>
 
-  <!-- Untertitel Heringsdorf · Usedom -->
-  <text x="96" y="170" font-size="11" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle" fill="#fff" letter-spacing="0.6" opacity="0.95">HERINGSDORF · USEDOM</text>
+  <!-- Untertitel HERINGSDORF · USEDOM -->
+  <text x="96" y="176" font-size="9" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle" fill="#fff" letter-spacing="1.2" opacity="0.95">HERINGSDORF · USEDOM</text>
 </svg>

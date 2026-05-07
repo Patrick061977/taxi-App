@@ -107,6 +107,7 @@
         .kat-F { background: #fce7f3; color: #831843; }
         .kat-G { background: #cffafe; color: #155e75; }
         .kat-H { background: #f3f4f6; color: #6b7280; }
+        .kat-I { background: #fce7f3; color: #9d174d; }
 
         .doc-list { display: flex; flex-direction: column; gap: 10px; }
         .doc-row { background: white; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; cursor: pointer; transition: background 0.1s; }
@@ -244,6 +245,7 @@
                                         <option value="E">E · Verträge</option>
                                         <option value="F">F · Steuerberater (ECOVIS)</option>
                                         <option value="G">G · Versicherungen</option>
+                                        <option value="I">I · Ferienwohnung (Vermietung/AfA/Reinigung)</option>
                                         <option value="H">H · Sonstiges</option>
                                     </select>
                                 </div>
@@ -291,6 +293,7 @@
                             <option value="E">E · Verträge</option>
                             <option value="F">F · Steuerberater</option>
                             <option value="G">G · Versicherungen</option>
+                            <option value="I">I · Ferienwohnung</option>
                             <option value="H">H · Sonstiges</option>
                         </select>
                         <!-- v6.62.357: SKR03-Filter (Patrick: 'werden Belege in SKR03-Konten eingeordnet, wo sehe ich das') -->
@@ -328,6 +331,7 @@
                             <option value="E">E · Verträge</option>
                             <option value="F">F · Steuerberater</option>
                             <option value="G">G · Versicherungen</option>
+                            <option value="I">I · Ferienwohnung</option>
                             <option value="H">H · Sonstiges</option>
                         </select>
                         <button class="btn btn-primary" onclick="bulkChangeCategory()">→ Anwenden</button>
@@ -2409,7 +2413,7 @@
                         <div class="form-group">
                             <label class="form-label">Kategorie</label>
                             <select class="form-select" id="e-kat">
-                                ${['A','B','C','D','E','F','G','H'].map(k => `<option value="${k}" ${d.kategorie === k ? 'selected' : ''}>${k}</option>`).join('')}
+                                ${['A','B','C','D','E','F','G','I','H'].map(k => `<option value="${k}" ${d.kategorie === k ? 'selected' : ''}>${k}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-row">

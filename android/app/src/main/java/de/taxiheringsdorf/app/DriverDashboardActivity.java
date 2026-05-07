@@ -282,9 +282,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // Fallback: Email oder Telefonnummer aus Auth.
     private void loadAndShowDriverName(com.google.firebase.auth.FirebaseUser user) {
         if (tvDriverName == null || user == null) return;
-        // Sofort-Fallback: Email/Telefon zeigen damit der User SOFORT was sieht
-        String fallback = user.getEmail() != null ? user.getEmail() :
-                         (user.getPhoneNumber() != null ? user.getPhoneNumber() : null);
+        // 🔧 v6.62.422: displayName aus Google-Profil zuerst — viel lesbarer als Email.
+        // Patrick (07.05.): "Bei Danilo wird der Name auch noch nicht angezeigt".
+        String fallback = null;
+        String dn = user.getDisplayName();
+        if (dn != null && !dn.trim().isEmpty()) {
+            fallback = dn.trim();
+        } else if (user.getEmail() != null) {
+            fallback = user.getEmail();
+        } else if (user.getPhoneNumber() != null) {
+            fallback = user.getPhoneNumber();
+        }
         if (fallback != null) {
             tvDriverName.setText("👤 " + fallback);
             tvDriverName.setVisibility(View.VISIBLE);

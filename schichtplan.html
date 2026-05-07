@@ -620,7 +620,8 @@
 
         // ═══════════════════════════════════════════════════════════════
         // v6.62.233 — Feiertage MV/Heringsdorf 2026 + Zuschlags-Konstanten
-        // §3b EStG: Sonntag 50%, Nacht 25% (20-00), Nacht 40% (00-06), Feiertag 150%
+        // §3b EStG: Sonntag 50%, Nacht 25% (20-00), Nacht 40% (00-06)
+        // 🔧 v6.62.417 (ECOVIS-Korrektur): Tag der Arbeit (01.05.) = 150%, alle anderen Feiertage = 125%
         // ═══════════════════════════════════════════════════════════════
         const FEIERTAGE_2026 = {
             '2026-01-01': 'Neujahr',
@@ -636,7 +637,9 @@
         const ZUSCHLAG_SONNTAG = 0.50;
         const ZUSCHLAG_NACHT_25 = 0.25;   // 20:00–00:00
         const ZUSCHLAG_NACHT_40 = 0.40;   // 00:00–06:00
-        const ZUSCHLAG_FEIERTAG = 1.50;
+        // 🔧 v6.62.417: Tag der Arbeit hat höheren Zuschlag (150%), alle anderen Feiertage 125%
+        const ZUSCHLAG_FEIERTAG_MAI1 = 1.50;
+        const ZUSCHLAG_FEIERTAG_NORMAL = 1.25;
         const SV_RATE = 0.20;             // Sozialversicherung 20% vom Stpfl. Brutto
         const LST_RATE = 0.06;            // Lohnsteuer 6% vom Stpfl. Brutto
 
@@ -645,6 +648,16 @@
                 + String(dateObj.getMonth() + 1).padStart(2, '0') + '-'
                 + String(dateObj.getDate()).padStart(2, '0');
             return !!FEIERTAGE_2026[ymdKey];
+        }
+        // 🔧 v6.62.417: Korrekter Zuschlag-Faktor je Feiertag (ECOVIS-Anweisung)
+        function getZuschlagFaktorFeiertag(dateObj) {
+            const ymdKey = dateObj.getFullYear() + '-'
+                + String(dateObj.getMonth() + 1).padStart(2, '0') + '-'
+                + String(dateObj.getDate()).padStart(2, '0');
+            // Tag der Arbeit (01.05.) = 150% (gesetzlich besonders geschützt)
+            if (ymdKey.endsWith('-05-01')) return ZUSCHLAG_FEIERTAG_MAI1;
+            // Alle anderen gesetzlichen Feiertage = 125%
+            return FEIERTAGE_2026[ymdKey] ? ZUSCHLAG_FEIERTAG_NORMAL : 0;
         }
         function timeToMin(hhmm) {
             if (!hhmm) return null;
@@ -655,9 +668,10 @@
         // Bestimmt Zuschlags-Stunden auf Voll-bezahlte-Range (Schicht minus Pause).
         // shiftStart/end in HH:MM, kann ueber Mitternacht laufen (z.B. 21:00 -> 03:00).
         // pauseStart/end in HH:MM relativ zum gleichen Tag wie shiftStart.
-        // Returns: { sonntag, nacht25, nacht40, feiertag } in Stunden.
+        // 🔧 v6.62.417: feiertag in zwei Buckets aufgeteilt — 150% (01.05.) und 125% (andere)
+        // Returns: { sonntag, nacht25, nacht40, feiertag, feiertag150, feiertag125 } in Stunden.
         function calcZuschlagsStunden(dateObj, shiftStart, shiftEnd, pauseStart, pauseEnd) {
-            const out = { sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0 };
+            const out = { sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0, feiertag150: 0, feiertag125: 0 };
             if (!shiftStart || !shiftEnd) return out;
             const sStart = timeToMin(shiftStart);
             let sEnd = timeToMin(shiftEnd);
@@ -680,7 +694,13 @@
                 const isFeiertag = isHolidayDE(dt);
                 const isNacht25 = (minOfDay >= 20 * 60 && minOfDay < 24 * 60);
                 const isNacht40 = (minOfDay >= 0 && minOfDay < 6 * 60);
-                if (isFeiertag) out.feiertag += 1 / 60;
+                if (isFeiertag) {
+                    out.feiertag += 1 / 60;
+                    // 🔧 v6.62.417: Tag der Arbeit separat tracken (150% Zuschlag)
+                    const ymd = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+                    if (ymd.endsWith('-05-01')) out.feiertag150 += 1 / 60;
+                    else out.feiertag125 += 1 / 60;
+                }
                 else if (isSonntag) out.sonntag += 1 / 60;
                 if (isNacht25) out.nacht25 += 1 / 60;
                 if (isNacht40) out.nacht40 += 1 / 60;
@@ -690,6 +710,8 @@
             out.nacht25 = Math.round(out.nacht25 * 100) / 100;
             out.nacht40 = Math.round(out.nacht40 * 100) / 100;
             out.feiertag = Math.round(out.feiertag * 100) / 100;
+            out.feiertag150 = Math.round(out.feiertag150 * 100) / 100;
+            out.feiertag125 = Math.round(out.feiertag125 * 100) / 100;
             return out;
         }
 
@@ -1559,7 +1581,7 @@
             for (const s of staffWithData) {
                 let days = 0;
                 let vollVor = 0, pause = 0, vollBez = 0, standbyGes = 0;
-                let sonntag = 0, nacht25 = 0, nacht40 = 0, feiertag = 0;
+                let sonntag = 0, nacht25 = 0, nacht40 = 0, feiertag = 0, feiertag150 = 0, feiertag125 = 0;
                 const dailyData = data[s.id] || {};
                 for (const dateKey of Object.keys(dailyData)) {
                     const d = dailyData[dateKey];
@@ -1570,6 +1592,9 @@
                     vollVor += cls.vollVor; pause += cls.pauseH; vollBez += cls.vollBezahlt;
                     standbyGes += cls.standbyGes;
                     sonntag += cls.sonntag; nacht25 += cls.nacht25; nacht40 += cls.nacht40; feiertag += cls.feiertag;
+                    // 🔧 v6.62.417: Tag der Arbeit getrennt summieren (150% Zuschlag) — Rest 125%
+                    feiertag150 += (cls.feiertag150 || 0);
+                    feiertag125 += (cls.feiertag125 || 0);
                 }
                 const rs = s.hourlyRate || rateShift;
                 const rb = s.standbyRate || rateStandby;
@@ -1582,7 +1607,8 @@
                 const zuschlSo = surchargesEnabled ? sonntag * rs * ZUSCHLAG_SONNTAG : 0;
                 const zuschlN25 = surchargesEnabled ? nacht25 * rs * ZUSCHLAG_NACHT_25 : 0;
                 const zuschlN40 = surchargesEnabled ? nacht40 * rs * ZUSCHLAG_NACHT_40 : 0;
-                const zuschlFt = surchargesEnabled ? feiertag * rs * ZUSCHLAG_FEIERTAG : 0;
+                // 🔧 v6.62.417: Tag der Arbeit (01.05.) = 150%, alle anderen Feiertage = 125% (ECOVIS)
+                const zuschlFt = surchargesEnabled ? (feiertag150 * rs * ZUSCHLAG_FEIERTAG_MAI1 + feiertag125 * rs * ZUSCHLAG_FEIERTAG_NORMAL) : 0;
                 const zuschlSumme = zuschlSo + zuschlN25 + zuschlN40 + zuschlFt;
                 const sv = stpflBrutto * SV_RATE;
                 const lst = stpflBrutto * LST_RATE;

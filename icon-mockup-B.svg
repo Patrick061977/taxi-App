@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bgB" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#34d058"/>
+      <stop offset="100%" stop-color="#22863a"/>
+    </linearGradient>
+    <linearGradient id="bodyB" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#FFEB3B"/>
+      <stop offset="100%" stop-color="#FBC02D"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="192" height="192" rx="34" fill="url(#bgB)"/>
+
+  <!-- Großer Standort-Pin oben (zentral) -->
+  <g transform="translate(96, 32)">
+    <path d="M 0 -24 C -12 -24 -22 -15 -22 -3 C -22 8 -14 16 0 32 C 14 16 22 8 22 -3 C 22 -15 12 -24 0 -24 Z"
+          fill="#fff" stroke="#155f24" stroke-width="0.8"/>
+    <circle cx="0" cy="-5" r="8" fill="#22863a"/>
+  </g>
+
+  <!-- Funkwellen — etwas weiter geschwungen -->
+  <g fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.95">
+    <path d="M 24 80 Q 14 100 24 120"/>
+    <path d="M 12 70 Q -2 100 12 130"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity="0.95">
+    <path d="M 168 80 Q 178 100 168 120"/>
+    <path d="M 180 70 Q 194 100 180 130"/>
+  </g>
+
+  <!-- Cartoon-Taxi (rundlicher, freundlicher) -->
+  <g transform="translate(96, 102)">
+    <!-- Schatten -->
+    <ellipse cx="0" cy="38" rx="48" ry="4" fill="#000" opacity="0.22"/>
+
+    <!-- Untere Stoßstange -->
+    <rect x="-44" y="22" width="88" height="14" rx="6" fill="#1f1f1f"/>
+
+    <!-- Cartoon-Karosserie (rundlich, dick) -->
+    <path d="M -42 22 L -42 -2 Q -42 -14 -32 -16 L -26 -25 Q -22 -32 -14 -32 L 14 -32 Q 22 -32 26 -25 L 32 -16 Q 42 -14 42 -2 L 42 22 Z"
+          fill="url(#bodyB)" stroke="#a86a00" stroke-width="2"/>
+
+    <!-- Windschutzscheibe (groß und rund) -->
+    <path d="M -28 -10 Q -26 -25 -14 -27 L 14 -27 Q 26 -25 28 -10 Z" fill="#1e3a5f"/>
+    <!-- Augen-artige Reflexion -->
+    <ellipse cx="-12" cy="-18" rx="6" ry="4" fill="#fff" opacity="0.25"/>
+    <ellipse cx="14" cy="-19" rx="4" ry="2.5" fill="#fff" opacity="0.2"/>
+
+    <!-- TAXI-Schild auf dem Dach (groß und auffällig) -->
+    <rect x="-18" y="-44" width="36" height="14" rx="2" fill="#fff" stroke="#000" stroke-width="1.2"/>
+    <text x="0" y="-34" font-size="11" font-family="Arial Black, Arial, sans-serif" font-weight="900" text-anchor="middle" fill="#000" letter-spacing="0.8">TAXI</text>
+
+    <!-- Scheinwerfer links — groß, freundlich (wie Augen) -->
+    <ellipse cx="-26" cy="6" rx="9" ry="7" fill="#fff" stroke="#a86a00" stroke-width="1.5"/>
+    <circle cx="-26" cy="6" r="4" fill="#FFE680"/>
+    <circle cx="-28" cy="4" r="2" fill="#fff"/>
+
+    <!-- Scheinwerfer rechts -->
+    <ellipse cx="26" cy="6" rx="9" ry="7" fill="#fff" stroke="#a86a00" stroke-width="1.5"/>
+    <circle cx="26" cy="6" r="4" fill="#FFE680"/>
+    <circle cx="24" cy="4" r="2" fill="#fff"/>
+
+    <!-- Lächelnder Kühlergrill (smile) -->
+    <path d="M -14 16 Q 0 20 14 16" stroke="#1f1f1f" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- Kleine Punkte/Bolts -->
+    <circle cx="-14" cy="16" r="1.6" fill="#1f1f1f"/>
+    <circle cx="14" cy="16" r="1.6" fill="#1f1f1f"/>
+
+    <!-- Räder -->
+    <ellipse cx="-32" cy="34" rx="9" ry="5" fill="#1f1f1f"/>
+    <ellipse cx="32" cy="34" rx="9" ry="5" fill="#1f1f1f"/>
+  </g>
+
+  <!-- FUNK TAXI Schriftzug -->
+  <text x="96" y="160" font-size="17" font-family="Arial Black, Impact, sans-serif" font-weight="900" text-anchor="middle" fill="#fff" letter-spacing="2.2">FUNK TAXI</text>
+
+  <!-- Untertitel -->
+  <text x="96" y="178" font-size="9" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle" fill="#fff" letter-spacing="1.2" opacity="0.95">HERINGSDORF · USEDOM</text>
+</svg>

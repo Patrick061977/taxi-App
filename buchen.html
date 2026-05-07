@@ -8,6 +8,13 @@
     <meta http-equiv="Expires" content="0">
     <title>🚕 Taxi buchen — Funk Taxi Heringsdorf</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- 🆕 v6.62.402: Progressive Web App (Zum Homescreen hinzufügen) -->
+    <link rel="manifest" href="./manifest-buchen.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Taxi buchen">
+    <link rel="apple-touch-icon" href="./icon-192.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1050,6 +1057,16 @@
             appId: "1:889033864088:web:3c78db4cfefb1c35e4e31c"
         });
         const db = firebase.database();
+
+        // 🆕 v6.62.402: Service Worker für Progressive Web App (Zum Homescreen hinzufügen)
+        // Eigener SW (service-worker-buchen.js) — der globale service-worker.js ist selbst-löschend.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker-buchen.js')
+                    .then(reg => console.log('SW registriert:', reg.scope))
+                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
+            });
+        }
 
         // 🆕 v6.41.90: Crash-Logger nach /debugErrors (gleicher Mechanismus wie index.html)
         (function setupCrashLogger() {

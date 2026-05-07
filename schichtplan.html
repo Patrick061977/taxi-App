@@ -1763,10 +1763,22 @@
                 showToast('Bitte erst Vorschau laden', true);
                 return;
             }
-            const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
-            const btn = document.getElementById('lohn-export-btn');
+            // 🔧 v6.62.420: Vor jedem Export Vorschau frisch aus Firebase laden, sonst werden
+            // zwischenzeitlich gemachte Pausen-/Stunden-Aenderungen NICHT ins ZIP uebernommen.
+            // Patrick (07.05.): "wenn ich die komplette Zip runterladen will, da kam es mir so
+            // vor als wenn er das was als erstes eingegeben wurde nicht veraendert hat".
             const status = document.getElementById('lohn-status');
+            const btn = document.getElementById('lohn-export-btn');
             btn.disabled = true;
+            status.textContent = '🔄 Vorschau frisch aus Firebase laden…';
+            try { await loadLohnPreview(); }
+            catch(e) { console.warn('Refresh vor Export fehlgeschlagen:', e); }
+            if (!lohnPreviewData) {
+                btn.disabled = false;
+                status.textContent = '❌ Konnte Vorschau nicht laden';
+                return;
+            }
+            const { year, month, monthName, data, rateShift, rateStandby } = lohnPreviewData;
             status.textContent = '📦 Generiere XLSX-Dateien…';
             try {
                 const staffWithData = allStaff.filter(s => Object.keys(data[s.id] || {}).length > 0);

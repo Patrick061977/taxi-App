@@ -44,26 +44,41 @@ function fbUpdate(refPath, dataObj) {
 
 function poll() {
     // 🆕 v6.41.92: Heartbeat — claudeBotWebhook erkennt daraus dass Claude online ist.
-    // Wenn Heartbeat älter als 60s → Webhook antwortet 'offline, Notiz gespeichert' statt
-    // normaler Bestätigung.
     fbUpdate('claudeBridge/heartbeat', { ts: Date.now(), pid: process.pid });
+
+    // 1) Telegram-Bridge inbox
     const root = fbGet('claudeBridge/inbox');
-    if (!root) return;
-    const keys = Object.keys(root).filter(k => root[k] && !root[k].read && !seenKeys.has(k)).sort();
-    for (const k of keys) {
-        seenKeys.add(k);
-        const v = root[k];
-        const time = new Date(v.ts || Number(k)).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-        const from = v.fromName || 'admin';
-        // claudeBot, claudeBot+voice, claudeBot+audio → 🤖. Alles andere → 📱.
-        const src = (v.source || '').startsWith('claudeBot') ? '🤖' : '📱';
-        // Photos/Voice können lang sein — bei photo/audio mehr Zeichen zeigen
-        const limit = (v.source || '').includes('photo') ? 2000 : (v.source || '').includes('voice') ? 1000 : 500;
-        const msg = (v.message || '').replace(/\n/g, ' ↵ ').slice(0, limit);
-        console.log(`${src} [${time}] ${from} (#${k}): ${msg}`);
-        // Best-effort als read markieren — wenn's failt, schützt das Set davor dass wir
-        // dieselbe Nachricht doppelt emittieren in dieser Session.
-        fbUpdate(`claudeBridge/inbox/${k}`, { read: true });
+    if (root) {
+        const keys = Object.keys(root).filter(k => root[k] && !root[k].read && !seenKeys.has(k)).sort();
+        for (const k of keys) {
+            seenKeys.add(k);
+            const v = root[k];
+            const time = new Date(v.ts || Number(k)).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const from = v.fromName || 'admin';
+            const src = (v.source || '').startsWith('claudeBot') ? '🤖' : '📱';
+            const limit = (v.source || '').includes('photo') ? 2000 : (v.source || '').includes('voice') ? 1000 : 500;
+            const msg = (v.message || '').replace(/\n/g, ' ↵ ').slice(0, limit);
+            console.log(`${src} [${time}] ${from} (#${k}): ${msg}`);
+            fbUpdate(`claudeBridge/inbox/${k}`, { read: true });
+        }
+    }
+
+    // 🆕 v6.62.419: 2) Email-Bridge inbox (Gmail-Forward via Apps Script)
+    const emails = fbGet('emailInbox');
+    if (emails) {
+        const ekeys = Object.keys(emails).filter(k => emails[k] && !emails[k].read && !seenKeys.has('email_' + k)).sort();
+        for (const k of ekeys) {
+            seenKeys.add('email_' + k);
+            const e = emails[k];
+            const time = new Date(e.ts || 0).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const from = (e.from || '?').replace(/<[^>]+>/g, '').trim().substring(0, 40);
+            const subject = (e.subject || '(kein Betreff)').substring(0, 80);
+            const bodyPreview = (e.body || '').replace(/\n+/g, ' ↵ ').replace(/\s+/g, ' ').substring(0, 800);
+            const attCount = e.attachmentCount || 0;
+            const attHint = attCount > 0 ? ` 📎 ${attCount}` : '';
+            console.log(`📧 [${time}] ${from} (#email_${k}): ${subject}${attHint} — ${bodyPreview}`);
+            fbUpdate(`emailInbox/${k}`, { read: true });
+        }
     }
 }
 
@@ -73,6 +88,11 @@ console.log(`▶️ Bridge-Polling gestartet (alle ${POLL_INTERVAL_MS / 1000}s)`
 const initial = fbGet('claudeBridge/inbox') || {};
 for (const k of Object.keys(initial)) {
     if (initial[k]?.read) seenKeys.add(k);
+}
+// 🆕 v6.62.419: gleiche Logik für emailInbox
+const initialEmails = fbGet('emailInbox') || {};
+for (const k of Object.keys(initialEmails)) {
+    if (initialEmails[k]?.read) seenKeys.add('email_' + k);
 }
 poll();
 setInterval(poll, POLL_INTERVAL_MS);

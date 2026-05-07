@@ -158,6 +158,12 @@
     "publicData": {
       ".read": true,
       ".write": "auth != null"
+    },
+
+    "emailInbox": {
+      ".read": "auth != null",
+      ".write": true,
+      ".indexOn": ["ts", "read"]
     }
   }
 }

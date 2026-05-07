@@ -626,7 +626,7 @@
                 <div id="menu-auth-section">
                     <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                         <span style="font-size:20px;">👤</span>
-                        <div><div style="font-size:15px;">Anmelden</div><div style="font-size:11px;color:#6b7280;font-weight:400;">Mit Handynummer einloggen</div></div>
+                        <div><div style="font-size:15px;">Anmelden / Konto anlegen</div><div style="font-size:11px;color:#6b7280;font-weight:400;">SMS-Code oder mit Google · Daten verwalten</div></div>
                     </a>
                 </div>
             </div>
@@ -693,12 +693,14 @@
     function updateMenuAuth(user) {
         const section = document.getElementById('menu-auth-section');
         const info = document.getElementById('menu-user-info');
-        if (user && user.phoneNumber) {
-            if (info) info.textContent = user.phoneNumber;
+        // 🆕 v6.62.398: Auch Google-Login (user.email) erkennen — nicht nur Phone
+        const ident = user && (user.phoneNumber || user.email);
+        if (user && ident) {
+            if (info) info.textContent = ident;
             if (section) section.innerHTML = `
                 <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                     <span style="font-size:20px;">👤</span>
-                    <div><div style="font-size:15px;">Mein Konto</div><div style="font-size:11px;color:#6b7280;font-weight:400;">${user.phoneNumber}</div></div>
+                    <div><div style="font-size:15px;">Mein Konto</div><div style="font-size:11px;color:#6b7280;font-weight:400;">${ident}</div></div>
                 </a>
                 <button onclick="firebase.auth().signOut().then(()=>{location.reload()})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;color:#ef4444;font-weight:600;background:none;border:none;cursor:pointer;width:100%;text-align:left;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='white'">
                     <span style="font-size:20px;">🚪</span>
@@ -996,7 +998,7 @@
             <p style="color:#64748b;margin-bottom:10px;font-size:13px;">Sie erhalten Updates sobald ein Fahrer zugewiesen ist.</p>
             <div id="success-details" style="background:#f0fdf4;padding:12px;border-radius:10px;text-align:left;font-size:13px;margin-bottom:10px;"></div>
             <div style="font-size:11px;color:#64748b;text-align:center;margin-bottom:6px;">
-                💡 Status jederzeit im <a href="kunden.html" style="color:#059669;font-weight:600;">Kundenportal</a> abrufen (Login mit Telefonnummer)
+                💡 Status jederzeit im <a href="kunden.html" style="color:#059669;font-weight:600;">Kundenportal</a> abrufen (Login per SMS oder Google)
             </div>
             <div style="font-size:12px;color:#94a3b8;text-align:center;">
                 📞 <a href="tel:+493837822022" style="color:#059669;">038378 22022</a>
@@ -1121,7 +1123,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-04-18 09:46';
+        const _buchenBuild = '2026-05-07 08:20 v6.62.398';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern

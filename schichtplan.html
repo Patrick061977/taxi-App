@@ -1315,8 +1315,13 @@
             const postStart = v('shift-post-start');
             const postEnd = v('shift-post-end');
             // Berechnungen — mit Pause-Abzug
+            // 🔧 v6.62.421: Pflicht-Pause 0,5h bei >= 8h Anwesenheit (ArbZG §4 / ECOVIS-Vorgabe).
+            //   Wenn keine oder zu kurze Pause eingetragen, wird die effektive Pause auf 0,5h
+            //   hochgesetzt (gilt nur bei Schichten ≥ 8h, sonst keine Pflicht).
             const fullVor = (start && end) ? calcHours(start, end) : 0;
-            const pauseH = (pauseStart && pauseEnd) ? calcHours(pauseStart, pauseEnd) : 0;
+            const pauseHraw = (pauseStart && pauseEnd) ? calcHours(pauseStart, pauseEnd) : 0;
+            const pflichtPause = fullVor >= 8 ? 0.5 : 0;
+            const pauseH = Math.max(pauseHraw, pflichtPause);
             const bezahlt = Math.max(0, fullVor - pauseH);
             const preH = (preStart && preEnd) ? calcHours(preStart, preEnd) : 0;
             const postH = (postStart && postEnd) ? calcHours(postStart, postEnd) : 0;
@@ -1824,13 +1829,16 @@
                 out.hasData = true;
                 // Voll-Schicht aus Plan-Range
                 const fullVor = plan.hoursAttendance != null ? plan.hoursAttendance : (calcHours(plan.start, plan.end));
-                const pauseH = plan.pauseHours || 0;
-                const vollBezahlt = plan.pauseHours != null
-                    ? (plan.hours || (fullVor - pauseH))   // neuer Plan: hours = bezahlt
-                    : fullVor;                              // alter Plan ohne Pause-Info
+                // 🔧 v6.62.421: Pflicht-Pause 0,5h bei >= 8h auch im Lohn-Preview durchsetzen
+                //   (alte Plane ohne Pause werden korrigiert, ECOVIS-Vorgabe ArbZG §4).
+                const pauseHraw = plan.pauseHours || 0;
+                const pflichtPause = fullVor >= 8 ? 0.5 : 0;
+                const pauseH = Math.max(pauseHraw, pflichtPause);
+                const vollBezahlt = Math.max(0, fullVor - pauseH);
                 out.vollVor = fullVor;
                 out.pauseH = pauseH;
                 out.vollBezahlt = vollBezahlt;
+                if (pauseHraw < pflichtPause) out.pflichtPauseAdded = true;
                 out.ranges.shift = fmtTimeRange(plan.start, plan.end, fullVor);
                 if (plan.pauseStart && plan.pauseEnd) {
                     out.ranges.pause = (plan.pauseStart + '-' + plan.pauseEnd).replace(/:/g, '.');

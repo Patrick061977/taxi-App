@@ -1,0 +1,23 @@
+{
+  "name": "Umwelt Taxi Insel Usedom",
+  "short_name": "Taxi Usedom",
+  "description": "Taxi auf Usedom — Heringsdorf, Ahlbeck, Bansin. Online buchen mit Live-Tracking.",
+  "start_url": "./landing.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f4c81",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["transportation", "business", "travel"],
+  "lang": "de-DE",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}

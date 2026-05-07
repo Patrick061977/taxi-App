@@ -11,6 +11,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Funk Taxi">
     <link rel="apple-touch-icon" href="./icon-192.png">
+    <!-- 🆕 v6.62.401: Leaflet für Adress-Karten-Picker im Profil-Modal -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -407,6 +409,35 @@
             padding-top: 12px;
             border-top: 1px solid #f3f4f6;
         }
+
+        /* 🆕 v6.62.401: Adress-Autocomplete + Karten-Picker im Profil-Modal */
+        .address-row { display: flex; gap: 6px; align-items: stretch; }
+        .address-row > .address-input-wrap { flex: 1; position: relative; }
+        .address-row > .address-input-wrap input { width: 100%; }
+        .address-row > .map-btn {
+            padding: 0 14px; background: #ecfdf5; color: #047857;
+            border: 1px solid #10b981; border-radius: 10px; font-weight: 700;
+            cursor: pointer; font-size: 18px; min-width: 48px;
+        }
+        .address-row > .map-btn:active { background: #d1fae5; }
+        .autocomplete-dropdown {
+            position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+            background: white; border: 1px solid #d1d5db; border-radius: 10px;
+            max-height: 240px; overflow-y: auto; z-index: 50;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12); display: none;
+        }
+        .autocomplete-item {
+            padding: 10px 12px; border-bottom: 1px solid #f3f4f6;
+            cursor: pointer; font-size: 13px; color: #1f2937;
+        }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover, .autocomplete-item.active { background: #ecfdf5; }
+        .autocomplete-item .ai-name { font-weight: 600; }
+        .autocomplete-item .ai-detail { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+        #map-picker-modal .modal { max-width: 600px; padding: 12px; }
+        #map-picker-leaflet { width: 100%; height: 360px; border-radius: 10px; margin-bottom: 12px; }
+        #map-picker-address { background: #f9fafb; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #1f2937; margin-bottom: 12px; min-height: 36px; }
     </style>
 </head>
 <body>
@@ -552,7 +583,14 @@
             </div>
             <div class="form-group">
                 <label>🏠 Adresse (Heimadresse)</label>
-                <input type="text" id="profile-address" placeholder="Straße, PLZ Ort">
+                <!-- 🆕 v6.62.401: Adress-Eingabe mit Autocomplete + Karten-Picker -->
+                <div class="address-row">
+                    <div class="address-input-wrap">
+                        <input type="text" id="profile-address" placeholder="Straße, PLZ Ort" autocomplete="off">
+                        <div class="autocomplete-dropdown" id="profile-address-dropdown"></div>
+                    </div>
+                    <button type="button" class="map-btn" onclick="openMapPicker()" title="Auf Karte auswählen">🗺️</button>
+                </div>
             </div>
             <div style="font-size:12px;color:#6b7280;background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:16px;">
                 💡 Ihre Heimadresse wird automatisch als Abholort oder Ziel vorgeschlagen.
@@ -588,8 +626,28 @@
         </div>
     </div>
 
+    <!-- 🆕 v6.62.401: Karten-Picker für Adress-Auswahl im Profil -->
+    <div class="modal-overlay" id="map-picker-modal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3>🗺️ Adresse auf Karte wählen</h3>
+                <button onclick="closeMapPicker()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
+            </div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">Tippen Sie auf die Karte oder ziehen Sie die Stecknadel.</div>
+            <div id="map-picker-leaflet"></div>
+            <div id="map-picker-address">Noch keine Adresse gewählt</div>
+            <div style="display:flex;gap:8px;">
+                <button onclick="closeMapPicker()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">Abbrechen</button>
+                <button onclick="confirmMapPicker()" id="btn-map-confirm" style="flex:2;padding:12px;background:linear-gradient(135deg,#10b981,#047857);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;" disabled>✓ Adresse übernehmen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST -->
     <div class="toast" id="toast"></div>
+
+    <!-- 🆕 v6.62.401: Leaflet JS für Karten-Picker -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -897,6 +955,12 @@
                 document.getElementById('profile-name').value = customerData.name || (customerData.firstName ? customerData.firstName + ' ' + (customerData.lastName || '') : '').trim();
                 document.getElementById('profile-email').value = customerData.email || '';
                 document.getElementById('profile-address').value = customerData.address || '';
+                // 🆕 v6.62.401: bestehende Koordinaten der Heimadresse merken
+                _profileAddressLat = customerData.addressLat || null;
+                _profileAddressLon = customerData.addressLon || null;
+            } else {
+                _profileAddressLat = null;
+                _profileAddressLon = null;
             }
 
             // Header-Info aktualisieren
@@ -905,6 +969,8 @@
                 headerInfo.style.display = 'block';
                 document.getElementById('header-phone').textContent = '+' + verifiedPhone;
             }
+            // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
+            setupProfileAddressAutocomplete();
         }
 
         function closeProfileModal() {
@@ -921,6 +987,18 @@
                 return;
             }
 
+            // 🆕 v6.62.401: Wenn Adresse eingegeben aber lat/lon fehlen → einmalig geocoden
+            let addressLat = _profileAddressLat;
+            let addressLon = _profileAddressLon;
+            if (address && (!addressLat || !addressLon)) {
+                try {
+                    const geo = await geocodeAddressOnce(address);
+                    if (geo) { addressLat = geo.lat; addressLon = geo.lon; }
+                } catch (e) { console.warn('Geocode bei Save fehlgeschlagen:', e); }
+            }
+            // Wenn Adresse leer, Koordinaten loeschen
+            if (!address) { addressLat = null; addressLon = null; }
+
             try {
                 if (customerData && customerData.id) {
                     // Bestehendes CRM-Profil updaten
@@ -928,11 +1006,15 @@
                         name: name,
                         email: email || null,
                         address: address || null,
+                        addressLat: addressLat,
+                        addressLon: addressLon,
                         updatedAt: Date.now()
                     });
                     customerData.name = name;
                     customerData.email = email;
                     customerData.address = address;
+                    customerData.addressLat = addressLat;
+                    customerData.addressLon = addressLon;
                 } else {
                     // Neues CRM-Profil anlegen
                     const newRef = db.ref('customers').push();
@@ -941,6 +1023,8 @@
                         phone: '+' + verifiedPhone,
                         email: email || null,
                         address: address || null,
+                        addressLat: addressLat,
+                        addressLon: addressLon,
                         createdAt: Date.now(),
                         source: 'kunden-portal'
                     };
@@ -956,6 +1040,192 @@
                 console.error('Profil speichern Fehler:', e);
                 showToast('Fehler beim Speichern');
             }
+        }
+
+        // ========================================
+        // 🆕 v6.62.401: Adress-Autocomplete + Karten-Picker im Profil
+        // ========================================
+        let _profileAddressLat = null;
+        let _profileAddressLon = null;
+        let _profileAutocompleteSetup = false;
+        let _profileAutocompleteTimer = null;
+        let _mapPicker = null;
+        let _mapPickerMarker = null;
+        let _mapPickerPos = null;
+        let _mapPickerAddress = '';
+
+        function setupProfileAddressAutocomplete() {
+            if (_profileAutocompleteSetup) return;
+            _profileAutocompleteSetup = true;
+            const input = document.getElementById('profile-address');
+            const dropdown = document.getElementById('profile-address-dropdown');
+            input.addEventListener('input', () => {
+                clearTimeout(_profileAutocompleteTimer);
+                // Bei manueller Aenderung: gespeicherte Koordinaten verwerfen — saveProfile geocodet neu
+                _profileAddressLat = null;
+                _profileAddressLon = null;
+                const q = input.value.trim();
+                if (q.length < 3) { dropdown.style.display = 'none'; return; }
+                _profileAutocompleteTimer = setTimeout(() => searchAndShowAddress(q), 350);
+            });
+            input.addEventListener('blur', () => {
+                // Verzoegern damit Click im Dropdown noch geht
+                setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+            });
+            input.addEventListener('focus', () => {
+                if (dropdown.children.length > 0) dropdown.style.display = 'block';
+            });
+        }
+
+        async function searchAndShowAddress(query) {
+            const dropdown = document.getElementById('profile-address-dropdown');
+            try {
+                const results = await searchAddressNominatim(query);
+                dropdown.innerHTML = '';
+                if (!results.length) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#9ca3af;cursor:default;">Keine Ergebnisse — auf 🗺️ tippen für Karte</div>';
+                    dropdown.style.display = 'block';
+                    return;
+                }
+                results.forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item';
+                    item.innerHTML = `<div class="ai-name">${escapeHtml(r.name)}</div><div class="ai-detail">${escapeHtml(r.detail)}</div>`;
+                    item.onclick = () => selectProfileAddress(r);
+                    dropdown.appendChild(item);
+                });
+                dropdown.style.display = 'block';
+            } catch (e) {
+                console.warn('Adress-Suche fehlgeschlagen:', e);
+                dropdown.style.display = 'none';
+            }
+        }
+
+        function selectProfileAddress(r) {
+            document.getElementById('profile-address').value = r.fullAddress;
+            _profileAddressLat = r.lat;
+            _profileAddressLon = r.lon;
+            document.getElementById('profile-address-dropdown').style.display = 'none';
+        }
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        async function searchAddressNominatim(query) {
+            // Viewbox auf Usedom + Umland (Heringsdorf-zentriert)
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Usedom')}&limit=5&addressdetails=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`;
+            const resp = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+            if (!resp.ok) return [];
+            const data = await resp.json();
+            return (data || []).map(item => {
+                const a = item.address || {};
+                const street = [a.road, a.house_number].filter(Boolean).join(' ');
+                const city = a.city || a.town || a.village || a.municipality || '';
+                const postcode = a.postcode || '';
+                const fullAddress = [street, [postcode, city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || item.display_name.split(',').slice(0, 3).join(',');
+                return {
+                    name: street || city || item.display_name.split(',')[0],
+                    detail: [postcode, city].filter(Boolean).join(' ') || item.display_name.split(',').slice(1, 3).join(',').trim(),
+                    fullAddress: fullAddress,
+                    lat: parseFloat(item.lat),
+                    lon: parseFloat(item.lon)
+                };
+            });
+        }
+
+        async function geocodeAddressOnce(address) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&viewbox=13.60,54.20,14.45,53.75&bounded=0`;
+                const resp = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                if (!data || !data.length) return null;
+                return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+            } catch (e) { return null; }
+        }
+
+        async function reverseGeocodeNominatim(lat, lon) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
+                const resp = await fetch(url, { headers: { 'Accept-Language': 'de' } });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                if (!data || !data.address) return null;
+                const a = data.address;
+                const street = [a.road, a.house_number].filter(Boolean).join(' ');
+                const city = a.city || a.town || a.village || a.municipality || '';
+                const postcode = a.postcode || '';
+                return [street, [postcode, city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || data.display_name;
+            } catch (e) { return null; }
+        }
+
+        function openMapPicker() {
+            document.getElementById('map-picker-modal').classList.add('active');
+            document.getElementById('btn-map-confirm').disabled = true;
+            document.getElementById('map-picker-address').textContent = 'Noch keine Adresse gewählt';
+            _mapPickerPos = null;
+            _mapPickerAddress = '';
+            // Init nach kurzem Delay damit Modal sichtbar ist
+            setTimeout(() => initMapPicker(), 60);
+        }
+
+        function initMapPicker() {
+            const startLat = _profileAddressLat || 53.96;
+            const startLon = _profileAddressLon || 14.16; // Heringsdorf
+            const startZoom = (_profileAddressLat && _profileAddressLon) ? 16 : 12;
+            if (!_mapPicker) {
+                _mapPicker = L.map('map-picker-leaflet').setView([startLat, startLon], startZoom);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(_mapPicker);
+                _mapPicker.on('click', e => placeMapPickerMarker(e.latlng.lat, e.latlng.lng));
+            } else {
+                _mapPicker.setView([startLat, startLon], startZoom);
+                _mapPicker.invalidateSize();
+            }
+            // Wenn schon eine Adresse gespeichert war: Marker setzen
+            if (_profileAddressLat && _profileAddressLon) {
+                placeMapPickerMarker(_profileAddressLat, _profileAddressLon);
+            } else if (_mapPickerMarker) {
+                _mapPicker.removeLayer(_mapPickerMarker);
+                _mapPickerMarker = null;
+            }
+        }
+
+        async function placeMapPickerMarker(lat, lon) {
+            if (_mapPickerMarker) _mapPicker.removeLayer(_mapPickerMarker);
+            _mapPickerMarker = L.marker([lat, lon], { draggable: true }).addTo(_mapPicker);
+            _mapPickerMarker.on('dragend', e => {
+                const p = e.target.getLatLng();
+                placeMapPickerMarker(p.lat, p.lng);
+            });
+            _mapPickerPos = { lat: lat, lon: lon };
+            const addrEl = document.getElementById('map-picker-address');
+            addrEl.textContent = '⏳ Adresse wird ermittelt…';
+            const addr = await reverseGeocodeNominatim(lat, lon);
+            if (addr) {
+                _mapPickerAddress = addr;
+                addrEl.textContent = '📍 ' + addr;
+                document.getElementById('btn-map-confirm').disabled = false;
+            } else {
+                addrEl.textContent = '⚠️ Adresse konnte nicht ermittelt werden — bitte erneut tippen';
+                document.getElementById('btn-map-confirm').disabled = true;
+            }
+        }
+
+        function closeMapPicker() {
+            document.getElementById('map-picker-modal').classList.remove('active');
+        }
+
+        function confirmMapPicker() {
+            if (!_mapPickerPos || !_mapPickerAddress) return;
+            document.getElementById('profile-address').value = _mapPickerAddress;
+            _profileAddressLat = _mapPickerPos.lat;
+            _profileAddressLon = _mapPickerPos.lon;
+            closeMapPicker();
+            showToast('Adresse übernommen');
         }
 
         // 🆕 v6.62.399: Pflicht-Modal nach Google-Login (wenn weder Google noch CRM eine Nummer hatten)

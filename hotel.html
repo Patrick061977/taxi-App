@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hotel-Portal — Funk Taxi Usedom</title>
-    <!-- 🆕 v6.62.427: PWA reaktiviert mit finalem Icon (Patrick's Original) -->
+    <!-- 🚫 v6.62.428: PWA wieder deaktiviert — Patrick: nur landing.html braucht PWA -->
+    <!--
     <link rel="manifest" href="./manifest-hotel.json">
     <meta name="theme-color" content="#2bbf48">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Taxi Hotel">
     <link rel="apple-touch-icon" href="./icon-funktaxi-original.jpg">
+    -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -133,14 +135,12 @@
             font-size: 14px;
         }
     </style>
-    <!-- 🆕 v6.62.427: Service Worker für PWA reaktiviert -->
+    <!-- 🚫 v6.62.428: PWA fuer hotel.html wieder aus -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker-hotel.js')
-                    .then(reg => console.log('SW registriert:', reg.scope))
-                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
-            });
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister().catch(() => {}));
+            }).catch(() => {});
         }
     </script>
 </head>
@@ -529,7 +529,6 @@
             setTimeout(() => t.classList.remove('show'), 2500);
         }
     </script>
-    <!-- 🆕 v6.62.427: Install-Button reaktiviert -->
-    <script src="./pwa-install.js" defer></script>
+    <!-- 🚫 v6.62.428: Install-Button raus auf hotel.html -->
 </body>
 </html>

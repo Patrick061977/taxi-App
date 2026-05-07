@@ -436,6 +436,19 @@
                     </button>
                     <div class="error-text" id="phone-error"></div>
                     <div class="info-text">Sie erhalten einen 6-stelligen Code per SMS.</div>
+
+                    <!-- 🆕 v6.62.398: Google-Login als Alternative zu SMS -->
+                    <div style="display:flex;align-items:center;gap:10px;margin:18px 0 12px;color:#9ca3af;font-size:12px;">
+                        <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+                        <span>oder</span>
+                        <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+                    </div>
+                    <button class="btn" id="btn-google-login" onclick="signInWithGoogle()" style="width:100%;background:white;color:#1f2937;border:1px solid #d1d5db;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px;font-weight:600;">
+                        <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                        Mit Google anmelden
+                    </button>
+                    <div class="error-text" id="google-error"></div>
+                    <div class="info-text">Schneller Login mit deinem Google-Konto — kein SMS-Code nötig.</div>
                 </div>
 
                 <!-- Step 2: Code Verification -->
@@ -673,6 +686,94 @@
             btn.textContent = 'SMS-Code senden';
         }
 
+        // 🆕 v6.62.398: Google-Login Alternative zu SMS — fuer Stammkunden mit Konto
+        async function signInWithGoogle() {
+            const errorEl = document.getElementById('google-error');
+            errorEl.style.display = 'none';
+            const btn = document.getElementById('btn-google-login');
+            const btnHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> Verbinde mit Google…';
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                provider.addScope('email');
+                provider.addScope('profile');
+                const result = await firebase.auth().signInWithPopup(provider);
+                const user = result.user;
+                const email = (user.email || '').toLowerCase();
+                const phoneRaw = (user.phoneNumber || '').replace('+', '');
+                if (phoneRaw) verifiedPhone = phoneRaw;
+
+                // CRM-Match: erst per Email, dann per Phone
+                const customersSnap = await db.ref('customers').once('value');
+                const customers = customersSnap.val() || {};
+                let foundId = null;
+                if (email) {
+                    for (const [id, c] of Object.entries(customers)) {
+                        if ((c.email || '').toLowerCase() === email) { foundId = id; break; }
+                    }
+                }
+                if (!foundId && phoneRaw) {
+                    const phoneVariants = getPhoneVariants(phoneRaw);
+                    for (const [id, c] of Object.entries(customers)) {
+                        const cp = [normalizePhone(c.phone || ''), normalizePhone(c.mobilePhone || ''), normalizePhone(c.mobile || '')].filter(Boolean);
+                        if (phoneVariants.some(v => cp.includes(v))) { foundId = id; break; }
+                    }
+                }
+
+                if (foundId) {
+                    customerData = { ...customers[foundId], id: foundId };
+                    // Email/Name nachtragen falls im CRM noch leer
+                    const updates = {};
+                    if (email && !customers[foundId].email) updates.email = email;
+                    if (user.displayName && !customers[foundId].name && !customers[foundId].firstName) updates.name = user.displayName;
+                    if (user.uid && !customers[foundId].googleUid) updates.googleUid = user.uid;
+                    if (Object.keys(updates).length) {
+                        updates.updatedAt = Date.now();
+                        updates.updatedBy = 'kunden-html-google-login';
+                        await db.ref('customers/' + foundId).update(updates);
+                        Object.assign(customerData, updates);
+                    }
+                } else {
+                    // Neuer Kunde via Google
+                    const ref = db.ref('customers').push();
+                    const newCust = {
+                        name: user.displayName || '',
+                        email: email,
+                        phone: phoneRaw ? '+' + phoneRaw : '',
+                        googleUid: user.uid || null,
+                        customerKind: 'Privatkunde',
+                        createdAt: Date.now(),
+                        createdBy: 'kunden-html-google-login',
+                        source: 'kunden_html_google'
+                    };
+                    await ref.set(newCust);
+                    customerData = { ...newCust, id: ref.key };
+                }
+
+                // Wenn kein Phone aus Google → aus CRM uebernehmen falls vorhanden
+                if (!verifiedPhone && customerData.phone) {
+                    verifiedPhone = customerData.phone.replace('+', '');
+                }
+                await loadCustomerData();
+            } catch (e) {
+                console.error('Google sign-in:', e);
+                if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+                    // User hat Popup geschlossen — kein Fehler anzeigen
+                } else if (e.code === 'auth/popup-blocked') {
+                    errorEl.textContent = 'Popup blockiert. Bitte Popups fuer diese Seite erlauben.';
+                    errorEl.style.display = 'block';
+                } else {
+                    errorEl.textContent = 'Google-Login fehlgeschlagen: ' + (e.message || e.code || 'unbekannter Fehler');
+                    errorEl.style.display = 'block';
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = btnHtml;
+            }
+        }
+
         function startResendTimer() {
             let seconds = 60;
             const timerEl = document.getElementById('resend-timer');
@@ -821,6 +922,9 @@
                 ridesListener = null;
             }
             verifiedPhone = '';
+            customerData = null;
+            // 🆕 v6.62.398: Auch Firebase-Auth-Session beenden (sonst Auto-Login bei Reload)
+            try { if (firebase.auth().currentUser) firebase.auth().signOut(); } catch (e) {}
             // 🔧 v6.38.95: Nach Abmeldung zurück zu buchen.html
             window.location.href = 'buchen.html';
         }
@@ -856,8 +960,8 @@
                 console.error('CRM Fehler:', e);
             }
 
-            // Anzeige
-            const displayPhone = '+' + verifiedPhone;
+            // Anzeige — v6.62.398: Email-Fallback falls Google-Login ohne Phone
+            const displayPhone = verifiedPhone ? '+' + verifiedPhone : (customerData?.email || '');
             const displayName = customerData?.name || customerData?.firstName
                 ? (customerData.name || (customerData.firstName + ' ' + (customerData.lastName || '')).trim())
                 : 'Willkommen';
@@ -1516,14 +1620,33 @@
             }
 
             // 🔧 v6.39.1: Firebase Auth Check — wenn User in buchen.html eingeloggt war
+            // 🆕 v6.62.398: zusaetzlich Google-Login (user.email statt user.phoneNumber)
             if (typeof firebase !== 'undefined' && firebase.auth) {
-                firebase.auth().onAuthStateChanged(function(user) {
-                    if (user && user.phoneNumber && !verifiedPhone) {
-                        console.log('✅ Firebase Auth erkannt:', user.phoneNumber);
+                firebase.auth().onAuthStateChanged(async function(user) {
+                    if (!user) return;
+                    if (verifiedPhone || customerData) return; // schon eingeloggt
+                    if (user.phoneNumber) {
+                        console.log('✅ Firebase Auth erkannt (Phone):', user.phoneNumber);
                         verifiedPhone = user.phoneNumber.replace('+', '');
                         sessionStorage.setItem('kundenPortalPhone', verifiedPhone);
                         sessionStorage.setItem('kundenPortalExpiry', String(Date.now() + 24 * 60 * 60 * 1000));
                         loadCustomerData();
+                    } else if (user.email) {
+                        console.log('✅ Firebase Auth erkannt (Google):', user.email);
+                        // CRM-Lookup per googleUid oder Email — gleicher Mechanismus wie signInWithGoogle
+                        try {
+                            const cs = await db.ref('customers').once('value');
+                            const customers = cs.val() || {};
+                            for (const [id, c] of Object.entries(customers)) {
+                                if ((c.googleUid && c.googleUid === user.uid) ||
+                                    (c.email && c.email.toLowerCase() === user.email.toLowerCase())) {
+                                    customerData = { ...c, id };
+                                    if (c.phone) verifiedPhone = c.phone.replace('+', '');
+                                    break;
+                                }
+                            }
+                            if (customerData) loadCustomerData();
+                        } catch (e) { console.error('Google-Auto-Login Fehler:', e); }
                     }
                 });
             }

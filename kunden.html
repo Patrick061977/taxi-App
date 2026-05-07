@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Meine Fahrten - Funk Taxi Usedom</title>
+    <!-- 🆕 v6.62.400: Progressive Web App (Zum Homescreen hinzufügen) -->
+    <link rel="manifest" href="./manifest-kunden.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Funk Taxi">
+    <link rel="apple-touch-icon" href="./icon-192.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -408,6 +415,8 @@
         <div>
             <h1>Funk Taxi Usedom</h1>
             <div class="subtitle" id="header-subtitle">Meine Fahrten</div>
+            <!-- 🆕 v6.62.400: Prominente Begrüssung wenn eingeloggt -->
+            <div id="header-greeting" style="display:none;font-size:16px;font-weight:700;margin-top:6px;letter-spacing:0.2px;"></div>
         </div>
         <div id="header-user-info" style="display:none;text-align:right;">
             <div id="header-phone" style="font-size:13px;font-weight:600;opacity:0.9;"></div>
@@ -610,6 +619,16 @@
             appId: "1:886448281276:web:1b54875801c5d89f8efcf9"
         });
         const db = firebase.database();
+
+        // 🆕 v6.62.400: Service Worker für Progressive Web App (Zum Homescreen hinzufügen)
+        // Eigener SW (service-worker-kunden.js) — der globale service-worker.js ist selbst-löschend.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker-kunden.js')
+                    .then(reg => console.log('SW registriert:', reg.scope))
+                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
+            });
+        }
 
         // 🆕 v6.41.90: Crash-Logger nach /debugErrors (siehe buchen.html / index.html)
         (function setupCrashLogger() {
@@ -1049,7 +1068,17 @@
                 headerInfo.style.display = 'block';
                 document.getElementById('header-phone').textContent = displayPhone;
             }
-            document.getElementById('header-subtitle').textContent = displayName !== 'Willkommen' ? displayName : 'Meine Fahrten';
+            // 🆕 v6.62.400: Prominente Begrüssung mit Vornamen, Subtitle bleibt 'Meine Fahrten'
+            const greetEl = document.getElementById('header-greeting');
+            if (greetEl) {
+                if (displayName && displayName !== 'Willkommen') {
+                    const firstName = (customerData?.firstName || displayName.split(' ')[0] || '').trim();
+                    greetEl.textContent = '👋 Hallo, ' + firstName + '!';
+                    greetEl.style.display = 'block';
+                } else {
+                    greetEl.style.display = 'none';
+                }
+            }
 
             // Lade Fahrten (Echtzeit!)
             loadRides();

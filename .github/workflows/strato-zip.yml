@@ -26,6 +26,7 @@ on:
       - 'service-worker.js'
       - 'manifest-*.json'
       - 'service-worker-*.js'
+      - 'pwa-install.js'
       - 'favicon.svg'
       - 'icon-192.png'
       - 'advanced-logger.js'

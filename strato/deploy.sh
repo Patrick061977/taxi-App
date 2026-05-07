@@ -63,6 +63,7 @@ APP_FILES=(
     "service-worker-hotel.js"
     "manifest-landing.json"
     "service-worker-landing.js"
+    "pwa-install.js"
     "advanced-logger.js"
     "firebase-remote-logger.js"
     "robots.txt"

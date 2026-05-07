@@ -30,6 +30,7 @@ on:
       - 'favicon.svg'
       - 'icon-192.png'
       - 'icon-funktaxi.svg'
+      - 'icon-funktaxi-original.jpg'
       - 'icon-mockup-*.svg'
       - 'icon-preview.html'
       - 'advanced-logger.js'

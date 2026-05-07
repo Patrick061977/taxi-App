@@ -56,6 +56,7 @@ APP_FILES=(
     "favicon.svg"
     "icon-192.png"
     "icon-funktaxi.svg"
+    "icon-funktaxi-original.jpg"
     "icon-mockup-A.svg"
     "icon-mockup-B.svg"
     "icon-mockup-C.svg"

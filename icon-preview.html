@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon-Vorschau — Funk Taxi</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #1f2937; }
+        .container { max-width: 560px; margin: 0 auto; }
+        h1 { font-size: 22px; margin-bottom: 6px; }
+        h2 { font-size: 15px; color: #6b7280; margin-bottom: 24px; font-weight: 500; }
+        .card { background: white; border-radius: 14px; padding: 22px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .card h3 { font-size: 14px; color: #0f4c81; margin: 0 0 14px 0; }
+        .row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+        .row > div { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .row > div span { font-size: 11px; color: #6b7280; }
+        .icon-large { width: 192px; height: 192px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); border-radius: 36px; }
+        .icon-mid { width: 120px; height: 120px; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .icon-small { width: 64px; height: 64px; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+        .icon-tiny { width: 40px; height: 40px; border-radius: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .feedback { background: #eff6ff; border: 1px solid #bfdbfe; padding: 14px; border-radius: 9px; font-size: 13px; color: #1e40af; line-height: 1.5; margin-top: 12px; }
+        .android-mockup { background: #1f2937; color: white; border-radius: 18px; padding: 18px; max-width: 300px; margin: 0 auto; }
+        .android-mockup .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .android-mockup .app { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; }
+        .android-mockup .app .label { color: white; text-align: center; max-width: 60px; line-height: 1.2; }
+        .android-mockup .app img, .android-mockup .app .placeholder { width: 48px; height: 48px; border-radius: 11px; }
+        .placeholder { background: #4b5563; }
+        .placeholder.calc { background: #f59e0b; }
+        .placeholder.calendar { background: #ef4444; }
+        .placeholder.notes { background: #fbbf24; }
+        .placeholder.maps { background: #10b981; }
+        .placeholder.phone { background: #3b82f6; }
+        .placeholder.gallery { background: #8b5cf6; }
+        .placeholder.settings { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Icon-Vorschau</h1>
+        <h2>Wie das neue App-Icon auf deinem Handy aussehen wird</h2>
+
+        <div class="card">
+            <h3>Volle Größe (192 × 192 px)</h3>
+            <div class="row">
+                <div>
+                    <img src="./icon-funktaxi.svg" class="icon-large" alt="Funk Taxi Icon">
+                    <span>192px</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Verschiedene Größen (so wie das OS es nutzt)</h3>
+            <div class="row">
+                <div>
+                    <img src="./icon-funktaxi.svg" class="icon-mid" alt="">
+                    <span>120px (Tablet)</span>
+                </div>
+                <div>
+                    <img src="./icon-funktaxi.svg" class="icon-small" alt="">
+                    <span>64px (Splash)</span>
+                </div>
+                <div>
+                    <img src="./icon-funktaxi.svg" class="icon-tiny" alt="">
+                    <span>40px (Notification)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Wie es zwischen anderen Apps aussieht (Mockup)</h3>
+            <div class="android-mockup">
+                <div class="grid">
+                    <div class="app">
+                        <div class="placeholder phone"></div>
+                        <div class="label">Telefon</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder calendar"></div>
+                        <div class="label">Kalender</div>
+                    </div>
+                    <div class="app">
+                        <img src="./icon-funktaxi.svg" alt="Funk Taxi">
+                        <div class="label">Funk Taxi</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder maps"></div>
+                        <div class="label">Maps</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder gallery"></div>
+                        <div class="label">Galerie</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder calc"></div>
+                        <div class="label">Rechner</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder notes"></div>
+                        <div class="label">Notizen</div>
+                    </div>
+                    <div class="app">
+                        <div class="placeholder settings"></div>
+                        <div class="label">Einstellungen</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feedback">
+            <strong>So passt's zur Marke:</strong><br>
+            • Insel-Silhouette + Wellen → Bezug zur Domain <em>umwelt-taxi-insel-usedom</em><br>
+            • „FUNK TAXI" prominent → Bezug zur Domain <em>funktaxiheringsdorf</em><br>
+            • Untertitel „Heringsdorf · Usedom" → kombiniert Standort + Region<br>
+            • Klassisches gelbes Taxi → sofortige visuelle Erkennbarkeit
+        </div>
+
+        <div class="feedback" style="background:#fef3c7;border-color:#fde68a;color:#92400e;">
+            <strong>Falls dir was nicht passt:</strong> Sag's via Telegram, dann ändere ich Farbe / Schrift / Layout. Mögliche Varianten:
+            <ul style="margin-top:6px;padding-left:20px;">
+                <li>„KEIN BOCK ZU LAUFEN" als Slogan ergänzen</li>
+                <li>Andere Farben (z.B. weiß-rot statt blau-gelb)</li>
+                <li>Telefonnummer 22022 prominent</li>
+                <li>Insel weglassen, dafür größeres Taxi</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

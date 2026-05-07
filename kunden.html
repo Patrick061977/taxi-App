@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Meine Fahrten - Funk Taxi Usedom</title>
-    <!-- 🆕 v6.62.400: Progressive Web App (Zum Homescreen hinzufügen) -->
+    <!-- 🚫 v6.62.406: PWA-Setup temporär deaktiviert bis das finale Icon fertig ist.
+         Reaktivieren: manifest-Link wieder einfügen + Service-Worker-Register wieder aktivieren.
     <link rel="manifest" href="./manifest-kunden.json">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Funk Taxi">
-    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png"> -->
     <!-- 🆕 v6.62.401: Leaflet für Adress-Karten-Picker im Profil-Modal -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
@@ -678,14 +679,11 @@
         });
         const db = firebase.database();
 
-        // 🆕 v6.62.400: Service Worker für Progressive Web App (Zum Homescreen hinzufügen)
-        // Eigener SW (service-worker-kunden.js) — der globale service-worker.js ist selbst-löschend.
+        // 🚫 v6.62.406: PWA temporär deaktiviert — bestehende Service-Worker deregistrieren
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker-kunden.js')
-                    .then(reg => console.log('SW registriert:', reg.scope))
-                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
-            });
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister().catch(() => {}));
+            }).catch(() => {});
         }
 
         // 🆕 v6.41.90: Crash-Logger nach /debugErrors (siehe buchen.html / index.html)
@@ -2041,7 +2039,7 @@
             });
         })();
     </script>
-    <!-- 🆕 v6.62.405: PWA-Install-Button (geteilte Logik für alle PWA-Seiten) -->
-    <script src="./pwa-install.js" defer></script>
+    <!-- 🚫 v6.62.406: Install-Button deaktiviert bis Icon final ist
+    <script src="./pwa-install.js" defer></script> -->
 </body>
 </html>

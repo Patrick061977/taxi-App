@@ -12,13 +12,13 @@
     <meta name="geo.position" content="53.9514;14.1700">
     <meta name="ICBM" content="53.9514, 14.1700">
     <link rel="canonical" href="https://umwelt-taxi-insel-usedom.de/landing.html">
-    <!-- 🆕 v6.62.403: Progressive Web App (Zum Homescreen hinzufügen) -->
+    <!-- 🚫 v6.62.406: PWA-Setup temporär deaktiviert bis das finale Icon fertig ist.
     <link rel="manifest" href="./manifest-landing.json">
     <meta name="theme-color" content="#0f4c81">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Taxi Usedom">
-    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png"> -->
     <meta property="og:title" content="Taxi Heringsdorf · Ahlbeck · Bansin — Umwelt Taxi Insel Usedom">
     <meta property="og:description" content="Taxi auf Usedom — online buchen, Live-Tracking, Pauschalpreise nach Świnoujście ab 20€. 24/7 unter 038378 22022.">
     <meta property="og:url" content="https://umwelt-taxi-insel-usedom.de/landing.html">
@@ -922,14 +922,12 @@
             transform: translateY(-2px);
         }
     </style>
-    <!-- 🆕 v6.62.403: Service Worker für PWA (Pflicht für 'Zum Homescreen hinzufügen') -->
+    <!-- 🚫 v6.62.406: PWA temporär deaktiviert — bestehende Service-Worker deregistrieren -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker-landing.js')
-                    .then(reg => console.log('SW registriert:', reg.scope))
-                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
-            });
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister().catch(() => {}));
+            }).catch(() => {});
         }
     </script>
 </head>
@@ -1775,8 +1773,8 @@ function showAnfrageSuccess() {
 })();
 </script>
 
-<!-- 🆕 v6.62.405: PWA-Install-Button (geteilte Logik) -->
-<script src="./pwa-install.js" defer></script>
+<!-- 🚫 v6.62.406: Install-Button deaktiviert bis Icon final ist
+<script src="./pwa-install.js" defer></script> -->
 
 </body>
 </html>

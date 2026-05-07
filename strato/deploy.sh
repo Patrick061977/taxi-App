@@ -55,6 +55,8 @@ APP_FILES=(
     "service-worker.js"
     "favicon.svg"
     "icon-192.png"
+    "icon-funktaxi.svg"
+    "icon-preview.html"
     "manifest-kunden.json"
     "service-worker-kunden.js"
     "manifest-buchen.json"

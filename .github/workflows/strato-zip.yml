@@ -29,6 +29,8 @@ on:
       - 'pwa-install.js'
       - 'favicon.svg'
       - 'icon-192.png'
+      - 'icon-funktaxi.svg'
+      - 'icon-preview.html'
       - 'advanced-logger.js'
       - 'firebase-remote-logger.js'
       - 'google*.html'

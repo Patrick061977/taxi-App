@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hotel-Portal — Funk Taxi Usedom</title>
-    <!-- 🆕 v6.62.404: Hotel-Portal MVP — Self-Registration + Google-Login -->
+    <!-- 🚫 v6.62.406: PWA-Setup temporär deaktiviert bis das finale Icon fertig ist.
     <link rel="manifest" href="./manifest-hotel.json">
     <meta name="theme-color" content="#0f4c81">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Taxi Hotel">
-    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-192.png"> -->
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -133,14 +133,12 @@
             font-size: 14px;
         }
     </style>
-    <!-- Service Worker für PWA -->
+    <!-- 🚫 v6.62.406: PWA temporär deaktiviert — bestehende Service-Worker deregistrieren -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker-hotel.js')
-                    .then(reg => console.log('SW registriert:', reg.scope))
-                    .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
-            });
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => r.unregister().catch(() => {}));
+            }).catch(() => {});
         }
     </script>
 </head>
@@ -529,7 +527,7 @@
             setTimeout(() => t.classList.remove('show'), 2500);
         }
     </script>
-    <!-- 🆕 v6.62.405: PWA-Install-Button (geteilte Logik) -->
-    <script src="./pwa-install.js" defer></script>
+    <!-- 🚫 v6.62.406: Install-Button deaktiviert bis Icon final ist
+    <script src="./pwa-install.js" defer></script> -->
 </body>
 </html>

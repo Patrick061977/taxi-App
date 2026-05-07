@@ -23,6 +23,8 @@ on:
       - 'payment-cancel.html'
       - 'manifest.json'
       - 'service-worker.js'
+      - 'manifest-*.json'
+      - 'service-worker-*.js'
       - 'favicon.svg'
       - 'icon-192.png'
       - 'advanced-logger.js'

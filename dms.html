@@ -2705,9 +2705,23 @@ Funk Taxi Heringsdorf`;
                 if (attach && d.storageUrl) {
                     statusEl.textContent = '⏳ Lade Anhang…';
                     const resp = await fetch(d.storageUrl);
+                    if (!resp.ok) throw new Error('Anhang konnte nicht geladen werden (HTTP ' + resp.status + ')');
                     const blob = await resp.blob();
-                    const buf = await blob.arrayBuffer();
-                    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                    // Größenlimit: Cloud Functions akzeptiert ~10 MB Request, base64 +33% Overhead
+                    if (blob.size > 7 * 1024 * 1024) {
+                        throw new Error('Anhang zu groß (' + (blob.size / 1024 / 1024).toFixed(1) + ' MB) — max 7 MB. Bitte ohne Anhang senden und Datei separat freigeben.');
+                    }
+                    // 🔧 v6.62.411: FileReader statt String.fromCharCode(...) — stack-overflow-sicher
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const dataUrl = reader.result || '';
+                            const idx = dataUrl.indexOf(',');
+                            resolve(idx >= 0 ? dataUrl.substring(idx + 1) : '');
+                        };
+                        reader.onerror = () => reject(reader.error || new Error('Datei-Encoding fehlgeschlagen'));
+                        reader.readAsDataURL(blob);
+                    });
                     attachment = {
                         filename: d.originalFilename || `${d.lieferant || 'doc'}_${d.datum || ''}.pdf`,
                         content: base64,

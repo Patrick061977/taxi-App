@@ -1,0 +1,15 @@
+[
+  {
+    "origin": [
+      "https://umwelt-taxi-insel-usedom.de",
+      "https://taxi-heringsdorf.firebaseapp.com",
+      "https://taxi-heringsdorf.web.app",
+      "http://localhost:5000",
+      "http://localhost:8080",
+      "http://127.0.0.1:5000"
+    ],
+    "method": ["GET", "HEAD", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Content-Length", "Content-Range"]
+  }
+]

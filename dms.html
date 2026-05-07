@@ -2145,17 +2145,29 @@
                 const sortedKeys = Object.keys(groups).sort();
                 lib.innerHTML = sortedKeys.map(k => {
                     const g = groups[k];
-                    // Innerhalb Gruppe: nach Datum + Belegnummer aufsteigend
+                    // 🆕 v6.62.397: Belegnummer als primaerer Sort (= Heft-Reihenfolge), Datum als Tiebreaker
+                    // Belege ohne Belegnummer (Altbestand) ans Ende
                     g.docs.sort((a, b) => {
-                        const cd = (a.datum || '').localeCompare(b.datum || '');
-                        if (cd) return cd;
-                        return (a.belegnummer || '').localeCompare(b.belegnummer || '');
+                        const an = a.belegnummer || '';
+                        const bn = b.belegnummer || '';
+                        if (!an && bn) return 1;
+                        if (an && !bn) return -1;
+                        if (an !== bn) return an.localeCompare(bn);
+                        return (a.datum || '').localeCompare(b.datum || '');
                     });
                     const sumBetrag = g.docs.reduce((s, d) => s + (d.betrag || 0), 0);
+                    // Belegnummer-Range im Header zeigen (erste–letzte)
+                    const numbered = g.docs.filter(d => d.belegnummer);
+                    let rangeLabel = '';
+                    if (numbered.length === 1) rangeLabel = `#${numbered[0].belegnummer}`;
+                    else if (numbered.length > 1) rangeLabel = `#${numbered[0].belegnummer} → #${numbered[numbered.length-1].belegnummer}`;
                     return `
-                        <div class="group-header" style="margin:18px 0 8px;padding:10px 14px;background:#1e293b;color:white;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                        <div class="group-header" style="margin:18px 0 8px;padding:10px 14px;background:#1e293b;color:white;border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                             <div style="font-weight:700;font-size:14px;">${g.label}</div>
-                            <div style="font-size:12px;opacity:0.85;">${g.docs.length} Belege · Σ ${sumBetrag.toFixed(2).replace('.',',')} €</div>
+                            <div style="font-size:12px;opacity:0.85;display:flex;gap:14px;flex-wrap:wrap;">
+                                ${rangeLabel ? `<span style="font-family:monospace;color:#fcd34d;">${rangeLabel}</span>` : ''}
+                                <span>${g.docs.length} Belege · Σ ${sumBetrag.toFixed(2).replace('.',',')} €</span>
+                            </div>
                         </div>
                         ${g.docs.map(docRow).join('')}
                     `;

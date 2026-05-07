@@ -60,6 +60,7 @@ APP_FILES=(
     "icon-mockup-B.svg"
     "icon-mockup-C.svg"
     "icon-mockup-D.svg"
+    "icon-mockup-E.svg"
     "icon-preview.html"
     "manifest-kunden.json"
     "service-worker-kunden.js"

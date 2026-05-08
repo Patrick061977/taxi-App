@@ -2054,6 +2054,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     static class Ride {
         String id, customerName, pickup, destination, pickupTime, status, notes;
         Double price, distance;
+        // v6.62.439: actualPrice = der ECHTE kassierte Wert nach Bezahl-Dialog,
+        //   price = Vorab-Schätzung (OSRM). Nach Fahrtende soll der echte Wert gewinnen.
+        Double actualPrice;
         Long pickupTimestamp;
         List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
         Integer drivingTimeToPickup; // v6.62.6: Anfahrtszeit in Min (Patrick: 'wie lange braucht er bis zum Ziel')
@@ -2091,6 +2094,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 Object p = s.child("price").getValue();
                 if (p instanceof Number) r.price = ((Number) p).doubleValue();
                 else if (p instanceof String) try { r.price = Double.parseDouble((String) p); } catch (NumberFormatException _e) {}
+                // v6.62.439: echter kassierter Preis (nach Bezahl-Dialog) — gewinnt im Display
+                Object ap = s.child("actualPrice").getValue();
+                if (ap instanceof Number) r.actualPrice = ((Number) ap).doubleValue();
+                else if (ap instanceof String) try { r.actualPrice = Double.parseDouble((String) ap); } catch (NumberFormatException _e) {}
                 Object d = s.child("distance").getValue();
                 if (d instanceof Number) r.distance = ((Number) d).doubleValue();
                 else if (d instanceof String) try { r.distance = Double.parseDouble((String) d); } catch (NumberFormatException _e) {}
@@ -2350,8 +2357,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     tvLiveEta.setVisibility(View.GONE);
                 }
 
-                String pd = String.format(Locale.GERMANY, "💰 %s€ · 🛣️ %s km",
-                    r.price != null ? String.format(Locale.GERMANY, "%.2f", r.price) : "--",
+                // 🆕 v6.62.439: actualPrice (kassiert) gewinnt vor price (Schätzung).
+                //   Patrick (08.05. 08:25): „Fahrt sollte 11,70€ kosten, Taxameter 14,10€".
+                //   Beim Bezahl-Dialog wird actualPrice gesetzt → ab da soll das im Display
+                //   stehen, mit Label '(kassiert)'. Vorab nur estimatedPrice = price.
+                Double displayPrice;
+                String priceLabel;
+                if (r.actualPrice != null && r.actualPrice > 0) {
+                    displayPrice = r.actualPrice;
+                    priceLabel = "kassiert";
+                } else {
+                    displayPrice = r.price;
+                    priceLabel = "geschätzt";
+                }
+                String pd = String.format(Locale.GERMANY, "💰 %s€ (%s) · 🛣️ %s km",
+                    displayPrice != null ? String.format(Locale.GERMANY, "%.2f", displayPrice) : "--",
+                    priceLabel,
                     r.distance != null ? String.format(Locale.GERMANY, "%.1f", r.distance) : "--");
                 tvPriceDist.setText(pd);
                 String s = r.status != null ? r.status : "?";

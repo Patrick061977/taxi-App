@@ -86,20 +86,22 @@
             android:textSize="12sp" />
 
         <!-- v6.62.303: Patrick (05.05. 13:48): "in der native app sieht der fahrer
-             nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige —
-             gross + farbig + zentriert. Wird nur sichtbar wenn drivingTimeToPickup
-             oder drivingTimeToDestination > 0 ist (also nach OSRM-Refresh). -->
+             nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige.
+             v6.62.502: Patrick (08.05. 16:31): "Live-ETA-Banner ist einfach zu gross,
+             dadurch sieht man die anderen Sachen nicht mehr". textSize 22→16sp,
+             padding 12→6dp, marginTop 8→4dp. Bleibt blau + zentriert + bold,
+             aber deutlich kompakter — andere Felder sind wieder sichtbar. -->
         <TextView
             android:id="@+id/tv_live_eta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:padding="12dp"
+            android:layout_marginTop="4dp"
+            android:padding="6dp"
             android:background="#1E40AF"
             android:gravity="center"
             android:text=""
             android:textColor="#FFFFFF"
-            android:textSize="22sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:visibility="gone" />
 

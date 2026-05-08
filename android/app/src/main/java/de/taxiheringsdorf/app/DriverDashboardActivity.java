@@ -2361,14 +2361,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   Patrick (08.05. 08:25): „Fahrt sollte 11,70€ kosten, Taxameter 14,10€".
                 //   Beim Bezahl-Dialog wird actualPrice gesetzt → ab da soll das im Display
                 //   stehen, mit Label '(kassiert)'. Vorab nur estimatedPrice = price.
+                // 🆕 v6.62.441: Patrick (08.05. 08:43): „Schreibt mal hin bei dem Preis,
+                //   das sind Schätzungen, der richtige Preis wird vom Taxameter berechnet."
+                //   Label klar formuliert.
                 Double displayPrice;
                 String priceLabel;
                 if (r.actualPrice != null && r.actualPrice > 0) {
                     displayPrice = r.actualPrice;
-                    priceLabel = "kassiert";
+                    priceLabel = "Taxameter";
                 } else {
                     displayPrice = r.price;
-                    priceLabel = "geschätzt";
+                    priceLabel = "Schätzung — echt nach Taxameter";
                 }
                 String pd = String.format(Locale.GERMANY, "💰 %s€ (%s) · 🛣️ %s km",
                     displayPrice != null ? String.format(Locale.GERMANY, "%.2f", displayPrice) : "--",

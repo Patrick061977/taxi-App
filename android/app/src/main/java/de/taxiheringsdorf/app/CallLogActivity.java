@@ -1743,14 +1743,65 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("updatedAt", now);
                 r.put("source", "native_calllog_prebooking");
                 r.put("passengers", pax);
+                final String _notesFinal = _notes;
+                final int _paxFinal = pax;
+                final String _pickupFinal = pickup;
+                final String _destFinal = dest;
+                final String _nameFinal = name;
+                final long _pickupTsFinal = datetime[0];
+                final boolean _isHotelFinal = isHotelCustomer;
+                final String _crmNameFinal = (crm != null) ? crm.name : null;
                 ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, "✅ Vorbestellung angelegt", Toast.LENGTH_SHORT).show();
                     dlg.dismiss();
-                    finish();
+                    // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
+                    showCallLogBookingConfirmation(_nameFinal, _pickupFinal, _destFinal,
+                        _pickupTsFinal, _paxFinal, _notesFinal,
+                        _isHotelFinal ? _crmNameFinal : null);
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         dlg.show();
+    }
+
+    // 🆕 v6.62.485: Patrick (08.05.2026 13:18): "kann man das so machen, wenn ich das
+    //   erstelle im Handy, dass ich dann nochmal eine Übersicht sehe was alles drinnen
+    //   steht, damit ich das dann abspeichern kann". Vorher: Toast 'angelegt' und finish.
+    private void showCallLogBookingConfirmation(String name, String pickup, String dest,
+                                                long pickupTs, int passengers, String notes,
+                                                String auftraggeberName) {
+        SimpleDateFormat fmt = new SimpleDateFormat("EEEE, dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY);
+        fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        StringBuilder msg = new StringBuilder();
+        msg.append("✅ Vorbestellung GESPEICHERT\n\n");
+        if (auftraggeberName != null) {
+            msg.append("🏨 Auftraggeber: ").append(auftraggeberName).append("\n");
+            msg.append("👤 Gast: ").append(name).append("\n");
+        } else {
+            msg.append("👤 Name: ").append(name).append("\n");
+        }
+        msg.append("📅 Termin: ").append(fmt.format(new java.util.Date(pickupTs))).append("\n");
+        msg.append("📍 Pickup: ").append(pickup).append("\n");
+        msg.append("🎯 Ziel: ").append(dest).append("\n");
+        msg.append("👥 Personen: ").append(passengers);
+        if (notes != null && !notes.trim().isEmpty()) {
+            msg.append("\n📝 Notiz: ").append(notes);
+        }
+        final String _msgFinal = msg.toString();
+
+        new AlertDialog.Builder(this)
+            .setTitle("📅 Angelegt")
+            .setMessage(_msgFinal)
+            .setPositiveButton("OK", (d, w) -> finish())
+            .setNeutralButton("📋 Kopieren", (d, w) -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Vorbestellung", _msgFinal));
+                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
+                }
+                finish();
+            })
+            .setCancelable(false)
+            .show();
     }
 
     static class CrmCustomer {

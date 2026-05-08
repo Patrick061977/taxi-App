@@ -682,6 +682,13 @@
                     if (r.customerName) _rows.push(`<div>👤 <b>Name:</b> ${r.customerName}</div>`);
                     if (r.passengers && r.passengers > 1) _rows.push(`<div>👥 <b>Personen:</b> ${r.passengers}</div>`);
                     if (r.pickup) _rows.push(`<div>📍 <b>Abholort:</b> ${r.pickup}</div>`);
+                    // 🆕 v6.62.445: Zwischenstopps in Buchungsdetails anzeigen (Patrick 08.05.
+                    //   09:41: „Bei dem Buchungsdetail steht der Zwischenstopp immer noch nicht
+                    //   drin"). Karte zeigt sie schon, hier fehlten sie in der Listen-Ansicht.
+                    const _wpRows = (Array.isArray(r.waypoints) ? r.waypoints : Object.values(r.waypoints || {}))
+                        .map(w => w && (typeof w === 'string' ? w : (w.address || '')))
+                        .filter(Boolean);
+                    _wpRows.forEach((addr, i) => _rows.push(`<div>🚏 <b>Zwischenstopp ${i + 1}:</b> ${addr}</div>`));
                     if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
                     // v6.62.97: Patrick: '17,1 muss 17,10 sein'. Immer 2 Nachkommastellen.
                     if (r.price) {

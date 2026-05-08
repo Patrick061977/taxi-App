@@ -1088,17 +1088,63 @@ public class CrmSearchActivity extends AppCompatActivity {
         layout.setPadding(pad, pad, pad, pad);
         scroll.addView(layout);
 
-        EditText etName = new EditText(this);
-        // 🔧 v6.62.429: klarer Hint — Anrede (optional) Vorname Nachname
-        etName.setHint("Name (z.B. 'Frau Anja Schoening' oder 'Hotel Strandblick')");
-        etName.setText(e.name != null ? e.name : "");
-        layout.addView(etName);
-        TextView nameHelp = new TextView(this);
-        nameHelp.setText("💡 Tipp: 'Herr' oder 'Frau' davor schreiben — wird automatisch erkannt.");
-        nameHelp.setTextSize(11);
-        nameHelp.setPadding(0, 0, 0, pad / 4);
-        nameHelp.setTextColor(0xFF64748B);
-        layout.addView(nameHelp);
+        // 🔧 v6.62.431: Patrick: 'separate Felder bei der Anlage — Vor- und Nachname getrennt,
+        //   Vorname optional. Erst Nachname dann Vorname'.
+        // Anrede-Spinner ganz oben
+        TextView lblSal = new TextView(this);
+        lblSal.setText("👤 Anrede");
+        lblSal.setTextSize(12);
+        lblSal.setPadding(0, 0, 0, pad / 4);
+        layout.addView(lblSal);
+        final String[] _saluts = { "—", "Herr", "Frau", "Divers" };
+        final android.widget.Spinner spSal = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> _salAd = new android.widget.ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_item, _saluts);
+        _salAd.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spSal.setAdapter(_salAd);
+        // Vorbelegen aus existing entry
+        {
+            String _existing = (e.id != null && e.id.length() > 0)
+                ? null /* TODO: Anrede aus DB lesen falls vorhanden */
+                : null;
+            // Standard: '—' (kein Eintrag)
+            spSal.setSelection(0);
+        }
+        layout.addView(spSal);
+
+        // Nachname (Pflicht) ZUERST
+        TextView lblLast = new TextView(this);
+        lblLast.setText("📛 Nachname (Pflicht)");
+        lblLast.setTextSize(12);
+        lblLast.setPadding(0, pad, 0, pad / 4);
+        layout.addView(lblLast);
+        EditText etLastName = new EditText(this);
+        etLastName.setHint("z.B. Schoening");
+        // Beim Bearbeiten: aus name ableiten (letztes Wort) wenn nicht in separatem Feld
+        if (e.name != null && !e.name.isEmpty()) {
+            String _n = e.name.trim();
+            int _spc = _n.lastIndexOf(' ');
+            etLastName.setText(_spc > 0 ? _n.substring(_spc + 1) : _n);
+        }
+        layout.addView(etLastName);
+
+        // Vorname (optional) zweites
+        TextView lblFirst = new TextView(this);
+        lblFirst.setText("✍️ Vorname (optional)");
+        lblFirst.setTextSize(12);
+        lblFirst.setPadding(0, pad, 0, pad / 4);
+        layout.addView(lblFirst);
+        EditText etFirstName = new EditText(this);
+        etFirstName.setHint("z.B. Anja");
+        if (e.name != null && !e.name.isEmpty()) {
+            String _n = e.name.trim();
+            int _spc = _n.lastIndexOf(' ');
+            etFirstName.setText(_spc > 0 ? _n.substring(0, _spc) : "");
+        }
+        layout.addView(etFirstName);
+
+        // Dummy etName-Variable damit existierender Code weiter laeuft (wird beim Save zusammengesetzt)
+        final EditText etName = new EditText(this);
 
         // v6.62.388: Patrick (06.05. 20:25): "Aus Handy-Kontakten importieren beim CRM-Anlegen".
         // Nur beim Anlegen sinnvoll (nicht beim Bearbeiten).
@@ -1209,8 +1255,16 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setTitle(dialogTitle)
             .setView(scroll)
             .setPositiveButton(isNew ? "Anlegen" : "Speichern", (d, w) -> {
-                String name = etName.getText().toString().trim();
-                if (name.isEmpty()) { Toast.makeText(this, "Name Pflicht", Toast.LENGTH_SHORT).show(); return; }
+                // 🔧 v6.62.431: getrennte Felder Nachname (Pflicht) + Vorname (optional) + Anrede
+                String _lastName = etLastName.getText().toString().trim();
+                String _firstName = etFirstName.getText().toString().trim();
+                if (_lastName.isEmpty()) {
+                    Toast.makeText(this, "Nachname Pflicht", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String name = (_firstName.isEmpty() ? _lastName : _firstName + " " + _lastName);
+                int _salPos = spSal.getSelectedItemPosition();
+                String _salutation = _salPos > 0 ? _saluts[_salPos] : "";
                 String phone = etPhone.getText().toString().trim();
                 String mobile = etMobile.getText().toString().trim();
                 String email = etEmail.getText().toString().trim();
@@ -1220,36 +1274,13 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Toast.makeText(this, "Mindestens Mobil- oder Festnetznummer angeben", Toast.LENGTH_LONG).show();
                     return;
                 }
-                // 🔧 v6.62.429: Name in firstName/lastName + Anrede splitten (Patrick: "Anja
-                //   Schoening — Name wird nicht vernuenftig uebernommen"). Erkennt fuehrendes
-                //   "Herr"/"Frau"/"Divers" als Anrede, splittet Rest in Vor-/Nachname (letztes
-                //   Wort = Nachname). Web-Code (index.html) nutzt firstName/lastName/anrede getrennt.
-                String _splSalutation = "";
-                String _splFirst = "";
-                String _splLast = "";
-                {
-                    String _rest = name;
-                    String _lower = _rest.toLowerCase();
-                    if (_lower.startsWith("herr ")) { _splSalutation = "Herr"; _rest = _rest.substring(5).trim(); }
-                    else if (_lower.startsWith("frau ")) { _splSalutation = "Frau"; _rest = _rest.substring(5).trim(); }
-                    else if (_lower.startsWith("divers ")) { _splSalutation = "Divers"; _rest = _rest.substring(7).trim(); }
-                    if (!_rest.isEmpty()) {
-                        int _spc = _rest.lastIndexOf(' ');
-                        if (_spc > 0) {
-                            _splFirst = _rest.substring(0, _spc).trim();
-                            _splLast = _rest.substring(_spc + 1).trim();
-                        } else {
-                            _splLast = _rest;
-                        }
-                    }
-                }
                 Map<String, Object> upd = new HashMap<>();
                 upd.put("name", name);
-                if (!_splFirst.isEmpty()) upd.put("firstName", _splFirst);
-                if (!_splLast.isEmpty()) upd.put("lastName", _splLast);
-                if (!_splSalutation.isEmpty()) {
-                    upd.put("salutation", _splSalutation);
-                    upd.put("anrede", _splSalutation);
+                if (!_firstName.isEmpty()) upd.put("firstName", _firstName);
+                upd.put("lastName", _lastName);
+                if (!_salutation.isEmpty()) {
+                    upd.put("salutation", _salutation);
+                    upd.put("anrede", _salutation);
                 }
                 if (!phone.isEmpty()) upd.put("phone", phone);
                 if (!mobile.isEmpty()) upd.put("mobilePhone", mobile);

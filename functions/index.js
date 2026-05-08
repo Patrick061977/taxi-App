@@ -19266,6 +19266,56 @@ exports.onRideCreated = onValueCreated(
         // 🔧 v6.38.43: Detailliertes Logging für Debugging
         console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}, pickupLat=${ride.pickupLat}, destLat=${ride.destinationLat}`);
 
+        // 🆕 v6.62.512: Festpreis-Lookup aus customer.fixedRoutes.
+        //   Patrick (08.05. 18:01-18:10): "ostseeblick festpreis", "kann den preis ja
+        //   nicht vorher eintragen", "festpreis hinterlegt irgendwo".
+        //   Wenn Customer einen fixedRoutes-Eintrag hat der zur Strecke passt
+        //   (Pickup-Coords <=200m UND Ziel-Coords <=200m), übernimmt ride.price den
+        //   Festpreis statt des km-Tarifs. Lifecycle-Log mit Match-Details.
+        if (ride.customerId
+            && ride.pickupLat && ride.pickupLon
+            && ride.destinationLat && ride.destinationLon) {
+            try {
+                const _custFpSnap = await db.ref(`customers/${ride.customerId}/fixedRoutes`).once('value');
+                const _fixedRoutesRaw = _custFpSnap.val();
+                if (_fixedRoutesRaw) {
+                    const _fpList = Array.isArray(_fixedRoutesRaw)
+                        ? _fixedRoutesRaw
+                        : Object.values(_fixedRoutesRaw);
+                    const _matchRadiusKm = 0.2; // 200m
+                    let _matched = null;
+                    for (const _fp of _fpList) {
+                        if (!_fp || typeof _fp !== 'object') continue;
+                        if (typeof _fp.fromLat !== 'number' || typeof _fp.fromLon !== 'number'
+                            || typeof _fp.toLat !== 'number' || typeof _fp.toLon !== 'number'
+                            || typeof _fp.price !== 'number') continue;
+                        const _dPickup = distanceKm(parseFloat(ride.pickupLat), parseFloat(ride.pickupLon), _fp.fromLat, _fp.fromLon);
+                        const _dDest = distanceKm(parseFloat(ride.destinationLat), parseFloat(ride.destinationLon), _fp.toLat, _fp.toLon);
+                        if (_dPickup <= _matchRadiusKm && _dDest <= _matchRadiusKm) {
+                            _matched = _fp;
+                            break;
+                        }
+                    }
+                    if (_matched) {
+                        const _fpPrice = parseFloat(_matched.price).toFixed(2);
+                        await db.ref('rides/' + rideId).update({
+                            price: _fpPrice,
+                            estimatedPrice: _fpPrice,
+                            priceCalculatedAt: Date.now(),
+                            priceCalculatedBy: 'fixedRoute-match',
+                            fixedRouteMatched: true,
+                            fixedRouteName: _matched.name || (_matched.fromName + ' → ' + _matched.toName)
+                        });
+                        ride.price = _fpPrice;
+                        await addRideLog(rideId, '💰',
+                            `Festpreis aus Stammroute: ${_fpPrice}€ (${_matched.fromName || '?'} → ${_matched.toName || '?'})`,
+                            { quelle: 'onRideCreated v6.62.512', match: _matched.name || 'unbenannt' });
+                        console.log(`💰 Festpreis-Match für ${rideId}: ${_fpPrice}€`);
+                    }
+                }
+            } catch (_fpErr) { console.warn('Festpreis-Lookup Fehler:', _fpErr.message); }
+        }
+
         // v6.62.210: Auto-Preis-Berechnung wenn Buchungsquelle keinen Preis liefert.
         // Patrick (03.05. 09:36): "Native-App Vorbestellung Frau Lübke zeigt 0€ obwohl
         // Geocoding klappte". Native-CallLog (CallLogActivity) speichert nur pickup/dest/

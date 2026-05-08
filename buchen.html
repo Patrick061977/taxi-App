@@ -1074,6 +1074,30 @@
         });
         const db = firebase.database();
 
+        // 🆕 v6.62.466: Auth-Auto-Recovery (analog zu index.html v6.62.465).
+        //   Patrick (08.05. 11:52): „Er lädt die Fahrzeuge auch zu lange bei Buchung HTML."
+        //   Wurzel ist die gleiche wie bei index: korrupte Firebase-IndexedDB → Init hängt.
+        //   Auto-Recovery: nach 15s ohne onAuthStateChanged-Fire → IndexedDB resetten + reload.
+        //   Einmalig pro Tab (sessionStorage-Flag), kein Reload-Loop.
+        (function setupAuthRecovery() {
+            let _authReady = false;
+            try { firebase.auth().onAuthStateChanged(() => { _authReady = true; }); } catch(_){}
+            setTimeout(() => {
+                if (_authReady) return;
+                if (sessionStorage.getItem('_authResetDone') === '1') return;
+                console.warn('🚨 buchen.html: Auth >15s nicht ready — IndexedDB-Reset + Reload');
+                sessionStorage.setItem('_authResetDone', '1');
+                try { firebase.auth().signOut(); } catch(_){}
+                try {
+                    const dbs = ['firebaseLocalStorageDb', 'firebase-installations-database', 'firebase-heartbeat-database'];
+                    Promise.all(dbs.map(n => new Promise(r => {
+                        const req = indexedDB.deleteDatabase(n);
+                        req.onsuccess = req.onerror = req.onblocked = () => r();
+                    }))).then(() => location.reload());
+                } catch(_) { location.reload(); }
+            }, 15000);
+        })();
+
         // 🚫 v6.62.428: PWA fuer buchen.html wieder aus
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(regs => {

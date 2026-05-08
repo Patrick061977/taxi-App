@@ -5,8 +5,8 @@
   "start_url": "./hotel.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0f4c81",
-  "theme_color": "#0f4c81",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "icons": [
     {

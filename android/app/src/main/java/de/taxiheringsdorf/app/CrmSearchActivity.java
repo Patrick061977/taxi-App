@@ -1374,6 +1374,10 @@ public class CrmSearchActivity extends AppCompatActivity {
 
         btnCancel.setOnClickListener(_btn -> dlg.dismiss());
 
+        // 🆕 v6.62.507: Save-Once-Flag (final Array fuer Lambda-Closure).
+        //   Patrick (08.05. 17:47): Confirmation-OK-Klick triggerte zweiten Save.
+        final boolean[] _alreadySavedRef = { false };
+
         btnSave.setOnClickListener(_btn -> {
                 String name = etName.getText().toString().trim();
                 String pickup = tvPickup.getText().toString()
@@ -1468,8 +1472,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (!_notes.isEmpty()) r.put("notes", _notes);
                 else r.put("notes", null); // im Edit-Modus muss leer auch persistieren
 
-                // 🆕 v6.62.504: Click-Lock — verhindert Doppel-Save bei Doppel-Tap.
-                //   Patrick (08.05. 17:11): Camp David HDF wurde 2x angelegt.
+                // 🆕 v6.62.507: Patrick (08.05. 17:47): "fahrt wird angelegt → bestätigung →
+                //   ok drücken → wird nochmal angelegt". Defensive Safety-Flag zusätzlich
+                //   zum Click-Lock — verhindert ALLE Reentries (UI-Tap-Throughs etc.).
+                if (_alreadySavedRef[0]) {
+                    Log.w("CrmSearch", "Save bereits durchgeführt — ignoriere zweiten Klick");
+                    return;
+                }
+                _alreadySavedRef[0] = true;
+
+                // 🆕 v6.62.504: Click-Lock
                 btnSave.setEnabled(false);
                 btnSave.setText(isEdit ? "⏳ Speichere…" : "⏳ Anlege…");
                 btnSave.setBackgroundColor(0xFF94A3B8);
@@ -1509,7 +1521,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                         })
                         .addOnFailureListener(ex -> {
                             Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
-                            // v6.62.504: Bei Fehler Button reaktivieren
+                            // v6.62.504/.507: Bei Fehler Button reaktivieren + Save-Flag zurueck
+                            _alreadySavedRef[0] = false;
                             btnSave.setEnabled(true);
                             btnSave.setText("✅ SPEICHERN");
                             btnSave.setBackgroundColor(0xFF1E40AF);
@@ -1526,6 +1539,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                         })
                         .addOnFailureListener(ex -> {
                             Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                            // v6.62.504/.507: Bei Fehler Button reaktivieren + Save-Flag zurueck
+                            _alreadySavedRef[0] = false;
                             btnSave.setEnabled(true);
                             btnSave.setText("✅ ANLEGEN");
                             btnSave.setBackgroundColor(0xFF1E40AF);

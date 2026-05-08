@@ -1585,6 +1585,10 @@ public class CallLogActivity extends AppCompatActivity {
 
         btnCancel.setOnClickListener(_btn -> dlg.dismiss());
 
+        // 🆕 v6.62.507: Save-Once-Flag — Patrick (08.05. 17:47): "Confirmation-OK-Klick
+        //   triggerte zweiten Save". Defensive Safety zusätzlich zum Click-Lock.
+        final boolean[] _alreadySavedRef = { false };
+
         btnSave.setOnClickListener(_btn -> {
                 // v6.62.332: Quick-Flow — Name aus Vorname + Nachname concat (Anrede separat)
                 String _qfFn = etFirstName.getText().toString().trim();
@@ -1751,9 +1755,14 @@ public class CallLogActivity extends AppCompatActivity {
                 final long _pickupTsFinal = datetime[0];
                 final boolean _isHotelFinal = isHotelCustomer;
                 final String _crmNameFinal = (crm != null) ? crm.name : null;
-                // 🆕 v6.62.504: Click-Lock — Button sofort disablen damit Doppel-Tap
-                //   kein Doppel-Save triggert. Patrick (08.05. 17:11): Camp David HDF
-                //   wurde 2x angelegt bei einem Klick.
+                // 🆕 v6.62.507: Save-Once-Flag — verhindert ALLE Reentries
+                if (_alreadySavedRef[0]) {
+                    Log.w(TAG, "Save bereits durchgeführt — ignoriere zweiten Klick");
+                    return;
+                }
+                _alreadySavedRef[0] = true;
+
+                // 🆕 v6.62.504: Click-Lock
                 btnSave.setEnabled(false);
                 btnSave.setText("⏳ Speichere…");
                 btnSave.setBackgroundColor(0xFF94A3B8);
@@ -1765,7 +1774,8 @@ public class CallLogActivity extends AppCompatActivity {
                         _isHotelFinal ? _crmNameFinal : null);
                 }).addOnFailureListener(ex -> {
                     Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
-                    // Bei Fehler Button wieder aktivieren damit Patrick erneut versuchen kann
+                    // v6.62.504/.507: Bei Fehler Button reaktivieren + Save-Flag zurueck
+                    _alreadySavedRef[0] = false;
                     btnSave.setEnabled(true);
                     btnSave.setText("✅ ANLEGEN");
                     btnSave.setBackgroundColor(0xFF1E40AF);

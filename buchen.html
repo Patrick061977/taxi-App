@@ -753,8 +753,11 @@
                     <button type="button" onclick="expandVorbestellFelder()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ Ändern</button>
                 </div>
                 <div class="vorbestellen-felder" id="vorbestellen-felder">
-                    <input type="date" id="b-date" min="" onchange="onDateTimeChange()">
-                    <input type="time" id="b-time" step="600" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
+                    <!-- 🔧 v6.62.473: Datum darf nicht direkt zum Slot springen ohne Uhrzeit
+                         (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
+                         nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
+                    <input type="date" id="b-date" min="" onchange="onBDateChange()">
+                    <input type="time" id="b-time" step="600" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
                 </div>
@@ -2546,9 +2549,28 @@
             return new Date(`${d}T${h}:${m}:00`).getTime();
         }
 
+        // 🆕 v6.62.473: Nach Datum-Auswahl Uhrzeit-Feld fokussieren + leeren falls nicht
+        //   manuell gefüllt. Patrick: 'Uhrzeit wird gar nicht abgefragt' — Wurzel war dass
+        //   onDateTimeChange direkt mit Default-Hour/Minute durchlief.
+        function onBDateChange() {
+            const timeInput = document.getElementById('b-time');
+            // Wenn keine Uhrzeit explizit gewählt → fokussieren statt durchspringen
+            if (timeInput && !timeInput.value) {
+                setTimeout(() => { timeInput.focus(); try { timeInput.showPicker && timeInput.showPicker(); } catch(_){} }, 100);
+                return;
+            }
+            // Wenn Uhrzeit schon da ist → normaler Pfad
+            onDateTimeChange();
+        }
+
         function onDateTimeChange() {
             // Gewählte Zeit aus Dropdowns holen und passenden Slot markieren
             const dateVal = document.getElementById('b-date').value;
+            const timeVal = document.getElementById('b-time').value;
+            // 🚑 v6.62.473: NUR weiter wenn Uhrzeit explizit gesetzt ist (Patrick: 'Zeit wird
+            //   gar nicht abgefragt'). hour/minute-Selects sind hidden und können stale Defaults
+            //   haben — wir verwenden b-time als Single Source of Truth.
+            if (!dateVal || !timeVal) return;
             const hourVal = document.getElementById('b-hour').value;
             const minVal = document.getElementById('b-minute').value;
             // 🆕 v6.41.41: Preis neu berechnen bei Datum/Uhrzeit-Änderung

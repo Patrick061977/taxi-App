@@ -748,9 +748,11 @@
                     <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
                 </div>
                 <!-- 🆕 v6.41.66: Kompakter "Termin gewählt" Streifen — nach Slot-Wahl statt voller Felder -->
-                <div id="termin-compact" style="display:none;margin-top:8px;padding:8px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;align-items:center;justify-content:space-between;gap:8px;">
-                    <div style="font-size:13px;color:#065f46;font-weight:600;" id="termin-compact-text">📅 — —</div>
-                    <button type="button" onclick="expandVorbestellFelder()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ Ändern</button>
+                <!-- 🔧 v6.62.484: Patrick (08.05. 12:58): "kann man auf das Bild drücken?
+                     irgendwie verleitet das auf dieses kleine Feld zu drücken". Komplett klickbar. -->
+                <div id="termin-compact" onclick="expandVorbestellFelder()" style="display:none;margin-top:8px;padding:10px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">
+                    <div style="font-size:13px;color:#065f46;font-weight:600;flex:1;" id="termin-compact-text">📅 — —</div>
+                    <span style="font-size:11px;color:#059669;font-weight:600;background:white;padding:4px 10px;border:1px solid #a7f3d0;border-radius:6px;pointer-events:none;">✏️ Ändern</span>
                 </div>
                 <div class="vorbestellen-felder" id="vorbestellen-felder">
                     <!-- 🔧 v6.62.473: Datum darf nicht direkt zum Slot springen ohne Uhrzeit
@@ -1171,7 +1173,7 @@
             } catch(e) { /* non-critical */ }
         }
         // 🔧 v6.39.1: Build-Timestamp für Versions-Check im System Monitor
-        const _buchenBuild = '2026-05-07 08:20 v6.62.398';
+        const _buchenBuild = '2026-05-08 15:05 v6.62.484';
         // Auto-Reload: Wenn Seite aus Cache kommt, erzwinge Neuladen
         if (window._buchenLoaded) {
             // Doppel-Load verhindern
@@ -1189,6 +1191,38 @@
         }
         const _isCapacitorApp = window.Capacitor && window.Capacitor.isNativePlatform();
         logBuchen('🌐', `buchen.html geoeffnet | Build: ${_buchenBuild} | ${_isCapacitorApp ? '📱 App' : '🌐 Browser'} | ${window.location.hostname}`);
+
+        // 🆕 v6.62.484: Browser-Back-Schutz. Patrick (08.05. 14:57): "wenn ich unten auf
+        //   zurück klicke, springt der gleich auf die Hauptseite — das sollte nicht sein,
+        //   nicht dass ich gerade im Buchungsvorgang bin und schwuppsiwupps wieder auf
+        //   der Hauptseite". Lösung: pushState beim Page-Load → erster Back-Klick
+        //   konsumiert nur den künstlichen State und bleibt auf der Seite. Zweiter Back
+        //   verlässt erst dann normal zur vorherigen Seite. Solange im Buchungsflow
+        //   (pickup oder destination eingegeben), wird der State direkt wieder gepusht
+        //   → Back tut effektiv nichts. Erst wenn alles leer ist, geht's zurück.
+        try {
+            history.pushState({ buchenGuard: true, ts: Date.now() }, '', location.href);
+            window.addEventListener('popstate', function(e) {
+                const _hasFlow = !!(pickupCoords || destCoords ||
+                    (document.getElementById('pickup') && document.getElementById('pickup').value) ||
+                    (document.getElementById('destination') && document.getElementById('destination').value));
+                // Falls Slot-Kalender offen ist → erstmal NUR den schließen
+                const _cal = document.getElementById('vorbestellen-kalender');
+                if (_cal && _cal.style.display !== 'none' && _hasFlow) {
+                    _cal.style.display = 'none';
+                    history.pushState({ buchenGuard: true, ts: Date.now() }, '', location.href);
+                    return;
+                }
+                if (_hasFlow) {
+                    // Im Flow → State wieder pushen, Toast zeigen
+                    history.pushState({ buchenGuard: true, ts: Date.now() }, '', location.href);
+                    if (typeof showToast === 'function') {
+                        showToast('Buchung läuft — Felder leeren oder oben links zurück tippen zum Abbrechen', 'info');
+                    }
+                }
+                // Sonst: kein Flow, popstate konsumiert den letzten Guard → wir lassen Browser zurück
+            });
+        } catch (_e) { /* History-API nicht verfügbar */ }
 
         // State
         let pickupCoords = null;

@@ -19645,6 +19645,13 @@ exports.onRideCreated = onValueCreated(
                             const _smtp = _smtpSnap.val() || {};
                             if (!_smtp.host || !_smtp.user || !_smtp.pass) {
                                 console.warn('SMTP nicht konfiguriert — Hotel-Email skip');
+                                // v6.62.508: ride.hotelEmailStatus = 'no_smtp'
+                                try { await db.ref('rides/' + rideId).update({
+                                    hotelEmailStatus: 'no_smtp',
+                                    hotelEmailTo: _hotelEmail,
+                                    hotelEmailReason: 'SMTP-Server nicht in settings/smtp konfiguriert',
+                                    hotelEmailUpdatedAt: Date.now()
+                                }); } catch(_) {}
                                 await addRideLog(rideId, '⚠️', 'SMTP nicht konfiguriert — Hotel-Email skip', { hotel: _hotelName, email: _hotelEmail });
                             } else {
                                 const _nodemailer = require('nodemailer');
@@ -19702,14 +19709,6 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
                                     email: _hotelEmail,
                                     typ: _typLabel
                                 });
-                            } else {
-                                // SMTP nicht konfiguriert
-                                try { await db.ref('rides/' + rideId).update({
-                                    hotelEmailStatus: 'no_smtp',
-                                    hotelEmailTo: _hotelEmail,
-                                    hotelEmailReason: 'SMTP-Server nicht in settings/smtp konfiguriert',
-                                    hotelEmailUpdatedAt: Date.now()
-                                }); } catch(_) {}
                             }
                         } catch (_emailErr) {
                             console.error('❌ Hotel-Email-Versand fehlgeschlagen:', _emailErr.message);

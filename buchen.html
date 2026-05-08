@@ -3348,12 +3348,16 @@
                     el.className = 'availability-card unavailable';
                     el.style.display = '';
                     const fahrtInfo = routeData ? ` (Ihre Fahrt: ca. ${routeData.min} Min + Rückfahrt)` : '';
-                    // 🆕 v6.62.455: Konflikt-Begründung aufklappbar zeigen (Patrick 08.05. 10:52:
-                    //   'Ich würde im Konflikt-Checker sehen warum, aber bei buchen.html nicht').
-                    const conflictHtml = (_conflictDetails && _conflictDetails.length)
-                        ? `<details style="margin:10px 0;text-align:left;background:rgba(0,0,0,0.04);padding:8px;border-radius:6px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">📋 Warum belegt? (${_conflictDetails.length} Fahrt${_conflictDetails.length>1?'en':''})</summary><div style="margin-top:6px;line-height:1.5;color:#374151;">${_conflictDetails.map(d => '• ' + d).join('<br>')}</div></details>`
+                    // 🚑 v6.62.457: KEINE Konflikt-Details mehr im Kunden-View — DSGVO!
+                    //   v6.62.455 hatte Kundennamen+Vehicle der bestehenden Fahrten gezeigt
+                    //   (sichtbar für JEDEN buchen.html-Besucher). Patrick (08.05. 10:57):
+                    //   „Aus datenschutzrechtlichen Gründen sollten Kunden das nicht sehen."
+                    //   Nur noch anonyme Anzahl, Fahrer-Audit (logBuchen) hat die Details
+                    //   weiterhin im Console-Log fuer Patrick selbst.
+                    const conflictAnon = (_conflictDetails && _conflictDetails.length)
+                        ? `<div style="margin:8px 0;font-size:13px;opacity:0.85;">${_conflictDetails.length} Fahrt${_conflictDetails.length>1?'en':''} blockieren diesen Zeitraum.</div>`
                         : '';
-                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${conflictHtml}${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
+                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${conflictAnon}${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
                     isAvailable = false;
                     updateBookButton();
                 }

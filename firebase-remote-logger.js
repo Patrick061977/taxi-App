@@ -56,7 +56,11 @@
 
         // 🔒 Loop protection
         MAX_UPLOAD_RETRIES: 3,
-        UPLOAD_TIMEOUT: 5000 // 5 seconds
+        // 🔧 v6.62.454: 5s war bei langsamen Mobilfunk-Verbindungen zu kurz — Patrick (08.05.):
+        //   wiederholte 'Failed to upload logs: Upload timeout'-Crashes alle paar Min, obwohl
+        //   die Schreiboperation real durchgegangen war (nur etwas langsam). 30s gibt Firebase
+        //   Zeit zum Antworten ohne dass die Race-Promise zu früh rejected.
+        UPLOAD_TIMEOUT: 30000 // 30 seconds
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -319,7 +323,12 @@
                 console.log(`📊 Total uploaded: ${uploadStats.totalUploaded}`);
 
             } catch (error) {
-                console.error('❌ Failed to upload logs:', error.message);
+                // 🔧 v6.62.454: console.error → console.warn damit JS-Crash-Logger das nicht
+                //   als Crash flagged. Der Cloud-Trigger picked nur console.error auf und
+                //   verschickt Telegram-Push — Patrick bekam alle 5s einen 'JS-Crash: Upload
+                //   timeout' Push, obwohl es nur ein Logger-Retry war. Warn ist Logger-intern
+                //   sichtbar aber löst keinen Crash-Push aus.
+                console.warn('⚠️ Logger-Upload Timeout (re-queued):', error.message);
 
                 // Put logs back in queue (at the front) - FIX: war falsch (splice gibt [] zurück)
                 // batch wurde bereits aus uploadQueue entfernt, wieder vorne einfügen

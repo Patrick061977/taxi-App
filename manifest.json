@@ -4,8 +4,8 @@
   "description": "Taxi-Buchungssystem für Usedom",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
+  "background_color": "#047a47",
+  "theme_color": "#047a47",
   "orientation": "portrait-primary",
   "icons": [
     {

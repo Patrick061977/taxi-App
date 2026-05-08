@@ -1755,9 +1755,9 @@ public class CallLogActivity extends AppCompatActivity {
                 final long _pickupTsFinal = datetime[0];
                 final boolean _isHotelFinal = isHotelCustomer;
                 final String _crmNameFinal = (crm != null) ? crm.name : null;
-                // 🆕 v6.62.507: Save-Once-Flag — verhindert ALLE Reentries
+                // 🆕 v6.62.507/.510: Save-Once-Flag — verhindert ALLE Reentries
                 if (_alreadySavedRef[0]) {
-                    Log.w(TAG, "Save bereits durchgeführt — ignoriere zweiten Klick");
+                    android.util.Log.w("CallLogActivity", "Save bereits durchgeführt — ignoriere zweiten Klick");
                     return;
                 }
                 _alreadySavedRef[0] = true;

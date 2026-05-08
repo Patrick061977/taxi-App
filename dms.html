@@ -329,9 +329,9 @@
                             <option value="11">November</option>
                             <option value="12">Dezember</option>
                         </select>
-                        <select id="lib-gruppe" class="form-select" onchange="renderLibrary()" title="Gruppierung für Ordner-Ablage">
+                        <select id="lib-gruppe" class="form-select" onchange="saveLibGruppe();renderLibrary()" title="Gruppierung für Ordner-Ablage">
                             <option value="">Liste</option>
-                            <option value="monat">📂 nach Monat</option>
+                            <option value="monat" selected>📂 nach Monat</option>
                             <option value="quartal">📁 nach Quartal</option>
                         </select>
                         <select id="lib-wfstatus" class="form-select" onchange="renderLibrary()">
@@ -2048,6 +2048,23 @@
             showToast(`${note} eingetragen`);
             await loadDocs();
         }
+
+        // 🔧 v6.62.430: DMS-Gruppierungs-Auswahl persistieren (Patrick: 'auf monat umgestellt').
+        //   Default 'monat' (HTML selected), Auswahl wird in localStorage gemerkt.
+        function saveLibGruppe() {
+            try {
+                const v = document.getElementById('lib-gruppe')?.value || '';
+                localStorage.setItem('dms_libGruppe', v);
+            } catch(_) {}
+        }
+        function restoreLibGruppe() {
+            try {
+                const saved = localStorage.getItem('dms_libGruppe');
+                const sel = document.getElementById('lib-gruppe');
+                if (sel && saved !== null) sel.value = saved;
+            } catch(_) {}
+        }
+        document.addEventListener('DOMContentLoaded', restoreLibGruppe);
 
         function renderLibrary() {
             // v6.62.357: SKR03-Filter — Cache laden + Selects befuellen falls noch nicht

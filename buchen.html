@@ -733,7 +733,13 @@
         <!-- 🆕 v6.41.69: Sticky am oberen Bildschirmrand → bleibt sichtbar beim Scrollen (Mobile-Wunsch) -->
         <div id="step-progress" style="display:none;gap:4px;padding:8px 10px;margin-bottom:10px;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid #e5e7eb;border-radius:12px;overflow-x:auto;white-space:nowrap;font-size:11px;font-weight:600;position:sticky;top:8px;z-index:50;box-shadow:0 4px 14px rgba(15,23,42,0.08);"></div>
 
-        <!-- 🆕 v6.41.55: Wann-Card oben — erste Entscheidung des Kunden (Sofort/Vorbestellen) -->
+        <!-- 🔧 v6.62.446: Reihenfolge umgestellt (Patrick 08.05. 10:02): Pickup → Ziel → Karte
+             → Wann ZULETZT. Vorher stand 'Wann' ganz oben — Patrick: 'das geht so schnell weg,
+             die Leute können die Uhrzeit leicht übersehen'. JS-basiert: DOMContentLoaded
+             verschiebt #wann-card nach #booking-card (siehe ganz unten).
+             HTML-Reihenfolge im DOM-Source bleibt zur Kompatibilität gleich, nur das Layout
+             ändert sich nach DOM-Ready. -->
+        <!-- 🆕 v6.41.55: Wann-Card — Termin-Entscheidung des Kunden (Sofort/Vorbestellen) -->
         <div class="card" id="wann-card" style="padding:12px;">
 <div class="input-group" style="margin-bottom:0;">
                 <label style="margin-bottom:6px;">🕐 Wann?</label>
@@ -1048,6 +1054,22 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
+        // 🔧 v6.62.446: Reihenfolge der Karten umstellen (Patrick 08.05. 10:02): Pickup/Ziel
+        //   zuerst, Karte mittig, Wann-Termin ZULETZT. Patrick: 'Wann oben geht zu schnell weg,
+        //   die Leute können die Uhrzeit leicht übersehen'. Vor v6.62.446 Reihenfolge war:
+        //   wann-card → live-taxi-card → booking-card. Jetzt: booking-card → live-taxi-card →
+        //   wann-card. Wir verschieben das #wann-card-Element zur Laufzeit nach #booking-card,
+        //   weil im HTML-Source-Block viele Inline-Listener auf die alte Reihenfolge bezugnehmen.
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const wann = document.getElementById('wann-card');
+                const booking = document.getElementById('booking-card');
+                if (wann && booking && booking.parentNode) {
+                    booking.parentNode.insertBefore(wann, booking.nextSibling);
+                }
+            } catch (_e) { console.warn('v6.62.446 reorder fehlgeschlagen:', _e); }
+        });
+
         // Firebase Init
         firebase.initializeApp({
             apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",

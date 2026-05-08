@@ -83,9 +83,13 @@
                 font-size: 12px; font-weight: 700; flex-shrink: 0;
             }
             #pwa-install-modal .pwa-fallback-note {
-                background: #fef3c7; border: 1px solid #fde68a;
-                padding: 10px 12px; border-radius: 8px; font-size: 13px;
-                color: #92400e; margin-top: 12px; line-height: 1.5;
+                background: #ecfdf5; border: 2px solid #10b981;
+                padding: 16px 18px; border-radius: 10px; font-size: 16px;
+                color: #064e3b; margin-top: 4px; line-height: 1.6;
+                text-align: center; font-weight: 600;
+            }
+            #pwa-install-modal .pwa-fallback-note b {
+                color: #047857; font-size: 17px;
             }
             #pwa-install-modal button.pwa-close-btn {
                 width: 100%; margin-top: 14px; padding: 10px;
@@ -131,48 +135,27 @@
 
     function buildInstructions() {
         const b = detectBrowser();
-        let title = 'App auf Ihr Gerät hinzufügen';
+        // 🔧 v6.62.432: Modal radikal vereinfacht (Patrick: 'da sehe ich nicht durch und die
+        //   Kunden auch'). EINE Zeile pro Geraet, keine Schritte mehr.
+        let title = '📲 App installieren';
         let steps = [];
         let note = '';
 
-        if (b.isIOS && b.isSafari) {
-            title = '📱 iPhone / iPad — Safari';
-            steps = [
-                'Tippen Sie unten auf das Teilen-Symbol &#x2934;',
-                'Wählen Sie „Zum Home-Bildschirm" aus der Liste',
-                'Tippen Sie auf „Hinzufügen"'
-            ];
-        } else if (b.isIOS) {
-            title = '📱 iPhone / iPad';
-            steps = [
-                'Öffnen Sie diese Seite in Safari (App-Installation geht nur dort)',
-                'Tippen Sie auf das Teilen-Symbol unten',
-                'Wählen Sie „Zum Home-Bildschirm hinzufügen"'
-            ];
+        if (b.isIOS) {
+            title = '📲 Auf iPhone installieren';
+            note = 'Unten auf <b>Teilen</b> ⎙ tippen → <b>„Zum Home-Bildschirm"</b>.';
         } else if (b.isAndroid && b.isFirefox) {
-            title = '🦊 Firefox auf Android';
-            steps = [
-                'Tippen Sie oben rechts auf das ⋮ Menü',
-                'Wählen Sie „Installieren" oder „Zum Startbildschirm hinzufügen"'
-            ];
-        } else if (b.isFirefox) {
-            title = '🦊 Firefox am Computer';
-            steps = [];
-            note = 'Firefox am Desktop unterstützt die Installation als App leider nicht. ' +
-                   'Bitte öffnen Sie diese Seite in Chrome, Edge oder Brave — dort erscheint oben in der Adressleiste ein Installations-Symbol.';
+            title = '📲 Auf Android (Firefox)';
+            note = 'Oben rechts <b>⋮</b> → <b>„Installieren"</b>.';
         } else if (b.isAndroid) {
-            title = '📱 Android';
-            steps = [
-                'Tippen Sie oben rechts auf das ⋮ Menü',
-                'Wählen Sie „App installieren" oder „Zum Startbildschirm hinzufügen"'
-            ];
+            title = '📲 Auf Android';
+            note = 'Oben rechts <b>⋮</b> → <b>„App installieren"</b>.';
+        } else if (b.isFirefox) {
+            title = '💻 Firefox am PC';
+            note = 'Firefox kann das nicht — bitte <b>Chrome</b> oder <b>Edge</b> nutzen.';
         } else {
             title = '💻 Am Computer';
-            steps = [
-                'Schauen Sie oben rechts in die Adressleiste — dort erscheint ein Installations-Symbol',
-                'Klicken Sie darauf und bestätigen Sie',
-                'Alternative: Browser-Menü → „App installieren"'
-            ];
+            note = 'Oben rechts in der Adressleiste auf das <b>Installations-Symbol</b> klicken.';
         }
 
         return { title, steps, note };

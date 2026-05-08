@@ -482,6 +482,10 @@
         let vehicleMarker = null;
         let pickupMarker = null;
         let destinationMarker = null;
+        // 🆕 v6.62.443: Waypoints auf der Karte (Patrick 08.05. 09:23: „Bei Frau Schöning
+        //   waren die Waypoints auf der Karte gar nicht dabei"). Track-Page hat sie bisher
+        //   komplett ignoriert — weder Marker gezeichnet noch in die OSRM-Route gepackt.
+        let waypointMarkers = [];
         let locationUpdateInterval = null;
         
         // Tracking-Daten laden (per Code ODER direkt per Ride-ID)
@@ -556,22 +560,48 @@
                     destinationMarker = L.marker([destLat, destLon], { icon: _destIcon }).addTo(map).bindPopup('<b>🎯 Zielort:</b><br>' + destination);
                 }
 
-                // v6.62.55: Karte zeigt Pickup→Destination + Auto-Zoom.
+                // 🆕 v6.62.443: Waypoints (Zwischenstopps) auf der Karte zeichnen + in OSRM-Route
+                //   einbeziehen. Patrick 08.05. 09:23: „der Waypoint ist auf der Karte gar
+                //   nicht dabei". Bisher wurde nur Pickup→Destination gezeichnet.
+                const _wpRaw = (rideData && rideData.waypoints) ? rideData.waypoints : null;
+                const _wpList = (Array.isArray(_wpRaw) ? _wpRaw : Object.values(_wpRaw || {}))
+                    .map(w => w && typeof w === 'object' && w.lat && w.lon
+                        ? { lat: parseFloat(w.lat), lon: parseFloat(w.lon), address: w.address || '' }
+                        : null)
+                    .filter(Boolean);
+                waypointMarkers.forEach(m => { try { map.removeLayer(m); } catch(_){}});
+                waypointMarkers = [];
+                _wpList.forEach((wp, i) => {
+                    const _wpIcon = L.divIcon({
+                        html: '<div style="background:#f59e0b;border:3px solid white;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:13px;color:white;font-weight:700;">' + (i + 1) + '</span></div>',
+                        iconSize: [28, 28], iconAnchor: [14, 28], className: 'wp-pin'
+                    });
+                    const _m = L.marker([wp.lat, wp.lon], { icon: _wpIcon })
+                        .addTo(map)
+                        .bindPopup('<b>🚏 Zwischenstopp ' + (i + 1) + ':</b><br>' + (wp.address || ''));
+                    waypointMarkers.push(_m);
+                });
+
+                // v6.62.55: Karte zeigt Pickup → (Waypoints) → Destination + Auto-Zoom.
                 // v6.62.56: Patrick: 'auf Karte sind die Koordinaten ja ueberhaupt nicht
                 // richtig — muessen so sein wie der Fahrer faehrt'. Erst Fallback (gerade
-                // Linie) zeichnen damit Karte sofort etwas zeigt, dann OSRM-Route fetchen
-                // und drueberlegen.
+                // Linie) zeichnen damit Karte sofort etwas zeigt, dann OSRM-Route fetchen.
                 if (pickupLat && pickupLon && destLat && destLon) {
-                    let _fallbackLine = L.polyline([[pickupLat, pickupLon], [destLat, destLon]], {
+                    // v6.62.443: Stops-Liste für Polyline + OSRM-URL inkl. Waypoints
+                    const _stops = [[pickupLat, pickupLon],
+                        ..._wpList.map(w => [w.lat, w.lon]),
+                        [destLat, destLon]];
+                    let _fallbackLine = L.polyline(_stops, {
                         color: '#3b82f6', weight: 3, opacity: 0.4, dashArray: '8 8'
                     }).addTo(map);
-                    const _bounds = L.latLngBounds([[pickupLat, pickupLon], [destLat, destLon]]);
+                    const _bounds = L.latLngBounds(_stops);
                     map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 });
 
                     // OSRM-Route asynchron holen + Fallback ersetzen
                     (async () => {
                         try {
-                            const _url = `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${destLon},${destLat}?overview=full&geometries=geojson`;
+                            const _osrmCoords = _stops.map(s => `${s[1]},${s[0]}`).join(';');
+                            const _url = `https://router.project-osrm.org/route/v1/driving/${_osrmCoords}?overview=full&geometries=geojson`;
                             const _resp = await fetch(_url);
                             const _data = await _resp.json();
                             if (_data.code === 'Ok' && _data.routes && _data.routes[0] && _data.routes[0].geometry) {

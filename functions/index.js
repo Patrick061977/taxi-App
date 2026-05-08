@@ -19541,9 +19541,35 @@ exports.onRideCreated = onValueCreated(
                 if (_isHotel) {
                     const _hotelEmail = _customer.email || null;
                     const _hotelName = _customer.name || ride.customerName || '?';
-                    // 🆕 v6.62.508: ride.hotelEmailStatus + ride.hotelEmailTo schreiben
-                    //   damit Patrick im Edit-Modal sofort sieht ob Email rausging.
-                    if (!_hotelEmail) {
+
+                    // 🆕 v6.62.509: Master-Switch fuer Hotel-Email-Versand (Probephase).
+                    //   Patrick (08.05. 18:12): "wir sind in der probephase". Default
+                    //   OFF damit ich nicht versehentlich Emails an Hotels schicke.
+                    //   settings/hotelEmail.enabled = true → ein, sonst aus.
+                    //   Pro-Customer-Override: customer.emailEnabled = true/false.
+                    let _hotelEmailEnabled = false;
+                    try {
+                        const _heSnap = await db.ref('settings/hotelEmail').once('value');
+                        const _he = _heSnap.val() || {};
+                        _hotelEmailEnabled = _he.enabled === true; // explizit
+                    } catch (_) {}
+                    // Customer-Override
+                    if (_customer.emailEnabled === true) _hotelEmailEnabled = true;
+                    else if (_customer.emailEnabled === false) _hotelEmailEnabled = false;
+
+                    if (!_hotelEmailEnabled) {
+                        try { await db.ref('rides/' + rideId).update({
+                            hotelEmailStatus: 'disabled',
+                            hotelEmailTo: _hotelEmail || null,
+                            hotelEmailReason: 'Hotel-Email-Versand ist deaktiviert (Probephase)',
+                            hotelEmailUpdatedAt: Date.now()
+                        }); } catch(_) {}
+                        await addRideLog(rideId, '🔕', `Hotel-Email skip: Versand global/customer-spezifisch deaktiviert`, {
+                            hotel: _hotelName, email: _hotelEmail || 'keine'
+                        });
+                        // Skip alle weiteren Schritte fuer Hotel-Email
+                        ride.customerId = ride.customerId; // no-op fuer Branch
+                    } else if (!_hotelEmail) {
                         try { await db.ref('rides/' + rideId).update({
                             hotelEmailStatus: 'no_email',
                             hotelEmailReason: 'Hotel hat keine Email-Adresse im CRM hinterlegt',

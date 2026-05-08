@@ -1751,13 +1751,25 @@ public class CallLogActivity extends AppCompatActivity {
                 final long _pickupTsFinal = datetime[0];
                 final boolean _isHotelFinal = isHotelCustomer;
                 final String _crmNameFinal = (crm != null) ? crm.name : null;
+                // 🆕 v6.62.504: Click-Lock — Button sofort disablen damit Doppel-Tap
+                //   kein Doppel-Save triggert. Patrick (08.05. 17:11): Camp David HDF
+                //   wurde 2x angelegt bei einem Klick.
+                btnSave.setEnabled(false);
+                btnSave.setText("⏳ Speichere…");
+                btnSave.setBackgroundColor(0xFF94A3B8);
                 ref.setValue(r).addOnSuccessListener(_v -> {
                     dlg.dismiss();
                     // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
                     showCallLogBookingConfirmation(_nameFinal, _pickupFinal, _destFinal,
                         _pickupTsFinal, _paxFinal, _notesFinal,
                         _isHotelFinal ? _crmNameFinal : null);
-                }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                }).addOnFailureListener(ex -> {
+                    Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                    // Bei Fehler Button wieder aktivieren damit Patrick erneut versuchen kann
+                    btnSave.setEnabled(true);
+                    btnSave.setText("✅ ANLEGEN");
+                    btnSave.setBackgroundColor(0xFF1E40AF);
+                });
         });
 
         dlg.show();

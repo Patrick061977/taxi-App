@@ -1468,6 +1468,12 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (!_notes.isEmpty()) r.put("notes", _notes);
                 else r.put("notes", null); // im Edit-Modus muss leer auch persistieren
 
+                // 🆕 v6.62.504: Click-Lock — verhindert Doppel-Save bei Doppel-Tap.
+                //   Patrick (08.05. 17:11): Camp David HDF wurde 2x angelegt.
+                btnSave.setEnabled(false);
+                btnSave.setText(isEdit ? "⏳ Speichere…" : "⏳ Anlege…");
+                btnSave.setBackgroundColor(0xFF94A3B8);
+
                 if (isEdit) {
                     // 🆕 v6.62.483: Update bestehende Ride. createdAt/source/customerId
                     //   bleiben erhalten (werden nicht überschrieben).
@@ -1499,10 +1505,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + editRideId).updateChildren(r)
                         .addOnSuccessListener(_v -> {
                             dlg.dismiss();
-                            // 🆕 v6.62.485: Confirmation-Screen statt nur Toast
                             showBookingConfirmation(true, name, pickup, dest, pickupTs, _paxFinal, _notesFinal, isHotel ? e.name : null);
                         })
-                        .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(ex -> {
+                            Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                            // v6.62.504: Bei Fehler Button reaktivieren
+                            btnSave.setEnabled(true);
+                            btnSave.setText("✅ SPEICHERN");
+                            btnSave.setBackgroundColor(0xFF1E40AF);
+                        });
                 } else {
                     r.put("createdAt", now);
                     r.put("source", "native_vorbestellung_crmsearch");
@@ -1511,13 +1522,14 @@ public class CrmSearchActivity extends AppCompatActivity {
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                         .addOnSuccessListener(_v -> {
                             dlg.dismiss();
-                            // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
-                            //   Patrick (08.05. 13:18): "kann man das so machen, wenn ich
-                            //   das erstelle im Handy, dass ich dann nochmal eine Übersicht
-                            //   sehe was alles drinnen steht, damit ich das abspeichern kann"
                             showBookingConfirmation(false, name, pickup, dest, pickupTs, _paxFinal2, _notesFinal2, isHotel ? e.name : null);
                         })
-                        .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                        .addOnFailureListener(ex -> {
+                            Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                            btnSave.setEnabled(true);
+                            btnSave.setText("✅ ANLEGEN");
+                            btnSave.setBackgroundColor(0xFF1E40AF);
+                        });
                 }
         });
 

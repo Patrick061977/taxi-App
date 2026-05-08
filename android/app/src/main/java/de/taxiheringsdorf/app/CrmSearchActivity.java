@@ -666,23 +666,63 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         final String _msgFinal = msg.toString();
 
-        new AlertDialog.Builder(this)
+        // 🆕 v6.62.483: Bearbeiten-Option nur fuer zukuenftige Vorbestellungen.
+        //   Vergangene/abgeschlossene/stornierte Fahrten sind read-only.
+        final boolean _editable = "vorbestellt".equals(st) && ts > System.currentTimeMillis();
+        final String _rideIdFinal = (String) r.get("id");
+
+        AlertDialog.Builder _b = new AlertDialog.Builder(this)
             .setTitle("Fahrt-Details")
-            .setMessage(_msgFinal)
-            .setPositiveButton("📋 Kopieren", (d, w) -> {
+            .setMessage(_msgFinal);
+
+        if (_editable && _rideIdFinal != null) {
+            _b.setPositiveButton("✏️ Bearbeiten", (d, w) -> openRideEditDialog(e, _rideIdFinal, r));
+            _b.setNeutralButton("📋 Kopieren", (d, w) -> {
                 android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                 if (cm != null) {
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
                     Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
                 }
-            })
-            .setNeutralButton("📅 Erneut buchen", (d, w) -> {
-                // Vorbelegen mit dieser Adresse → CRM-Eintrag temporär patchen + Vorbestell-Maske
-                CrmEntry _e = e;
-                showVorbestellungDialogWithGuest(_e);
-            })
-            .setNegativeButton("Zurück", null)
-            .show();
+            });
+            _b.setNegativeButton("Zurück", null);
+        } else {
+            _b.setPositiveButton("📋 Kopieren", (d, w) -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
+                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
+                }
+            });
+            _b.setNeutralButton("📅 Erneut buchen", (d, w) -> showVorbestellungDialogWithGuest(e));
+            _b.setNegativeButton("Zurück", null);
+        }
+
+        _b.show();
+    }
+
+    // 🆕 v6.62.483: Bearbeiten-Dialog für eine bestehende Vorbestellung. Lädt die volle
+    //   Ride-Daten aus Firebase (nicht nur das Liste-Subset) und öffnet showVorbestellungMaske
+    //   im Edit-Modus mit Pre-Fill aller Felder.
+    private void openRideEditDialog(CrmEntry e, String rideId, Map<String, Object> rideListEntry) {
+        final ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Lade Fahrt-Details…");
+        _pd.setCancelable(false);
+        _pd.show();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId).get()
+            .addOnCompleteListener(task -> {
+                _pd.dismiss();
+                if (!task.isSuccessful() || task.getResult() == null || !task.getResult().exists()) {
+                    Toast.makeText(this, "❌ Fahrt nicht gefunden", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
+                if (_full == null) {
+                    Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Top-Ziele für die Quick-Chips analog zum Anlegen-Flow
+                showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), rideId, _full);
+            });
     }
 
     private void createSofortFahrtFromCrm(CrmEntry e) {
@@ -851,7 +891,18 @@ public class CrmSearchActivity extends AppCompatActivity {
     // Name, Pickup, Tausch, Quick-Ziele (Chips), Zielort, Zwischenstops, Personen-Spinner,
     // Datum/Zeit, Anlegen. Stammkunde: Pickup vorausgefuellt mit CRM-Adresse.
     // Hotel/Firma: Pickup leer, Ziel = Hotel-Adresse, plus Gastname + Gast-Telefon-Felder.
+    // Default-Variante (Anlegen-Modus) — neue Vorbestellung pushen.
     private void showVorbestellungMaske(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoordsMap) {
+        showVorbestellungMaske(e, topDests, destCoordsMap, null, null);
+    }
+
+    // 🆕 v6.62.483: Edit-Variante — bestehende Vorbestellung bearbeiten und updaten.
+    //   Patrick (08.05. 14:54): "warum kann ich denn die Fahrten der Kunden nicht bearbeiten?"
+    //   Wenn editRideId != null → ALLE Felder werden mit dem Ride pre-filled, Save updated
+    //   die existierende Ride statt neue zu pushen. Bei Adress-/Termin-Änderung wird
+    //   vehicleId/assignedAt/assignedBy genullt damit autoResolveConflicts neu zuweist.
+    private void showVorbestellungMaske(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoordsMap, String editRideId, Map<String, Object> editRide) {
+        final boolean isEdit = (editRideId != null && editRide != null);
         final boolean isHotel = isAuftraggeberCrm(e);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -875,7 +926,16 @@ public class CrmSearchActivity extends AppCompatActivity {
         // Name-Feld — Hotel/Firma = Gastname (leer); Stammkunde = Kundenname (vorausgefuellt)
         EditText etName = new EditText(this);
         etName.setHint(isHotel ? "Gastname (für den gebucht wird)" : "Kundenname");
-        etName.setText(isHotel ? "" : (e.name != null ? e.name : ""));
+        // v6.62.483: im Edit-Modus den existierenden Namen aus der Ride pre-fillen.
+        //   Hotel: guestName (Gastname), sonst customerName.
+        if (isEdit) {
+            String _existingName = isHotel
+                ? (editRide.get("guestName") != null ? String.valueOf(editRide.get("guestName")) : "")
+                : (editRide.get("customerName") != null ? String.valueOf(editRide.get("customerName")) : "");
+            etName.setText(_existingName);
+        } else {
+            etName.setText(isHotel ? "" : (e.name != null ? e.name : ""));
+        }
         etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         layout.addView(etName);
 
@@ -913,7 +973,15 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Abholort). Patrick fuellt nur Zielort. Tausch-Button kehrt um falls Gast
         //   ZUM Hotel/Kunden gefahren werden soll.
         TextView tvPickup = new TextView(this);
-        if (e.address != null && !e.address.isEmpty()) {
+        // v6.62.483: Im Edit-Modus Pickup aus der Ride pre-fillen, sonst CRM-Adresse.
+        if (isEdit && editRide.get("pickup") != null) {
+            tvPickup.setText("📍 " + editRide.get("pickup"));
+            Object _pl = editRide.get("pickupLat"), _po = editRide.get("pickupLon");
+            if (_pl instanceof Number && _po instanceof Number) {
+                pickupCoords[0] = ((Number) _pl).doubleValue();
+                pickupCoords[1] = ((Number) _po).doubleValue();
+            }
+        } else if (e.address != null && !e.address.isEmpty()) {
             tvPickup.setText("📍 " + e.address);
             if (e.lat != null && e.lon != null) {
                 pickupCoords[0] = e.lat; pickupCoords[1] = e.lon;
@@ -944,7 +1012,17 @@ public class CrmSearchActivity extends AppCompatActivity {
 
         TextView tvDest = new TextView(this);
         // v6.62.315: Zielort immer leer beim Oeffnen (Patrick fuellt aus)
-        tvDest.setText("🎯 Zielort wählen…");
+        // v6.62.483: Im Edit-Modus pre-fillen.
+        if (isEdit && editRide.get("destination") != null) {
+            tvDest.setText("🎯 " + editRide.get("destination"));
+            Object _dl = editRide.get("destinationLat"), _do = editRide.get("destinationLon");
+            if (_dl instanceof Number && _do instanceof Number) {
+                destCoords[0] = ((Number) _dl).doubleValue();
+                destCoords[1] = ((Number) _do).doubleValue();
+            }
+        } else {
+            tvDest.setText("🎯 Zielort wählen…");
+        }
         tvDest.setPadding(pad / 2, pad, pad / 2, pad);
         tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
         layout.addView(tvDest);
@@ -1056,6 +1134,61 @@ public class CrmSearchActivity extends AppCompatActivity {
         });
         layout.addView(btnAddWp);
 
+        // v6.62.483: Bei Edit existierende Waypoints automatisch hinzufügen.
+        if (isEdit && editRide.get("waypoints") != null) {
+            try {
+                Object _wpRaw = editRide.get("waypoints");
+                List<Map<String, Object>> _existingWps = new ArrayList<>();
+                if (_wpRaw instanceof List) {
+                    for (Object o : (List<?>) _wpRaw) {
+                        if (o instanceof Map) _existingWps.add((Map<String, Object>) o);
+                    }
+                } else if (_wpRaw instanceof Map) {
+                    for (Object o : ((Map<?, ?>) _wpRaw).values()) {
+                        if (o instanceof Map) _existingWps.add((Map<String, Object>) o);
+                    }
+                }
+                for (Map<String, Object> _wp : _existingWps) {
+                    String _addr = _wp.get("address") != null ? String.valueOf(_wp.get("address")) : "";
+                    if (_addr.isEmpty()) continue;
+                    final double[] wpC = new double[]{Double.NaN, Double.NaN};
+                    Object _wlat = _wp.get("lat"), _wlon = _wp.get("lon");
+                    if (_wlat instanceof Number && _wlon instanceof Number) {
+                        wpC[0] = ((Number) _wlat).doubleValue();
+                        wpC[1] = ((Number) _wlon).doubleValue();
+                    }
+                    waypointCoords.add(wpC);
+
+                    LinearLayout wpRow = new LinearLayout(this);
+                    wpRow.setOrientation(LinearLayout.HORIZONTAL);
+                    TextView tvWp = new TextView(this);
+                    tvWp.setText("🔶 " + _addr);
+                    tvWp.setPadding(pad / 2, pad, pad / 2, pad);
+                    LinearLayout.LayoutParams wpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                    tvWp.setLayoutParams(wpLp);
+                    tvWp.setOnClickListener(__v -> launchPlaces(tvWp, wpC));
+                    wpRow.addView(tvWp);
+                    waypointFields.add(tvWp);
+
+                    TextView btnRemove = new TextView(this);
+                    btnRemove.setText("✕");
+                    btnRemove.setTextSize(18);
+                    btnRemove.setTextColor(0xFFDC2626);
+                    btnRemove.setPadding(pad, pad, pad, pad);
+                    btnRemove.setOnClickListener(__v -> {
+                        int pos = waypointFields.indexOf(tvWp);
+                        if (pos >= 0) {
+                            waypointFields.remove(pos);
+                            waypointCoords.remove(pos);
+                        }
+                        wpContainer.removeView(wpRow);
+                    });
+                    wpRow.addView(btnRemove);
+                    wpContainer.addView(wpRow);
+                }
+            } catch (Throwable _wpErr) { Log.w("CrmSearch", "Waypoint-Prefill: " + _wpErr.getMessage()); }
+        }
+
         // Personen-Spinner (1-8, ab 5 = Bus)
         TextView tvPaxLabel = new TextView(this);
         tvPaxLabel.setText("👥 Personen:");
@@ -1071,12 +1204,24 @@ public class CrmSearchActivity extends AppCompatActivity {
                          "5 Personen (Bus)", "6 Personen (Bus)", "7 Personen (Bus)", "8 Personen (Bus)"});
         paxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spnPax.setAdapter(paxAdapter);
-        spnPax.setSelection(0);
+        // v6.62.483: Personenzahl aus Edit-Ride pre-fillen (1-8 → Index 0-7)
+        if (isEdit && editRide.get("passengers") instanceof Number) {
+            int _pax = ((Number) editRide.get("passengers")).intValue();
+            if (_pax < 1) _pax = 1;
+            if (_pax > 8) _pax = 8;
+            spnPax.setSelection(_pax - 1);
+        } else {
+            spnPax.setSelection(0);
+        }
         layout.addView(spnPax);
 
-        // Datum + Zeit (Default: jetzt + 1h)
+        // Datum + Zeit (Default: jetzt + 1h, im Edit-Modus = pickupTimestamp der Ride)
         java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
+        if (isEdit && editRide.get("pickupTimestamp") instanceof Number) {
+            cal.setTimeInMillis(((Number) editRide.get("pickupTimestamp")).longValue());
+        } else {
+            cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
+        }
         final long[] datetime = { cal.getTimeInMillis() };
 
         TextView tvDate = new TextView(this);
@@ -1111,6 +1256,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         etNotes.setMinLines(2);
         etNotes.setMaxLines(4);
         etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        // v6.62.483: Notizen pre-fillen
+        if (isEdit && editRide.get("notes") != null) {
+            etNotes.setText(String.valueOf(editRide.get("notes")));
+        }
         layout.addView(etNotes);
 
         // 🔧 v6.62.479: Patrick (08.05. 12:48): Speichern + Abbrechen sollen GROSS auf der
@@ -1135,7 +1284,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         btnRow.addView(btnCancel);
 
         TextView btnSave = new TextView(this);
-        btnSave.setText("✅ ANLEGEN");
+        btnSave.setText(isEdit ? "✅ SPEICHERN" : "✅ ANLEGEN");
         btnSave.setTextSize(14);
         btnSave.setTypeface(null, android.graphics.Typeface.BOLD);
         btnSave.setTextColor(0xFFFFFFFF);
@@ -1152,7 +1301,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         scrollWrap.addView(layout);
 
         final AlertDialog dlg = new AlertDialog.Builder(this)
-            .setTitle("📅 Vorbestellung anlegen")
+            .setTitle(isEdit ? "📝 Vorbestellung bearbeiten" : "📅 Vorbestellung anlegen")
             .setView(scrollWrap)
             .setCancelable(true)
             .create();
@@ -1246,21 +1395,58 @@ public class CrmSearchActivity extends AppCompatActivity {
                 java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                 tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
                 r.put("pickupTime", tf.format(new java.util.Date(pickupTs)));
-                r.put("createdAt", now);
                 r.put("updatedAt", now);
-                r.put("source", "native_vorbestellung_crmsearch");
                 r.put("passengers", pax);
                 // 🆕 v6.62.479: Notizen mitschreiben falls ausgefüllt
                 String _notes = etNotes.getText().toString().trim();
                 if (!_notes.isEmpty()) r.put("notes", _notes);
-                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
-                    .addOnSuccessListener(_v -> {
-                        String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
-                        Toast.makeText(this, "✅ Vorbestellung: " + label, Toast.LENGTH_LONG).show();
-                        dlg.dismiss();
-                        finish();
-                    })
-                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                else r.put("notes", null); // im Edit-Modus muss leer auch persistieren
+
+                if (isEdit) {
+                    // 🆕 v6.62.483: Update bestehende Ride. createdAt/source/customerId
+                    //   bleiben erhalten (werden nicht überschrieben).
+                    // Bei Adress- oder Termin-Änderung: vehicleId/assignedAt/assignedBy
+                    //   nullen, damit autoResolveConflicts neu zuweist.
+                    Object _oldPickupTs = editRide.get("pickupTimestamp");
+                    Object _oldPickup = editRide.get("pickup");
+                    Object _oldDest = editRide.get("destination");
+                    boolean _termChanged = !(_oldPickupTs instanceof Number) || ((Number) _oldPickupTs).longValue() != pickupTs;
+                    boolean _addrChanged = !pickup.equals(_oldPickup) || !dest.equals(_oldDest);
+                    if (_termChanged || _addrChanged) {
+                        r.put("vehicleId", null);
+                        r.put("assignedVehicle", null);
+                        r.put("assignedTo", null);
+                        r.put("assignedAt", null);
+                        r.put("assignedBy", null);
+                        r.put("acceptedAt", null);
+                        r.put("acceptedVia", null);
+                        // status auf 'vorbestellt' zurücksetzen falls schon assigned/accepted war
+                        if (!"vorbestellt".equals(editRide.get("status"))) {
+                            r.put("status", "vorbestellt");
+                        }
+                    }
+                    r.put("editedAt", now);
+                    r.put("editedVia", "native_crm_history_edit");
+
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + editRideId).updateChildren(r)
+                        .addOnSuccessListener(_v -> {
+                            String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
+                            Toast.makeText(this, "✅ Vorbestellung aktualisiert: " + label, Toast.LENGTH_LONG).show();
+                            dlg.dismiss();
+                        })
+                        .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                } else {
+                    r.put("createdAt", now);
+                    r.put("source", "native_vorbestellung_crmsearch");
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
+                        .addOnSuccessListener(_v -> {
+                            String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
+                            Toast.makeText(this, "✅ Vorbestellung: " + label, Toast.LENGTH_LONG).show();
+                            dlg.dismiss();
+                            finish();
+                        })
+                        .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                }
         });
 
         dlg.show();

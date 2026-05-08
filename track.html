@@ -664,6 +664,31 @@
                 badge.id = 'ride-status-badge';
                 badge.style.display = 'inline-block';
 
+                // 🚑 v6.62.480: Patrick (08.05. 13:13): "termin bestätigung — da wissen
+                //   wir doch heute nicht welches Auto kommt". Bei Vorbestellungen ohne
+                //   zugewiesenes Fahrzeug stand fälschlich "Warte auf GPS-Position…".
+                //   Stattdessen jetzt status-bezogener Text — Fahrzeug-GPS gibt's erst
+                //   wenn Fahrer angenommen hat (assigned/accepted/on_way/picked_up).
+                const _hasVehicle = !!(r.vehicleId || r.assignedVehicle);
+                const _gpsActiveStati = ['assigned','accepted','on_way','arrived','picked_up'];
+                const _gpsActive = _hasVehicle && _gpsActiveStati.includes(r.status);
+                if (!_gpsActive) {
+                    const _locInfo = document.getElementById('location-info');
+                    if (_locInfo) {
+                        if (r.status === 'vorbestellt') {
+                            _locInfo.innerHTML = '📅 <b>Termin gespeichert</b><br><small style="opacity:0.85;">Ein Fahrer wird kurz vor der Abholzeit zugeteilt — die Fahrzeug-Position erscheint dann hier automatisch.</small>';
+                        } else if (r.status === 'warteschlange') {
+                            _locInfo.innerHTML = '⏳ <b>In Warteschlange</b><br><small style="opacity:0.85;">Sobald ein Fahrzeug frei ist, sehen Sie die Live-Position hier.</small>';
+                        } else if (r.status === 'new' || r.status === 'pending' || r.status === 'sofort' || r.status === 'open') {
+                            _locInfo.innerHTML = '🔍 <b>Fahrer wird gesucht</b><br><small style="opacity:0.85;">Sobald jemand zugesagt hat, sehen Sie die Live-Position hier.</small>';
+                        } else if (r.status === 'completed' || r.status === 'abgeschlossen') {
+                            _locInfo.innerHTML = '🏁 <b>Fahrt abgeschlossen</b>';
+                        } else if (r.status === 'cancelled' || r.status === 'storniert') {
+                            _locInfo.innerHTML = '❌ <b>Fahrt storniert</b>';
+                        }
+                    }
+                }
+
                 // v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen'.
                 // Buchungsdetails (read-only) fuer den Kunden anzeigen.
                 const _bd = document.getElementById('booking-details');

@@ -19541,8 +19541,14 @@ exports.onRideCreated = onValueCreated(
                 if (_isHotel) {
                     const _hotelEmail = _customer.email || null;
                     const _hotelName = _customer.name || ride.customerName || '?';
+                    // 🆕 v6.62.508: ride.hotelEmailStatus + ride.hotelEmailTo schreiben
+                    //   damit Patrick im Edit-Modal sofort sieht ob Email rausging.
                     if (!_hotelEmail) {
-                        // Admin-Warnung — Hotel hat keine Email hinterlegt
+                        try { await db.ref('rides/' + rideId).update({
+                            hotelEmailStatus: 'no_email',
+                            hotelEmailReason: 'Hotel hat keine Email-Adresse im CRM hinterlegt',
+                            hotelEmailUpdatedAt: Date.now()
+                        }); } catch(_) {}
                         const _warnMsg = `⚠️ <b>Hotel-Email fehlt</b>\n\n`
                             + `🏨 <b>${_hotelName}</b> hat keine Email hinterlegt — Buchungsbestätigung konnte nicht gesendet werden.\n\n`
                             + `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n`
@@ -19608,14 +19614,36 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
                                     html: _html
                                 });
                                 console.log(`📧 Hotel-Email an ${_hotelEmail} gesendet (${_hotelName})`);
+                                // v6.62.508: ride.hotelEmailStatus = 'sent'
+                                try { await db.ref('rides/' + rideId).update({
+                                    hotelEmailStatus: 'sent',
+                                    hotelEmailTo: _hotelEmail,
+                                    hotelEmailSentAt: Date.now(),
+                                    hotelEmailUpdatedAt: Date.now()
+                                }); } catch(_) {}
                                 await addRideLog(rideId, '📧', `Hotel-Bestätigung gesendet: ${_hotelName}`, {
                                     quelle: 'onRideCreated v6.62.277',
                                     email: _hotelEmail,
                                     typ: _typLabel
                                 });
+                            } else {
+                                // SMTP nicht konfiguriert
+                                try { await db.ref('rides/' + rideId).update({
+                                    hotelEmailStatus: 'no_smtp',
+                                    hotelEmailTo: _hotelEmail,
+                                    hotelEmailReason: 'SMTP-Server nicht in settings/smtp konfiguriert',
+                                    hotelEmailUpdatedAt: Date.now()
+                                }); } catch(_) {}
                             }
                         } catch (_emailErr) {
                             console.error('❌ Hotel-Email-Versand fehlgeschlagen:', _emailErr.message);
+                            // v6.62.508: ride.hotelEmailStatus = 'failed'
+                            try { await db.ref('rides/' + rideId).update({
+                                hotelEmailStatus: 'failed',
+                                hotelEmailTo: _hotelEmail,
+                                hotelEmailReason: 'SMTP-Versand fehlgeschlagen: ' + _emailErr.message,
+                                hotelEmailUpdatedAt: Date.now()
+                            }); } catch(_) {}
                             await addRideLog(rideId, '❌', `Hotel-Email-Versand fehlgeschlagen: ${_emailErr.message}`, { hotel: _hotelName, email: _hotelEmail });
                             await sendToAllAdmins(`❌ <b>Hotel-Email-Versand fehlgeschlagen</b>\n\n🏨 ${_hotelName}\n📧 ${_hotelEmail}\n\nFehler: ${_emailErr.message}`, 'hotel-email-error');
                         }

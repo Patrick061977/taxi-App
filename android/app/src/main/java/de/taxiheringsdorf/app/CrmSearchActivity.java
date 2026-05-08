@@ -1428,28 +1428,79 @@ public class CrmSearchActivity extends AppCompatActivity {
                     r.put("editedAt", now);
                     r.put("editedVia", "native_crm_history_edit");
 
+                    final String _notesFinal = _notes;
+                    final int _paxFinal = pax;
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + editRideId).updateChildren(r)
                         .addOnSuccessListener(_v -> {
-                            String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
-                            Toast.makeText(this, "✅ Vorbestellung aktualisiert: " + label, Toast.LENGTH_LONG).show();
                             dlg.dismiss();
+                            // 🆕 v6.62.485: Confirmation-Screen statt nur Toast
+                            showBookingConfirmation(true, name, pickup, dest, pickupTs, _paxFinal, _notesFinal, isHotel ? e.name : null);
                         })
                         .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
                 } else {
                     r.put("createdAt", now);
                     r.put("source", "native_vorbestellung_crmsearch");
+                    final String _notesFinal2 = _notes;
+                    final int _paxFinal2 = pax;
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                         .addOnSuccessListener(_v -> {
-                            String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
-                            Toast.makeText(this, "✅ Vorbestellung: " + label, Toast.LENGTH_LONG).show();
                             dlg.dismiss();
-                            finish();
+                            // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
+                            //   Patrick (08.05. 13:18): "kann man das so machen, wenn ich
+                            //   das erstelle im Handy, dass ich dann nochmal eine Übersicht
+                            //   sehe was alles drinnen steht, damit ich das abspeichern kann"
+                            showBookingConfirmation(false, name, pickup, dest, pickupTs, _paxFinal2, _notesFinal2, isHotel ? e.name : null);
                         })
                         .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
                 }
         });
 
         dlg.show();
+    }
+
+    // 🆕 v6.62.485: Confirmation-Screen nach erfolgreichem Anlegen/Bearbeiten.
+    //   Patrick (08.05.2026 13:18): "kann man das so machen, wenn ich das erstelle im Handy,
+    //   dass ich dann nochmal eine Übersicht sehe, was alles drinnen steht, damit ich das
+    //   abspeichern kann". Vorher: Toast 'angelegt' und Activity finish — Patrick sah nicht
+    //   nochmal alle Werte.
+    private void showBookingConfirmation(boolean isUpdate, String name, String pickup,
+                                         String dest, long pickupTs, int passengers,
+                                         String notes, String auftraggeberName) {
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("EEEE, dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY);
+        fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        StringBuilder msg = new StringBuilder();
+        msg.append(isUpdate ? "✅ Vorbestellung AKTUALISIERT\n\n" : "✅ Vorbestellung GESPEICHERT\n\n");
+        if (auftraggeberName != null) {
+            msg.append("🏨 Auftraggeber: ").append(auftraggeberName).append("\n");
+            msg.append("👤 Gast: ").append(name).append("\n");
+        } else {
+            msg.append("👤 Name: ").append(name).append("\n");
+        }
+        msg.append("📅 Termin: ").append(fmt.format(new java.util.Date(pickupTs))).append("\n");
+        msg.append("📍 Pickup: ").append(pickup).append("\n");
+        msg.append("🎯 Ziel: ").append(dest).append("\n");
+        msg.append("👥 Personen: ").append(passengers);
+        if (notes != null && !notes.trim().isEmpty()) {
+            msg.append("\n📝 Notiz: ").append(notes);
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle(isUpdate ? "📝 Aktualisiert" : "📅 Angelegt")
+            .setMessage(msg.toString())
+            .setPositiveButton("OK", (d, w) -> {
+                if (!isUpdate) finish(); // beim Anlegen: Activity schließen
+                // beim Bearbeiten: nur Dialog schließen, User bleibt in der Fahrt-Historie
+            })
+            .setNeutralButton("📋 Kopieren", (d, w) -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Vorbestellung", msg.toString()));
+                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
+                }
+                if (!isUpdate) finish();
+            })
+            .setCancelable(false)
+            .show();
     }
 
     // v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App".

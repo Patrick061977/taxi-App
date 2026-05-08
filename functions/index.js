@@ -19399,7 +19399,7 @@ exports.onRideCreated = onValueCreated(
             _wpLines +
             `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
             `👤 <b>Name:</b> ${ride.customerName || '?'}\n` +
-            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${waLink}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || ride.customerMobile || '?'}${waLink}\n` +
             `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
             `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
             `⏰ <b>Gesendet:</b> ${timestamp}\n` +
@@ -20275,7 +20275,7 @@ exports.onRideUpdated = onValueUpdated(
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}${after.vehiclePlate ? ` (${after.vehiclePlate})` : ''}\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile || after.mobilePhone)}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || after.customerMobile || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile || after.mobilePhone)}\n` +
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
@@ -20326,7 +20326,7 @@ exports.onRideUpdated = onValueUpdated(
                 message = `🗑️ <b>FAHRT STORNIERT</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || after.customerMobile || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
                     `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${after.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${after.price || 0}€\n` +
@@ -20716,7 +20716,7 @@ exports.onRideUpdated = onValueUpdated(
                         `📍 <b>Abholung:</b> ${after.pickup || '?'}\n` +
                         `🎯 <b>Ziel:</b> ${after.destination || '?'}\n` +
                         customerInfo + `\n` +
-                        `📱 <b>Tel:</b> ${after.customerPhone || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
+                        `📱 <b>Tel:</b> ${after.customerPhone || after.customerMobile || '?'}${formatWhatsAppLink(after.customerPhone || after.customerMobile)}\n` +
                         `🕐 <b>Abholung:</b> ${pickupLabel}\n` +
                         `💰 <b>Preis:</b> ${after.price || 0}€\n\n` +
                         (isVorbestellung
@@ -21145,7 +21145,7 @@ exports.onRideDeleted = onValueDeleted(
             `⚠️ <b>Status war:</b> ${statusText}\n` +
             (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
             `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-            `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
+            `📱 <b>Tel:</b> ${ride.customerPhone || ride.customerMobile || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
             `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
             `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
             (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
@@ -21335,7 +21335,7 @@ exports.scheduledOpenRideCheck = onSchedule(
                     `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n` +
                     `⏳ <b>Noch ${Math.max(0, Math.round(minutesUntilPickup))} Minuten!</b>\n\n` +
                     `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
-                    `📱 <b>Tel:</b> ${ride.customerPhone || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
+                    `📱 <b>Tel:</b> ${ride.customerPhone || ride.customerMobile || '?'}${formatWhatsAppLink(ride.customerPhone || ride.customerMobile)}\n` +
                     `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
                     `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
                     `💰 <b>Preis:</b> ${ride.price || 0}€\n\n` +

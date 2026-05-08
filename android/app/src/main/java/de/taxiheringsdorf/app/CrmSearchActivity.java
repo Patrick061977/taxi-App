@@ -962,15 +962,69 @@ public class CrmSearchActivity extends AppCompatActivity {
         });
         layout.addView(tvDate);
 
+        // 🆕 v6.62.479: Patrick (08.05. 12:43): "notizen bemerkungen fehlen".
+        TextView tvNotesLabel = new TextView(this);
+        tvNotesLabel.setText("📝 Notizen / Bemerkungen (optional)");
+        tvNotesLabel.setTextSize(13);
+        tvNotesLabel.setTextColor(0xFF374151);
+        tvNotesLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvNotesLabel);
+
+        final EditText etNotes = new EditText(this);
+        etNotes.setHint("z.B. Gepäck, Abholung am Hintereingang, Rollstuhl, …");
+        etNotes.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        etNotes.setMinLines(2);
+        etNotes.setMaxLines(4);
+        etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        layout.addView(etNotes);
+
+        // 🔧 v6.62.479: Patrick (08.05. 12:48): Speichern + Abbrechen sollen GROSS auf der
+        //   Karte sein, nicht klein darunter. Buttons direkt ins Layout statt AlertDialog-Buttons.
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams btnRowLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnRowLp.setMargins(0, pad, 0, padHalf);
+        btnRow.setLayoutParams(btnRowLp);
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText("ABBRECHEN");
+        btnCancel.setTextSize(14);
+        btnCancel.setTextColor(0xFF64748B);
+        btnCancel.setBackgroundColor(0xFFF1F5F9);
+        btnCancel.setGravity(android.view.Gravity.CENTER);
+        btnCancel.setPadding(pad, pad + padHalf / 2, pad, pad + padHalf / 2);
+        LinearLayout.LayoutParams cancelLp2 = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        cancelLp2.setMargins(0, 0, padHalf / 2, 0);
+        btnCancel.setLayoutParams(cancelLp2);
+        btnRow.addView(btnCancel);
+
+        TextView btnSave = new TextView(this);
+        btnSave.setText("✅ ANLEGEN");
+        btnSave.setTextSize(14);
+        btnSave.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnSave.setTextColor(0xFFFFFFFF);
+        btnSave.setBackgroundColor(0xFF1E40AF);
+        btnSave.setGravity(android.view.Gravity.CENTER);
+        btnSave.setPadding(pad, pad + padHalf / 2, pad, pad + padHalf / 2);
+        LinearLayout.LayoutParams saveLp2 = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        saveLp2.setMargins(padHalf / 2, 0, 0, 0);
+        btnSave.setLayoutParams(saveLp2);
+        btnRow.addView(btnSave);
+        layout.addView(btnRow);
+
         ScrollView scrollWrap = new ScrollView(this);
         scrollWrap.addView(layout);
 
-        // v6.62.298: KEIN setMessage hier — Kunde-Info ist als TextView oben in der Layout
-        // (sonst wird auf S9 die positiveButton-Reihe vom Bildschirm abgeschnitten).
-        new AlertDialog.Builder(this)
+        final AlertDialog dlg = new AlertDialog.Builder(this)
             .setTitle("📅 Vorbestellung anlegen")
             .setView(scrollWrap)
-            .setPositiveButton("Anlegen", (d, w) -> {
+            .setCancelable(true)
+            .create();
+
+        btnCancel.setOnClickListener(_btn -> dlg.dismiss());
+
+        btnSave.setOnClickListener(_btn -> {
                 String name = etName.getText().toString().trim();
                 String pickup = tvPickup.getText().toString()
                     .replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
@@ -1061,15 +1115,20 @@ public class CrmSearchActivity extends AppCompatActivity {
                 r.put("updatedAt", now);
                 r.put("source", "native_vorbestellung_crmsearch");
                 r.put("passengers", pax);
+                // 🆕 v6.62.479: Notizen mitschreiben falls ausgefüllt
+                String _notes = etNotes.getText().toString().trim();
+                if (!_notes.isEmpty()) r.put("notes", _notes);
                 FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
                     .addOnSuccessListener(_v -> {
                         String label = isHotel ? (e.name + " → " + name + " → " + dest) : (name + " → " + dest);
                         Toast.makeText(this, "✅ Vorbestellung: " + label, Toast.LENGTH_LONG).show();
+                        dlg.dismiss();
                         finish();
                     })
                     .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
-            })
-            .setNegativeButton("Abbrechen", null).show();
+        });
+
+        dlg.show();
     }
 
     // v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App".

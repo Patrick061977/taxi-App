@@ -1284,13 +1284,16 @@ public class CallLogActivity extends AppCompatActivity {
         spSal.setAdapter(_qfSalAdapt);
         layout.addView(spSal);
 
-        EditText etFirstName = new EditText(this);
-        etFirstName.setHint(isHotelCustomer ? "Vorname (Gast)" : "Vorname (optional)");
-        layout.addView(etFirstName);
-
+        // 🔧 v6.62.479: Patrick (08.05. 12:43): "vorname soll unten sein und name oben".
+        //   Pflichtfeld Nachname zuerst, dann optionaler Vorname — passt zur intuitiven
+        //   Eingabereihenfolge wenn jemand "Endress" als Nachname schreibt und Vorname leer lässt.
         EditText etLastName = new EditText(this);
         etLastName.setHint(isHotelCustomer ? "Nachname (Gast)" : "Nachname");
         layout.addView(etLastName);
+
+        EditText etFirstName = new EditText(this);
+        etFirstName.setHint(isHotelCustomer ? "Vorname (Gast)" : "Vorname (optional)");
+        layout.addView(etFirstName);
 
         // Pre-Fill aus CRM oder e.name (auto-split)
         String _preSal = !isHotelCustomer && crm != null && (crm.salutation != null || crm.anrede != null)
@@ -1484,6 +1487,22 @@ public class CallLogActivity extends AppCompatActivity {
         spnPax.setSelection(0);
         layout.addView(spnPax);
 
+        // 🆕 v6.62.479: Patrick (08.05. 12:43): "notizen bemerkungen fehlen".
+        TextView tvNotesLabel = new TextView(this);
+        tvNotesLabel.setText("📝 Notizen / Bemerkungen (optional)");
+        tvNotesLabel.setTextSize(13);
+        tvNotesLabel.setTextColor(0xFF374151);
+        tvNotesLabel.setPadding(0, pad, 0, padHalf);
+        layout.addView(tvNotesLabel);
+
+        EditText etNotes = new EditText(this);
+        etNotes.setHint("z.B. Gepäck, Abholung am Hintereingang, Rollstuhl, …");
+        etNotes.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        etNotes.setMinLines(2);
+        etNotes.setMaxLines(4);
+        etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        layout.addView(etNotes);
+
         // Datum + Zeit Picker als Buttons
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.HOUR_OF_DAY, 1);
@@ -1506,16 +1525,67 @@ public class CallLogActivity extends AppCompatActivity {
         });
         layout.addView(tvDate);
 
-        // v6.62.152: ScrollView-Wrap weil mit Zwischenstops + Personenzahl-Spinner das
-        // Modal auf kleinen Phones (S9) sonst die Anlegen-Buttons unter den Bildschirmrand schiebt.
+        // 🔧 v6.62.479: Patrick (08.05. 12:48): "Speichern und Abbrechen ist nur ganz klein
+        //   zu sehen. Das kann man unter dieser Karte hin und her schieben, aber das müsste
+        //   doch eigentlich auf der Karte mit drauf sein". Patrick meinte mit "Karte" das
+        //   Modal-Card. Lösung: keine kleinen AlertDialog-Buttons mehr — stattdessen GROSSE
+        //   Anlegen + Abbrechen Buttons direkt unten im Layout, im ScrollView mit drin.
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams btnRowLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnRowLp.setMargins(0, pad, 0, padHalf);
+        btnRow.setLayoutParams(btnRowLp);
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText("ABBRECHEN");
+        btnCancel.setTextSize(14);
+        btnCancel.setTextColor(0xFF64748B);
+        btnCancel.setBackgroundColor(0xFFF1F5F9);
+        btnCancel.setGravity(android.view.Gravity.CENTER);
+        btnCancel.setPadding(pad, pad + padHalf / 2, pad, pad + padHalf / 2);
+        LinearLayout.LayoutParams cancelLp2 = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        cancelLp2.setMargins(0, 0, padHalf / 2, 0);
+        btnCancel.setLayoutParams(cancelLp2);
+        btnRow.addView(btnCancel);
+
+        TextView btnSave = new TextView(this);
+        btnSave.setText("✅ ANLEGEN");
+        btnSave.setTextSize(14);
+        btnSave.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnSave.setTextColor(0xFFFFFFFF);
+        btnSave.setBackgroundColor(0xFF1E40AF);
+        btnSave.setGravity(android.view.Gravity.CENTER);
+        btnSave.setPadding(pad, pad + padHalf / 2, pad, pad + padHalf / 2);
+        LinearLayout.LayoutParams saveLp2 = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        saveLp2.setMargins(padHalf / 2, 0, 0, 0);
+        btnSave.setLayoutParams(saveLp2);
+        btnRow.addView(btnSave);
+        layout.addView(btnRow);
+
+        // v6.62.152: ScrollView-Wrap. Buttons sind jetzt mit drin → Patrick scrollt notfalls
+        // zu ihnen runter, aber sie werden NIE vom Bildschirm abgeschnitten weil Teil des
+        // ScrollView-Inhalts.
         ScrollView scrollWrap = new ScrollView(this);
         scrollWrap.addView(layout);
 
-        new AlertDialog.Builder(this)
+        // Telefon als TextView ganz oben ins Layout (statt setMessage) → Dialog flacher.
+        TextView tvPhoneInfo = new TextView(this);
+        tvPhoneInfo.setText("📞 " + (e.number != null ? e.number : "—"));
+        tvPhoneInfo.setTextSize(12);
+        tvPhoneInfo.setTextColor(0xFF64748B);
+        tvPhoneInfo.setPadding(0, 0, 0, padHalf);
+        layout.addView(tvPhoneInfo, 0);
+
+        final AlertDialog dlg = new AlertDialog.Builder(this)
             .setTitle("📅 Vorbestellung anlegen")
-            .setMessage("Telefonnummer: " + e.number)
             .setView(scrollWrap)
-            .setPositiveButton("Anlegen", (d, w) -> {
+            .setCancelable(true)
+            .create();
+
+        btnCancel.setOnClickListener(_btn -> dlg.dismiss());
+
+        btnSave.setOnClickListener(_btn -> {
                 // v6.62.332: Quick-Flow — Name aus Vorname + Nachname concat (Anrede separat)
                 String _qfFn = etFirstName.getText().toString().trim();
                 String _qfLn = etLastName.getText().toString().trim();
@@ -1665,6 +1735,9 @@ public class CallLogActivity extends AppCompatActivity {
                 }
                 r.put("pickupTimestamp", datetime[0]);
                 r.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(datetime[0])));
+                // 🆕 v6.62.479: Notizen mitschreiben falls ausgefüllt
+                String _notes = etNotes.getText().toString().trim();
+                if (!_notes.isEmpty()) r.put("notes", _notes);
                 r.put("status", "vorbestellt");
                 r.put("createdAt", now);
                 r.put("updatedAt", now);
@@ -1672,10 +1745,12 @@ public class CallLogActivity extends AppCompatActivity {
                 r.put("passengers", pax);
                 ref.setValue(r).addOnSuccessListener(_v -> {
                     Toast.makeText(this, "✅ Vorbestellung angelegt", Toast.LENGTH_SHORT).show();
+                    dlg.dismiss();
                     finish();
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
-            })
-            .setNegativeButton("Abbrechen", null).show();
+        });
+
+        dlg.show();
     }
 
     static class CrmCustomer {

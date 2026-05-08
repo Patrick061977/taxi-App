@@ -539,32 +539,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
     }
 
-    // v6.62.318: ETA-Debug-Logging in /errorLogs damit wir bei naechster Fahrt sehen
-    // wo recalculateETAsForActiveRides haengt. Patrick (06.05. 07:10): "B = ETA
-    // zeigt Wert, bewegt sich nicht beim Fahren". Wir wissen nicht ob der Skip-Pfad
-    // greift, der Throttle blockiert oder OSRM keine andere Zahl liefert. Log enthaelt
-    // jeden Aufruf — nach naechster Fahrt grep nach [ETA-DEBUG].
-    private long _lastEtaDebugLog = 0;
+    // v6.62.437: ETA-Debug-Logging entfernt. Patrick's Admin-Dashboard las /errorLogs
+    // und wurde durch >1000 etadbg-Einträge ausgebremst (08.05. 07:50: "Seite lädt 1
+    // Min, hängt"). Untersuchung aus v6.62.318 ist abgeschlossen — der Spam-Output war
+    // nur noch Ballast. Aufruf bleibt als No-Op falls noch Aufrufer im Code sind.
     private void logEtaDebug(String rideId, String event, double vLat, double vLon, String extra) {
-        try {
-            if (db == null) return;
-            long now = System.currentTimeMillis();
-            // Throttle 5s — sonst spammen wir bei vielen rides die errorLogs voll
-            if (now - _lastEtaDebugLog < 5_000L) return;
-            _lastEtaDebugLog = now;
-            String key = "etadbg-" + now + "-" + (rideId != null ? rideId.substring(Math.max(0, rideId.length() - 6)) : "x");
-            java.util.Map<String, Object> entry = new java.util.HashMap<>();
-            entry.put("ts", now);
-            entry.put("type", "ETA-DEBUG");
-            entry.put("source", "native-driver-app");
-            entry.put("rideId", rideId);
-            entry.put("event", event);
-            entry.put("vLat", vLat);
-            entry.put("vLon", vLon);
-            entry.put("extra", extra);
-            entry.put("appVersion", BuildConfig.VERSION_NAME);
-            db.getReference("errorLogs/" + key).setValue(entry);
-        } catch (Throwable _t) {}
+        // No-op (v6.62.437)
     }
 
     private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {

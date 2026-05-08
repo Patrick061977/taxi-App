@@ -715,6 +715,14 @@
                         .filter(Boolean);
                     _wpRows.forEach((addr, i) => _rows.push(`<div>🚏 <b>Zwischenstopp ${i + 1}:</b> ${addr}</div>`));
                     if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
+                    // 🆕 v6.62.481: Patrick (08.05. 13:18): "die Notizen werden auch nicht in
+                    //   der Buchungsbestätigung angezeigt, also das zum Beispiel der Kindersitz
+                    //   für drei Jahre, die Notiz". Ride.notes wird seit v6.62.479 vom Native-
+                    //   CRM-Modal mitgeschrieben — track.html hat sie aber komplett ignoriert.
+                    if (r.notes && String(r.notes).trim()) {
+                        const _safeNotes = String(r.notes).replace(/[<>]/g, '');
+                        _rows.push(`<div>📝 <b>Notiz:</b> ${_safeNotes}</div>`);
+                    }
                     // v6.62.97: Patrick: '17,1 muss 17,10 sein'. Immer 2 Nachkommastellen.
                     if (r.price) {
                         const _p = parseFloat(r.price);

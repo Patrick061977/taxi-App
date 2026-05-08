@@ -563,7 +563,10 @@
                 // 🆕 v6.62.443: Waypoints (Zwischenstopps) auf der Karte zeichnen + in OSRM-Route
                 //   einbeziehen. Patrick 08.05. 09:23: „der Waypoint ist auf der Karte gar
                 //   nicht dabei". Bisher wurde nur Pickup→Destination gezeichnet.
-                const _wpRaw = (rideData && rideData.waypoints) ? rideData.waypoints : null;
+                // 🚑 v6.62.444 Hotfix: Variable hieß `ride` (nicht `rideData`) — Tippfehler
+                //   warf ReferenceError → Route-Polyline + fitBounds liefen nie. Patrick:
+                //   „da steht jetzt Warte auf GPS-Positionen, aber nicht die schöne Karte".
+                const _wpRaw = (ride && ride.waypoints) ? ride.waypoints : null;
                 const _wpList = (Array.isArray(_wpRaw) ? _wpRaw : Object.values(_wpRaw || {}))
                     .map(w => w && typeof w === 'object' && w.lat && w.lon
                         ? { lat: parseFloat(w.lat), lon: parseFloat(w.lon), address: w.address || '' }

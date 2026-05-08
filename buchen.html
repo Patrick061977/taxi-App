@@ -1054,14 +1054,13 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
-        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451: Differenzierte Reihenfolge:
+        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451 → 🔧 v6.62.455: Reihenfolge + kompakter
         //   • Toggle (Sofort/Vorbestellen) bleibt OBEN in #wann-card — erste Wahl des Kunden
-        //   • Pickup/Ziel/Karte in der Mitte (booking-card)
-        //   • Vorbestell-Felder (Datum/Zeit/Slot-Timeline) → wenn Vorbestellen, dann UNTER
-        //     booking-card positioniert. Patrick (08.05. 10:36): „Bei Vorbestellungen will
-        //     ich den Abholort und den Zielort und danach die Zeit."
-        //   Wir verschieben den Vorbestell-Container per DOMContentLoaded an seine neue
-        //   Position. Setzen via setWann('vorbestellen') zeigt ihn an wo er jetzt steht.
+        //   • Pickup/Ziel zuerst (booking-card oben)
+        //   • 🆕 Karte (live-taxi-card) erst SICHTBAR wenn Pickup-Coords gesetzt — sonst
+        //     muss der Kunde nicht durch eine leere Karte scrollen.
+        //   • Vorbestell-Felder UNTER booking-card (wenn Vorbestellen)
+        //   Patrick (08.05. 10:53): „Der Kunde muss immer hin und her scrollen."
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 const vorbestellFelder = document.getElementById('vorbestellen-felder');
@@ -3329,7 +3328,12 @@
                     el.className = 'availability-card unavailable';
                     el.style.display = '';
                     const fahrtInfo = routeData ? ` (Ihre Fahrt: ca. ${routeData.min} Min + Rückfahrt)` : '';
-                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
+                    // 🆕 v6.62.455: Konflikt-Begründung aufklappbar zeigen (Patrick 08.05. 10:52:
+                    //   'Ich würde im Konflikt-Checker sehen warum, aber bei buchen.html nicht').
+                    const conflictHtml = (_conflictDetails && _conflictDetails.length)
+                        ? `<details style="margin:10px 0;text-align:left;background:rgba(0,0,0,0.04);padding:8px;border-radius:6px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">📋 Warum belegt? (${_conflictDetails.length} Fahrt${_conflictDetails.length>1?'en':''})</summary><div style="margin-top:6px;line-height:1.5;color:#374151;">${_conflictDetails.map(d => '• ' + d).join('<br>')}</div></details>`
+                        : '';
+                    el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — alle Fahrzeuge zu dieser Zeit belegt${fahrtInfo}.${conflictHtml}${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
                     isAvailable = false;
                     updateBookButton();
                 }

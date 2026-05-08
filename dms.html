@@ -332,7 +332,6 @@
                         <select id="lib-gruppe" class="form-select" onchange="saveLibGruppe();renderLibrary()" title="Gruppierung für Ordner-Ablage">
                             <option value="">Liste</option>
                             <option value="monat" selected>📂 nach Monat</option>
-                            <option value="quartal">📁 nach Quartal</option>
                         </select>
                         <select id="lib-wfstatus" class="form-select" onchange="renderLibrary()">
                             <option value="">Alle Status</option>
@@ -1250,18 +1249,20 @@
             return docId;
         }
 
-        // 🆕 v6.62.360: Belegnummer-Counter pro Quartal — atomic via Firebase Transaction
+        // 🔧 v6.62.431: Belegnummer-Counter pro MONAT (Patrick: 'Quartal kann weg, nur Monat').
+        //   Format: '2026-M01-0001' statt '2026-Q1-0001'. Bestehende Quartal-Counter bleiben in
+        //   /settings/dms/belegCounter/2026-Q1 etc. unangefasst — neue Belege bekommen Monat-Format.
         async function assignBelegnummer(datumStr) {
             const dt = datumStr ? new Date(datumStr) : new Date();
             const jahr = dt.getFullYear();
             const monat = dt.getMonth() + 1; // 1-12
-            const quartal = Math.ceil(monat / 3); // 1-4
-            const counterKey = `${jahr}-Q${quartal}`;
+            const monatPad = String(monat).padStart(2, '0');
+            const counterKey = `${jahr}-M${monatPad}`;
             const counterRef = db.ref('settings/dms/belegCounter/' + counterKey);
             const result = await counterRef.transaction(curr => (curr || 0) + 1);
             const nr = result.snapshot.val();
-            const belegnummer = `${jahr}-Q${quartal}-${String(nr).padStart(4, '0')}`;
-            return { belegnummer, quartal: 'Q' + quartal, jahr };
+            const belegnummer = `${jahr}-M${monatPad}-${String(nr).padStart(4, '0')}`;
+            return { belegnummer, monat: 'M' + monatPad, jahr };
         }
 
         // ─── Upload — Single oder Batch (v6.62.240) ───

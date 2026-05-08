@@ -1074,8 +1074,7 @@
         });
         const db = firebase.database();
 
-        // 🆕 v6.62.466 → v6.62.467: Auth-Auto-Recovery + ?reset=1 Notbremse.
-        //   15s → 8s Timeout, plus URL-Param ?reset=1 löscht IndexedDB sofort.
+        // 🚑 v6.62.471: Auto-Reload-Recovery raus (Firefox-Loop-Block). Nur ?reset=1 bleibt.
         (function setupAuthRecovery() {
             if (location.search.includes('reset=1')) {
                 console.warn('🔧 Manueller Auth-Reset via ?reset=1 (buchen.html)');
@@ -1087,24 +1086,7 @@
                         req.onsuccess = req.onerror = req.onblocked = () => r();
                     }))).then(() => location.replace(location.pathname));
                 } catch(_) { location.replace(location.pathname); }
-                return;
             }
-            let _authReady = false;
-            try { firebase.auth().onAuthStateChanged(() => { _authReady = true; }); } catch(_){}
-            setTimeout(() => {
-                if (_authReady) return;
-                if (sessionStorage.getItem('_authResetDone') === '1') return;
-                console.warn('🚨 buchen.html: Auth >8s nicht ready — IndexedDB-Reset + Reload');
-                sessionStorage.setItem('_authResetDone', '1');
-                try { firebase.auth().signOut(); } catch(_){}
-                try {
-                    const dbs = ['firebaseLocalStorageDb', 'firebase-installations-database', 'firebase-heartbeat-database'];
-                    Promise.all(dbs.map(n => new Promise(r => {
-                        const req = indexedDB.deleteDatabase(n);
-                        req.onsuccess = req.onerror = req.onblocked = () => r();
-                    }))).then(() => location.reload());
-                } catch(_) { location.reload(); }
-            }, 8000);
         })();
 
         // 🚫 v6.62.428: PWA fuer buchen.html wieder aus

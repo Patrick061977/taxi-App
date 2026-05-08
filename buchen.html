@@ -757,7 +757,7 @@
                          (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
                          nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
                     <input type="date" id="b-date" min="" onchange="onBDateChange()">
-                    <input type="time" id="b-time" step="600" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
+                    <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1'" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
                 </div>
@@ -2505,10 +2505,13 @@
                     minuteSelect.value = '00';
                 }
             }
-            // 🆕 v6.41.63: neuer Time-Input mit Anfangswert syncen
+            // 🚑 v6.62.478: Patrick (08.05.): 'Springt vom Datum direkt zum Abholort, Uhrzeit
+            //   wird nicht abgefragt'. Wurzel: hier wurde b-time mit Default-Hour/Minute
+            //   befüllt — onDateTimeChange dachte dadurch User hätte Zeit gewählt.
+            //   Fix: b-time bleibt LEER bis User es explizit eingibt.
             const timeInput = document.getElementById('b-time');
             if (timeInput) {
-                timeInput.value = (hourSelect.value || '00') + ':' + (minuteSelect.value || '00');
+                if (!timeInput.dataset.userTouched) timeInput.value = '';
                 if (isSelectedToday) timeInput.min = String(Math.max(0, now.getHours() + 1)).padStart(2,'0') + ':00';
                 else timeInput.removeAttribute('min');
             }

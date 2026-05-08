@@ -2,6 +2,7 @@ package de.taxiheringsdorf.app;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -536,6 +537,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             "🚖 EINSTEIGER (Kunde steht am Auto)",
             "📅 Vorbestellung erstellen",
             "✏️ CRM-Eintrag bearbeiten",
+            "📜 Bisherige Fahrten anschauen",
             "Abbrechen"
         };
         new AlertDialog.Builder(this)
@@ -546,8 +548,141 @@ public class CrmSearchActivity extends AppCompatActivity {
                     case 1: createEinsteigerFromCrm(e); break;
                     case 2: showVorbestellungDialogWithGuest(e); break;
                     case 3: openEditDialog(e); break;
+                    case 4: showCustomerRideHistory(e); break;
                 }
             }).show();
+    }
+
+    // 🆕 v6.62.482: Patrick (08.05. 13:53): "wenn ich den Kunden anklicke, welche Fahrten
+    //   er schon gemacht hat, dass ich die einfach kopieren kann oder schauen kann".
+    //   Liste der letzten Fahrten dieses CRM-Kunden mit Datum/Route/Preis. Tap → Detail-
+    //   Dialog mit Kopieren-in-Clipboard + 'Erneut buchen'-Shortcut.
+    private void showCustomerRideHistory(CrmEntry e) {
+        final ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Lade Fahrten…");
+        _pd.setCancelable(false);
+        _pd.show();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+            .orderByChild("customerId").equalTo(e.id).limitToLast(50)
+            .get().addOnCompleteListener(task -> {
+                _pd.dismiss();
+                if (!task.isSuccessful() || task.getResult() == null) {
+                    Toast.makeText(this, "❌ Konnte Fahrten nicht laden", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                List<Map<String, Object>> rides = new ArrayList<>();
+                for (DataSnapshot s : task.getResult().getChildren()) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("id", s.getKey());
+                    r.put("pickup", s.child("pickup").getValue(String.class));
+                    r.put("destination", s.child("destination").getValue(String.class));
+                    r.put("status", s.child("status").getValue(String.class));
+                    Long _ts = s.child("pickupTimestamp").getValue(Long.class);
+                    r.put("pickupTimestamp", _ts != null ? _ts : 0L);
+                    Object _price = s.child("price").getValue();
+                    r.put("price", _price);
+                    Object _pax = s.child("passengers").getValue();
+                    r.put("passengers", _pax instanceof Number ? ((Number) _pax).intValue() : 1);
+                    String _notes = s.child("notes").getValue(String.class);
+                    if (_notes != null) r.put("notes", _notes);
+                    rides.add(r);
+                }
+                // Neueste zuerst
+                rides.sort((a, b) -> Long.compare((Long) b.get("pickupTimestamp"), (Long) a.get("pickupTimestamp")));
+
+                if (rides.isEmpty()) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("📜 Bisherige Fahrten")
+                        .setMessage("Noch keine Fahrten für " + (e.name != null ? e.name : "diesen Kunden") + ".")
+                        .setPositiveButton("OK", null)
+                        .show();
+                    return;
+                }
+
+                String[] labels = new String[rides.size()];
+                java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("dd.MM.yy HH:mm", Locale.GERMANY);
+                fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                for (int i = 0; i < rides.size(); i++) {
+                    Map<String, Object> r = rides.get(i);
+                    long ts = (Long) r.get("pickupTimestamp");
+                    String dt = ts > 0 ? fmt.format(new java.util.Date(ts)) : "?";
+                    String pu = r.get("pickup") != null ? String.valueOf(r.get("pickup")) : "?";
+                    String de = r.get("destination") != null ? String.valueOf(r.get("destination")) : "?";
+                    String st = r.get("status") != null ? String.valueOf(r.get("status")) : "?";
+                    Object pr = r.get("price");
+                    String prStr = (pr instanceof Number) ? String.format(Locale.GERMANY, " · %.2f€", ((Number) pr).doubleValue())
+                                  : (pr != null ? " · " + pr + "€" : "");
+                    String shortPu = pu.length() > 30 ? pu.substring(0, 30) + "…" : pu;
+                    String shortDe = de.length() > 30 ? de.substring(0, 30) + "…" : de;
+                    labels[i] = dt + " · " + statusEmoji(st) + "\n" + shortPu + " → " + shortDe + prStr;
+                }
+
+                new AlertDialog.Builder(this)
+                    .setTitle("📜 " + (e.name != null ? e.name : "Fahrten") + " (" + rides.size() + ")")
+                    .setItems(labels, (d, w) -> showRideHistoryDetail(e, rides.get(w)))
+                    .setNegativeButton("Schließen", null)
+                    .show();
+            });
+    }
+
+    // Status → Emoji für die Liste
+    private String statusEmoji(String status) {
+        if (status == null) return "?";
+        switch (status) {
+            case "completed": case "abgeschlossen": return "✅";
+            case "cancelled": case "storniert": return "❌";
+            case "vorbestellt": return "📅";
+            case "assigned": case "accepted": return "🔔";
+            case "on_way": case "picked_up": return "🚗";
+            case "warteschlange": return "⏳";
+            default: return "•";
+        }
+    }
+
+    // Detail-Dialog für eine einzelne Fahrt der Historie — mit Kopieren + Wiederholen
+    private void showRideHistoryDetail(CrmEntry e, Map<String, Object> r) {
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY);
+        fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        long ts = (Long) r.get("pickupTimestamp");
+        String dt = ts > 0 ? fmt.format(new java.util.Date(ts)) : "?";
+        String pu = r.get("pickup") != null ? String.valueOf(r.get("pickup")) : "—";
+        String de = r.get("destination") != null ? String.valueOf(r.get("destination")) : "—";
+        String st = r.get("status") != null ? String.valueOf(r.get("status")) : "?";
+        Object pr = r.get("price");
+        String prStr = (pr instanceof Number) ? String.format(Locale.GERMANY, "%.2f €", ((Number) pr).doubleValue())
+                      : (pr != null ? pr + " €" : "—");
+        int pax = r.get("passengers") instanceof Integer ? (Integer) r.get("passengers") : 1;
+        String notes = r.get("notes") != null ? String.valueOf(r.get("notes")) : null;
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("📅 ").append(dt).append("\n");
+        msg.append(statusEmoji(st)).append(" Status: ").append(st).append("\n\n");
+        msg.append("📍 Von: ").append(pu).append("\n");
+        msg.append("🎯 Nach: ").append(de).append("\n");
+        msg.append("👥 Personen: ").append(pax).append("\n");
+        msg.append("💰 Preis: ").append(prStr);
+        if (notes != null && !notes.trim().isEmpty()) {
+            msg.append("\n\n📝 Notiz: ").append(notes);
+        }
+        final String _msgFinal = msg.toString();
+
+        new AlertDialog.Builder(this)
+            .setTitle("Fahrt-Details")
+            .setMessage(_msgFinal)
+            .setPositiveButton("📋 Kopieren", (d, w) -> {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
+                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
+                }
+            })
+            .setNeutralButton("📅 Erneut buchen", (d, w) -> {
+                // Vorbelegen mit dieser Adresse → CRM-Eintrag temporär patchen + Vorbestell-Maske
+                CrmEntry _e = e;
+                showVorbestellungDialogWithGuest(_e);
+            })
+            .setNegativeButton("Zurück", null)
+            .show();
     }
 
     private void createSofortFahrtFromCrm(CrmEntry e) {

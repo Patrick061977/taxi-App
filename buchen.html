@@ -1054,21 +1054,12 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
-        // 🔧 v6.62.446: Reihenfolge der Karten umstellen (Patrick 08.05. 10:02): Pickup/Ziel
-        //   zuerst, Karte mittig, Wann-Termin ZULETZT. Patrick: 'Wann oben geht zu schnell weg,
-        //   die Leute können die Uhrzeit leicht übersehen'. Vor v6.62.446 Reihenfolge war:
-        //   wann-card → live-taxi-card → booking-card. Jetzt: booking-card → live-taxi-card →
-        //   wann-card. Wir verschieben das #wann-card-Element zur Laufzeit nach #booking-card,
-        //   weil im HTML-Source-Block viele Inline-Listener auf die alte Reihenfolge bezugnehmen.
-        document.addEventListener('DOMContentLoaded', () => {
-            try {
-                const wann = document.getElementById('wann-card');
-                const booking = document.getElementById('booking-card');
-                if (wann && booking && booking.parentNode) {
-                    booking.parentNode.insertBefore(wann, booking.nextSibling);
-                }
-            } catch (_e) { console.warn('v6.62.446 reorder fehlgeschlagen:', _e); }
-        });
+        // 🔧 v6.62.446 → 🚑 v6.62.449: Wann-Card-Reorder rausgenommen.
+        //   v6.62.446 hatte die wann-card komplett nach unten verschoben (Patrick: 'Wann oben
+        //   geht zu schnell weg'). Patrick (08.05. 10:24 nach Live-Test): „Bei buchen.html muss
+        //   Sofort und Vorbestellen aber nach oben." → Toggle ist die ERSTE Entscheidung des
+        //   Kunden (jetzt buchen vs. später) und gehört nach oben.
+        //   Reihenfolge ist jetzt wieder: wann-card → live-taxi-card → booking-card (original).
 
         // Firebase Init
         firebase.initializeApp({

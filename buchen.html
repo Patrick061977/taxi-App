@@ -1054,66 +1054,13 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
-        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451 → 🔧 v6.62.455 → 🔧 v6.62.456:
-        //   • Toggle (Sofort/Vorbestellen) bleibt OBEN in #wann-card
-        //   • Pickup/Ziel (booking-card)
-        //   • 🆕 v6.62.456: Karte wird MODUS-abhängig gezeigt:
-        //     - Sofort → Karte sichtbar (Patrick: 'Leute sehen Fahrzeuge die da sind')
-        //     - Vorbestellen → Karte versteckt (Patrick: 'die Karte interessiert da nicht')
-        //   • Vorbestell-Felder UNTER booking-card
-        //   Patrick (08.05. 10:53-10:56): 'weniger Scrollen', 'bei Vorbestellen nicht'.
-        document.addEventListener('DOMContentLoaded', () => {
-            try {
-                const vorbestellFelder = document.getElementById('vorbestellen-felder');
-                const vorbestellKalender = document.getElementById('vorbestellen-kalender');
-                const terminCompact = document.getElementById('termin-compact');
-                const bookingCard = document.getElementById('booking-card');
-                if (!bookingCard) return;
-                // Container nach booking-card erzeugen (gleiche .card-Optik)
-                const wrap = document.createElement('div');
-                wrap.className = 'card';
-                wrap.id = 'vorbestell-wrap';
-                wrap.style.cssText = 'padding:12px;display:none;';
-                wrap.innerHTML = '<div style="margin-bottom:8px;font-weight:600;color:#065f46;">📅 Vorbestellung — Datum & Uhrzeit</div>';
-                bookingCard.parentNode.insertBefore(wrap, bookingCard.nextSibling);
-                if (terminCompact) wrap.appendChild(terminCompact);
-                if (vorbestellFelder) wrap.appendChild(vorbestellFelder);
-                if (vorbestellKalender) wrap.appendChild(vorbestellKalender);
-                // Wenn Vorbestellen aktiv (über setWann gesteuert), Wrap zeigen
-                const orig_setWann = window.setWann;
-                if (typeof orig_setWann === 'function') {
-                    window.setWann = function(mode) {
-                        const ret = orig_setWann.apply(this, arguments);
-                        wrap.style.display = (mode === 'vorbestellen') ? 'block' : 'none';
-                        return ret;
-                    };
-                }
-                // Initial display je nach aktuellem Toggle-Stand
-                const activeBtn = document.querySelector('.wann-btn.active');
-                if (activeBtn && activeBtn.textContent.includes('Vorbestellen')) {
-                    wrap.style.display = 'block';
-                }
-
-                // 🆕 v6.62.456: Live-Taxi-Karte modus-abhängig zeigen
-                //   Sofort: sichtbar (Kunde sieht Fahrzeuge), Vorbestellen: versteckt
-                const liveCard = document.getElementById('live-taxi-card');
-                if (liveCard) {
-                    const setMapVisibility = (mode) => {
-                        liveCard.style.display = (mode === 'sofort') ? 'block' : 'none';
-                    };
-                    setMapVisibility(activeBtn && activeBtn.textContent.includes('Vorbestellen') ? 'vorbestellen' : 'sofort');
-                    // Wrap an den vorhandenen setWann-Wrapper (von v6.62.451 oben), nur Map-Visibility ergänzen
-                    const prevWrap = window.setWann;
-                    if (typeof prevWrap === 'function') {
-                        window.setWann = function(mode) {
-                            const ret = prevWrap.apply(this, arguments);
-                            setMapVisibility(mode);
-                            return ret;
-                        };
-                    }
-                }
-            } catch (_e) { console.warn('v6.62.451/456 reorder fehlgeschlagen:', _e); }
-        });
+        // 🚑 v6.62.461: Roll-back aller heute morgens v6.62.446/451/456 DOM-Reorder-Listener.
+        //   Patrick (08.05. 11:25): „Kannst du buchen.html erstmal wieder zurücksetzen wie es
+        //   gewesen ist, jetzt ist irgendwas kaputt." Ich bekomme die Symptome ohne weiteren
+        //   Live-Test nicht zugeordnet → sicherste Antwort = Original-Reihenfolge wiederherstellen.
+        //   v6.62.451 (Vorbestell-Felder unter Pickup/Ziel) UND v6.62.456 (Karte modus-abhängig)
+        //   sind jetzt NO-OP. Wenn wir die Anpassungen wieder wollen, machen wir das später
+        //   gezielt mit kleineren, testbaren Schritten.
 
         // Firebase Init
         firebase.initializeApp({

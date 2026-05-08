@@ -212,7 +212,12 @@ const TARIF = {
     grundgebuehr: 4.00,
     km_1_2: 3.30, km_3_4: 2.80, km_ab_5: 2.20,
     nacht_grundgebuehr: 5.50,
-    nacht_km_1_2: 3.30, nacht_km_3_4: 2.80, nacht_km_ab_5: 2.40
+    nacht_km_1_2: 3.30, nacht_km_3_4: 2.80, nacht_km_ab_5: 2.40,
+    // 🆕 v6.62.440: Wartezeit-Komponenten — bisher nur in index.html. Cloud Function
+    //   schrieb dadurch zu niedrige estimatedPrice für Multi-Stop-Fahrten.
+    wartezeit_pro_minute: 0.67,    // 40€/h = 0,67€/Min
+    wartezeit_frei_minuten: 0,
+    wartezeit_pro_stopp_min: 5
 };
 let tarifLoaded = false;
 
@@ -3663,7 +3668,19 @@ function isFeiertag(date) {
     return FEIERTAGE.includes(`${month}-${day}`);
 }
 
-function calculatePrice(distance, timestamp = null) {
+// 🔧 v6.62.440: ECOVIS-/Tarif-Komplettierung — Cloud Function calculatePrice ist jetzt
+//   feature-gleich mit index.html.calculatePrice. Patrick (08.05. 08:38): „Die sechs
+//   Personen, der Zuschlag, wurde schon mal nicht mitgerechnet". Großraumzuschlag,
+//   Wartezeit-pro-Stopp, Vehicle-Capacity-Surcharge fehlten komplett.
+//   - persons >= 5 → +10 € Großraumzuschlag (Funk-Taxi-Tarif)
+//   - waypointCount > 0 → +Wartezeit pro Stopp (default 5 min × 0,67 €/min = 3,35 €)
+//   - vehicleCapacity 5 → +10 %, 6-7 → +20 %, 8+ → +30 % (vom Basis-Preis)
+function calculatePrice(distance, timestamp = null, opts = {}) {
+    const persons = (opts && typeof opts.persons === 'number') ? opts.persons : 0;
+    const waypointCount = (opts && typeof opts.waypointCount === 'number') ? opts.waypointCount : 0;
+    const vehicleCapacity = (opts && typeof opts.vehicleCapacity === 'number') ? opts.vehicleCapacity : 0;
+    const waitMinutesOverride = (opts && opts.waitMinutesOverride != null) ? parseFloat(opts.waitMinutesOverride) : null;
+
     const calcTime = timestamp ? new Date(timestamp) : new Date();
     // 🔧 v6.38.24: BERLIN-Zeit für Tarifberechnung! getHours() ist UTC → falscher Nachttarif!
     const berlinTime = new Date(calcTime.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
@@ -3683,12 +3700,45 @@ function calculatePrice(distance, timestamp = null) {
 
     let base = grundgebuehr + kmPreis;
     const text = [];
+
+    // Vehicle-Capacity Surcharge (PKW groß, Van, 8-Sitzer)
+    if (vehicleCapacity >= 8)      { base *= 1.30; text.push('🚐 8-Sitzer (+30%)'); }
+    else if (vehicleCapacity >= 6) { base *= 1.20; text.push('🚐 Van (+20%)'); }
+    else if (vehicleCapacity >= 5) { base *= 1.10; text.push('🚗 PKW groß (+10%)'); }
+
+    // Großraumzuschlag bei 5+ Personen (pauschal +10€)
+    let grossraumZuschlag = 0;
+    if (persons >= 5) {
+        grossraumZuschlag = 10.00;
+        base += grossraumZuschlag;
+        text.push('🚐 Großraumzuschlag (+10€)');
+    }
+
+    // Wartezeit pro Zwischenstopp
+    let wartezeitMin = 0, wartezeitEuro = 0;
+    const ratePerMin = parseFloat(TARIF.wartezeit_pro_minute) || 0;
+    if (ratePerMin > 0) {
+        if (waitMinutesOverride != null && !isNaN(waitMinutesOverride)) {
+            wartezeitMin = Math.max(0, waitMinutesOverride);
+        } else if (waypointCount > 0) {
+            const perStop = parseFloat(TARIF.wartezeit_pro_stopp_min) || 5;
+            const freeMin = parseFloat(TARIF.wartezeit_frei_minuten) || 0;
+            wartezeitMin = Math.max(0, waypointCount * perStop - waypointCount * freeMin);
+        }
+        if (wartezeitMin > 0) {
+            wartezeitEuro = wartezeitMin * ratePerMin;
+            base += wartezeitEuro;
+            text.push(`⏱ Wartezeit ${wartezeitMin}min (+${wartezeitEuro.toFixed(2)}€)`);
+        }
+    }
+
     if (istFeiertag_) text.push('Feiertag (Nachttarif)');
     else if (day === 0) text.push('Sonntag (Nachttarif)');
     else if (isNight) text.push('Nachttarif');
 
     const totalRounded = Math.round(base / 0.1) * 0.1;
-    return { total: totalRounded.toFixed(2), zuschlagText: text, distance, basePrice: base.toFixed(2) };
+    return { total: totalRounded.toFixed(2), zuschlagText: text, distance, basePrice: base.toFixed(2),
+             grossraumZuschlag, wartezeitMin, wartezeitEuro };
 }
 
 // Parse datetime string as German time (CET/CEST) → returns UTC timestamp
@@ -3938,8 +3988,12 @@ async function calculateTelegramRoutePrice(booking) {
             return null;
         }
         const pickupTimestamp = booking.datetime ? parseGermanDatetime(booking.datetime) : Date.now();
-        const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
-        console.log(`[RoutePrice] Preis: ${pricing.total}€ für ${route.distance} km`);
+        // v6.62.440: persons + waypointCount weitergeben für Großraum/Wartezeit-Zuschlag
+        const _persons = parseInt(booking.persons || booking.passengers || booking.personenzahl || 1, 10);
+        const _wpCount = (booking.waypoints && booking.waypoints.length) || 0;
+        const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp,
+            { persons: _persons, waypointCount: _wpCount });
+        console.log(`[RoutePrice] Preis: ${pricing.total}€ für ${route.distance} km (persons=${_persons}, wp=${_wpCount})`);
         return { distance: route.distance, duration: route.duration, price: pricing.total, zuschlagText: pricing.zuschlagText };
     } catch (e) {
         console.error('[RoutePrice] Fehler:', e.message);
@@ -10325,7 +10379,11 @@ async function applyAdminAddressChange(chatId, rideId, field, addressText, geo) 
                 const route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon });
                 if (route && route.distance && parseFloat(route.distance) <= 500) {
                     const pickupTs = existingRide.pickupTimestamp || Date.now();
-                    const pricing = calculatePrice(parseFloat(route.distance), pickupTs);
+                    // v6.62.440: persons + waypointCount aus existingRide weitergeben
+                    const _persons2 = parseInt(existingRide.persons || existingRide.passengers || existingRide.personenzahl || 1, 10);
+                    const _wpCount2 = (existingRide.waypoints && existingRide.waypoints.length) || 0;
+                    const pricing = calculatePrice(parseFloat(route.distance), pickupTs,
+                        { persons: _persons2, waypointCount: _wpCount2 });
                     update.price = pricing.total;
                     update.estimatedPrice = pricing.total;
                     update.distance = route.distance;
@@ -19266,7 +19324,11 @@ exports.onRideCreated = onValueCreated(
                 );
                 if (_route && _route.distance && parseFloat(_route.distance) <= 500) {
                     const _ts = ride.pickupTimestamp || Date.now();
-                    const _pricing = calculatePrice(parseFloat(_route.distance), _ts);
+                    // v6.62.440: persons + waypointCount aus ride weitergeben (Großraum/Wartezeit)
+                    const _persons3 = parseInt(ride.persons || ride.passengers || ride.personenzahl || 1, 10);
+                    const _wpCount3 = _waypointCoordsForRoute.length;
+                    const _pricing = calculatePrice(parseFloat(_route.distance), _ts,
+                        { persons: _persons3, waypointCount: _wpCount3 });
                     if (_pricing && _pricing.total) {
                         const _priceUpdate = {
                             price: String(_pricing.total),

@@ -1054,12 +1054,47 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
-        // 🔧 v6.62.446 → 🚑 v6.62.449: Wann-Card-Reorder rausgenommen.
-        //   v6.62.446 hatte die wann-card komplett nach unten verschoben (Patrick: 'Wann oben
-        //   geht zu schnell weg'). Patrick (08.05. 10:24 nach Live-Test): „Bei buchen.html muss
-        //   Sofort und Vorbestellen aber nach oben." → Toggle ist die ERSTE Entscheidung des
-        //   Kunden (jetzt buchen vs. später) und gehört nach oben.
-        //   Reihenfolge ist jetzt wieder: wann-card → live-taxi-card → booking-card (original).
+        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451: Differenzierte Reihenfolge:
+        //   • Toggle (Sofort/Vorbestellen) bleibt OBEN in #wann-card — erste Wahl des Kunden
+        //   • Pickup/Ziel/Karte in der Mitte (booking-card)
+        //   • Vorbestell-Felder (Datum/Zeit/Slot-Timeline) → wenn Vorbestellen, dann UNTER
+        //     booking-card positioniert. Patrick (08.05. 10:36): „Bei Vorbestellungen will
+        //     ich den Abholort und den Zielort und danach die Zeit."
+        //   Wir verschieben den Vorbestell-Container per DOMContentLoaded an seine neue
+        //   Position. Setzen via setWann('vorbestellen') zeigt ihn an wo er jetzt steht.
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const vorbestellFelder = document.getElementById('vorbestellen-felder');
+                const vorbestellKalender = document.getElementById('vorbestellen-kalender');
+                const terminCompact = document.getElementById('termin-compact');
+                const bookingCard = document.getElementById('booking-card');
+                if (!bookingCard) return;
+                // Container nach booking-card erzeugen (gleiche .card-Optik)
+                const wrap = document.createElement('div');
+                wrap.className = 'card';
+                wrap.id = 'vorbestell-wrap';
+                wrap.style.cssText = 'padding:12px;display:none;';
+                wrap.innerHTML = '<div style="margin-bottom:8px;font-weight:600;color:#065f46;">📅 Vorbestellung — Datum & Uhrzeit</div>';
+                bookingCard.parentNode.insertBefore(wrap, bookingCard.nextSibling);
+                if (terminCompact) wrap.appendChild(terminCompact);
+                if (vorbestellFelder) wrap.appendChild(vorbestellFelder);
+                if (vorbestellKalender) wrap.appendChild(vorbestellKalender);
+                // Wenn Vorbestellen aktiv (über setWann gesteuert), Wrap zeigen
+                const orig_setWann = window.setWann;
+                if (typeof orig_setWann === 'function') {
+                    window.setWann = function(mode) {
+                        const ret = orig_setWann.apply(this, arguments);
+                        wrap.style.display = (mode === 'vorbestellen') ? 'block' : 'none';
+                        return ret;
+                    };
+                }
+                // Initial display je nach aktuellem Toggle-Stand
+                const activeBtn = document.querySelector('.wann-btn.active');
+                if (activeBtn && activeBtn.textContent.includes('Vorbestellen')) {
+                    wrap.style.display = 'block';
+                }
+            } catch (_e) { console.warn('v6.62.451 reorder fehlgeschlagen:', _e); }
+        });
 
         // Firebase Init
         firebase.initializeApp({

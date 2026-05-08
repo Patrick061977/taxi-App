@@ -686,18 +686,81 @@ public class CrmSearchActivity extends AppCompatActivity {
             });
             _b.setNegativeButton("Zurück", null);
         } else {
-            _b.setPositiveButton("📋 Kopieren", (d, w) -> {
+            // 🆕 v6.62.503: Patrick (08.05. 16:56): "vergangene fahrten kopieren für die
+            //   zukunft also dann auch als fahrt anlegen". Vergangene/abgeschlossene
+            //   Fahrten lassen sich jetzt als Vorlage fuer eine neue Buchung nehmen —
+            //   Pickup/Ziel/Waypoints/Personen/Notiz werden uebernommen, nur Datum
+            //   waehlt Patrick neu.
+            _b.setPositiveButton("📅 Erneut buchen (als Vorlage)", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
+            _b.setNeutralButton("📋 Kopieren", (d, w) -> {
                 android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                 if (cm != null) {
                     cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
                     Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
                 }
             });
-            _b.setNeutralButton("📅 Erneut buchen", (d, w) -> showVorbestellungDialogWithGuest(e));
             _b.setNegativeButton("Zurück", null);
         }
 
         _b.show();
+    }
+
+    // 🆕 v6.62.503: Vergangene Fahrt als Vorlage öffnen.
+    //   Patrick (08.05.2026 16:56): "vergangene fahrten kopieren für die zukunft
+    //   also dann auch als fahrt anlegen".
+    //   Lädt die volle Ride aus Firebase und öffnet showVorbestellungMaske mit Pre-Fill
+    //   ABER editRideId=null → Save erzeugt eine NEUE Buchung (push), keine Update.
+    //   Wichtige Felder werden vor dem Pre-Fill genullt damit Patrick neu setzen kann:
+    //   pickupTimestamp/pickupTime/vehicleId/status (und alle Audit-/Assign-Felder).
+    private void openRideAsTemplate(CrmEntry e, String rideId, Map<String, Object> rideListEntry) {
+        if (rideId == null) {
+            Toast.makeText(this, "❌ Fahrt-ID fehlt", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Lade Fahrt-Daten als Vorlage…");
+        _pd.setCancelable(false);
+        _pd.show();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId).get()
+            .addOnCompleteListener(task -> {
+                _pd.dismiss();
+                if (!task.isSuccessful() || task.getResult() == null || !task.getResult().exists()) {
+                    Toast.makeText(this, "❌ Fahrt nicht gefunden", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
+                if (_full == null) {
+                    Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Audit-/Assign-/Status-Felder entfernen damit das Template eine
+                // NEUE Buchung wird — Patrick setzt Datum neu, Cloud weist Fahrzeug
+                // neu zu.
+                Map<String, Object> _template = new HashMap<>(_full);
+                _template.remove("pickupTimestamp");
+                _template.remove("pickupTime");
+                _template.remove("vehicleId");
+                _template.remove("assignedVehicle");
+                _template.remove("assignedTo");
+                _template.remove("assignedAt");
+                _template.remove("assignedBy");
+                _template.remove("acceptedAt");
+                _template.remove("acceptedVia");
+                _template.remove("status");
+                _template.remove("createdAt");
+                _template.remove("updatedAt");
+                _template.remove("completedAt");
+                _template.remove("cancelledAt");
+                _template.remove("cancelReason");
+                _template.remove("invoiceNumber");
+                _template.remove("paymentMethod");
+                _template.remove("price"); // wird neu berechnet
+                _template.remove("editedAt");
+                _template.remove("editedVia");
+                _template.remove("source"); // wird auf 'native_vorbestellung_crmsearch' gesetzt
+                Toast.makeText(this, "📋 Vorlage geladen — wähle neuen Termin", Toast.LENGTH_SHORT).show();
+                showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
+            });
     }
 
     // 🆕 v6.62.483: Bearbeiten-Dialog für eine bestehende Vorbestellung. Lädt die volle
@@ -903,6 +966,10 @@ public class CrmSearchActivity extends AppCompatActivity {
     //   vehicleId/assignedAt/assignedBy genullt damit autoResolveConflicts neu zuweist.
     private void showVorbestellungMaske(CrmEntry e, List<Map.Entry<String,Integer>> topDests, Map<String, double[]> destCoordsMap, String editRideId, Map<String, Object> editRide) {
         final boolean isEdit = (editRideId != null && editRide != null);
+        // 🆕 v6.62.503: hasTemplate = Pre-Fill aus altem Ride aktivieren auch wenn nicht
+        //   im Edit-Modus (Patrick: 'vergangene fahrten kopieren für die zukunft als
+        //   fahrt anlegen' — also Vorlage). isEdit bleibt false → Save = push neue.
+        final boolean hasTemplate = (editRide != null);
         final boolean isHotel = isAuftraggeberCrm(e);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -926,9 +993,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         // Name-Feld — Hotel/Firma = Gastname (leer); Stammkunde = Kundenname (vorausgefuellt)
         EditText etName = new EditText(this);
         etName.setHint(isHotel ? "Gastname (für den gebucht wird)" : "Kundenname");
-        // v6.62.483: im Edit-Modus den existierenden Namen aus der Ride pre-fillen.
-        //   Hotel: guestName (Gastname), sonst customerName.
-        if (isEdit) {
+        // v6.62.483/.503: im Edit-/Template-Modus den existierenden Namen pre-fillen.
+        if (hasTemplate) {
             String _existingName = isHotel
                 ? (editRide.get("guestName") != null ? String.valueOf(editRide.get("guestName")) : "")
                 : (editRide.get("customerName") != null ? String.valueOf(editRide.get("customerName")) : "");
@@ -973,8 +1039,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Abholort). Patrick fuellt nur Zielort. Tausch-Button kehrt um falls Gast
         //   ZUM Hotel/Kunden gefahren werden soll.
         TextView tvPickup = new TextView(this);
-        // v6.62.483: Im Edit-Modus Pickup aus der Ride pre-fillen, sonst CRM-Adresse.
-        if (isEdit && editRide.get("pickup") != null) {
+        // v6.62.483/.503: Im Edit-/Template-Modus Pickup aus Ride pre-fillen, sonst CRM-Adresse.
+        if (hasTemplate && editRide.get("pickup") != null) {
             tvPickup.setText("📍 " + editRide.get("pickup"));
             Object _pl = editRide.get("pickupLat"), _po = editRide.get("pickupLon");
             if (_pl instanceof Number && _po instanceof Number) {
@@ -1012,8 +1078,8 @@ public class CrmSearchActivity extends AppCompatActivity {
 
         TextView tvDest = new TextView(this);
         // v6.62.315: Zielort immer leer beim Oeffnen (Patrick fuellt aus)
-        // v6.62.483: Im Edit-Modus pre-fillen.
-        if (isEdit && editRide.get("destination") != null) {
+        // v6.62.483/.503: Im Edit-/Template-Modus pre-fillen.
+        if (hasTemplate && editRide.get("destination") != null) {
             tvDest.setText("🎯 " + editRide.get("destination"));
             Object _dl = editRide.get("destinationLat"), _do = editRide.get("destinationLon");
             if (_dl instanceof Number && _do instanceof Number) {
@@ -1134,8 +1200,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         });
         layout.addView(btnAddWp);
 
-        // v6.62.483: Bei Edit existierende Waypoints automatisch hinzufügen.
-        if (isEdit && editRide.get("waypoints") != null) {
+        // v6.62.483/.503: Bei Edit/Template existierende Waypoints hinzufügen.
+        if (hasTemplate && editRide.get("waypoints") != null) {
             try {
                 Object _wpRaw = editRide.get("waypoints");
                 List<Map<String, Object>> _existingWps = new ArrayList<>();
@@ -1204,8 +1270,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                          "5 Personen (Bus)", "6 Personen (Bus)", "7 Personen (Bus)", "8 Personen (Bus)"});
         paxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spnPax.setAdapter(paxAdapter);
-        // v6.62.483: Personenzahl aus Edit-Ride pre-fillen (1-8 → Index 0-7)
-        if (isEdit && editRide.get("passengers") instanceof Number) {
+        // v6.62.483/.503: Personenzahl aus Edit-/Template-Ride pre-fillen
+        if (hasTemplate && editRide.get("passengers") instanceof Number) {
             int _pax = ((Number) editRide.get("passengers")).intValue();
             if (_pax < 1) _pax = 1;
             if (_pax > 8) _pax = 8;
@@ -1256,8 +1322,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         etNotes.setMinLines(2);
         etNotes.setMaxLines(4);
         etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
-        // v6.62.483: Notizen pre-fillen
-        if (isEdit && editRide.get("notes") != null) {
+        // v6.62.483/.503: Notizen pre-fillen
+        if (hasTemplate && editRide.get("notes") != null) {
             etNotes.setText(String.valueOf(editRide.get("notes")));
         }
         layout.addView(etNotes);

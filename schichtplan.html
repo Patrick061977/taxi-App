@@ -1846,7 +1846,10 @@
             const out = {
                 vollVor: 0, pauseH: 0, vollBezahlt: 0,
                 preH: 0, postH: 0, standbyGes: 0,
-                sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0,
+                // 🔧 v6.62.442: feiertag150/125 mit-tracken (waren bisher in calcZuschlagsStunden
+                //   gesetzt aber NICHT in den classifyDay-Output durchgereicht). Der ZIP-Export
+                //   brauchte diese Werte für ZUSCHLAG_FEIERTAG_MAI1 vs ZUSCHLAG_FEIERTAG_NORMAL.
+                sonntag: 0, nacht25: 0, nacht40: 0, feiertag: 0, feiertag150: 0, feiertag125: 0,
                 ranges: { shift: '', pre: '', post: '', pause: '' },
                 hasData: false
             };
@@ -1889,6 +1892,9 @@
                 out.nacht25 = z.nacht25;
                 out.nacht40 = z.nacht40;
                 out.feiertag = z.feiertag;
+                // 🔧 v6.62.442: 150%/125%-Buckets durchreichen für Lohn-Preview + ZIP-Export
+                out.feiertag150 = z.feiertag150 || 0;
+                out.feiertag125 = z.feiertag125 || 0;
             } else if (plan && isStandbyShift(plan)) {
                 out.hasData = true;
                 const h = plan.hours || calcHours(plan.start, plan.end);
@@ -1940,6 +1946,8 @@
 
             let tVollVor = 0, tPause = 0, tVollBez = 0, tStandby = 0;
             let tSonntag = 0, tNacht25 = 0, tNacht40 = 0, tFeiertag = 0;
+            // 🔧 v6.62.442: Feiertag-Buckets nach Mai1 (150%) vs. anderen (125%) separat summieren
+            let tFeiertag150 = 0, tFeiertag125 = 0;
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(year, month - 1, day);
@@ -1957,6 +1965,9 @@
                 tNacht25 += cls.nacht25;
                 tNacht40 += cls.nacht40;
                 tFeiertag += cls.feiertag;
+                // v6.62.442: Buckets für korrekten Zuschlag-Faktor in der Brutto-Zeile
+                tFeiertag150 += (cls.feiertag150 || 0);
+                tFeiertag125 += (cls.feiertag125 || 0);
 
                 const cells = [
                     ['A', 'inlineStr', dayLabel],
@@ -2013,7 +2024,11 @@
             const zuschlSonntag = surchargesEnabled ? +(tSonntag * rateShift * ZUSCHLAG_SONNTAG).toFixed(2) : 0;
             const zuschlNacht25 = surchargesEnabled ? +(tNacht25 * rateShift * ZUSCHLAG_NACHT_25).toFixed(2) : 0;
             const zuschlNacht40 = surchargesEnabled ? +(tNacht40 * rateShift * ZUSCHLAG_NACHT_40).toFixed(2) : 0;
-            const zuschlFeiertag = surchargesEnabled ? +(tFeiertag * rateShift * ZUSCHLAG_FEIERTAG).toFixed(2) : 0;
+            // 🔧 v6.62.442: ZUSCHLAG_FEIERTAG existiert seit v6.62.417 nicht mehr — Mai1=150%, Rest=125%.
+            //   Patrick (08.05. 08:50): „beim lohnexport steht feiertag ist not defined".
+            const zuschlFeiertag = surchargesEnabled
+                ? +(tFeiertag150 * rateShift * ZUSCHLAG_FEIERTAG_MAI1 + tFeiertag125 * rateShift * ZUSCHLAG_FEIERTAG_NORMAL).toFixed(2)
+                : 0;
             const bruttoCells = [
                 ['A', 'inlineStr', 'Brutto-Lohn (€):', 5],
                 ['G', 'n', bruttoVoll, 8],

@@ -1054,13 +1054,14 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
 
     <script>
-        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451 → 🔧 v6.62.455: Reihenfolge + kompakter
-        //   • Toggle (Sofort/Vorbestellen) bleibt OBEN in #wann-card — erste Wahl des Kunden
-        //   • Pickup/Ziel zuerst (booking-card oben)
-        //   • 🆕 Karte (live-taxi-card) erst SICHTBAR wenn Pickup-Coords gesetzt — sonst
-        //     muss der Kunde nicht durch eine leere Karte scrollen.
-        //   • Vorbestell-Felder UNTER booking-card (wenn Vorbestellen)
-        //   Patrick (08.05. 10:53): „Der Kunde muss immer hin und her scrollen."
+        // 🔧 v6.62.446 → 🚑 v6.62.449 → 🔧 v6.62.451 → 🔧 v6.62.455 → 🔧 v6.62.456:
+        //   • Toggle (Sofort/Vorbestellen) bleibt OBEN in #wann-card
+        //   • Pickup/Ziel (booking-card)
+        //   • 🆕 v6.62.456: Karte wird MODUS-abhängig gezeigt:
+        //     - Sofort → Karte sichtbar (Patrick: 'Leute sehen Fahrzeuge die da sind')
+        //     - Vorbestellen → Karte versteckt (Patrick: 'die Karte interessiert da nicht')
+        //   • Vorbestell-Felder UNTER booking-card
+        //   Patrick (08.05. 10:53-10:56): 'weniger Scrollen', 'bei Vorbestellen nicht'.
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 const vorbestellFelder = document.getElementById('vorbestellen-felder');
@@ -1092,7 +1093,26 @@
                 if (activeBtn && activeBtn.textContent.includes('Vorbestellen')) {
                     wrap.style.display = 'block';
                 }
-            } catch (_e) { console.warn('v6.62.451 reorder fehlgeschlagen:', _e); }
+
+                // 🆕 v6.62.456: Live-Taxi-Karte modus-abhängig zeigen
+                //   Sofort: sichtbar (Kunde sieht Fahrzeuge), Vorbestellen: versteckt
+                const liveCard = document.getElementById('live-taxi-card');
+                if (liveCard) {
+                    const setMapVisibility = (mode) => {
+                        liveCard.style.display = (mode === 'sofort') ? 'block' : 'none';
+                    };
+                    setMapVisibility(activeBtn && activeBtn.textContent.includes('Vorbestellen') ? 'vorbestellen' : 'sofort');
+                    // Wrap an den vorhandenen setWann-Wrapper (von v6.62.451 oben), nur Map-Visibility ergänzen
+                    const prevWrap = window.setWann;
+                    if (typeof prevWrap === 'function') {
+                        window.setWann = function(mode) {
+                            const ret = prevWrap.apply(this, arguments);
+                            setMapVisibility(mode);
+                            return ret;
+                        };
+                    }
+                }
+            } catch (_e) { console.warn('v6.62.451/456 reorder fehlgeschlagen:', _e); }
         });
 
         // Firebase Init

@@ -1280,10 +1280,36 @@
             if (mins < 0) mins += 24 * 60; // Nachtschicht über Mitternacht
             return mins / 60;
         }
+        // 🆕 v6.62.438: Pause zählt nur als Abzug, soweit sie INNERHALB der Schicht liegt
+        //   (ECOVIS-Korrektur Frau Buchholz 08.05.: „6.00–14.00 mit Pause nach 14.00 Uhr
+        //   bleiben es 5 h"). Vorher wurde pauseHours blind abgezogen, auch wenn die Pause
+        //   gar nicht in die Schicht fiel — oder gar nachts auf einer Tag-Schicht stand.
+        //   Pflicht-Pause-Logik (≥8h muss 0,5h enthalten) bleibt unberührt.
+        //   Algorithmus: probiert die Pause an 3 Positionen (heute / +24h / -24h) und nimmt
+        //   die maximale Überlappung mit der Schicht. Behandelt korrekt:
+        //   - Pause vor Schichtbeginn (Tag-Schicht), Pause direkt am Anfang (Übergang)
+        //   - Nacht-Schicht mit Pause nach Mitternacht
+        //   - Datenfehler-Fall: Tag-Schicht mit eingetragener Nacht-Pause → 0
+        function calcPauseOverlap(shiftStart, shiftEnd, pauseStart, pauseEnd) {
+            if (!shiftStart || !shiftEnd || !pauseStart || !pauseEnd) return 0;
+            const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+            const ss = toMin(shiftStart);
+            let se = toMin(shiftEnd); if (se <= ss) se += 24 * 60;
+            let ps = toMin(pauseStart);
+            let pe = toMin(pauseEnd); if (pe <= ps) pe += 24 * 60;
+            let best = 0;
+            for (const off of [0, 24 * 60, -24 * 60]) {
+                const psO = ps + off, peO = pe + off;
+                const ov = Math.max(0, Math.min(se, peO) - Math.max(ss, psO));
+                if (ov > best) best = ov;
+            }
+            return best / 60;
+        }
         function updateHoursPreview() {
             const v = (id) => document.getElementById(id)?.value || '';
             const fullVor = calcHours(v('shift-start'), v('shift-end'));
-            const pause = calcHours(v('shift-pause-start'), v('shift-pause-end'));
+            // 🔧 v6.62.438: Pause nur soweit abziehen, wie sie in die Schicht fällt.
+            const pause = calcPauseOverlap(v('shift-start'), v('shift-end'), v('shift-pause-start'), v('shift-pause-end'));
             const bezahlt = Math.max(0, fullVor - pause);
             const pre = calcHours(v('shift-pre-start'), v('shift-pre-end'));
             const post = calcHours(v('shift-post-start'), v('shift-post-end'));
@@ -1316,10 +1342,10 @@
             const postEnd = v('shift-post-end');
             // Berechnungen — mit Pause-Abzug
             // 🔧 v6.62.421: Pflicht-Pause 0,5h bei >= 8h Anwesenheit (ArbZG §4 / ECOVIS-Vorgabe).
-            //   Wenn keine oder zu kurze Pause eingetragen, wird die effektive Pause auf 0,5h
-            //   hochgesetzt (gilt nur bei Schichten ≥ 8h, sonst keine Pflicht).
+            // 🔧 v6.62.438: Echte (Roh-)Pause = Schnittmenge mit Schicht-Range. ECOVIS-Korrektur
+            //   Frau Buchholz: Pause außerhalb der Schicht zählt nicht (z.B. 09–14 mit Pause 14–14:30).
             const fullVor = (start && end) ? calcHours(start, end) : 0;
-            const pauseHraw = (pauseStart && pauseEnd) ? calcHours(pauseStart, pauseEnd) : 0;
+            const pauseHraw = (pauseStart && pauseEnd) ? calcPauseOverlap(start, end, pauseStart, pauseEnd) : 0;
             const pflichtPause = fullVor >= 8 ? 0.5 : 0;
             const pauseH = Math.max(pauseHraw, pflichtPause);
             const bezahlt = Math.max(0, fullVor - pauseH);
@@ -1831,7 +1857,11 @@
                 const fullVor = plan.hoursAttendance != null ? plan.hoursAttendance : (calcHours(plan.start, plan.end));
                 // 🔧 v6.62.421: Pflicht-Pause 0,5h bei >= 8h auch im Lohn-Preview durchsetzen
                 //   (alte Plane ohne Pause werden korrigiert, ECOVIS-Vorgabe ArbZG §4).
-                const pauseHraw = plan.pauseHours || 0;
+                // 🔧 v6.62.438: Pause-Abzug nur soweit Pause in der Schicht liegt — nicht mehr
+                //   blind plan.pauseHours (das wäre auch positiv wenn Pause ganz außerhalb gelegen ist).
+                const pauseHraw = (plan.pauseStart && plan.pauseEnd)
+                    ? calcPauseOverlap(plan.start, plan.end, plan.pauseStart, plan.pauseEnd)
+                    : 0;
                 const pflichtPause = fullVor >= 8 ? 0.5 : 0;
                 const pauseH = Math.max(pauseHraw, pflichtPause);
                 const vollBezahlt = Math.max(0, fullVor - pauseH);

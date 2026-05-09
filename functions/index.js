@@ -17620,12 +17620,30 @@ exports.autoResolveConflicts = onSchedule(
                                 customer: r.customerName || '?'
                             }));
                     });
+                    // 🐛 v6.62.537: Phase 3 muss Override beachten. Vorher wurde nur die rohe
+                    // Reihenfolge-Prio (vehiclePriorities) genutzt — Tesla mit Override 999 wurde
+                    // trotzdem gewaehlt weil seine Reihenfolge-Prio 3 vor Prius (Prio 4) lag.
+                    // Patrick (09.05.): "aber es wird immer noch der tesla bevorzugt".
+                    // Fix: Sortier-Schluessel = (Prio - 1) × prioVorteil + Override
+                    //      d.h. Fahrzeuge mit hohem Override (z.B. 999) landen ans Ende.
+                    const _phase3PrioVorteil = priorityAdvantageMin || 0;
+                    const _phase3SortKey = (vid) => {
+                        const ov = Number(vehiclePrioMalus[vid]);
+                        if (Number.isFinite(ov)) return ov;
+                        return (getVehiclePriority(vid) - 1) * _phase3PrioVorteil;
+                    };
                     const vehiclesByPrio = Object.keys(OFFICIAL_VEHICLES)
-                        .sort((a, b) => getVehiclePriority(a) - getVehiclePriority(b));
+                        .sort((a, b) => {
+                            const diff = _phase3SortKey(a) - _phase3SortKey(b);
+                            if (diff !== 0) return diff;
+                            return getVehiclePriority(a) - getVehiclePriority(b);
+                        });
 
                     for (const ride of reassignableRides) {
                         const oldVehicle = ride.assignedVehicle;
-                        const oldPrio = oldVehicle ? getVehiclePriority(oldVehicle) : 99;
+                        // 🐛 v6.62.537: oldPrio nutzt jetzt SortKey (Override-aware) statt rohe Prio.
+                        // Sonst bleibt Tesla (raw Prio 3) bevorzugt obwohl Override 999.
+                        const oldPrio = oldVehicle ? _phase3SortKey(oldVehicle) : 99999;
                         const dateStr = berlinDate(ride.pickupTimestamp);
                         const timeStr = berlinTime(ride.pickupTimestamp);
                         const rideEnd = ride.pickupTimestamp
@@ -17721,7 +17739,8 @@ exports.autoResolveConflicts = onSchedule(
                             }
                             continue;
                         }
-                        const newPrio = getVehiclePriority(bestVehicle);
+                        // 🐛 v6.62.537: newPrio auch via SortKey (Override-aware)
+                        const newPrio = _phase3SortKey(bestVehicle);
                         if (bestVehicle === oldVehicle) {
                             // Schon optimal
                             phase3DebugLines.push(`✓ ${timeStr} ${ride.customerName || '?'} → bereits ${(OFFICIAL_VEHICLES[oldVehicle] || {}).name} (P${oldPrio})`);

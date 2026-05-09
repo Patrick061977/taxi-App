@@ -6,8 +6,11 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.CallLog;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -65,6 +68,8 @@ public class CallLogActivity extends AppCompatActivity {
     private ProgressBar progress;
     private TextView permHint;
     private CallAdapter adapter;
+    // 🆕 v6.62.519: ContentObserver für Live-Refresh bei eingehenden Anrufen
+    private ContentObserver callLogObserver;
     private Map<String, CrmCustomer> crmByPhone = new HashMap<>();
 
     // v6.53.0: Google Places Autocomplete — eine Launcher-Instanz, mehrere Ziel-Felder.
@@ -504,6 +509,41 @@ public class CallLogActivity extends AppCompatActivity {
         } else {
             loadCalls();
         }
+
+        // 🆕 v6.62.519: ContentObserver für Live-Refresh — neuer Anruf kommt rein → Liste
+        // wird sofort neu geladen, ohne Activity-Wechsel oder manuellen Refresh.
+        // Patrick (09.05.): "warum wird in der nativ ab nicht der letzt anruf angezeigt der gerade reinkam"
+        callLogObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
+            @Override
+            public void onChange(boolean selfChange) {
+                if (ContextCompat.checkSelfPermission(CallLogActivity.this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                    loadCalls();
+                }
+            }
+        };
+        try {
+            getContentResolver().registerContentObserver(CallLog.Calls.CONTENT_URI, true, callLogObserver);
+        } catch (Throwable t) {
+            // Permission noch nicht da — Observer wird beim Permission-Grant nochmal versucht
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 🆕 v6.62.519: Beim Zurückkommen in die Activity Liste auffrischen.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+            loadCalls();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (callLogObserver != null) {
+            try { getContentResolver().unregisterContentObserver(callLogObserver); } catch (Throwable _t) {}
+            callLogObserver = null;
+        }
+        super.onDestroy();
     }
 
     @Override

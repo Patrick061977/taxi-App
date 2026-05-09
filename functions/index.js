@@ -18039,6 +18039,19 @@ function getVehicleHomeCoords(vehicleId, shiftsData, dateStr, timeStr) {
 // Berechnet die ECHTE Fahrzeit (Minuten) vom wahrscheinlichen Standort zum Abholort
 // Smart Routing: Vergleicht Direkt-Route vs. über-Homebase und nimmt die kürzere
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.530: Polnische Position via Lat/Lon erkennen (Usedom-Region).
+// In dieser Gegend ist lon > 14.215 ungefähr Polen (Świnoujście & östlich).
+// Patrick (09.05.): Border-Heuristik nicht nur für Trip-Duration sondern auch
+// für leere Rückfahrten — wenn Fahrer DE↔PL fährt, +5 Min.
+function _isPLLatLon(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+    return lat > 53.85 && lat < 54.05 && lon > 14.215 && lon < 14.40;
+}
+function _crossesBorder(fromLat, fromLon, toLat, toLon) {
+    return _isPLLatLon(fromLat, fromLon) !== _isPLLatLon(toLat, toLon);
+}
+const BORDER_BUFFER_MIN = 5;
+
 async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehiclesData, shiftsData, dateStr, pricingSettings) {
     const pickupLat = targetRide.pickupCoords?.lat || targetRide.pickupLat;
     const pickupLon = targetRide.pickupCoords?.lon || targetRide.pickupLon;
@@ -18076,14 +18089,18 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
     if (vehicleRides.length === 0) {
         if (homeLat && homeLon) {
             const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'homebase' };
-            return { durationMin: gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon) * 2, distKm: gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon), method: 'homebase-luftlinie' };
+            // 🆕 v6.62.530: Border-Buffer wenn Leerfahrt DE↔PL kreuzt
+            const _border = _crossesBorder(homeLat, homeLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
+            if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'homebase-grenze' : 'homebase', borderMin: _border };
+            const _dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
+            return { durationMin: _dist * 2 + _border, distKm: _dist, method: _border ? 'homebase-luftlinie-grenze' : 'homebase-luftlinie', borderMin: _border };
         }
         // GPS-Fallback
         const driver = vehiclesData[vehicleId];
         if (driver?.lat && driver?.lon) {
             const route = await calculateRoute({ lat: driver.lat, lon: driver.lon }, { lat: pickupLat, lon: pickupLon });
-            if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'gps' };
+            const _border = _crossesBorder(driver.lat, driver.lon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
+            if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'gps-grenze' : 'gps', borderMin: _border };
         }
         return { durationMin: 50, distKm: 25, method: 'fallback' };
     }
@@ -18118,27 +18135,33 @@ async function estimateVehicleLeerfahrt(vehicleId, targetRide, allRides, vehicle
         // ✅ ANSCHLUSSFAHRT: Nächste Fahrt kommt bald + ist in der Nähe → Fahrer bleibt vor Ort
         console.log(`🔗 ${vehicleId}: Anschlussfahrt! ${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km → Fahrer bleibt vor Ort`);
         const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
+        // 🆕 v6.62.530: Border-Buffer
+        const _border = _crossesBorder(destLat, destLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
         if (route) {
-            return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'anschlussfahrt', isAnschlussfahrt: true };
+            return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'anschlussfahrt-grenze' : 'anschlussfahrt', isAnschlussfahrt: true, borderMin: _border };
         }
-        return { durationMin: Math.round(destToPickupKm * 2), distKm: destToPickupKm, method: 'anschlussfahrt-luftlinie', isAnschlussfahrt: true };
+        return { durationMin: Math.round(destToPickupKm * 2) + _border, distKm: destToPickupKm, method: _border ? 'anschlussfahrt-luftlinie-grenze' : 'anschlussfahrt-luftlinie', isAnschlussfahrt: true, borderMin: _border };
     }
 
     // ✅ STANDARD: Fahrer ist an der Basis → Leerfahrt ab Schichtstandort
     if (homeLat && homeLon) {
         console.log(`🏠 ${vehicleId}: Leerfahrt ab Basis (${Math.round(gapMinutes)} Min Pause, ${destToPickupKm.toFixed(1)} km → keine Anschlussfahrt)`);
         const route = await calculateRoute({ lat: homeLat, lon: homeLon }, { lat: pickupLat, lon: pickupLon });
+        // 🆕 v6.62.530: Border-Buffer
+        const _border = _crossesBorder(homeLat, homeLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
         if (route) {
-            return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'basis', isAnschlussfahrt: false };
+            return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'basis-grenze' : 'basis', isAnschlussfahrt: false, borderMin: _border };
         }
         const dist = gpsDistanceKm(homeLat, homeLon, pickupLat, pickupLon);
-        return { durationMin: Math.round(dist * 2), distKm: dist, method: 'basis-luftlinie', isAnschlussfahrt: false };
+        return { durationMin: Math.round(dist * 2) + _border, distKm: dist, method: _border ? 'basis-luftlinie-grenze' : 'basis-luftlinie', isAnschlussfahrt: false, borderMin: _border };
     }
 
     // Fallback: Keine Basis hinterlegt → Direktroute oder GPS
     if (destLat && destLon) {
         const route = await calculateRoute({ lat: destLat, lon: destLon }, { lat: pickupLat, lon: pickupLon });
-        if (route) return { durationMin: route.duration, distKm: parseFloat(route.distance), method: 'direkt-fallback', isAnschlussfahrt: false };
+        // 🆕 v6.62.530: Border-Buffer
+        const _border = _crossesBorder(destLat, destLon, pickupLat, pickupLon) ? BORDER_BUFFER_MIN : 0;
+        if (route) return { durationMin: route.duration + _border, distKm: parseFloat(route.distance), method: _border ? 'direkt-fallback-grenze' : 'direkt-fallback', isAnschlussfahrt: false, borderMin: _border };
     }
     const driver = vehiclesData[vehicleId];
     if (driver?.lat && driver?.lon) {

@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- v6.62.521: Patrick (09.05. 09:57): "das ist alles ein bischen zu gross".
+     Padding, Textgrößen, Button-Höhen und Margins ~25-30% reduziert,
+     damit auf dem Driver-Phone mehr Inhalt sichtbar ist. Tap-Targets
+     bleiben oberhalb der 44dp-Material-Mindestgröße. -->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
+    android:layout_marginBottom="6dp"
     app:cardBackgroundColor="#1E293B"
-    app:cardCornerRadius="14dp"
+    app:cardCornerRadius="12dp"
     app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="10dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -24,13 +28,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#F59E0B"
-                android:paddingStart="10dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="4dp"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="3dp"
                 android:text="🆕 NEU"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <View
@@ -44,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:text="Sofort"
                 android:textColor="#F8FAFC"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -52,20 +56,20 @@
             android:id="@+id/tv_customer_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="6dp"
             android:text="Kundenname"
             android:textColor="#F8FAFC"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tv_pickup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:text="📍 Abholort"
             android:textColor="#CBD5E1"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/tv_destination"
@@ -74,34 +78,29 @@
             android:layout_marginTop="2dp"
             android:text="🎯 Zielort"
             android:textColor="#CBD5E1"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/tv_price_distance"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:text="💰 -- € · 🛣️ -- km"
             android:textColor="#94A3B8"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
 
-        <!-- v6.62.303: Patrick (05.05. 13:48): "in der native app sieht der fahrer
-             nicht seinen live eta zum kunden". Prominente Live-ETA-Anzeige.
-             v6.62.502: Patrick (08.05. 16:31): "Live-ETA-Banner ist einfach zu gross,
-             dadurch sieht man die anderen Sachen nicht mehr". textSize 22→16sp,
-             padding 12→6dp, marginTop 8→4dp. Bleibt blau + zentriert + bold,
-             aber deutlich kompakter — andere Felder sind wieder sichtbar. -->
+        <!-- v6.62.303: Live-ETA-Banner | v6.62.502: kompakter (16sp) | v6.62.521: 14sp -->
         <TextView
             android:id="@+id/tv_live_eta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:padding="6dp"
+            android:padding="5dp"
             android:background="#1E40AF"
             android:gravity="center"
             android:text=""
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -110,34 +109,34 @@
             android:id="@+id/action_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_reject"
                 android:layout_width="0dp"
-                android:layout_height="60dp"
-                android:layout_marginEnd="6dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 android:text="❌ Ablehnen"
                 android:textColor="#F8FAFC"
-                android:textSize="15sp"
+                android:textSize="13sp"
                 app:backgroundTint="#475569"
-                app:cornerRadius="10dp" />
+                app:cornerRadius="9dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_accept"
                 android:layout_width="0dp"
-                android:layout_height="60dp"
-                android:layout_marginStart="6dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="5dp"
                 android:layout_weight="2"
                 android:text="✅ Annehmen"
                 android:textColor="#FFFFFF"
-                android:textSize="17sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 app:backgroundTint="#10B981"
-                app:cornerRadius="10dp" />
+                app:cornerRadius="9dp" />
         </LinearLayout>
 
         <!-- v6.43.0: Aktive-Fahrt-Toolbar — bei accepted/on_way/arrived/picked_up -->
@@ -145,7 +144,7 @@
             android:id="@+id/active_toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:orientation="vertical"
             android:visibility="gone">
 
@@ -157,68 +156,68 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_navigate"
                     android:layout_width="0dp"
-                    android:layout_height="60dp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="🧭"
-                    android:textSize="24sp"
+                    android:textSize="18sp"
                     app:backgroundTint="#3B82F6"
-                    app:cornerRadius="10dp" />
+                    app:cornerRadius="9dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_call"
                     android:layout_width="0dp"
-                    android:layout_height="60dp"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:text="📞"
-                    android:textSize="24sp"
+                    android:textSize="18sp"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="10dp" />
+                    app:cornerRadius="9dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_sms_track"
                     android:layout_width="0dp"
-                    android:layout_height="60dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="3dp"
                     android:layout_weight="1"
                     android:text="💬"
-                    android:textSize="24sp"
+                    android:textSize="18sp"
                     app:backgroundTint="#F59E0B"
-                    app:cornerRadius="10dp" />
+                    app:cornerRadius="9dp" />
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_status_next"
                     android:layout_width="0dp"
-                    android:layout_height="68dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_height="50dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="3"
                     android:text="▶ Bin unterwegs"
                     android:textColor="#FFFFFF"
-                    android:textSize="18sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     app:backgroundTint="#10B981"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="10dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cancel_ride"
                     android:layout_width="0dp"
-                    android:layout_height="68dp"
-                    android:layout_marginStart="6dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="5dp"
                     android:layout_weight="1"
                     android:text="✗"
                     android:textColor="#F8FAFC"
-                    android:textSize="22sp"
+                    android:textSize="18sp"
                     app:backgroundTint="#EF4444"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="10dp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

@@ -20500,6 +20500,42 @@ exports.onRideUpdated = onValueUpdated(
                 // 🆕 v6.28.0: WhatsApp-Stornierung an Kunden
                 await sendCustomerWhatsAppNotification(after, rideId, 'cancelled');
 
+                // 🆕 v6.62.522: SMS-Stornierung an Kunden (Patrick 09.05.: bei Werner-Storno
+                // kam keine SMS Bestaetigung; bisher gab's nur WhatsApp + Telegram).
+                // Nur Mobile-Nummern, optional via /settings/sms/cancelEnabled abschaltbar.
+                try {
+                    const _custPhoneCancel = after.customerPhone || after.customerMobile;
+                    if (_custPhoneCancel) {
+                        const _smsSetSnap = await db.ref('settings/sms').once('value');
+                        const _smsSet = _smsSetSnap.val() || {};
+                        if (_smsSet.cancelEnabled !== false) { // Default ON
+                            if (!isMobileNumber(_custPhoneCancel)) {
+                                console.log(`☎️ Storno-SMS skip (Festnetz): ${_custPhoneCancel}`);
+                                await addRideLog(rideId, '☎️', `Storno-SMS übersprungen (Festnetz)`, { phone: _custPhoneCancel });
+                            } else {
+                                const _passengerName3 = after.guestName || after.customerName || '';
+                                const _smsBody = (_passengerName3 ? `Hallo ${_passengerName3}, ` : '') +
+                                    `Ihre Taxi-Buchung` +
+                                    (after.pickupTime ? ` um ${after.pickupTime}` : '') +
+                                    (after.pickup ? ` ab "${String(after.pickup).slice(0, 40)}"` : '') +
+                                    ` wurde storniert. Bei Fragen: 038378/22022`;
+                                await db.ref('smsQueue').push({
+                                    phone: _custPhoneCancel,
+                                    text: _smsBody,
+                                    rideId,
+                                    type: 'cancellation',
+                                    status: 'pending',
+                                    createdAt: Date.now()
+                                });
+                                await addRideLog(rideId, '📲', `SMS-Storno an Kunde in Queue`, { phone: _custPhoneCancel });
+                                console.log(`📲 Storno-SMS in Queue: ${_custPhoneCancel}`);
+                            }
+                        }
+                    }
+                } catch (_smsCancelErr) {
+                    console.warn('Storno-SMS-Queue Fehler:', _smsCancelErr.message);
+                }
+
             } else if (newStatus === 'picked_up') {
                 message = `🚗 <b>KUNDE ABGEHOLT!</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +

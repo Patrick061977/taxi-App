@@ -1065,13 +1065,25 @@ async function autoAssignRide(rideId, rideData) {
 
                 // 🆕 v6.32.0: LASTVERTEILUNG — Fahrzeuge mit vielen Fahrten werden benachteiligt
                 // 🆕 v6.62.520: Pro-Wochentag-Override beachten
+                // 🐛 v6.62.534: Patrick (09.05.): "loadPenalty 357 Min — Prius hat 390 Fahrten".
+                // Bug: allRides enthielt ALLE jemals zugewiesenen Fahrten (auch completed historische).
+                // Fix: nur AKTIVE Fahrten am SELBEN TAG wie Pickup zählen — gleicher Filter wie Browser.
                 const lastverteilungMalusProFahrt = getOptForTimestamp(rideData.pickupTimestamp).lastenmalus;
+                const _activeStatusesForLoad = ['new','vorbestellt','assigned','accepted','on_way','arrived','picked_up','sofort','warteschlange'];
+                const _pickupDayStr = berlinDateGlobal(rideData.pickupTimestamp);
+                const _isActiveSameDay = (r) => {
+                    if (!r || !r.pickupTimestamp) return false;
+                    if (r.firebaseId === rideId) return false;
+                    if (!_activeStatusesForLoad.includes(r.status)) return false;
+                    return berlinDateGlobal(r.pickupTimestamp) === _pickupDayStr;
+                };
                 const vehicleRideCount = allRides.filter(r =>
                     (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
-                    r.firebaseId !== rideId
+                    _isActiveSameDay(r)
                 ).length;
+                const _activeSameDay = allRides.filter(_isActiveSameDay);
                 const avgRides = candidates.length > 0
-                    ? allRides.filter(r => r.assignedVehicle || r.vehicleId).length / candidates.length
+                    ? _activeSameDay.filter(r => r.assignedVehicle || r.vehicleId).length / candidates.length
                     : 0;
                 const loadPenalty = vehicleRideCount > avgRides
                     ? Math.round((vehicleRideCount - avgRides) * lastverteilungMalusProFahrt)
@@ -17202,10 +17214,20 @@ exports.autoResolveConflicts = onSchedule(
                 const currentPrio = getVehiclePriority(currentVehicle);
                 // 🆕 v6.32.0: Lastverteilung in Phase 2
                 // 🆕 v6.62.520: Pro-Wochentag-Resolver (Tag aus Pickup)
+                // 🐛 v6.62.534: Nur AKTIVE Fahrten am SELBEN TAG (vorher: ALLE jemals zugewiesenen)
                 const lastverteilungMalus = getOptForTimestamp(ride.pickupTimestamp).lastenmalus;
-                const currentRideCount = allRides.filter(r => r.assignedVehicle === currentVehicle && r.firebaseId !== ride.firebaseId).length;
+                const _phase2DayStr = berlinDateGlobal(ride.pickupTimestamp);
+                const _phase2ActiveStatuses = ['new','vorbestellt','assigned','accepted','on_way','arrived','picked_up','sofort','warteschlange'];
+                const _phase2IsActiveSameDay = (r) => {
+                    if (!r || !r.pickupTimestamp) return false;
+                    if (r.firebaseId === ride.firebaseId) return false;
+                    if (!_phase2ActiveStatuses.includes(r.status)) return false;
+                    return berlinDateGlobal(r.pickupTimestamp) === _phase2DayStr;
+                };
+                const currentRideCount = allRides.filter(r => r.assignedVehicle === currentVehicle && _phase2IsActiveSameDay(r)).length;
                 const totalActiveVehicles = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, shiftsData, dateStr, timeStr)).length || 1;
-                const avgRidesPerVehicle = optimizableRides.length / totalActiveVehicles;
+                const _sameDayCount = allRides.filter(_phase2IsActiveSameDay).length;
+                const avgRidesPerVehicle = _sameDayCount / totalActiveVehicles;
                 const currentLoadPenalty = currentRideCount > avgRidesPerVehicle ? Math.round((currentRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
                 // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
                 const currentPrioPenalty = getEffectivePrioMalus(currentVehicle, ride.pickupTimestamp);
@@ -17329,8 +17351,9 @@ exports.autoResolveConflicts = onSchedule(
                     );
 
                     // 🆕 v6.32.0: Score = Leerfahrt + Prioritäts-Penalty + Lastverteilung
+                    // 🐛 v6.62.534: Nur AKTIVE Fahrten am SELBEN TAG zaehlen (gleicher Filter wie currentRideCount)
                     const altPrio = getVehiclePriority(vehicleId);
-                    const altRideCount = allRides.filter(r => r.assignedVehicle === vehicleId && r.firebaseId !== ride.firebaseId).length;
+                    const altRideCount = allRides.filter(r => r.assignedVehicle === vehicleId && _phase2IsActiveSameDay(r)).length;
                     const altLoadPenalty = altRideCount > avgRidesPerVehicle ? Math.round((altRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
                     // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
                     const altPrioPenalty = getEffectivePrioMalus(vehicleId, ride.pickupTimestamp);
@@ -19049,14 +19072,23 @@ exports.scheduledAutoAssign = onSchedule(
 
                     // Lastverteilung
                     // 🆕 v6.62.520: Pro-Wochentag-Override beachten (Tag aus Pickup)
+                    // 🐛 v6.62.534: Nur Fahrten am SELBEN TAG zaehlen (Patrick: "von schichtbeginn")
                     const _dayLastenmalus = getOptForTimestamp(ride.pickupTimestamp).lastenmalus;
+                    const _pickupDayStr2 = berlinDateGlobal(ride.pickupTimestamp);
+                    const _activeStatusesScheduled = ['new','vorbestellt','assigned','accepted','on_way','arrived','picked_up','sofort','warteschlange'];
+                    const _isActiveSameDay2 = (r) => {
+                        if (!r || !r.pickupTimestamp) return false;
+                        if (r.firebaseId === rideId) return false;
+                        if (!_activeStatusesScheduled.includes(r.status)) return false;
+                        return berlinDateGlobal(r.pickupTimestamp) === _pickupDayStr2;
+                    };
                     const vehicleRideCount = allRides.filter(r =>
                         (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
-                        r.firebaseId !== rideId &&
-                        !['deleted','cancelled','storniert','completed'].includes(r.status)
+                        _isActiveSameDay2(r)
                     ).length;
+                    const _activeSameDay2 = allRides.filter(_isActiveSameDay2);
                     const avgRides = candidates.length > 0
-                        ? allRides.filter(r => (r.assignedVehicle || r.vehicleId) && !['deleted','cancelled','storniert','completed'].includes(r.status)).length / Math.max(candidates.length, 1)
+                        ? _activeSameDay2.filter(r => r.assignedVehicle || r.vehicleId).length / Math.max(candidates.length, 1)
                         : 0;
                     const loadPenalty = vehicleRideCount > avgRides
                         ? Math.round((vehicleRideCount - avgRides) * _dayLastenmalus)

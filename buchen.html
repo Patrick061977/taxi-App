@@ -783,6 +783,11 @@
         </div>
         <!-- 🆕 v6.41.55: Sofort-Call-Box zwischen Wann-Card und Karte — sichtbar wenn kein Taxi da -->
         <div class="card" id="sofort-call-box" style="display:none;padding:0;"></div>
+        <!-- 🆕 v6.62.516: Verfuegbarkeits-Warnung (alle Fahrzeuge belegt) ganz nach OBEN.
+             Patrick (09.05.): "das steht bei buchen.html unten das muesste aber oben stehen".
+             Vorher: am Ende von #booking-fields nach Name/Personen — Kunde fuellt erst alles
+             aus, bevor er den "Leider nicht moeglich"-Hinweis sieht. -->
+        <div class="availability-card" id="availability" style="display:none !important;"></div>
         <!-- 🆕 v6.41.39: Live-Taxi-Karte mittig — Uber-Style, zeigt aktive Fahrzeuge UND Route (v6.41.44) -->
         <div class="card" id="live-taxi-card" style="padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -897,8 +902,7 @@
                     </div>
                 </div>
 
-                <!-- Verfügbarkeit — ausgeblendet, Status-Bar oben reicht -->
-                <div class="availability-card" id="availability" style="display:none !important;"></div>
+                <!-- Verfügbarkeit: nach v6.62.516 ganz oben (zwischen Sofort-Call-Box und Live-Karte) -->
 
                 <!-- Karte mit Preis-Badge -->
                 <div class="map-container" id="route-map" style="position:relative;"></div>

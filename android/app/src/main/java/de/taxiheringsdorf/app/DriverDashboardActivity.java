@@ -1141,9 +1141,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         hmFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
         String pickupHM = hmFmt.format(new java.util.Date(nextRide.pickupTimestamp));
         String blockHM = hmFmt.format(new java.util.Date(blockAt));
-        String pickupAddr = nextRide.pickup != null
-            ? (nextRide.pickup.length() > 40 ? nextRide.pickup.substring(0, 40) + "…" : nextRide.pickup)
-            : "?";
+        // v6.62.517: Patrick (09.05.): "warum man nicht alles sieht oben bei jetzt losfahren".
+        // Vorher Truncate auf 40 Zeichen — "Heringsdorf, Bahnhof, Am Bahnhof, 17424 …".
+        // TextView ist wrap_content ohne maxLines, darf also auf zwei Zeilen umbrechen.
+        String pickupAddr = nextRide.pickup != null ? nextRide.pickup : "?";
         // 🆕 v6.62.378: Patrick (06.05. 18:07): "4 Min Restzeit — keine Sofortfahrt mehr".
         // Banner zeigt jetzt realistisch was noch geht: max-Fahrtzeit = restzeit - Puffer
         // (5 Min Anfahrt zu Sofort + 3 Min Boarding + 5 Min Rueckfahrt).

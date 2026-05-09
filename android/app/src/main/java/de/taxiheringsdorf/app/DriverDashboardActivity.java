@@ -998,7 +998,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 long age = ca != null ? (now - ca) : Long.MAX_VALUE;
                 boolean wasMine = currentVehicleId != null
                     && (currentVehicleId.equals(r.assignedVehicle) || currentVehicleId.equals(r.vehicleId));
-                if (age > 30L * 60L * 1000L || !wasMine) continue;
+                // v6.62.523: Patrick (09.05.): "das storniert geht nicht weg". 30 Min war zu
+                // lang — auf 10 Min reduziert. Plus: lokales Wegklicken via getDismissedCancelledIds().
+                if (age > 10L * 60L * 1000L || !wasMine) continue;
+                if (isCancelledRideDismissed(r.id)) continue;
                 // sichtbar bleiben — Adapter zeigt Storno-Banner anhand r.status
             }
             // v6.62.132: Patrick: 'warum erscheint die Vorbestellung jetzt nicht in meiner Liste?'
@@ -1090,6 +1093,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
         rvRides.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
         // v6.62.369: Driver-Banner aktualisieren
         updateFreeBusyBanner(all);
+    }
+
+    // 🆕 v6.62.523: Lokales Wegklicken stornierter Fahrten (Patrick: "das storniert geht nicht weg").
+    // Dismissed-IDs werden pro Geraet in SharedPreferences gespeichert (kein Firebase, kein Sync).
+    private static final String PREFS_DISMISSED_CANCELLED = "dismissedCancelledRides";
+    private static final String KEY_DISMISSED_IDS = "ids";
+
+    private java.util.Set<String> getDismissedCancelledIds() {
+        java.util.Set<String> empty = new java.util.HashSet<>();
+        return getSharedPreferences(PREFS_DISMISSED_CANCELLED, MODE_PRIVATE).getStringSet(KEY_DISMISSED_IDS, empty);
+    }
+
+    private boolean isCancelledRideDismissed(String rideId) {
+        if (rideId == null || rideId.isEmpty()) return false;
+        return getDismissedCancelledIds().contains(rideId);
+    }
+
+    private void dismissCancelledRide(String rideId) {
+        if (rideId == null || rideId.isEmpty()) return;
+        java.util.Set<String> set = new java.util.HashSet<>(getDismissedCancelledIds());
+        set.add(rideId);
+        getSharedPreferences(PREFS_DISMISSED_CANCELLED, MODE_PRIVATE)
+            .edit().putStringSet(KEY_DISMISSED_IDS, set).apply();
     }
 
     // 🆕 v6.62.369: Banner "🟢 Frei bis HH:MM · Naechste Vorbestellung HH:MM" oben in der Toolbar.
@@ -2206,7 +2232,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     String _by = r.cancelledBy != null && !r.cancelledBy.isEmpty() ? (" von " + r.cancelledBy) : "";
                     String _reason = r.cancelReason != null && !r.cancelReason.isEmpty() ? ("\n📝 Grund: " + r.cancelReason) : "";
                     itemView.setBackgroundColor(Color.parseColor("#451818"));  // dunkles Rot
-                    tvName.setText("❌ STORNIERT" + _cancelTime + _by + _reason);
+                    // 🆕 v6.62.523: "✕ wegklicken" Hinweis im Banner — Patrick "geht nicht weg"
+                    tvName.setText("❌ STORNIERT" + _cancelTime + _by + _reason + "\n\n👆 Tippen zum Wegklicken");
                     tvName.setTextColor(Color.parseColor("#fca5a5"));
                     tvPickup.setText("📍 " + (r.pickup != null ? r.pickup : "-"));
                     tvDest.setText("🎯 " + (r.destination != null ? r.destination : "-")
@@ -2217,9 +2244,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     if (tvLiveEta != null) tvLiveEta.setVisibility(View.GONE);
                     if (actionRow != null) actionRow.setVisibility(View.GONE);
                     if (activeToolbar != null) activeToolbar.setVisibility(View.GONE);
+                    // 🆕 v6.62.523: Tippen → Wegklicken (lokal pro Geraet)
+                    final String _rideIdForDismiss = r.id;
+                    itemView.setOnClickListener(_v -> {
+                        new AlertDialog.Builder(DriverDashboardActivity.this)
+                            .setTitle("Banner wegklicken")
+                            .setMessage("Diesen Storno-Hinweis ausblenden? (nur auf diesem Handy)")
+                            .setPositiveButton("Ja, wegklicken", (d, w) -> {
+                                dismissCancelledRide(_rideIdForDismiss);
+                                // Force-Refresh: Single-Shot-Fetch + onRidesUpdate → Filter
+                                // entfernt die dismissed Ride aus der Liste.
+                                if (ridesQuery != null) {
+                                    ridesQuery.get().addOnSuccessListener(DriverDashboardActivity.this::onRidesUpdate);
+                                }
+                            })
+                            .setNegativeButton("Abbrechen", null)
+                            .show();
+                    });
                     return;
                 }
                 // Reset (falls View recycled aus storniert-State)
+                itemView.setOnClickListener(null);  // v6.62.523: Storno-Click-Listener entfernen
                 itemView.setBackgroundColor(Color.parseColor("#1E293B"));
                 tvName.setTextColor(Color.parseColor("#F8FAFC"));
                 if (tvLiveEta != null) tvLiveEta.setVisibility(View.VISIBLE);

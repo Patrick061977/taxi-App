@@ -1806,20 +1806,88 @@ public class CallLogActivity extends AppCompatActivity {
                 btnSave.setEnabled(false);
                 btnSave.setText("⏳ Speichere…");
                 btnSave.setBackgroundColor(0xFF94A3B8);
-                ref.setValue(r).addOnSuccessListener(_v -> {
-                    dlg.dismiss();
-                    // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
-                    showCallLogBookingConfirmation(_nameFinal, _pickupFinal, _destFinal,
-                        _pickupTsFinal, _paxFinal, _notesFinal,
-                        _isHotelFinal ? _crmNameFinal : null);
-                }).addOnFailureListener(ex -> {
-                    Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
-                    // v6.62.504/.507: Bei Fehler Button reaktivieren + Save-Flag zurueck
-                    _alreadySavedRef[0] = false;
-                    btnSave.setEnabled(true);
-                    btnSave.setText("✅ ANLEGEN");
-                    btnSave.setBackgroundColor(0xFF1E40AF);
-                });
+                // Closure: eigentlicher Save (gleicher Code wie vorher)
+                final DatabaseReference _refFinal = ref;
+                Runnable doActualSaveCl = () -> {
+                    _refFinal.setValue(r).addOnSuccessListener(_v -> {
+                        dlg.dismiss();
+                        // 🆕 v6.62.485: Confirmation-Screen statt nur Toast.
+                        showCallLogBookingConfirmation(_nameFinal, _pickupFinal, _destFinal,
+                            _pickupTsFinal, _paxFinal, _notesFinal,
+                            _isHotelFinal ? _crmNameFinal : null);
+                    }).addOnFailureListener(ex -> {
+                        Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                        // v6.62.504/.507: Bei Fehler Button reaktivieren + Save-Flag zurueck
+                        _alreadySavedRef[0] = false;
+                        btnSave.setEnabled(true);
+                        btnSave.setText("✅ ANLEGEN");
+                        btnSave.setBackgroundColor(0xFF1E40AF);
+                    });
+                };
+                // 🆕 v6.62.523: Duplikat-Erkennung — gleicher Mechanismus wie CrmSearchActivity.
+                // Werner-Vorfall 09.05.: ZWEI Buchungen via Anrufliste + CRM-Suche, beide
+                // wurden ungeprueft angelegt. Jetzt: vor jedem Anlegen schauen ob fuer den
+                // Kunden schon eine aktive Buchung ±15 Min existiert.
+                final String _custIdForDupCl = (crm != null && crm.id != null) ? crm.id
+                    : (autoCustomerId != null ? autoCustomerId : null);
+                if (_custIdForDupCl == null || _custIdForDupCl.isEmpty()) {
+                    // Neuer auto-CRM-Eintrag → es kann logisch noch keine andere Fahrt geben
+                    doActualSaveCl.run();
+                } else {
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+                        .orderByChild("customerId").equalTo(_custIdForDupCl)
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot snap) {
+                                java.util.List<DataSnapshot> dups = new java.util.ArrayList<>();
+                                for (DataSnapshot c : snap.getChildren()) {
+                                    String st = c.child("status").getValue(String.class);
+                                    if (st == null) continue;
+                                    String stl = st.toLowerCase();
+                                    if (stl.equals("completed") || stl.equals("abgeschlossen") || stl.equals("cancelled") || stl.equals("canceled") || stl.equals("storniert") || stl.equals("deleted") || stl.equals("rejected")) continue;
+                                    Long pt = c.child("pickupTimestamp").getValue(Long.class);
+                                    if (pt == null) continue;
+                                    if (Math.abs(pt - _pickupTsFinal) > 15L * 60_000L) continue;
+                                    dups.add(c);
+                                }
+                                if (dups.isEmpty()) { doActualSaveCl.run(); return; }
+                                StringBuilder msg = new StringBuilder();
+                                msg.append("Für ").append(_nameFinal).append(" gibt es bereits ")
+                                   .append(dups.size()).append(dups.size() == 1 ? " Buchung" : " Buchungen")
+                                   .append(" in der Nähe dieser Zeit (±15 Min):\n\n");
+                                java.text.SimpleDateFormat dtf = new java.text.SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY);
+                                dtf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                for (DataSnapshot c : dups) {
+                                    Long pt = c.child("pickupTimestamp").getValue(Long.class);
+                                    String src = c.child("source").getValue(String.class);
+                                    String pickup2 = c.child("pickup").getValue(String.class);
+                                    String st2 = c.child("status").getValue(String.class);
+                                    msg.append("• ").append(dtf.format(new java.util.Date(pt)));
+                                    if (st2 != null) msg.append(" [").append(st2).append("]");
+                                    msg.append("\n  ").append(pickup2 != null ? pickup2 : "?");
+                                    if (src != null) msg.append("\n  Quelle: ").append(src);
+                                    msg.append("\n");
+                                }
+                                msg.append("\nTrotzdem zusätzlich anlegen?");
+                                new AlertDialog.Builder(CallLogActivity.this)
+                                    .setTitle("⚠️ Mögliches Duplikat")
+                                    .setMessage(msg.toString())
+                                    .setPositiveButton("Trotzdem anlegen", (d2, w2) -> doActualSaveCl.run())
+                                    .setNegativeButton("Abbrechen", (d2, w2) -> {
+                                        _alreadySavedRef[0] = false;
+                                        btnSave.setEnabled(true);
+                                        btnSave.setText("✅ ANLEGEN");
+                                        btnSave.setBackgroundColor(0xFF1E40AF);
+                                    })
+                                    .setCancelable(false)
+                                    .show();
+                            }
+                            @Override public void onCancelled(@NonNull DatabaseError err) {
+                                android.util.Log.w("CallLogActivity", "Duplikat-Check fehlgeschlagen: " + err.getMessage() + " — lege trotzdem an");
+                                doActualSaveCl.run();
+                            }
+                        });
+                }
         });
 
         dlg.show();

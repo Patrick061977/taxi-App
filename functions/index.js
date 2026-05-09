@@ -612,18 +612,20 @@ async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSetti
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
-        const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap, prioMalusSnap] = await Promise.all([
+        const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
             db.ref('vehicles').once('value'),
             db.ref('vehicleShifts').once('value'),
             db.ref('rides').once('value'),
             db.ref('settings/vehiclePriorities').once('value'),
             db.ref('settings/pricing').once('value'),
-            db.ref('settings/vehiclePrioMalus').once('value')  // 🆕 v6.62.518: pro-Fahrzeug Override
+            db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518: pro-Fahrzeug Override
+            db.ref('settings/optimizationByDay').once('value')  // 🆕 v6.62.520: pro-Wochentag Override
         ]);
         const vehicles = vehiclesSnap.val() || {};
         const shiftsData = shiftsSnap.val() || {};
         const vehiclePriorities = prioritiesSnap.val() || {};
         const vehiclePrioMalus = prioMalusSnap.val() || {};  // 🆕 v6.62.518
+        const optimizationByDay = optByDaySnap.val() || {};  // 🆕 v6.62.520
         const pricingSettings = pricingSnap.val() || {};
         const allRides = [];
         // v6.61.6: Block-Body — sonst stoppt Firebase forEach nach erstem push (push() returnt
@@ -677,11 +679,31 @@ async function autoAssignRide(rideId, rideData) {
             return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
         };
         const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
+        // 🆕 v6.62.520: Pro-Wochentag Resolver — nimmt Pickup-Timestamp, liefert Settings
+        // mit Tag-Override > globaler Override > globaler Default.
+        const _IDX_TO_DAY_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+        const getOptForTimestamp = (ts) => {
+            const safeTs = Number(ts) || Date.now();
+            const berlin = new Date(new Date(safeTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+            const dayKey = _IDX_TO_DAY_DE[berlin.getDay()];
+            const dayOv = (optimizationByDay || {})[dayKey] || {};
+            const dayVehicleMalus = (dayOv.vehicleMalus && typeof dayOv.vehicleMalus === 'object') ? dayOv.vehicleMalus : {};
+            return {
+                day: dayKey,
+                prioVorteil: Number.isFinite(dayOv.prioVorteil) ? dayOv.prioVorteil : priorityAdvantageMin,
+                lastenmalus: Number.isFinite(dayOv.lastenmalus) ? dayOv.lastenmalus : (pricingSettings.lastverteilungMalusMinuten || 0),
+                vehicleMalus: { ...vehiclePrioMalus, ...dayVehicleMalus }
+            };
+        };
         // 🆕 v6.62.518: Pro-Fahrzeug Malus-Override hat Vorrang vor (Prio-1) × prioVorteil
-        const getEffectivePrioMalus = (vid) => {
-            const ov = Number(vehiclePrioMalus[vid]);
+        // 🆕 v6.62.520: Wenn Pickup-Timestamp gegeben → Tag-Override beachten
+        const getEffectivePrioMalus = (vid, pickupTs) => {
+            const opt = pickupTs ? getOptForTimestamp(pickupTs) : null;
+            const dayOv = opt ? opt.vehicleMalus[vid] : vehiclePrioMalus[vid];
+            const ov = Number(dayOv);
             if (Number.isFinite(ov)) return ov;
-            return (getVehiclePrio(vid) - 1) * priorityAdvantageMin;
+            const pv = opt ? opt.prioVorteil : priorityAdvantageMin;
+            return (getVehiclePrio(vid) - 1) * pv;
         };
 
         // 🔧 v6.15.10: Zwei Modi — Sofortfahrt (GPS first) vs. Vorbestellung (Schichtplan/Priorität)
@@ -982,8 +1004,8 @@ async function autoAssignRide(rideId, rideData) {
                 // Sofortfahrt + GPS AUS → Prio-Aufschlag (Heimatadresse ist Schätzung, Priorität gleicht aus)
                 // Vorbestellung → Priorität zählt IMMER (siehe else-Zweig unten)
                 const hasRealGPS = cand.posSource === 'GPS';
-                // 🆕 v6.62.518: Override beachten (sonst (Prio-1) × prioVorteil)
-                const prioPenalty = hasRealGPS ? 0 : getEffectivePrioMalus(cand.vehicleId);
+                // 🆕 v6.62.518/520: Override beachten (Tag-Override > globaler Override > Formel)
+                const prioPenalty = hasRealGPS ? 0 : getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
                 const score = estDrivingMin + prioPenalty;
 
@@ -1024,8 +1046,8 @@ async function autoAssignRide(rideId, rideData) {
                 let leerfahrtVon = '';
                 let routeMethod = 'prio-only';
                 const prio = getVehiclePrio(cand.vehicleId);
-                // 🆕 v6.62.518: Override beachten
-                const prioPenalty = getEffectivePrioMalus(cand.vehicleId);
+                // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
+                const prioPenalty = getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
 
                 // Smart Routing berechnen wenn Pickup-Koordinaten vorhanden
                 if (rideData.pickupCoords?.lat && rideData.pickupCoords?.lon) {
@@ -1042,7 +1064,8 @@ async function autoAssignRide(rideId, rideData) {
                 }
 
                 // 🆕 v6.32.0: LASTVERTEILUNG — Fahrzeuge mit vielen Fahrten werden benachteiligt
-                const lastverteilungMalusProFahrt = pricingSettings.lastverteilungMalusMinuten || 3;
+                // 🆕 v6.62.520: Pro-Wochentag-Override beachten
+                const lastverteilungMalusProFahrt = getOptForTimestamp(rideData.pickupTimestamp).lastenmalus;
                 const vehicleRideCount = allRides.filter(r =>
                     (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
                     r.firebaseId !== rideId
@@ -16562,19 +16585,21 @@ exports.autoResolveConflicts = onSchedule(
             const _now = Date.now();
             const _windowStart = _now - 2 * 60 * 60 * 1000;
             const _windowEnd = _now + 24 * 60 * 60 * 1000;
-            const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap, timeslotSnap, prioMalusSnap] = await Promise.all([
+            const [ridesSnap, shiftsSnap, settingsSnap, prioritiesSnap, timeslotSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(_windowStart).endAt(_windowEnd).once('value'),
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
                 db.ref('settings/vehiclePriorities').once('value'),
                 db.ref('settings/timeslotSettings').once('value'),
-                db.ref('settings/vehiclePrioMalus').once('value')  // 🆕 v6.62.518
+                db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518
+                db.ref('settings/optimizationByDay').once('value')  // 🆕 v6.62.520
             ]);
 
             const shiftsData = shiftsSnap.val() || {};
             const pricingSettings = settingsSnap.val() || {};
             const vehiclePriorities = prioritiesSnap.val() || {};
             const vehiclePrioMalus = prioMalusSnap.val() || {};  // 🆕 v6.62.518
+            const optimizationByDay = optByDaySnap.val() || {};  // 🆕 v6.62.520
             const timeslotSettings = timeslotSnap.val() || {};
             // 🔧 v6.39.5: Soft/Hard Grenzen aus Einstellungen lesen
             const overlapSoftMin = timeslotSettings.overlapToleranceSoft || 5;
@@ -16592,11 +16617,29 @@ exports.autoResolveConflicts = onSchedule(
                 if (vehiclePriorities[vehicleId] !== undefined) return vehiclePriorities[vehicleId];
                 return (OFFICIAL_VEHICLES[vehicleId] || {}).priority || 99;
             };
-            // 🆕 v6.62.518: Pro-Fahrzeug Override hat Vorrang vor (Prio-1) × prioVorteil
-            const getEffectivePrioMalus = (vehicleId) => {
-                const ov = Number(vehiclePrioMalus[vehicleId]);
+            // 🆕 v6.62.520: Pro-Wochentag-Resolver
+            const _IDX_TO_DAY_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            const getOptForTimestamp = (ts) => {
+                const safeTs = Number(ts) || Date.now();
+                const berlin = new Date(new Date(safeTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const dayKey = _IDX_TO_DAY_DE[berlin.getDay()];
+                const dayOv = (optimizationByDay || {})[dayKey] || {};
+                const dayVehicleMalus = (dayOv.vehicleMalus && typeof dayOv.vehicleMalus === 'object') ? dayOv.vehicleMalus : {};
+                return {
+                    day: dayKey,
+                    prioVorteil: Number.isFinite(dayOv.prioVorteil) ? dayOv.prioVorteil : priorityAdvantageMin,
+                    lastenmalus: Number.isFinite(dayOv.lastenmalus) ? dayOv.lastenmalus : (pricingSettings.lastverteilungMalusMinuten || 0),
+                    vehicleMalus: { ...vehiclePrioMalus, ...dayVehicleMalus }
+                };
+            };
+            // 🆕 v6.62.518/520: Pro-Fahrzeug + Pro-Tag Override hat Vorrang vor (Prio-1) × prioVorteil
+            const getEffectivePrioMalus = (vehicleId, pickupTs) => {
+                const opt = pickupTs ? getOptForTimestamp(pickupTs) : null;
+                const dayOv = opt ? opt.vehicleMalus[vehicleId] : vehiclePrioMalus[vehicleId];
+                const ov = Number(dayOv);
                 if (Number.isFinite(ov)) return ov;
-                return (getVehiclePriority(vehicleId) - 1) * priorityAdvantageMin;
+                const pv = opt ? opt.prioVorteil : priorityAdvantageMin;
+                return (getVehiclePriority(vehicleId) - 1) * pv;
             };
 
             // Alle aktiven zukünftigen Fahrten sammeln
@@ -17158,13 +17201,14 @@ exports.autoResolveConflicts = onSchedule(
                 // 🔧 v6.25.4: Prioritäts-Penalty wie autoAssignVehicleToRide (index.html Zeile 30593-30594)
                 const currentPrio = getVehiclePriority(currentVehicle);
                 // 🆕 v6.32.0: Lastverteilung in Phase 2
-                const lastverteilungMalus = pricingSettings.lastverteilungMalusMinuten || 3;
+                // 🆕 v6.62.520: Pro-Wochentag-Resolver (Tag aus Pickup)
+                const lastverteilungMalus = getOptForTimestamp(ride.pickupTimestamp).lastenmalus;
                 const currentRideCount = allRides.filter(r => r.assignedVehicle === currentVehicle && r.firebaseId !== ride.firebaseId).length;
                 const totalActiveVehicles = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, shiftsData, dateStr, timeStr)).length || 1;
                 const avgRidesPerVehicle = optimizableRides.length / totalActiveVehicles;
                 const currentLoadPenalty = currentRideCount > avgRidesPerVehicle ? Math.round((currentRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
-                // 🆕 v6.62.518: Override beachten
-                const currentPrioPenalty = getEffectivePrioMalus(currentVehicle);
+                // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
+                const currentPrioPenalty = getEffectivePrioMalus(currentVehicle, ride.pickupTimestamp);
                 const currentScore = currentMin + currentPrioPenalty + currentLoadPenalty;
 
                 // Beste Alternative suchen
@@ -17288,8 +17332,8 @@ exports.autoResolveConflicts = onSchedule(
                     const altPrio = getVehiclePriority(vehicleId);
                     const altRideCount = allRides.filter(r => r.assignedVehicle === vehicleId && r.firebaseId !== ride.firebaseId).length;
                     const altLoadPenalty = altRideCount > avgRidesPerVehicle ? Math.round((altRideCount - avgRidesPerVehicle) * lastverteilungMalus) : 0;
-                    // 🆕 v6.62.518: Override beachten
-                    const altPrioPenalty = getEffectivePrioMalus(vehicleId);
+                    // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
+                    const altPrioPenalty = getEffectivePrioMalus(vehicleId, ride.pickupTimestamp);
                     const altScore = altResult.durationMin + altPrioPenalty + altLoadPenalty;
 
                     candidateDebug.push(`  ${vName}: Leerfahrt ${altResult.durationMin}min (${altResult.method}) + Prio ${altPrioPenalty} + Last ${altLoadPenalty} = Score ${Math.round(altScore)} ${altScore < bestScore ? '✅ BESSER' : '⬜ schlechter'}`);
@@ -17405,14 +17449,14 @@ exports.autoResolveConflicts = onSchedule(
                 }
 
                 // vehicleScores für Browser-Anzeige erstellen
-                // 🆕 v6.62.518: Override beachten
+                // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
                 const optimizeScores = {};
                 optimizeScores[currentVehicle] = {
                     status: 'available',
                     leerfahrtMin: Math.round(currentMin),
                     leerfahrtVon: currentResult.method,
                     routeMethod: currentResult.method,
-                    priorityPenalty: getEffectivePrioMalus(currentVehicle),
+                    priorityPenalty: getEffectivePrioMalus(currentVehicle, ride.pickupTimestamp),
                     totalScore: Math.round(currentScore)
                 };
                 optimizeScores[bestAlt] = {
@@ -17420,7 +17464,7 @@ exports.autoResolveConflicts = onSchedule(
                     leerfahrtMin: Math.round(bestMin),
                     leerfahrtVon: bestMethod,
                     routeMethod: bestMethod,
-                    priorityPenalty: getEffectivePrioMalus(bestAlt),
+                    priorityPenalty: getEffectivePrioMalus(bestAlt, ride.pickupTimestamp),
                     totalScore: Math.round(bestScore)
                 };
 
@@ -17448,11 +17492,11 @@ exports.autoResolveConflicts = onSchedule(
                 totalOptimized++;
 
                 // 🔧 v6.25.4: Detailliertes Log in Firebase (statt Telegram-Spam)
-                // 🆕 v6.62.518: Override beachten beim Logging
+                // 🆕 v6.62.518/520: Override beachten beim Logging (mit Tag aus Pickup)
                 const currPrioVal = getVehiclePriority(currentVehicle);
                 const bestPrioVal = getVehiclePriority(bestAlt);
-                const currPenalty = getEffectivePrioMalus(currentVehicle);
-                const bestPenalty = getEffectivePrioMalus(bestAlt);
+                const currPenalty = getEffectivePrioMalus(currentVehicle, ride.pickupTimestamp);
+                const bestPenalty = getEffectivePrioMalus(bestAlt, ride.pickupTimestamp);
                 try {
                     await db.ref('optimierungsLog').push({
                         timestamp: Date.now(),
@@ -18412,7 +18456,7 @@ exports.scheduledAutoAssign = onSchedule(
             const now = Date.now();
             // v6.62.22 FIX-2: warteschlange zur Query addieren — sonst landen Sofort-Fahrten
             // bei denen alle besetzt waren (Status warteschlange) NIE wieder in der Auto-Zuweisung.
-            const [assignedSnap, vorbestelltSnap, newSnap, warteschlSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap] = await Promise.all([
+            const [assignedSnap, vorbestelltSnap, newSnap, warteschlSnap, vehiclesSnap, shiftsSnap, settingsSnap, prioritiesSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
                 db.ref('rides').orderByChild('status').equalTo('assigned').once('value'),
                 db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value'),
                 db.ref('rides').orderByChild('status').equalTo('new').once('value'),
@@ -18421,7 +18465,8 @@ exports.scheduledAutoAssign = onSchedule(
                 db.ref('vehicleShifts').once('value'),
                 db.ref('settings/pricing').once('value'),
                 db.ref('settings/vehiclePriorities').once('value'),
-                db.ref('settings/vehiclePrioMalus').once('value')  // 🆕 v6.62.518
+                db.ref('settings/vehiclePrioMalus').once('value'),  // 🆕 v6.62.518
+                db.ref('settings/optimizationByDay').once('value')  // 🆕 v6.62.520
             ]);
 
             const vehiclesData = vehiclesSnap.val() || {};
@@ -18429,6 +18474,7 @@ exports.scheduledAutoAssign = onSchedule(
             const pricingSettings = settingsSnap.val() || {};
             const vehiclePriorities = prioritiesSnap.val() || {};
             const vehiclePrioMalus = prioMalusSnap.val() || {};  // 🆕 v6.62.518
+            const optimizationByDay = optByDaySnap.val() || {};  // 🆕 v6.62.520
             const priorityAdvantageMin = pricingSettings.priorityAdvantageMinutes || 0;
 
             // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
@@ -18509,11 +18555,29 @@ exports.scheduledAutoAssign = onSchedule(
                 if (vehiclePriorities[vid] !== undefined) return vehiclePriorities[vid];
                 return (OFFICIAL_VEHICLES[vid] || {}).priority || 99;
             };
-            // 🆕 v6.62.518: Pro-Fahrzeug Override hat Vorrang vor (Prio-1) × prioVorteil
-            const getEffectivePrioMalus = (vid) => {
-                const ov = Number(vehiclePrioMalus[vid]);
+            // 🆕 v6.62.520: Pro-Wochentag-Resolver
+            const _IDX_TO_DAY_DE_S = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+            const getOptForTimestamp = (ts) => {
+                const safeTs = Number(ts) || Date.now();
+                const berlin = new Date(new Date(safeTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                const dayKey = _IDX_TO_DAY_DE_S[berlin.getDay()];
+                const dayOv = (optimizationByDay || {})[dayKey] || {};
+                const dayVehicleMalus = (dayOv.vehicleMalus && typeof dayOv.vehicleMalus === 'object') ? dayOv.vehicleMalus : {};
+                return {
+                    day: dayKey,
+                    prioVorteil: Number.isFinite(dayOv.prioVorteil) ? dayOv.prioVorteil : priorityAdvantageMin,
+                    lastenmalus: Number.isFinite(dayOv.lastenmalus) ? dayOv.lastenmalus : (pricingSettings.lastverteilungMalusMinuten || 0),
+                    vehicleMalus: { ...vehiclePrioMalus, ...dayVehicleMalus }
+                };
+            };
+            // 🆕 v6.62.518/520: Pro-Fahrzeug + Pro-Tag Override hat Vorrang vor (Prio-1) × prioVorteil
+            const getEffectivePrioMalus = (vid, pickupTs) => {
+                const opt = pickupTs ? getOptForTimestamp(pickupTs) : null;
+                const dayOv = opt ? opt.vehicleMalus[vid] : vehiclePrioMalus[vid];
+                const ov = Number(dayOv);
                 if (Number.isFinite(ov)) return ov;
-                return (getVehiclePrio(vid) - 1) * priorityAdvantageMin;
+                const pv = opt ? opt.prioVorteil : priorityAdvantageMin;
+                return (getVehiclePrio(vid) - 1) * pv;
             };
 
             // Fahrten aus 3 Status-Queries zusammenführen
@@ -18944,8 +19008,8 @@ exports.scheduledAutoAssign = onSchedule(
                     let leerfahrtMin = 0;
                     let routeMethod = 'prio-only';
                     const prio = getVehiclePrio(cand.vehicleId);
-                    // 🆕 v6.62.518: Override beachten
-                    const prioPenalty = getEffectivePrioMalus(cand.vehicleId);
+                    // 🆕 v6.62.518/520: Override beachten (mit Tag aus Pickup)
+                    const prioPenalty = getEffectivePrioMalus(cand.vehicleId, ride.pickupTimestamp);
 
                     // Smart Routing berechnen
                     if (ride.pickupCoords?.lat && ride.pickupCoords?.lon) {
@@ -18961,6 +19025,8 @@ exports.scheduledAutoAssign = onSchedule(
                     }
 
                     // Lastverteilung
+                    // 🆕 v6.62.520: Pro-Wochentag-Override beachten (Tag aus Pickup)
+                    const _dayLastenmalus = getOptForTimestamp(ride.pickupTimestamp).lastenmalus;
                     const vehicleRideCount = allRides.filter(r =>
                         (r.vehicleId === cand.vehicleId || r.assignedVehicle === cand.vehicleId) &&
                         r.firebaseId !== rideId &&
@@ -18970,7 +19036,7 @@ exports.scheduledAutoAssign = onSchedule(
                         ? allRides.filter(r => (r.assignedVehicle || r.vehicleId) && !['deleted','cancelled','storniert','completed'].includes(r.status)).length / Math.max(candidates.length, 1)
                         : 0;
                     const loadPenalty = vehicleRideCount > avgRides
-                        ? Math.round((vehicleRideCount - avgRides) * lastverteilungMalus)
+                        ? Math.round((vehicleRideCount - avgRides) * _dayLastenmalus)
                         : 0;
 
                     // Anschlussfahrt-Bonus

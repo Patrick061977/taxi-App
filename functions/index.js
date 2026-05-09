@@ -1005,7 +1005,12 @@ async function autoAssignRide(rideId, rideData) {
                 // Vorbestellung → Priorität zählt IMMER (siehe else-Zweig unten)
                 const hasRealGPS = cand.posSource === 'GPS';
                 // 🆕 v6.62.518/520: Override beachten (Tag-Override > globaler Override > Formel)
-                const prioPenalty = hasRealGPS ? 0 : getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
+                // 🐛 v6.62.536: Patrick (09.05.): "nein gps ist immer gleich". Vorher wurde
+                // bei aktivem GPS der Prio-Malus auf 0 gesetzt (alte v6.38.45-Logik:
+                // 'echte Position zaehlt'). Jetzt: Override greift IMMER, auch bei
+                // Sofortfahrten mit GPS. Damit kann Tesla mit Override 999 wirklich
+                // niemals gewaehlt werden, auch nicht wenn er gerade neben dem Kunden steht.
+                const prioPenalty = getEffectivePrioMalus(cand.vehicleId, rideData.pickupTimestamp);
                 const estDrivingMin = cand.distance >= 999 ? 10 : Math.max(3, Math.round((cand.distance / 40) * 60));
                 const score = estDrivingMin + prioPenalty;
 

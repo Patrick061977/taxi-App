@@ -16596,6 +16596,12 @@ exports.autoResolveConflicts = onSchedule(
         console.log('🔄 Auto-Konflikt-Prüfung gestartet...');
 
         try {
+            // 🆕 v6.62.538: lastRun für Browser-Countdown-Anzeige
+            db.ref('settings/cloudJobs/autoResolveConflicts').set({
+                lastRun: Date.now(),
+                schedule: 'every 5 minutes',
+                intervalMs: 5 * 60 * 1000
+            }).catch(() => {});
             // v6.47.2: KOSTEN-OPTIMIERUNG — vorher las diese Function ALLE rides bei jedem
             // Aufruf alle 5 Min (8.640x/Mo × 5MB = 43GB/Mo). Jetzt: nur Pickup-Timestamp
             // im Bereich [-2h, +24h] — Konflikte können nur in diesem Fenster sein.
@@ -18505,6 +18511,12 @@ exports.scheduledAutoAssign = onSchedule(
     },
     async (event) => {
         console.log('🎯 v6.38.30: scheduledAutoAssign gestartet...');
+        // 🆕 v6.62.538: lastRun für Browser-Countdown-Anzeige
+        db.ref('settings/cloudJobs/scheduledAutoAssign').set({
+            lastRun: Date.now(),
+            schedule: 'every 10 minutes',
+            intervalMs: 10 * 60 * 1000
+        }).catch(() => {});
 
         // 🔧 v6.38.36: Einmalige Migration — Kalender-Export-Settings reparieren
         try {

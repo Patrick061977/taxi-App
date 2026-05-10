@@ -43,6 +43,7 @@ on:
       - 'inselfahrten.html'
       - 'grossraumtaxi.html'
       - 'pauschalpreise-swinoujscie.html'
+      - 'restaurants-usedom.html'
       - 'strato/**'
 
   workflow_dispatch:

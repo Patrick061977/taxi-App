@@ -18936,8 +18936,41 @@ exports.scheduledAutoAssign = onSchedule(
 
             // Falsche Zuweisungen entfernen → werden dann unten neu zugewiesen
             for (const r of needsReassign) {
-                const oldVehicle = (OFFICIAL_VEHICLES[r.assignedVehicle || r.vehicleId] || {}).name || r.vehicle || '?';
+                const oldVid = r.assignedVehicle || r.vehicleId;
+                const oldVehicle = (OFFICIAL_VEHICLES[oldVid] || {}).name || r.vehicle || '?';
                 console.log(`🔄 Entferne Fahrzeug ${oldVehicle} von ${r.customerName || r.firebaseId} (kein Dienst zum Abholzeitpunkt)`);
+
+                // 🆕 v6.62.547: Patrick (10.05. Emina-Fall): "schauen ob die Zeitberechnung
+                // mit den Rueckfahrten und alles passt auch fuer die naechste Fahrt." Beim
+                // Emina-Fall (11:30, Mercedes) hat der Reassign-Check Mercedes als 'kein
+                // Dienst' markiert obwohl shifts/vg-lk-111/2026-05-10/active=true 60s vorher
+                // geschrieben wurde. Vermutung: stale shiftsData-Snapshot. Logging-Fix:
+                // bei jedem Reassign schreiben wir den Roh-shiftsData-Eintrag des Fahrzeugs
+                // sowie das Ergebnis beider Checks in /debugLogs/reassign damit Patrick
+                // (oder ein spaeterer Replay-Simulator) genau sehen kann was das System
+                // gerade gesehen hat.
+                try {
+                    const _pickupTs = r.pickupTimestamp || r.pickupTimeMs || null;
+                    const _pickupDateStr = _pickupTs ? berlinDate(_pickupTs) : null;
+                    const _pickupTimeStr = _pickupTs ? berlinTime(_pickupTs) : null;
+                    const _check1 = oldVid && _pickupDateStr ? isVehicleInShift(oldVid, shiftsData, _pickupDateStr, _pickupTimeStr) : null;
+                    const _check2 = oldVid && _pickupDateStr ? verifyVehicleShiftIndependent(oldVid, shiftsData, _pickupDateStr, _pickupTimeStr) : null;
+                    const _entry = oldVid ? shiftsData[oldVid] || null : null;
+                    await db.ref('debugLogs/reassign').push({
+                        ts: Date.now(),
+                        rideId: r.firebaseId,
+                        customer: r.customerName || '?',
+                        pickup: _pickupDateStr + ' ' + _pickupTimeStr,
+                        vehicleId: oldVid,
+                        vehicleName: oldVehicle,
+                        check1_isVehicleInShift: _check1,
+                        check2_verifyResult: _check2,
+                        rawShiftsEntry: _entry,
+                        cloudFunction: 'scheduledAutoAssign',
+                        triggerSource: 'needsReassign-loop'
+                    }).catch(() => {});
+                } catch (_logErr) { /* non-critical */ }
+
                 await db.ref('rides/' + r.firebaseId).update({
                     assignedVehicle: null, vehicleId: null, assignedTo: null,
                     vehicle: null, vehicleLabel: null, vehiclePlate: null,

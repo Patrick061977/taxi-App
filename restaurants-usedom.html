@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurant-Taxi Usedom · Geheimtipps · Romantik · Familienessen | Funk Taxi Heringsdorf</title>
-    <meta name="description" content="Empfehlungen für Restaurants auf Usedom — Sterne-Küche, Geheimtipps im Achterland, Familienlokale. Wir fahren Sie hin und zurück, kein Promille-Risiko. Tel 038378 22022.">
-    <meta name="keywords" content="Restaurant Taxi Usedom, Restaurant Heringsdorf, Restaurant Bansin, Restaurant Ahlbeck, Geheimtipp Achterland, Bauernstube Morgenitz, Toon Eikbom Dargen, Kulmeck Wickboldt, Fisch Domke, Carl's Kneipe Ahlbeck, Schloon Idyll Bansin">
+    <meta name="description" content="Echte Restaurant-Empfehlungen auf Usedom mit Bewertungen — Sterne-Küche, Geheimtipps im Achterland, Familienlokale. Hinfahrt mit einem Klick buchen, Speisekarten verlinkt, To-Go auf Anfrage. Tel 038378 22022.">
+    <meta name="keywords" content="Restaurant Taxi Usedom, Restaurant Heringsdorf, Restaurant Bansin, Restaurant Ahlbeck, Geheimtipp Achterland, Bauernstube Morgenitz René Bobzin, Toon Eikbom Dargen, Kulmeck Wickboldt Michelin, The O'ROOM Steigenberger, Fisch Domke, Carl's Kneipe Ahlbeck, Restaurant Fischkopp Bansin, To-Go Lieferung Usedom">
     <meta name="geo.region" content="DE-MV">
     <meta name="geo.placename" content="Insel Usedom Restaurants">
     <meta name="geo.position" content="53.9514;14.1700">
     <link rel="canonical" href="https://umwelt-taxi-insel-usedom.de/restaurants-usedom.html">
-    <meta property="og:title" content="Restaurant-Taxi Usedom — Geheimtipps + Romantik + Familienessen">
-    <meta property="og:description" content="Top-Restaurants auf Usedom mit kuratierten Empfehlungen. Wir fahren Sie hin und zurück.">
+    <meta property="og:title" content="Restaurant-Taxi Usedom — Echte Empfehlungen mit Bewertungen">
+    <meta property="og:description" content="Top-Restaurants auf Usedom kuratiert mit Hinfahrt-Buchung, Speisekarte und To-Go-Anfrage.">
     <meta property="og:url" content="https://umwelt-taxi-insel-usedom.de/restaurants-usedom.html">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="de_DE">
@@ -38,7 +38,12 @@
         .btn { display: inline-block; padding: 14px 28px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 16px; }
         .btn-primary { background: #f59e0b; color: white; }
         .btn-secondary { background: white; color: #1e293b; }
-        .btn-small { display: inline-block; padding: 8px 16px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 13px; background: #ec4899; color: white; }
+        .btn-row { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+        .btn-small { display: inline-block; padding: 7px 12px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 12px; transition: opacity 0.15s; flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn-small:hover { opacity: 0.85; }
+        .btn-go { background: #ec4899; color: white; }
+        .btn-menu { background: #1e3a8a; color: white; }
+        .btn-togo { background: #10b981; color: white; }
         section { padding: 60px 0; }
         section.alt { background: #f8fafc; }
         h2 { font-size: 32px; font-weight: 700; margin-bottom: 16px; text-align: center; }
@@ -46,12 +51,14 @@
         .category-tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 32px; }
         .category-tab { background: #f1f5f9; color: #475569; padding: 10px 18px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 14px; border: 2px solid transparent; transition: all 0.2s; }
         .category-tab.active { background: #ec4899; color: white; border-color: #be185d; }
-        .restaurant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+        .restaurant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; }
         .restaurant-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; }
         .restaurant-card.hidden { display: none; }
-        .restaurant-card h3 { font-size: 20px; margin-bottom: 4px; color: #1e293b; }
+        .restaurant-card h3 { font-size: 21px; margin-bottom: 4px; color: #1e293b; }
         .restaurant-card .location { font-size: 13px; color: #64748b; margin-bottom: 12px; }
-        .restaurant-card .desc { color: #475569; font-size: 14px; margin-bottom: 16px; flex-grow: 1; }
+        .restaurant-card .rating { font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 12px; }
+        .restaurant-card .desc { color: #475569; font-size: 14px; margin-bottom: 16px; flex-grow: 1; line-height: 1.6; }
+        .restaurant-card .desc strong { color: #1e293b; }
         .restaurant-card .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
         .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
         .badge-stars { background: #fef3c7; color: #92400e; }
@@ -59,12 +66,11 @@
         .badge-family { background: #dbeafe; color: #1e3a8a; }
         .badge-geheim { background: #d1fae5; color: #14532d; }
         .badge-fish { background: #e0f2fe; color: #075985; }
-        .price-row { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #f1f5f9; }
-        .price { font-weight: 700; color: #1e293b; }
+        .badge-price { background: #f1f5f9; color: #1e293b; }
         footer { background: #0f172a; color: #94a3b8; padding: 40px 0 24px; text-align: center; }
         footer a { color: #f59e0b; text-decoration: none; }
         footer .small { font-size: 13px; margin-top: 16px; }
-        @media (max-width: 600px) { .hero h1 { font-size: 32px; } h2 { font-size: 26px; } }
+        @media (max-width: 600px) { .hero h1 { font-size: 32px; } h2 { font-size: 26px; } .restaurant-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -81,7 +87,7 @@
 <section class="hero">
     <div class="container">
         <h1>Restaurants auf Usedom</h1>
-        <p class="lead">Sie genießen, wir fahren. Hier unsere kuratierten Empfehlungen — von Michelin-Sternen bis zum versteckten Achterland-Geheimtipp. Alle Strecken im Pflichtfahrgebiet, Hin- und Rückfahrt einplanbar.</p>
+        <p class="lead">Sie genießen, wir fahren. Echte Empfehlungen mit Bewertungen aus TripAdvisor, Schlemmer-Atlas und Restaurant-Ranglisten — von Michelin-Stern bis Achterland-Geheimtipp. Hinfahrt mit einem Klick buchen, Speisekarte verlinkt, To-Go auf Anfrage.</p>
         <div class="hero-buttons">
             <a href="buchen.html" class="btn btn-primary">📅 Hinfahrt buchen</a>
             <a href="tel:03837822022" class="btn btn-secondary">📞 038378 22022</a>
@@ -92,7 +98,7 @@
 <section>
     <div class="container">
         <h2>Anlass wählen</h2>
-        <p class="lead-section">Filtern Sie nach Stimmung. Tippen Sie eine Kategorie um die passenden Empfehlungen zu sehen.</p>
+        <p class="lead-section">Filtern Sie nach Stimmung. Auf jeder Karte: <strong>Hinfahrt</strong> (mit Pickup-Eingabe ⇒ Preis), <strong>Speisekarte</strong> (wenn vorhanden), <strong>To-Go-Anfrage</strong> (außer Sterne-Küche).</p>
         <div class="category-tabs">
             <button class="category-tab active" data-cat="all">🍽️ Alle anzeigen</button>
             <button class="category-tab" data-cat="stars">⭐ Sterneküche</button>
@@ -103,145 +109,199 @@
         </div>
 
         <div class="restaurant-grid">
-            <!-- ⭐ STERNEKÜCHE -->
+
+            <!-- ⭐ KULMECK (Stern, KEIN To-Go) -->
             <div class="restaurant-card" data-cats="stars romantic">
                 <div class="badges">
                     <span class="badge badge-stars">⭐ Michelin-Stern</span>
                     <span class="badge badge-romantic">💕 Romantik</span>
+                    <span class="badge badge-price">€€€€</span>
                 </div>
                 <h3>Kulmeck by Tom Wickboldt</h3>
-                <div class="location">📍 Heringsdorf · Strandhotel Ostseeblick</div>
-                <p class="desc">Sterne-Küche mit Tom Wickboldt am Herd — kreative regionale Karte mit dem Besten was Land und Meer hergeben. Eines der besten Restaurants auf Usedom für besondere Anlässe oder einen wirklich unvergesslichen Abend.</p>
-                <div class="price-row"><span class="price">€€€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Strandhotel Ostseeblick · Heringsdorf</div>
+                <div class="rating">⭐ 4.9/5 TripAdvisor (Top-30 von 263) · seit Jan 2021 mit Michelin-Stern</div>
+                <p class="desc">Eines der ältesten Restaurants Heringsdorfs — von Tom Wickboldt zur Sterne-Küche neu erfunden. <strong>Außergewöhnliche Aromen</strong> aus der „weltoffenen Küche" mit Fokus auf Farben, Formen und regionale Frische. Mi–Sa ab 16:00 Uhr Finger-Food und leichte Weine, ab 18:00 Uhr 4- oder 6-Gänge-Menü. Modern-cosy Decor, Rock/Pop-Klassiker im Hintergrund, freundlich-entspannter Service.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Strandhotel+Ostseeblick%2C+Heringsdorf" class="btn-small btn-go">📅 Hinfahrt</a>
+                </div>
             </div>
 
+            <!-- ⭐ THE O'ROOM (Stern, KEIN To-Go) -->
             <div class="restaurant-card" data-cats="stars romantic">
                 <div class="badges">
                     <span class="badge badge-stars">⭐ Michelin-Stern</span>
                     <span class="badge badge-romantic">💕 Romantik</span>
+                    <span class="badge badge-price">€€€€</span>
                 </div>
                 <h3>The O'ROOM</h3>
-                <div class="location">📍 Heringsdorf · Steigenberger Grandhotel</div>
-                <p class="desc">Sterne-Küche unter Küchenchef André Kähler — moderne, kreative Gerichte mit Fokus auf saisonalen und regionalen Zutaten. Elegante Atmosphäre, ideal für Geburtstage und Jubiläen.</p>
-                <div class="price-row"><span class="price">€€€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Steigenberger Grandhotel · Liehrstraße 11, Heringsdorf</div>
+                <div class="rating">⭐ Michelin-Stern · Sterne-Küche unter André Kähler</div>
+                <p class="desc">Sterne-Küche unter Küchenchef André Kähler — moderne, kreative Gerichte mit Fokus auf saisonale und regionale Zutaten. Elegante Hotelatmosphäre, perfekt für Geburtstage, Jubiläen oder Geschäftsessen. Reservierung empfohlen.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Steigenberger+Grandhotel%2C+Liehrstra%C3%9Fe+11%2C+17424+Heringsdorf" class="btn-small btn-go">📅 Hinfahrt</a>
+                </div>
             </div>
 
-            <!-- 🐟 FISCH -->
+            <!-- 🐟 FISCH DOMKE -->
             <div class="restaurant-card" data-cats="fish family">
                 <div class="badges">
                     <span class="badge badge-fish">🐟 Fisch</span>
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€</span>
                 </div>
                 <h3>Fisch Domke</h3>
-                <div class="location">📍 Ahlbeck · Heringsdorf · Bansin (3 Standorte)</div>
-                <p class="desc">Drei Filialen vom Fischsommelier André Domke — fangfrischer Fisch, traditionelle Pommernsche Küche, faire Preise. Bei Familien beliebt: Kindermenüs, große Portionen, schneller Service.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Seestr. 24 Ahlbeck · auch in Heringsdorf &amp; Bansin</div>
+                <div class="rating">⭐ 3.2-4.3/5 (Plattform-abhängig) · 576+ Reviews</div>
+                <p class="desc">Vom Fischsommelier André Domke — drei Standorte mit <strong>fangfrischem Fisch und Räucherfisch</strong> aus eigener Räucherei. Selbstbedienungs-Konzept mit großer Auswahl, faire Preise. Gäste loben den großzügigen Backfisch und das frische Angebot. Konsistenz schwankt: am Mittag und außerhalb der Hauptsaison meist top.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Seestra%C3%9Fe+24%2C+17419+Seebad+Ahlbeck" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="https://www.fischdomke.de/" target="_blank" rel="noopener" class="btn-small btn-menu">📋 Speisekarte</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
+            <!-- 🐟 CARL'S KNEIPE -->
+            <div class="restaurant-card" data-cats="fish family geheim">
+                <div class="badges">
+                    <span class="badge badge-fish">🐟 Fisch</span>
+                    <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€€</span>
+                </div>
+                <h3>Carl's Kneipe</h3>
+                <div class="location">📍 Seestr. 6b · 17419 Seebad Ahlbeck (im Hinterhof)</div>
+                <div class="rating">⭐ 4.5/5 TripAdvisor (409 Reviews) · 2. Platz Ahlbeck</div>
+                <p class="desc">Familiengeführter Geheimtipp im Hinterhof — qualitativ hochwertige <strong>Fisch- und Fleischküche</strong>. Stargerichte: Fischsuppe, Kabeljau mit Pesto-Kruste, Zander, Fisch-Burger mit Pommes. Gemütliche Sitzecken innen und außen, freundliches und aufmerksames Personal. <strong>Preise oberhalb Durchschnitt — von der Qualität aber gerechtfertigt.</strong> Reservierung mehrere Tage vorher unbedingt empfohlen, voll fast immer.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Seestra%C3%9Fe+6b%2C+17419+Seebad+Ahlbeck" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
+            </div>
+
+            <!-- 🐟 FISCHKOPP -->
             <div class="restaurant-card" data-cats="fish family">
                 <div class="badges">
                     <span class="badge badge-fish">🐟 Fisch</span>
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€€</span>
                 </div>
-                <h3>Carl's Kneipe Ahlbeck</h3>
-                <div class="location">📍 Ahlbeck · familiengeführt</div>
-                <p class="desc">Rustikale, gemütliche Stube — fangfrische Fischgerichte und herzhafte regionale Küche. Bewährter Familien-Treff seit Jahrzehnten, freundliche Bedienung, urige Atmosphäre.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <h3>Restaurant „Fischkopp"</h3>
+                <div class="location">📍 Seestr. 66 · 17429 Seebad Bansin</div>
+                <div class="rating">⭐ 4.5/5 TripAdvisor · 83+ Reviews</div>
+                <p class="desc">Authentisch-rustikales Fisch-Lokal mit <strong>einzigartigem Schiffsbauch-Ambiente</strong> — Sie sitzen wie im Inneren eines alten Segelschiffs. Viel des Fischs fängt der Sohn des Inhabers selbst. Frisch, ehrlich, gutes Preis-Leistungs-Verhältnis. Personal aufmerksam trotz hoher Auslastung. <strong>Sehr beliebt → Reservierung am Vortag telefonisch unbedingt empfohlen.</strong></p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Seestra%C3%9Fe+66%2C+17429+Seebad+Bansin" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
-            <div class="restaurant-card" data-cats="fish romantic">
-                <div class="badges">
-                    <span class="badge badge-fish">🐟 Fisch</span>
-                    <span class="badge badge-romantic">💕 Romantik</span>
-                </div>
-                <h3>Schloon Idyll</h3>
-                <div class="location">📍 Bansin · am Schloonsee</div>
-                <p class="desc">Idyllisches Lokal direkt am Schloonsee mit rustikalem Ambiente. Regionale Küche, frische Fischgerichte und hausgemachte Torten. Sonnenterrasse mit Seeblick — perfekt für einen entspannten Abend zu zweit.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
-            </div>
-
-            <div class="restaurant-card" data-cats="fish family">
-                <div class="badges">
-                    <span class="badge badge-fish">🐟 Fisch</span>
-                    <span class="badge badge-family">👨‍👩‍👧 Familie</span>
-                </div>
-                <h3>Restaurant Fischkopp</h3>
-                <div class="location">📍 Bansin</div>
-                <p class="desc">Gemütliche Atmosphäre, schneller Service, Speisekarte rund um Fisch. Solides Preis-Leistungs-Verhältnis für entspannte Abende mit der Familie.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
-            </div>
-
-            <!-- 🤫 GEHEIMTIPPS ACHTERLAND -->
-            <div class="restaurant-card" data-cats="geheim romantic family">
+            <!-- 🤫 BAUERNSTUBE MORGENITZ -->
+            <div class="restaurant-card" data-cats="geheim romantic family fish">
                 <div class="badges">
                     <span class="badge badge-geheim">🤫 Geheimtipp</span>
+                    <span class="badge badge-fish">🐟 Fisch</span>
                     <span class="badge badge-romantic">💕 Romantik</span>
+                    <span class="badge badge-price">€€</span>
                 </div>
                 <h3>Bauernstube Morgenitz</h3>
-                <div class="location">📍 Morgenitz · Künstlerdorf im Achterland</div>
-                <p class="desc">Familiengeführter Gasthof im idyllischen Künstlerdorf Morgenitz. Berühmt für tagesfrischen Fisch aus Peene und Achterwasser — morgens geschwommen, abends auf dem Teller. Pommernsche Spezialitäten, gemütliche Atmosphäre.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Künstlerdorf Morgenitz · Achterland (~13 km von Heringsdorf)</div>
+                <div class="rating">⭐ Sternekoch René Bobzin · „Bestes Fischrestaurant auf Usedom" (TripAdvisor-Reviews)</div>
+                <p class="desc">Geführt von <strong>Sternekoch René Bobzin</strong> und seiner Frau Carolin seit 2015. <strong>Keine feste Speisekarte:</strong> Carolin begrüßt persönlich und erzählt vom Tagesfang des Fischers aus Warthe — der Fisch schwamm morgens noch im Achterwasser. Berühmt: der Pfannenfisch (Zander &amp; Dorsch), oft als „bester Fisch in Deutschland" beschrieben. Gemütlich-rustikales Ambiente, freundlich-aufmerksamer Service. Stammgäste kommen 7× pro Urlaub.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Bauernstube+Morgenitz%2C+17406+Mellenthin" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="https://www.bauernstube-morgenitz.de/" target="_blank" rel="noopener" class="btn-small btn-menu">🌐 Webseite</a>
+                </div>
             </div>
 
+            <!-- 🤫 TO'N EIKBOM DARGEN -->
             <div class="restaurant-card" data-cats="geheim family">
                 <div class="badges">
                     <span class="badge badge-geheim">🤫 Geheimtipp</span>
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€</span>
                 </div>
                 <h3>Gasthof To'n Eikbom</h3>
-                <div class="location">📍 Dargen · klassisches Achterland</div>
-                <p class="desc">Tradition und Bodenständigkeit treffen regionale Gerichte. Ländlich-entspanntes Ambiente fernab vom Trubel der Kaiserbäder. Eine Adresse die Einheimische empfehlen — für ehrliche Küche zu fairen Preisen.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Haffstraße 19 · 17419 Dargen (~13 km Kaiserbäder)</div>
+                <div class="rating">⭐ 4.5/5 Restaurant-Guru · 9.0 Booking.com</div>
+                <p class="desc">Familiengeführter Gasthof <strong>seit über 30 Jahren</strong> — gute traditionelle deutsche Küche im gemütlichen Restaurant. Bodenständig, ehrlich, lokal. Vegetarisch / glutenfrei / laktosefrei auf Anfrage. Mi–So geöffnet. Auch fünf Hotelzimmer und ein Apartment für längere Aufenthalte. Reviews loben sehr nettes Personal und frisch zubereitete Gerichte.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Haffstra%C3%9Fe+19%2C+17419+Dargen" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="https://eikbom.de/" target="_blank" rel="noopener" class="btn-small btn-menu">🌐 Webseite</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
-            <div class="restaurant-card" data-cats="geheim family">
+            <!-- 🤫 GASTSTÄTTE ACHTERLAND -->
+            <div class="restaurant-card" data-cats="geheim family fish">
                 <div class="badges">
                     <span class="badge badge-geheim">🤫 Geheimtipp</span>
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-fish">🐟 Fisch</span>
+                    <span class="badge badge-price">€€</span>
                 </div>
-                <h3>Gaststätte Achterland</h3>
-                <div class="location">📍 Morgenitz · familiengeführter Gasthof + Pension</div>
-                <p class="desc">Ruhig und idyllisch im Lieper Winkel. Regionale Küche mit Schwerpunkt auf Fisch- und Fleischgerichten. Frischer Fisch, Schnitzel, Rumpsteak. Gemütliche Außenterrasse für Sonnenuntergang über dem Achterwasser.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <h3>Pension &amp; Gaststätte Achterland</h3>
+                <div class="location">📍 Dorfstraße 11 · 17406 Morgenitz · Lieper Winkel</div>
+                <div class="rating">⭐ 4.5/5 TripAdvisor · 92% empfehlen weiter</div>
+                <p class="desc">Idyllisch im Lieper Winkel am Eingang zum Achterwasser. <strong>Fisch direkt vom lokalen Fischer, Wild aus heimischer Jagd</strong> — Aal, Hecht, Flunder, Lachs, Matjes, Maräne. Gemütliche Außenterrasse für Sonnenuntergänge über dem Achterwasser. Service kann an Spitzentagen länger dauern → Reservierung empfohlen.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Dorfstra%C3%9Fe+11%2C+17406+Morgenitz" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="https://www.pension-achterland.de/" target="_blank" rel="noopener" class="btn-small btn-menu">🌐 Webseite</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
-            <!-- WEITERE EMPFEHLUNGEN -->
+            <!-- LUTTER & WEGNER -->
             <div class="restaurant-card" data-cats="family romantic">
                 <div class="badges">
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
                     <span class="badge badge-romantic">💕 Romantik</span>
+                    <span class="badge badge-price">€€€</span>
                 </div>
                 <h3>Lutter &amp; Wegner</h3>
-                <div class="location">📍 Heringsdorf · Steigenberger Grandhotel</div>
-                <p class="desc">Klassisches Wiener Schnitzel-Lokal in geschmackvoller Atmosphäre. Perfekt für ungezwungene Abende, Familienessen oder als entspannte Alternative zur Sterne-Küche im selben Haus.</p>
-                <div class="price-row"><span class="price">€€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Steigenberger Grandhotel · Liehrstraße 11, Heringsdorf</div>
+                <p class="desc">Klassisches <strong>Wiener Schnitzel</strong> in geschmackvoller Hotel-Atmosphäre. Vielseitige Karte (auch Fisch, vegetarische Optionen). Ideal als entspannte Alternative zur Sterne-Küche im selben Haus — perfekt für ungezwungene Familienabende oder einen langen Abend zu zweit.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Steigenberger+Grandhotel%2C+Liehrstra%C3%9Fe+11%2C+17424+Heringsdorf" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
+            <!-- KLEINES RESTAURANT -->
             <div class="restaurant-card" data-cats="family">
                 <div class="badges">
                     <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€</span>
                 </div>
                 <h3>Kleines Restaurant</h3>
-                <div class="location">📍 Heringsdorf</div>
-                <p class="desc">Deutsche und europäische Küche, gemütliche Atmosphäre, freundlicher Service. Beliebt: der Kapitänsteller mit verschiedenen Fischsorten. Familienfreundliche Preise, charmant-unkompliziert.</p>
-                <div class="price-row"><span class="price">€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Heringsdorf Zentrum</div>
+                <p class="desc">Deutsche und europäische Küche, gemütliche Atmosphäre, <strong>familienfreundliche Preise</strong>. Beliebt: der Kapitänsteller mit verschiedenen Fischsorten. Charmant-unkompliziert, freundlicher Service, ein klassischer „Stammgast-Laden".</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Kleines+Restaurant%2C+17424+Heringsdorf" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
 
-            <div class="restaurant-card" data-cats="romantic stars">
+            <!-- WEISSES SCHLOSS -->
+            <div class="restaurant-card" data-cats="romantic family">
                 <div class="badges">
-                    <span class="badge badge-stars">⭐ Hotel-Restaurant</span>
                     <span class="badge badge-romantic">💕 Romantik</span>
+                    <span class="badge badge-family">👨‍👩‍👧 Familie</span>
+                    <span class="badge badge-price">€€€</span>
                 </div>
                 <h3>Weißes Schloss</h3>
-                <div class="location">📍 Heringsdorf</div>
-                <p class="desc">Vielseitige Speisekarte in eleganter Hotelatmosphäre. Ideal für besondere Anlässe oder einen langen romantischen Abend mit Aussicht auf die Strandpromenade.</p>
-                <div class="price-row"><span class="price">€€€</span><a href="buchen.html" class="btn-small">Hinfahrt buchen</a></div>
+                <div class="location">📍 Heringsdorf · nahe Strandpromenade</div>
+                <p class="desc">Vielseitige Karte in eleganter Hotelatmosphäre — <strong>ideal für besondere Anlässe</strong> oder einen langen romantischen Abend mit Aussicht auf die Strandpromenade. Sowohl Fisch als auch Fleisch und vegetarisch in guter Qualität.</p>
+                <div class="btn-row">
+                    <a href="buchen.html?to=Weisses+Schloss%2C+17424+Heringsdorf" class="btn-small btn-go">📅 Hinfahrt</a>
+                    <a href="tel:03837822022" class="btn-small btn-togo">🥡 To-Go fragen</a>
+                </div>
             </div>
+
         </div>
 
-        <p style="text-align:center;margin-top:32px;color:#64748b;font-size:13px;font-style:italic;">
-            🍽️ Auswahl basierend auf öffentlichen Bewertungen (TripAdvisor, Schlemmer-Atlas, Restaurant-Ranglisten). Reservierungen bitte direkt beim Restaurant.<br>
-            Sie kennen ein anderes Lieblings-Restaurant? <a href="tel:03837822022" style="color:#ec4899;">Rufen Sie uns an</a> — wir fahren überall hin auf Usedom.
+        <p style="text-align:center;margin-top:32px;color:#64748b;font-size:13px;font-style:italic;max-width:800px;margin-left:auto;margin-right:auto;">
+            🍽️ <strong>Quellen:</strong> TripAdvisor, Schlemmer-Atlas, Restaurant-Ranglisten, Usedom-Insider, Restaurant-Guru. Die Beschreibungen fassen öffentliche Bewertungen zusammen — Reservierungen bitte direkt beim Restaurant.<br><br>
+            🥡 <strong>To-Go-Service:</strong> Wir holen warm ab und bringen zu Ihnen. Nicht bei Sterne-Restaurants. Ablauf: Sie bestellen telefonisch beim Restaurant, wir kommen nach Vereinbarung. Liefer-Aufpreis je nach Strecke. Anrufen für Details: <a href="tel:03837822022" style="color:#ec4899;">038378 22022</a>.<br><br>
+            Sie kennen ein Lieblings-Restaurant das hier fehlt? Rufen Sie uns an — wir fahren überall hin auf Usedom.
         </p>
     </div>
 </section>
@@ -249,23 +309,22 @@
 <section class="alt">
     <div class="container">
         <h2>Warum Restaurant-Taxi statt selbst fahren?</h2>
-        <p class="lead-section">Drei gute Gründe — und ein versteckter Vierter.</p>
         <div class="restaurant-grid">
             <div class="restaurant-card">
-                <h3 style="margin-bottom:12px;">🍷 Sie genießen ohne Promille-Risiko</h3>
-                <p class="desc">Ein Glas Wein zum Essen ist keine Diskussion mehr — wir fahren Sie sicher zurück. Pflichtfahrgebiet bedeutet: wir nehmen Sie als Gast an.</p>
+                <h3 style="margin-bottom:12px;">🍷 Genießen ohne Promille-Risiko</h3>
+                <p class="desc">Ein Glas Wein zum Essen ist keine Diskussion mehr — wir bringen Sie sicher zurück. Pflichtfahrgebiet bedeutet: wir nehmen Sie als Gast an.</p>
             </div>
             <div class="restaurant-card">
                 <h3 style="margin-bottom:12px;">🅿️ Kein Parkplatz-Stress</h3>
-                <p class="desc">Heringsdorf, Bansin und Ahlbeck haben in der Saison überfüllte Parkplätze. Wir setzen Sie direkt vor der Tür ab — keine 10 Minuten Suche.</p>
+                <p class="desc">Heringsdorf, Bansin und Ahlbeck haben in der Saison überfüllte Parkplätze. Wir setzen Sie direkt vor der Tür ab.</p>
             </div>
             <div class="restaurant-card">
-                <h3 style="margin-bottom:12px;">🌟 Geheimtipps der Insel</h3>
-                <p class="desc">Sie wollen ins Achterland zur Bauernstube Morgenitz oder nach To'n Eikbom in Dargen? Wir kennen den Weg, kein Navi-Stress.</p>
+                <h3 style="margin-bottom:12px;">🌟 Wir kennen den Weg</h3>
+                <p class="desc">Achterland-Geheimtipp wie Bauernstube Morgenitz oder To'n Eikbom in Dargen? Kein Navi-Stress — wir kennen jeden Hofweg.</p>
             </div>
             <div class="restaurant-card">
                 <h3 style="margin-bottom:12px;">⏱️ Rückfahrt vereinbaren</h3>
-                <p class="desc">Sagen Sie uns Endzeit — wir holen Sie pünktlich ab. Oder kurz anrufen wenn fertig — wir kommen meist innerhalb 10 Minuten.</p>
+                <p class="desc">Sagen Sie uns Endzeit — wir holen Sie pünktlich ab. Oder kurz anrufen wenn fertig — meist innerhalb 10 Minuten da.</p>
             </div>
         </div>
     </div>
@@ -273,12 +332,12 @@
 
 <section>
     <div class="container">
-        <h2>🥡 Neu: Essen-Bringservice (geplant)</h2>
-        <p class="lead-section">Sie haben Hunger, möchten aber zuhause bleiben? Wir bauen gerade einen To-Go-Service auf — wir holen Ihr Lieblings-Essen ab und bringen es zu Ihnen.</p>
+        <h2>🥡 Bring-Service (geplant)</h2>
+        <p class="lead-section">Sie haben Hunger, möchten aber zuhause bleiben? Wir bauen gerade einen To-Go-Service auf — wir holen Ihr Lieblings-Essen ab und bringen es warm zu Ihnen.</p>
         <div style="max-width:760px;margin:0 auto;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;padding:24px;text-align:center;">
-            <p style="color:#92400e;font-size:15px;margin-bottom:16px;"><strong>So funktioniert's künftig:</strong> Sie wählen aus den Speisekarten der angeschlossenen Restaurants, wir holen die Bestellung ab und bringen sie warm zu Ihnen. Ideal für Familien, die nach einem Strand-Tag nicht mehr ausgehen wollen.</p>
-            <p style="color:#78350f;font-size:13px;margin-bottom:16px;">Aktuell in Vorbereitung — Restaurants die mitmachen wollen, melden sich bei uns. Speisekarten werden hier verlinkt sobald angeschlossen.</p>
-            <a href="tel:03837822022" class="btn-small" style="background:#f59e0b;">📞 Restaurants &amp; Interesse: 038378 22022</a>
+            <p style="color:#92400e;font-size:15px;margin-bottom:16px;"><strong>So funktioniert's künftig:</strong> Sie wählen aus den Speisekarten der angeschlossenen Restaurants. Wir holen die Bestellung ab und bringen sie warm zu Ihnen. Ideal nach einem Strand-Tag — niemand muss kochen.</p>
+            <p style="color:#78350f;font-size:13px;margin-bottom:16px;">Aktuell in Vorbereitung. Restaurants die mitmachen wollen, melden sich bei uns. Speisekarten werden hier verlinkt sobald angeschlossen. Bitte beachten: <strong>nicht für Sterne-Küche</strong> (Kulmeck, The O'ROOM).</p>
+            <a href="tel:03837822022" class="btn-small btn-togo" style="font-size:14px;padding:10px 20px;">📞 Restaurants &amp; Interesse: 038378 22022</a>
         </div>
     </div>
 </section>
@@ -307,7 +366,7 @@ document.querySelectorAll('.category-tab').forEach(tab => {
         document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         const cat = tab.dataset.cat;
-        document.querySelectorAll('.restaurant-card').forEach(card => {
+        document.querySelectorAll('.restaurant-card[data-cats]').forEach(card => {
             if (cat === 'all' || (card.dataset.cats || '').split(' ').includes(cat)) {
                 card.classList.remove('hidden');
             } else {

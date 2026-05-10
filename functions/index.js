@@ -22143,6 +22143,37 @@ exports.scheduledLateCheck = onSchedule(
                             );
                         } catch (_) {}
                     }
+
+                    // 🆕 v6.62.567: Patrick (10.05. 14:45): "Wenn 10-15 Min Verspaetung,
+                    // Kunde benachrichtigen". Wenn delayMin > customerNotifyThresholdMin
+                    // (default 10) UND nicht schon benachrichtigt → SMS an Kunde mit
+                    // Verspätungs-Hinweis + Track-Link. Verhindert dass Kunde umsonst
+                    // wartet und sich aergert.
+                    const _customerNotifyThreshold = (typeof settings.customerNotifyThresholdMin === 'number')
+                        ? settings.customerNotifyThresholdMin : 10;
+                    const _customerSmsEnabled = settings.customerSmsEnabled !== false;
+                    if (_customerSmsEnabled && Math.round(delayMin) >= _customerNotifyThreshold && !ride.lateCustomerNotifiedAt) {
+                        const _custPhone = ride.customerMobile || ride.customerPhone;
+                        if (_custPhone && /[0-9]/.test(_custPhone)) {
+                            const _customerName = (ride.customerName || '').split(' ').pop() || '';
+                            const _anrede = ride.guestName ? `Hallo ${ride.guestName}` : (_customerName ? `Hallo ${_customerName}` : 'Hallo');
+                            const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${ride.firebaseId}`;
+                            const _smsText = `${_anrede}, leider verspaetet sich Ihr Taxi um ca. ${Math.round(delayMin)} Min zum Pickup um ${timeStr}. Wir kommen so schnell wie moeglich. Live-Status: ${_trackLink} - Funk Taxi 038378 22022`;
+                            try {
+                                await db.ref('smsQueue').push({
+                                    phone: _custPhone,
+                                    text: _smsText,
+                                    rideId: ride.firebaseId,
+                                    type: 'verspaetung_kunde',
+                                    status: 'pending',
+                                    createdAt: Date.now()
+                                });
+                                await db.ref('rides/' + ride.firebaseId + '/lateCustomerNotifiedAt').set(Date.now()).catch(() => {});
+                                console.log(`📲 Verspaetungs-SMS in Queue fuer ${_custPhone} (${Math.round(delayMin)}min)`);
+                                try { await addRideLog(ride.firebaseId, '📲', `Verspaetungs-SMS an Kunde (~${Math.round(delayMin)}min spaet)`, { phone: _custPhone, quelle: 'scheduledLateCheck v6.62.567' }); } catch (_) {}
+                            } catch (_smsErr) { console.error('Verspaetungs-SMS Push fehlgeschlagen:', _smsErr.message); }
+                        }
+                    }
                     await db.ref('debugLogs/lateCheck').push({
                         ts: Date.now(),
                         action: 'no-alternative',

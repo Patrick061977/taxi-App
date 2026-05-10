@@ -3,7 +3,7 @@
   "short_name": "Taxi Usedom",
   "description": "Taxi auf Usedom — Heringsdorf, Ahlbeck, Bansin. Online buchen mit Live-Tracking.",
   "start_url": "./landing.html",
-  "scope": "./",
+  "scope": "./landing.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

@@ -977,7 +977,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker-landing.js')
+                navigator.serviceWorker.register('./service-worker-landing.js', { scope: './landing.html' })
                     .then(reg => console.log('SW registriert:', reg.scope))
                     .catch(err => console.warn('SW-Register fehlgeschlagen:', err));
             });

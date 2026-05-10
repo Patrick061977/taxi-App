@@ -2545,14 +2545,33 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (e.address != null && !e.address.isEmpty() && (e.lat == null || e.lon == null)) {
                     namePrefix = "⚠️ ";
                 }
-                t1.setText(namePrefix + (e.name != null ? e.name : "?"));
+                // 🆕 v6.62.569: Patrick (10.05. 15:45): "Vielleicht kann man in der CRM-Suche
+                // alles was angegeben ist mit eingeben — dass ich genau sehe ob die Anrede
+                // oder die Email-Adresse drin ist." Anrede + Customer-Kind als Praefix vor
+                // dem Namen, sonstige Felder im Untertitel.
+                StringBuilder t1Builder = new StringBuilder();
+                t1Builder.append(namePrefix);
+                // Anrede vorn anstellen wenn gepflegt (Herr/Frau/Familie/Hotel/Firma)
+                if (e.anrede != null && !e.anrede.trim().isEmpty()) {
+                    t1Builder.append(e.anrede.trim()).append(' ');
+                }
+                t1Builder.append(e.name != null ? e.name : "?");
+                t1.setText(t1Builder.toString());
                 String sub = "";
                 // v6.62.222: Empty-String ignorieren (Hasbargen hatte phone="" → vorher
                 // wurde "📞 " mit leerem Wert angezeigt → sah aus als wäre keine Nummer da).
                 boolean hasPhone = e.phone != null && !e.phone.trim().isEmpty();
                 boolean hasPhone2 = e.phone2 != null && !e.phone2.trim().isEmpty();
                 boolean hasMobile = e.mobilePhone != null && !e.mobilePhone.trim().isEmpty();
-                if (hasPhone) sub += "📞 " + e.phone;
+                // 🆕 v6.62.569: Customer-Kind-Badge als allerstes (Stammkunde/Hotel/Firma/Gelegenheit)
+                if (e.customerKind != null && !e.customerKind.trim().isEmpty()) {
+                    String _kindIcon = "🔁";
+                    if (e.customerKind.equalsIgnoreCase("Hotel")) _kindIcon = "🏨";
+                    else if (e.customerKind.equalsIgnoreCase("Firma")) _kindIcon = "🏢";
+                    else if (e.customerKind.equalsIgnoreCase("Gelegenheit")) _kindIcon = "👤";
+                    sub += _kindIcon + " " + e.customerKind;
+                }
+                if (hasPhone) sub += (sub.isEmpty() ? "" : "  ") + "📞 " + e.phone;
                 // 🆕 v6.62.543: phone2 + additionalPhones im Listen-Item zeigen
                 // damit Patrick sieht dass Steigenberger seine 3 Festnetznummern hat.
                 if (hasPhone2 && !e.phone2.equals(e.phone)) sub += (sub.isEmpty() ? "" : "  ") + "📞 " + e.phone2;
@@ -2567,6 +2586,22 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (e.address != null && !e.address.isEmpty()) {
                     String addrLabel = (e.lat != null && e.lon != null) ? "📍 " : "📍❓ ";
                     sub += (sub.isEmpty() ? "" : "\n") + addrLabel + e.address;
+                }
+                // 🆕 v6.62.569: Email + Notizen-Indikator + Festpreis-Anzahl in 2. Zeile
+                StringBuilder _extras = new StringBuilder();
+                if (e.email != null && !e.email.trim().isEmpty()) {
+                    _extras.append("✉️ ").append(e.email);
+                }
+                if (e.notes != null && !e.notes.trim().isEmpty()) {
+                    if (_extras.length() > 0) _extras.append("  ");
+                    _extras.append("📝 Notiz");
+                }
+                if (e.fixedRoutes != null && !e.fixedRoutes.isEmpty()) {
+                    if (_extras.length() > 0) _extras.append("  ");
+                    _extras.append("💰 ").append(e.fixedRoutes.size()).append(" Festpreis").append(e.fixedRoutes.size() > 1 ? "e" : "");
+                }
+                if (_extras.length() > 0) {
+                    sub += (sub.isEmpty() ? "" : "\n") + _extras.toString();
                 }
                 t2.setText(sub.isEmpty() ? "—" : sub);
                 itemView.setOnClickListener(_v -> showActionDialog(e));

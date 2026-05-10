@@ -3093,7 +3093,11 @@
                 if (isSelected) { bg = '#059669'; border = '#059669'; }
 
                 const block = document.createElement('div');
-                block.style.cssText = `position:absolute;left:${leftPx}px;width:${pxPerSlot}px;height:100%;background:${bg};border-right:1px solid ${border};cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:background 0.15s;`;
+                // 🐛 v6.62.575: Patrick (10.05. 17:32): "warum musste ich gerade 2 mal druecken
+                //   fuer 18:50". Ursache: mobile-Browser warten 300ms auf moeglichen
+                //   Double-Tap-Zoom bevor Click feuert. Fix: touch-action: manipulation —
+                //   eliminiert die Verzoegerung und macht den Click sofort wirksam.
+                block.style.cssText = `position:absolute;left:${leftPx}px;width:${pxPerSlot}px;height:100%;background:${bg};border-right:1px solid ${border};cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;flex-direction:column;transition:background 0.15s;touch-action:manipulation;-webkit-tap-highlight-color:rgba(16,185,129,0.3);`;
                 // 🔧 v6.41.79: Tooltip zeigt bei Vergangenheit/zu-kurzfristig den echten Grund —
                 // vorher stand bei grauen Slots fälschlich "2 frei" obwohl sie nicht buchbar waren.
                 block.title = `${slotTimeStr} — ${

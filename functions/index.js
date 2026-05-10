@@ -21567,6 +21567,51 @@ exports.onRideDeleted = onValueDeleted(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.591: FEEDBACK-TRIGGER — Kunde gibt Sterne-Bewertung auf track.html ab
+// Patrick (10.05. 20:46): "Das Feedback muss auch irgendwo ankommen"
+// → Cloud Function liest /feedback/{rideId} und sendet Telegram an alle Admins
+// ═══════════════════════════════════════════════════════════════
+exports.onFeedbackCreated = onValueCreated(
+    {
+        ref: '/feedback/{rideId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const rideId = event.params.rideId;
+        const fb = event.data.val();
+        if (!fb) return;
+        const rating = parseInt(fb.rating || 0, 10);
+        const stars = '⭐'.repeat(Math.max(1, Math.min(5, rating)));
+        const comment = (fb.comment || '').trim();
+        const cust = fb.customerName || '?';
+        const phone = fb.customerPhone || '';
+        let lines = [];
+        lines.push(`💬 <b>Neues Kunden-Feedback</b>`);
+        lines.push('');
+        lines.push(`${stars} <b>${rating}/5 Sterne</b>`);
+        lines.push(`👤 ${cust}${phone ? ' · ' + phone : ''}`);
+        lines.push(`🆔 Fahrt: ${rideId}`);
+        if (comment) {
+            lines.push('');
+            lines.push(`💭 "${comment}"`);
+        }
+        if (rating <= 2) {
+            lines.push('');
+            lines.push(`⚠️ <b>Negativ-Bewertung — bitte zeitnah Kunde kontaktieren</b>`);
+        }
+        try {
+            await sendToAllAdmins(lines.join('\n'));
+        } catch (e) {
+            console.error('feedback-trigger sendToAllAdmins error:', e.message);
+        }
+        try {
+            await addTelegramLog('💬', 'cloud', `Feedback ${rating}/5 von ${cust}`, { rideId, rating, comment: comment || null });
+        } catch (_) {}
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🆕 v6.20.0: OFFENE FAHRTEN PRÜFUNG (alle 1 Minute)
 // Warnt Admins wenn Vorbestellungen < 10 Min vor Abholzeit ohne Fahrer sind
 // ═══════════════════════════════════════════════════════════════

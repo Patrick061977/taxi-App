@@ -276,6 +276,22 @@ function gpsDistanceKm(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// 🆕 v6.62.542: Chain-Leerfahrt — schnelle Haversine-Schaetzung der Leerfahrt
+// vom ZIEL der einen Fahrt zum ABHOLORT der naechsten. Loest das Problem dass
+// Erst-Zuweisungs-Konfliktchecks bisher nur eine pauschale Rueckfahrt-zur-Basis
+// (max 30 Min) verwenden — wenn die naechste Pickup weit von der Basis liegt
+// (z.B. PL ↔ DE Grenze) wird die Verkettung unrealistisch.
+// Mirrors _quickLeerfahrtMin in autoResolveConflicts (Zeile 17609 ff): 1.3 Strecken-
+// faktor, 40 km/h Schnitt, mind. 2 Min. Gibt null bei fehlenden Koords.
+function chainLeerfahrtMin(fromLat, fromLon, toLat, toLon) {
+    const _f1 = parseFloat(fromLat), _f2 = parseFloat(fromLon);
+    const _t1 = parseFloat(toLat),   _t2 = parseFloat(toLon);
+    if (!Number.isFinite(_f1) || !Number.isFinite(_f2) ||
+        !Number.isFinite(_t1) || !Number.isFinite(_t2)) return null;
+    const distKm = gpsDistanceKm(_f1, _f2, _t1, _t2);
+    return Math.max(2, Math.round(distKm * 1.3 / 40 * 60));
+}
+
 // 🆕 v6.38.27: Unabhängige Kontroll-Prüfung — Vier-Augen-Prinzip
 // Prüft DIREKT die Rohdaten in Firebase, NICHT über isVehicleInShift()
 function verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr) {
@@ -893,7 +909,19 @@ async function autoAssignRide(rideId, rideData) {
 
                 // 🔧 v6.33.7: Sofortfahrt — KEIN Rückfahrt-Puffer für die neue Fahrt!
                 // Das Fahrzeug fährt direkt vom Ziel der Sofortfahrt zum nächsten Abholort.
-                const _newRideReturnMs = isSofort ? 0 : calcReturnMs(rideData);
+                // 🆕 v6.62.542: Patrick (10.05.): "die Index-HTML hat das eigentlich über
+                // den Konfliktchecker schon sehr, sehr gut gelöst. Entweder zurück zum
+                // Standort oder halt zum nächsten Auftragspunkt." — Statt pauschalem
+                // Rueckfahrt-zur-Basis-Puffer (max 30 Min) jetzt ECHTE Chain-Leerfahrt
+                // vom Ziel der einen zur Pickup der naechsten Fahrt. Mirrors die Logik
+                // die autoResolveConflicts (Phase 2) bereits seit v6.62.323 verwendet.
+                // Anjas Fall: prev.dest war 35 Min von new.pickup entfernt, calcReturnMs
+                // gab aber nur 30 Min (capped) zurueck → Konflikt nicht erkannt → Auto
+                // wurde zugewiesen, kam zu spaet.
+                const newPickupLat = rideData.pickupCoords?.lat || rideData.pickupLat;
+                const newPickupLon = rideData.pickupCoords?.lon || rideData.pickupLon;
+                const newDestLat = rideData.destCoords?.lat || rideData.destinationLat;
+                const newDestLon = rideData.destCoords?.lon || rideData.destinationLon;
                 let _conflictRide = null;
                 const hasTimeConflict = allRides.some(r => {
                     if (r.firebaseId === rideId) return false;
@@ -902,9 +930,31 @@ async function autoAssignRide(rideId, rideData) {
                     if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return false;
                     const rDur = (r.duration || r.estimatedDuration || 20) * 60000;
                     const rStart = r.pickupTimestamp;
-                    const rReturnMs = calcReturnMs(r); // Dynamisch pro bestehender Fahrt
-                    const rEnd = rStart + rDur + bufferMs + rReturnMs;
-                    const newEnd = newPickup + newDur + bufferMs + _newRideReturnMs;
+                    const rDestLat = r.destCoords?.lat || r.destinationLat;
+                    const rDestLon = r.destCoords?.lon || r.destinationLon;
+                    const rPickupLat = r.pickupCoords?.lat || r.pickupLat;
+                    const rPickupLon = r.pickupCoords?.lon || r.pickupLon;
+
+                    // Direktionaler Chain-Check: nur die FRUEHERE Fahrt braucht
+                    // Leerfahrt-Puffer zum Pickup der spaeteren.
+                    let rEnd, newEnd;
+                    if (rStart < newPickup) {
+                        // Bestehende Fahrt r ist Vorgaenger der neuen Fahrt.
+                        // r.dest → new.pickup als echte Leerfahrt.
+                        const _chainMin = chainLeerfahrtMin(rDestLat, rDestLon, newPickupLat, newPickupLon);
+                        const _chainMs = (_chainMin !== null ? _chainMin * 60000 : calcReturnMs(r));
+                        rEnd = rStart + rDur + bufferMs + _chainMs;
+                        newEnd = newPickup + newDur + bufferMs;
+                    } else {
+                        // Neue Fahrt ist Vorgaenger der bestehenden Fahrt r.
+                        // new.dest → r.pickup als echte Leerfahrt (bei Sofortfahrt
+                        // genauso, da auch ein Sofort-Fahrer zur naechsten Buchung
+                        // anfahren muss).
+                        const _chainMin = chainLeerfahrtMin(newDestLat, newDestLon, rPickupLat, rPickupLon);
+                        const _chainMs = (_chainMin !== null ? _chainMin * 60000 : (isSofort ? 0 : calcReturnMs(rideData)));
+                        newEnd = newPickup + newDur + bufferMs + _chainMs;
+                        rEnd = rStart + rDur + bufferMs;
+                    }
                     if ((newPickup < rEnd) && (rStart < newEnd)) { _conflictRide = r; return true; }
                     return false;
                 });

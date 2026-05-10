@@ -22490,6 +22490,124 @@ exports.scheduledHealthReport = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.549: HISTORY-SNAPSHOT — Replay-Simulator-Foundation
+// Patrick (10.05.): "ein Reloop machen, dass wir den Tag laden koennen
+// und dann schauen koennen was muss man feintunen". Damit das geht braucht
+// es Datenpunkte: GPS-Position aller Wagen + Schicht-Snapshots + Decisions.
+//
+// scheduledHistorySnapshot (alle 5 Min):
+//   - GPS aller Wagen → /historicalGPS/{date}/{ts}/{vid}
+//   - vehicleShifts-Snapshot → /historicalShifts/{date}/{ts} (nur 1×/Stunde
+//     da sich der Plan selten aendert)
+//   - rides-Snapshot wird NICHT gesammelt — Cloud Functions schreiben rides
+//     ohnehin als Trigger-Events ins assignmentLog/optimierungsLog.
+//
+// scheduledHistoryCleanup (taeglich 03:00 Berlin):
+//   - Loescht /historicalGPS, /historicalShifts > 30 Tage
+//   - Loescht /debugLogs/lateCheck, /debugLogs/reassign > 30 Tage
+//   - Schuetzt vor Storage-Wucherung (~50MB/Monat erwartet sonst)
+// ═══════════════════════════════════════════════════════════════
+
+exports.scheduledHistorySnapshot = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 30,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const dateStr = new Date(now).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+
+            // GPS-Snapshot
+            const vehiclesSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehiclesSnap.val() || {};
+            const gpsBatch = {};
+            Object.entries(vehicles).forEach(([vid, v]) => {
+                if (!v) return;
+                const _lat = parseFloat(v.lat), _lon = parseFloat(v.lon);
+                if (Number.isFinite(_lat) && Number.isFinite(_lon)) {
+                    gpsBatch[vid] = {
+                        lat: _lat,
+                        lon: _lon,
+                        online: v.online === true,
+                        status: v.status || null,
+                        gpsAgeMs: v.timestamp ? Math.max(0, now - v.timestamp) : null,
+                        currentRideId: v.currentRideId || null,
+                        speed: typeof v.speed === 'number' ? v.speed : null
+                    };
+                }
+            });
+            if (Object.keys(gpsBatch).length > 0) {
+                await db.ref(`historicalGPS/${dateStr}/${now}`).set(gpsBatch);
+            }
+
+            // Shifts-Snapshot — nur 1× pro Stunde (Plan aendert sich selten)
+            const hourMark = Math.floor(now / (60 * 60 * 1000));
+            const lastSnap = await db.ref(`historicalShifts/${dateStr}/lastHourMark`).once('value').then(s => s.val() || 0);
+            if (hourMark > lastSnap) {
+                const shiftsSnap = await db.ref('vehicleShifts').once('value');
+                await db.ref(`historicalShifts/${dateStr}/${now}`).set(shiftsSnap.val() || null);
+                await db.ref(`historicalShifts/${dateStr}/lastHourMark`).set(hourMark);
+            }
+        } catch (e) {
+            console.error('scheduledHistorySnapshot Fehler:', e.message);
+        }
+    }
+);
+
+exports.scheduledHistoryCleanup = onSchedule(
+    {
+        schedule: '0 3 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 120,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const cutoffDays = 30;
+            const cutoffMs = Date.now() - cutoffDays * 24 * 60 * 60 * 1000;
+            // YYYY-MM-DD-Cutoff
+            const cutoffDate = new Date(cutoffMs).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+
+            // Tag-basierte Pfade: historicalGPS/<YYYY-MM-DD>, historicalShifts/<YYYY-MM-DD>
+            for (const path of ['historicalGPS', 'historicalShifts']) {
+                const snap = await db.ref(path).once('value');
+                if (!snap.val()) continue;
+                const removals = {};
+                snap.forEach(c => {
+                    const dateKey = c.key;
+                    if (dateKey < cutoffDate) removals[dateKey] = null;
+                });
+                if (Object.keys(removals).length > 0) {
+                    await db.ref(path).update(removals);
+                    console.log(`🧹 Cleanup ${path}: ${Object.keys(removals).length} Tage entfernt (vor ${cutoffDate})`);
+                }
+            }
+
+            // debugLogs sind ts-keyed: scan + filter
+            for (const sub of ['lateCheck', 'reassign']) {
+                const snap = await db.ref(`debugLogs/${sub}`).once('value');
+                if (!snap.val()) continue;
+                const removals = {};
+                snap.forEach(c => {
+                    const v = c.val();
+                    if (v && typeof v.ts === 'number' && v.ts < cutoffMs) removals[c.key] = null;
+                });
+                if (Object.keys(removals).length > 0) {
+                    await db.ref(`debugLogs/${sub}`).update(removals);
+                    console.log(`🧹 Cleanup debugLogs/${sub}: ${Object.keys(removals).length} Eintraege entfernt`);
+                }
+            }
+        } catch (e) {
+            console.error('scheduledHistoryCleanup Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🧹 SMS-QUEUE-CLEANUP — v6.62.73
 // Markiert SMS-Eintraege >7 Tage alt + nicht-sent als 'expired'.
 // Verhindert dass die Queue mit Karteileichen voll laeuft.

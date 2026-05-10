@@ -1292,19 +1292,44 @@ public class CrmSearchActivity extends AppCompatActivity {
 
         TextView tvDate = new TextView(this);
         java.text.SimpleDateFormat dateFmt = new java.text.SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY);
-        tvDate.setText("📅 " + dateFmt.format(cal.getTime()));
         tvDate.setPadding(0, pad, 0, pad);
+        // 🆕 v6.62.540: Patrick (10.05.): "speere einbauen für bestellungen in der
+        // vergangenheit". Inline-Hinweis am Label sobald gewaehlte Zeit < now.
+        Runnable refreshDateLabel = () -> {
+            long _now = System.currentTimeMillis();
+            long _picked = datetime[0];
+            if (_picked < _now) {
+                long _minPast = (_now - _picked) / 60_000L;
+                tvDate.setText("⚠️ " + dateFmt.format(_picked) + "  (" + _minPast + " Min in der Vergangenheit)");
+                tvDate.setTextColor(0xFFDC2626); // rot
+            } else if (_picked < _now + 5L * 60_000L) {
+                tvDate.setText("⚠️ " + dateFmt.format(_picked) + "  (zu nah — nimm SOFORT-Fahrt)");
+                tvDate.setTextColor(0xFFEA580C); // orange
+            } else {
+                tvDate.setText("📅 " + dateFmt.format(_picked));
+                tvDate.setTextColor(0xFF1F2937); // dunkel
+            }
+        };
+        refreshDateLabel.run();
         tvDate.setOnClickListener(v -> {
             java.util.Calendar curr = java.util.Calendar.getInstance();
             curr.setTimeInMillis(datetime[0]);
-            new android.app.DatePickerDialog(this, (dp, y, mo, d) -> {
+            android.app.DatePickerDialog dpd = new android.app.DatePickerDialog(this, (dp, y, mo, d) -> {
                 new android.app.TimePickerDialog(this, (tp, h, mi) -> {
                     java.util.Calendar nc = java.util.Calendar.getInstance();
                     nc.set(y, mo, d, h, mi, 0);
                     datetime[0] = nc.getTimeInMillis();
-                    tvDate.setText("📅 " + dateFmt.format(nc.getTime()));
+                    refreshDateLabel.run();
                 }, curr.get(java.util.Calendar.HOUR_OF_DAY), curr.get(java.util.Calendar.MINUTE), true).show();
-            }, curr.get(java.util.Calendar.YEAR), curr.get(java.util.Calendar.MONTH), curr.get(java.util.Calendar.DAY_OF_MONTH)).show();
+            }, curr.get(java.util.Calendar.YEAR), curr.get(java.util.Calendar.MONTH), curr.get(java.util.Calendar.DAY_OF_MONTH));
+            // 🆕 v6.62.540: kein Datum vor heute waehlbar
+            java.util.Calendar _today = java.util.Calendar.getInstance();
+            _today.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            _today.set(java.util.Calendar.MINUTE, 0);
+            _today.set(java.util.Calendar.SECOND, 0);
+            _today.set(java.util.Calendar.MILLISECOND, 0);
+            dpd.getDatePicker().setMinDate(_today.getTimeInMillis());
+            dpd.show();
         });
         layout.addView(tvDate);
 

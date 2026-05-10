@@ -1918,7 +1918,46 @@
                     bar.style.background = '';
                     if (wannModus === 'sofort') {
                         bar.textContent = `🟢 Taxi verfügbar! ${sofortCount} Fahrer online`;
-                        if (pickupCoords) calcStatusBarEta(bar, sofortCount);
+                        if (pickupCoords) {
+                            calcStatusBarEta(bar, sofortCount);
+                        } else {
+                            // 🆕 v6.62.582: Patrick (10.05. 19:14): "Sofortfahrt soll
+                            //   anzeigen 'in X Min frei' bevor Stecknadel gesetzt wird —
+                            //   echte Anfahrtszeit kommt sobald Pickup gesetzt."
+                            //   Ohne pickupCoords: berechne wann irgendein Fahrer wieder
+                            //   frei wird (= Ende seiner aktuellen Fahrt + 5 Min Puffer).
+                            try {
+                                const _nowMs = Date.now();
+                                const _activeStatuses = ['on_way','arrived','picked_up','accepted'];
+                                const _busyDayStart = new Date(berlinDateStr(berlinNow()) + 'T00:00:00').getTime();
+                                const _ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                                    .startAt(_busyDayStart).endAt(_busyDayStart + 24*3600000).once('value');
+                                let _earliestFreeMs = null;
+                                let _busyVehiclesCount = 0;
+                                let _freeNowCount = 0;
+                                const _busyVehiclesSet = new Set();
+                                _ridesSnap.forEach(c => {
+                                    const r = c.val();
+                                    if (!r || !_activeStatuses.includes(r.status)) return;
+                                    const vid = r.assignedVehicle || r.vehicleId;
+                                    if (!vid || !OFFICIAL_VEHICLES[vid]) return;
+                                    const dur = (r.duration || r.estimatedDuration || 25) * 60000;
+                                    const endMs = (r.pickupTimestamp || _nowMs) + dur + 5*60000; // +5 Min Puffer
+                                    if (endMs > _nowMs) {
+                                        _busyVehiclesSet.add(vid);
+                                        if (_earliestFreeMs === null || endMs < _earliestFreeMs) _earliestFreeMs = endMs;
+                                    }
+                                });
+                                _busyVehiclesCount = _busyVehiclesSet.size;
+                                _freeNowCount = sofortCount - _busyVehiclesCount;
+                                if (_freeNowCount > 0) {
+                                    bar.textContent = `🟢 Taxi sofort verfügbar! ${_freeNowCount} Fahrer ${_freeNowCount === 1 ? 'frei' : 'frei'} · Adresse eingeben für ETA`;
+                                } else if (_earliestFreeMs) {
+                                    const _waitMin = Math.max(1, Math.round((_earliestFreeMs - _nowMs) / 60000));
+                                    bar.textContent = `🟡 Alle ${sofortCount} Fahrer aktuell besetzt · nächstes Taxi voraussichtlich in ca. ${_waitMin} Min frei`;
+                                }
+                            } catch (_eFree) { /* fallback bleibt 'Taxi verfügbar' */ }
+                        }
                     } else {
                         // Schicht-Endzeit ermitteln
                         let _shiftEnd = '';

@@ -84,6 +84,12 @@ APP_FILES=(
 # statische Landingpages mit eigenen Metas/JSON-LD pro Leistung.
 SEO_PAGES=(
     "flughafen-heringsdorf.html"
+    "bahnhofstransfer.html"
+    "krankenfahrten.html"
+    "inselfahrten.html"
+    "grossraumtaxi.html"
+    "pauschalpreise-swinoujscie.html"
+    "restaurants-usedom.html"
 )
 APP_FILES=("${APP_FILES[@]}" "${SEO_PAGES[@]}")
 

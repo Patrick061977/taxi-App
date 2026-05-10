@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'functions/**'
+      - 'database.rules.json'
   workflow_dispatch:
     inputs:
       branch:
@@ -33,8 +34,8 @@ jobs:
       - name: Pakete installieren (functions/)
         run: cd functions && npm install
 
-      - name: Bot deployen
-        run: firebase deploy --only functions --force --project taxi-heringsdorf --token ${{ secrets.FIREBASE_TOKEN }}
+      - name: Bot + Database-Rules deployen
+        run: firebase deploy --only functions,database --force --project taxi-heringsdorf --token ${{ secrets.FIREBASE_TOKEN }}
 
       - name: Webhook aktivieren
         if: success()

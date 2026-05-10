@@ -94,6 +94,14 @@
       ".write": true
     },
 
+    "feedback": {
+      ".read": "auth != null",
+      ".indexOn": ["submittedAt", "rating"],
+      "$rideId": {
+        ".write": "!data.exists() && newData.child('rating').isNumber() && newData.child('rating').val() >= 1 && newData.child('rating').val() <= 5"
+      }
+    },
+
     "vehicleShifts": {
       ".read": true,
       ".write": "auth != null"

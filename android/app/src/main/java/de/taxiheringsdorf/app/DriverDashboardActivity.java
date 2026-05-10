@@ -2339,7 +2339,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   • picked_up: 'Noch N Min zum Ziel — Ankunft ca. HH:MM'
                 String _stLow2 = r.status != null ? r.status.toLowerCase() : "";
                 String _liveEtaText = null;
-                int _liveEtaColor = 0xFF1E40AF; // Blau Default
+                // 🆕 v6.62.577: Patrick (10.05. 18:02): "Solange ich im Limit bin soll alles
+                //   gruen bleiben. Erst wenn Verspaetung droht orange/rot." Default jetzt
+                //   GRUEN (#059669) — nur bei knapp/spaet wechselt zu Gelb (#F59E0B) / Rot
+                //   (#DC2626). Vorher war default Blau, was als 'normal' wahrgenommen wurde
+                //   aber kein Status-Hinweis gab.
+                final int COLOR_GREEN = 0xFF059669;
+                final int COLOR_YELLOW = 0xFFF59E0B;
+                final int COLOR_RED = 0xFFDC2626;
+                int _liveEtaColor = COLOR_GREEN; // Default GRUEN (= im Plan)
                 long _nowMs = System.currentTimeMillis();
                 java.text.SimpleDateFormat _hmFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
                 _hmFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
@@ -2350,7 +2358,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     String _kmStr = (r.drivingDistanceToPickupKm != null && r.drivingDistanceToPickupKm > 0)
                         ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm) : "";
                     _liveEtaText = "🚗 Anfahrt zum Kunden: " + r.drivingTimeToPickup + " Min" + _kmStr;
-                    _liveEtaColor = 0xFF1E40AF;
+                    // Bei Vorbestellung mit pickupTimestamp: pruefe ob Anfahrt es schafft
+                    if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                        long _arrivalMs = _nowMs + r.drivingTimeToPickup * 60_000L;
+                        long _delayMin = (_arrivalMs - r.pickupTimestamp) / 60_000L;
+                        if (_delayMin > 5) _liveEtaColor = COLOR_RED;
+                        else if (_delayMin > 0) _liveEtaColor = COLOR_YELLOW;
+                        else _liveEtaColor = COLOR_GREEN;
+                    } else _liveEtaColor = COLOR_GREEN; // Sofort ohne TS = im Plan
                 } else if (_stLow2.equals("accepted")
                         && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
                     // Vorbestellung angenommen → zeige Losfahrt-Zeit
@@ -2364,18 +2379,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             long _minSpaet = -_minBisLos;
                             String _lateText = _minSpaet > 0 ? " · ⚠️ " + _minSpaet + " Min zu spaet" : "";
                             _liveEtaText = "⚠️ JETZT LOSFAHREN! · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr + _lateText;
-                            _liveEtaColor = 0xFFDC2626; // ROT
+                            _liveEtaColor = COLOR_RED;
                         } else if (_minBisLos <= 5) {
                             _liveEtaText = "⏰ Losfahren um " + _losfahrtHM + " (in " + _minBisLos + " Min) · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr;
-                            _liveEtaColor = 0xFFF59E0B; // GELB
+                            _liveEtaColor = COLOR_YELLOW;
                         } else {
                             _liveEtaText = "⏰ Losfahren um " + _losfahrtHM + " (in " + _minBisLos + " Min) · Anfahrt " + r.drivingTimeToPickup + " Min" + _kmStr;
-                            _liveEtaColor = 0xFF1E40AF; // BLAU
+                            _liveEtaColor = COLOR_GREEN;
                         }
                     } else {
-                        // Sofort accepted — kein pickupTimestamp → einfach Anfahrt
+                        // Sofort accepted — kein pickupTimestamp → einfach Anfahrt, GRUEN
                         _liveEtaText = "🚗 Anfahrt zum Kunden: " + r.drivingTimeToPickup + " Min" + _kmStr;
-                        _liveEtaColor = 0xFF1E40AF;
+                        _liveEtaColor = COLOR_GREEN;
                     }
                 } else if (_stLow2.equals("on_way") && r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0) {
                     // Auf dem Weg zum Kunden
@@ -2383,17 +2398,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToPickupKm) : "";
                     String _ankunftHM = _hmFmt.format(new java.util.Date(_nowMs + r.drivingTimeToPickup * 60_000L));
                     _liveEtaText = "⏱️ Noch " + r.drivingTimeToPickup + " Min zum Kunden" + _kmStr + " — Ankunft ca. " + _ankunftHM;
-                    _liveEtaColor = r.drivingTimeToPickup <= 3 ? 0xFFDC2626 : (r.drivingTimeToPickup <= 7 ? 0xFFF59E0B : 0xFF1E40AF);
+                    // 🐛 v6.62.577: Status-basierte Farbe, nicht Distanz-basiert.
+                    //   Vorher: <=3min=ROT, <=7min=GELB, sonst BLAU. Verwirrend wenn Anfahrt
+                    //   normal kurz ist. Jetzt: Vergleich mit pickupTimestamp.
+                    if (r.pickupTimestamp != null && r.pickupTimestamp > 0) {
+                        long _arrivalMs = _nowMs + r.drivingTimeToPickup * 60_000L;
+                        long _delayMin = (_arrivalMs - r.pickupTimestamp) / 60_000L;
+                        if (_delayMin > 5) _liveEtaColor = COLOR_RED;
+                        else if (_delayMin > 0) _liveEtaColor = COLOR_YELLOW;
+                        else _liveEtaColor = COLOR_GREEN;
+                    } else {
+                        // Sofort ohne TS: GRUEN solange Anfahrt normal (>3 Min)
+                        _liveEtaColor = COLOR_GREEN;
+                    }
                 } else if (_stLow2.equals("picked_up") && r.drivingTimeToDestination != null && r.drivingTimeToDestination > 0) {
                     // Kunde an Bord, auf dem Weg zum Ziel
                     String _kmStr = (r.drivingDistanceToDestKm != null && r.drivingDistanceToDestKm > 0)
                         ? " · " + String.format(Locale.GERMANY, "%.1f km", r.drivingDistanceToDestKm) : "";
                     String _ankunftHM = _hmFmt.format(new java.util.Date(_nowMs + r.drivingTimeToDestination * 60_000L));
                     _liveEtaText = "🎯 Noch " + r.drivingTimeToDestination + " Min zum Ziel" + _kmStr + " — Ankunft ca. " + _ankunftHM;
-                    _liveEtaColor = 0xFF059669; // GRUEN
+                    _liveEtaColor = COLOR_GREEN;
                 } else if (_stLow2.equals("arrived")) {
                     _liveEtaText = "📍 BIN DA — Kunde wartet auf Einsteigen";
-                    _liveEtaColor = 0xFF3B82F6;
+                    _liveEtaColor = COLOR_GREEN;
                 }
                 if (_liveEtaText != null) {
                     tvLiveEta.setText(_liveEtaText);

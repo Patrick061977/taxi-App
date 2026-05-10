@@ -1359,6 +1359,23 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         layout.addView(etNotes);
 
+        // 🆕 v6.62.570: Patrick (10.05. 15:46): "SMS verschicken muesste man auch
+        // anwaehlen koennen, in der Vorbestellung Toggle setzen, SMS verschicken bei
+        // Verspaetung oder nicht." Flag ride.notifyLateSms, default true.
+        final android.widget.CheckBox cbLateSms = new android.widget.CheckBox(this);
+        cbLateSms.setText("📲 Verspätungs-SMS an Kunde wenn Wagen sich verzögert");
+        cbLateSms.setTextSize(13);
+        cbLateSms.setChecked(true);
+        if (hasTemplate && editRide != null && editRide.get("notifyLateSms") != null) {
+            try { cbLateSms.setChecked(!Boolean.FALSE.equals(editRide.get("notifyLateSms"))); }
+            catch (Throwable _ig) {}
+        }
+        LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cbLp.setMargins(0, padHalf, 0, 0);
+        cbLateSms.setLayoutParams(cbLp);
+        layout.addView(cbLateSms);
+
         // ═══ 🆕 v6.62.546: PREIS-FELD + FESTPREIS-AUTO-ANWENDUNG ═══
         // Patrick (10.05.): Festpreise sollen automatisch eingetragen werden wenn
         // pickup+dest mit hinterlegter Strecke matchen. Plus manueller Override
@@ -1583,6 +1600,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 String _notes = etNotes.getText().toString().trim();
                 if (!_notes.isEmpty()) r.put("notes", _notes);
                 else r.put("notes", null); // im Edit-Modus muss leer auch persistieren
+                // 🆕 v6.62.570: Verspätungs-SMS-Flag persistieren
+                r.put("notifyLateSms", cbLateSms.isChecked());
 
                 // 🆕 v6.62.546: Manueller Preis (Festpreis-Match oder Duplizieren-Override).
                 // Wenn etPrice gefuellt ist → wird in Firebase als 'price' gesetzt + isFixedPrice

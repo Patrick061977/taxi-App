@@ -102,6 +102,16 @@ for file in "${APP_FILES[@]}"; do
     fi
 done
 
+# 🆕 v6.62.594: POI-Bilder mitkopieren (Wikipedia-Hotlink war geblockt → lokal hosten)
+if [ -d "$PROJECT_ROOT/images" ]; then
+    echo "5b) images/ Ordner kopieren..."
+    mkdir -p "$OUTPUT_DIR/Taxi-App/images"
+    cp -r "$PROJECT_ROOT/images/"* "$OUTPUT_DIR/Taxi-App/images/" 2>/dev/null || true
+    find "$OUTPUT_DIR/Taxi-App/images" -type f | while read f; do
+        echo "   -> ${f#$OUTPUT_DIR/Taxi-App/}"
+    done
+fi
+
 # v6.52.4: APP_BUILD-Stempel im DEPLOY-COPY auf JETZT setzen — Patrick: 'das Datum
 # in der Web-App ist veraltet'. Bisher wurde der Stempel nur manuell beim Commit
 # gesetzt und oft vergessen. Jetzt überschreibt der Strato-Deploy ihn automatisch

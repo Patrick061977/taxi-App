@@ -1621,7 +1621,7 @@
             return false;
         }
 
-        function getActiveVehicleCount(dateStr, timeStr, minCapacity) {
+        function getActiveVehicleCount(dateStr, timeStr, minCapacity, slotMs) {
             let count = 0;
             for (const [vid, info] of Object.entries(OFFICIAL_VEHICLES)) {
                 if (info.capacity < (minCapacity || 1)) continue;
@@ -1629,7 +1629,13 @@
             }
             // 🔧 v6.38.95: GPS-online Fahrzeuge ZUSAETZLICH zaehlen!
             // Wenn ein Fahrer GPS-online ist aber nicht im Schichtplan → trotzdem verfuegbar
-            if (_gpsOnlineVehicles) {
+            // 🐛 v6.62.571: Patrick (10.05. 16:53): "warum hat er 18:10 als frei angegeben"
+            // Mercedes-Schicht endet 18:00 aber GPS-online → wurde fuer 18:10-Slot als
+            // verfuegbar gezaehlt (falsch). GPS-Bonus nur noch bei JETZT-Slots (next 30 Min) —
+            // bei zukuenftigen Vorbestellungen zaehlt nur der Schichtplan, weil ein GPS-
+            // online Fahrer um 17:00 nichts ueber Verfuegbarkeit um 18:10 aussagt.
+            const _isImmediateSlot = (typeof slotMs !== 'number') || (slotMs <= Date.now() + 30 * 60000);
+            if (_gpsOnlineVehicles && _isImmediateSlot) {
                 for (const [vid, vInfo] of Object.entries(_gpsOnlineVehicles)) {
                     if (!OFFICIAL_VEHICLES[vid]) continue; // Nur offizielle Fahrzeuge
                     if (OFFICIAL_VEHICLES[vid].capacity < (minCapacity || 1)) continue;
@@ -3205,9 +3211,10 @@
             const timeStr = berlinTimeStr(dt);
 
             // 🔧 v6.38.87: Zweistufiger Kapazitäts-Check
-            const anyCount = getActiveVehicleCount(dateStr, timeStr, 1);
+            // 🐛 v6.62.571: ts mitgeben damit GPS-Bonus nur bei JETZT-Slots zaehlt
+            const anyCount = getActiveVehicleCount(dateStr, timeStr, 1, ts);
             logBuchen('🔍', `Verfuegbarkeits-Check: ${dateStr} ${timeStr} | ${anyCount} Fahrzeuge | ${passengers} Pers. | Modus: ${wannModus}`);
-            const fitCount = getActiveVehicleCount(dateStr, timeStr, passengers);
+            const fitCount = getActiveVehicleCount(dateStr, timeStr, passengers, ts);
 
             if (anyCount === 0) {
                 // Überhaupt kein Fahrzeug im Dienst

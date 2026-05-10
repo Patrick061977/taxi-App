@@ -3477,6 +3477,20 @@
                     // 🚑 v6.62.457: KEINE Konflikt-Details mehr im Kunden-View (DSGVO).
                     el.innerHTML = `📞 <strong>Leider nicht möglich</strong> — zu dieser Zeit ist gerade kein Wagen frei.${nextFreeMsg}<br><br><a href="tel:+493837822022" style="display:inline-block;padding:10px 20px;background:#ef4444;color:white;border-radius:8px;text-decoration:none;font-weight:700;">📞 038378 22022 anrufen</a>`;
                     isAvailable = false;
+                    // 🐛 v6.62.593: Patrick: "Da kann doch nicht stehen 7 Min und darunter
+                    //   frei ab 21:57". Status-bar an die Card-Aussage angleichen wenn alle
+                    //   Wagen blockiert sind — sonst widerspruechliche Anzeige.
+                    try {
+                        const _statusBar = document.getElementById('status-bar');
+                        if (_statusBar && rideEndTimes.length > 0) {
+                            const _earliest = new Date(Math.min(...rideEndTimes));
+                            const _h = _earliest.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                            _statusBar.className = 'status-bar';
+                            _statusBar.style.background = '#fef3c7';
+                            _statusBar.style.color = '#92400e';
+                            _statusBar.textContent = `🔴 Aktuell kein Wagen frei · nächstes Taxi voraussichtlich ab ${_h} Uhr`;
+                        }
+                    } catch (_eSync) { /* still */ }
                     updateBookButton();
                 }
             } catch(e) {

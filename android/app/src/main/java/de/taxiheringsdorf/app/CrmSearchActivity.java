@@ -1705,6 +1705,113 @@ public class CrmSearchActivity extends AppCompatActivity {
         openEditDialog(empty);
     }
 
+    // 🆕 v6.62.545: Modal zum Hinzufuegen/Bearbeiten eines einzelnen Festpreises.
+    // Patrick (10.05.): "wenn jetzt zum Beispiel Bahnhof Hotel, dass ich dahinter
+    // dann auch den Preis eintragen kann was das kostet". Picker via launchPlaces
+    // (gleiche Maps-Autocomplete-Komponente wie der Adress-Picker im CRM-Edit).
+    private interface FixedRouteCallback { void onSave(Map<String, Object> fr); }
+    private void openFestpreisEditDialog(Map<String, Object> existing, FixedRouteCallback cb) {
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        layout.setPadding(pad, pad, pad, pad);
+        scroll.addView(layout);
+
+        TextView lblName = new TextView(this);
+        lblName.setText("📛 Bezeichnung (z.B. Bahnhof → Hotel)");
+        lblName.setTextSize(12);
+        layout.addView(lblName);
+        EditText etName = new EditText(this);
+        etName.setHint("z.B. Bahnhof Heringsdorf zum Hotel");
+        if (existing != null) etName.setText(String.valueOf(existing.getOrDefault("name", "")));
+        layout.addView(etName);
+
+        final double[] fromCoords = { Double.NaN, Double.NaN };
+        if (existing != null) {
+            Object _l = existing.get("fromLat"); if (_l instanceof Number) fromCoords[0] = ((Number)_l).doubleValue();
+            Object _o = existing.get("fromLon"); if (_o instanceof Number) fromCoords[1] = ((Number)_o).doubleValue();
+        }
+        TextView lblFrom = new TextView(this);
+        lblFrom.setText("🚏 Von");
+        lblFrom.setTextSize(12);
+        lblFrom.setPadding(0, pad, 0, pad / 4);
+        layout.addView(lblFrom);
+        TextView tvFrom = new TextView(this);
+        tvFrom.setPadding(pad / 2, pad, pad / 2, pad);
+        String _existingFrom = existing != null ? String.valueOf(existing.getOrDefault("fromName", "")) : "";
+        tvFrom.setText(_existingFrom.isEmpty() ? "📍 Von-Adresse waehlen…" : "📍 " + _existingFrom);
+        tvFrom.setOnClickListener(_v -> launchPlaces(tvFrom, fromCoords));
+        layout.addView(tvFrom);
+
+        final double[] toCoords = { Double.NaN, Double.NaN };
+        if (existing != null) {
+            Object _l = existing.get("toLat"); if (_l instanceof Number) toCoords[0] = ((Number)_l).doubleValue();
+            Object _o = existing.get("toLon"); if (_o instanceof Number) toCoords[1] = ((Number)_o).doubleValue();
+        }
+        TextView lblTo = new TextView(this);
+        lblTo.setText("🎯 Nach");
+        lblTo.setTextSize(12);
+        lblTo.setPadding(0, pad, 0, pad / 4);
+        layout.addView(lblTo);
+        TextView tvTo = new TextView(this);
+        tvTo.setPadding(pad / 2, pad, pad / 2, pad);
+        String _existingTo = existing != null ? String.valueOf(existing.getOrDefault("toName", "")) : "";
+        tvTo.setText(_existingTo.isEmpty() ? "🎯 Nach-Adresse waehlen…" : "🎯 " + _existingTo);
+        tvTo.setOnClickListener(_v -> launchPlaces(tvTo, toCoords));
+        layout.addView(tvTo);
+
+        TextView lblPr = new TextView(this);
+        lblPr.setText("💰 Preis (in Euro)");
+        lblPr.setTextSize(12);
+        lblPr.setPadding(0, pad, 0, pad / 4);
+        layout.addView(lblPr);
+        EditText etPrice = new EditText(this);
+        etPrice.setHint("z.B. 12.50");
+        etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        if (existing != null) {
+            Object _p = existing.get("price");
+            if (_p instanceof Number) etPrice.setText(String.format(Locale.GERMANY, "%.2f", ((Number)_p).doubleValue()));
+            else if (_p != null) etPrice.setText(String.valueOf(_p));
+        }
+        layout.addView(etPrice);
+
+        new AlertDialog.Builder(this)
+            .setTitle(existing != null ? "✏️ Festpreis bearbeiten" : "➕ Festpreis hinzufuegen")
+            .setView(scroll)
+            .setPositiveButton(existing != null ? "Speichern" : "Hinzufuegen", (d, w) -> {
+                String name = etName.getText().toString().trim();
+                String fromName = tvFrom.getText().toString().replaceFirst("^📍 ", "").trim();
+                String toName = tvTo.getText().toString().replaceFirst("^🎯 ", "").trim();
+                String priceStr = etPrice.getText().toString().trim().replace(',', '.');
+                if (fromName.isEmpty() || fromName.endsWith("waehlen…") || toName.isEmpty() || toName.endsWith("waehlen…")) {
+                    Toast.makeText(this, "Von- und Nach-Adresse waehlen", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                double price;
+                try { price = Double.parseDouble(priceStr); } catch (Exception _e) {
+                    Toast.makeText(this, "Preis als Zahl angeben (z.B. 12.50)", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (price <= 0) {
+                    Toast.makeText(this, "Preis muss > 0 sein", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Map<String, Object> fr = existing != null ? new HashMap<>(existing) : new HashMap<>();
+                if (!fr.containsKey("id")) fr.put("id", "fp_" + System.currentTimeMillis());
+                fr.put("name", name);
+                fr.put("fromName", fromName);
+                if (!Double.isNaN(fromCoords[0])) { fr.put("fromLat", fromCoords[0]); fr.put("fromLon", fromCoords[1]); }
+                fr.put("toName", toName);
+                if (!Double.isNaN(toCoords[0])) { fr.put("toLat", toCoords[0]); fr.put("toLon", toCoords[1]); }
+                fr.put("price", price);
+                fr.put("updatedAt", System.currentTimeMillis());
+                cb.onSave(fr);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     private void openEditDialog(CrmEntry e) {
         final boolean isNew = (e.id == null || e.id.isEmpty());
         ScrollView scroll = new ScrollView(this);
@@ -2018,6 +2125,102 @@ public class CrmSearchActivity extends AppCompatActivity {
         etNotes.setText(e.notes != null ? e.notes : "");
         layout.addView(etNotes);
 
+        // ═══ 🆕 v6.62.545: FESTPREISE (Strecken-Pauschalen) ═══
+        // Patrick (10.05.): "wenn ich jetzt zum Beispiel ein Hotel habe, dass immer
+        // irgendwelche Festpreise hinterlegt sind. Also, dass ich die auswaehlen kann."
+        // Schema (gleich wie Web-CRM seit v6.62.512): customers/{id}/fixedRoutes ist
+        // ein Array von { id, name, fromName, fromLat, fromLon, toName, toLat, toLon, price }.
+        // Auto-Anwendung beim Buchen folgt in v6.62.546 (Match-Toleranz 200m).
+        TextView lblFP = new TextView(this);
+        lblFP.setText("💰 Festpreise (Strecken-Pauschalen)");
+        lblFP.setPadding(0, pad, 0, pad / 4);
+        lblFP.setTextSize(12);
+        lblFP.setTypeface(null, android.graphics.Typeface.BOLD);
+        layout.addView(lblFP);
+        final LinearLayout fpBox = new LinearLayout(this);
+        fpBox.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(fpBox);
+        // Mutable Liste — initial aus e.fixedRoutes vorbefuellt, alle CRUD passieren
+        // direkt in dieser Liste, am Ende beim Speichern wird sie nach Firebase geschrieben.
+        final java.util.List<Map<String, Object>> _fpList = new java.util.ArrayList<>();
+        if (e.fixedRoutes != null) {
+            for (Map<String, Object> fr : e.fixedRoutes) {
+                if (fr != null) _fpList.add(new HashMap<>(fr));
+            }
+        }
+        final Runnable[] _renderFp = { null };
+        _renderFp[0] = () -> {
+            fpBox.removeAllViews();
+            if (_fpList.isEmpty()) {
+                TextView tvEmpty = new TextView(this);
+                tvEmpty.setText("(Noch keine Festpreise hinterlegt)");
+                tvEmpty.setTextColor(0xFF94A3B8);
+                tvEmpty.setPadding(pad / 2, pad / 4, 0, pad / 4);
+                tvEmpty.setTextSize(11);
+                fpBox.addView(tvEmpty);
+                return;
+            }
+            for (int i = 0; i < _fpList.size(); i++) {
+                final int idx = i;
+                Map<String, Object> fr = _fpList.get(i);
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setPadding(0, pad / 4, 0, pad / 4);
+
+                TextView tvFp = new TextView(this);
+                String _name = String.valueOf(fr.getOrDefault("name", ""));
+                String _from = String.valueOf(fr.getOrDefault("fromName", "?"));
+                String _to = String.valueOf(fr.getOrDefault("toName", "?"));
+                Object _pr = fr.get("price");
+                String _prStr = (_pr instanceof Number) ? String.format(Locale.GERMANY, "%.2f", ((Number)_pr).doubleValue()) : String.valueOf(_pr);
+                tvFp.setText("💰 " + (_name.isEmpty() ? (_from + " → " + _to) : _name) + "  ·  " + _prStr + " €\n" + _from.substring(0, Math.min(_from.length(), 32)) + " → " + _to.substring(0, Math.min(_to.length(), 32)));
+                tvFp.setTextSize(11);
+                tvFp.setTextColor(0xFF1E293B);
+                LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 4f);
+                tvFp.setLayoutParams(tvLp);
+                row.addView(tvFp);
+
+                android.widget.Button btnEdit = new android.widget.Button(this);
+                btnEdit.setText("✏️");
+                btnEdit.setAllCaps(false);
+                LinearLayout.LayoutParams beLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                btnEdit.setLayoutParams(beLp);
+                btnEdit.setOnClickListener(_v -> openFestpreisEditDialog(fr, (updated) -> {
+                    _fpList.set(idx, updated);
+                    _renderFp[0].run();
+                }));
+                row.addView(btnEdit);
+
+                android.widget.Button btnDel = new android.widget.Button(this);
+                btnDel.setText("✗");
+                btnDel.setAllCaps(false);
+                LinearLayout.LayoutParams bdLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+                btnDel.setLayoutParams(bdLp);
+                btnDel.setOnClickListener(_v -> {
+                    new AlertDialog.Builder(this)
+                        .setTitle("Festpreis loeschen?")
+                        .setMessage("'" + _name + "' wirklich entfernen?")
+                        .setPositiveButton("Loeschen", (_d, _w) -> { _fpList.remove(idx); _renderFp[0].run(); })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                });
+                row.addView(btnDel);
+                fpBox.addView(row);
+            }
+        };
+        _renderFp[0].run();
+        android.widget.Button btnAddFp = new android.widget.Button(this);
+        btnAddFp.setText("+ Festpreis hinzufuegen");
+        btnAddFp.setAllCaps(false);
+        btnAddFp.setTextSize(12);
+        btnAddFp.setBackgroundColor(0xFFFEF3C7);
+        btnAddFp.setTextColor(0xFF92400E);
+        btnAddFp.setOnClickListener(_v -> openFestpreisEditDialog(null, (created) -> {
+            _fpList.add(created);
+            _renderFp[0].run();
+        }));
+        layout.addView(btnAddFp);
+
         String dialogTitle = isNew
             ? "➕ Neuen Kunden anlegen"
             : "📋 " + (e.name != null ? e.name : "?") + " bearbeiten";
@@ -2074,6 +2277,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 upd.put("notes", notes);
                 upd.put("preferredPayment", _preferredPayment);
                 upd.put("additionalPhones", _additionalPhones);
+                // 🆕 v6.62.545: fixedRoutes Array (Festpreise) speichern
+                upd.put("fixedRoutes", _fpList);
                 String addr = tvAddr.getText().toString().replaceFirst("^📍 ", "").trim();
                 if (!addr.isEmpty() && !addr.endsWith("wählen…")) {
                     upd.put("address", addr);
@@ -2132,6 +2337,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         // 🆕 v6.62.544: anrede + notes + preferredPayment fuer Anlegen-Form
         String anrede, notes, preferredPayment, type;
         String firstName, lastName;
+        // 🆕 v6.62.545: Festpreise pro Hotel/Kunde — Strecken-Pauschalen.
+        // Schema: { id, name, fromName, fromLat, fromLon, toName, toLat, toLon, price }
+        java.util.List<Map<String, Object>> fixedRoutes = new java.util.ArrayList<>();
         // 🆕 v6.62.543: Patrick (10.05.): "Steigenberger hat 3 Festnetznummern,
         // sind auch im regulären CRM so hinterlegt, aber hier in der Native-App
         // im CRM ist es nicht hinterlegt. Deswegen erkennt er jetzt Steigenberger
@@ -2158,6 +2366,20 @@ public class CrmSearchActivity extends AppCompatActivity {
                 e.type = s.child("type").getValue(String.class);
                 e.firstName = s.child("firstName").getValue(String.class);
                 e.lastName = s.child("lastName").getValue(String.class);
+                // 🆕 v6.62.545: Festpreise einlesen (Web-Schema: customers/{id}/fixedRoutes)
+                DataSnapshot frSnap = s.child("fixedRoutes");
+                if (frSnap.exists()) {
+                    for (DataSnapshot c : frSnap.getChildren()) {
+                        Object _val = c.getValue();
+                        if (_val instanceof Map) {
+                            try {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> _map = (Map<String, Object>) _val;
+                                e.fixedRoutes.add(new HashMap<>(_map));
+                            } catch (Throwable _ig) {}
+                        }
+                    }
+                }
                 // additionalPhones: kann String-Array oder Object-Map (Firebase)
                 DataSnapshot apSnap = s.child("additionalPhones");
                 if (apSnap.exists()) {

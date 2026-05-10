@@ -807,13 +807,12 @@
                                 <button onclick="requestInvoiceEmail()" style="display:inline-block;background:#3b82f6;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">📧 Rechnung per Email anfordern</button>
                             </div>`);
                         }
-                        // 3) Bewertung
-                        _blocks.push(`<div id="feedback-row" style="margin-top:8px;padding:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;text-align:center;">
-                            <div style="font-size:12px;color:#78350f;margin-bottom:6px;">Wie war Ihre Fahrt?</div>
-                            <div id="feedback-stars" style="font-size:24px;cursor:pointer;letter-spacing:4px;color:#cbd5e1;">
-                                <span data-rating="1" onclick="submitFeedback(1)">★</span><span data-rating="2" onclick="submitFeedback(2)">★</span><span data-rating="3" onclick="submitFeedback(3)">★</span><span data-rating="4" onclick="submitFeedback(4)">★</span><span data-rating="5" onclick="submitFeedback(5)">★</span>
-                            </div>
-                            <div id="feedback-thanks" style="display:none;font-size:12px;color:#065f46;font-weight:600;margin-top:4px;">Danke für Ihr Feedback! 🙏</div>
+                        // 3) Google-Bewertung — v6.62.595: Patrick: "die Sterne koennen weg,
+                        //    da soll die Google-Bewertung rein". Direkt-Link zum Google-Maps-Review.
+                        const _gReviewUrl = window._googleReviewUrl || 'https://g.page/r/CXE_RjgOEuvtEAg/review';
+                        _blocks.push(`<div id="google-review-row" style="margin-top:8px;padding:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;text-align:center;">
+                            <div style="font-size:13px;color:#78350f;margin-bottom:8px;font-weight:600;">Wie war Ihre Fahrt?</div>
+                            <a href="${_gReviewUrl}" target="_blank" rel="noopener" style="display:inline-block;background:#fbbf24;color:#78350f;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:14px;font-weight:700;">⭐ Bei Google bewerten</a>
                         </div>`);
 
                         _bd2.innerHTML += _blocks.join('');
@@ -1393,39 +1392,16 @@
             }
         }
 
-        // v6.62.135: Patrick: 'Feedback geben oder bewerten in der Abschluss-Card'.
-        // 1-5 Sterne — Klick speichert sofort, optional kann Kunde anschliessend einen
-        // Kommentar hinterlassen.
-        async function submitFeedback(rating) {
-            const cur = window._currentRide;
-            if (!cur || !cur.data) return;
-            try {
-                // Visualisiere die Sterne
-                const stars = document.querySelectorAll('#feedback-stars span');
-                stars.forEach(s => {
-                    const r = parseInt(s.getAttribute('data-rating') || '0', 10);
-                    s.style.color = r <= rating ? '#f59e0b' : '#cbd5e1';
-                });
-                let _comment = null;
-                // Bei Bewertung <= 3: optional Kommentar-Feld
-                if (rating <= 3) {
-                    _comment = prompt('Was können wir besser machen? (optional)', '');
-                }
-                await db.ref('feedback/' + cur.id).set({
-                    rideId: cur.id,
-                    rating,
-                    comment: _comment || null,
-                    submittedAt: Date.now(),
-                    customerName: cur.data.customerName || null,
-                    customerPhone: cur.data.customerPhone || cur.data.customerMobile || null,
-                    source: 'track-page'
-                });
-                const thanks = document.getElementById('feedback-thanks');
-                if (thanks) thanks.style.display = 'block';
-            } catch (e) {
-                alert('Bewertung konnte nicht gespeichert werden: ' + e.message);
-            }
-        }
+        // v6.62.595: Patrick: "die Sternchen koennen weg, da soll die Google-Bewertung rein".
+        // Sterne-Widget + submitFeedback() entfernt — Kunde klickt jetzt direkt einen Link
+        // zur Google-Bewertungs-Seite (siehe google-review-row in der Abschluss-Card).
+        // Google-Review-URL wird aus settings/googleReviewUrl geladen, Fallback hardcoded.
+        try {
+            db.ref('settings/googleReviewUrl').once('value').then(s => {
+                const v = s.val();
+                if (v && typeof v === 'string') window._googleReviewUrl = v;
+            });
+        } catch (_) {}
 
         // v6.62.133: Swipe nach links auf der Card → Card ausblenden.
         (function setupSwipe() {

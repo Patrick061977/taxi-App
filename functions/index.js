@@ -21901,6 +21901,259 @@ exports.scheduledRideAutoClose = onSchedule(
 // (on_way / picked_up) hat — dann nur warnen.
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.62.548: Patrick (10.05. Mercedes/Zbig-Fall): "Wenn der Fahrer 5 Min zu
+// spät irgendwo ankommt, dann soll automatisch der Tesla genommen werden."
+// + "Erstmal will ich sehen ob das System das ueberhaupt schafft" → System
+// muss PROAKTIV planen (nicht erst 5 Min vor Pickup warnen).
+//
+// Logik:
+// 1. Alle 2 Min: iteriere alle assigned/vorbestellt-Fahrten in naechsten 90 Min
+// 2. Berechne earliest-arrival des aktuell zugewiesenen Wagens (Kette + Leerfahrt)
+// 3. Wenn earliest-arrival > pickupTime + 5 Min → AUTO-RESCUE:
+//    - Iteriere alle aktiven Fahrzeuge (auch Tesla, Override IGNORIEREN)
+//    - Pruefe welcher rechtzeitig ankommen kann
+//    - Reassign auf den rechtzeitigsten (kleinste Verspätung)
+// 4. Wenn KEIN Wagen rechtzeitig: Telegram-Warnung an Admins (1× pro Ride)
+//
+// Bounce-Schutz: ride.lastLateRescueAt — kein Reassign innerhalb 5 Min.
+// Logging: alle Decisions in /debugLogs/lateCheck/ damit nachvollziehbar.
+function _quickLeerfahrtMinForLateCheck(fromLat, fromLon, toLat, toLon) {
+    if (!Number.isFinite(fromLat) || !Number.isFinite(fromLon) ||
+        !Number.isFinite(toLat) || !Number.isFinite(toLon)) return null;
+    const distKm = gpsDistanceKm(fromLat, fromLon, toLat, toLon);
+    return Math.max(2, Math.round(distKm * 1.3 / 40 * 60));
+}
+function computeEarliestArrivalMs(targetRide, vid, allRides, vehiclesData) {
+    const targetPickupLat = parseFloat(targetRide.pickupCoords?.lat || targetRide.pickupLat);
+    const targetPickupLon = parseFloat(targetRide.pickupCoords?.lon || targetRide.pickupLon);
+    if (!Number.isFinite(targetPickupLat) || !Number.isFinite(targetPickupLon)) return null;
+
+    // Vorgaenger-Fahrten dieses Fahrzeugs vor der Ziel-Fahrt
+    const vehicleRides = allRides.filter(r =>
+        (r.assignedVehicle === vid || r.vehicleId === vid) &&
+        r.firebaseId !== targetRide.firebaseId &&
+        r.pickupTimestamp && r.pickupTimestamp < targetRide.pickupTimestamp &&
+        !['cancelled','storniert','deleted','completed','abgeschlossen','rejected','cancelled_pending_driver'].includes(r.status)
+    ).sort((a, b) => b.pickupTimestamp - a.pickupTimestamp);
+
+    const now = Date.now();
+    let availableMs, fromLat, fromLon;
+
+    if (vehicleRides.length > 0) {
+        const prev = vehicleRides[0];
+        const prevDurMs = (prev.duration || prev.estimatedDuration || 20) * 60000;
+        const boardingMs = 5 * 60000; // pauschal 5 Min Boarding+Alighting
+        // Wenn prev currently active (on_way / arrived / picked_up) → schon halb durch
+        const isActive = ['on_way','arrived','picked_up','accepted'].includes(prev.status);
+        if (isActive && prev.status === 'on_way') {
+            // Wagen faehrt zu prev.pickup → Position aus GPS, +Anfahrt + Restfahrt
+            const v = vehiclesData[vid] || {};
+            const pLat = parseFloat(prev.pickupCoords?.lat || prev.pickupLat);
+            const pLon = parseFloat(prev.pickupCoords?.lon || prev.pickupLon);
+            if (Number.isFinite(v.lat) && Number.isFinite(v.lon) && Number.isFinite(pLat)) {
+                const _toPickupMin = _quickLeerfahrtMinForLateCheck(v.lat, v.lon, pLat, pLon) || 5;
+                availableMs = now + _toPickupMin * 60000 + prevDurMs + boardingMs;
+            } else {
+                availableMs = (prev.pickupTimestamp || now) + prevDurMs + boardingMs;
+            }
+            fromLat = parseFloat(prev.destinationLat || prev.destCoords?.lat);
+            fromLon = parseFloat(prev.destinationLon || prev.destCoords?.lon);
+        } else {
+            // Scheduled oder ongoing-passenger → prev.pickupTime + Dauer
+            availableMs = (prev.pickupTimestamp || now) + prevDurMs + boardingMs;
+            fromLat = parseFloat(prev.destinationLat || prev.destCoords?.lat);
+            fromLon = parseFloat(prev.destinationLon || prev.destCoords?.lon);
+        }
+    } else {
+        // Keine Vorfahrt → Wagen ist frei, Position aus GPS
+        const v = vehiclesData[vid] || {};
+        availableMs = now;
+        fromLat = parseFloat(v.lat);
+        fromLon = parseFloat(v.lon);
+    }
+
+    if (Number.isFinite(fromLat) && Number.isFinite(fromLon)) {
+        const _leerMin = _quickLeerfahrtMinForLateCheck(fromLat, fromLon, targetPickupLat, targetPickupLon) || 10;
+        return availableMs + _leerMin * 60000;
+    }
+    // Keine Position bekannt → konservativ 15 Min Anfahrt
+    return availableMs + 15 * 60000;
+}
+
+exports.scheduledLateCheck = onSchedule(
+    {
+        schedule: 'every 2 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 90,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const horizon = now + 90 * 60 * 1000; // naechste 90 Min
+
+            // Settings (mit Defaults)
+            const settingsSnap = await db.ref('settings/dispatch').once('value');
+            const settings = settingsSnap.val() || {};
+            const lateThresholdMin = (typeof settings.lateThresholdMin === 'number') ? settings.lateThresholdMin : 5;
+            const bypassEnabled = settings.bypassOverrideForBackup !== false;
+            const cooldownMs = (settings.lateRescueCooldownMin || 5) * 60000;
+
+            if (settings.lateCheckDisabled === true) {
+                console.log('⏸️ scheduledLateCheck: deaktiviert via settings.dispatch.lateCheckDisabled');
+                return;
+            }
+
+            // Rides + Vehicles + Shifts laden
+            const [ridesSnap, vehiclesSnap, shiftsSnap, pricingSnap] = await Promise.all([
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(horizon).once('value'),
+                db.ref('vehicles').once('value'),
+                db.ref('vehicleShifts').once('value'),
+                db.ref('settings/pricing').once('value')
+            ]);
+            if (!ridesSnap.val()) return;
+            const vehiclesData = vehiclesSnap.val() || {};
+            const shiftsData = shiftsSnap.val() || {};
+            const pricingSettings = pricingSnap.val() || {};
+
+            // Alle Rides die geprueft werden muessen sammeln
+            const allRides = [];
+            ridesSnap.forEach(c => allRides.push({ ...c.val(), firebaseId: c.key }));
+
+            // Auch laufende Fahrten brauchen wir fuer earliest-arrival-Berechnung — also alle aktiven
+            const activeStatusSnap = await Promise.all([
+                db.ref('rides').orderByChild('status').equalTo('on_way').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('arrived').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('picked_up').once('value'),
+                db.ref('rides').orderByChild('status').equalTo('accepted').once('value')
+            ]);
+            activeStatusSnap.forEach(snap => snap.forEach(c => {
+                if (!allRides.find(r => r.firebaseId === c.key)) allRides.push({ ...c.val(), firebaseId: c.key });
+            }));
+
+            const candidates = allRides.filter(r =>
+                r.pickupTimestamp > now &&
+                r.pickupTimestamp <= horizon &&
+                (['vorbestellt','assigned','accepted','sofort'].includes(r.status)) &&
+                (r.assignedVehicle || r.vehicleId) &&
+                (r.pickupCoords?.lat || r.pickupLat)
+            );
+
+            console.log(`⏰ scheduledLateCheck: ${candidates.length} Fahrten in naechsten 90 Min, lateThreshold=${lateThresholdMin}min`);
+
+            for (const ride of candidates) {
+                const currentVid = ride.assignedVehicle || ride.vehicleId;
+                if (!currentVid) continue;
+
+                // Bounce-Schutz
+                if (ride.lastLateRescueAt && (now - ride.lastLateRescueAt < cooldownMs)) continue;
+
+                const arrivalMs = computeEarliestArrivalMs(ride, currentVid, allRides, vehiclesData);
+                if (!arrivalMs) continue;
+                const delayMin = (arrivalMs - ride.pickupTimestamp) / 60000;
+                if (delayMin <= lateThresholdMin) continue;
+
+                // Aktueller Wagen kommt zu spaet → suche Alternative
+                const dateStr = berlinDateGlobal(ride.pickupTimestamp);
+                const _bd = new Date(ride.pickupTimestamp);
+                const _berlinHr = (_bd.getUTCHours() + ((_bd.getUTCMonth() + 1) >= 4 && (_bd.getUTCMonth() + 1) <= 10 ? 2 : 1)) % 24;
+                const timeStr = String(_berlinHr).padStart(2, '0') + ':' + String(_bd.getUTCMinutes()).padStart(2, '0');
+                const oldName = (OFFICIAL_VEHICLES[currentVid] || {}).name || ride.vehicle || currentVid;
+
+                let best = null;
+                const altCheckResults = [];
+                for (const altVid of Object.keys(OFFICIAL_VEHICLES)) {
+                    if (altVid === currentVid) continue;
+                    const info = OFFICIAL_VEHICLES[altVid];
+                    if (!info) continue;
+                    if ((info.capacity || 4) < (ride.passengers || 1)) {
+                        altCheckResults.push({ vid: altVid, skipReason: `capacity ${info.capacity||4}<${ride.passengers||1}` });
+                        continue;
+                    }
+                    if (!isVehicleInShift(altVid, shiftsData, dateStr, timeStr)) {
+                        altCheckResults.push({ vid: altVid, skipReason: 'not in shift' });
+                        continue;
+                    }
+                    // Override IGNORIEREN — bypassEnabled=true (default)
+                    // Auch laufende Fahrt blockt nicht (wenn alt-Vid gerade fährt, computeEarliestArrival
+                    // beruecksichtigt das automatisch).
+                    const altArrivalMs = computeEarliestArrivalMs(ride, altVid, allRides, vehiclesData);
+                    if (!altArrivalMs) continue;
+                    const altDelayMin = (altArrivalMs - ride.pickupTimestamp) / 60000;
+                    altCheckResults.push({ vid: altVid, name: info.name, delayMin: Math.round(altDelayMin) });
+                    // Nur Alternativen die rechtzeitig ankommen (oder weniger spaet als aktuell)
+                    if (altDelayMin <= lateThresholdMin) {
+                        if (!best || altDelayMin < best.delayMin) {
+                            best = { vid: altVid, name: info.name, delayMin: altDelayMin };
+                        }
+                    }
+                }
+
+                if (best) {
+                    console.log(`🚨 LATE-RESCUE: ${ride.customerName||'?'} ${oldName} (${Math.round(delayMin)}min spaet) → ${best.name} (${Math.round(best.delayMin)}min)`);
+                    const bestInfo = OFFICIAL_VEHICLES[best.vid] || {};
+                    await db.ref('rides/' + ride.firebaseId).update({
+                        assignedVehicle: best.vid,
+                        vehicleId: best.vid,
+                        assignedTo: best.vid,
+                        vehicle: best.name,
+                        vehicleLabel: best.name,
+                        assignedVehicleName: best.name,
+                        assignedVehiclePlate: bestInfo.plate || '',
+                        vehiclePlate: bestInfo.plate || '',
+                        assignedAt: Date.now(),
+                        assignedBy: 'cloud-late-rescue',
+                        lastLateRescueAt: Date.now(),
+                        previousAssignedVehicle: currentVid,
+                        updatedAt: Date.now()
+                    });
+                    await db.ref('debugLogs/lateCheck').push({
+                        ts: Date.now(),
+                        action: 'rescued',
+                        rideId: ride.firebaseId,
+                        customer: ride.customerName || '?',
+                        pickup: dateStr + ' ' + timeStr,
+                        oldVehicleId: currentVid,
+                        oldVehicleName: oldName,
+                        oldDelayMin: Math.round(delayMin),
+                        newVehicleId: best.vid,
+                        newVehicleName: best.name,
+                        newDelayMin: Math.round(best.delayMin),
+                        altCheckResults
+                    }).catch(() => {});
+                    try {
+                        await addRideLog(ride.firebaseId, '🚨', `LATE-RESCUE: ${oldName} → ${best.name} (${Math.round(delayMin)}min sparte → ${Math.round(best.delayMin)}min)`, { quelle: 'scheduledLateCheck v6.62.548' });
+                    } catch (_) {}
+                } else {
+                    // Kein anderer Wagen schafft's. Nur warnen, nicht reassignen.
+                    if (!ride.lateRescueWarnedAt) {
+                        await db.ref('rides/' + ride.firebaseId + '/lateRescueWarnedAt').set(Date.now()).catch(() => {});
+                        try {
+                            await sendToAllAdmins(
+                                `🚨 <b>KEIN PUENKTLICHER FAHRER!</b>\n\n${ride.customerName||'?'} um ${timeStr}\n📍 ${ride.pickup||'?'}\n🎯 ${ride.destination||'?'}\n\n${oldName}: ${Math.round(delayMin)} Min Verspaetung\nKein anderer Wagen schafft es. Manuell entscheiden!`,
+                                'unassigned'
+                            );
+                        } catch (_) {}
+                    }
+                    await db.ref('debugLogs/lateCheck').push({
+                        ts: Date.now(),
+                        action: 'no-alternative',
+                        rideId: ride.firebaseId,
+                        customer: ride.customerName || '?',
+                        pickup: dateStr + ' ' + timeStr,
+                        oldVehicleId: currentVid,
+                        oldVehicleName: oldName,
+                        oldDelayMin: Math.round(delayMin),
+                        altCheckResults
+                    }).catch(() => {});
+                }
+            }
+        } catch (e) {
+            console.error('❌ scheduledLateCheck Fehler:', e.message, e.stack);
+        }
+    }
+);
+
 exports.scheduledShiftHeartbeatCheck = onSchedule(
     {
         // v6.47.1: 1 → 2 Min — Heartbeat-Timeout ist 10 Min, 2-Min-Intervall reicht völlig

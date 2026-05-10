@@ -20529,8 +20529,28 @@ exports.onRideUpdated = onValueUpdated(
                 const _phoneOk = _custPhone && /^[+]?[0-9 \-\/]{6,}$/.test(_custPhone);
                 const _trackingLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                 const _vehLabel = after.vehicle ? after.vehicle + (after.vehiclePlate ? ` (${after.vehiclePlate})` : '') : 'Taxi';
-                const _custFirstName = (after.guestName || after.customerName || '').split(' ')[0];
-                const _greet = _custFirstName ? _custFirstName + ', ' : '';
+                // 🐛 v6.62.568: Patrick (10.05. 15:25): "Anrede vergessen — bei Zbig kommt nur
+                // 'Zbig, Ihr Fahrer ist unterwegs' statt 'Hallo Herr Zbig'." Vorher wurde
+                // _custFirstName per .split(' ')[0] gebildet, was bei einnamigen Eintraegen
+                // wie 'Zbig' den NACHNAMEN als Anrede ergab. Fix: anrede aus customers-CRM
+                // laden, mit Nachname (letztes Wort) kombinieren — wie bei den anderen
+                // SMS-Templates seit v6.62.275 (Z. 19797 + Z. 20761).
+                const _custFullName = (after.guestName || after.customerName || '').trim();
+                const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                let _greet = _custLastName ? `Hallo ${_custLastName}, ` : '';
+                if (after.customerId) {
+                    try {
+                        const _aSnap = await db.ref(`customers/${after.customerId}/anrede`).once('value');
+                        const _aRaw = (_aSnap.val() || '').toString();
+                        if (/^herr$/i.test(_aRaw) && _custLastName) _greet = `Sehr geehrter Herr ${_custLastName}, `;
+                        else if (/^frau$/i.test(_aRaw) && _custLastName) _greet = `Sehr geehrte Frau ${_custLastName}, `;
+                        else if (/^familie$/i.test(_aRaw) && _custLastName) _greet = `Sehr geehrte Familie ${_custLastName}, `;
+                        else if (/^hotel$/i.test(_aRaw) || /^firma$/i.test(_aRaw)) _greet = _custLastName ? `Sehr geehrtes Team von ${_custLastName}, ` : 'Sehr geehrte Damen und Herren, ';
+                    } catch (_aErr) { /* fallback bleibt 'Hallo Nachname' */ }
+                }
+                // _custFirstName behaelt seine alte Semantik fuer abwaerts-kompatible Stellen
+                // (z.B. _custName-Prefix bei _smsBody): hier nehmen wir den vollen Greet.
+                const _custFirstName = _custLastName;
                 let _smsBody = null;
                 let _smsType = null;
                 // v6.62.47: Patrick: 'Schritt 4 + 5 zusammenlegen'. Bei Sofortfahrten kommen
@@ -20560,8 +20580,8 @@ exports.onRideUpdated = onValueUpdated(
                     const _driverPart = _driverFirstName ? `Ihr Fahrer ${_driverFirstName} ist jetzt unterwegs zu Ihnen` : `Ihr Funk-Taxi-Fahrer ist jetzt unterwegs`;
                     const _vehiclePart = after.vehicle ? ` mit dem ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const _etaPart = _eta ? ` (${_eta})` : '';
-                    const _custName = _custFirstName ? `${_custFirstName}, ` : '';
-                    _smsBody = `${_custName}${_driverPart}${_vehiclePart}${_etaPart}.\nLive-Verfolgung: ${_trackingLink}\nFunk Taxi Heringsdorf`;
+                    // 🐛 v6.62.568: nutze _greet (mit Anrede) statt nur Nachname
+                    _smsBody = `${_greet}${_driverPart}${_vehiclePart}${_etaPart}.\nLive-Verfolgung: ${_trackingLink}\nFunk Taxi Heringsdorf`;
                     _smsType = 'driver_on_way';
                 }
                 // assigned/accepted → keine SMS (Kunde hatte initiale Buchungs-Bestaetigung)

@@ -1641,8 +1641,17 @@
                     if (OFFICIAL_VEHICLES[vid].capacity < (minCapacity || 1)) continue;
                     if (isVehicleInShift(vid, dateStr, timeStr)) continue; // Bereits gezaehlt
                     // GPS-online + frisches GPS (< 5 Min) → zaehlen
+                    // 🐛 v6.62.576: Patrick (10.05. 18:02): "Mercedes Schichtende 18:00,
+                    //   System zeigt 21 Min ETA — aber Mercedes ist offline-Feierabend.
+                    //   Soll nicht zaehlen wenn Fahrer keine aktive Fahrt + ausser Schicht."
+                    //   Verschaerfung: GPS-Bonus nur wenn entweder
+                    //   (a) currentRideId aktiv (Fahrer macht gerade Fahrt → arbeitet weiter)
+                    //   (b) shiftActive Flag gesetzt (manuell als "verfuegbar" markiert)
+                    //   Sonst: vergessenes GPS-On nach Feierabend → nicht zaehlen.
                     const gpsAge = vInfo.timestamp ? (Date.now() - vInfo.timestamp) / 60000 : 999;
-                    if (vInfo.online !== false && vInfo.lat && gpsAge < 5) count++;
+                    const _hasActiveRide = !!vInfo.currentRideId;
+                    const _shiftActive = vInfo.shiftActive === true;
+                    if (vInfo.online !== false && vInfo.lat && gpsAge < 5 && (_hasActiveRide || _shiftActive)) count++;
                 }
             }
             return count;

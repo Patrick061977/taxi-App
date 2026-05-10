@@ -3500,14 +3500,25 @@
         }
 
         // 🆕 v6.38.97: Zielort, Personen, Name aus URL-Parametern (z.B. "Nochmal buchen")
+        // 🆕 v6.62.572: + toLat/toLon — wenn Restaurant-Page coords mitgibt, sparen wir
+        //   den Geocode-Roundtrip. Patrick: "Stecknadel-Pickup soll direkt Preis rechnen".
         const qrTo = urlParams.get('to');
+        const qrToLat = urlParams.get('toLat');
+        const qrToLon = urlParams.get('toLon');
         const qrPax = urlParams.get('passengers');
         const qrName = urlParams.get('name');
         if (qrTo) {
             document.getElementById('b-destination').value = decodeURIComponent(qrTo);
-            geocodeAddress(decodeURIComponent(qrTo)).then(coords => {
-                if (coords) { destCoords = coords; checkRoute(); }
-            });
+            // toLat/toLon Direktzuweisung wenn vorhanden (kein async-Wait)
+            if (qrToLat && qrToLon && !isNaN(parseFloat(qrToLat)) && !isNaN(parseFloat(qrToLon))) {
+                destCoords = { lat: parseFloat(qrToLat), lon: parseFloat(qrToLon) };
+                logBuchen('📍', `Ziel-Coords aus URL: ${destCoords.lat.toFixed(4)}/${destCoords.lon.toFixed(4)}`);
+                checkRoute();
+            } else {
+                geocodeAddress(decodeURIComponent(qrTo)).then(coords => {
+                    if (coords) { destCoords = coords; checkRoute(); }
+                });
+            }
         }
         if (qrPax) { setPax(parseInt(qrPax) || 1); }
         if (qrName) { const nameEl = document.getElementById('b-name'); if (nameEl) nameEl.value = decodeURIComponent(qrName); }
@@ -3802,6 +3813,30 @@
         // Route berechnen + Preis
         // ═══════════════════════════════════════════════
         async function checkRoute() {
+            // 🐛 v6.62.572: Patrick (10.05. 16:54): "Wenn ich Stecknadel fuer Pickup nehme,
+            // wird der Zielort nicht direkt uebernommen, Preis nicht ausgerechnet." Bug
+            // Fall: destination kommt aus URL-Param ?to= (z.B. von Restaurants-Page),
+            // geocodeAddress laeuft async. Wenn User Stecknadel setzt BEVOR geocode
+            // resolved → destCoords noch null → checkRoute tut nichts.
+            // Defensive: wenn destCoords null aber Input-Feld gefuellt → erneuten
+            // Geocode triggern und dann selbst aufrufen.
+            if (!destCoords) {
+                const _destInput = document.getElementById('b-destination');
+                const _destText = _destInput ? _destInput.value.trim() : '';
+                if (pickupCoords && _destText && !window._buchenRetryGeocode) {
+                    window._buchenRetryGeocode = true; // Retry-Lock
+                    try {
+                        const _retryCoords = await geocodeAddress(_destText);
+                        if (_retryCoords) {
+                            destCoords = _retryCoords;
+                            logBuchen('🔁', `Defensive Re-Geocode: ${_destText} → ${_retryCoords.lat.toFixed(4)}/${_retryCoords.lon.toFixed(4)}`);
+                            window._buchenRetryGeocode = false;
+                            return checkRoute(); // einmal rekursiv mit destCoords
+                        }
+                    } catch (_e) { /* Geocode fail → silent */ }
+                    window._buchenRetryGeocode = false;
+                }
+            }
             if (!pickupCoords || !destCoords) {
                 document.getElementById('btn-book').disabled = true;
                 return;

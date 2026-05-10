@@ -1059,8 +1059,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <!-- Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Google Places API (New) -->
-    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly&loading=async&callback=initGooglePlaces"></script>
+    <!-- Google Places API (New) — v6.62.590: Dynamic injection ohne callback (matches anfrage.html-Pattern) -->
+    <script>
+    (function loadGoogleMaps() {
+        var s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCEL-wtoIrVm0-PXpILLabGQXfuFaA17lg&libraries=places&language=de&v=weekly';
+        s.async = true;
+        document.head.appendChild(s);
+    })();
+    </script>
 
     <script>
         // 🚑 v6.62.461: Roll-back aller heute morgens v6.62.446/451/456 DOM-Reorder-Listener.
@@ -3675,18 +3682,24 @@
             return null;
         }
 
+        // 🆕 v6.62.590: robusterer Fallback — wenn road fehlt, display_name nutzen statt Koords zeigen
         async function reverseGeocode(lat, lon) {
             try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
+                const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=18`, { headers: { 'User-Agent': 'TaxiUsedom/1.0' } });
                 const data = await resp.json();
                 if (data.address) {
                     const a = data.address;
-                    const road = a.road || a.residential || a.pedestrian || '';
+                    const road = a.road || a.residential || a.pedestrian || a.footway || a.path || '';
                     const nr = a.house_number || '';
-                    const town = a.town || a.city || a.village || '';
-                    return road + (nr ? ' ' + nr : '') + (town ? ', ' + town : '');
+                    const town = a.town || a.city || a.village || a.suburb || a.hamlet || a.municipality || '';
+                    if (road && town) return road + (nr ? ' ' + nr : '') + ', ' + town;
+                    if (road) return road + (nr ? ' ' + nr : '');
+                    if (town) return town;
                 }
-            } catch(e) {}
+                if (data.display_name) {
+                    return data.display_name.split(',').slice(0, 3).map(s => s.trim()).filter(Boolean).join(', ');
+                }
+            } catch(e) { console.warn('reverseGeocode error:', e.message); }
             return null;
         }
 
@@ -3705,8 +3718,13 @@
         let _gAutocompleteSuggestion = null;
         let _gSessionToken = null;
         let _gPlace = null;
-        window.initGooglePlaces = async function() {
+        // 🆕 v6.62.590: window.load-Trigger statt &callback= (Race-Condition bei async-Script vermieden)
+        async function _loadGooglePlacesLib() {
             try {
+                if (typeof google === 'undefined' || !google.maps || !google.maps.importLibrary) {
+                    setTimeout(_loadGooglePlacesLib, 200);
+                    return;
+                }
                 const { AutocompleteSuggestion, AutocompleteSessionToken, Place } = await google.maps.importLibrary('places');
                 _gAutocompleteSuggestion = AutocompleteSuggestion;
                 _gSessionToken = AutocompleteSessionToken;
@@ -3716,7 +3734,9 @@
             } catch(e) {
                 console.warn('⚠️ Google Places nicht verfuegbar:', e.message);
             }
-        };
+        }
+        if (document.readyState === 'complete') _loadGooglePlacesLib();
+        else window.addEventListener('load', _loadGooglePlacesLib);
 
         let debounceTimer = null;
         ['b-pickup', 'b-destination', 'b-stopp'].forEach(id => {

@@ -3022,8 +3022,15 @@
                 // 🔧 v6.39.5: Überlappung PRO FAHRZEUG zählen!
                 // Vorher: ALLE überlappenden Fahrten gezählt → 2 Fahrten auf 2 Fahrzeugen = 2 Overlaps = rot
                 // Jetzt: Pro Fahrzeug max 1 Overlap → 2 Fahrten auf 2 Fahrzeugen = 2 besetzte Fahrzeuge
+                // 🐛 v6.62.574: Patrick (10.05. 17:17): "warum kann ich 18:40-18:50 nicht
+                //   buchen?" Bug: r.end inkludierte schon (leerfahrtMin + bufferMin) und
+                //   die Vergleichsbasis fruehestAbhol subtrahierte leerfahrtVorher nochmal.
+                //   Effektiv wurde leerfahrt doppelt gerechnet (Slot brauchte > r.end +
+                //   leerfahrtVorher = > 18:42 + 13 = 18:55). Korrekt: r.end > slotTs —
+                //   r.end ist bereits "Fahrer ist am neuen Pickup-Ort", slotTs ist "geplante
+                //   Pickup-Zeit". Wenn r.end > slot → zu spaet → konflikt.
                 const overlappingVehicles = new Set();
-                rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol).forEach(r => {
+                rides.filter(r => r.start < kundenEndTs && r.end > slotTs).forEach(r => {
                     if (r.vehicleId) overlappingVehicles.add(r.vehicleId);
                     else overlappingVehicles.add('unknown_' + r.start); // Fallback
                 });
@@ -3071,7 +3078,8 @@
                     // 🔧 v6.39.5: Ersten roten Slot loggen (nicht für jeden roten Slot)
                     if (!isPast && !tooSoon && !window._slotBlockLogged) {
                         window._slotBlockLogged = true;
-                        const blockers = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol);
+                        // 🐛 v6.62.574: gleicher Bug-Fix wie oben — r.end > slotTs statt fruehestAbhol
+                        const blockers = rides.filter(r => r.start < kundenEndTs && r.end > slotTs);
                         const blockerInfo = blockers.map(r => {
                             const rStartT = new Date(r.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
                             const rEndT = new Date(r.end).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
@@ -3107,7 +3115,8 @@
                     block.onclick = () => selectSlot(dateStr, slotTimeStr, slotH, slotM);
                 } else if (!isPast && !tooSoon && vehiclesInShift > 0 && freeVehicles === 0) {
                     // 🔧 v6.41.61: Belegter Slot — detaillierte Diagnose bei Klick
-                    const _blockedRides = rides.filter(r => r.start < kundenEndTs && r.end > fruehestAbhol);
+                    // 🐛 v6.62.574: gleicher Bug-Fix wie oben — r.end > slotTs statt fruehestAbhol
+                    const _blockedRides = rides.filter(r => r.start < kundenEndTs && r.end > slotTs);
                     // Welche Fahrzeuge sind im Dienst aber NICHT blockiert?
                     const _vehiclesInShiftList = Object.keys(OFFICIAL_VEHICLES).filter(vid => isVehicleInShift(vid, dateStr, slotTimeStr));
                     const _blockedVids = Array.from(overlappingVehicles).filter(v => !String(v).startsWith('unknown_'));

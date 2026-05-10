@@ -942,13 +942,12 @@
                 } else {
                     vehicleMarker = L.marker([driver.lat, driver.lon], { icon }).addTo(map);
 
-                    // Zur Position zoomen
+                    // 🆕 v6.62.539: Patrick (10.05. 06:48): "Bild war noch nicht zentriert,
+                    // der Kunde hätte mich gar nicht gesehen". Beim ersten Erscheinen NUR
+                    // Taxi+Pickup im Bild (nicht Pickup+Ziel+Taxi → Ziel zoomt zu weit raus).
                     const bounds = L.latLngBounds([[driver.lat, driver.lon]]);
-
                     if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
-                    if (destinationMarker) bounds.extend(destinationMarker.getLatLng());
-
-                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                    map.fitBounds(bounds, { padding: [80, 80], maxZoom: 14 });
                 }
 
                 // v6.62.226: Auto-Refit wenn Tesla aus dem Viewport rauslaeuft.
@@ -966,12 +965,11 @@
                     }
                 } catch(_) { /* tolerant */ }
 
-                // v6.62.226: Live-Verbindungslinie Tesla → aktuelles Ziel.
-                // 🆕 v6.62.393: Patrick (06.05. 21:41): "Was soll diese Luftlinie?
-                //   Bei Hasbargen Quatsch — eben war 'Fahrer ist vor Ort' grun".
-                //   Bei status='arrived' Fahrer wartet beim Pickup → KEINE Linie zum
-                //   Ziel zeichnen (Fahrt laeuft noch nicht). Linie nur bei accepted/
-                //   on_way/assigned (zum Pickup) und picked_up (zum Ziel).
+                // 🆕 v6.62.539: Patrick (10.05. 06:47): "die dicke Strichel-Linie ist
+                // die Luftlinie, das ist Quatsch. Du musst die Linie nehmen wo ich
+                // langfahre". Statt Luftlinie zwischen Taxi und Ziel: echte OSRM-
+                // Strassenroute. Initial-Fallback (Luftlinie) bis OSRM-Geometrie da
+                // ist; dann ueberschreibt updateDriverRouteGeometry() die Linie.
                 try {
                     if (window._currentRide && window._currentRide.data) {
                         const _r = window._currentRide.data;
@@ -985,17 +983,30 @@
                         }
                         // 'arrived' / 'completed' / 'cancelled' / 'storniert': keine Linie
                         if (_tLat && _tLon) {
-                            if (window._driverLine) {
-                                window._driverLine.setLatLngs([[driver.lat, driver.lon], [_tLat, _tLon]]);
-                            } else {
+                            // Initial-Linie nur EINMAL setzen wenn keine da ist —
+                            // updateDriverRouteGeometry() ueberschreibt mit OSRM-Strecke
+                            // und window._driverLineIsOsrm verhindert Ueberschreiben durch
+                            // Luftlinie bei spaeteren GPS-Updates.
+                            if (!window._driverLine) {
                                 window._driverLine = L.polyline(
                                     [[driver.lat, driver.lon], [_tLat, _tLon]],
-                                    { color: '#22c55e', weight: 3, opacity: 0.7, dashArray: '8 6' }
+                                    { color: '#22c55e', weight: 3, opacity: 0.5, dashArray: '8 6' }
                                 ).addTo(map);
+                            } else if (!window._driverLineIsOsrm) {
+                                // Solange OSRM-Geometrie noch nicht geladen → mitwandern
+                                window._driverLine.setLatLngs([[driver.lat, driver.lon], [_tLat, _tLon]]);
                             }
+                            // Wenn Ziel sich geaendert hat (Status-Wechsel pickup→destination)
+                            // → Linie zuruecksetzen damit naechster OSRM-Fetch neue Route holt
+                            if (window._driverLineTarget && (window._driverLineTarget.lat !== _tLat || window._driverLineTarget.lon !== _tLon)) {
+                                window._driverLineIsOsrm = false;
+                            }
+                            window._driverLineTarget = { lat: _tLat, lon: _tLon };
                         } else if (window._driverLine) {
                             map.removeLayer(window._driverLine);
                             window._driverLine = null;
+                            window._driverLineIsOsrm = false;
+                            window._driverLineTarget = null;
                         }
                     }
                 } catch(_e) { /* nur visuell, kein crash */ }
@@ -1071,12 +1082,29 @@
                 _lastEtaFetch = _now;
                 _lastEtaPos = { lat: vlat, lon: vlon };
                 try {
-                    const _url = `https://router.project-osrm.org/route/v1/driving/${vlon},${vlat};${targetLon},${targetLat}?overview=false`;
+                    // 🆕 v6.62.539: overview=full + geometries=geojson statt overview=false
+                    // — wir nutzen die echte Strassenroute jetzt auch fuer die _driverLine
+                    // (statt Luftlinie). Patrick (10.05. 06:47).
+                    const _url = `https://router.project-osrm.org/route/v1/driving/${vlon},${vlat};${targetLon},${targetLat}?overview=full&geometries=geojson`;
                     const _resp = await fetch(_url);
                     const _data = await _resp.json();
                     if (_data.code === 'Ok' && _data.routes && _data.routes[0]) {
                         const _min = Math.max(1, Math.round(_data.routes[0].duration / 60));
                         const _km = +(_data.routes[0].distance / 1000).toFixed(2);
+                        // 🆕 v6.62.539: Fahrer-Strecke als echte OSRM-Geometrie zeichnen
+                        try {
+                            const _geom = _data.routes[0].geometry;
+                            if (_geom && _geom.coordinates && _geom.coordinates.length > 1) {
+                                const _coords = _geom.coordinates.map(c => [c[1], c[0]]);
+                                if (window._driverLine) {
+                                    window._driverLine.setLatLngs(_coords);
+                                    window._driverLine.setStyle({ color: '#22c55e', weight: 4, opacity: 0.85, dashArray: null });
+                                } else {
+                                    window._driverLine = L.polyline(_coords, { color: '#22c55e', weight: 4, opacity: 0.85 }).addTo(map);
+                                }
+                                window._driverLineIsOsrm = true;
+                            }
+                        } catch(_) {}
                         const _box = document.getElementById('eta-info');
                         _box.style.display = 'block';
                         // 🆕 v6.62.380: Patrick (06.05. 18:20): "Karte sagt 'Fahrer in 7 Min'

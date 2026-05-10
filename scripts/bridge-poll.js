@@ -17,10 +17,13 @@ function fbGet(refPath) {
     try {
         const out = execSync(
             `firebase database:get --instance ${INSTANCE} "/${refPath}"`,
-            { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' }, stdio: ['ignore', 'pipe', 'ignore'], shell: true }
+            // 🆕 v6.62.538: maxBuffer von 1MB→64MB (Default-1MB war Ursache stiller
+            // ENOBUFS-Fehler sobald inbox>1MB wuchs → Bridge-Polling lief silent leer)
+            { encoding: 'utf8', env: { ...process.env, MSYS_NO_PATHCONV: '1' }, stdio: ['ignore', 'pipe', 'pipe'], shell: true, maxBuffer: 64 * 1024 * 1024 }
         );
         return JSON.parse(out.trim() || 'null');
     } catch (e) {
+        console.error(`[fbGet ERR] ${refPath}: ${e.message}`);
         return null;
     }
 }

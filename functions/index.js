@@ -21946,16 +21946,24 @@ function computeEarliestArrivalMs(targetRide, vid, allRides, vehiclesData) {
         // Wenn prev currently active (on_way / arrived / picked_up) → schon halb durch
         const isActive = ['on_way','arrived','picked_up','accepted'].includes(prev.status);
         if (isActive && prev.status === 'on_way') {
-            // Wagen faehrt zu prev.pickup → Position aus GPS, +Anfahrt + Restfahrt
+            // Wagen faehrt zu prev.pickup → Position aus GPS, +Anfahrt
+            // 🐛 v6.62.553: Bug-Fix — Mercedes kann frühestens beim GEBUCHTEN
+            // pickup-Zeitpunkt starten (nicht direkt nach Ankunft am Pickup-Ort).
+            // Vorher: availableMs = now + Anfahrt + Dauer + Boarding → unterschaetzt
+            // wenn Mercedes 7 Min frueh ankommt + 5 Min wartet bis 13:20-Pickup.
+            // Korrekt: startMs = max(now + Anfahrt, prev.pickupTimestamp).
             const v = vehiclesData[vid] || {};
             const pLat = parseFloat(prev.pickupCoords?.lat || prev.pickupLat);
             const pLon = parseFloat(prev.pickupCoords?.lon || prev.pickupLon);
+            let _arrivalAtPickupMs;
             if (Number.isFinite(v.lat) && Number.isFinite(v.lon) && Number.isFinite(pLat)) {
                 const _toPickupMin = _quickLeerfahrtMinForLateCheck(v.lat, v.lon, pLat, pLon) || 5;
-                availableMs = now + _toPickupMin * 60000 + prevDurMs + boardingMs;
+                _arrivalAtPickupMs = now + _toPickupMin * 60000;
             } else {
-                availableMs = (prev.pickupTimestamp || now) + prevDurMs + boardingMs;
+                _arrivalAtPickupMs = prev.pickupTimestamp || now;
             }
+            const _startMs = Math.max(_arrivalAtPickupMs, prev.pickupTimestamp || _arrivalAtPickupMs);
+            availableMs = _startMs + prevDurMs + boardingMs;
             fromLat = parseFloat(prev.destinationLat || prev.destCoords?.lat);
             fromLon = parseFloat(prev.destinationLon || prev.destCoords?.lon);
         } else {

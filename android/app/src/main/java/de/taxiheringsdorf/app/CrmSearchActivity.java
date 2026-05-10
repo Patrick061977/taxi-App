@@ -1714,47 +1714,87 @@ public class CrmSearchActivity extends AppCompatActivity {
         layout.setPadding(pad, pad, pad, pad);
         scroll.addView(layout);
 
-        // 🔧 v6.62.431: Patrick: 'separate Felder bei der Anlage — Vor- und Nachname getrennt,
-        //   Vorname optional. Erst Nachname dann Vorname'.
-        // Anrede-Spinner ganz oben
+        // 🆕 v6.62.544: Patrick (10.05.): "wenn ich einen neuen Kunden anlegen moechte,
+        //   dann muss Stammkunde, Hotel, Gelegenheitskunde, muss auch alles auswaehlbar
+        //   sein... wenn es jetzt ein Hotel ist, dass es gleich als Hotel angelegt wird."
+        //   Form-Reihenfolge wie Web-CRM: KUNDENART OBEN als grosse Buttons, der Rest
+        //   passt sich an (Hotel/Firma blendet Vorname aus, Nachname-Label wird zu
+        //   "Hotelname"/"Firmenname", Anrede springt automatisch).
+
+        // ═══ KUNDENART (ganz oben, gross) ═══
+        TextView lblKind = new TextView(this);
+        lblKind.setText("👥 Kundenart");
+        lblKind.setPadding(0, 0, 0, pad / 4);
+        lblKind.setTextSize(13);
+        lblKind.setTypeface(null, android.graphics.Typeface.BOLD);
+        layout.addView(lblKind);
+
+        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
+        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenh.", "🏨 Hotel", "🏢 Firma" };
+        final int[] kindIdx = { Math.max(0, Arrays.asList(kinds).indexOf(e.customerKind != null ? e.customerKind : "Stammkunde")) };
+
+        LinearLayout kindRow = new LinearLayout(this);
+        kindRow.setOrientation(LinearLayout.HORIZONTAL);
+        final android.widget.Button[] kindBtns = new android.widget.Button[kinds.length];
+        for (int i = 0; i < kinds.length; i++) {
+            android.widget.Button b = new android.widget.Button(this);
+            b.setText(kindLabels[i]);
+            b.setTextSize(13);
+            b.setAllCaps(false);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMargins(pad / 8, 0, pad / 8, 0);
+            b.setLayoutParams(lp);
+            b.setMinimumWidth(0);
+            b.setMinHeight((int)(getResources().getDisplayMetrics().density * 50));
+            b.setPadding(pad / 6, pad / 4, pad / 6, pad / 4);
+            kindBtns[i] = b;
+            kindRow.addView(b);
+        }
+        layout.addView(kindRow);
+
+        // ═══ ANREDE (Hotel/Firma/Familie inkludiert) ═══
         TextView lblSal = new TextView(this);
         lblSal.setText("👤 Anrede");
         lblSal.setTextSize(12);
-        lblSal.setPadding(0, 0, 0, pad / 4);
+        lblSal.setPadding(0, pad, 0, pad / 4);
         layout.addView(lblSal);
-        final String[] _saluts = { "—", "Herr", "Frau", "Divers" };
+        // 🆕 v6.62.544: Anrede-Optionen erweitert um Hotel/Firma/Familie
+        // (Patrick: "Hotel bei Anrede steht zum Beispiel oben auch nicht").
+        final String[] _saluts = { "—", "Herr", "Frau", "Familie", "Hotel", "Firma", "Divers" };
         final android.widget.Spinner spSal = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> _salAd = new android.widget.ArrayAdapter<>(this,
             android.R.layout.simple_spinner_item, _saluts);
         _salAd.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spSal.setAdapter(_salAd);
-        // Vorbelegen aus existing entry
-        {
-            String _existing = (e.id != null && e.id.length() > 0)
-                ? null /* TODO: Anrede aus DB lesen falls vorhanden */
-                : null;
-            // Standard: '—' (kein Eintrag)
+        // Vorbelegen aus existing entry — anrede oder salutation Feld
+        try {
             spSal.setSelection(0);
-        }
+            if (e.anrede != null && !e.anrede.trim().isEmpty()) {
+                for (int _si = 0; _si < _saluts.length; _si++) {
+                    if (_saluts[_si].equalsIgnoreCase(e.anrede.trim())) { spSal.setSelection(_si); break; }
+                }
+            }
+        } catch (Throwable _ex) { spSal.setSelection(0); }
         layout.addView(spSal);
 
-        // Nachname (Pflicht) ZUERST
+        // ═══ NACHNAME / HOTELNAME / FIRMENNAME (label haengt von Kundenart ab) ═══
         TextView lblLast = new TextView(this);
-        lblLast.setText("📛 Nachname (Pflicht)");
         lblLast.setTextSize(12);
         lblLast.setPadding(0, pad, 0, pad / 4);
         layout.addView(lblLast);
         EditText etLastName = new EditText(this);
-        etLastName.setHint("z.B. Schoening");
-        // Beim Bearbeiten: aus name ableiten (letztes Wort) wenn nicht in separatem Feld
         if (e.name != null && !e.name.isEmpty()) {
             String _n = e.name.trim();
             int _spc = _n.lastIndexOf(' ');
-            etLastName.setText(_spc > 0 ? _n.substring(_spc + 1) : _n);
+            // Bei Hotel/Firma bleibt der ganze Name im Nachname-Feld (kein Trennen)
+            String _kind = e.customerKind != null ? e.customerKind : "Stammkunde";
+            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind);
+            if (_isOrg) etLastName.setText(_n);
+            else etLastName.setText(_spc > 0 ? _n.substring(_spc + 1) : _n);
         }
         layout.addView(etLastName);
 
-        // Vorname (optional) zweites
+        // ═══ VORNAME (nur bei Person; bei Hotel/Firma ausgeblendet) ═══
         TextView lblFirst = new TextView(this);
         lblFirst.setText("✍️ Vorname (optional)");
         lblFirst.setTextSize(12);
@@ -1763,11 +1803,57 @@ public class CrmSearchActivity extends AppCompatActivity {
         EditText etFirstName = new EditText(this);
         etFirstName.setHint("z.B. Anja");
         if (e.name != null && !e.name.isEmpty()) {
-            String _n = e.name.trim();
-            int _spc = _n.lastIndexOf(' ');
-            etFirstName.setText(_spc > 0 ? _n.substring(0, _spc) : "");
+            String _kind = e.customerKind != null ? e.customerKind : "Stammkunde";
+            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind);
+            if (!_isOrg) {
+                String _n = e.name.trim();
+                int _spc = _n.lastIndexOf(' ');
+                etFirstName.setText(_spc > 0 ? _n.substring(0, _spc) : "");
+            }
         }
         layout.addView(etFirstName);
+
+        // ═══ Live-Wechsel: Kundenart-Klick passt Labels + Vorname-Sichtbarkeit + Anrede an ═══
+        Runnable refreshKind = () -> {
+            for (int i = 0; i < kindBtns.length; i++) {
+                boolean sel = (i == kindIdx[0]);
+                kindBtns[i].setBackgroundColor(sel ? 0xFF10B981 : 0xFFE2E8F0);
+                kindBtns[i].setTextColor(sel ? 0xFFFFFFFF : 0xFF1E293B);
+            }
+            String _k = kinds[kindIdx[0]];
+            if ("Hotel".equals(_k)) {
+                lblLast.setText("🏨 Hotelname (Pflicht)");
+                etLastName.setHint("z.B. Steigenberger");
+                lblFirst.setVisibility(View.GONE);
+                etFirstName.setVisibility(View.GONE);
+                // Anrede automatisch auf "Hotel" setzen wenn aktuell — oder Familie
+                if (spSal.getSelectedItemPosition() == 0 ||
+                    "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
+                    "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
+                    for (int i = 0; i < _saluts.length; i++) if ("Hotel".equals(_saluts[i])) { spSal.setSelection(i); break; }
+                }
+            } else if ("Firma".equals(_k)) {
+                lblLast.setText("🏢 Firmenname (Pflicht)");
+                etLastName.setHint("z.B. Vetter Reisen");
+                lblFirst.setVisibility(View.GONE);
+                etFirstName.setVisibility(View.GONE);
+                if (spSal.getSelectedItemPosition() == 0 ||
+                    "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
+                    "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
+                    for (int i = 0; i < _saluts.length; i++) if ("Firma".equals(_saluts[i])) { spSal.setSelection(i); break; }
+                }
+            } else {
+                lblLast.setText("📛 Nachname (Pflicht)");
+                etLastName.setHint("z.B. Schoening");
+                lblFirst.setVisibility(View.VISIBLE);
+                etFirstName.setVisibility(View.VISIBLE);
+            }
+        };
+        for (int i = 0; i < kinds.length; i++) {
+            final int idx = i;
+            kindBtns[i].setOnClickListener(_v -> { kindIdx[0] = idx; refreshKind.run(); });
+        }
+        refreshKind.run();
 
         // Dummy etName-Variable damit existierender Code weiter laeuft (wird beim Save zusammengesetzt)
         final EditText etName = new EditText(this);
@@ -1809,7 +1895,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         layout.addView(etMobile);
 
         TextView lblPhone = new TextView(this);
-        lblPhone.setText("📞 Festnetz  (fuer Hotels/Anrufer-ID, optional)");
+        lblPhone.setText("📞 Festnetz 1  (fuer Hotels/Anrufer-ID, optional)");
         lblPhone.setPadding(0, pad, 0, pad / 4);
         lblPhone.setTextSize(12);
         layout.addView(lblPhone);
@@ -1819,10 +1905,72 @@ public class CrmSearchActivity extends AppCompatActivity {
         etPhone.setText(e.phone != null ? e.phone : "");
         layout.addView(etPhone);
 
+        // 🆕 v6.62.544: Festnetz 2 (Hotels haben oft mehrere Anschluesse, z.B. Steigenberger 3 Nummern)
+        TextView lblPhone2 = new TextView(this);
+        lblPhone2.setText("📞 Festnetz 2  (optional, z.B. Rezeption 2)");
+        lblPhone2.setPadding(0, pad, 0, pad / 4);
+        lblPhone2.setTextSize(12);
+        layout.addView(lblPhone2);
+        EditText etPhone2 = new EditText(this);
+        etPhone2.setHint("z.B. 038378 12346");
+        etPhone2.setInputType(InputType.TYPE_CLASS_PHONE);
+        etPhone2.setText(e.phone2 != null ? e.phone2 : "");
+        layout.addView(etPhone2);
+
+        // 🆕 v6.62.544: Weitere Nummern (additionalPhones-Array). Plus-Button laesst
+        // Patrick beliebig viele Nummern hinzufuegen — z.B. Hotel mit 3+ Anschluessen.
+        TextView lblAddPh = new TextView(this);
+        lblAddPh.setText("📞 Weitere Nummern");
+        lblAddPh.setPadding(0, pad, 0, pad / 4);
+        lblAddPh.setTextSize(12);
+        layout.addView(lblAddPh);
+        final LinearLayout addPhBox = new LinearLayout(this);
+        addPhBox.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(addPhBox);
+        final java.util.List<EditText> _addPhFields = new java.util.ArrayList<>();
+        final Runnable[] _addRowRef = { null };
+        _addRowRef[0] = () -> {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            EditText et = new EditText(this);
+            et.setHint("Weitere Nummer");
+            et.setInputType(InputType.TYPE_CLASS_PHONE);
+            LinearLayout.LayoutParams etLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 4f);
+            et.setLayoutParams(etLp);
+            row.addView(et);
+            android.widget.Button btnDel = new android.widget.Button(this);
+            btnDel.setText("✗");
+            btnDel.setAllCaps(false);
+            LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            btnDel.setLayoutParams(delLp);
+            btnDel.setOnClickListener(_v -> {
+                _addPhFields.remove(et);
+                addPhBox.removeView(row);
+            });
+            row.addView(btnDel);
+            addPhBox.addView(row);
+            _addPhFields.add(et);
+        };
+        for (String _ap : e.additionalPhones) {
+            _addRowRef[0].run();
+            _addPhFields.get(_addPhFields.size() - 1).setText(_ap);
+        }
+        android.widget.Button btnAddPh = new android.widget.Button(this);
+        btnAddPh.setText("+ Weitere Nummer hinzufuegen");
+        btnAddPh.setAllCaps(false);
+        btnAddPh.setTextSize(12);
+        btnAddPh.setBackgroundColor(0xFFE0E7FF);
+        btnAddPh.setTextColor(0xFF3730A3);
+        btnAddPh.setOnClickListener(_v -> _addRowRef[0].run());
+        layout.addView(btnAddPh);
+
         EditText etEmail = new EditText(this);
         etEmail.setHint("Email (optional)");
         etEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         etEmail.setText(e.email != null ? e.email : "");
+        LinearLayout.LayoutParams emLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        emLp.setMargins(0, pad, 0, 0);
+        etEmail.setLayoutParams(emLp);
         layout.addView(etEmail);
 
         final double[] addrCoords = {
@@ -1835,44 +1983,40 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvAddr.setOnClickListener(_v -> launchPlaces(tvAddr, addrCoords));
         layout.addView(tvAddr);
 
-        // v6.62.385: Patrick (06.05. 19:44): "Kundenart soll auswaehlbar sein, nicht
-        // tippen-zum-wechseln". 4 sichtbare Toggle-Buttons als RadioGroup-Ersatz.
-        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
-        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenheit", "🏨 Hotel", "🏢 Firma" };
-        final int[] kindIdx = { Math.max(0, Arrays.asList(kinds).indexOf(e.customerKind != null ? e.customerKind : "Stammkunde")) };
-        TextView lblKind = new TextView(this);
-        lblKind.setText("👥 Kundenart");
-        lblKind.setPadding(0, pad, 0, pad / 4);
-        lblKind.setTextSize(12);
-        layout.addView(lblKind);
-
-        LinearLayout kindRow = new LinearLayout(this);
-        kindRow.setOrientation(LinearLayout.HORIZONTAL);
-        final android.widget.Button[] kindBtns = new android.widget.Button[kinds.length];
-        Runnable refreshKind = () -> {
-            for (int i = 0; i < kindBtns.length; i++) {
-                boolean sel = (i == kindIdx[0]);
-                kindBtns[i].setBackgroundColor(sel ? 0xFF10B981 : 0xFFE2E8F0);
-                kindBtns[i].setTextColor(sel ? 0xFFFFFFFF : 0xFF1E293B);
+        // 🆕 v6.62.544: Bevorzugte Zahlungsart (Web-CRM-Schema: preferredPayment)
+        TextView lblPay = new TextView(this);
+        lblPay.setText("💰 Bevorzugte Zahlungsart");
+        lblPay.setPadding(0, pad, 0, pad / 4);
+        lblPay.setTextSize(12);
+        layout.addView(lblPay);
+        final String[] _pays = { "—", "bar", "ec", "rechnung", "kreditkarte", "ueberweisung" };
+        final String[] _payLabels = { "—", "💵 Bar", "💳 EC", "📄 Rechnung", "💳 Kreditkarte", "🏦 Ueberweisung" };
+        final android.widget.Spinner spPay = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> _payAd = new android.widget.ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_item, _payLabels);
+        _payAd.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spPay.setAdapter(_payAd);
+        spPay.setSelection(0);
+        if (e.preferredPayment != null && !e.preferredPayment.trim().isEmpty()) {
+            for (int _pi = 0; _pi < _pays.length; _pi++) {
+                if (_pays[_pi].equalsIgnoreCase(e.preferredPayment.trim())) { spPay.setSelection(_pi); break; }
             }
-        };
-        for (int i = 0; i < kinds.length; i++) {
-            final int idx = i;
-            android.widget.Button b = new android.widget.Button(this);
-            b.setText(kindLabels[i]);
-            b.setTextSize(11);
-            b.setAllCaps(false);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(pad / 8, 0, pad / 8, 0);
-            b.setLayoutParams(lp);
-            b.setMinimumWidth(0);
-            b.setPadding(pad / 4, pad / 3, pad / 4, pad / 3);
-            b.setOnClickListener(_v -> { kindIdx[0] = idx; refreshKind.run(); });
-            kindBtns[i] = b;
-            kindRow.addView(b);
         }
-        refreshKind.run();
-        layout.addView(kindRow);
+        layout.addView(spPay);
+
+        // 🆕 v6.62.544: Notizen (Web-CRM-Schema: notes)
+        TextView lblNotes = new TextView(this);
+        lblNotes.setText("📝 Notizen (interne Bemerkungen)");
+        lblNotes.setPadding(0, pad, 0, pad / 4);
+        lblNotes.setTextSize(12);
+        layout.addView(lblNotes);
+        EditText etNotes = new EditText(this);
+        etNotes.setHint("z.B. 'Bevorzugt Tesla', 'nur barzahlen', 'Allergie auf...'");
+        etNotes.setMinLines(2);
+        etNotes.setMaxLines(5);
+        etNotes.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        etNotes.setText(e.notes != null ? e.notes : "");
+        layout.addView(etNotes);
 
         String dialogTitle = isNew
             ? "➕ Neuen Kunden anlegen"
@@ -1882,35 +2026,54 @@ public class CrmSearchActivity extends AppCompatActivity {
             .setView(scroll)
             .setPositiveButton(isNew ? "Anlegen" : "Speichern", (d, w) -> {
                 // 🔧 v6.62.431: getrennte Felder Nachname (Pflicht) + Vorname (optional) + Anrede
+                // 🆕 v6.62.544: Bei Hotel/Firma ist nur ein Name-Feld da (firstName ausgeblendet).
                 String _lastName = etLastName.getText().toString().trim();
                 String _firstName = etFirstName.getText().toString().trim();
+                String _kindSel = kinds[kindIdx[0]];
+                boolean _isOrgKind = "Hotel".equals(_kindSel) || "Firma".equals(_kindSel);
                 if (_lastName.isEmpty()) {
-                    Toast.makeText(this, "Nachname Pflicht", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, _isOrgKind ? (_kindSel + "name Pflicht") : "Nachname Pflicht", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                String name = (_firstName.isEmpty() ? _lastName : _firstName + " " + _lastName);
+                // Bei Hotel/Firma: ganzer Name = lastName-Feld, kein Vorname
+                String name = _isOrgKind ? _lastName : (_firstName.isEmpty() ? _lastName : _firstName + " " + _lastName);
                 int _salPos = spSal.getSelectedItemPosition();
                 String _salutation = _salPos > 0 ? _saluts[_salPos] : "";
                 String phone = etPhone.getText().toString().trim();
+                String phone2 = etPhone2.getText().toString().trim();
                 String mobile = etMobile.getText().toString().trim();
                 String email = etEmail.getText().toString().trim();
+                String notes = etNotes.getText().toString().trim();
+                int _payPos = spPay.getSelectedItemPosition();
+                String _preferredPayment = _payPos > 0 ? _pays[_payPos] : "";
+                // additionalPhones aus den dynamischen Edit-Feldern lesen
+                java.util.List<String> _additionalPhones = new java.util.ArrayList<>();
+                for (EditText _ape : _addPhFields) {
+                    String _v = _ape.getText().toString().trim();
+                    if (!_v.isEmpty()) _additionalPhones.add(_v);
+                }
                 // v6.62.384: Mindestens EINE Telefonnummer ist Pflicht — sonst kann der
                 // Kunde weder angerufen noch via SMS erreicht werden.
-                if (isNew && phone.isEmpty() && mobile.isEmpty()) {
-                    Toast.makeText(this, "Mindestens Mobil- oder Festnetznummer angeben", Toast.LENGTH_LONG).show();
+                if (isNew && phone.isEmpty() && mobile.isEmpty() && phone2.isEmpty() && _additionalPhones.isEmpty()) {
+                    Toast.makeText(this, "Mindestens eine Telefonnummer angeben", Toast.LENGTH_LONG).show();
                     return;
                 }
                 Map<String, Object> upd = new HashMap<>();
                 upd.put("name", name);
-                if (!_firstName.isEmpty()) upd.put("firstName", _firstName);
+                if (!_isOrgKind && !_firstName.isEmpty()) upd.put("firstName", _firstName);
+                else if (_isOrgKind) upd.put("firstName", null);
                 upd.put("lastName", _lastName);
                 if (!_salutation.isEmpty()) {
                     upd.put("salutation", _salutation);
                     upd.put("anrede", _salutation);
                 }
-                if (!phone.isEmpty()) upd.put("phone", phone);
-                if (!mobile.isEmpty()) upd.put("mobilePhone", mobile);
+                upd.put("phone", phone);
+                upd.put("phone2", phone2);
+                upd.put("mobilePhone", mobile);
                 if (!email.isEmpty()) upd.put("email", email);
+                upd.put("notes", notes);
+                upd.put("preferredPayment", _preferredPayment);
+                upd.put("additionalPhones", _additionalPhones);
                 String addr = tvAddr.getText().toString().replaceFirst("^📍 ", "").trim();
                 if (!addr.isEmpty() && !addr.endsWith("wählen…")) {
                     upd.put("address", addr);
@@ -1919,11 +2082,16 @@ public class CrmSearchActivity extends AppCompatActivity {
                         upd.put("addressLon", addrCoords[1]);
                     }
                 }
-                upd.put("customerKind", kinds[kindIdx[0]]);
+                upd.put("customerKind", _kindSel);
+                // 🆕 v6.62.544: type folgt aus Kundenart — Hotel/Firma → "supplier" (Web-Schema),
+                // sonst "customer". Hotel-Erkennung in Booking-Flow + Calendar-Sync funktioniert
+                // ueber type=supplier + category=hotel.
+                upd.put("type", _isOrgKind ? "supplier" : "customer");
+                if ("Hotel".equals(_kindSel)) upd.put("category", "hotel");
+                else if ("Firma".equals(_kindSel)) upd.put("category", "firma");
                 upd.put("updatedAt", System.currentTimeMillis());
                 upd.put("updatedVia", "native_crm_search");
                 if (isNew) {
-                    upd.put("type", "customer");
                     upd.put("createdAt", System.currentTimeMillis());
                     upd.put("createdVia", "native_crm_search");
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
@@ -1961,6 +2129,9 @@ public class CrmSearchActivity extends AppCompatActivity {
 
     static class CrmEntry {
         String id, name, phone, phone2, mobilePhone, email, address, customerKind;
+        // 🆕 v6.62.544: anrede + notes + preferredPayment fuer Anlegen-Form
+        String anrede, notes, preferredPayment, type;
+        String firstName, lastName;
         // 🆕 v6.62.543: Patrick (10.05.): "Steigenberger hat 3 Festnetznummern,
         // sind auch im regulären CRM so hinterlegt, aber hier in der Native-App
         // im CRM ist es nicht hinterlegt. Deswegen erkennt er jetzt Steigenberger
@@ -1979,6 +2150,14 @@ public class CrmSearchActivity extends AppCompatActivity {
                 e.email = s.child("email").getValue(String.class);
                 e.address = s.child("address").getValue(String.class);
                 e.customerKind = s.child("customerKind").getValue(String.class);
+                // 🆕 v6.62.544: anrede + notes + preferredPayment + type/firstName/lastName
+                e.anrede = s.child("anrede").getValue(String.class);
+                if (e.anrede == null) e.anrede = s.child("salutation").getValue(String.class);
+                e.notes = s.child("notes").getValue(String.class);
+                e.preferredPayment = s.child("preferredPayment").getValue(String.class);
+                e.type = s.child("type").getValue(String.class);
+                e.firstName = s.child("firstName").getValue(String.class);
+                e.lastName = s.child("lastName").getValue(String.class);
                 // additionalPhones: kann String-Array oder Object-Map (Firebase)
                 DataSnapshot apSnap = s.child("additionalPhones");
                 if (apSnap.exists()) {

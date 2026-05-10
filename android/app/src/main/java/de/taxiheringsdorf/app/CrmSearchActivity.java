@@ -426,7 +426,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         } else {
             for (CrmEntry e : all) {
                 String n = (e.name != null ? e.name : "").toLowerCase(Locale.GERMANY);
-                String p = ((e.phone != null ? e.phone : "") + (e.mobilePhone != null ? e.mobilePhone : "")).toLowerCase();
+                // 🆕 v6.62.543: Suche jetzt ueber ALLE Telefon-Felder
+                // (phone + phone2 + mobile + additionalPhones), nicht nur phone+mobile.
+                String p = e.allPhonesConcat().toLowerCase();
                 if (n.contains(qLow) || p.contains(qLow)) filtered.add(e);
                 if (filtered.size() >= 100) break;
             }
@@ -1958,7 +1960,13 @@ public class CrmSearchActivity extends AppCompatActivity {
     }
 
     static class CrmEntry {
-        String id, name, phone, mobilePhone, email, address, customerKind;
+        String id, name, phone, phone2, mobilePhone, email, address, customerKind;
+        // 🆕 v6.62.543: Patrick (10.05.): "Steigenberger hat 3 Festnetznummern,
+        // sind auch im regulären CRM so hinterlegt, aber hier in der Native-App
+        // im CRM ist es nicht hinterlegt. Deswegen erkennt er jetzt Steigenberger
+        // nicht." Web-CRM-Schema kennt phone (1.), phone2 (2.) und additionalPhones
+        // (Array, 3.+). Native las nur phone+mobilePhone → 2.+ unsichtbar.
+        java.util.List<String> additionalPhones = new java.util.ArrayList<>();
         Double lat, lon;
         static CrmEntry fromSnap(DataSnapshot s) {
             try {
@@ -1966,16 +1974,34 @@ public class CrmSearchActivity extends AppCompatActivity {
                 e.id = s.getKey();
                 e.name = s.child("name").getValue(String.class);
                 e.phone = s.child("phone").getValue(String.class);
+                e.phone2 = s.child("phone2").getValue(String.class);
                 e.mobilePhone = s.child("mobilePhone").getValue(String.class);
                 e.email = s.child("email").getValue(String.class);
                 e.address = s.child("address").getValue(String.class);
                 e.customerKind = s.child("customerKind").getValue(String.class);
+                // additionalPhones: kann String-Array oder Object-Map (Firebase)
+                DataSnapshot apSnap = s.child("additionalPhones");
+                if (apSnap.exists()) {
+                    for (DataSnapshot c : apSnap.getChildren()) {
+                        String v = c.getValue(String.class);
+                        if (v != null && !v.trim().isEmpty()) e.additionalPhones.add(v.trim());
+                    }
+                }
                 Object lat = s.child("addressLat").getValue();
                 if (lat instanceof Number) e.lat = ((Number) lat).doubleValue();
                 Object lon = s.child("addressLon").getValue();
                 if (lon instanceof Number) e.lon = ((Number) lon).doubleValue();
                 return e;
             } catch (Throwable _t) { return null; }
+        }
+        // v6.62.543: Alle Telefon-Felder als String, fuer Filter/Suche.
+        String allPhonesConcat() {
+            StringBuilder sb = new StringBuilder();
+            if (phone != null) sb.append(phone).append(' ');
+            if (phone2 != null) sb.append(phone2).append(' ');
+            if (mobilePhone != null) sb.append(mobilePhone).append(' ');
+            for (String ap : additionalPhones) sb.append(ap).append(' ');
+            return sb.toString();
         }
     }
 
@@ -2009,9 +2035,20 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // v6.62.222: Empty-String ignorieren (Hasbargen hatte phone="" → vorher
                 // wurde "📞 " mit leerem Wert angezeigt → sah aus als wäre keine Nummer da).
                 boolean hasPhone = e.phone != null && !e.phone.trim().isEmpty();
+                boolean hasPhone2 = e.phone2 != null && !e.phone2.trim().isEmpty();
                 boolean hasMobile = e.mobilePhone != null && !e.mobilePhone.trim().isEmpty();
                 if (hasPhone) sub += "📞 " + e.phone;
-                if (hasMobile && !e.mobilePhone.equals(e.phone)) sub += (hasPhone ? "  " : "") + "📱 " + e.mobilePhone;
+                // 🆕 v6.62.543: phone2 + additionalPhones im Listen-Item zeigen
+                // damit Patrick sieht dass Steigenberger seine 3 Festnetznummern hat.
+                if (hasPhone2 && !e.phone2.equals(e.phone)) sub += (sub.isEmpty() ? "" : "  ") + "📞 " + e.phone2;
+                if (hasMobile && !e.mobilePhone.equals(e.phone)) sub += (sub.isEmpty() ? "" : "  ") + "📱 " + e.mobilePhone;
+                if (!e.additionalPhones.isEmpty()) {
+                    for (String ap : e.additionalPhones) {
+                        if (ap == null || ap.trim().isEmpty()) continue;
+                        if (ap.equals(e.phone) || ap.equals(e.phone2) || ap.equals(e.mobilePhone)) continue;
+                        sub += (sub.isEmpty() ? "" : "  ") + "📞 " + ap;
+                    }
+                }
                 if (e.address != null && !e.address.isEmpty()) {
                     String addrLabel = (e.lat != null && e.lon != null) ? "📍 " : "📍❓ ";
                     sub += (sub.isEmpty() ? "" : "\n") + addrLabel + e.address;

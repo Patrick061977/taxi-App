@@ -17420,6 +17420,19 @@ exports.autoResolveConflicts = onSchedule(
                     const altPrioPenalty = getEffectivePrioMalus(vehicleId, ride.pickupTimestamp);
                     const altScore = altResult.durationMin + altPrioPenalty + altLoadPenalty;
 
+                    // 🐛 v6.62.579: Patrick (10.05. 18:51): Optimierung-Spam — Phase 2 wechselt
+                    //   IK→Tesla (39 Min besser), Phase 3 wechselt sofort Tesla→IK zurueck
+                    //   (P0 statt P5). Beide Logiken im Konflikt: Phase 2 = Score-Optimierung,
+                    //   Phase 3 = strikte Override-Reihenfolge. Phase 3 gewinnt → Phase 2's
+                    //   Wechsel wird sofort revertiert + 4 Push-Nachrichten Spam.
+                    //   Fix: Phase 2 darf nur wechseln wenn altPrioPenalty <= currentPrioPenalty
+                    //   (= altVid hat gleiche oder hoehere Prio als currVid). Sonst Phase 3
+                    //   revertiert sofort → Skip.
+                    if (altPrioPenalty > currentPrioPenalty) {
+                        candidateDebug.push(`  ${vName}: ⏭️ niedrigere Prio (Override ${altPrioPenalty} > ${currentPrioPenalty}) — Phase 3 wuerde reverten, skip`);
+                        continue;
+                    }
+
                     candidateDebug.push(`  ${vName}: Leerfahrt ${altResult.durationMin}min (${altResult.method}) + Prio ${altPrioPenalty} + Last ${altLoadPenalty} = Score ${Math.round(altScore)} ${altScore < bestScore ? '✅ BESSER' : '⬜ schlechter'}`);
 
                     if (altScore < bestScore) {

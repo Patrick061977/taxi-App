@@ -36,6 +36,13 @@ on:
       - 'advanced-logger.js'
       - 'firebase-remote-logger.js'
       - 'google*.html'
+      # 🆕 v6.62.552: SEO-Landingpages pro Leistung (Patrick)
+      - 'flughafen-heringsdorf.html'
+      - 'bahnhofstransfer.html'
+      - 'krankenfahrten.html'
+      - 'inselfahrten.html'
+      - 'grossraumtaxi.html'
+      - 'pauschalpreise-swinoujscie.html'
       - 'strato/**'
 
   workflow_dispatch:

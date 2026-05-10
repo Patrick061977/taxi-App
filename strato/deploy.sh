@@ -79,6 +79,14 @@ APP_FILES=(
     "googleb29a71be78bd0c12.html"
 )
 
+# 🆕 v6.62.552: Service-SEO-Pages (Patrick — eigene Landingpages pro Leistung).
+# Liegen direkt unter /Taxi-App/ (= umwelt-taxi-insel-usedom.de Root), dienen als
+# statische Landingpages mit eigenen Metas/JSON-LD pro Leistung.
+SEO_PAGES=(
+    "flughafen-heringsdorf.html"
+)
+APP_FILES=("${APP_FILES[@]}" "${SEO_PAGES[@]}")
+
 for file in "${APP_FILES[@]}"; do
     if [ -f "$PROJECT_ROOT/$file" ]; then
         cp "$PROJECT_ROOT/$file" "$OUTPUT_DIR/Taxi-App/$file"

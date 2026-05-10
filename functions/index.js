@@ -22172,7 +22172,11 @@ exports.scheduledLateCheck = onSchedule(
                     const _customerNotifyThreshold = (typeof settings.customerNotifyThresholdMin === 'number')
                         ? settings.customerNotifyThresholdMin : 10;
                     const _customerSmsEnabled = settings.customerSmsEnabled !== false;
-                    if (_customerSmsEnabled && Math.round(delayMin) >= _customerNotifyThreshold && !ride.lateCustomerNotifiedAt) {
+                    // 🆕 v6.62.570: Per-Ride-Toggle (Patrick 10.05. 15:46): "SMS verschicken
+                    // muesste man auch anwaehlen koennen". Default true wenn nicht gesetzt;
+                    // explicitly false → kein SMS.
+                    const _rideSmsAllowed = ride.notifyLateSms !== false;
+                    if (_customerSmsEnabled && _rideSmsAllowed && Math.round(delayMin) >= _customerNotifyThreshold && !ride.lateCustomerNotifiedAt) {
                         const _custPhone = ride.customerMobile || ride.customerPhone;
                         if (_custPhone && /[0-9]/.test(_custPhone)) {
                             const _customerName = (ride.customerName || '').split(' ').pop() || '';

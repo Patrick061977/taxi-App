@@ -756,7 +756,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                 _template.remove("cancelReason");
                 _template.remove("invoiceNumber");
                 _template.remove("paymentMethod");
-                _template.remove("price"); // wird neu berechnet
+                // 🆕 v6.62.546: Patrick (10.05.): "wir können den Preis nicht eintragen
+                // oder verändern, dass wir als Vorlage schon den Festpreis eintragen
+                // können. Sonst Stammfahrten dass ich die einfach bloss dupliziere und
+                // der Preis übernommen wird." → price BLEIBT als Default im Template,
+                // wird in der Maske vorbefuellt + ist editierbar. Kein remove mehr.
                 _template.remove("editedAt");
                 _template.remove("editedVia");
                 _template.remove("source"); // wird auf 'native_vorbestellung_crmsearch' gesetzt
@@ -1355,6 +1359,87 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         layout.addView(etNotes);
 
+        // ═══ 🆕 v6.62.546: PREIS-FELD + FESTPREIS-AUTO-ANWENDUNG ═══
+        // Patrick (10.05.): Festpreise sollen automatisch eingetragen werden wenn
+        // pickup+dest mit hinterlegter Strecke matchen. Plus manueller Override
+        // (Duplizieren-Flow: alter Preis vorbelegt, editierbar).
+        TextView lblPrice = new TextView(this);
+        lblPrice.setText("💰 Preis (leer = automatisch berechnen)");
+        lblPrice.setTextSize(13);
+        lblPrice.setTextColor(0xFF374151);
+        lblPrice.setPadding(0, pad, 0, padHalf);
+        layout.addView(lblPrice);
+
+        final TextView tvFpBadge = new TextView(this);
+        tvFpBadge.setTextSize(12);
+        tvFpBadge.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvFpBadge.setPadding(pad / 2, pad / 4, pad / 2, pad / 4);
+        tvFpBadge.setVisibility(View.GONE);
+        layout.addView(tvFpBadge);
+
+        final EditText etPrice = new EditText(this);
+        etPrice.setHint("z.B. 12.50 (leer = OSRM-Tarifberechnung)");
+        etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        // Vorbelegung im Edit/Template-Modus
+        if (hasTemplate && editRide != null && editRide.get("price") != null) {
+            Object _p = editRide.get("price");
+            if (_p instanceof Number) etPrice.setText(String.format(Locale.GERMANY, "%.2f", ((Number)_p).doubleValue()));
+            else if (_p != null) etPrice.setText(String.valueOf(_p));
+        }
+        layout.addView(etPrice);
+
+        // Match-Logik: Festpreis-Suche wenn Coords aktualisiert werden
+        final Runnable[] _checkFestpreis = { null };
+        _checkFestpreis[0] = () -> {
+            if (e == null || e.fixedRoutes == null || e.fixedRoutes.isEmpty()) return;
+            if (Double.isNaN(pickupCoords[0]) || Double.isNaN(destCoords[0])) return;
+            // Match: 200m-Toleranz auf BEIDEN Enden (Haversine)
+            for (Map<String, Object> fr : e.fixedRoutes) {
+                if (fr == null) continue;
+                Object _fLat = fr.get("fromLat"), _fLon = fr.get("fromLon");
+                Object _tLat = fr.get("toLat"), _tLon = fr.get("toLon");
+                if (!(_fLat instanceof Number) || !(_fLon instanceof Number)) continue;
+                if (!(_tLat instanceof Number) || !(_tLon instanceof Number)) continue;
+                double frLat = ((Number)_fLat).doubleValue(), frLon = ((Number)_fLon).doubleValue();
+                double toLat = ((Number)_tLat).doubleValue(), toLon = ((Number)_tLon).doubleValue();
+                double d1 = haversineMeters(pickupCoords[0], pickupCoords[1], frLat, frLon);
+                double d2 = haversineMeters(destCoords[0], destCoords[1], toLat, toLon);
+                if (d1 <= 200 && d2 <= 200) {
+                    Object _pr = fr.get("price");
+                    double price = (_pr instanceof Number) ? ((Number)_pr).doubleValue() : 0;
+                    String name = String.valueOf(fr.getOrDefault("name", ""));
+                    tvFpBadge.setVisibility(View.VISIBLE);
+                    tvFpBadge.setBackgroundColor(0xFFFEF3C7);
+                    tvFpBadge.setTextColor(0xFF92400E);
+                    tvFpBadge.setText("💰 FESTPREIS aktiv: " + (name.isEmpty() ? "Strecken-Pauschale" : name) + " — " + String.format(Locale.GERMANY, "%.2f", price) + " €");
+                    // Nur ueberschreiben wenn etPrice leer ODER Festpreis-Match seit letztem Mal anders
+                    if (etPrice.getText().toString().trim().isEmpty()) {
+                        etPrice.setText(String.format(Locale.GERMANY, "%.2f", price));
+                    }
+                    return;
+                }
+            }
+            // Kein Match → Badge wieder verstecken
+            tvFpBadge.setVisibility(View.GONE);
+        };
+        // Trigger nach Picker-Returns: launchPlaces schreibt erst setText(addr) und
+        // DANACH die Coords. TextWatcher feuert SYNCHRON im setText → Coords sind dann
+        // noch NaN. Daher posten wir den Check mit 150ms Delay damit Coords gesetzt
+        // sind. Funktioniert fuer alle Picker-Returns (pickup, dest, sowie Manual-Geocode).
+        final android.os.Handler _fpHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable _fpDelayed = () -> _checkFestpreis[0].run();
+        android.text.TextWatcher _fpWatcher = new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                _fpHandler.removeCallbacks(_fpDelayed);
+                _fpHandler.postDelayed(_fpDelayed, 150);
+            }
+        };
+        tvPickup.addTextChangedListener(_fpWatcher);
+        tvDest.addTextChangedListener(_fpWatcher);
+        _checkFestpreis[0].run();
+
         // 🔧 v6.62.479: Patrick (08.05. 12:48): Speichern + Abbrechen sollen GROSS auf der
         //   Karte sein, nicht klein darunter. Buttons direkt ins Layout statt AlertDialog-Buttons.
         LinearLayout btnRow = new LinearLayout(this);
@@ -1498,6 +1583,23 @@ public class CrmSearchActivity extends AppCompatActivity {
                 String _notes = etNotes.getText().toString().trim();
                 if (!_notes.isEmpty()) r.put("notes", _notes);
                 else r.put("notes", null); // im Edit-Modus muss leer auch persistieren
+
+                // 🆕 v6.62.546: Manueller Preis (Festpreis-Match oder Duplizieren-Override).
+                // Wenn etPrice gefuellt ist → wird in Firebase als 'price' gesetzt + isFixedPrice
+                // Flag markiert; Cloud-Function ueberschreibt den nicht. Leer = OSRM-Tarif.
+                String _priceStr = etPrice.getText().toString().trim().replace(',', '.');
+                if (!_priceStr.isEmpty()) {
+                    try {
+                        double _pVal = Double.parseDouble(_priceStr);
+                        if (_pVal > 0) {
+                            r.put("price", _pVal);
+                            // Festpreis-Flag NUR wenn Badge sichtbar (also Match war erfolgreich).
+                            // Sonst ist's ein manueller Preis (z.B. Duplizieren-Override).
+                            r.put("priceSource", tvFpBadge.getVisibility() == View.VISIBLE ? "fixedRoute" : "manual");
+                            if (tvFpBadge.getVisibility() == View.VISIBLE) r.put("isFixedPrice", true);
+                        }
+                    } catch (Exception _ig) { /* Preis-Parse-Fehler: ignorieren, Backend rechnet */ }
+                }
 
                 // 🆕 v6.62.507: Patrick (08.05. 17:47): "fahrt wird angelegt → bestätigung →
                 //   ok drücken → wird nochmal angelegt". Defensive Safety-Flag zusätzlich
@@ -1703,6 +1805,18 @@ public class CrmSearchActivity extends AppCompatActivity {
     private void openCreateDialog() {
         CrmEntry empty = new CrmEntry();
         openEditDialog(empty);
+    }
+
+    // 🆕 v6.62.546: Haversine-Distanz in Metern fuer Festpreis-Match-Toleranz (200m).
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        if (Double.isNaN(lat1) || Double.isNaN(lon1) || Double.isNaN(lat2) || Double.isNaN(lon2)) return Double.MAX_VALUE;
+        final double R = 6371000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     // 🆕 v6.62.545: Modal zum Hinzufuegen/Bearbeiten eines einzelnen Festpreises.

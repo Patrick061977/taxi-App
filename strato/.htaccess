@@ -26,3 +26,13 @@ RewriteRule ^(.*)$ /taschenlokal-de/$1 [L]
 RewriteCond %{HTTP_HOST} ^(www\.)?strandurlaub-heringsdorf\.de$ [NC]
 RewriteCond %{REQUEST_URI} !^/strandurlaub-heringsdorf-de/
 RewriteRule ^(.*)$ /strandurlaub-heringsdorf-de/$1 [L]
+
+# v6.62.613: keinbockzulaufen.de -> Taxi-App (merkbare Marketing-Domain).
+# Patrick (11.05.): "Auto vorbeifahrt sieht Aufkleber, kann sich keinbockzulaufen.de
+# leichter merken als umwelt-taxi-insel-usedom.de".
+# Aktivierung: Patrick muss bei Strato die Domain bestellen + auf den Webspace
+# routen. Sobald das passiert ist, leitet dieser Rewrite alle Requests auf
+# landing.html (= /Taxi-App/landing.html via index.php-Fallback).
+RewriteCond %{HTTP_HOST} ^(www\.)?keinbockzulaufen\.de$ [NC]
+RewriteCond %{REQUEST_URI} !^/Taxi-App/
+RewriteRule ^(.*)$ /Taxi-App/landing.html [L]

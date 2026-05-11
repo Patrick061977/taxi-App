@@ -3527,7 +3527,12 @@
                             const freeH = _freeDate.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
                             const diffMin = Math.round((best.ts - ts) / 60000);
                             if (diffMin < 60 * 8) {
-                                nextFreeMsg = `<br><br>🕐 <strong>Naechste passende Zeit: ${freeH} Uhr</strong> (in ~${diffMin} Min, mit Ihrer Strecke ${Math.round(_newDurForSlot/60000)} Min) · ${earliestPerVehicle.length} Fahrzeug${earliestPerVehicle.length>1?'e':''} im Dienst`;
+                                // 🆕 v6.62.625: Patrick (11.05. 18:18): "wo kann der Kunde das denn jetzt
+                                //   auswaehlen, dass er sagt OK, ich nehm die Fahrt?"
+                                //   Button "Auf XX:XX umstellen" — switcht zu Vorbestellen + setzt Zeit.
+                                const _dateStrFree = _freeDate.toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+                                const _timeStrFree = _freeDate.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                                nextFreeMsg = `<br><br>🕐 <strong>Naechste passende Zeit: ${freeH} Uhr</strong> (in ~${diffMin} Min, mit Ihrer Strecke ${Math.round(_newDurForSlot/60000)} Min) · ${earliestPerVehicle.length} Fahrzeug${earliestPerVehicle.length>1?'e':''} im Dienst<br><br><button onclick="(function(){ if (typeof setWann==='function') setWann('vorbestellen'); const _d=document.getElementById('b-date'); const _t=document.getElementById('b-time'); if(_d) _d.value='${_dateStrFree}'; if(_t){ _t.value='${_timeStrFree}'; _t.dataset.userTouched='1'; } if (typeof onDateTimeChange==='function') onDateTimeChange(); })()" style="display:inline-block;padding:12px 20px;background:#059669;color:white;border-radius:10px;font-weight:700;border:none;cursor:pointer;font-size:15px;">📅 Auf ${freeH} Uhr verschieben</button>`;
                             } else {
                                 nextFreeMsg = '<br><br>🕐 Heute keine passende Luecke fuer Ihre Strecke — bitte anrufen.';
                             }
@@ -3546,14 +3551,25 @@
                     //   frei ab 21:57". Status-bar an die Card-Aussage angleichen wenn alle
                     //   Wagen blockiert sind — sonst widerspruechliche Anzeige.
                     try {
+                        // 🆕 v6.62.625: Status-bar nutzt jetzt earliestPerVehicle[0].ts (Slot-Walk-
+                        //   Resultat) statt nur rideEndTimes[0]. Patrick (11.05. 18:18): "oben steht
+                        //   sofort in 5 Min — passt nicht zur Card-Anzeige 18:58".
                         const _statusBar = document.getElementById('status-bar');
-                        if (_statusBar && rideEndTimes.length > 0) {
-                            const _earliest = new Date(Math.min(...rideEndTimes));
-                            const _h = _earliest.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-                            _statusBar.className = 'status-bar';
-                            _statusBar.style.background = '#fef3c7';
-                            _statusBar.style.color = '#92400e';
-                            _statusBar.textContent = `🔴 Aktuell kein Wagen frei · nächstes Taxi voraussichtlich ab ${_h} Uhr`;
+                        if (_statusBar) {
+                            let _bestTs = null;
+                            if (typeof earliestPerVehicle !== 'undefined' && earliestPerVehicle.length > 0) {
+                                _bestTs = earliestPerVehicle[0].ts;
+                            } else if (rideEndTimes.length > 0) {
+                                _bestTs = Math.min(...rideEndTimes);
+                            }
+                            if (_bestTs) {
+                                const _earliest = new Date(_bestTs);
+                                const _h = _earliest.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                                _statusBar.className = 'status-bar';
+                                _statusBar.style.background = '#fef3c7';
+                                _statusBar.style.color = '#92400e';
+                                _statusBar.textContent = `🔴 Aktuell kein passender Slot · naechste freie Zeit ${_h} Uhr`;
+                            }
                         }
                     } catch (_eSync) { /* still */ }
                     updateBookButton();

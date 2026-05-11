@@ -618,6 +618,63 @@ public class DriverDashboardActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
                 logEtaDebug(rideId, "fetch-error", fromLat, fromLon, e.getMessage());
+                // 🆕 v6.62.607: Haversine-Fallback wenn OSRM nicht antwortet.
+                // Patrick (11.05. 12:29): "GPS ist exakt, aber Native zeigt 5 Min obwohl ich
+                // schon da bin. Track-HTML hat das hin, Fahrer-App nicht."
+                // Track-HTML (Kunden-Seite) hat schon laenger ein Haversine-Fallback. Native
+                // ist hinten geblieben. → Bei OSRM-Fehler grobe Live-Distanz aus GPS:
+                //   distKm = haversine(from, to), durationMin = max(1, round(distKm * 1.3 / 40 * 60))
+                try {
+                    double dLat = (toLat - fromLat) * Math.PI / 180.0;
+                    double dLon = (toLon - fromLon) * Math.PI / 180.0;
+                    double a = Math.sin(dLat/2.0)*Math.sin(dLat/2.0) +
+                        Math.cos(fromLat * Math.PI/180.0) * Math.cos(toLat * Math.PI/180.0) *
+                        Math.sin(dLon/2.0) * Math.sin(dLon/2.0);
+                    double distKm = 6371.0 * 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    int durMin = Math.max(1, (int) Math.round(distKm * 1.3 / 40.0 * 60.0));
+                    final double distKmF = Math.round(distKm * 10.0) / 10.0;
+                    final int durMinF = durMin;
+                    final String _modeF = mode;
+                    runOnUiThread(() -> {
+                        boolean changed = false;
+                        for (Ride rr : myAssignedRides) {
+                            if (rr.id != null && rr.id.equals(rideId)) {
+                                if ("destination".equals(_modeF)) {
+                                    if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != durMinF) {
+                                        rr.drivingTimeToDestination = durMinF;
+                                        changed = true;
+                                    }
+                                    if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - distKmF) > 0.05) {
+                                        rr.drivingDistanceToDestKm = distKmF;
+                                        changed = true;
+                                    }
+                                } else {
+                                    if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durMinF) {
+                                        rr.drivingTimeToPickup = durMinF;
+                                        changed = true;
+                                    }
+                                    if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - distKmF) > 0.05) {
+                                        rr.drivingDistanceToPickupKm = distKmF;
+                                        changed = true;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        if (changed && rideAdapter != null) rideAdapter.notifyDataSetChanged();
+                    });
+                    if (db != null) {
+                        String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
+                        String distField = "destination".equals(mode) ? "drivingDistanceToDestKm" : "drivingDistanceToPickupKm";
+                        db.getReference("rides/" + rideId + "/" + field).setValue(durMin);
+                        db.getReference("rides/" + rideId + "/" + distField).setValue(distKmF);
+                        db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
+                        db.getReference("rides/" + rideId + "/liveEtaMethod").setValue("haversine-fallback");
+                    }
+                    Log.i(TAG, "ETA Haversine-Fallback fuer ride " + rideId + ": " + durMin + " Min, " + distKmF + " km");
+                } catch (Throwable _t) {
+                    Log.w(TAG, "Haversine-Fallback ebenfalls fehlgeschlagen: " + _t.getMessage());
+                }
             }
         }, "osrm-eta-" + rideId).start();
     }

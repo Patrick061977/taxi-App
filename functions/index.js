@@ -16719,17 +16719,29 @@ exports.autoResolveConflicts = onSchedule(
             const now = Date.now();
             const allRides = [];
             const unassignedRides = [];
+            // 🐛 v6.62.607: Patrick (11.05.) hat aufgedeckt: Phase 3 Konflikt-Check
+            // verpasste Petrizien-vs-Das-Ahlbeck-Konflikt, weil Petrizien <60 Min
+            // vor Pickup war → nicht in allRides. Konflikt-Check braucht aber ALLE
+            // aktiven zugewiesenen Fahrten, egal Vorlauf. Loesung: separate Liste
+            // allActiveAssignedRides ohne vorlaufMin-Filter, nur fuer Conflict-Detection.
+            const allActiveAssignedRides = [];
             ridesSnap.forEach(c => {
                 const r = { ...c.val(), firebaseId: c.key };
-                if (r.pickupTimestamp &&
-                    r.pickupTimestamp > now + vorlaufMin * 60000 &&
-                    !['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status) &&
-                    !r.assignmentLocked) {
+                if (!r.pickupTimestamp) return;
+                if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return;
+                if (r.assignmentLocked) return;
+                // Fuer allRides (Reassignment-Kandidaten): nur > vorlaufMin in Zukunft
+                if (r.pickupTimestamp > now + vorlaufMin * 60000) {
                     if (r.assignedVehicle) {
                         allRides.push(r);
                     } else {
                         unassignedRides.push(r);
                     }
+                }
+                // Fuer Konflikt-Check (allActiveAssignedRides): jede aktive Zuweisung,
+                // egal ob Pickup in Naehe oder weit in Zukunft. NUR zukuenftige + heute-aktive.
+                if (r.assignedVehicle && r.pickupTimestamp > now - 60 * 60000) {
+                    allActiveAssignedRides.push(r);
                 }
             });
 
@@ -17347,9 +17359,12 @@ exports.autoResolveConflicts = onSchedule(
 
                     // 🔧 v6.39.5: Zeitkonflikt MIT Leerfahrt prüfen (wie Phase 1!)
                     // Nicht nur Überlappung, sondern: schafft der Fahrer es rechtzeitig?
+                    // 🐛 v6.62.607: nutze allActiveAssignedRides statt allRides — sonst
+                    // verpasst der Check Konflikte mit <60-Min-Pickups die aus allRides
+                    // gefiltert sind (Patrick-Befund Das Ahlbeck/Petrizien 11.05.).
                     const rideDurMs = (ride.duration || ride.estimatedDuration || 20) * 60000;
-                    const vehicleRidesForConflict = allRides.filter(r =>
-                        r.assignedVehicle === vehicleId &&
+                    const vehicleRidesForConflict = allActiveAssignedRides.filter(r =>
+                        (r.assignedVehicle === vehicleId || r.vehicleId === vehicleId) &&
                         r.firebaseId !== ride.firebaseId &&
                         r.pickupTimestamp &&
                         !['deleted','cancelled','storniert','completed'].includes(r.status)
@@ -17664,7 +17679,10 @@ exports.autoResolveConflicts = onSchedule(
                 );
                 if (reassignableRides.length > 0) {
                     reassignableRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
-                    const fixedRides = allRides.filter(r => !reassignableRides.find(rr => rr.firebaseId === r.firebaseId));
+                    // 🐛 v6.62.607: Patrick-Befund — fixedRides muss ALLE aktiven Zuweisungen
+                    // umfassen, auch <60 Min Vorlauf. Sonst werden Konflikte mit unmittelbar
+                    // bevorstehenden Fahrten (z.B. Petrizien 57 Min vor Pickup) uebersehen.
+                    const fixedRides = allActiveAssignedRides.filter(r => !reassignableRides.find(rr => rr.firebaseId === r.firebaseId));
                     // 🆕 v6.62.323: Patrick (06.05. 08:04): "Du musst auch immer die Rueckfahrt
                     // mit berechnen, wann er wieder am naechsten Abholort sein kann."
                     // Slot enthaelt jetzt destLat/destLon → spaetere Konfliktpruefung kann

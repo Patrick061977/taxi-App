@@ -47,6 +47,7 @@ APP_FILES=(
     "berlin.html"
     "anfrage.html"
     "kontakt.html"
+    "impressum.html"
     "ausflugsziele.html"
     "track.html"
     "gps-track.html"

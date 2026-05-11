@@ -7,7 +7,7 @@
  */
 
 // 🆕 v6.25.5: Cloud Function Version — wird in Firebase gespeichert für App-Anzeige
-const CLOUD_FUNCTIONS_VERSION = '6.40.25';
+const CLOUD_FUNCTIONS_VERSION = '6.62.625';
 const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -2189,9 +2189,26 @@ async function updateDecisionOutcome(key, outcome, correction = null) {
 }
 
 // 🆕 v6.38.31: Lifecycle-Log pro Fahrt — dokumentiert jeden Schritt
+// 🛑 v6.62.625: Hard-Cap bei 200 Einträgen — verhindert TRIGGER_PAYLOAD_TOO_LARGE.
+// Wenn lifecycleLog > 200: alte 100 löschen bevor neuer Eintrag.
 async function addRideLog(rideId, icon, action, details = null) {
     if (!rideId) return;
     try {
+        const _logRef = db.ref(`rides/${rideId}/lifecycleLog`);
+        const _snap = await _logRef.once('value');
+        const _existing = _snap.val() || {};
+        const _count = Object.keys(_existing).length;
+        if (_count > 200) {
+            // Älteste löschen, neueste 100 behalten
+            const _sorted = Object.entries(_existing)
+                .map(([k, v]) => [k, v && v.t ? v.t : 0])
+                .sort((a, b) => a[1] - b[1]);
+            const _toDelete = _sorted.slice(0, _count - 100).map(e => e[0]);
+            const _updates = {};
+            _toDelete.forEach(k => { _updates[k] = null; });
+            await _logRef.update(_updates);
+            console.warn(`🛑 lifecycleLog Hard-Cap: ${rideId} hatte ${_count} Einträge → ${_toDelete.length} gelöscht`);
+        }
         const entry = {
             t: Date.now(),
             icon,
@@ -2201,7 +2218,7 @@ async function addRideLog(rideId, icon, action, details = null) {
             version: CLOUD_FUNCTIONS_VERSION,
             ...(details ? { details: typeof details === 'string' ? details : JSON.stringify(details).substring(0, 800) } : {})
         };
-        await db.ref(`rides/${rideId}/lifecycleLog`).push(entry);
+        await _logRef.push(entry);
     } catch (e) { /* Log-Fehler ignorieren */ }
 }
 
@@ -20300,6 +20317,25 @@ exports.onRideUpdated = onValueUpdated(
         const before = event.data.before.val();
         const after = event.data.after.val();
         if (!before || !after) return;
+
+        // 🛑 v6.62.625: LOOP-BREAKER — onRideUpdated feuert auf JEDES Kind-Feld inkl. lifecycleLog.
+        // addRideLog pusht in lifecycleLog → triggert onRideUpdated → ggf. neuer addRideLog → ∞.
+        // Beobachtet: Hasbargen/Emina/Werner/Villen-Park mit je 2400+ Log-Einträgen → 1MB Rides
+        // → TRIGGER_PAYLOAD_TOO_LARGE → Erledigt-Button im Native funktioniert nicht mehr.
+        // Fix: Wenn ALLES außer lifecycleLog/optimierungsLog gleich ist → früh return.
+        {
+            const _ignoreKeys = new Set(['lifecycleLog', 'optimierungsLog', 'updatedAt']);
+            const _allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+            let _hasRealChange = false;
+            for (const k of _allKeys) {
+                if (_ignoreKeys.has(k)) continue;
+                if (JSON.stringify(before[k]) !== JSON.stringify(after[k])) {
+                    _hasRealChange = true;
+                    break;
+                }
+            }
+            if (!_hasRealChange) return;
+        }
 
         const oldStatus = before.status;
         const newStatus = after.status;

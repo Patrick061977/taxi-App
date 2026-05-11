@@ -4,6 +4,14 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# v6.62.609: www-Subdomain auf naked Domain umleiten.
+# Patrick (11.05.): Firebase Phone Auth blockt mit "auth/captcha-check-failed:
+# Hostname match not found" wenn Seite von www.umwelt-taxi-insel-usedom.de
+# kommt — nur die naked Domain ist in Firebase Auth "Authorized Domains".
+# Loesung: 301-Redirect www → naked → Firebase-Auth funktioniert IMMER.
+RewriteCond %{HTTP_HOST} ^www\.umwelt-taxi-insel-usedom\.de$ [NC]
+RewriteRule ^(.*)$ https://umwelt-taxi-insel-usedom.de/$1 [L,R=301]
+
 # umwelt-taxi-insel-usedom.de -> /Taxi-App
 RewriteCond %{HTTP_HOST} ^(www\.)?umwelt-taxi-insel-usedom\.de$ [NC]
 RewriteCond %{REQUEST_URI} !^/Taxi-App/

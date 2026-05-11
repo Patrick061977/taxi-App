@@ -4507,6 +4507,17 @@
                 const _code = e.code || 'unknown';
                 const _msg = (e.message || '').substring(0, 200);
                 logBuchen('🔴', 'SMS FEHLER: ' + _code + ' ' + _msg);
+                // 🆕 v6.62.609: reCAPTCHA komplett resetten bei Fehler — sonst kommt der naechste
+                // Versuch mit "reCAPTCHA has already been rendered in this element"-Fehler.
+                // Patrick (11.05. 13:12): 4 Retries hingen alle an genau diesem Folge-Fehler.
+                try {
+                    if (recaptchaVerifier && typeof recaptchaVerifier.clear === 'function') {
+                        recaptchaVerifier.clear();
+                    }
+                } catch(_clearErr) {}
+                recaptchaVerifier = null;
+                const _container = document.getElementById('recaptcha-container');
+                if (_container) _container.innerHTML = '';  // DOM-Reste entfernen
                 // 🆕 v6.62.355: Patrick (06.05. 12:32) "was ist mit dem SMS-Fehler woran liegt das" —
                 // bisher generischer Toast, kein Hinweis auf den echten Fehler. Jetzt: Code +
                 // Diagnose-Hinweis in den Toast, plus Logging des vollen Errors nach Firebase.

@@ -16760,6 +16760,23 @@ exports.autoResolveConflicts = onSchedule(
                             allRides.push(ride);
                         } else {
                             console.log(`   ⚠️ ${ride.customerName || '?'} — kein Fahrzeug verfügbar`);
+                            // 🆕 v6.62.624: Patrick "ich will mich auf das System verlassen koennen".
+                            // Wenn nach 3 Auto-Assign-Anlaeufen kein Fahrzeug gefunden → Wartepool.
+                            // Zaehlt ride.autoAssignAttempts hoch, bei >=3 Status 'wartepool' setzen.
+                            // onRideUpdated triggert dann Telegram-Push an Admins.
+                            try {
+                                const _attemptsNow = (ride.autoAssignAttempts || 0) + 1;
+                                const _upd = {
+                                    autoAssignAttempts: _attemptsNow,
+                                    autoAssignLastFailAt: Date.now()
+                                };
+                                if (_attemptsNow >= 3 && ride.status !== 'wartepool') {
+                                    _upd.status = 'wartepool';
+                                    _upd.wartepoolReason = 'auto-assign-3x-failed';
+                                    _upd.wartepoolAt = Date.now();
+                                }
+                                await db.ref(`rides/${ride.firebaseId}`).update(_upd);
+                            } catch (_e) {}
                         }
                     } catch(e) {
                         console.error(`   ❌ Zuweisung fehlgeschlagen für ${ride.firebaseId}:`, e.message);
@@ -20643,6 +20660,27 @@ exports.onRideUpdated = onValueUpdated(
             }
 
             let message = '';
+            // 🆕 v6.62.624: Wartepool-Trigger — auto-assign hat 3x keinen Wagen gefunden
+            if (newStatus === 'wartepool' && oldStatus !== 'wartepool') {
+                const _pickupHM = after.pickupTimestamp
+                    ? new Date(after.pickupTimestamp).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+                    : '?';
+                const _wartepoolMsg = `🚨 <b>WARTEPOOL — Fahrt braucht manuelle Zuweisung</b>\n\n` +
+                    `🆔 <code>${rideId}</code>\n` +
+                    `👤 <b>Kunde:</b> ${after.customerName || '?'}\n` +
+                    `📱 <b>Tel:</b> ${after.customerPhone || after.customerMobile || '?'}\n` +
+                    `📅 <b>Abholzeit:</b> ${_pickupHM}\n` +
+                    `📍 <b>Von:</b> ${after.pickup || '?'}\n` +
+                    `🎯 <b>Nach:</b> ${after.destination || '?'}\n\n` +
+                    `⚠️ <b>Grund:</b> Auto-Assign hat ${after.autoAssignAttempts || 0}× keinen freien Wagen gefunden.\n` +
+                    `Bitte manuell pruefen + zuweisen oder umplanen.`;
+                try {
+                    await sendToAllAdmins(_wartepoolMsg, 'wartepool');
+                } catch (_e) { console.warn('wartepool sendToAllAdmins error:', _e.message); }
+                try {
+                    await addRideLog(rideId, '🚨', `Wartepool-Status gesetzt nach ${after.autoAssignAttempts || 0} Auto-Assign-Fehlschlaegen`);
+                } catch (_) {}
+            }
             if (newStatus === 'accepted') {
                 message = `✅ <b>FAHRER ZUGEWIESEN!</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +

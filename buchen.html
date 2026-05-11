@@ -3324,6 +3324,11 @@
                 const rideEndTimes = [];
                 const nowTs = Date.now();
                 const _conflictDetails = [];
+                // 🆕 v6.62.622: Patrick (11.05. 17:55): "frei ab 18:27" ist Quatsch wenn um 18:40
+                //   die naechste Fahrt steht und neue Fahrt nach Peenemuende 70 Min dauert.
+                //   Statt nur rideEndTimes der Konflikt-Fahrten brauchen wir ALLE Fahrten des Tages
+                //   um eine Luecke zu finden in die newDur reinpasst.
+                const allTodayRides = [];
 
                 // 🆕 v6.62.573: Patrick (10.05. 17:05): "blockiert 21 Min plus Rueckfahrt
                 //   das interessiert die Leute nicht. Aber rot bis 19 Uhr ist verkehrt,
@@ -3340,6 +3345,7 @@
                     const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                     return Math.max(2, Math.round(distKm * 1.3 / 40 * 60));
                 }
+                const _newDurForSlot = (routeData ? parseInt(routeData.min) : defaultDuration) * 60000;
                 ridesSnap.forEach(child => {
                     const r = child.val();
                     if (!activeStatuses.includes(r.status)) return;
@@ -3348,8 +3354,19 @@
                     const rEndReal = r.pickupTimestamp + rDur;
                     if (rEndReal < nowTs) return;
 
+                    // v6.62.622: ALLE zukuenftigen Fahrten merken — fuer Slot-Walk unten
+                    allTodayRides.push({
+                        start: r.pickupTimestamp,
+                        end: rEndReal + bufferMs,
+                        pickupLat: r.pickupLat || (r.pickupCoords && r.pickupCoords.lat),
+                        pickupLon: r.pickupLon || (r.pickupCoords && r.pickupCoords.lon),
+                        destLat: r.destinationLat || (r.destCoords && r.destCoords.lat),
+                        destLon: r.destinationLon || (r.destCoords && r.destCoords.lon),
+                        customerName: r.customerName || '?'
+                    });
+
                     const rEnd = r.pickupTimestamp + rDur + bufferMs;
-                    const newDur = (routeData ? parseInt(routeData.min) : defaultDuration) * 60000;
+                    const newDur = _newDurForSlot;
                     const newEnd = ts + newDur + bufferMs;
                     if (ts < rEnd && r.pickupTimestamp < newEnd) {
                         conflictCount++;
@@ -3455,19 +3472,52 @@
                     }
                     updateBookButton();
                 } else {
-                    // 🔧 v6.38.57: Früheste Verfügbarkeit berechnen und anzeigen
+                    // 🆕 v6.62.622: Slot-Walk statt nur Konflikt-Ende.
+                    // Patrick (11.05. 17:55): "Peenemuende 70 Min — frei ab 18:27 ist Quatsch
+                    // wenn 18:40 die naechste Fahrt steht."
+                    // Algorithmus: durchwandere alle zukuenftigen Fahrten, finde erste Luecke
+                    // die fuer newDur + Leerfahrt zum naechsten Pickup reicht.
                     let nextFreeMsg = '';
-                    if (rideEndTimes.length > 0) {
-                        // Sortiere aufsteigend — die früheste Endzeit = wann das erste Taxi wieder frei wird
-                        rideEndTimes.sort((a, b) => a - b);
-                        const earliestFree = new Date(rideEndTimes[0]);
-                        const freeH = earliestFree.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-                        const diffMin = Math.round((rideEndTimes[0] - ts) / 60000);
-                        if (diffMin > 0 && diffMin < 120) {
-                            nextFreeMsg = `<br><br>🕐 <strong>Nächstes Taxi frei ab ca. ${freeH} Uhr</strong> (in ~${diffMin} Min)`;
-                        } else if (diffMin <= 0) {
-                            // Endzeit liegt in der Vergangenheit oder jetzt — eigentlich frei
-                            nextFreeMsg = '<br><br>🕐 Ein Taxi sollte gleich verfügbar sein.';
+                    if (allTodayRides.length > 0) {
+                        allTodayRides.sort((a, b) => a.start - b.start);
+                        const newDurMs = _newDurForSlot + bufferMs;
+                        const ridePickLat = (pickupCoords && pickupCoords.lat);
+                        const ridePickLon = (pickupCoords && pickupCoords.lon);
+                        const rideDestLat = (destCoords && destCoords.lat);
+                        const rideDestLon = (destCoords && destCoords.lon);
+                        let candidate = Math.max(nowTs, ts);  // frueheste Wunschzeit
+                        let foundSlot = null;
+                        for (const slot of allTodayRides) {
+                            if (slot.end <= candidate) continue;  // schon vorbei
+                            // Anfahrt vom Slot-Ende zum neuen Pickup
+                            const leerVor = _haversineMin(slot.destLat, slot.destLon, ridePickLat, ridePickLon) * 60000;
+                            const earliestStart = Math.max(candidate, slot.end + leerVor);
+                            // Hat die Luecke vor diesem slot.start (oder vor naechstem) genug Platz?
+                            // Wir pruefen ob earliestStart + newDur vor slot.start passt
+                            if (earliestStart + newDurMs <= slot.start) {
+                                // Plus Leerfahrt von new-Dest zu slot.start-Pickup
+                                const leerNach = _haversineMin(rideDestLat, rideDestLon, slot.pickupLat, slot.pickupLon) * 60000;
+                                if (earliestStart + newDurMs + leerNach <= slot.start) {
+                                    foundSlot = earliestStart;
+                                    break;
+                                }
+                            }
+                            // Doesn't fit, move candidate past this slot
+                            candidate = slot.end + leerVor;
+                        }
+                        if (foundSlot === null) {
+                            // Nach allen Fahrten — sollte da passen
+                            foundSlot = candidate;
+                        }
+                        if (foundSlot > ts + 60000) {  // mindestens 1 Min nach Wunschzeit
+                            const _freeDate = new Date(foundSlot);
+                            const freeH = _freeDate.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                            const diffMin = Math.round((foundSlot - ts) / 60000);
+                            if (diffMin < 60 * 8) {  // bis 8h Verschiebung anzeigen
+                                nextFreeMsg = `<br><br>🕐 <strong>Naechste passende Zeit: ${freeH} Uhr</strong> (in ~${diffMin} Min, mit Ihrer Strecke ${Math.round(_newDurForSlot/60000)} Min)`;
+                            } else {
+                                nextFreeMsg = '<br><br>🕐 Heute keine passende Luecke fuer Ihre Strecke — bitte anrufen.';
+                            }
                         }
                     }
                     el.className = 'availability-card unavailable';

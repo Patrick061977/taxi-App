@@ -122,9 +122,10 @@
         let html = '<h3>📱 Funk Taxi App installieren</h3>';
 
         if (isIOS) {
-            html += '<div class="pwa-step">1. Tipp unten in der Symbolleiste auf <strong>Teilen ↑</strong></div>';
-            html += '<div class="pwa-step">2. Scrolle und wähle <strong>"Zum Home-Bildschirm"</strong></div>';
-            html += '<div class="pwa-step">3. Oben rechts auf <strong>"Hinzufügen"</strong> tippen</div>';
+            html += '<div class="pwa-step">1. Tipp unten in der Symbolleiste auf <strong>Teilen ↑</strong> (Quadrat mit Pfeil)</div>';
+            html += '<div class="pwa-step">2. Scrolle in der Liste nach unten — falls <strong>"Zum Home-Bildschirm"</strong> nicht sichtbar ist: tipp auf <strong>"Mehr anzeigen"</strong> (Pfeil ▼) ganz unten</div>';
+            html += '<div class="pwa-step">3. Tipp auf <strong>"Zum Home-Bildschirm"</strong></div>';
+            html += '<div class="pwa-step">4. Oben rechts auf <strong>"Hinzufügen"</strong> tippen — fertig!</div>';
             html += '<div class="pwa-step" style="background:#fef3c7;color:#92400e;">💡 Funktioniert nur in <strong>Safari</strong>, nicht im Chrome auf iPhone.</div>';
         } else {
             // Desktop oder unbekanntes Geraet

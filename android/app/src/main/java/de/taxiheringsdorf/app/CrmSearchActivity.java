@@ -590,6 +590,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                     // v6.62.598: invoiceNumber laden fuer Retro-Rechnung-Button
                     String _invNr = s.child("invoiceNumber").getValue(String.class);
                     if (_invNr != null) r.put("invoiceNumber", _invNr);
+                    // v6.62.601: drivingTimeToPickup laden fuer Push-Zeit-Anzeige
+                    Object _drv = s.child("drivingTimeToPickup").getValue();
+                    if (_drv instanceof Number) r.put("drivingTimeToPickup", ((Number) _drv).intValue());
                     rides.add(r);
                 }
                 // Neueste zuerst
@@ -666,10 +669,71 @@ public class CrmSearchActivity extends AppCompatActivity {
         msg.append("🎯 Nach: ").append(de).append("\n");
         msg.append("👥 Personen: ").append(pax).append("\n");
         msg.append("💰 Preis: ").append(prStr);
+        // v6.62.601: Patrick (11.05. 07:36): "Wann bekommt der Fahrer Push? Sehen wir das
+        //   auch im Backlog?" Bei zukuenftigen Vorbestellungen voraussichtliche Push-Zeit
+        //   anzeigen: pickup - (15 Min Vorlauf + Anfahrt). Anfahrt aus ride.drivingTimeToPickup
+        //   wenn schon gesetzt (auto-assign hat gelaufen), sonst Fallback 10 Min.
+        if ("vorbestellt".equalsIgnoreCase(st) && ts > System.currentTimeMillis()) {
+            int _anfahrt = r.get("drivingTimeToPickup") instanceof Integer
+                ? (Integer) r.get("drivingTimeToPickup") : 10;
+            long _pushTs = ts - (15L + _anfahrt) * 60000L;
+            if (_pushTs > 0) {
+                java.text.SimpleDateFormat _pfmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                _pfmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                String _pStr = _pfmt.format(new java.util.Date(_pushTs));
+                msg.append("\n📱 Push voraus.: ").append(_pStr)
+                   .append(" (15 + ").append(_anfahrt).append(" Min Anfahrt)");
+            }
+        }
         if (notes != null && !notes.trim().isEmpty()) {
             msg.append("\n\n📝 Notiz: ").append(notes);
         }
         final String _msgFinal = msg.toString();
+        // v6.62.601: Audit-Log (lifecycleLog) der Ride asynchron laden + an Message anhaengen
+        // via _logSuffix-Variable. Dialog wird nach dem Fetch gezeigt.
+        final String _rideIdForLog = (String) r.get("id");
+        if (_rideIdForLog != null) {
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + _rideIdForLog + "/lifecycleLog")
+                .get().addOnCompleteListener(task -> {
+                    StringBuilder _full = new StringBuilder(_msgFinal);
+                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                        java.util.List<Map<String, Object>> evts = new java.util.ArrayList<>();
+                        for (com.google.firebase.database.DataSnapshot child : task.getResult().getChildren()) {
+                            Map<String, Object> ev = new HashMap<>();
+                            Long _t = child.child("time").getValue(Long.class);
+                            ev.put("time", _t != null ? _t : 0L);
+                            ev.put("icon", child.child("icon").getValue(String.class));
+                            ev.put("msg", child.child("msg").getValue(String.class));
+                            evts.add(ev);
+                        }
+                        evts.sort((a, b) -> Long.compare((Long) b.get("time"), (Long) a.get("time")));
+                        if (!evts.isEmpty()) {
+                            int _n = Math.min(5, evts.size());
+                            _full.append("\n\n📋 Audit-Log (letzte ").append(_n).append("):");
+                            java.text.SimpleDateFormat _lfmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                            _lfmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                            for (int _i = 0; _i < _n; _i++) {
+                                Map<String, Object> ev = evts.get(_i);
+                                Long et = (Long) ev.get("time");
+                                String emsg = (String) ev.get("msg");
+                                String eicon = (String) ev.get("icon");
+                                if (et != null && et > 0 && emsg != null) {
+                                    _full.append("\n").append(_lfmt.format(new java.util.Date(et)))
+                                         .append(" ").append(eicon != null ? eicon : "·").append(" ")
+                                         .append(emsg.length() > 70 ? emsg.substring(0, 70) + "…" : emsg);
+                                }
+                            }
+                        }
+                    }
+                    _showRideHistoryDetailDialog(e, r, _full.toString(), st, ts, pr);
+                });
+            return;  // Dialog wird im Callback gezeigt
+        }
+        _showRideHistoryDetailDialog(e, r, _msgFinal, st, ts, pr);
+    }
+
+    // v6.62.601: Helper — zeigt den Detail-Dialog mit dem (ggf. erweiterten) Message-Text
+    private void _showRideHistoryDetailDialog(CrmEntry e, Map<String, Object> r, String _msgFinal, String st, long ts, Object pr) {
 
         // 🆕 v6.62.483: Bearbeiten-Option nur fuer zukuenftige Vorbestellungen.
         //   Vergangene/abgeschlossene/stornierte Fahrten sind read-only.

@@ -1,10 +1,12 @@
-// v6.62.612: Universal "App installieren" — 1 Button, funktioniert ueberall.
-//   Patrick (11.05. 13:23): "ich will was was ueberall funktioniert"
+// v6.62.615: Universal "App installieren" — PWA only, kein APK-Download mehr.
+//   Patrick (11.05. 14:07): "APK runterladen nicht, das ist Quatsch. Die sollen
+//   das Lesezeichen / PWA installieren wie auf iPhone."
 //
-// Strategie: APK ist plug-and-play auf Android, daher universal nutzen.
-//   - Android (jeder Browser): Klick → direkter APK-Download
-//   - iOS: Klick → Modal mit "Teilen → Home-Bildschirm"-Anleitung
-//   - Desktop: Klick → Modal "Diese App ist fuer Smartphones — bitte vom Handy aus aufrufen"
+// Strategie: 1 Knopf, Modal mit browser-spezifischer Anleitung.
+//   - Chrome / Edge Android: Browser-natives Install-Prompt (1-Klick)
+//   - Firefox Android: Modal "Menue → Zur Startseite hinzufuegen"
+//   - iOS Safari: Modal "Teilen → Zum Home-Bildschirm" (4 Schritte)
+//   - Desktop: Modal "Bitte vom Handy aus aufrufen"
 //
 // Anchor #pwa-install-anchor → Button DA gross.
 // Fallback: floating bottom-right.
@@ -12,11 +14,23 @@
 (function() {
     'use strict';
 
+    let deferredPrompt = null;
     let buttonInjected = false;
     const UA = navigator.userAgent || '';
     const isIOS = /iPad|iPhone|iPod/.test(UA) && !window.MSStream;
     const isAndroid = /Android/.test(UA);
-    const apkUrl = 'https://umwelt-taxi-insel-usedom.de/app/taxi-app-latest.apk';
+    const isFirefox = /Firefox/.test(UA);
+    const isChromiumOnAndroid = isAndroid && /Chrome|CriOS|Edg|SamsungBrowser|OPR/.test(UA) && !isFirefox;
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+    });
+
+    window.addEventListener('appinstalled', function() {
+        const btn = document.getElementById('pwa-install-btn');
+        if (btn) btn.style.display = 'none';
+    });
 
     function isStandalone() {
         return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
@@ -75,12 +89,6 @@
                 background: #0f4c81; color: white; border: none; border-radius: 12px;
                 font-size: 17px; font-weight: 700; cursor: pointer;
             }
-            #pwa-install-modal .pwa-cta {
-                display: block; margin-top: 8px; padding: 18px;
-                background: #16a34a; color: white; text-decoration: none;
-                border-radius: 12px; text-align: center; font-weight: 800; font-size: 18px;
-                box-shadow: 0 6px 16px rgba(22,163,74,0.4);
-            }
         `;
         document.head.appendChild(style);
     }
@@ -103,13 +111,21 @@
         (anchor || document.body).appendChild(btn);
     }
 
-    function handleClick() {
-        if (isAndroid) {
-            // Direkt APK runterladen — funktioniert in JEDEM Android-Browser
-            window.location.href = apkUrl;
+    async function handleClick() {
+        // 1) Chrome / Edge Android: nativer Install-Prompt verfuegbar?
+        if (deferredPrompt) {
+            try {
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice;
+                if (choice && choice.outcome === 'accepted') {
+                    const btn = document.getElementById('pwa-install-btn');
+                    if (btn) btn.style.display = 'none';
+                }
+            } catch (e) { console.warn('Install-Prompt fehlgeschlagen:', e); }
+            deferredPrompt = null;
             return;
         }
-        // iOS / Desktop: Anleitung
+        // 2) Sonst: Anleitung-Modal je Browser
         showModal();
     }
 
@@ -127,12 +143,19 @@
             html += '<div class="pwa-step">3. Tipp auf <strong>"Zum Home-Bildschirm"</strong></div>';
             html += '<div class="pwa-step">4. Oben rechts auf <strong>"Hinzufügen"</strong> tippen — fertig!</div>';
             html += '<div class="pwa-step" style="background:#fef3c7;color:#92400e;">💡 Funktioniert nur in <strong>Safari</strong>, nicht im Chrome auf iPhone.</div>';
+        } else if (isAndroid && isFirefox) {
+            html += '<div class="pwa-step">1. Tipp oben rechts auf das <strong>Menü</strong> (3 Punkte)</div>';
+            html += '<div class="pwa-step">2. Wähle <strong>"Installieren"</strong> oder <strong>"Zur Startseite hinzufügen"</strong></div>';
+            html += '<div class="pwa-step">3. Bestätige mit <strong>"Hinzufügen"</strong> — fertig!</div>';
+        } else if (isAndroid) {
+            // Chrome/Edge/Samsung ohne beforeinstallprompt → Modal
+            html += '<div class="pwa-step">1. Tipp oben rechts auf das <strong>Menü</strong> (3 Punkte)</div>';
+            html += '<div class="pwa-step">2. Wähle <strong>"App installieren"</strong> oder <strong>"Zur Startseite hinzufügen"</strong></div>';
+            html += '<div class="pwa-step">3. Bestätige mit <strong>"Installieren"</strong> — fertig!</div>';
+            html += '<div class="pwa-step" style="background:#fef3c7;color:#92400e;">💡 Falls der Knopf nicht erscheint: Browser kennt diese Webseite vielleicht noch nicht gut genug — einfach 2-3 mal besuchen, dann erscheint die Install-Option automatisch.</div>';
         } else {
-            // Desktop oder unbekanntes Geraet
             html += '<div class="pwa-step">Diese App ist für <strong>Smartphones</strong> gedacht.</div>';
-            html += '<div class="pwa-step">📱 Bitte rufe diese Seite mit deinem <strong>Handy</strong> auf — dann erscheint hier ein Knopf zum 1-Klick-Installieren.</div>';
-            html += '<div class="pwa-step">Direkter Android-Download:</div>';
-            html += '<a class="pwa-cta" href="' + apkUrl + '">📥 Funk-Taxi.apk</a>';
+            html += '<div class="pwa-step">📱 Bitte rufe diese Seite mit deinem <strong>Handy</strong> auf (iPhone/Android) — dann erscheint dort die Installations-Anleitung.</div>';
         }
         html += '<button class="pwa-close" type="button">Verstanden</button>';
         card.innerHTML = html;
@@ -142,18 +165,14 @@
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
     }
 
-    // Init: nur wenn nicht schon installiert
+    // Init: Button erscheint immer (auch ohne beforeinstallprompt-Event)
     window.addEventListener('load', function() {
-        if (isStandalone() || buttonInjected) return;
-        injectStyle();
-        injectButton();
-        buttonInjected = true;
-    });
-
-    // Wenn appinstalled feuert → Button weg
-    window.addEventListener('appinstalled', function() {
-        const btn = document.getElementById('pwa-install-btn');
-        if (btn) btn.style.display = 'none';
+        setTimeout(function() {
+            if (isStandalone() || buttonInjected) return;
+            injectStyle();
+            injectButton();
+            buttonInjected = true;
+        }, 1500);
     });
 
 })();

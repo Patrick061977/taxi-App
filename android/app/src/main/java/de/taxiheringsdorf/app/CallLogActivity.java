@@ -592,7 +592,14 @@ public class CallLogActivity extends AppCompatActivity {
             List<CallEntry> result = new ArrayList<>();
             try {
                 String[] proj = {CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.DATE, CallLog.Calls.TYPE, CallLog.Calls.DURATION};
-                Cursor c = getContentResolver().query(CallLog.Calls.CONTENT_URI, proj, null, null, CallLog.Calls.DATE + " DESC LIMIT 50");
+                // 🛑 v6.62.630: Patrick (11.05. 21:14): Fahrer-App zeigt "Anrufliste-Fehler:
+                //   Invalid token LIMIT" weil Android 11+ (Samsung mit Security-Layer) das
+                //   LIMIT-Keyword in der ORDER BY-Clause als SQL-Injection blockiert.
+                //   Fix: LIMIT via Uri-Query-Parameter (alle Android-Versionen) — KEIN
+                //   String-Concat mehr in der ORDER BY-Clause.
+                android.net.Uri _callsUri = CallLog.Calls.CONTENT_URI.buildUpon()
+                    .appendQueryParameter("limit", "50").build();
+                Cursor c = getContentResolver().query(_callsUri, proj, null, null, CallLog.Calls.DATE + " DESC");
                 if (c != null) {
                     while (c.moveToNext()) {
                         CallEntry e = new CallEntry();

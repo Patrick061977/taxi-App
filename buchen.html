@@ -2050,7 +2050,19 @@
                 updateBookButton();
                 // 🔧 v6.38.96: Sofort-Toggle zum Anruf-Button wenn kein GPS online
                 updateSofortToggle(sofortCount);
-                updateFormVisibility(sofortCount);
+                // 🔧 v6.62.631: Patrick (11.05. 21:48): "Warum kommt erst Taxi-nicht-
+                //   verfuegbar und dann erst die Buchen-HTML?" — Ursache: updateStatusBar
+                //   laeuft beim Page-Load BEVOR shiftsData/gpsOnlineVehicles geladen sind
+                //   (Firebase-Listener brauchen ~2-3s). Mit leeren Daten ergibt sich
+                //   sofortCount=0 → updateFormVisibility(0) blendete das ganze Formular
+                //   aus und zeigte den 'Aktuell kein Taxi'-Vollbild. Dann nach 3s waren
+                //   die Daten da und alles ploppte ploetzlich auf.
+                //   Fix: visibility nur toggeln wenn Daten wirklich geladen sind.
+                const _shiftsReady = shiftsData && Object.keys(shiftsData).length > 0;
+                const _gpsReady = _gpsOnlineVehicles && Object.keys(_gpsOnlineVehicles).length > 0;
+                if (_shiftsReady || _gpsReady) {
+                    updateFormVisibility(sofortCount);
+                }
             } catch(e) {
                 document.getElementById('status-bar').className = 'status-bar offline';
                 document.getElementById('status-bar').textContent = '⚠️ Verbindungsfehler';
@@ -2562,7 +2574,18 @@
                 if (tInput) tInput.value = '';
                 window._dateTimeInitDone = false;
             }
-            updateFormVisibility(_lastGpsOnlineCount >= 0 ? _lastGpsOnlineCount : 0);
+            // 🔧 v6.62.631: Patrick (11.05. 21:48): "warum kommt erst der Bildschirm Taxi
+            //   nicht verfuegbar und dann erst Buchen-HTML?" — Ursache war, dass beim
+            //   ersten setWann('sofort')-Aufruf der GPS-Check noch nicht gelaufen ist
+            //   (_lastGpsOnlineCount === -1), wir aber 0 (=keine Taxis) uebergaben.
+            //   updateFormVisibility blendete dann sofort die ganze Buchen-UI aus und
+            //   zeigte das Anruf-CTA-Vollbild — bis ~3s spaeter der GPS-Check zurueckkam
+            //   und alles wieder einblendete. Fix: Wenn noch nie eine Pruefung lief
+            //   (-1), gar nicht visibility-toggeln — alles bleibt sichtbar bis Daten
+            //   da sind.
+            if (_lastGpsOnlineCount >= 0) {
+                updateFormVisibility(_lastGpsOnlineCount);
+            }
             updateStatusBar();
             checkRoute();
         }

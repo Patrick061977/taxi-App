@@ -1008,9 +1008,11 @@ public class CallLogActivity extends AppCompatActivity {
 
         // v6.62.616: Patrick (11.05. 15:34): "Kann ich jetzt auch aus der Anrufliste
         //   Hotel/Firma anlegen?" — Chip-Row Kundenart statt freitext-Typ.
+        // v6.62.617: padHalf gibt's in dieser Methode nicht — pad/2 inline.
+        final int _kindPadHalf = pad / 2;
         TextView lblKind = new TextView(this);
         lblKind.setText("👥 Kundenart");
-        lblKind.setPadding(0, pad, 0, padHalf);
+        lblKind.setPadding(0, pad, 0, _kindPadHalf);
         lblKind.setTextSize(13);
         layout.addView(lblKind);
         final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
@@ -1018,7 +1020,7 @@ public class CallLogActivity extends AppCompatActivity {
         final int[] kindIdx = { 0 };
         LinearLayout kindRow = new LinearLayout(this);
         kindRow.setOrientation(LinearLayout.HORIZONTAL);
-        kindRow.setPadding(0, padHalf, 0, padHalf);
+        kindRow.setPadding(0, _kindPadHalf, 0, _kindPadHalf);
         final TextView[] kindChips = new TextView[kinds.length];
         java.util.function.IntConsumer applyKindChips = (selected) -> {
             for (int i = 0; i < kinds.length; i++) {
@@ -1031,10 +1033,10 @@ public class CallLogActivity extends AppCompatActivity {
             TextView chip = new TextView(this);
             chip.setText(kindLabels[i]);
             chip.setTextSize(12);
-            chip.setPadding(padHalf, padHalf, padHalf, padHalf);
+            chip.setPadding(_kindPadHalf, _kindPadHalf, _kindPadHalf, _kindPadHalf);
             chip.setGravity(android.view.Gravity.CENTER);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(padHalf / 2, 0, padHalf / 2, 0);
+            lp.setMargins(_kindPadHalf / 2, 0, _kindPadHalf / 2, 0);
             chip.setLayoutParams(lp);
             chip.setOnClickListener(_v -> { kindIdx[0] = idx; applyKindChips.accept(idx); });
             kindChips[i] = chip;

@@ -94,6 +94,12 @@
       ".write": true
     },
 
+    "optimierungsLog": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+
     "feedback": {
       ".read": "auth != null",
       ".indexOn": ["submittedAt", "rating"],

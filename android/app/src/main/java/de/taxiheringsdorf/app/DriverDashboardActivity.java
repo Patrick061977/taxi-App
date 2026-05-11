@@ -639,6 +639,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
         p.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
+            if (id == R.id.menu_check_update)   {
+                // v6.62.605: Manueller Update-Check ohne Logout (Patrick 11.05.: "musste mich
+                // abmelden damit Banner erscheint"). Triggert UpdateChecker erneut.
+                Toast.makeText(this, "🔄 Pruefe auf Updates...", Toast.LENGTH_SHORT).show();
+                UpdateChecker.checkAsync(this, updateBanner, updateBannerText, updateBannerBtn);
+                return true;
+            }
             if (id == R.id.menu_shift_toggle)   { toggleShift(); return true; }
             if (id == R.id.menu_online_toggle)  { toggleOnline(); return true; }
             if (id == R.id.menu_stats)          { startActivity(new Intent(this, StatsActivity.class)); return true; }

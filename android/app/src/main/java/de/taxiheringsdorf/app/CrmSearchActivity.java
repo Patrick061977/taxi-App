@@ -587,6 +587,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                     r.put("passengers", _pax instanceof Number ? ((Number) _pax).intValue() : 1);
                     String _notes = s.child("notes").getValue(String.class);
                     if (_notes != null) r.put("notes", _notes);
+                    // v6.62.598: invoiceNumber laden fuer Retro-Rechnung-Button
+                    String _invNr = s.child("invoiceNumber").getValue(String.class);
+                    if (_invNr != null) r.put("invoiceNumber", _invNr);
                     rides.add(r);
                 }
                 // Neueste zuerst
@@ -688,23 +691,70 @@ public class CrmSearchActivity extends AppCompatActivity {
             });
             _b.setNegativeButton("Zurück", null);
         } else {
-            // 🆕 v6.62.503: Patrick (08.05. 16:56): "vergangene fahrten kopieren für die
-            //   zukunft also dann auch als fahrt anlegen". Vergangene/abgeschlossene
-            //   Fahrten lassen sich jetzt als Vorlage fuer eine neue Buchung nehmen —
-            //   Pickup/Ziel/Waypoints/Personen/Notiz werden uebernommen, nur Datum
-            //   waehlt Patrick neu.
-            _b.setPositiveButton("📅 Erneut buchen (als Vorlage)", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
-            _b.setNeutralButton("📋 Kopieren", (d, w) -> {
-                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                if (cm != null) {
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
-                    Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
-                }
-            });
+            // v6.62.598: Patrick (11.05. 07:26): "Wenn ich eine Rechnung erstellen moechte
+            //   die aber gestern war, wie kann ich das ueber die Native-App?"
+            //   Wenn Fahrt completed + KEINE invoiceNumber + Preis>0 → "🧾 Rechnung erstellen"
+            //   ersetzt die Erneut-Buchen-Action als primaere Geste, weil das das haeufigere
+            //   Bedurfnis bei vergangenen Fahrten ist (Vorlage-Kopieren steht im Neutral-Slot).
+            final boolean _isCompleted = "completed".equalsIgnoreCase(st) || "abgeschlossen".equalsIgnoreCase(st);
+            final boolean _hasInvoice = r.get("invoiceNumber") != null && !String.valueOf(r.get("invoiceNumber")).trim().isEmpty();
+            final boolean _hasPrice = pr instanceof Number && ((Number) pr).doubleValue() > 0;
+            final boolean _canCreateInvoice = _isCompleted && !_hasInvoice && _hasPrice && _rideIdFinal != null;
+
+            if (_canCreateInvoice) {
+                _b.setPositiveButton("🧾 Rechnung erstellen", (d, w) -> triggerRetroInvoice(_rideIdFinal, r));
+                _b.setNeutralButton("📅 Erneut buchen", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
+            } else {
+                // 🆕 v6.62.503: Patrick (08.05. 16:56): "vergangene fahrten kopieren für die
+                //   zukunft also dann auch als fahrt anlegen". Vergangene/abgeschlossene
+                //   Fahrten lassen sich jetzt als Vorlage fuer eine neue Buchung nehmen —
+                //   Pickup/Ziel/Waypoints/Personen/Notiz werden uebernommen, nur Datum
+                //   waehlt Patrick neu.
+                _b.setPositiveButton("📅 Erneut buchen (als Vorlage)", (d, w) -> openRideAsTemplate(e, _rideIdFinal, r));
+                _b.setNeutralButton("📋 Kopieren", (d, w) -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Fahrt", _msgFinal));
+                        Toast.makeText(this, "📋 In Zwischenablage kopiert", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
             _b.setNegativeButton("Zurück", null);
         }
 
         _b.show();
+    }
+
+    // v6.62.598: Retro-Rechnung fuer vergangene completed-Fahrt anstossen.
+    // Setzt invoiceRequested+needsInvoice=true → onRideUpdated Cloud Function erstellt
+    // /invoices/{nr}-Eintrag (server-seitig), Admin-Browser-Listener generiert PDF.
+    private void triggerRetroInvoice(String rideId, Map<String, Object> rideListEntry) {
+        if (rideId == null) {
+            Toast.makeText(this, "❌ Fahrt-ID fehlt", Toast.LENGTH_LONG).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("🧾 Rechnung erstellen")
+            .setMessage("Soll fuer diese vergangene Fahrt nachtraeglich eine Rechnung erstellt werden?\n\n" +
+                        "Es wird eine Belegnr. (GoBD-konform luekenlos) angelegt und die Rechnung " +
+                        "kann anschliessend per Email oder im Web abgerufen werden.")
+            .setPositiveButton("Ja, erstellen", (d, w) -> {
+                FirebaseDatabase db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
+                java.util.Map<String, Object> _upd = new java.util.HashMap<>();
+                _upd.put("invoiceRequested", true);
+                _upd.put("needsInvoice", true);
+                _upd.put("invoiceRetroRequestedAt", System.currentTimeMillis());
+                _upd.put("invoiceRetroRequestedBy", "native-crm-history");
+                db.getReference("rides/" + rideId).updateChildren(_upd, (err, ref) -> {
+                    if (err != null) {
+                        Toast.makeText(this, "❌ Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "✅ Rechnungs-Auftrag in Firebase — Belegnr wird gleich vergeben.", Toast.LENGTH_LONG).show();
+                    }
+                });
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     // 🆕 v6.62.503: Vergangene Fahrt als Vorlage öffnen.

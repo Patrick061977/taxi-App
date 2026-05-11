@@ -790,7 +790,7 @@ function renderPois() {
                     <h3>${p.name}</h3>
                     ${p.address ? `<div class="card-address">📍 ${p.address}</div>` : ''}
                     <p>${p.desc}</p>
-                    <a class="card-btn" href="buchen.html?ziel=${encodeURIComponent(p.address)}">🚕 Mit Funk Taxi hinfahren</a>
+                    <a class="card-btn" href="buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}">🚕 Mit Funk Taxi hinfahren</a>
                 </div>
             `;
             grid.appendChild(card);
@@ -835,7 +835,7 @@ function showTooltip(idx, x, y, sticky) {
     document.getElementById('tt-cat').textContent = CAT_LABELS[p.cat] || p.cat;
     document.getElementById('tt-name').textContent = p.name;
     document.getElementById('tt-desc').textContent = p.desc;
-    document.getElementById('tt-btn').href = `buchen.html?ziel=${encodeURIComponent(p.address)}`;
+    document.getElementById('tt-btn').href = `buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}`;
     // Position: SVG-Pixel zu Bildschirm-Pixel mit aktueller Skalierung
     const svg = document.getElementById('usedom-map');
     const rect = svg.getBoundingClientRect();

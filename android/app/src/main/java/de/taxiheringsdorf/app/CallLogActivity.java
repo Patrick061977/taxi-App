@@ -1006,9 +1006,42 @@ public class CallLogActivity extends AppCompatActivity {
         tvAddress.setOnClickListener(_v -> launchPlaces(tvAddress, addrCoords));
         layout.addView(tvAddress);
 
-        EditText etType = new EditText(this);
-        etType.setHint("Typ (hotel/firma/privat — optional)");
-        layout.addView(etType);
+        // v6.62.616: Patrick (11.05. 15:34): "Kann ich jetzt auch aus der Anrufliste
+        //   Hotel/Firma anlegen?" — Chip-Row Kundenart statt freitext-Typ.
+        TextView lblKind = new TextView(this);
+        lblKind.setText("👥 Kundenart");
+        lblKind.setPadding(0, pad, 0, padHalf);
+        lblKind.setTextSize(13);
+        layout.addView(lblKind);
+        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
+        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenh.", "🏨 Hotel", "🏢 Firma" };
+        final int[] kindIdx = { 0 };
+        LinearLayout kindRow = new LinearLayout(this);
+        kindRow.setOrientation(LinearLayout.HORIZONTAL);
+        kindRow.setPadding(0, padHalf, 0, padHalf);
+        final TextView[] kindChips = new TextView[kinds.length];
+        java.util.function.IntConsumer applyKindChips = (selected) -> {
+            for (int i = 0; i < kinds.length; i++) {
+                kindChips[i].setBackgroundColor(i == selected ? 0xFF10B981 : 0xFFE2E8F0);
+                kindChips[i].setTextColor(i == selected ? 0xFFFFFFFF : 0xFF475569);
+            }
+        };
+        for (int i = 0; i < kinds.length; i++) {
+            final int idx = i;
+            TextView chip = new TextView(this);
+            chip.setText(kindLabels[i]);
+            chip.setTextSize(12);
+            chip.setPadding(padHalf, padHalf, padHalf, padHalf);
+            chip.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            lp.setMargins(padHalf / 2, 0, padHalf / 2, 0);
+            chip.setLayoutParams(lp);
+            chip.setOnClickListener(_v -> { kindIdx[0] = idx; applyKindChips.accept(idx); });
+            kindChips[i] = chip;
+            kindRow.addView(chip);
+        }
+        applyKindChips.accept(0);
+        layout.addView(kindRow);
 
         new AlertDialog.Builder(this)
             .setTitle("👤 Neuer CRM-Kunde — " + e.number)
@@ -1046,8 +1079,8 @@ public class CallLogActivity extends AppCompatActivity {
                         c.put("addressLon", addrCoords[1]);
                     }
                 }
-                String type = etType.getText().toString().trim();
-                if (!type.isEmpty()) c.put("customerKind", type);
+                // v6.62.616: customerKind aus Chip-Row statt freitext
+                c.put("customerKind", kinds[kindIdx[0]]);
                 c.put("createdAt", now);
                 c.put("createdVia", "native_calllog");
                 ref.setValue(c).addOnSuccessListener(_v -> {

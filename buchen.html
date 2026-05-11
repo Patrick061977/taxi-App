@@ -3354,7 +3354,8 @@
                     const rEndReal = r.pickupTimestamp + rDur;
                     if (rEndReal < nowTs) return;
 
-                    // v6.62.622: ALLE zukuenftigen Fahrten merken — fuer Slot-Walk unten
+                    // v6.62.622/623: ALLE zukuenftigen Fahrten merken — fuer Slot-Walk unten.
+                    // Plus vehicleId fuer Per-Fahrzeug-Simulation (v6.62.623).
                     allTodayRides.push({
                         start: r.pickupTimestamp,
                         end: rEndReal + bufferMs,
@@ -3362,7 +3363,8 @@
                         pickupLon: r.pickupLon || (r.pickupCoords && r.pickupCoords.lon),
                         destLat: r.destinationLat || (r.destCoords && r.destCoords.lat),
                         destLon: r.destinationLon || (r.destCoords && r.destCoords.lon),
-                        customerName: r.customerName || '?'
+                        customerName: r.customerName || '?',
+                        vehicleId: r.assignedVehicle || r.vehicleId || null
                     });
 
                     const rEnd = r.pickupTimestamp + rDur + bufferMs;
@@ -3472,53 +3474,66 @@
                     }
                     updateBookButton();
                 } else {
-                    // 🆕 v6.62.622: Slot-Walk statt nur Konflikt-Ende.
-                    // Patrick (11.05. 17:55): "Peenemuende 70 Min — frei ab 18:27 ist Quatsch
-                    // wenn 18:40 die naechste Fahrt steht."
-                    // Algorithmus: durchwandere alle zukuenftigen Fahrten, finde erste Luecke
-                    // die fuer newDur + Leerfahrt zum naechsten Pickup reicht.
+                    // 🆕 v6.62.623: Per-Fahrzeug Slot-Walk + Schichtplan-Check.
+                    // Patrick (11.05. 18:08): "Pro Fahrzeug einzeln slot-walk machen, Schichtplan
+                    // check pro Fahrzeug pro Zeit, naechste freie Zeit = MIN ueber alle Fahrzeuge."
                     let nextFreeMsg = '';
-                    if (allTodayRides.length > 0) {
-                        allTodayRides.sort((a, b) => a.start - b.start);
-                        const newDurMs = _newDurForSlot + bufferMs;
-                        const ridePickLat = (pickupCoords && pickupCoords.lat);
-                        const ridePickLon = (pickupCoords && pickupCoords.lon);
-                        const rideDestLat = (destCoords && destCoords.lat);
-                        const rideDestLon = (destCoords && destCoords.lon);
-                        let candidate = Math.max(nowTs, ts);  // frueheste Wunschzeit
+                    const newDurMs = _newDurForSlot + bufferMs;
+                    const ridePickLat = (pickupCoords && pickupCoords.lat);
+                    const ridePickLon = (pickupCoords && pickupCoords.lon);
+                    const rideDestLat = (destCoords && destCoords.lat);
+                    const rideDestLon = (destCoords && destCoords.lon);
+                    // Slots gruppieren pro vehicleId
+                    const slotsPerVeh = {};
+                    for (const s of allTodayRides) {
+                        if (!s.vehicleId) continue;
+                        if (!slotsPerVeh[s.vehicleId]) slotsPerVeh[s.vehicleId] = [];
+                        slotsPerVeh[s.vehicleId].push(s);
+                    }
+                    Object.values(slotsPerVeh).forEach(arr => arr.sort((a,b)=>a.start-b.start));
+                    // Pro Fahrzeug Slot-Walk durchziehen
+                    const earliestPerVehicle = [];
+                    for (const vid of Object.keys(OFFICIAL_VEHICLES || {})) {
+                        if (passengers && (OFFICIAL_VEHICLES[vid].capacity || 4) < passengers) continue;
+                        if (!isVehicleInShift(vid, dateStr, timeStr)) continue;
+                        const slots = slotsPerVeh[vid] || [];
+                        let candidate = Math.max(nowTs, ts);
                         let foundSlot = null;
-                        for (const slot of allTodayRides) {
-                            if (slot.end <= candidate) continue;  // schon vorbei
-                            // Anfahrt vom Slot-Ende zum neuen Pickup
+                        for (const slot of slots) {
+                            if (slot.end <= candidate) continue;
                             const leerVor = _haversineMin(slot.destLat, slot.destLon, ridePickLat, ridePickLon) * 60000;
                             const earliestStart = Math.max(candidate, slot.end + leerVor);
-                            // Hat die Luecke vor diesem slot.start (oder vor naechstem) genug Platz?
-                            // Wir pruefen ob earliestStart + newDur vor slot.start passt
                             if (earliestStart + newDurMs <= slot.start) {
-                                // Plus Leerfahrt von new-Dest zu slot.start-Pickup
                                 const leerNach = _haversineMin(rideDestLat, rideDestLon, slot.pickupLat, slot.pickupLon) * 60000;
                                 if (earliestStart + newDurMs + leerNach <= slot.start) {
                                     foundSlot = earliestStart;
                                     break;
                                 }
                             }
-                            // Doesn't fit, move candidate past this slot
                             candidate = slot.end + leerVor;
                         }
-                        if (foundSlot === null) {
-                            // Nach allen Fahrten — sollte da passen
-                            foundSlot = candidate;
-                        }
-                        if (foundSlot > ts + 60000) {  // mindestens 1 Min nach Wunschzeit
-                            const _freeDate = new Date(foundSlot);
+                        if (foundSlot === null) foundSlot = candidate;  // nach allen Slots dieses Vehicles
+                        // Schichtende grob beachten — wenn foundSlot+newDur ausserhalb Schicht, skip
+                        // (vereinfacht: pruefe ob foundSlot-Endzeit auch noch in Shift waere)
+                        const _endTimeStr = new Date(foundSlot + newDurMs).toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+                        if (!isVehicleInShift(vid, dateStr, _endTimeStr)) continue;
+                        earliestPerVehicle.push({ vid, ts: foundSlot });
+                    }
+                    earliestPerVehicle.sort((a,b) => a.ts - b.ts);
+                    if (earliestPerVehicle.length > 0) {
+                        const best = earliestPerVehicle[0];
+                        if (best.ts > ts + 60000) {
+                            const _freeDate = new Date(best.ts);
                             const freeH = _freeDate.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-                            const diffMin = Math.round((foundSlot - ts) / 60000);
-                            if (diffMin < 60 * 8) {  // bis 8h Verschiebung anzeigen
-                                nextFreeMsg = `<br><br>🕐 <strong>Naechste passende Zeit: ${freeH} Uhr</strong> (in ~${diffMin} Min, mit Ihrer Strecke ${Math.round(_newDurForSlot/60000)} Min)`;
+                            const diffMin = Math.round((best.ts - ts) / 60000);
+                            if (diffMin < 60 * 8) {
+                                nextFreeMsg = `<br><br>🕐 <strong>Naechste passende Zeit: ${freeH} Uhr</strong> (in ~${diffMin} Min, mit Ihrer Strecke ${Math.round(_newDurForSlot/60000)} Min) · ${earliestPerVehicle.length} Fahrzeug${earliestPerVehicle.length>1?'e':''} im Dienst`;
                             } else {
                                 nextFreeMsg = '<br><br>🕐 Heute keine passende Luecke fuer Ihre Strecke — bitte anrufen.';
                             }
                         }
+                    } else {
+                        nextFreeMsg = '<br><br>🕐 Kein Fahrzeug in dieser Zeit im Dienst — bitte anrufen.';
                     }
                     el.className = 'availability-card unavailable';
                     el.style.display = '';

@@ -2,6 +2,12 @@
 //   Patrick (11.05. 14:07): "APK runterladen nicht, das ist Quatsch. Die sollen
 //   das Lesezeichen / PWA installieren wie auf iPhone."
 //
+// 🛑 v6.62.629: Throttle — Patrick (11.05. 20:18): "ist wieder das Zeichen gekommen,
+//   App installieren. Wie oft kommt denn das? Jetzt habe ich zwei Icons auf meinem
+//   Handy." Bisher feuerte der Button bei JEDEM Browser-Tab-Aufruf, auch wenn schon
+//   installiert (Safari/Chrome erkennen die installierte PWA nicht zuverlaessig).
+//   Fix: localStorage-Flags persistent + Modal mit "Nicht mehr fragen" Button.
+//
 // Strategie: 1 Knopf, Modal mit browser-spezifischer Anleitung.
 //   - Chrome / Edge Android: Browser-natives Install-Prompt (1-Klick)
 //   - Firefox Android: Modal "Menue → Zur Startseite hinzufuegen"
@@ -22,12 +28,29 @@
     const isFirefox = /Firefox/.test(UA);
     const isChromiumOnAndroid = isAndroid && /Chrome|CriOS|Edg|SamsungBrowser|OPR/.test(UA) && !isFirefox;
 
+    // 🆕 v6.62.629: Persistente Throttle-Flags
+    const LS_KEY_INSTALLED = 'pwa_installed_v1';
+    const LS_KEY_DISMISSED = 'pwa_dismissed_until';
+    const DISMISS_COOLDOWN_MS = 30 * 24 * 3600 * 1000; // 30 Tage
+
+    function lsGet(k) { try { return localStorage.getItem(k); } catch(_) { return null; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(_) {} }
+
+    function alreadyInstalledOrDismissed() {
+        if (lsGet(LS_KEY_INSTALLED) === '1') return 'installed';
+        const until = parseInt(lsGet(LS_KEY_DISMISSED) || '0', 10);
+        if (until && Date.now() < until) return 'dismissed';
+        return null;
+    }
+
     window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         deferredPrompt = e;
     });
 
     window.addEventListener('appinstalled', function() {
+        // 🆕 v6.62.629: Flag fuer immer — Button kommt nie wieder.
+        lsSet(LS_KEY_INSTALLED, '1');
         const btn = document.getElementById('pwa-install-btn');
         if (btn) btn.style.display = 'none';
     });
@@ -118,6 +141,14 @@
                 deferredPrompt.prompt();
                 const choice = await deferredPrompt.userChoice;
                 if (choice && choice.outcome === 'accepted') {
+                    // 🆕 v6.62.629: gleich beim accept lokal mitschreiben — appinstalled-Event
+                    // kommt manchmal verzoegert oder gar nicht (iOS-PWAs).
+                    lsSet(LS_KEY_INSTALLED, '1');
+                    const btn = document.getElementById('pwa-install-btn');
+                    if (btn) btn.style.display = 'none';
+                } else if (choice && choice.outcome === 'dismissed') {
+                    // User hat aktiv "Nein" gesagt → 30 Tage nicht mehr nerven.
+                    lsSet(LS_KEY_DISMISSED, String(Date.now() + DISMISS_COOLDOWN_MS));
                     const btn = document.getElementById('pwa-install-btn');
                     if (btn) btn.style.display = 'none';
                 }
@@ -157,18 +188,35 @@
             html += '<div class="pwa-step">Diese App ist für <strong>Smartphones</strong> gedacht.</div>';
             html += '<div class="pwa-step">📱 Bitte rufe diese Seite mit deinem <strong>Handy</strong> auf (iPhone/Android) — dann erscheint dort die Installations-Anleitung.</div>';
         }
-        html += '<button class="pwa-close" type="button">Verstanden</button>';
+        // 🆕 v6.62.629: 2 Buttons — "Verstanden" (Modal zu, Button bleibt) und
+        // "Schon installiert / nicht mehr fragen" (30 Tage Cooldown + Button weg)
+        html += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">';
+        html += '<button class="pwa-close" type="button">Verstanden — ich versuche es</button>';
+        html += '<button class="pwa-dismiss" type="button" style="width:100%;padding:14px;background:#e2e8f0;color:#475569;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Nicht mehr fragen / schon installiert</button>';
+        html += '</div>';
         card.innerHTML = html;
         overlay.appendChild(card);
         document.body.appendChild(overlay);
         card.querySelector('.pwa-close').addEventListener('click', function() { overlay.remove(); });
+        card.querySelector('.pwa-dismiss').addEventListener('click', function() {
+            lsSet(LS_KEY_DISMISSED, String(Date.now() + DISMISS_COOLDOWN_MS));
+            const btn = document.getElementById('pwa-install-btn');
+            if (btn) btn.style.display = 'none';
+            overlay.remove();
+        });
         overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
     }
 
-    // Init: Button erscheint immer (auch ohne beforeinstallprompt-Event)
+    // Init: Button erscheint nur wenn nicht installiert / nicht dismissed.
     window.addEventListener('load', function() {
         setTimeout(function() {
             if (isStandalone() || buttonInjected) return;
+            // 🆕 v6.62.629: Throttle — installiert (jemals) oder kuerzlich dismissed → kein Button
+            const skip = alreadyInstalledOrDismissed();
+            if (skip) {
+                console.log('PWA-Install Button uebersprungen:', skip);
+                return;
+            }
             injectStyle();
             injectButton();
             buttonInjected = true;

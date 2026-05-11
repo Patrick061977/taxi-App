@@ -21373,10 +21373,16 @@ exports.onRideUpdated = onValueUpdated(
             // v6.62.314: Auch needsInvoice-Feld erkennen (Web-Driver-Flow nutzt das, Native
             //   v6.62.312+ schreibt beide Felder fuer Backwards-Kompatibilitaet).
             const _invoiceWanted = after.invoiceRequested === true || after.needsInvoice === true;
+            const _invoiceWantedBefore = before.invoiceRequested === true || before.needsInvoice === true;
+            // v6.62.598: Retro-Rechnung — Patrick kann nachtraeglich fuer vergangene
+            //   completed-Fahrten den invoice-Flag flippen (Native-CRM-Historie).
+            //   Dann ist Status nicht "just completed" mehr, aber wir wollen trotzdem
+            //   die Auto-Erstellung triggern.
+            const _retroInvoiceFlip = _statusAfter === 'completed' && _invoiceWanted && !_invoiceWantedBefore;
             const _hasNoInvoiceYet = !after.invoiceNumber;
             const _hasPriceData = (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
-            if (_justCompleted && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {
-                console.log(`🧾 v6.62.312 Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
+            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {
+                console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
                 // Belegnr aus Counter (yyyy-mm-AUSR-NNNN, GoBD lueckenlos)
                 const _belegDate = after.completedAt
                     ? new Date(after.completedAt).toISOString().slice(0, 10)

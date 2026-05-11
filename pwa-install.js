@@ -1,10 +1,10 @@
-// 🔧 v6.62.433: PWA-Install-Button NUR noch wenn Browser nativ installieren kann.
-//   Patrick (08.05.2026): „Da sehe ich nicht durch und die Kunden auch — gestern hat
-//   das wunderbar funktioniert, da habe ich drauf gedrückt auf App installieren und
-//   da hat er die wunderbar installiert. Das installiert keiner."
-//   Konsequenz: Modal mit Browser-Anleitung komplett raus. Button erscheint nur,
-//   wenn `beforeinstallprompt` gefeuert hat (Chrome/Edge/Brave/Opera/Samsung).
-//   Auf iOS/Firefox/Safari kein Button — der Browser bringt den Nutzer nicht ans Ziel.
+// v6.62.610: PWA-Install-Button GROESSER + im Hero statt floating-bubble.
+//   Patrick (11.05.): "plug and play muss alles sein, app installieren auch
+//   ein bischen groesser, die Blase unten weg".
+// Strategy:
+//   - Wenn ein Element #pwa-install-anchor existiert → Button DA reinhaengen (im Hero, gross)
+//   - Sonst Fallback: floating bottom-right (legacy fuer andere Seiten)
+//
 // Wird auf kunden.html, buchen.html, landing.html, hotel.html eingebunden.
 
 (function() {
@@ -13,8 +13,6 @@
     let deferredPrompt = null;
     let buttonInjected = false;
 
-    // beforeinstallprompt cachen (Chrome / Edge / Brave / Opera / Samsung).
-    // Erst HIER wird der Button injiziert — auf Browsern ohne Event taucht er nie auf.
     window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         deferredPrompt = e;
@@ -25,7 +23,6 @@
         }
     });
 
-    // Wenn schon installiert, Button verstecken
     window.addEventListener('appinstalled', function() {
         const btn = document.getElementById('pwa-install-btn');
         if (btn) btn.style.display = 'none';
@@ -40,19 +37,34 @@
         if (document.getElementById('pwa-install-style')) return;
         const style = document.createElement('style');
         style.id = 'pwa-install-style';
+        // Zwei Varianten: prominent (im Anchor) und floating (Fallback).
         style.textContent = `
             #pwa-install-btn {
-                position: fixed; bottom: 14px; right: 14px;
                 background: linear-gradient(135deg, #0f4c81, #1e6091);
-                color: white; border: none; border-radius: 24px;
-                padding: 10px 16px; font-size: 13px; font-weight: 700;
-                cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.28);
-                z-index: 9999; font-family: inherit;
-                display: flex; align-items: center; gap: 6px;
-                transition: transform 0.15s, opacity 0.2s;
+                color: white; border: none; cursor: pointer;
+                font-family: inherit; font-weight: 800;
+                transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
             }
-            #pwa-install-btn:active { transform: scale(0.96); }
+            #pwa-install-btn:active { transform: scale(0.97); }
             #pwa-install-btn:hover { opacity: 0.92; }
+            /* prominent (im hero-anchor) */
+            #pwa-install-btn.prominent {
+                display: flex; align-items: center; justify-content: center; gap: 10px;
+                width: 100%; max-width: 400px; margin: 0 auto;
+                padding: 18px 28px; font-size: 18px;
+                border-radius: 14px;
+                box-shadow: 0 8px 20px rgba(15, 76, 129, 0.45);
+            }
+            #pwa-install-btn.prominent .pwa-icon { font-size: 24px; }
+            /* floating (Fallback fuer alte Seiten ohne Anchor) */
+            #pwa-install-btn.floating {
+                position: fixed; bottom: 14px; right: 14px;
+                border-radius: 24px;
+                padding: 10px 16px; font-size: 13px;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+                z-index: 9999;
+                display: flex; align-items: center; gap: 6px;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -62,14 +74,24 @@
         const btn = document.createElement('button');
         btn.id = 'pwa-install-btn';
         btn.type = 'button';
-        btn.innerHTML = '<span style="font-size:15px;">📱</span> App installieren';
-        btn.setAttribute('aria-label', 'App auf Ihrem Gerät installieren');
+        const anchor = document.getElementById('pwa-install-anchor');
+        if (anchor) {
+            // Prominent-Variante im Hero
+            btn.className = 'prominent';
+            btn.innerHTML = '<span class="pwa-icon">📱</span> Taxi-App installieren';
+            btn.setAttribute('aria-label', 'Funk Taxi App auf Ihrem Gerät installieren');
+            anchor.appendChild(btn);
+        } else {
+            // Fallback: Floating bottom-right (alte Seiten)
+            btn.className = 'floating';
+            btn.innerHTML = '<span style="font-size:15px;">📱</span> App installieren';
+            btn.setAttribute('aria-label', 'App auf Ihrem Gerät installieren');
+            document.body.appendChild(btn);
+        }
         btn.addEventListener('click', handleInstallClick);
-        document.body.appendChild(btn);
     }
 
     async function handleInstallClick() {
-        // Button existiert nur wenn deferredPrompt vorhanden ist — trotzdem doppelt absichern.
         if (!deferredPrompt) return;
         try {
             deferredPrompt.prompt();

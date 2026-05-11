@@ -21595,6 +21595,50 @@ exports.onRideDeleted = onValueDeleted(
 // Patrick (10.05. 20:46): "Das Feedback muss auch irgendwo ankommen"
 // → Cloud Function liest /feedback/{rideId} und sendet Telegram an alle Admins
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.620: KONTAKT-MESSAGE-TRIGGER — Kunde nutzt kontakt.html
+// Patrick (11.05. 15:43): "Anfrage oder Feedback ohne Buchung — wo landet
+// das?". Cloud Function pingt Admin sofort bei neuer Nachricht.
+// ═══════════════════════════════════════════════════════════════
+exports.onContactMessageCreated = onValueCreated(
+    {
+        ref: '/contactMessages/{msgId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const msgId = event.params.msgId;
+        const m = event.data.val();
+        if (!m || !m.message) return;
+        const cat = (m.category || 'sonstiges').toString();
+        const catEmoji = {
+            'frage': '❓', 'lob': '⭐', 'kritik': '😕', 'sonstiges': '💬'
+        }[cat] || '💬';
+        const catLabel = {
+            'frage': 'FRAGE', 'lob': 'LOB', 'kritik': 'KRITIK', 'sonstiges': 'SONSTIGES'
+        }[cat] || cat.toUpperCase();
+        const lines = [];
+        lines.push(`${catEmoji} <b>Neue Kontakt-Nachricht (${catLabel})</b>`);
+        lines.push('');
+        if (m.name) lines.push(`👤 <b>Von:</b> ${m.name}`);
+        if (m.contact) lines.push(`📞 <b>Kontakt:</b> ${m.contact}`);
+        lines.push('');
+        lines.push(`💬 ${m.message.slice(0, 1500)}`);
+        if (cat === 'kritik') {
+            lines.push('');
+            lines.push(`⚠️ <b>Kritik — bitte zeitnah reagieren</b>`);
+        }
+        try {
+            await sendToAllAdmins(lines.join('\n'));
+        } catch (e) {
+            console.error('contact-message-trigger sendToAllAdmins error:', e.message);
+        }
+        try {
+            await addTelegramLog('💬', 'cloud', `Kontakt-Msg ${catLabel} von ${m.name || '?'}`, { msgId, category: cat });
+        } catch (_) {}
+    }
+);
+
 exports.onFeedbackCreated = onValueCreated(
     {
         ref: '/feedback/{rideId}',

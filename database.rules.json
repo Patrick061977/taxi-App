@@ -100,6 +100,14 @@
       ".indexOn": ["timestamp"]
     },
 
+    "contactMessages": {
+      ".read": "auth != null",
+      ".indexOn": ["createdAt", "category"],
+      "$msgId": {
+        ".write": "!data.exists() && newData.child('message').isString() && newData.child('message').val().length >= 2 && newData.child('message').val().length <= 2000"
+      }
+    },
+
     "feedback": {
       ".read": "auth != null",
       ".indexOn": ["submittedAt", "rating"],

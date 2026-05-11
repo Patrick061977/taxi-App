@@ -758,11 +758,50 @@
                     <!-- 🔧 v6.62.473: Datum darf nicht direkt zum Slot springen ohne Uhrzeit
                          (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
                          nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
-                    <input type="date" id="b-date" min="" onchange="onBDateChange()">
-                    <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1'" onchange="syncTimeToLegacyDropdowns();onDateTimeChange()" onblur="syncTimeToLegacyDropdowns();onDateTimeChange()" style="padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;background:white;">
+                    <!-- 🆕 v6.62.626: Patrick (11.05. 19:18): Termin-Bild click öffnet Picker.
+                         Bisher war b-date ein winziges natives Input-Feld. Jetzt Wrapper-Card
+                         mit 📅-Icon — Klick auf irgendeine Stelle der Card öffnet den Native-
+                         Date-Picker via showPicker(). Selbes Pattern für b-time mit 🕐-Icon. -->
+                    <div onclick="(function(e){try{document.getElementById('b-date').showPicker();}catch(_){document.getElementById('b-date').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;margin-bottom:8px;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">📅</span>
+                        <div style="flex:1;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
+                            <div id="b-date-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
+                        </div>
+                        <input type="date" id="b-date" min="" onchange="onBDateChange();updateBDateLabel();" style="position:absolute;left:-9999px;opacity:0;">
+                    </div>
+                    <div onclick="(function(e){try{document.getElementById('b-time').showPicker();}catch(_){document.getElementById('b-time').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">🕐</span>
+                        <div style="flex:1;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
+                            <div id="b-time-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
+                        </div>
+                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="position:absolute;left:-9999px;opacity:0;">
+                    </div>
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
                 </div>
+                <script>
+                // 🆕 v6.62.626: Label-Update fuer die neuen Termin-Cards.
+                window.updateBDateLabel = function() {
+                    const inp = document.getElementById('b-date');
+                    const lbl = document.getElementById('b-date-label');
+                    if (!inp || !lbl) return;
+                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
+                    try {
+                        const d = new Date(inp.value + 'T00:00:00');
+                        const opts = { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' };
+                        lbl.textContent = d.toLocaleDateString('de-DE', opts);
+                    } catch(_) { lbl.textContent = inp.value; }
+                };
+                window.updateBTimeLabel = function() {
+                    const inp = document.getElementById('b-time');
+                    const lbl = document.getElementById('b-time-label');
+                    if (!inp || !lbl) return;
+                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
+                    lbl.textContent = inp.value + ' Uhr';
+                };
+                </script>
                 <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
                 <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -2840,6 +2879,7 @@
             const ds = firstTab._dateStr;
             if (ds) {
                 document.getElementById('b-date').value = ds;
+                if (typeof updateBDateLabel === 'function') updateBDateLabel();
                 _slotCalendarDate = ds;
                 _selectedSlot = null;
                 renderSlotTimeline(ds);
@@ -2875,6 +2915,7 @@
                     document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
                     document.getElementById('b-date').value = ds;
+                    if (typeof updateBDateLabel === 'function') updateBDateLabel();
                     _slotCalendarDate = ds;
                     // Slot-Auswahl beibehalten aber für neuen Tag prüfen
                     if (_selectedSlot) {
@@ -2890,6 +2931,7 @@
             const firstDate = preSelectedDate || todayStr;
             _slotCalendarDate = firstDate;
             document.getElementById('b-date').value = firstDate;
+            if (typeof updateBDateLabel === 'function') updateBDateLabel();
             renderSlotTimeline(firstDate);
         }
 
@@ -3219,6 +3261,7 @@
             _selectedSlot = timeStr + '_' + dateStr;
             // Felder setzen
             document.getElementById('b-date').value = dateStr;
+            if (typeof updateBDateLabel === 'function') updateBDateLabel();
             const hourSel = document.getElementById('b-hour');
             const minSel = document.getElementById('b-minute');
             initDateTimePickers();
@@ -3227,6 +3270,7 @@
             // 🆕 v6.41.65: NEU — auch den Time-Input oben syncen
             const tInput = document.getElementById('b-time');
             if (tInput) tInput.value = timeStr;
+            if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
 
             // Timeline neu rendern (Selection-Highlight)
             renderSlotTimeline(dateStr);

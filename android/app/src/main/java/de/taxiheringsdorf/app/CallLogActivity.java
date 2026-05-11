@@ -668,9 +668,12 @@ public class CallLogActivity extends AppCompatActivity {
             // v6.62.74: Patrick: 'Anrufer ruft an, ich fahre noch hin' → SOFORT-Fahrt mit
             // Status='accepted' damit normaler Flow durchlaufen wird (on_way → BIN DA → Eingestiegen).
             // EINSTEIGER bleibt fuer Walk-in (Person steht schon am Auto, sofort 'picked_up').
+            // 🆕 v6.62.626: Patrick (11.05. 19:18): "Bisherige Fahrten" auch im CallLog —
+            // launchet CrmSearchActivity mit auto_history_customer_id Intent-Extra, das die
+            // dort vorhandene History-Logik direkt aufruft (keine Code-Duplikation).
             String[] options = admin
-                ? new String[]{ "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" }
-                : new String[]{ "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "Abbrechen" };
+                ? new String[]{ "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "📜 Bisherige Fahrten anschauen", "Abbrechen" }
+                : new String[]{ "🚖 EINSTEIGER (Kunde steht am Auto)", "🚗 SOFORT-Fahrt (ich fahre hin)", "📅 Vorbestellung erstellen", "📋 CRM-Eintrag bearbeiten", "📜 Bisherige Fahrten anschauen", "Abbrechen" };
             String title = "📞 " + crm.name + " — " + e.number;
             if (crm.address != null) title += "\n📍 " + crm.address;
             new AlertDialog.Builder(this)
@@ -681,6 +684,7 @@ public class CallLogActivity extends AppCompatActivity {
                             case 0: createSofortFahrtCrm(e, crm); break;
                             case 1: showPrebookingDialog(e, crm); break;
                             case 2: showCrmEditDialog(crm); break;
+                            case 3: openRideHistoryForCustomer(crm); break;
                         }
                     } else {
                         switch (which) {
@@ -688,6 +692,7 @@ public class CallLogActivity extends AppCompatActivity {
                             case 1: createSofortFahrtCrm(e, crm); break;
                             case 2: showPrebookingDialog(e, crm); break;
                             case 3: showCrmEditDialog(crm); break;
+                            case 4: openRideHistoryForCustomer(crm); break;
                         }
                     }
                 }).show();
@@ -714,6 +719,19 @@ public class CallLogActivity extends AppCompatActivity {
                     }
                 }).show();
         }
+    }
+
+    // 🆕 v6.62.626: Bisherige-Fahrten Button — startet CrmSearchActivity mit Intent-Extra,
+    // das dort die showCustomerRideHistory()-Logik triggert. Kein Code-Duplikat.
+    private void openRideHistoryForCustomer(CrmCustomer crm) {
+        if (crm == null || crm.id == null) {
+            Toast.makeText(this, "❌ Kunden-ID fehlt", Toast.LENGTH_LONG).show();
+            return;
+        }
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        i.putExtra("auto_history_customer_id", crm.id);
+        i.putExtra("auto_history_customer_name", crm.name != null ? crm.name : "");
+        startActivity(i);
     }
 
     // v6.62.74: SOFORT-Fahrt — Pickup steht beim Anrufer, ich fahre hin.
@@ -1599,6 +1617,113 @@ public class CallLogActivity extends AppCompatActivity {
             }, curr.get(Calendar.YEAR), curr.get(Calendar.MONTH), curr.get(Calendar.DAY_OF_MONTH)).show();
         });
         layout.addView(tvDate);
+
+        // 🆕 v6.62.626: Live-Konflikt-Ampel im CallLog-Vorbestell-Dialog (Port von CrmSearchActivity v6.62.608).
+        // Patrick (11.05. 19:18): "mach die 3 Sachen fertig" — Bisherige Fahrten + Konflikt-Ampel im CallLog.
+        // Pollt datetime[0] alle 500ms, bei Aenderung Firebase-Query auf aktive Rides im Fenster +/-2h, dann
+        // pro Fahrzeug Overlap-Check. Zeigt 🟢 frei / 🟡 knapp / 🔴 alle belegt.
+        TextView tvKonflikt = new TextView(this);
+        tvKonflikt.setText("🔍 Pruefe Konflikte...");
+        tvKonflikt.setTextSize(13);
+        tvKonflikt.setPadding(padHalf, padHalf, padHalf, padHalf);
+        tvKonflikt.setBackgroundColor(0xFFF1F5F9);
+        layout.addView(tvKonflikt);
+        Runnable refreshKonflikt = () -> {
+            tvKonflikt.setText("🔍 Pruefe Konflikte...");
+            tvKonflikt.setBackgroundColor(0xFFF1F5F9);
+            tvKonflikt.setTextColor(0xFF475569);
+            final long newPickupTs = datetime[0];
+            final long newEndTs = newPickupTs + 20L * 60_000L;
+            final long windowFrom = newPickupTs - 2L * 3600_000L;
+            final long windowTo = newPickupTs + 2L * 3600_000L;
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+                .orderByChild("pickupTimestamp").startAt((double) windowFrom).endAt((double) windowTo)
+                .get().addOnCompleteListener(task -> {
+                    if (!task.isSuccessful() || task.getResult() == null) {
+                        tvKonflikt.setText("⚠️ Konflikt-Check fehlgeschlagen — nimm an es passt");
+                        tvKonflikt.setTextColor(0xFF92400E);
+                        tvKonflikt.setBackgroundColor(0xFFFEF3C7);
+                        return;
+                    }
+                    java.util.Map<String, java.util.List<long[]>> slotsPerVeh = new HashMap<>();
+                    for (com.google.firebase.database.DataSnapshot s : task.getResult().getChildren()) {
+                        String _st = s.child("status").getValue(String.class);
+                        if (_st == null) continue;
+                        String _stLow = _st.toLowerCase();
+                        if (_stLow.equals("deleted") || _stLow.equals("cancelled") || _stLow.equals("storniert")
+                            || _stLow.equals("completed") || _stLow.equals("abgeschlossen")) continue;
+                        String vid = s.child("assignedVehicle").getValue(String.class);
+                        if (vid == null) vid = s.child("vehicleId").getValue(String.class);
+                        if (vid == null) continue;
+                        Long _pts = s.child("pickupTimestamp").getValue(Long.class);
+                        if (_pts == null) continue;
+                        Object _durObj = s.child("duration").getValue();
+                        if (_durObj == null) _durObj = s.child("estimatedDuration").getValue();
+                        int _dur = _durObj instanceof Number ? ((Number) _durObj).intValue() : 20;
+                        long _rideEnd = _pts + (_dur + 4L) * 60_000L;
+                        if (!slotsPerVeh.containsKey(vid)) slotsPerVeh.put(vid, new ArrayList<>());
+                        slotsPerVeh.get(vid).add(new long[]{ _pts, _rideEnd });
+                    }
+                    java.util.List<String> freie = new java.util.ArrayList<>();
+                    java.util.List<String> konflikte = new java.util.ArrayList<>();
+                    java.util.List<String> bekannteFzg = new java.util.ArrayList<>(java.util.Arrays.asList(
+                        "pw-ik-222","pw-ki-222","pw-my-222-e","pw-ym-222-e","pw-sj-222","pw-sk-222","ovp-ii-600","ovp-ik-222","sbg-v-104","vg-lk-111"
+                    ));
+                    for (String vid : bekannteFzg) {
+                        java.util.List<long[]> slots = slotsPerVeh.get(vid);
+                        boolean hasConflict = false;
+                        String konfDetail = "";
+                        if (slots != null) {
+                            for (long[] slot : slots) {
+                                if (slot[0] < newEndTs && newPickupTs < slot[1]) {
+                                    hasConflict = true;
+                                    java.text.SimpleDateFormat _hm = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+                                    _hm.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                                    konfDetail = _hm.format(new java.util.Date(slot[0])) + "–" + _hm.format(new java.util.Date(slot[1]));
+                                    break;
+                                }
+                            }
+                        }
+                        if (hasConflict) konflikte.add(vid + " (" + konfDetail + ")");
+                        else freie.add(vid);
+                    }
+                    int free = freie.size();
+                    if (free >= 3) {
+                        tvKonflikt.setText("✅ " + free + " Fahrer haben um diese Zeit Platz");
+                        tvKonflikt.setTextColor(0xFF065F46);
+                        tvKonflikt.setBackgroundColor(0xFFD1FAE5);
+                    } else if (free >= 1) {
+                        tvKonflikt.setText("🟡 Nur " + free + " Fahrer frei — knapp besetzt");
+                        tvKonflikt.setTextColor(0xFF92400E);
+                        tvKonflikt.setBackgroundColor(0xFFFEF3C7);
+                    } else {
+                        StringBuilder sb = new StringBuilder("🔴 ALLE Fahrer um diese Zeit belegt!");
+                        if (!konflikte.isEmpty()) {
+                            sb.append("\nBelegt: ");
+                            for (int i = 0; i < Math.min(3, konflikte.size()); i++) {
+                                if (i > 0) sb.append(", ");
+                                sb.append(konflikte.get(i));
+                            }
+                        }
+                        tvKonflikt.setText(sb.toString());
+                        tvKonflikt.setTextColor(0xFF991B1B);
+                        tvKonflikt.setBackgroundColor(0xFFFEE2E2);
+                    }
+                });
+        };
+        final long[] _lastPolledDt = { datetime[0] };
+        final android.os.Handler _pollH = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable _pollR = new Runnable() {
+            @Override public void run() {
+                if (datetime[0] != _lastPolledDt[0]) {
+                    _lastPolledDt[0] = datetime[0];
+                    refreshKonflikt.run();
+                }
+                _pollH.postDelayed(this, 500);
+            }
+        };
+        _pollH.postDelayed(_pollR, 500);
+        refreshKonflikt.run();
 
         // 🔧 v6.62.479: Patrick (08.05. 12:48): "Speichern und Abbrechen ist nur ganz klein
         //   zu sehen. Das kann man unter dieser Karte hin und her schieben, aber das müsste

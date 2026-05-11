@@ -399,7 +399,35 @@ public class CrmSearchActivity extends AppCompatActivity {
         loadAll();
     }
 
+    // 🆕 v6.62.626: Auto-Show-History — wenn aus CallLogActivity (oder anderswo) aufgerufen
+    // mit Intent-Extras "auto_history_customer_id" → direkt nach Load die Fahrt-Historie
+    // des Kunden anzeigen. Spart die Code-Duplikation in CallLogActivity.
+    private String _pendingHistoryCustomerId = null;
+
+    private void _maybeAutoOpenHistory() {
+        String _id = getIntent() != null ? getIntent().getStringExtra("auto_history_customer_id") : null;
+        if (_id == null) return;
+        _pendingHistoryCustomerId = _id;
+        // Intent-Extra entfernen, damit es bei Rotation/Resume nicht wieder feuert
+        getIntent().removeExtra("auto_history_customer_id");
+    }
+
+    private void _runPendingHistoryIfReady() {
+        if (_pendingHistoryCustomerId == null) return;
+        for (CrmEntry e : all) {
+            if (_pendingHistoryCustomerId.equals(e.id)) {
+                _pendingHistoryCustomerId = null;
+                showCustomerRideHistory(e);
+                return;
+            }
+        }
+        // Kunde nicht in der Liste — vermutlich gerade geloescht. Stilles Fehler-Toast.
+        _pendingHistoryCustomerId = null;
+        Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
+    }
+
     private void loadAll() {
+        _maybeAutoOpenHistory();
         tvCount.setText("Lade…");
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
             .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -411,6 +439,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                     }
                     all.sort((a, b) -> (a.name != null ? a.name : "").compareToIgnoreCase(b.name != null ? b.name : ""));
                     applyFilter(etQuery.getText() != null ? etQuery.getText().toString() : "");
+                    _runPendingHistoryIfReady();
                 }
                 @Override public void onCancelled(@NonNull DatabaseError error) {
                     tvCount.setText("Fehler: " + error.getMessage());

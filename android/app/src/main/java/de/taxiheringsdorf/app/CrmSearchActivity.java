@@ -540,6 +540,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             "📅 Vorbestellung erstellen",
             "✏️ CRM-Eintrag bearbeiten",
             "📜 Bisherige Fahrten anschauen",
+            "📞 Anruf-Mitschnitte (ACR)",
             "Abbrechen"
         };
         new AlertDialog.Builder(this)
@@ -551,6 +552,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                     case 2: showVorbestellungDialogWithGuest(e); break;
                     case 3: openEditDialog(e); break;
                     case 4: showCustomerRideHistory(e); break;
+                    case 5: showCallRecordings(e); break;
                 }
             }).show();
     }
@@ -2057,6 +2059,141 @@ public class CrmSearchActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.62.603: Patrick (11.05. 08:38): "wichtig hier in der Native-App nochmal drauf
+    //   zu drücken, wenn ich es manuell ändern will, dass ich den Anruf nochmal abhören
+    //   kann, direkt aus der App."
+    //
+    // ACR Phone-Recorder speichert Aufnahmen lokal nach folgendem Pfad-Schema:
+    //   /sdcard/ACRCalls/ACRPhone/YYYY/MM/DD/+TelNr/...m4a
+    // Wir scannen den Ordner, filtern nach Telefon-Nummern dieses CRM-Kunden (Last-9-Match
+    // gegen phone, mobilePhone, phone2, additionalPhones[*]), und zeigen die Liste in einem
+    // Dialog. Tap → Player via Intent.ACTION_VIEW (System-Music-App).
+    //
+    // Permission: MANAGE_EXTERNAL_STORAGE noetig auf Android 11+ — wenn nicht erteilt,
+    // oeffnet die Methode die System-Einstellungen.
+    private void showCallRecordings(CrmEntry e) {
+        // 1) Permission-Check Android 11+
+        if (android.os.Build.VERSION.SDK_INT >= 30) {  // Android 11
+            if (!android.os.Environment.isExternalStorageManager()) {
+                new AlertDialog.Builder(this)
+                    .setTitle("📞 Berechtigung benoetigt")
+                    .setMessage("Um ACR-Aufnahmen zu lesen, brauche ich Zugriff auf den /sdcard-Ordner.\n\nIch oeffne jetzt die Einstellungen — bitte 'Alle Dateien verwalten' fuer Funk-Taxi aktivieren und zurueck.")
+                    .setPositiveButton("Einstellungen oeffnen", (d, w) -> {
+                        try {
+                            Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                            intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Exception ex) {
+                            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                        }
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+                return;
+            }
+        }
+
+        // 2) Telefon-Nummern dieses Kunden sammeln (last-9-digits-Match)
+        java.util.Set<String> phoneSuffixes = new java.util.HashSet<>();
+        java.util.function.Consumer<String> _addP = p -> {
+            if (p == null) return;
+            String digits = p.replaceAll("[^0-9]", "");
+            if (digits.length() >= 9) phoneSuffixes.add(digits.substring(digits.length() - 9));
+        };
+        _addP.accept(e.phone);
+        _addP.accept(e.mobilePhone);
+        _addP.accept(e.phone2);
+        if (e.additionalPhones != null) for (String p : e.additionalPhones) _addP.accept(p);
+
+        if (phoneSuffixes.isEmpty()) {
+            Toast.makeText(this, "❌ Keine Telefonnummer im CRM-Kunden hinterlegt.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // 3) ACR-Ordner scannen (im Background-Thread)
+        ProgressDialog pd = new ProgressDialog(this);
+        pd.setMessage("📞 Scanne /sdcard/ACRCalls...");
+        pd.setCancelable(false);
+        pd.show();
+
+        new Thread(() -> {
+            java.util.List<java.io.File> matched = new java.util.ArrayList<>();
+            java.io.File root = new java.io.File("/sdcard/ACRCalls");
+            if (root.exists() && root.isDirectory()) {
+                scanAcrRecursive(root, phoneSuffixes, matched, 0);
+            }
+            // Sortiere nach Modifikationsdatum descending
+            matched.sort((a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+
+            runOnUiThread(() -> {
+                pd.dismiss();
+                if (matched.isEmpty()) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("📞 Keine Aufnahmen")
+                        .setMessage("Im /sdcard/ACRCalls-Ordner wurden keine Aufnahmen fuer diese Telefonnummern gefunden.\n\nGesucht nach Last-9 Match auf: " + String.join(", ", phoneSuffixes))
+                        .setPositiveButton("OK", null)
+                        .show();
+                    return;
+                }
+                // Liste der Aufnahmen anzeigen
+                String[] labels = new String[matched.size()];
+                java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("dd.MM.yy HH:mm", Locale.GERMANY);
+                fmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                for (int i = 0; i < matched.size(); i++) {
+                    java.io.File f = matched.get(i);
+                    String date = fmt.format(new java.util.Date(f.lastModified()));
+                    long sizeMb = f.length() / 1024 / 1024;
+                    long sizeKb = (f.length() / 1024) % 1024;
+                    String size = sizeMb > 0 ? sizeMb + "." + (sizeKb * 10 / 1024) + " MB" : (f.length() / 1024) + " KB";
+                    labels[i] = "📅 " + date + " · " + size + "\n" + f.getName();
+                }
+                new AlertDialog.Builder(this)
+                    .setTitle("📞 " + (e.name != null ? e.name : "Kunde") + " — " + matched.size() + " Anruf" + (matched.size() == 1 ? "" : "e"))
+                    .setItems(labels, (d, w) -> playCallRecording(matched.get(w)))
+                    .setNegativeButton("Schliessen", null)
+                    .show();
+            });
+        }, "acr-scanner").start();
+    }
+
+    // Recursive scan — sucht nach m4a-Dateien deren Pfad eine der Telefon-Suffixe enthaelt.
+    // Maximale Rekursionstiefe 6 (YYYY/MM/DD/+TelNr/file = 5 Levels unter ACRCalls/).
+    private void scanAcrRecursive(java.io.File dir, java.util.Set<String> phoneSuffixes,
+                                  java.util.List<java.io.File> out, int depth) {
+        if (depth > 6 || out.size() > 100) return;
+        java.io.File[] children = dir.listFiles();
+        if (children == null) return;
+        for (java.io.File c : children) {
+            if (c.isDirectory()) {
+                scanAcrRecursive(c, phoneSuffixes, out, depth + 1);
+            } else if (c.getName().toLowerCase().endsWith(".m4a") || c.getName().toLowerCase().endsWith(".mp3") || c.getName().toLowerCase().endsWith(".wav")) {
+                // Pfad-Match: enthaelt der absolute Pfad eine der Phone-Suffixe?
+                String fullPath = c.getAbsolutePath();
+                String fullDigits = fullPath.replaceAll("[^0-9]", "");
+                for (String suffix : phoneSuffixes) {
+                    if (fullDigits.contains(suffix)) {
+                        out.add(c);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void playCallRecording(java.io.File f) {
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                this, getPackageName() + ".fileprovider", f);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "audio/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(intent, "Aufnahme oeffnen mit..."));
+        } catch (Exception ex) {
+            Toast.makeText(this, "❌ Kann Aufnahme nicht oeffnen: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+            Log.e("ACR", "playCallRecording fail", ex);
+        }
     }
 
     private void openEditDialog(CrmEntry e) {

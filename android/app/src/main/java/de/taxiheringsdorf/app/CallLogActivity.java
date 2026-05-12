@@ -528,6 +528,20 @@ public class CallLogActivity extends AppCompatActivity {
         }
     }
 
+    // 🆕 v6.62.635: Polling-Handler als Backup falls ContentObserver auf Samsung-OneUI
+    // unzuverlaessig feuert (Patrick 12.05. 08:46: neue Anrufe erscheinen erst beim Tab-Wechsel,
+    // nicht waehrend Anrufliste offen ist).
+    private Handler _refreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable _refreshTick = new Runnable() {
+        @Override
+        public void run() {
+            if (ContextCompat.checkSelfPermission(CallLogActivity.this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                loadCalls();
+            }
+            _refreshHandler.postDelayed(this, 30000);
+        }
+    };
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -535,6 +549,15 @@ public class CallLogActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
             loadCalls();
         }
+        // 🆕 v6.62.635: Polling alle 30s waehrend Activity sichtbar ist.
+        _refreshHandler.postDelayed(_refreshTick, 30000);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 🆕 v6.62.635: Polling stoppen wenn Activity nicht mehr sichtbar.
+        _refreshHandler.removeCallbacks(_refreshTick);
     }
 
     @Override

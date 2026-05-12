@@ -843,9 +843,10 @@
                 </div>
                 <!-- 🆕 v6.41.45: Preis-Overlay IN der Karte (schwebend, Glass-Look) -->
                 <div id="map-price-overlay" style="display:none;position:absolute;top:10px;right:10px;z-index:500;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.8);min-width:110px;">
-                    <div id="map-price-label" style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis</div>
-                    <div id="map-price-amount" style="font-size:22px;font-weight:800;color:#047857;line-height:1;letter-spacing:-0.5px;">—€</div>
+                    <div id="map-price-label" style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis (Schätzung)</div>
+                    <div id="map-price-amount" style="font-size:22px;font-weight:800;color:#047857;line-height:1;letter-spacing:-0.5px;"><span style="font-size:13px;font-weight:600;color:#64748b;">ca.</span> —€</div>
                     <div id="map-price-meta" style="font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;">—</div>
+                    <div style="font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.2;font-style:italic;">Endpreis nach Taxameter</div>
                     <div id="map-price-diff" style="display:none;font-size:10px;font-weight:700;margin-top:4px;padding:2px 6px;border-radius:6px;"></div>
                 </div>
             </div>
@@ -4213,8 +4214,9 @@
                         const _tarifTermin = pricing.hinweise.filter(h => /tarif/i.test(h)).join(', ') || 'Tagestarif';
                         if (isVorbestellungNow && pricingJetzt) {
                             // Vorbestellung: Termin-Preis im Overlay + Differenz-Badge
-                            mpLabel.textContent = '📅 Zum Termin';
-                            mpAmount.textContent = pricing.total + '€';
+                            mpLabel.textContent = '📅 Zum Termin (Schätzung)';
+                            // v6.62.637: 'ca.' prominent als Praefix — Patrick (12.05. 11:48 Variante A)
+                            mpAmount.innerHTML = '<span style="font-size:13px;font-weight:600;color:#64748b;">ca.</span> ' + pricing.total + '€';
                             mpAmount.style.color = pricing.total > pricingJetzt.total ? '#b45309' : (pricing.total < pricingJetzt.total ? '#0369a1' : '#047857');
                             mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
                             const diff = pricing.total - pricingJetzt.total;
@@ -4233,8 +4235,9 @@
                             }
                         } else {
                             // Sofort oder ohne Termin: einfacher Preis
-                            mpLabel.textContent = 'Preis';
-                            mpAmount.textContent = pricing.total + '€';
+                            mpLabel.textContent = 'Preis (Schätzung)';
+                            // v6.62.637: 'ca.' prominent als Praefix
+                            mpAmount.innerHTML = '<span style="font-size:13px;font-weight:600;color:#64748b;">ca.</span> ' + pricing.total + '€';
                             mpAmount.style.color = '#047857';
                             mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
                             mpDiff.style.display = 'none';

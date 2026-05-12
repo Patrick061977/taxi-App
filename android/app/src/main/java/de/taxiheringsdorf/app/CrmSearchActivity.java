@@ -412,6 +412,25 @@ public class CrmSearchActivity extends AppCompatActivity {
         getIntent().removeExtra("auto_history_customer_id");
     }
 
+    // v6.62.639: Patrick (12.05. 13:04+13:19): "in der Anrufliste 'Neuen Kunden anlegen'
+    // soll EXAKT die gleiche Maske wie hier in der CRM-Suche oeffnen". Intent-Extra
+    // 'prefill_new_phone' + 'prefill_new_name' triggert openEditDialog mit neuem Eintrag
+    // und vorbefuellter Telefonnummer (aus CallLog).
+    private void _maybeAutoOpenCreateDialog() {
+        if (getIntent() == null) return;
+        String _phone = getIntent().getStringExtra("prefill_new_phone");
+        if (_phone == null || _phone.isEmpty()) return;
+        String _name = getIntent().getStringExtra("prefill_new_name");
+        getIntent().removeExtra("prefill_new_phone");
+        getIntent().removeExtra("prefill_new_name");
+        CrmEntry blank = new CrmEntry();
+        blank.id = null; // markiert isNew=true
+        blank.name = _name != null ? _name : "";
+        blank.mobilePhone = _phone;
+        blank.phone = _phone;
+        openEditDialog(blank);
+    }
+
     private void _runPendingHistoryIfReady() {
         if (_pendingHistoryCustomerId == null) return;
         for (CrmEntry e : all) {
@@ -428,6 +447,7 @@ public class CrmSearchActivity extends AppCompatActivity {
 
     private void loadAll() {
         _maybeAutoOpenHistory();
+        _maybeAutoOpenCreateDialog();
         tvCount.setText("Lade…");
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
             .addListenerForSingleValueEvent(new ValueEventListener() {

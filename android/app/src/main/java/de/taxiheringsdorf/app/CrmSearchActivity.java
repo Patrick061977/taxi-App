@@ -2388,8 +2388,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         lblKind.setTypeface(null, android.graphics.Typeface.BOLD);
         layout.addView(lblKind);
 
-        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Firma" };
-        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenh.", "🏨 Hotel", "🏢 Firma" };
+        // v6.62.640: Patrick (12.05. 14:08): "Pension einfuegen, See Perle Ahlbeck — Hotel
+        // passt da nicht". Plus Praxis/Klinik fuer Krankenfahrten-Auftraggeber.
+        final String[] kinds = { "Stammkunde", "Gelegenheit", "Hotel", "Pension", "Firma", "Praxis", "Klinik" };
+        final String[] kindLabels = { "🔁 Stamm", "👤 Gelegenh.", "🏨 Hotel", "🏠 Pension", "🏢 Firma", "🩺 Praxis", "🏥 Klinik" };
         final int[] kindIdx = { Math.max(0, Arrays.asList(kinds).indexOf(e.customerKind != null ? e.customerKind : "Stammkunde")) };
 
         LinearLayout kindRow = new LinearLayout(this);
@@ -2418,8 +2420,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         lblSal.setPadding(0, pad, 0, pad / 4);
         layout.addView(lblSal);
         // 🆕 v6.62.544: Anrede-Optionen erweitert um Hotel/Firma/Familie
-        // (Patrick: "Hotel bei Anrede steht zum Beispiel oben auch nicht").
-        final String[] _saluts = { "—", "Herr", "Frau", "Familie", "Hotel", "Firma", "Divers" };
+        // v6.62.640: Patrick (12.05. 14:08): "Pension einfuegen, Doktor fehlt auch — schau
+        // was die Web-App fuer Anreden hat". Web-Anreden uebernommen + Familie behalten.
+        final String[] _saluts = { "—", "Herr", "Frau", "Familie", "Dr.", "Prof.", "Prof. Dr.", "Hotel", "Pension", "Firma", "Praxis", "Klinik", "Divers" };
         final android.widget.Spinner spSal = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> _salAd = new android.widget.ArrayAdapter<>(this,
             android.R.layout.simple_spinner_item, _saluts);
@@ -2447,7 +2450,8 @@ public class CrmSearchActivity extends AppCompatActivity {
             int _spc = _n.lastIndexOf(' ');
             // Bei Hotel/Firma bleibt der ganze Name im Nachname-Feld (kein Trennen)
             String _kind = e.customerKind != null ? e.customerKind : "Stammkunde";
-            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind);
+            // v6.62.640: Pension/Praxis/Klinik auch als Org behandelt (kein Vor/Nach-Split)
+            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind) || "Pension".equals(_kind) || "Praxis".equals(_kind) || "Klinik".equals(_kind);
             if (_isOrg) etLastName.setText(_n);
             else etLastName.setText(_spc > 0 ? _n.substring(_spc + 1) : _n);
         }
@@ -2463,7 +2467,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         etFirstName.setHint("z.B. Anja");
         if (e.name != null && !e.name.isEmpty()) {
             String _kind = e.customerKind != null ? e.customerKind : "Stammkunde";
-            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind);
+            // v6.62.640: Pension/Praxis/Klinik auch als Org behandelt (kein Vor/Nach-Split)
+            boolean _isOrg = "Hotel".equals(_kind) || "Firma".equals(_kind) || "Pension".equals(_kind) || "Praxis".equals(_kind) || "Klinik".equals(_kind);
             if (!_isOrg) {
                 String _n = e.name.trim();
                 int _spc = _n.lastIndexOf(' ');
@@ -2491,6 +2496,17 @@ public class CrmSearchActivity extends AppCompatActivity {
                     "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
                     for (int i = 0; i < _saluts.length; i++) if ("Hotel".equals(_saluts[i])) { spSal.setSelection(i); break; }
                 }
+            } else if ("Pension".equals(_k)) {
+                // v6.62.640
+                lblLast.setText("🏠 Pensionsname (Pflicht)");
+                etLastName.setHint("z.B. See Perle Ahlbeck");
+                lblFirst.setVisibility(View.GONE);
+                etFirstName.setVisibility(View.GONE);
+                if (spSal.getSelectedItemPosition() == 0 ||
+                    "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
+                    "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
+                    for (int i = 0; i < _saluts.length; i++) if ("Pension".equals(_saluts[i])) { spSal.setSelection(i); break; }
+                }
             } else if ("Firma".equals(_k)) {
                 lblLast.setText("🏢 Firmenname (Pflicht)");
                 etLastName.setHint("z.B. Vetter Reisen");
@@ -2500,6 +2516,28 @@ public class CrmSearchActivity extends AppCompatActivity {
                     "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
                     "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
                     for (int i = 0; i < _saluts.length; i++) if ("Firma".equals(_saluts[i])) { spSal.setSelection(i); break; }
+                }
+            } else if ("Praxis".equals(_k)) {
+                // v6.62.640
+                lblLast.setText("🩺 Praxisname (Pflicht)");
+                etLastName.setHint("z.B. Dr. Mustermann Hausarzt");
+                lblFirst.setVisibility(View.GONE);
+                etFirstName.setVisibility(View.GONE);
+                if (spSal.getSelectedItemPosition() == 0 ||
+                    "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
+                    "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
+                    for (int i = 0; i < _saluts.length; i++) if ("Praxis".equals(_saluts[i])) { spSal.setSelection(i); break; }
+                }
+            } else if ("Klinik".equals(_k)) {
+                // v6.62.640
+                lblLast.setText("🏥 Klinikname (Pflicht)");
+                etLastName.setHint("z.B. MEDIGREIF Inselklinikum");
+                lblFirst.setVisibility(View.GONE);
+                etFirstName.setVisibility(View.GONE);
+                if (spSal.getSelectedItemPosition() == 0 ||
+                    "Herr".equals(_saluts[spSal.getSelectedItemPosition()]) ||
+                    "Frau".equals(_saluts[spSal.getSelectedItemPosition()])) {
+                    for (int i = 0; i < _saluts.length; i++) if ("Klinik".equals(_saluts[i])) { spSal.setSelection(i); break; }
                 }
             } else {
                 lblLast.setText("📛 Nachname (Pflicht)");
@@ -2785,7 +2823,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 String _lastName = etLastName.getText().toString().trim();
                 String _firstName = etFirstName.getText().toString().trim();
                 String _kindSel = kinds[kindIdx[0]];
-                boolean _isOrgKind = "Hotel".equals(_kindSel) || "Firma".equals(_kindSel);
+                // v6.62.640: Pension/Praxis/Klinik auch als Org
+                boolean _isOrgKind = "Hotel".equals(_kindSel) || "Firma".equals(_kindSel) || "Pension".equals(_kindSel) || "Praxis".equals(_kindSel) || "Klinik".equals(_kindSel);
                 if (_lastName.isEmpty()) {
                     Toast.makeText(this, _isOrgKind ? (_kindSel + "name Pflicht") : "Nachname Pflicht", Toast.LENGTH_SHORT).show();
                     return;

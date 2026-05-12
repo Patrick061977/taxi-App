@@ -66,8 +66,13 @@ public class DriverMapActivity extends AppCompatActivity {
         wv.setWebViewClient(new WebViewClient());
         wv.setWebChromeClient(new WebChromeClient());
 
+        // v6.62.644: Cache disablen damit Patches sofort gezogen werden — sonst lieferte
+        // WebView die alte HTML aus dem Cache, kein neues Loading.
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
-        String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle=" + java.net.URLEncoder.encode(myVid);
+        // Cache-Bust via Timestamp damit Strato/Cloudflare-Cache umgangen wird
+        String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="
+            + java.net.URLEncoder.encode(myVid) + "&nc=" + System.currentTimeMillis();
         wv.loadUrl(url);
 
         root.addView(wv, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));

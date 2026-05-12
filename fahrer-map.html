@@ -46,21 +46,16 @@ html, body { width: 100%; height: 100%; font-family: -apple-system, "Segoe UI", 
 </div>
 
 <script src="/vendor/leaflet/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
 <script>
-// Firebase-Config (gleich wie index.html)
-const firebaseConfig = {
-    apiKey: "AIzaSyD2eHFmRYWY3Hr5KW7C-1jPNQs2_yWBVU0",
-    authDomain: "taxi-heringsdorf.firebaseapp.com",
-    databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "taxi-heringsdorf",
-    storageBucket: "taxi-heringsdorf.firebasestorage.app",
-    messagingSenderId: "886448081276",
-    appId: "1:886448081276:web:b6e2cbef03bf17e75db8a7"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// v6.62.647: KEIN Firebase-SDK mehr — Patrick (12.05. 17:12): 'C' Karte weiss auch
+// im Browser. unpkg + gstatic werden vom Mobilfunk-Filter geblockt. Fix: direkte
+// REST-API-Polling alle 5s. /vehicles + /rides sind public-read in den Rules.
+const DB_BASE = 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app';
+async function dbGet(path) {
+    const resp = await fetch(DB_BASE + path + '.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return await resp.json();
+}
 
 // Eigene vehicleId — kann via URL-Param ?myVehicle=xyz uebergeben werden, sonst aus localStorage
 const params = new URLSearchParams(location.search);
@@ -162,29 +157,23 @@ function render() {
     }
 }
 
-// v6.62.643: Robust Error-Handling — sonst bleibt 'Lade Fahrer-Positionen' bei Firebase-Fehler haengen
+// v6.62.647: REST-Polling alle 5s statt Firebase-SDK-Listener (CDN-frei)
 function showError(msg) {
-    document.getElementById('loading').innerHTML = '⚠️ ' + msg + '<br><small>(reload zum erneuten Versuch)</small>';
+    document.getElementById('loading').innerHTML = '⚠️ ' + msg + '<br><small>(automatisch erneut versucht)</small>';
 }
-try {
-    db.ref('vehicles').on('value',
-        snap => { _vehicles = snap.val() || {}; render(); },
-        err => { console.error('vehicles read err:', err); showError('Fahrzeug-Daten konnten nicht geladen werden: ' + err.message); }
-    );
-    db.ref('rides').orderByChild('status').on('value',
-        snap => { _rides = snap.val() || {}; render(); },
-        err => { console.error('rides read err:', err); /* nicht kritisch */ }
-    );
-    // Fallback: Wenn nach 5 Sek noch keine Antwort → Loading-Hinweis updaten
-    setTimeout(() => {
-        if (Object.keys(_vehicles).length === 0) {
-            showError('Keine Fahrzeug-Daten gefunden. Bist du online?');
-        }
-    }, 5000);
-} catch (e) {
-    console.error('Init-Error:', e);
-    showError('Initialisierungsfehler: ' + e.message);
+async function loadOnce() {
+    try {
+        const [veh, rd] = await Promise.all([dbGet('/vehicles'), dbGet('/rides')]);
+        _vehicles = veh || {};
+        _rides = rd || {};
+        render();
+    } catch (e) {
+        console.error('REST-Fetch err:', e);
+        showError('Daten-Lade-Fehler: ' + e.message);
+    }
 }
+loadOnce();
+setInterval(loadOnce, 5000);
 
 function closeMap() {
     if (window.history.length > 1) window.history.back();

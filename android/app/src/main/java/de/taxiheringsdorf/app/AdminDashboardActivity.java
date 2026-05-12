@@ -148,7 +148,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
             // Vorher createdAt-Filter (24h zurueck) — verlor Vorbestellungen die vor 3 Tagen
             // angelegt wurden fuer uebermorgen. Jetzt pickupTimestamp-Filter: 2h vor jetzt
             // bis +14 Tage, deckt aktive + alle naechste-Wochen-Vorbestellungen ab.
-            long since = System.currentTimeMillis() - 2L * 60 * 60 * 1000;
+            // v6.62.636: _includePast → 30 Tage zurueck (Default 2h zurueck)
+            long pastHours = _includePast ? (30L * 24) : 2L;
+            long since = System.currentTimeMillis() - pastHours * 60 * 60 * 1000;
             long until = System.currentTimeMillis() + 14L * 24 * 60 * 60 * 1000;
             openRidesQuery = db.getReference("rides").orderByChild("pickupTimestamp").startAt(since).endAt(until);
             openRidesListener = new ValueEventListener() {
@@ -166,8 +168,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
         List<Ride> list = new ArrayList<>();
         for (DataSnapshot c : s.getChildren()) {
             Ride r = Ride.fromSnap(c);
+            if (r == null || r.status == null) continue;
             // v6.62.153: client-seitiger Filter nach Active-Status (siehe ACTIVE_STATUSES)
-            if (r != null && r.status != null && ACTIVE_STATUSES.contains(r.status)) list.add(r);
+            // v6.62.636: bei _includePast zusaetzlich completed durchlassen — fuer die Wiederholungs-Funktion
+            boolean isActive = ACTIVE_STATUSES.contains(r.status);
+            boolean isCompletedPast = _includePast && "completed".equals(r.status);
+            if (isActive || isCompletedPast) list.add(r);
         }
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen direkt in der Native-App sehen'
@@ -210,13 +216,59 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvQueueCount.setText(String.valueOf(list.size()));
         emptyState.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
         rv.setVisibility(list.isEmpty() ? View.GONE : View.VISIBLE);
+
+        // 🆕 v6.62.636: Patrick (12.05. 09:05): "wenn er trotzdem zur aktuellen Fahrt
+        // springt". Auto-Scroll zur ersten Fahrt deren pickupTimestamp >= now —
+        // wird nur 1x pro Listener-Lifecycle ausgefuehrt, sonst springt es bei jedem
+        // Firebase-Tick zurueck.
+        if (!_autoScrolled && !list.isEmpty()) {
+            long _now = System.currentTimeMillis();
+            int scrollTo = 0;
+            for (int i = 0; i < sectioned.size(); i++) {
+                Object o = sectioned.get(i);
+                if (o instanceof Ride) {
+                    Ride r = (Ride) o;
+                    if (r.pickupTimestamp != null && r.pickupTimestamp >= _now) {
+                        scrollTo = i;
+                        break;
+                    }
+                }
+            }
+            if (scrollTo > 0) {
+                final int pos = scrollTo;
+                rv.post(() -> {
+                    androidx.recyclerview.widget.LinearLayoutManager lm =
+                        (androidx.recyclerview.widget.LinearLayoutManager) rv.getLayoutManager();
+                    if (lm != null) lm.scrollToPositionWithOffset(Math.max(0, pos - 1), 0);
+                });
+            }
+            _autoScrolled = true;
+        }
     }
+    private boolean _autoScrolled = false;
+
+    // v6.62.636: Patrick (12.05. 09:05) "in der Vergangenheit die Fahrten noch sehen und
+    // daraus dann wieder Vorbestellungen machen koennen". Toggle bestimmt ob die Query
+    // 30 Tage Vergangenheit umfasst (statt nur 2h zurueck).
+    private boolean _includePast = false;
 
     private void showMenu(View anchor) {
         PopupMenu p = new PopupMenu(this, anchor);
+        p.getMenu().add(0, 3, 0, _includePast ? "📅 Nur kommende anzeigen" : "📅 +30 Tage Vergangenheit anzeigen");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 3) {
+                _includePast = !_includePast;
+                _autoScrolled = false; // beim Reload erneut zur aktuellen Fahrt scrollen
+                Toast.makeText(this, _includePast ? "Vergangenheit (30 Tage) wird mitgeladen" : "Nur kommende Fahrten", Toast.LENGTH_SHORT).show();
+                // Listener neu binden mit neuer Range
+                if (openRidesQuery != null && openRidesListener != null) {
+                    openRidesQuery.removeEventListener(openRidesListener);
+                }
+                connectFirebase();
+                return true;
+            }
             if (item.getItemId() == 1) {
                 getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", false).apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));
@@ -236,8 +288,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.show();
     }
 
+    // v6.62.636: Wiederholungs-Dialog fuer eine abgeschlossene Vergangenheits-Fahrt
+    private void showRepeatPastRideDialog(Ride r) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📅 Fahrt wiederholen")
+            .setMessage("Diese Fahrt als neue Vorbestellung anlegen?\n\n"
+                + (r.customerName != null ? r.customerName : "?") + "\n"
+                + (r.pickup != null ? r.pickup : "?") + "\n→ "
+                + (r.destination != null ? r.destination : "?")
+                + "\n\nDaten werden vorbefuellt, du musst nur das neue Datum/die Zeit waehlen.")
+            .setPositiveButton("Ja, anlegen", (d, w) -> showNewBookingDialog(r))
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
     // Manuelle Buchung ohne Anrufer-Kontext
-    private void showNewBookingDialog() {
+    private void showNewBookingDialog() { showNewBookingDialog(null); }
+    private void showNewBookingDialog(Ride preset) {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
@@ -245,24 +312,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         EditText etName = new EditText(this);
         etName.setHint("Kundenname");
+        if (preset != null && preset.customerName != null) etName.setText(preset.customerName);
         layout.addView(etName);
 
         EditText etPhone = new EditText(this);
         etPhone.setHint("Telefonnummer");
         etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        if (preset != null && preset.customerPhone != null) etPhone.setText(preset.customerPhone);
         layout.addView(etPhone);
 
         EditText etPickup = new EditText(this);
         etPickup.setHint("Abholort");
+        if (preset != null && preset.pickup != null) etPickup.setText(preset.pickup);
         layout.addView(etPickup);
 
         EditText etDest = new EditText(this);
         etDest.setHint("Zielort");
+        if (preset != null && preset.destination != null) etDest.setText(preset.destination);
         layout.addView(etDest);
 
         EditText etPax = new EditText(this);
         etPax.setHint("Personen (Default 1)");
         etPax.setInputType(InputType.TYPE_CLASS_NUMBER);
+        if (preset != null && preset.passengers != null) etPax.setText(String.valueOf(preset.passengers));
         layout.addView(etPax);
 
         Calendar cal = Calendar.getInstance();
@@ -345,6 +417,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     static class Ride {
         String id, customerName, customerPhone, pickup, destination, pickupTime, status;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
+        String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
         Long pickupTimestamp;
         Integer passengers;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
@@ -376,6 +449,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (p instanceof Number) r.passengers = ((Number) p).intValue();
                 r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
                 if (r.assignedVehicle == null) r.assignedVehicle = s.child("vehicleId").getValue(String.class);
+                r.assignedVehicleName = s.child("assignedVehicleName").getValue(String.class);
+                if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicleName").getValue(String.class);
+                if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicle").getValue(String.class);
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -455,13 +531,25 @@ public class AdminDashboardActivity extends AppCompatActivity {
             void bind(Ride r) {
                 String when = r.pickupTime != null ? r.pickupTime : "—";
                 String statusBadge = r.status != null ? "  [" + statusEmoji(r.status) + " " + r.status + "]" : "";
+                // 🆕 v6.62.636: Fahrzeug-Badge — Patrick (12.05. 09:05): "in der
+                // Dispositionsübersicht sehe ich aber auch nicht, welches Fahrzeug jetzt
+                // dafür vorgesehen ist". Wenn assignedVehicle/vehicleId gesetzt → Name am
+                // Ende der Zeile mit Auto-Emoji. Wenn null → 'kein Fzg' als Hint.
+                String vehicleBadge;
+                if (r.assignedVehicleName != null && !r.assignedVehicleName.isEmpty()) {
+                    vehicleBadge = "   🚗 " + r.assignedVehicleName;
+                } else if (r.assignedVehicle != null && !r.assignedVehicle.isEmpty()) {
+                    vehicleBadge = "   🚗 " + r.assignedVehicle;
+                } else {
+                    vehicleBadge = "   ⚪ kein Fzg";
+                }
                 // 🆕 v6.62.199: Web-Anfrage visuell hervorheben
                 if (r.isUnclaimedWebBooking()) {
                     itemView.setBackgroundColor(Color.parseColor("#451A03")); // dunkles Orange
-                    t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
+                    t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
                 } else {
                     itemView.setBackgroundColor(Color.parseColor("#1E293B"));
-                    t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge);
+                    t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
                 }
                 // v6.62.193: Waypoints zwischen Pickup und Ziel anzeigen (Patrick: 'Zwischenstops
                 // nicht angezeigt im Kalender nativ app'). Mehrzeilig — eine Zeile pro Stop mit
@@ -476,7 +564,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 route.append("\n🎯 ").append(r.destination != null ? r.destination : "?");
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
-                itemView.setOnClickListener(_v -> showEditRideDialog(r));
+                // v6.62.636: Bei abgeschlossenen Vergangenheits-Fahrten → Wiederhol-Dialog
+                //   (Patrick 12.05. 09:05: 'in der Vergangenheit Fahrten sehen und daraus
+                //   wieder Vorbestellungen machen').
+                final boolean isCompletedPast = "completed".equals(r.status)
+                    && r.pickupTimestamp != null && r.pickupTimestamp < System.currentTimeMillis();
+                if (isCompletedPast) {
+                    itemView.setOnClickListener(_v -> showRepeatPastRideDialog(r));
+                } else {
+                    itemView.setOnClickListener(_v -> showEditRideDialog(r));
+                }
             }
         }
     }

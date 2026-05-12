@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<!-- v6.62.649: harter No-Cache fuer WebView — Patrick 18:48 'in App weiss, im Browser ok'.
+     Klares Symptom: WebView-Cache liefert alte (gebrochene) Version. -->
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Fahrer-Karte — Funk Taxi</title>
 <!-- v6.62.646: Leaflet lokal gehostet — unpkg.com wurde bei manchen Mobilfunk-Providern geblockt → weisse Karte -->
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">

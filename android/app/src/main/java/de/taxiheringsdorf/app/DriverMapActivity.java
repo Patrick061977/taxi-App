@@ -66,9 +66,16 @@ public class DriverMapActivity extends AppCompatActivity {
         wv.setWebViewClient(new WebViewClient());
         wv.setWebChromeClient(new WebChromeClient());
 
-        // v6.62.644: Cache disablen damit Patches sofort gezogen werden — sonst lieferte
-        // WebView die alte HTML aus dem Cache, kein neues Loading.
+        // v6.62.649: Patrick (12.05. 18:48): Browser OK, App weiss → WebView-Cache liefert
+        // alte gebrochene HTML. Harter Reset: alle Caches + Cookies + History platt machen.
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        try {
+            wv.clearCache(true);
+            wv.clearHistory();
+            wv.clearFormData();
+            android.webkit.CookieManager.getInstance().removeAllCookies(null);
+            android.webkit.WebStorage.getInstance().deleteAllData();
+        } catch (Throwable _t) { /* defensiv */ }
         String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
         // Cache-Bust via Timestamp damit Strato/Cloudflare-Cache umgangen wird
         String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="

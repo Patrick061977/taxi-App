@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Fahrer-Karte — Funk Taxi</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #0a0a0a; color: white; }
+.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a, #1e40af); color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.topbar .title { font-weight: 700; font-size: 14px; }
+.topbar .count { background: rgba(255,255,255,0.18); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+.topbar .back { background: rgba(255,255,255,0.18); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+#map { position: fixed; inset: 56px 0 0 0; }
+.legend { position: fixed; bottom: 12px; left: 12px; z-index: 999; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 10px; font-size: 11px; line-height: 1.6; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+.legend .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }
+.legend .me { box-shadow: 0 0 0 2px #fbbf24; }
+.loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); color: white; font-size: 14px; background: rgba(0,0,0,0.75); padding: 16px 24px; border-radius: 12px; z-index: 999; }
+.taxi-marker { display: flex; flex-direction: column; align-items: center; }
+.taxi-icon { width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+.taxi-icon.me { box-shadow: 0 0 0 3px #fbbf24, 0 2px 6px rgba(0,0,0,0.35); }
+.taxi-label { background: rgba(0,0,0,0.78); color: white; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; margin-top: 2px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <button class="back" onclick="closeMap()">← Zurück</button>
+    <div class="title">🗺️ Fahrer-Karte</div>
+    <div class="count" id="count">0 aktiv</div>
+</div>
+
+<div id="map"></div>
+<div class="loading" id="loading">⏳ Lade Fahrer-Positionen...</div>
+
+<div class="legend">
+    <div><span class="dot" style="background:#22c55e"></span> Frei</div>
+    <div><span class="dot" style="background:#3b82f6"></span> Akzeptiert</div>
+    <div><span class="dot" style="background:#06b6d4"></span> Unterwegs</div>
+    <div><span class="dot" style="background:#ef4444"></span> Besetzt</div>
+    <div><span class="dot me" style="background:#22c55e"></span> Du</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+<script>
+// Firebase-Config (gleich wie index.html)
+const firebaseConfig = {
+    apiKey: "AIzaSyD2eHFmRYWY3Hr5KW7C-1jPNQs2_yWBVU0",
+    authDomain: "taxi-heringsdorf.firebaseapp.com",
+    databaseURL: "https://taxi-heringsdorf-default-rtdb.firebaseio.com",
+    projectId: "taxi-heringsdorf",
+    storageBucket: "taxi-heringsdorf.firebasestorage.app",
+    messagingSenderId: "886448081276",
+    appId: "1:886448081276:web:b6e2cbef03bf17e75db8a7"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Eigene vehicleId — kann via URL-Param ?myVehicle=xyz uebergeben werden, sonst aus localStorage
+const params = new URLSearchParams(location.search);
+const MY_VEHICLE = params.get('myVehicle') || localStorage.getItem('currentVehicle') || '';
+
+const map = L.map('map', { zoomControl: true }).setView([53.95, 14.05], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+
+const markers = {};
+let _firstLoad = true;
+
+function statusColor(status) {
+    if (!status || status === 'frei' || status === 'idle') return '#22c55e';
+    if (status === 'accepted' || status === 'assigned') return '#3b82f6';
+    if (status === 'on_way') return '#06b6d4';
+    if (status === 'picked_up' || status === 'arrived') return '#ef4444';
+    return '#9ca3af';
+}
+
+function statusLabel(status) {
+    if (!status) return 'Frei';
+    const map = { frei:'Frei', idle:'Frei', assigned:'Zugew.', accepted:'Akzept.', on_way:'Unterwegs', picked_up:'Besetzt', arrived:'Wartet', stale:'GPS alt' };
+    return map[status] || status;
+}
+
+function buildIcon(vehicleId, plate, driverName, status, isMe) {
+    const color = statusColor(status);
+    const meCls = isMe ? ' me' : '';
+    const html = `<div class="taxi-marker">
+        <div class="taxi-icon${meCls}" style="background:${color}">🚖</div>
+        <div class="taxi-label">${plate}${driverName ? '<br>👤 ' + driverName : ''}</div>
+    </div>`;
+    return L.divIcon({ html, className: 'taxi-marker-wrapper', iconSize: [80, 56], iconAnchor: [40, 18] });
+}
+
+// Live-Listener auf /vehicles + /rides (fuer Status)
+let _vehicles = {};
+let _rides = {};
+
+function render() {
+    document.getElementById('loading').style.display = 'none';
+    // Fahrt-Status pro Fahrzeug ermitteln
+    const vehicleStatus = {};
+    for (const rId in _rides) {
+        const r = _rides[rId];
+        if (!r || !r.vehicleId) continue;
+        if (['on_way','picked_up','arrived','accepted'].includes(r.status)) {
+            // Prioritaet: picked_up > arrived > on_way > accepted
+            const prio = { picked_up:4, arrived:3, on_way:2, accepted:1 };
+            const cur = vehicleStatus[r.vehicleId];
+            if (!cur || prio[r.status] > prio[cur]) vehicleStatus[r.vehicleId] = r.status;
+        }
+    }
+
+    let active = 0;
+    const seen = new Set();
+    for (const vid in _vehicles) {
+        const v = _vehicles[vid];
+        if (!v || !v.lat || !v.lon) continue;
+        if (v.online === false) continue;
+        if (!v.timestamp || (Date.now() - v.timestamp) > 15 * 60 * 1000) continue; // 15 Min Threshold
+        active++;
+        seen.add(vid);
+        const status = vehicleStatus[vid] || 'frei';
+        const plate = (v.plate || vid).toUpperCase();
+        const driverName = (v.shift && v.shift.driverName) ? v.shift.driverName.split(' ')[0] : (v.driverName ? v.driverName.split(' ')[0] : '');
+        const isMe = (vid === MY_VEHICLE);
+
+        if (markers[vid]) {
+            markers[vid].setLatLng([v.lat, v.lon]);
+            markers[vid].setIcon(buildIcon(vid, plate, driverName, status, isMe));
+        } else {
+            markers[vid] = L.marker([v.lat, v.lon], { icon: buildIcon(vid, plate, driverName, status, isMe) })
+                .bindPopup(`<b>${plate}</b><br>${driverName ? '👤 ' + driverName + '<br>' : ''}Status: ${statusLabel(status)}<br>GPS: ${Math.round((Date.now() - v.timestamp) / 60000)} Min alt`)
+                .addTo(map);
+        }
+    }
+    // Marker fuer verschwundene Fahrzeuge entfernen
+    for (const vid in markers) {
+        if (!seen.has(vid)) {
+            map.removeLayer(markers[vid]);
+            delete markers[vid];
+        }
+    }
+    document.getElementById('count').textContent = active + ' aktiv';
+
+    // Beim ersten Load: zoom auf alle Marker
+    if (_firstLoad && active > 0) {
+        const group = L.featureGroup(Object.values(markers));
+        try { map.fitBounds(group.getBounds().pad(0.2)); } catch (_) {}
+        _firstLoad = false;
+    }
+}
+
+db.ref('vehicles').on('value', snap => { _vehicles = snap.val() || {}; render(); });
+db.ref('rides').orderByChild('status').on('value', snap => { _rides = snap.val() || {}; render(); });
+
+function closeMap() {
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = '/';
+}
+</script>
+
+</body>
+</html>

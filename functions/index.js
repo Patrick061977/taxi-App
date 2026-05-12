@@ -19885,7 +19885,12 @@ exports.onRideCreated = onValueCreated(
                         if (ride.pickup) _lines.push(`Abholung: ${ride.pickup}`);
                         if (ride.destination) _lines.push(`Ziel: ${ride.destination}`);
                         if (ride.passengers && ride.passengers > 1) _lines.push(`Personen: ${ride.passengers}`);
-                        if (_priceStr) _lines.push(`Preis: ca. ${_priceStr}`);
+                        if (_priceStr) {
+                            // v6.62.637: Patrick (12.05. 11:50, Variante A): prominenter Hinweis dass
+                            // Preis nur eine Schaetzung ist — Kunden waren ueberrascht wenn der echte
+                            // Taxameter-Preis am Ende leicht abwich.
+                            _lines.push(`Preis: ca. ${_priceStr} (Schaetzwert — Endpreis nach Taxameter)`);
+                        }
                         _lines.push('');
                         _lines.push(`Live-Status & Storno: ${_trackLink}`);
                         _lines.push('Wir freuen uns auf Sie!');

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taxi Heringsdorf · Ahlbeck · Bansin — Kein Bock zu laufen?</title>
-<meta name="description" content="Umwelt Taxi Insel Usedom — schnell, zuverlässig, umweltfreundlich. Seit 1991 auf Usedom. WhatsApp-Bestellung, Live-Tracking, Großraumtaxi bis 8 Personen.">
-<meta name="keywords" content="Taxi Heringsdorf, Taxi Ahlbeck, Taxi Bansin, Taxi Usedom, Kein Bock zu laufen, WhatsApp Taxi, Funk Taxi">
+<meta name="description" content="Umwelt Taxi Insel Usedom — schnell, zuverlässig, umweltfreundlich. Seit 1991 auf Usedom. Live-Preisrechner, Live-Tracking, Großraumtaxi bis 8 Personen.">
+<meta name="keywords" content="Taxi Heringsdorf, Taxi Ahlbeck, Taxi Bansin, Taxi Usedom, Funk Taxi">
 <meta name="author" content="Funk Taxi Heringsdorf · Patrick Wydra">
 <meta name="theme-color" content="#0a0a0a">
 <link rel="canonical" href="https://umwelt-taxi-insel-usedom.de/landing-v2.html">
@@ -13,347 +13,331 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-    --gold: #d4af37;
-    --gold-light: #f4d166;
-    --gold-dark: #a88523;
+    --gold: #c9a227;
     --green: #10b981;
     --green-dark: #059669;
     --black: #0a0a0a;
-    --beige: #f7f0e0;
-    --beige-dark: #e8dcc0;
-    --gray: #6b7280;
-    --gray-light: #f3f4f6;
+    --gray-900: #111827;
+    --gray-600: #4b5563;
+    --gray-400: #9ca3af;
+    --gray-100: #f3f4f6;
+    --gray-50: #fafafa;
 }
-html { scroll-behavior: smooth; }
-body { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--black); background: #fff; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { font-family: -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif; color: var(--black); background: #fff; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; display: block; }
 
 /* Header */
-.header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(255,255,255,0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(0,0,0,0.05); }
-.header-inner { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.logo { font-weight: 900; font-size: 14px; letter-spacing: 0.5px; color: var(--black); }
-.logo .accent { color: var(--gold-dark); }
-.nav { display: flex; gap: 24px; }
-.nav a { text-decoration: none; color: var(--black); font-size: 14px; font-weight: 500; transition: color 0.2s; }
-.nav a:hover { color: var(--gold-dark); }
-.header-cta { background: var(--green); color: white; padding: 10px 18px; border-radius: 100px; text-decoration: none; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.3); transition: transform 0.2s; }
-.header-cta:hover { transform: translateY(-1px); }
-@media (max-width: 800px) { .nav { display: none; } .header-cta span { display: none; } }
+.header { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); border-bottom: 1px solid var(--gray-100); }
+.header-inner { max-width: 1200px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.logo { font-weight: 900; font-size: 13px; letter-spacing: 0.4px; color: var(--black); text-decoration: none; }
+.logo .gold { color: var(--gold); }
+.nav { display: flex; gap: 22px; }
+.nav a { text-decoration: none; color: var(--black); font-size: 14px; font-weight: 500; }
+.nav a:hover { color: var(--green-dark); }
+.header-phone { background: var(--green); color: white; padding: 9px 16px; border-radius: 100px; text-decoration: none; font-weight: 700; font-size: 13px; }
+@media (max-width: 780px) { .nav { display: none; } .header-phone span { display: none; } }
 
 /* Hero */
-.hero { position: relative; min-height: 100vh; padding: 110px 24px 60px; display: flex; align-items: center; overflow: hidden; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); color: white; }
-.hero::before {
-    content: ''; position: absolute; inset: 0;
-    background-image: linear-gradient(135deg, rgba(10,10,10,0.5), rgba(10,10,10,0.85)),
-        url('https://images.unsplash.com/photo-1551867633-194f125695d8?auto=format&fit=crop&w=1600&q=80');
-    background-size: cover; background-position: center;
-}
-.hero-inner { position: relative; max-width: 1280px; margin: 0 auto; width: 100%; }
-.hero-eyebrow { display: inline-block; background: rgba(212,175,55,0.15); color: var(--gold-light); padding: 8px 16px; border-radius: 100px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 24px; border: 1px solid rgba(212,175,55,0.3); }
-.hero h1 { font-size: clamp(40px, 7vw, 84px); font-weight: 900; line-height: 1; letter-spacing: -2px; margin-bottom: 16px; }
-.hero h1 .green { color: var(--green); display: block; font-size: 0.65em; margin-top: 8px; }
-.hero p { font-size: clamp(16px, 2vw, 20px); max-width: 600px; margin-bottom: 36px; color: rgba(255,255,255,0.85); }
-.hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
-.btn { display: inline-flex; align-items: center; gap: 10px; padding: 16px 28px; border-radius: 100px; font-weight: 700; font-size: 16px; text-decoration: none; transition: all 0.25s; border: none; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
-.btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
-.btn-whatsapp { background: var(--green); color: white; }
-.btn-phone { background: var(--gold); color: var(--black); }
-.btn-calc { background: white; color: var(--black); }
+.hero { background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); padding: 60px 20px 70px; }
+.hero-inner { max-width: 1200px; margin: 0 auto; }
+.hero-eyebrow { color: var(--gold); font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px; }
+.hero h1 { font-size: clamp(36px, 7vw, 72px); font-weight: 900; line-height: 1.05; letter-spacing: -1.5px; margin-bottom: 14px; }
+.hero h1 .green { color: var(--green); }
+.hero p { font-size: clamp(16px, 1.8vw, 19px); color: var(--gray-600); max-width: 580px; margin-bottom: 32px; }
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 100px; font-weight: 700; font-size: 15px; text-decoration: none; transition: transform 0.15s; border: none; cursor: pointer; }
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--black); color: white; }
+.btn-secondary { background: white; color: var(--black); border: 2px solid var(--black); }
+.btn-tertiary { background: var(--green); color: white; }
+.hero-img { margin-top: 50px; max-width: 700px; }
+.hero-img-placeholder { aspect-ratio: 16/9; background: linear-gradient(135deg, #1f2937, #374151); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 60px; color: white; box-shadow: 0 14px 40px rgba(0,0,0,0.18); }
 
 /* Trust-Bar */
-.trust-bar { background: var(--beige); padding: 60px 24px; }
-.trust-inner { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 24px; }
-.trust-item { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 16px; }
-.trust-icon { font-size: 36px; margin-bottom: 12px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
-.trust-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; color: var(--black); }
-.trust-sub { font-size: 12px; color: var(--gray); }
+.trust-bar { background: var(--gray-50); padding: 50px 20px; border-top: 1px solid var(--gray-100); }
+.trust-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 18px; }
+.trust-item { padding: 8px; }
+.trust-icon { font-size: 26px; margin-bottom: 8px; }
+.trust-title { font-weight: 700; font-size: 13px; color: var(--black); margin-bottom: 2px; }
+.trust-sub { font-size: 11px; color: var(--gray-600); }
 
-/* Sections base */
-.section { padding: 90px 24px; }
-.section-inner { max-width: 1280px; margin: 0 auto; }
-.section-title { font-size: clamp(28px, 4vw, 44px); font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
-.section-sub { font-size: 16px; color: var(--gray); margin-bottom: 48px; max-width: 600px; }
+/* Sections */
+.section { padding: 70px 20px; }
+.section-inner { max-width: 1200px; margin: 0 auto; }
+.section-eyebrow { color: var(--gold); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+.section-title { font-size: clamp(26px, 4.5vw, 42px); font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
+.section-sub { font-size: 16px; color: var(--gray-600); margin-bottom: 36px; max-width: 600px; }
 
-/* Quick-Booking + Live-Tracking */
-.booking-section { background: linear-gradient(180deg, #fff 0%, var(--gray-light) 100%); }
-.booking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
-@media (max-width: 900px) { .booking-grid { grid-template-columns: 1fr; } }
-.booking-form { background: white; padding: 32px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.04); }
-.booking-form h3 { font-size: 22px; font-weight: 800; margin-bottom: 24px; }
-.form-row { margin-bottom: 16px; }
-.form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--gray); margin-bottom: 6px; letter-spacing: 0.3px; text-transform: uppercase; }
-.form-row input, .form-row select { width: 100%; padding: 14px 16px; border: 2px solid var(--gray-light); border-radius: 12px; font-size: 15px; transition: border-color 0.2s; background: white; }
-.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--gold); }
-.toggle-time { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.toggle-time button { padding: 12px; border: 2px solid var(--gray-light); border-radius: 10px; background: white; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; }
-.toggle-time button.active { background: var(--green); color: white; border-color: var(--green); }
-.btn-submit { width: 100%; padding: 18px; border-radius: 14px; background: var(--green); color: white; font-weight: 800; font-size: 16px; border: none; cursor: pointer; letter-spacing: 0.3px; margin-top: 8px; transition: transform 0.2s; box-shadow: 0 6px 16px rgba(16,185,129,0.3); }
-.btn-submit:hover { transform: translateY(-1px); }
-.form-hint { font-size: 11px; color: var(--gray); margin-top: 14px; text-align: center; line-height: 1.4; }
+/* Schnellbuchung */
+.quickbook { background: white; border-radius: 20px; padding: 32px; box-shadow: 0 6px 24px rgba(0,0,0,0.06); border: 1px solid var(--gray-100); max-width: 540px; }
+.quickbook h3 { font-size: 22px; font-weight: 800; margin-bottom: 18px; }
+.qb-row { margin-bottom: 14px; }
+.qb-row label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; }
+.qb-row input { width: 100%; padding: 14px 16px; border: 1.5px solid var(--gray-100); border-radius: 12px; font-size: 15px; background: white; }
+.qb-row input:focus { outline: none; border-color: var(--black); }
+.qb-btn { width: 100%; padding: 16px; background: var(--black); color: white; font-weight: 800; font-size: 15px; border: none; border-radius: 14px; cursor: pointer; margin-top: 6px; }
+.qb-btn:hover { background: #1f2937; }
+.qb-hint { font-size: 11px; color: var(--gray-400); margin-top: 12px; line-height: 1.4; }
 
-/* Live-Tracking-Mock */
-.live-mock { background: linear-gradient(135deg, var(--black), #1a1a1a); border-radius: 24px; padding: 28px; color: white; min-height: 380px; position: relative; overflow: hidden; }
-.live-mock::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle at 30% 40%, rgba(16,185,129,0.18) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(212,175,55,0.12) 0%, transparent 50%); pointer-events: none; }
-.live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.2); padding: 6px 12px; border-radius: 100px; font-size: 11px; font-weight: 800; letter-spacing: 1px; border: 1px solid rgba(239,68,68,0.4); }
-.live-badge::before { content: ''; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; animation: pulse 1.2s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-.live-map { background: rgba(255,255,255,0.04); border-radius: 16px; min-height: 220px; margin: 20px 0; display: flex; align-items: center; justify-content: center; font-size: 60px; position: relative; }
-.live-eta { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
-.live-eta .min { color: var(--green); }
-.live-status { font-size: 14px; color: rgba(255,255,255,0.7); }
+/* Beispielstrecken */
+.routes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.route-card { background: white; border: 1px solid var(--gray-100); padding: 22px; border-radius: 16px; transition: transform 0.18s, box-shadow 0.18s; cursor: pointer; text-decoration: none; color: var(--black); }
+.route-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.08); }
+.route-icon { font-size: 28px; margin-bottom: 10px; }
+.route-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.route-action { font-size: 13px; color: var(--green-dark); font-weight: 600; }
+.route-action::after { content: ' →'; }
 
-/* Beliebte Fahrten */
-.routes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
-.route-card { background: white; padding: 24px; border-radius: 18px; border: 1px solid rgba(0,0,0,0.05); transition: transform 0.25s, box-shadow 0.25s; cursor: pointer; }
-.route-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.1); }
-.route-icon { font-size: 32px; margin-bottom: 12px; }
-.route-name { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
-.route-price { font-size: 20px; font-weight: 900; color: var(--gold-dark); }
-.route-price .ab { font-size: 12px; font-weight: 500; color: var(--gray); }
+/* Howto */
+.howto { background: var(--gray-50); }
+.howto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
+.howto-card { text-align: center; padding: 18px; }
+.howto-num { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: var(--black); color: white; border-radius: 50%; font-weight: 800; font-size: 20px; margin-bottom: 14px; }
+.howto-icon { font-size: 36px; margin-bottom: 10px; }
+.howto-title { font-weight: 800; font-size: 17px; margin-bottom: 6px; }
+.howto-desc { font-size: 14px; color: var(--gray-600); }
 
-/* So funktioniert's */
-.howto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 30px; }
-.howto-card { text-align: center; padding: 24px; }
-.howto-num { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: var(--gold); color: var(--black); border-radius: 50%; font-weight: 900; font-size: 24px; margin-bottom: 18px; box-shadow: 0 8px 20px rgba(212,175,55,0.3); }
-.howto-icon { font-size: 48px; margin-bottom: 14px; }
-.howto-title { font-weight: 800; font-size: 18px; margin-bottom: 8px; }
-.howto-desc { font-size: 14px; color: var(--gray); }
+/* Tracking-Hinweis */
+.tracking { background: var(--black); color: white; padding: 70px 20px; }
+.tracking-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+@media (max-width: 880px) { .tracking-inner { grid-template-columns: 1fr; } }
+.tracking-mock { background: rgba(255,255,255,0.04); border-radius: 18px; aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; font-size: 60px; border: 1px solid rgba(255,255,255,0.08); }
+.tracking-content h2 { font-size: clamp(26px, 4vw, 38px); font-weight: 900; letter-spacing: -0.8px; margin-bottom: 14px; }
+.tracking-content h2 .green { color: var(--green); }
+.tracking-content p { font-size: 16px; color: rgba(255,255,255,0.8); margin-bottom: 18px; }
 
 /* Reviews */
-.reviews-section { background: linear-gradient(180deg, var(--gray-light) 0%, #fff 100%); }
-.reviews-header { display: flex; align-items: center; gap: 16px; margin-bottom: 36px; }
-.stars { font-size: 28px; color: var(--gold); letter-spacing: 4px; }
-.score { font-size: 28px; font-weight: 900; }
-.score-sub { font-size: 13px; color: var(--gray); }
-.reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
-.review-card { background: white; padding: 24px; border-radius: 18px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-.review-stars { color: var(--gold); margin-bottom: 12px; }
-.review-text { font-size: 14px; line-height: 1.6; margin-bottom: 14px; color: #374151; }
-.review-author { font-weight: 700; font-size: 13px; color: var(--gray); }
+.reviews-header { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; }
+.stars { font-size: 22px; color: var(--gold); letter-spacing: 3px; }
+.score-num { font-size: 22px; font-weight: 900; }
+.score-sub { font-size: 12px; color: var(--gray-600); }
+.reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.review-card { background: white; border: 1px solid var(--gray-100); padding: 22px; border-radius: 16px; }
+.review-stars { color: var(--gold); margin-bottom: 10px; font-size: 14px; letter-spacing: 2px; }
+.review-text { font-size: 14px; line-height: 1.55; margin-bottom: 12px; color: var(--gray-900); }
+.review-author { font-weight: 700; font-size: 12px; color: var(--gray-600); }
 
 /* Hotels */
-.hotels-section { background: var(--black); color: white; padding: 90px 24px; }
-.hotels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: center; }
-@media (max-width: 900px) { .hotels-grid { grid-template-columns: 1fr; } }
-.hotels-image { background: linear-gradient(135deg, var(--gold-dark), var(--gold)); border-radius: 24px; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-size: 100px; color: var(--black); }
-.hotels-content h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 900; letter-spacing: -1px; margin-bottom: 14px; }
-.hotels-content h2 .green { color: var(--green); }
-.hotels-features { list-style: none; margin: 26px 0; }
-.hotels-features li { padding: 8px 0; font-size: 15px; display: flex; align-items: center; gap: 10px; }
-.hotels-features li::before { content: '✓'; color: var(--green); font-weight: 900; font-size: 18px; }
+.hotels { background: var(--gray-50); }
+.hotels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+@media (max-width: 880px) { .hotels-grid { grid-template-columns: 1fr; } }
+.hotels-img { background: linear-gradient(135deg, var(--gold), #b8911f); aspect-ratio: 4/3; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 100px; color: white; }
+.hotels-features { list-style: none; margin: 18px 0; }
+.hotels-features li { padding: 6px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.hotels-features li::before { content: '✓'; color: var(--green); font-weight: 900; font-size: 16px; }
 
 /* Footer */
-.footer { background: #050505; color: rgba(255,255,255,0.6); padding: 60px 24px 30px; }
-.footer-inner { max-width: 1280px; margin: 0 auto; }
-.footer-trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 24px; margin-bottom: 50px; padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.footer-trust-item { text-align: center; padding: 12px; }
-.footer-trust-icon { font-size: 32px; margin-bottom: 10px; }
-.footer-trust-title { font-weight: 800; color: white; font-size: 14px; margin-bottom: 4px; }
-.footer-trust-sub { font-size: 12px; color: rgba(255,255,255,0.5); }
-.footer-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; font-size: 13px; }
-.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
-.footer-links a { color: rgba(255,255,255,0.6); text-decoration: none; }
-.footer-links a:hover { color: var(--gold); }
-
-/* Floating CTA */
-.floating-cta { position: fixed; bottom: 24px; right: 24px; z-index: 999; background: var(--gold); color: var(--black); padding: 14px 22px; border-radius: 100px; font-weight: 800; font-size: 14px; text-decoration: none; box-shadow: 0 10px 28px rgba(0,0,0,0.25); display: inline-flex; align-items: center; gap: 8px; transition: transform 0.2s; }
-.floating-cta:hover { transform: translateY(-3px); }
+.footer { background: #0a0a0a; color: rgba(255,255,255,0.6); padding: 50px 20px 26px; }
+.footer-inner { max-width: 1200px; margin: 0 auto; }
+.footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 28px; padding-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 24px; }
+.footer-col h4 { color: white; font-size: 13px; font-weight: 800; margin-bottom: 10px; }
+.footer-col a { display: block; color: rgba(255,255,255,0.6); text-decoration: none; font-size: 13px; padding: 4px 0; }
+.footer-col a:hover { color: var(--gold); }
+.footer-bottom { font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
 </style>
 </head>
 <body>
 
 <header class="header">
     <div class="header-inner">
-        <div class="logo">UMWELT TAXI <span class="accent">INSEL USEDOM</span></div>
+        <a href="/landing-v2.html" class="logo">UMWELT TAXI <span class="gold">USEDOM</span></a>
         <nav class="nav">
-            <a href="#start">Start</a>
-            <a href="#routes">Preise</a>
+            <a href="#routes">Strecken</a>
             <a href="#howto">So funktioniert's</a>
-            <a href="#hotels">Für Hotels</a>
-            <a href="#footer">Kontakt</a>
+            <a href="#hotels">Hotels</a>
+            <a href="#reviews">Bewertungen</a>
         </nav>
-        <a href="tel:+4938378492022" class="header-cta">📞 <span>038378 / 22022</span></a>
+        <a href="tel:+4938378492022" class="header-phone">📞 <span>038378 / 22022</span></a>
     </div>
 </header>
 
-<section class="hero" id="start">
+<!-- HERO -->
+<section class="hero">
     <div class="hero-inner">
-        <span class="hero-eyebrow">⭐ Seit 1991 auf Usedom</span>
-        <h1>Kein Bock <br>zu laufen?<span class="green">Wir bringen dich hin.</span></h1>
-        <p>Ihr Taxi auf Usedom — schnell, zuverlässig und umweltfreundlich. Vom Bahnhof zum Hotel, zur Seebrücke oder über die Grenze nach Świnoujście.</p>
-        <div class="hero-ctas">
-            <a href="#whatsapp" onclick="event.preventDefault(); sendWhatsApp();" class="btn btn-whatsapp">💬 Per WhatsApp bestellen</a>
-            <a href="tel:+4938378492022" class="btn btn-phone">📞 Jetzt anrufen</a>
-            <a href="/buchen.html" class="btn btn-calc">💶 Preis berechnen</a>
+        <div class="hero-eyebrow">⭐ Seit 1991 · 4,9 / 5 bei Google</div>
+        <h1>Kein Bock<br>zu laufen?<span class="green"> Wir bringen dich hin.</span></h1>
+        <p>Schnell, zuverlässig und umweltfreundlich auf Usedom. Vom Bahnhof zum Hotel, zum Strand oder über die Grenze nach Świnoujście.</p>
+        <div class="cta-row">
+            <a href="/buchen.html" class="btn btn-primary">🚖 Taxi jetzt buchen</a>
+            <a href="/buchen.html#price" class="btn btn-secondary">💶 Preis berechnen</a>
+            <a id="cta-wa" class="btn btn-tertiary" onclick="askViaWhatsApp(); return false;" href="#">💬 Frage per WhatsApp</a>
         </div>
+        <div class="hero-img"><div class="hero-img-placeholder">🚖</div></div>
     </div>
 </section>
 
+<!-- TRUST-BAR -->
 <section class="trust-bar">
     <div class="trust-inner">
         <div class="trust-item"><div class="trust-icon">🏆</div><div class="trust-title">Seit 1991</div><div class="trust-sub">auf Usedom</div></div>
-        <div class="trust-item"><div class="trust-icon">📍</div><div class="trust-title">Live-Tracking</div><div class="trust-sub">Fahrer verfolgen</div></div>
+        <div class="trust-item"><div class="trust-icon">📍</div><div class="trust-title">Live-Tracking</div><div class="trust-sub">nach der Buchung</div></div>
         <div class="trust-item"><div class="trust-icon">🚐</div><div class="trust-title">Großraumtaxi</div><div class="trust-sub">bis 8 Personen</div></div>
-        <div class="trust-item"><div class="trust-icon">💳</div><div class="trust-title">Kartenzahlung</div><div class="trust-sub">ab 20€ möglich</div></div>
+        <div class="trust-item"><div class="trust-icon">💳</div><div class="trust-title">Kartenzahlung</div><div class="trust-sub">ab 20 €</div></div>
         <div class="trust-item"><div class="trust-icon">👶</div><div class="trust-title">Kindersitze</div><div class="trust-sub">auf Anfrage</div></div>
         <div class="trust-item"><div class="trust-icon">🏥</div><div class="trust-title">Krankenfahrten</div><div class="trust-sub">mit Genehmigung</div></div>
     </div>
 </section>
 
-<section class="section booking-section" id="booking">
+<!-- 30-Sek-Buchung → leitet zu buchen.html -->
+<section class="section">
     <div class="section-inner">
-        <h2 class="section-title">Taxi in 30 Sekunden bestellen</h2>
-        <p class="section-sub">Eingabe → WhatsApp-Nachricht → Bestätigung. Schneller als der Bus, ohne lange Wartezeiten.</p>
-        <div class="booking-grid">
-            <form class="booking-form" onsubmit="event.preventDefault(); sendBookingViaWhatsApp();">
-                <h3>🚖 Schnellbuchung</h3>
-                <div class="form-row"><label>Abholort</label><input type="text" id="bk-pickup" placeholder="z.B. Bahnhof Heringsdorf"></div>
-                <div class="form-row"><label>Zielort</label><input type="text" id="bk-dest" placeholder="z.B. Hotel Ahlbecker Hof"></div>
-                <div class="form-row">
-                    <label>Wann?</label>
-                    <div class="toggle-time">
-                        <button type="button" class="active" onclick="setTimeMode(this, 'jetzt')">Jetzt</button>
-                        <button type="button" onclick="setTimeMode(this, 'spaeter')">Später</button>
-                    </div>
-                </div>
-                <div class="form-row"><label>Personen</label><select id="bk-pax"><option>1 Person</option><option>2 Personen</option><option>3 Personen</option><option>4 Personen</option><option>5 Personen</option><option>6 Personen</option><option>7 Personen</option><option>8 Personen</option></select></div>
-                <button type="submit" class="btn-submit">💬 FAHRT PER WHATSAPP SENDEN</button>
-                <p class="form-hint">Ihre Daten werden nicht gespeichert und nur zur Auftragserteilung genutzt.</p>
-            </form>
-            <div class="live-mock">
-                <span class="live-badge">LIVE</span>
-                <div class="live-map">🗺️ <span style="font-size:60px;position:absolute;animation:taxi-anim 4s infinite alternate;">🚖</span></div>
-                <div class="live-eta">Ihr Taxi in <span class="min">~2 Min</span></div>
-                <div class="live-status">Verfolge deinen Fahrer live auf der Karte — kein Rätselraten, kein „Wann kommt er denn endlich?"</div>
-            </div>
-            <style>@keyframes taxi-anim { 0% { transform: translate(-100px, 30px); } 100% { transform: translate(100px, -30px); } }</style>
+        <div class="section-eyebrow">📱 EINFACH BUCHEN</div>
+        <h2 class="section-title">Taxi in 30 Sekunden</h2>
+        <p class="section-sub">Live-Preis vor der Buchung. Bestätigung per SMS. Live-Tracking sobald der Fahrer unterwegs ist.</p>
+        <div class="quickbook">
+            <h3>🚖 Schnellbuchung</h3>
+            <div class="qb-row"><label>Abholort</label><input type="text" id="qb-pickup" placeholder="z.B. Bahnhof Heringsdorf"></div>
+            <div class="qb-row"><label>Zielort</label><input type="text" id="qb-dest" placeholder="z.B. Hotel Ahlbecker Hof"></div>
+            <button onclick="goToBuchenWithPrefill()" class="qb-btn">🚖 Weiter zur Buchung</button>
+            <p class="qb-hint">Du wirst zur Buchungs-Seite weitergeleitet mit Live-Preisrechner. Endpreis nach Taxameter — meistens günstiger.</p>
         </div>
     </div>
 </section>
 
-<section class="section" id="routes">
+<!-- Beispielstrecken -->
+<section class="section" id="routes" style="background:var(--gray-50);">
     <div class="section-inner">
-        <h2 class="section-title">Beliebte Fahrten auf Usedom</h2>
-        <p class="section-sub">Beispiel-Preise — Endpreis berechnen wir live nach Strecke. Live-Preisrechner auf buchen.html.</p>
+        <div class="section-eyebrow">🛣️ BELIEBTE FAHRTEN</div>
+        <h2 class="section-title">Beispielstrecken auf Usedom</h2>
+        <p class="section-sub">Klick auf eine Strecke → Live-Preisrechner auf der Buchungs-Seite.</p>
         <div class="routes-grid">
-            <div class="route-card" onclick="window.location='/buchen.html'"><div class="route-icon">🚆</div><div class="route-name">Bahnhof Heringsdorf → Hotel</div><div class="route-price"><span class="ab">ab</span> 10€</div></div>
-            <div class="route-card" onclick="window.location='/buchen.html'"><div class="route-icon">✈️</div><div class="route-name">Flughafen Heringsdorf → Ahlbeck/Bansin</div><div class="route-price"><span class="ab">ab</span> 30€</div></div>
-            <div class="route-card" onclick="window.location='/buchen.html'"><div class="route-icon">🏖️</div><div class="route-name">Hotel → Seebrücke Ahlbeck/Bansin</div><div class="route-price"><span class="ab">ab</span> 10€</div></div>
-            <div class="route-card" onclick="window.location='/buchen.html'"><div class="route-icon">🇵🇱</div><div class="route-name">Świnoujście Shopping & Strand</div><div class="route-price"><span class="ab">ab</span> 20€</div></div>
-            <div class="route-card" onclick="window.location='/buchen.html'"><div class="route-icon">🏥</div><div class="route-name">Krankentransport Wolgast</div><div class="route-price">mit Genehmigung</div></div>
+            <a class="route-card" href="/buchen.html"><div class="route-icon">🚆</div><div class="route-name">Bahnhof Heringsdorf → Hotel</div><div class="route-action">Preis live berechnen</div></a>
+            <a class="route-card" href="/buchen.html"><div class="route-icon">✈️</div><div class="route-name">Flughafen Heringsdorf → Ahlbeck</div><div class="route-action">Preis live berechnen</div></a>
+            <a class="route-card" href="/buchen.html"><div class="route-icon">🏖️</div><div class="route-name">Hotel → Seebrücke Bansin</div><div class="route-action">Preis live berechnen</div></a>
+            <a class="route-card" href="/buchen.html"><div class="route-icon">🇵🇱</div><div class="route-name">Świnoujście Shopping</div><div class="route-action">Preis live berechnen</div></a>
+            <a class="route-card" href="/buchen.html"><div class="route-icon">🏥</div><div class="route-name">Krankentransport Wolgast</div><div class="route-action">Mit Genehmigung anfragen</div></a>
+            <a class="route-card" href="/berlin.html"><div class="route-icon">🚄</div><div class="route-name">Berlin Shuttle</div><div class="route-action">Pauschalpreise ansehen</div></a>
         </div>
-        <p style="margin-top:24px;text-align:center;"><a href="/buchen.html" style="color:var(--gold-dark);font-weight:700;text-decoration:none;">Alle Preise live ansehen →</a></p>
     </div>
 </section>
 
-<section class="section" id="howto" style="background:var(--beige);">
+<!-- So funktioniert's -->
+<section class="section howto" id="howto">
     <div class="section-inner">
-        <h2 class="section-title">So funktioniert's</h2>
-        <p class="section-sub">Drei Schritte zur entspannten Fahrt — kein Stress, kein Warten am Straßenrand.</p>
+        <div class="section-eyebrow">📋 SO GEHT'S</div>
+        <h2 class="section-title">In drei Schritten zur Fahrt</h2>
         <div class="howto-grid">
             <div class="howto-card">
                 <div class="howto-num">1</div>
                 <div class="howto-icon">📍</div>
-                <div class="howto-title">Fahrt eingeben</div>
-                <div class="howto-desc">Abholort, Ziel und Personenanzahl wählen. Wahlweise WhatsApp oder Preis berechnen.</div>
+                <div class="howto-title">Adresse eingeben</div>
+                <div class="howto-desc">Abholort, Ziel und Personenanzahl. Live-Karte zeigt deine Strecke.</div>
             </div>
             <div class="howto-card">
                 <div class="howto-num">2</div>
                 <div class="howto-icon">💶</div>
-                <div class="howto-title">Preis sehen</div>
-                <div class="howto-desc">Sofort-Angebot mit ca.-Preis. Endpreis nach Taxameter — meistens günstiger.</div>
+                <div class="howto-title">Preis sehen (ca.)</div>
+                <div class="howto-desc">Sofort-Schätzpreis vor der Buchung. Endpreis nach Taxameter — meistens günstiger.</div>
             </div>
             <div class="howto-card">
                 <div class="howto-num">3</div>
                 <div class="howto-icon">🚖</div>
                 <div class="howto-title">Fahrer kommt</div>
-                <div class="howto-desc">Live-Tracking + SMS bei Ankunft. Pünktlich, freundlich und ortskundig.</div>
+                <div class="howto-desc">Bestätigungs-SMS + Live-Tracking sobald dein Fahrer unterwegs ist.</div>
             </div>
         </div>
     </div>
 </section>
 
-<section class="section reviews-section" id="reviews">
+<!-- Live-Tracking Hinweis -->
+<section class="tracking" id="tracking">
+    <div class="tracking-inner">
+        <div class="tracking-mock">🗺️</div>
+        <div class="tracking-content">
+            <div class="section-eyebrow" style="color:var(--gold);">📍 LIVE-TRACKING</div>
+            <h2>Wo ist mein Taxi? <span class="green">Du siehst es live.</span></h2>
+            <p>Nach der Buchung bekommst du einen Tracking-Link per SMS. Du siehst auf einer Karte wo dein Fahrer gerade ist und wann er ankommt. Kein Rätselraten, kein „Wann kommt er denn endlich?".</p>
+            <a href="/buchen.html" class="btn btn-tertiary">🚖 Jetzt buchen + Tracking nutzen</a>
+        </div>
+    </div>
+</section>
+
+<!-- Reviews -->
+<section class="section" id="reviews">
     <div class="section-inner">
+        <div class="section-eyebrow">⭐ KUNDENSTIMMEN</div>
+        <h2 class="section-title">200+ Bewertungen bei Google</h2>
         <div class="reviews-header">
             <div class="stars">★★★★★</div>
-            <div><div class="score">4,9/5</div><div class="score-sub">bei Google • 200+ Bewertungen</div></div>
+            <div><div class="score-num">4,9 / 5</div><div class="score-sub">Durchschnitt aus 200+ Bewertungen</div></div>
         </div>
         <div class="reviews-grid">
             <div class="review-card"><div class="review-stars">★★★★★</div><div class="review-text">„Super freundlich und pünktlich am Bahnhof abgeholt. Gerne wieder!"</div><div class="review-author">— Martina S.</div></div>
             <div class="review-card"><div class="review-stars">★★★★★</div><div class="review-text">„Schneller als der Bus 😊 Fahrer sehr hilfsbereit und nett!"</div><div class="review-author">— Thomas K.</div></div>
             <div class="review-card"><div class="review-stars">★★★★★</div><div class="review-text">„Großraumtaxi für 7 Personen bestellt — perfekt geklappt!"</div><div class="review-author">— Sabine R.</div></div>
         </div>
-        <p style="margin-top:30px;text-align:center;"><a href="https://www.google.com/search?q=Funk+Taxi+Heringsdorf+Bewertungen" target="_blank" style="color:var(--gold-dark);font-weight:700;text-decoration:none;">Alle Bewertungen ansehen →</a></p>
+        <p style="margin-top:24px;"><a href="https://www.google.com/search?q=Funk+Taxi+Heringsdorf+Bewertungen" target="_blank" style="color:var(--green-dark);font-weight:700;text-decoration:none;">Alle Bewertungen ansehen →</a></p>
     </div>
 </section>
 
-<section class="hotels-section" id="hotels">
+<!-- Hotels -->
+<section class="section hotels" id="hotels">
     <div class="section-inner">
         <div class="hotels-grid">
-            <div class="hotels-image">🤝</div>
-            <div class="hotels-content">
-                <h2>Für Hotels &amp; <span class="green">Gastgeber</span></h2>
-                <p style="font-size:17px;color:rgba(255,255,255,0.8);">Wir holen Ihre Gäste direkt vor der Unterkunft ab. Persönlich, zuverlässig, mit fester Abrechnung.</p>
+            <div class="hotels-img">🏨</div>
+            <div>
+                <div class="section-eyebrow">🤝 FÜR HOTELS & GASTGEBER</div>
+                <h2 class="section-title">Direkt vor der Unterkunft.</h2>
+                <p style="font-size:16px;color:var(--gray-600);">Wir holen Ihre Gäste persönlich ab — vom Bahnhof, Flughafen oder direkt vor dem Hotel. Pauschal-Preise möglich, feste Ansprechpartner, schnelle Reaktion.</p>
                 <ul class="hotels-features">
                     <li>Pauschal-Service mit fixen Preisen</li>
                     <li>Bahnhof- und Flughafen-Abholung</li>
                     <li>Großraumtaxi für Gruppen bis 8 Personen</li>
-                    <li>WhatsApp-Buchung direkt aus Ihrem Hotel</li>
+                    <li>Direkter Draht zur Disposition</li>
                 </ul>
-                <a href="mailto:info@funktaxi-heringsdorf.de?subject=Gastgeber-Anfrage" class="btn btn-whatsapp">📧 Für Gastgeber anfragen</a>
+                <a href="mailto:info@funktaxi-heringsdorf.de?subject=Gastgeber-Anfrage" class="btn btn-primary">📧 Für Gastgeber anfragen</a>
             </div>
         </div>
     </div>
 </section>
 
-<footer class="footer" id="footer">
+<!-- Footer -->
+<footer class="footer">
     <div class="footer-inner">
-        <div class="footer-trust">
-            <div class="footer-trust-item"><div class="footer-trust-icon">🕐</div><div class="footer-trust-title">24/7 für Sie da</div><div class="footer-trust-sub">Rund um die Uhr erreichbar</div></div>
-            <div class="footer-trust-item"><div class="footer-trust-icon">🧭</div><div class="footer-trust-title">Ortskundig</div><div class="footer-trust-sub">Wir kennen Usedom wie unsere Westentasche</div></div>
-            <div class="footer-trust-item"><div class="footer-trust-icon">🌱</div><div class="footer-trust-title">Umweltfreundlich</div><div class="footer-trust-sub">Moderne Fahrzeuge & E-Mobilität</div></div>
-            <div class="footer-trust-item"><div class="footer-trust-icon">🛡️</div><div class="footer-trust-title">Sicher &amp; zuverlässig</div><div class="footer-trust-sub">Sicherheit liegt uns am Herzen</div></div>
-        </div>
-        <div class="footer-bottom">
-            <div>© Funk Taxi Heringsdorf · Patrick Wydra · Seit 1991 auf Usedom</div>
-            <div class="footer-links">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <h4>FUNK TAXI HERINGSDORF</h4>
+                <a>Patrick Wydra · seit 1991 auf Usedom</a>
                 <a href="tel:+4938378492022">📞 038378 / 22022</a>
                 <a href="https://wa.me/4915127585179" target="_blank">💬 WhatsApp</a>
+            </div>
+            <div class="footer-col">
+                <h4>BUCHEN</h4>
+                <a href="/buchen.html">Taxi jetzt buchen</a>
+                <a href="/berlin.html">Berlin Shuttle</a>
+                <a href="/krankenfahrten.html">Krankentransport</a>
+            </div>
+            <div class="footer-col">
+                <h4>INFO</h4>
+                <a href="/landing.html">Klassische Startseite</a>
                 <a href="/datenschutz.html">Datenschutz</a>
                 <a href="/impressum.html">Impressum</a>
             </div>
         </div>
+        <div class="footer-bottom">
+            <div>© 2026 Funk Taxi Heringsdorf · Alle Preise „ca." — Endpreis nach Taxameter</div>
+            <div>24/7 erreichbar</div>
+        </div>
     </div>
 </footer>
 
-<a href="/buchen.html" class="floating-cta">🚖 Jetzt Taxi bestellen →</a>
-
 <script>
-let _timeMode = 'jetzt';
-function setTimeMode(btn, mode) {
-    _timeMode = mode;
-    document.querySelectorAll('.toggle-time button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-}
-
 const WHATSAPP_NUMBER = '4915127585179';
 
-function sendWhatsApp() {
-    const text = encodeURIComponent('Hallo, ich möchte ein Taxi bestellen. Können Sie mir bitte ein freies Fahrzeug schicken?');
+function askViaWhatsApp() {
+    const text = encodeURIComponent('Hallo, ich habe eine Frage zur Taxi-Fahrt auf Usedom.');
     window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + text, '_blank');
 }
 
-function sendBookingViaWhatsApp() {
-    const pickup = document.getElementById('bk-pickup').value.trim();
-    const dest = document.getElementById('bk-dest').value.trim();
-    const pax = document.getElementById('bk-pax').value;
-    const zeit = _timeMode === 'jetzt' ? 'Jetzt (Sofortfahrt)' : 'Später (Vorbestellung — Termin folgt)';
-    if (!pickup || !dest) {
-        alert('Bitte Abholort und Ziel eingeben.');
-        return;
-    }
-    const text = 'Hallo, ich möchte ein Taxi buchen.\n\n📍 Abholort: ' + pickup + '\n🎯 Ziel: ' + dest + '\n🕐 Zeit: ' + zeit + '\n👥 Personen: ' + pax + '\n\nBitte bestätigen, vielen Dank.';
-    window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(text), '_blank');
+function goToBuchenWithPrefill() {
+    const pickup = document.getElementById('qb-pickup').value.trim();
+    const dest = document.getElementById('qb-dest').value.trim();
+    let params = [];
+    if (pickup) params.push('pickup=' + encodeURIComponent(pickup));
+    if (dest) params.push('destination=' + encodeURIComponent(dest));
+    const qs = params.length ? '?' + params.join('&') : '';
+    window.location.href = '/buchen.html' + qs;
 }
 </script>
 

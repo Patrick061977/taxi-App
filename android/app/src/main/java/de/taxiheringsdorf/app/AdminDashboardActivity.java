@@ -290,6 +290,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
     // v6.62.638: Wiederholungs-Dialog mit 2 Varianten — gleiche Strecke oder Rueckfahrt
     // Patrick (12.05. 13:03): "Fahrten kopieren und Abholort/Zielort tauschen"
+    // v6.62.640: Koordinaten auch uebernehmen/tauschen (Lattorf-Bug-Fix)
     private void showRepeatPastRideDialog(Ride r) {
         String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
             + (r.customerName != null ? r.customerName : "?") + "\n"
@@ -301,13 +302,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .setMessage(msg)
             .setPositiveButton("📅 Gleiche Strecke", (d, w) -> showNewBookingDialog(r))
             .setNeutralButton("🔄 Rueckfahrt (getauscht)", (d, w) -> {
-                // Pickup ↔ Destination tauschen, dann normalen Wiederhol-Dialog
                 Ride swap = new Ride();
                 swap.customerName = r.customerName;
                 swap.customerPhone = r.customerPhone;
                 swap.pickup = r.destination;       // Tausch
                 swap.destination = r.pickup;        // Tausch
                 swap.passengers = r.passengers;
+                swap.pickupLat = r.destinationLat;
+                swap.pickupLon = r.destinationLon;
+                swap.destinationLat = r.pickupLat;
+                swap.destinationLon = r.pickupLon;
                 showNewBookingDialog(swap);
             })
             .setNegativeButton("Abbrechen", null)
@@ -394,6 +398,27 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
                 r.put("pickup", pickup);
                 r.put("destination", dest);
+                // v6.62.640: Koordinaten aus Preset uebernehmen wenn vorhanden — sonst
+                // landet Rueckfahrt/Kopie ohne Lat/Lon und autoAssign kann nichts machen.
+                // User soll bei manueller Adress-Aenderung ueber das Edit-Modal (Picker) korrigieren.
+                if (preset != null) {
+                    if (preset.pickupLat != null && preset.pickupLon != null
+                        && pickup.equals(preset.pickup != null ? preset.pickup : "")) {
+                        r.put("pickupLat", preset.pickupLat);
+                        r.put("pickupLon", preset.pickupLon);
+                        java.util.Map<String, Object> _pc = new java.util.HashMap<>();
+                        _pc.put("lat", preset.pickupLat); _pc.put("lon", preset.pickupLon);
+                        r.put("pickupCoords", _pc);
+                    }
+                    if (preset.destinationLat != null && preset.destinationLon != null
+                        && dest.equals(preset.destination != null ? preset.destination : "")) {
+                        r.put("destinationLat", preset.destinationLat);
+                        r.put("destinationLon", preset.destinationLon);
+                        java.util.Map<String, Object> _dc = new java.util.HashMap<>();
+                        _dc.put("lat", preset.destinationLat); _dc.put("lon", preset.destinationLon);
+                        r.put("destCoords", _dc);
+                    }
+                }
                 r.put("pickupTimestamp", datetime[0]);
                 r.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(datetime[0])));
                 // Nahe-Fahrt → warteschlange (sofort), sonst vorbestellt
@@ -430,6 +455,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         String id, customerName, customerPhone, pickup, destination, pickupTime, status;
         String assignedVehicle; // v6.62.193: Patrick: "autos kann ich auch nicht zuweisen"
         String assignedVehicleName; // v6.62.636: Patrick (12.05. 09:05): "welches Fahrzeug ist vorgesehen"
+        // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
+        // Daten-Inkonsistenz-Warning. Koords muessen mit gespeichert + getauscht werden.
+        Double pickupLat, pickupLon, destinationLat, destinationLon;
         Long pickupTimestamp;
         Integer passengers;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
@@ -464,6 +492,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.assignedVehicleName = s.child("assignedVehicleName").getValue(String.class);
                 if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicleName").getValue(String.class);
                 if (r.assignedVehicleName == null) r.assignedVehicleName = s.child("vehicle").getValue(String.class);
+                // v6.62.640: Koordinaten lesen — bevorzugt direkte Felder, sonst aus Coords-Objekt
+                Object _pL = s.child("pickupLat").getValue();
+                Object _pO = s.child("pickupLon").getValue();
+                Object _dL = s.child("destinationLat").getValue();
+                Object _dO = s.child("destinationLon").getValue();
+                if (_pL instanceof Number) r.pickupLat = ((Number)_pL).doubleValue();
+                if (_pO instanceof Number) r.pickupLon = ((Number)_pO).doubleValue();
+                if (_dL instanceof Number) r.destinationLat = ((Number)_dL).doubleValue();
+                if (_dO instanceof Number) r.destinationLon = ((Number)_dO).doubleValue();
+                // Fallback: pickupCoords/destCoords Objekte
+                if (r.pickupLat == null) {
+                    Object _pcL = s.child("pickupCoords/lat").getValue();
+                    Object _pcO = s.child("pickupCoords/lon").getValue();
+                    if (_pcL instanceof Number) r.pickupLat = ((Number)_pcL).doubleValue();
+                    if (_pcO instanceof Number) r.pickupLon = ((Number)_pcO).doubleValue();
+                }
+                if (r.destinationLat == null) {
+                    Object _dcL = s.child("destCoords/lat").getValue();
+                    Object _dcO = s.child("destCoords/lon").getValue();
+                    if (_dcL instanceof Number) r.destinationLat = ((Number)_dcL).doubleValue();
+                    if (_dcO instanceof Number) r.destinationLon = ((Number)_dcO).doubleValue();
+                }
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -686,6 +736,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
             swap.pickup = r.destination;
             swap.destination = r.pickup;
             swap.passengers = r.passengers;
+            // v6.62.640: Koordinaten auch tauschen — sonst landet die Rueckfahrt ohne
+            // Lat/Lon in Firebase und autoAssign kann nichts machen.
+            swap.pickupLat = r.destinationLat;
+            swap.pickupLon = r.destinationLon;
+            swap.destinationLat = r.pickupLat;
+            swap.destinationLon = r.pickupLon;
             showNewBookingDialog(swap);
         });
 

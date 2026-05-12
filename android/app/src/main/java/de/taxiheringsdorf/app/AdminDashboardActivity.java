@@ -374,6 +374,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         });
         layout.addView(tvDate);
 
+        // v6.62.652: Patrick (12.05. 20:22): "ich moechte es bei Vorbestellung eingeben
+        // koennen wenn etwas manuell bleiben soll". Checkbox direkt im Anlegen-Dialog.
+        android.widget.CheckBox cbLock = new android.widget.CheckBox(this);
+        cbLock.setText("🔒 Zuweisung sperren (Cloud-Auto-Assign aus)");
+        cbLock.setTextSize(13);
+        cbLock.setChecked(false);
+        LinearLayout.LayoutParams _lockLp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        _lockLp.setMargins(0, pad, 0, 0);
+        cbLock.setLayoutParams(_lockLp);
+        layout.addView(cbLock);
+
         new AlertDialog.Builder(this)
             .setTitle("🚖 Neue Buchung (Admin)")
             .setView(layout)
@@ -388,6 +399,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
                 int pax = 1;
                 try { pax = Integer.parseInt(etPax.getText().toString().trim()); } catch (Throwable _t) {}
+                final boolean _lock = cbLock.isChecked();
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
@@ -428,8 +440,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 r.put("updatedAt", now);
                 r.put("source", "native_admin_manual");
                 r.put("passengers", pax);
+                if (_lock) {
+                    r.put("assignmentLocked", true);
+                    r.put("lockedBy", "native_admin_create");
+                    r.put("lockedAt", now);
+                }
                 ref.setValue(r).addOnSuccessListener(_v -> {
-                    Toast.makeText(this, "✅ Buchung angelegt", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, _lock ? "✅ Buchung angelegt + gesperrt" : "✅ Buchung angelegt", Toast.LENGTH_SHORT).show();
                 }).addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             })
             .setNegativeButton("Abbrechen", null)

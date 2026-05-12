@@ -15,8 +15,8 @@ android {
         // v6.41.91: + Firebase Crashlytics für native Crash-Diagnose (heute Heartbeat-Timeout
         // gesehen — JS-Logger fing nichts, also nativer Prozess-Tod. Crashlytics liefert Stacktrace).
         // versionCode-Format: Major*1_000_000 + Minor*1_000 + Patch → 6.41.91 = 6_041_091
-        versionCode 6062650
-        versionName "6.62.650"
+        versionCode 6062651
+        versionName "6.62.651"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -57,6 +57,8 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    // v6.62.651: Chrome Custom Tabs — In-App-Browser mit korrekter Back-Stack-Integration
+    implementation "androidx.browser:browser:1.8.0"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     // v6.41.19: FusedLocationProviderClient für nativen GPS-Tracker im Foreground-Service

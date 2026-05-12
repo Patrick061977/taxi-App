@@ -711,18 +711,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // mit Liste aller aktiven Fahrten + Tap-to-Edit). isAdminMode-Flag wird in
             // AdminDashboardActivity selbst gesetzt — beim Zurück automatisch zurueckgenommen.
             if (id == R.id.menu_dispo)          { startActivity(new Intent(this, AdminDashboardActivity.class)); return true; }
-            // v6.62.650: Patrick (12.05. 19:16) 'Im Browser geht es' — WebView in der App
-            // hat persistente Cache-Probleme. Pragmatik: oeffne im externen Standard-Browser,
-            // der nachweislich funktioniert. Zurueck-Button-UX ist zweitrangig wenn die Karte
-            // ueberhaupt sichtbar sein muss.
+            // v6.62.651: Patrick (12.05. 20:08) 'Zurueck sollte nicht zur Homepage gehen'.
+            // Chrome Custom Tabs — In-App-Browser, kein Cache-Bug wie WebView, plus Back-Button
+            // fuehrt direkt zur Fahrer-App zurueck (kein Browser-Verlauf dazwischen).
             if (id == R.id.menu_map) {
                 String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
                 String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="
                     + java.net.URLEncoder.encode(myVid) + "&nc=" + System.currentTimeMillis();
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+                    androidx.browser.customtabs.CustomTabsIntent intent =
+                        new androidx.browser.customtabs.CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .build();
+                    intent.launchUrl(this, android.net.Uri.parse(url));
                 } catch (Throwable t) {
-                    Toast.makeText(this, "Karte kann nicht geoeffnet werden: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    // Fallback auf Standard-Browser falls Chrome nicht da
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+                    } catch (Throwable t2) {
+                        Toast.makeText(this, "Karte kann nicht geoeffnet werden: " + t2.getMessage(), Toast.LENGTH_LONG).show();
+                    }
                 }
                 return true;
             }

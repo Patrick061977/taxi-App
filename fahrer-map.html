@@ -152,8 +152,29 @@ function render() {
     }
 }
 
-db.ref('vehicles').on('value', snap => { _vehicles = snap.val() || {}; render(); });
-db.ref('rides').orderByChild('status').on('value', snap => { _rides = snap.val() || {}; render(); });
+// v6.62.643: Robust Error-Handling — sonst bleibt 'Lade Fahrer-Positionen' bei Firebase-Fehler haengen
+function showError(msg) {
+    document.getElementById('loading').innerHTML = '⚠️ ' + msg + '<br><small>(reload zum erneuten Versuch)</small>';
+}
+try {
+    db.ref('vehicles').on('value',
+        snap => { _vehicles = snap.val() || {}; render(); },
+        err => { console.error('vehicles read err:', err); showError('Fahrzeug-Daten konnten nicht geladen werden: ' + err.message); }
+    );
+    db.ref('rides').orderByChild('status').on('value',
+        snap => { _rides = snap.val() || {}; render(); },
+        err => { console.error('rides read err:', err); /* nicht kritisch */ }
+    );
+    // Fallback: Wenn nach 5 Sek noch keine Antwort → Loading-Hinweis updaten
+    setTimeout(() => {
+        if (Object.keys(_vehicles).length === 0) {
+            showError('Keine Fahrzeug-Daten gefunden. Bist du online?');
+        }
+    }, 5000);
+} catch (e) {
+    console.error('Init-Error:', e);
+    showError('Initialisierungsfehler: ' + e.message);
+}
 
 function closeMap() {
     if (window.history.length > 1) window.history.back();

@@ -735,13 +735,13 @@ public class CallLogActivity extends AppCompatActivity {
                 .setItems(options, (d, which) -> {
                     if (admin) {
                         switch (which) {
-                            case 0: showCrmCreateDialog(e); break;
+                            case 0: openCrmCreateInSearchActivity(e); break;
                             case 1: createSofortFahrtPhone(e); break;
                             case 2: showPrebookingDialog(e, null); break;
                         }
                     } else {
                         switch (which) {
-                            case 0: showCrmCreateDialog(e); break;
+                            case 0: openCrmCreateInSearchActivity(e); break;
                             case 1: createEinsteigerWithPhone(e); break;
                             case 2: createSofortFahrtPhone(e); break;
                             case 3: showPrebookingDialog(e, null); break;
@@ -749,6 +749,18 @@ public class CallLogActivity extends AppCompatActivity {
                     }
                 }).show();
         }
+    }
+
+    // v6.62.639: Patrick (12.05. 13:04+13:19): "in der Anrufliste CRM Kunde anlegen soll
+    // EXAKT die gleiche Maske wie in der CRM-Suche" (= openEditDialog in CrmSearchActivity).
+    // Statt eigenen Dialog mit weniger Feldern: starte CrmSearchActivity mit Prefill-Extras,
+    // _maybeAutoOpenCreateDialog() dort oeffnet automatisch openEditDialog mit der vollen
+    // Maske (Kundenart-Buttons, Hotel/Firma-Modus, alle Felder). Kein Code-Duplikat.
+    private void openCrmCreateInSearchActivity(CallEntry e) {
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        i.putExtra("prefill_new_phone", e.number != null ? e.number : "");
+        i.putExtra("prefill_new_name", e.name != null ? e.name : "");
+        startActivity(i);
     }
 
     // 🆕 v6.62.626: Bisherige-Fahrten Button — startet CrmSearchActivity mit Intent-Extra,

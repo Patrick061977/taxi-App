@@ -475,6 +475,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.640: Patrick (12.05. 13:59): Lattorf-Rueckfahrt hatte keine Koords →
         // Daten-Inkonsistenz-Warning. Koords muessen mit gespeichert + getauscht werden.
         Double pickupLat, pickupLon, destinationLat, destinationLon;
+        // v6.62.655: Patrick (12.05. 21:04) 'Lock auch im Edit-Dialog der Disposition'.
+        Boolean assignmentLocked;
         Long pickupTimestamp;
         Integer passengers;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
@@ -531,6 +533,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     if (_dcL instanceof Number) r.destinationLat = ((Number)_dcL).doubleValue();
                     if (_dcO instanceof Number) r.destinationLon = ((Number)_dcO).doubleValue();
                 }
+                // v6.62.655: Lock-State lesen
+                Object _lock = s.child("assignmentLocked").getValue();
+                if (_lock instanceof Boolean) r.assignmentLocked = (Boolean) _lock;
                 // Waypoints: Liste von Objekten mit address+name — analog DriverDashboard
                 DataSnapshot wpSnap = s.child("waypoints");
                 if (wpSnap.exists() && wpSnap.hasChildren()) {
@@ -762,6 +767,24 @@ public class AdminDashboardActivity extends AppCompatActivity {
             showNewBookingDialog(swap);
         });
 
+        // v6.62.655: Patrick (12.05. 21:04) — Lock-Checkbox auch im Edit-Dialog
+        final android.widget.CheckBox cbEditLock = new android.widget.CheckBox(this);
+        cbEditLock.setText(Boolean.TRUE.equals(r.assignmentLocked)
+            ? "🔒 Zuweisung GESPERRT (Klick = freigeben)"
+            : "🔓 Zuweisung sperren (Klick = sperren)");
+        cbEditLock.setChecked(Boolean.TRUE.equals(r.assignmentLocked));
+        cbEditLock.setTextSize(13);
+        LinearLayout.LayoutParams _cbLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _cbLp.setMargins(0, 0, 0, pad);
+        cbEditLock.setLayoutParams(_cbLp);
+        cbEditLock.setOnCheckedChangeListener((b, checked) -> {
+            cbEditLock.setText(checked
+                ? "🔒 Zuweisung GESPERRT (Klick = freigeben)"
+                : "🔓 Zuweisung sperren (Klick = sperren)");
+        });
+        layout.addView(cbEditLock);
+
         EditText etName = new EditText(this);
         etName.setHint("Kundenname");
         etName.setText(r.customerName != null ? r.customerName : "");
@@ -942,6 +965,20 @@ public class AdminDashboardActivity extends AppCompatActivity {
             }
             upd.put("pickupTimestamp", dateTime[0]);
             upd.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(dateTime[0])));
+            // v6.62.655: Lock-State aus Checkbox
+            boolean _newLock = cbEditLock.isChecked();
+            boolean _oldLock = Boolean.TRUE.equals(r.assignmentLocked);
+            if (_newLock != _oldLock) {
+                upd.put("assignmentLocked", _newLock);
+                if (_newLock) {
+                    upd.put("lockedBy", "native_admin_edit");
+                    upd.put("lockedAt", System.currentTimeMillis());
+                } else {
+                    upd.put("lockedBy", null);
+                    upd.put("lockedAt", null);
+                    upd.put("unlockedAt", System.currentTimeMillis());
+                }
+            }
             upd.put("passengers", spnPax.getSelectedItemPosition() + 1);
             upd.put("status", statusVals[spnStatus.getSelectedItemPosition()]);
             int vIdx = spnVehicle.getSelectedItemPosition();

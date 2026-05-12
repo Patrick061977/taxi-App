@@ -247,10 +247,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
     private boolean _autoScrolled = false;
 
-    // v6.62.636: Patrick (12.05. 09:05) "in der Vergangenheit die Fahrten noch sehen und
-    // daraus dann wieder Vorbestellungen machen koennen". Toggle bestimmt ob die Query
-    // 30 Tage Vergangenheit umfasst (statt nur 2h zurueck).
-    private boolean _includePast = false;
+    // v6.62.638: Patrick (12.05. 13:03) "kann nicht in die Vergangenheit gucken" — Toggle
+    // im Menue wurde nicht gefunden. Jetzt Default = TRUE (30 Tage Rueckblick beim Oeffnen),
+    // Toggle bleibt zum AUSSCHALTEN bei Performance-Problemen.
+    private boolean _includePast = true;
 
     private void showMenu(View anchor) {
         PopupMenu p = new PopupMenu(this, anchor);
@@ -288,16 +288,28 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.show();
     }
 
-    // v6.62.636: Wiederholungs-Dialog fuer eine abgeschlossene Vergangenheits-Fahrt
+    // v6.62.638: Wiederholungs-Dialog mit 2 Varianten — gleiche Strecke oder Rueckfahrt
+    // Patrick (12.05. 13:03): "Fahrten kopieren und Abholort/Zielort tauschen"
     private void showRepeatPastRideDialog(Ride r) {
+        String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
+            + (r.customerName != null ? r.customerName : "?") + "\n"
+            + (r.pickup != null ? r.pickup : "?") + "\n→ "
+            + (r.destination != null ? r.destination : "?")
+            + "\n\nDaten werden vorbefuellt, du waehlst nur Datum/Zeit.";
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📅 Fahrt wiederholen")
-            .setMessage("Diese Fahrt als neue Vorbestellung anlegen?\n\n"
-                + (r.customerName != null ? r.customerName : "?") + "\n"
-                + (r.pickup != null ? r.pickup : "?") + "\n→ "
-                + (r.destination != null ? r.destination : "?")
-                + "\n\nDaten werden vorbefuellt, du musst nur das neue Datum/die Zeit waehlen.")
-            .setPositiveButton("Ja, anlegen", (d, w) -> showNewBookingDialog(r))
+            .setMessage(msg)
+            .setPositiveButton("📅 Gleiche Strecke", (d, w) -> showNewBookingDialog(r))
+            .setNeutralButton("🔄 Rueckfahrt (getauscht)", (d, w) -> {
+                // Pickup ↔ Destination tauschen, dann normalen Wiederhol-Dialog
+                Ride swap = new Ride();
+                swap.customerName = r.customerName;
+                swap.customerPhone = r.customerPhone;
+                swap.pickup = r.destination;       // Tausch
+                swap.destination = r.pickup;        // Tausch
+                swap.passengers = r.passengers;
+                showNewBookingDialog(swap);
+            })
             .setNegativeButton("Abbrechen", null)
             .show();
     }
@@ -602,6 +614,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // Name, Phone, Pickup, Destination, Datum/Zeit, Personenzahl, Status. Plus Stornieren-Button.
     private void showEditRideDialog(final Ride r) {
         if (r == null || r.id == null) return;
+        // v6.62.638: _dlgRef hier oben deklariert (vorher Zeile 850) damit die neuen
+        // Copy/Rueckfahrt-Buttons darauf zugreifen koennen.
+        final java.util.concurrent.atomic.AtomicReference<AlertDialog> _dlgRef =
+            new java.util.concurrent.atomic.AtomicReference<>();
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
@@ -622,6 +638,56 @@ public class AdminDashboardActivity extends AppCompatActivity {
         _saveTopParams.setMargins(0, 0, 0, pad);
         btnSaveTop.setLayoutParams(_saveTopParams);
         layout.addView(btnSaveTop);
+
+        // v6.62.638: Patrick (12.05. 13:05): "ich will Fahrt auch kopieren, Datum aendern,
+        // Rueckfahrt erstellen — wie in der Web-App". Zwei Buttons als Inline-Aktionen direkt
+        // unter Speichern, vor den Edit-Feldern.
+        LinearLayout copyRow = new LinearLayout(this);
+        copyRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams _copyRowParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        _copyRowParams.setMargins(0, 0, 0, pad);
+        copyRow.setLayoutParams(_copyRowParams);
+
+        com.google.android.material.button.MaterialButton btnCopy =
+            new com.google.android.material.button.MaterialButton(this);
+        btnCopy.setText("📅 Kopieren");
+        btnCopy.setTextSize(14);
+        btnCopy.setBackgroundColor(android.graphics.Color.parseColor("#3b82f6"));
+        btnCopy.setTextColor(android.graphics.Color.WHITE);
+        LinearLayout.LayoutParams _cp1 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        _cp1.setMargins(0, 0, pad / 2, 0);
+        btnCopy.setLayoutParams(_cp1);
+        copyRow.addView(btnCopy);
+
+        com.google.android.material.button.MaterialButton btnReturn =
+            new com.google.android.material.button.MaterialButton(this);
+        btnReturn.setText("🔄 Rueckfahrt");
+        btnReturn.setTextSize(14);
+        btnReturn.setBackgroundColor(android.graphics.Color.parseColor("#8b5cf6"));
+        btnReturn.setTextColor(android.graphics.Color.WHITE);
+        LinearLayout.LayoutParams _cp2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        _cp2.setMargins(pad / 2, 0, 0, 0);
+        btnReturn.setLayoutParams(_cp2);
+        copyRow.addView(btnReturn);
+        layout.addView(copyRow);
+
+        btnCopy.setOnClickListener(_v -> {
+            AlertDialog _d = _dlgRef.get();
+            if (_d != null) _d.dismiss();
+            showNewBookingDialog(r);
+        });
+        btnReturn.setOnClickListener(_v -> {
+            AlertDialog _d = _dlgRef.get();
+            if (_d != null) _d.dismiss();
+            Ride swap = new Ride();
+            swap.customerName = r.customerName;
+            swap.customerPhone = r.customerPhone;
+            swap.pickup = r.destination;
+            swap.destination = r.pickup;
+            swap.passengers = r.passengers;
+            showNewBookingDialog(swap);
+        });
 
         EditText etName = new EditText(this);
         etName.setHint("Kundenname");
@@ -785,8 +851,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.366: Save-Logik als Runnable extrahiert — wird vom INLINE-Top-Button
         // UND vom Builder-positiveButton aufgerufen. Damit hat Patrick einen Speichern-
         // Button immer sichtbar (oben groß, plus unten als Backup).
-        final java.util.concurrent.atomic.AtomicReference<AlertDialog> _dlgRef =
-            new java.util.concurrent.atomic.AtomicReference<>();
+        // v6.62.638: _dlgRef-Deklaration hier entfernt — wurde an Methodenanfang verschoben
         Runnable saveAction = () -> {
             Toast.makeText(this, "💾 Speichere…", Toast.LENGTH_SHORT).show();
             Map<String, Object> upd = new HashMap<>();
@@ -841,6 +906,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // INLINE-Top-Button feuert den selben Save
         btnSaveTop.setOnClickListener(v -> saveAction.run());
 
+        // v6.62.638: _dlgRef-Deklaration wurde nach oben verschoben — hier nur noch verwenden
         AlertDialog dlg = new AlertDialog.Builder(this)
             .setTitle("✏️ Fahrt bearbeiten")
             .setMessage("ID: " + r.id)

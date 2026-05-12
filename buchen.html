@@ -2101,10 +2101,27 @@
                 // kann nicht sein'. arrived in den active-Statuses gefehlt → buchen.html
                 // sah Fahrer als frei sobald er ankam.
                 const _activeStatuses = ['on_way', 'picked_up', 'accepted', 'assigned', 'sofort', 'arrived'];
+                // v6.62.633: Patrick (12.05. 07:57): 'Sie sind an Position 1 in der
+                // Warteschlange'. Zaehle wartende Sofortfahrten — status='wartepool' oder
+                // status='new'/'sofort' ohne Fahrzeug, Pickup innerhalb der naechsten 60 Min.
+                // Diese sind die 'Warteschlange' fuer den naechsten freien Wagen.
+                let waitingCount = 0;
+                const _now = Date.now();
                 Object.entries(all).forEach(([id, r]) => {
-                    if (r && _activeStatuses.includes(r.status)) active[id] = r;
+                    if (!r) return;
+                    if (_activeStatuses.includes(r.status)) active[id] = r;
+                    const _isWaiting =
+                        r.status === 'wartepool' ||
+                        ((r.status === 'new' || r.status === 'sofort') && !r.vehicleId && !r.assignedVehicle);
+                    if (_isWaiting) {
+                        const _pts = r.pickupTimestamp || r.timestamp || _now;
+                        if (_pts < _now + 60 * 60 * 1000 && _pts > _now - 30 * 60 * 1000) {
+                            waitingCount++;
+                        }
+                    }
                 });
                 _activeRidesCache = active;
+                window._waitingQueueCount = waitingCount;
                 updateStatusBar();
             });
         } catch(e) { console.warn('rides-Listener Fehler:', e); }
@@ -2245,12 +2262,17 @@
                 // v6.62.41: Patrick: 'farblich differenzieren — gruen bei sofort,
                 // orange bei Wartezeit, der Kunde sieht was ihn erwartet'.
                 // Stufen: <10 Min gruen | 10-20 Min orange | >20 Min dunkles Orange
+                // v6.62.633: Patrick (12.05. 07:57): 'der weiss ja gar nicht dass er buchen
+                // muss — kein Hinweis, dass er buchen muss, damit er in diese Position kommt'.
+                // Konkrete Position + klare Aufforderung statt vagem 'Sie kommen in die
+                // Warteschlange'.
                 let _waitMin = null;
-                let _label = 'Sie kommen in die Warteschlange';
+                const _pos = (window._waitingQueueCount || 0) + 1;
+                let _label = 'Jetzt buchen — Sie waeren Position ' + _pos;
                 const _ends = Object.values(_busyEndTimes).filter(x => x > Date.now()).sort((a,b)=>a-b);
                 if (_ends.length > 0) {
                     _waitMin = Math.max(1, Math.round((_ends[0] - Date.now()) / 60000));
-                    _label = 'Wartezeit ca. ' + _waitMin + ' Min — Sie kommen in die Warteschlange';
+                    _label = 'Wartezeit ca. ' + _waitMin + ' Min — jetzt buchen sichert Position ' + _pos;
                 }
                 if (_waitMin === null || _waitMin < 10) {
                     sofortBtn.style.background = '';   // Default-Gruen (wie bei frei)

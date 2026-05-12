@@ -380,7 +380,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         cbLock.setText("🔒 Zuweisung sperren (Cloud-Auto-Assign aus)");
         cbLock.setTextSize(13);
         cbLock.setChecked(false);
-        LinearLayout.LayoutParams _lockLp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams _lockLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         _lockLp.setMargins(0, pad, 0, 0);
         cbLock.setLayoutParams(_lockLp);
         layout.addView(cbLock);

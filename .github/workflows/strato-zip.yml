@@ -49,6 +49,7 @@ on:
       - 'pauschalpreise-swinoujscie.html'
       - 'restaurants-usedom.html'
       - 'images/**'
+      - 'vendor/**'
       - 'strato/**'
 
   workflow_dispatch:

@@ -711,10 +711,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // mit Liste aller aktiven Fahrten + Tap-to-Edit). isAdminMode-Flag wird in
             // AdminDashboardActivity selbst gesetzt — beim Zurück automatisch zurueckgenommen.
             if (id == R.id.menu_dispo)          { startActivity(new Intent(this, AdminDashboardActivity.class)); return true; }
-            // v6.62.643: WebView-Activity statt externer Browser — 'Zurueck' fuehrt jetzt
-            // zurueck in die Fahrer-App, nicht zur Browser-Homepage (Patrick 12.05. 14:52).
+            // v6.62.650: Patrick (12.05. 19:16) 'Im Browser geht es' — WebView in der App
+            // hat persistente Cache-Probleme. Pragmatik: oeffne im externen Standard-Browser,
+            // der nachweislich funktioniert. Zurueck-Button-UX ist zweitrangig wenn die Karte
+            // ueberhaupt sichtbar sein muss.
             if (id == R.id.menu_map) {
-                startActivity(new Intent(this, DriverMapActivity.class));
+                String myVid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", "");
+                String url = "https://umwelt-taxi-insel-usedom.de/fahrer-map.html?myVehicle="
+                    + java.net.URLEncoder.encode(myVid) + "&nc=" + System.currentTimeMillis();
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+                } catch (Throwable t) {
+                    Toast.makeText(this, "Karte kann nicht geoeffnet werden: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
                 return true;
             }
             if (id == R.id.menu_webapp)         { openWebView(); return true; }

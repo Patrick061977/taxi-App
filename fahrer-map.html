@@ -104,16 +104,15 @@ let _rides = {};
 
 function render() {
     document.getElementById('loading').style.display = 'none';
-    // Fahrt-Status pro Fahrzeug ermitteln
+    // v6.62.648: Status pro Fahrzeug aus vehicles-Feld 'activeRideStatus' / 'dispatchStatus'
+    // ableiten (Lookup auf rides waere zu teuer — payload too large).
     const vehicleStatus = {};
-    for (const rId in _rides) {
-        const r = _rides[rId];
-        if (!r || !r.vehicleId) continue;
-        if (['on_way','picked_up','arrived','accepted'].includes(r.status)) {
-            // Prioritaet: picked_up > arrived > on_way > accepted
-            const prio = { picked_up:4, arrived:3, on_way:2, accepted:1 };
-            const cur = vehicleStatus[r.vehicleId];
-            if (!cur || prio[r.status] > prio[cur]) vehicleStatus[r.vehicleId] = r.status;
+    for (const vid in _vehicles) {
+        const v = _vehicles[vid];
+        if (!v) continue;
+        if (v.activeRideStatus) vehicleStatus[vid] = v.activeRideStatus;
+        else if (v.dispatchStatus && v.dispatchStatus !== 'frei' && v.dispatchStatus !== 'idle') {
+            vehicleStatus[vid] = v.dispatchStatus;
         }
     }
 
@@ -163,9 +162,12 @@ function showError(msg) {
 }
 async function loadOnce() {
     try {
-        const [veh, rd] = await Promise.all([dbGet('/vehicles'), dbGet('/rides')]);
+        // v6.62.648: Patrick 18:04 'payload too large' — /rides ist riesig (~10MB+).
+        // Wir holen nur /vehicles fuer die Karte. Status-Farben werden via vehicle-eigene
+        // Flags abgeleitet (dispatchStatus + lastRideStatus wenn vorhanden, sonst 'frei').
+        const veh = await dbGet('/vehicles');
         _vehicles = veh || {};
-        _rides = rd || {};
+        _rides = {};  // bleibt leer — Status wird aus vehicle abgeleitet
         render();
     } catch (e) {
         console.error('REST-Fetch err:', e);

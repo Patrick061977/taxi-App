@@ -116,6 +116,17 @@ if [ -d "$PROJECT_ROOT/images" ]; then
     done
 fi
 
+# v6.62.646: vendor/ Ordner mitkopieren — Leaflet lokal hosten weil unpkg.com bei
+# manchen Mobilfunk-Providern geblockt wird (Patrick 12.05. 16:59 'C').
+if [ -d "$PROJECT_ROOT/vendor" ]; then
+    echo "5c) vendor/ Ordner kopieren..."
+    mkdir -p "$OUTPUT_DIR/Taxi-App/vendor"
+    cp -r "$PROJECT_ROOT/vendor/"* "$OUTPUT_DIR/Taxi-App/vendor/" 2>/dev/null || true
+    find "$OUTPUT_DIR/Taxi-App/vendor" -type f | while read f; do
+        echo "   -> ${f#$OUTPUT_DIR/Taxi-App/}"
+    done
+fi
+
 # v6.52.4: APP_BUILD-Stempel im DEPLOY-COPY auf JETZT setzen — Patrick: 'das Datum
 # in der Web-App ist veraltet'. Bisher wurde der Stempel nur manuell beim Commit
 # gesetzt und oft vergessen. Jetzt überschreibt der Strato-Deploy ihn automatisch

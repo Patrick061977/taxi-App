@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Fahrer-Karte — Funk Taxi</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- v6.62.646: Leaflet lokal gehostet — unpkg.com wurde bei manchen Mobilfunk-Providern geblockt → weisse Karte -->
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #0a0a0a; color: white; overflow: hidden; }
@@ -44,7 +45,7 @@ html, body { width: 100%; height: 100%; font-family: -apple-system, "Segoe UI", 
     <div><span class="dot me" style="background:#22c55e"></span> Du</div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/vendor/leaflet/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
 <script>

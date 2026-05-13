@@ -2773,6 +2773,20 @@
         //   reinschreiben + den Buchen-Button freischalten. Kein zweiter Klick noetig.
         async function onBDateChange() {
             const timeInput = document.getElementById('b-time');
+            // 🆕 v6.62.701: Patrick (13.05. 21:27): "Hatte Vorbestellung mit Uhrzeit, dann Datum
+            //   geaendert — er springt willkuerlich auf 7 Uhr." Wenn die User bereits einen Slot
+            //   ausgewaehlt hatten (_selectedSlot), die gleiche Uhrzeit fuer das neue Datum
+            //   uebernehmen statt willkuerlich auf den fruehesten freien Slot zu springen.
+            if (timeInput && !timeInput.value && typeof _selectedSlot === 'string' && _selectedSlot) {
+                const timeFromSlot = _selectedSlot.split('_')[0];
+                if (/^\d{2}:\d{2}$/.test(timeFromSlot)) {
+                    timeInput.value = timeFromSlot;
+                    timeInput.dataset.userTouched = '1';
+                    if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
+                    try { syncTimeToLegacyDropdowns(); } catch(_) {}
+                    logBuchen('🕐', 'Uhrzeit aus vorherigem Slot uebernommen: ' + timeFromSlot);
+                }
+            }
             // Wenn keine Uhrzeit explizit gewählt → auto-fruehester-Slot ODER Picker
             if (timeInput && !timeInput.value) {
                 const dateVal = document.getElementById('b-date').value;

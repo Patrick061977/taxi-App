@@ -345,6 +345,11 @@
                         </select>
                         <input id="lib-filter" class="form-input" placeholder="Lieferant, Stichwort…" oninput="renderLibrary()">
                     </div>
+                    <!-- 🆕 v6.62.671: Belegnummer-Migration fuer Altbestand -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center;">
+                        <button class="btn btn-ghost" onclick="migrateMissingBelegnummern()" id="migrate-belegnr-btn" title="Belege ohne Belegnummer chronologisch nachtragen">🔢 Belegnummern nachtragen</button>
+                        <span id="migrate-belegnr-status" style="font-size:12px;color:#6b7280;"></span>
+                    </div>
                     <div id="lib-stats" class="stat-grid"></div>
                     <!-- v6.62.241: Bulk-Aktions-Bar -->
                     <div id="bulk-bar" style="display:none;background:#fef3c7;border-radius:8px;padding:10px 14px;margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -1281,6 +1286,64 @@
             const nr = result.snapshot.val();
             const belegnummer = `${jahr}-M${monatPad}-${String(nr).padStart(4, '0')}`;
             return { belegnummer, monat: 'M' + monatPad, jahr };
+        }
+
+        // 🆕 v6.62.671: Patrick (13.05. 11:52): "Mach mal das so fertig, dass alle Belege
+        //   auch nachtraeglich noch, also die noch nicht eine Belegnummer haben, dass die
+        //   dann eine bekommen. Weil die anderen hatten ja alleine eine."
+        //
+        // Findet alle /docs/ ohne `belegnummer` (außer kategorie='_inbox' — die sind unsortiert),
+        // sortiert sie chronologisch nach datum ASC und ruft assignBelegnummer pro Beleg.
+        // Der bestehende atomare Monats-Counter macht die Nummern lueckenlos — neue Belege
+        // dieses Monats bekommen die naechste freie Nummer.
+        //
+        // WICHTIG: Bestehende Belegnummern werden NICHT geaendert. Nur fehlende werden ergaenzt.
+        async function migrateMissingBelegnummern() {
+            const btn = document.getElementById('migrate-belegnr-btn');
+            const status = document.getElementById('migrate-belegnr-status');
+            const candidates = (allDocs || []).filter(d => !d.belegnummer && d.kategorie !== '_inbox');
+            if (candidates.length === 0) {
+                if (status) status.textContent = '✓ Alle Belege haben schon eine Belegnummer';
+                return;
+            }
+            const proceed = confirm(`${candidates.length} Belege ohne Belegnummer gefunden.\n\nChronologisch nach Datum vergeben (älteste zuerst, fortlaufend im Monats-Counter)?\n\nBestehende Belegnummern bleiben unangetastet.`);
+            if (!proceed) return;
+            btn.disabled = true;
+            const total = candidates.length;
+            let done = 0, fail = 0;
+            // Sortieren: nach datum ASC. Belege ohne datum nach hinten (uploadedAt-Fallback).
+            candidates.sort((a, b) => {
+                const da = a.datum || (a.uploadedAt ? new Date(a.uploadedAt).toISOString().slice(0,10) : '9999-12-31');
+                const db_ = b.datum || (b.uploadedAt ? new Date(b.uploadedAt).toISOString().slice(0,10) : '9999-12-31');
+                return da.localeCompare(db_);
+            });
+            for (const d of candidates) {
+                try {
+                    const _refDatum = d.datum || (d.uploadedAt ? new Date(d.uploadedAt).toISOString().slice(0,10) : null);
+                    const _info = await assignBelegnummer(_refDatum);
+                    await db.ref('docs/' + d.docId).update({
+                        belegnummer: _info.belegnummer,
+                        belegMonat: _info.monat,
+                        belegQuartal: _info.monat,
+                        belegJahr: _info.jahr,
+                        belegnummerMigratedAt: Date.now()
+                    });
+                    // Lokales Cache-Update damit renderLibrary die neue Nummer sofort zeigt
+                    d.belegnummer = _info.belegnummer;
+                    d.belegMonat = _info.monat;
+                    d.belegJahr = _info.jahr;
+                    done++;
+                } catch (e) {
+                    console.warn('Migration-Fehler fuer ' + d.docId + ':', e.message);
+                    fail++;
+                }
+                if ((done + fail) % 5 === 0) {
+                    status.textContent = `⏳ ${done + fail} / ${total} ...`;
+                }
+            }
+            btn.disabled = false;
+            status.textContent = `✅ ${done} Belegnummern vergeben${fail ? ' (' + fail + ' Fehler)' : ''}`;
+            renderLibrary();
         }
 
         // ─── Upload — Single oder Batch (v6.62.240) ───

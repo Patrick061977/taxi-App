@@ -137,6 +137,46 @@ public class AdminDashboardActivity extends AppCompatActivity {
         btnNewBooking.setOnClickListener(v -> showNewBookingDialog());
 
         connectFirebase();
+
+        // 🆕 v6.62.667: Patrick (13.05. 08:56): "Web-Anfragen muss man auch ueber die
+        //   Native-App bestaetigen koennen — man kann nicht immer in die Web-App gehen."
+        //   FCM-Token unter /adminFcmTokens/{deviceId} registrieren, Cloud Function sendet
+        //   bei neuen buchen.html/qr-aufsteller-Buchungen Push hierhin (type=new_web_booking).
+        registerAdminFcmToken();
+    }
+
+    // 🆕 v6.62.667: FCM-Token fuer Admin-Push registrieren.
+    //   /adminFcmTokens/{deviceId} = { token, label, uid, updatedAt }
+    //   Cloud Function durchlaeuft alle Eintraege bei web-booking-Trigger.
+    private void registerAdminFcmToken() {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful() || task.getResult() == null) {
+                        Log.w(TAG, "Admin-FCM-Token konnte nicht geholt werden: " + (task.getException() != null ? task.getException().getMessage() : "?"));
+                        return;
+                    }
+                    String token = task.getResult();
+                    try {
+                        String deviceId = DeviceIdHelper.getOrCreate(this);
+                        FirebaseUser u = FirebaseAuth.getInstance().getCurrentUser();
+                        String label = (u != null && u.getEmail() != null) ? u.getEmail()
+                            : (u != null && u.getPhoneNumber() != null) ? u.getPhoneNumber()
+                            : android.os.Build.MODEL;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("token", token);
+                        entry.put("label", label);
+                        entry.put("uid", u != null ? u.getUid() : null);
+                        entry.put("device", android.os.Build.MODEL);
+                        entry.put("appVersion", de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+                        entry.put("updatedAt", System.currentTimeMillis());
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("adminFcmTokens/" + deviceId)
+                            .setValue(entry);
+                        Log.d(TAG, "Admin-FCM-Token registriert (" + token.substring(0, Math.min(12, token.length())) + "...)");
+                    } catch (Throwable _t) { Log.w(TAG, "Admin-FCM-Token Save Fehler: " + _t.getMessage()); }
+                });
+        } catch (Throwable t) { Log.w(TAG, "registerAdminFcmToken Fehler: " + t.getMessage()); }
     }
 
     private void connectFirebase() {
@@ -453,9 +493,24 @@ public class AdminDashboardActivity extends AppCompatActivity {
             .show();
     }
 
+    // 🆕 v6.62.667: Foreground-Flag fuer TaxiFCMService — Push spielt dann Ton + Vibration
+    //   auch wenn die App offen ist (sonst wuerde Android Heads-Up unterdruecken).
+    @Override
+    protected void onResume() {
+        super.onResume();
+        TaxiFCMService.setForeground(true);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        TaxiFCMService.setForeground(false);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        TaxiFCMService.setForeground(false);
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
         // v6.62.153: Wenn Patrick von Driver-Hamburger-'Disposition' kam, Admin-Mode wieder
         // ausschalten — sonst denkt CallLogActivity nach Rueckkehr es laeuft Admin-Modus.

@@ -535,15 +535,32 @@ public class AdminDashboardActivity extends AppCompatActivity {
         Long pickupTimestamp;
         Integer passengers;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
-        String source; // 'web-booking', 'admin-quick', 'auftrag-import' etc.
+        // 🆕 v6.62.668: Patrick (13.05. 10:55): "Aber die Web-Anfragen sehe ich noch nicht."
+        //   Bug-Quelle: source-Strings sind nicht einheitlich — buchen.html schreibt
+        //   'web-booking', der alte Anfragen-Uebernahme-Flow schreibt 'web-anfrage',
+        //   Berlin-Shuttle 'berlin-shuttle-anfrage'. Wir muessen ALLE matchen.
+        String source; // 'web-booking', 'web-anfrage', 'berlin-shuttle-anfrage', 'qr-aufsteller', ...
         // v6.62.193: Patrick (01.05.): "Zwischenstops nicht angezeigt im kalender nativ app".
         // Waypoints fuer Sammeltransfers (Vetter Touristik) — addr + Pax-Name pro Stop.
         java.util.List<String> waypointDisplay; // formatierte Anzeige-Strings ("Adresse — Pax-Name")
 
+        static boolean isWebSource(String s) {
+            return s != null && (
+                s.equals("web-booking") ||
+                s.equals("web-anfrage") ||
+                s.equals("berlin-shuttle-anfrage") ||
+                s.equals("qr-aufsteller")
+            );
+        }
+
         boolean isUnclaimedWebBooking() {
-            return "web-booking".equals(source)
+            return isWebSource(source)
                 && (assignedVehicle == null || assignedVehicle.isEmpty())
                 && status != null && (status.equals("new") || status.equals("vorbestellt") || status.equals("warteschlange"));
+        }
+
+        boolean isWebBookingAnySource() {
+            return isWebSource(source);
         }
 
         static Ride fromSnap(DataSnapshot s) {
@@ -683,9 +700,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     vehicleBadge = "   ⚪ kein Fzg";
                 }
                 // 🆕 v6.62.199: Web-Anfrage visuell hervorheben
+                // 🆕 v6.62.668: Patrick (13.05. 10:55) "Web-Anfragen sehe ich noch nicht."
+                //   Sabine Reißer (source='web-anfrage', schon Tesla zugewiesen) war in der
+                //   regulaeren Liste ohne Marker — nicht erkennbar als Web-Quelle. Jetzt
+                //   bekommen ALLE Web-Source-Rides einen 🌐-Prefix, auch wenn bereits zugewiesen.
                 if (r.isUnclaimedWebBooking()) {
                     itemView.setBackgroundColor(Color.parseColor("#451A03")); // dunkles Orange
                     t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                } else if (r.isWebBookingAnySource()) {
+                    // Zugewiesene Web-Anfrage — 🌐 sichtbar machen ohne Background-Highlight
+                    itemView.setBackgroundColor(Color.parseColor("#1E293B"));
+                    t1.setText("🌐 " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
                 } else {
                     itemView.setBackgroundColor(Color.parseColor("#1E293B"));
                     t1.setText(when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);

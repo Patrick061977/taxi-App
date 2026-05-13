@@ -304,28 +304,39 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // springt". Auto-Scroll zur ersten Fahrt deren pickupTimestamp >= now —
         // wird nur 1x pro Listener-Lifecycle ausgefuehrt, sonst springt es bei jedem
         // Firebase-Tick zurueck.
+        // 🆕 v6.62.682: Patrick (13.05. 15:22): "Beim Disposition-Oeffnen soll der
+        //   naechste Termin GANZ OBEN stehen, nicht 2-3 alte daruber." Zwei Aenderungen:
+        //   1) _autoScrolled wird NUR auf true gesetzt wenn ein future-Termin gefunden wurde
+        //      — sonst bleibt false und der naechste Render versucht's nochmal (wichtig
+        //      wenn die ersten Snapshots noch keine future-Rides hatten)
+        //   2) scrollTo positioniert direkt auf den Index (kein pos-1-Offset mehr), damit
+        //      der naechste Termin als oberstes sichtbares Element steht — keine Past-
+        //      Rides mehr im sichtbaren Bereich oberhalb.
         if (!_autoScrolled && !list.isEmpty()) {
             long _now = System.currentTimeMillis();
-            int scrollTo = 0;
+            int scrollTo = -1;
             for (int i = 0; i < sectioned.size(); i++) {
                 Object o = sectioned.get(i);
                 if (o instanceof Ride) {
                     Ride r = (Ride) o;
                     if (r.pickupTimestamp != null && r.pickupTimestamp >= _now) {
-                        scrollTo = i;
+                        // Wenn direkt davor ein Tag-Header steht, mit auf den Header scrollen
+                        scrollTo = (i > 0 && sectioned.get(i - 1) instanceof String) ? (i - 1) : i;
                         break;
                     }
                 }
             }
-            if (scrollTo > 0) {
+            if (scrollTo >= 0) {
                 final int pos = scrollTo;
                 rv.post(() -> {
                     androidx.recyclerview.widget.LinearLayoutManager lm =
                         (androidx.recyclerview.widget.LinearLayoutManager) rv.getLayoutManager();
-                    if (lm != null) lm.scrollToPositionWithOffset(Math.max(0, pos - 1), 0);
+                    if (lm != null) lm.scrollToPositionWithOffset(pos, 0);
                 });
+                _autoScrolled = true; // Nur markieren wenn wirklich gescrollt wurde
             }
-            _autoScrolled = true;
+            // Wenn kein future-Termin gefunden, lassen wir _autoScrolled=false damit
+            // der naechste Tick es nochmal versucht (Daten koennen noch nachladen).
         }
     }
     private boolean _autoScrolled = false;

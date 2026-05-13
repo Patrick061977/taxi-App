@@ -424,16 +424,16 @@
              v6.62.97: Patrick: 'Hinweis-Text muss woanders hin'. Zusammen mit Storno-Button
              gruppiert — Hint direkt unter dem Button als Mini-Erklaerung. -->
         <div id="info-hints" style="display:none; margin-top:8px;">
-            <div style="text-align:center;">
-                <button id="cancel-btn" onclick="cancelRide()" style="display:none;padding:8px 16px;background:white;color:#9ca3af;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    Buchung stornieren
-                </button>
-            </div>
-            <div id="hint-cancellable" style="display:none; margin-top:6px; font-size:11px; color:#64748b; text-align:center; line-height:1.35;">
-                Stornieren möglich solange der Fahrer noch nicht losgefahren ist
+            <!-- 🆕 v6.62.678: Patrick (13.05. 14:40): "Stornierungs-Button da rausnehmen,
+                 zur Seite wischen uebersehen die Leute. Bei Stornierung oder Aenderung
+                 sollen sie anrufen." Button hidden, dafuer prominenter Anruf-Hinweis. -->
+            <button id="cancel-btn" onclick="cancelRide()" style="display:none;"></button>
+            <div id="hint-cancellable" style="display:none; margin-top:6px; padding:8px 12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; font-size:13px; color:#78350f; text-align:center; line-height:1.4;">
+                📞 <b>Stornierung oder Änderung:</b> bitte direkt anrufen<br>
+                <a href="tel:+493837822022" style="color:#dc2626; font-weight:700; font-size:15px; text-decoration:none;">038378 / 22022</a>
             </div>
             <div id="hint-editable" style="display:none; margin-top:6px; font-size:11px; color:#64748b; text-align:center; line-height:1.35;">
-                ✏️ Termin/Adresse <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#3b82f6; text-decoration:underline;">im Kundenportal ändern</a>
+                ✏️ Termin/Adresse alternativ <a href="https://umwelt-taxi-insel-usedom.de/Taxi-App/kunden.html" target="_blank" style="color:#3b82f6; text-decoration:underline;">im Kundenportal ändern</a>
             </div>
         </div>
 

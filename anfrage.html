@@ -623,7 +623,17 @@ async function calcAnfPrice() {
         try {
             var _routeCard = document.getElementById('anf-route-card');
             if (_routeCard && _routeGeo && typeof L !== 'undefined') {
+                var _wasHidden = _routeCard.style.display === 'none' || !_routeCard.style.display;
                 _routeCard.style.display = 'block';
+                // \ud83c\udd95 v6.62.690: Patrick (13.05. 18:38): "Karte soll oben sein nachdem
+                //   Anfrage gesendet \u2014 schwupps nach oben mit dem Preis". Beim ersten
+                //   Render sanft in den sichtbaren Bereich scrollen damit der User die
+                //   schoene Karte direkt sieht.
+                if (_wasHidden) {
+                    setTimeout(function() {
+                        _routeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 200);
+                }
                 if (!window._anfMap) {
                     window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false }).setView([53.95, 14.16], 12);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);

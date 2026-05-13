@@ -4292,13 +4292,19 @@
                         mpOverlay.style.display = 'block';
                         // 🆕 v6.41.64: Tarif-Bezeichnung im Meta zeigen (Tages-/Nacht-/Sonntags-/Feiertagstarif)
                         const _tarifTermin = pricing.hinweise.filter(h => /tarif/i.test(h)).join(', ') || 'Tagestarif';
+                        // 🆕 v6.62.686: Patrick (13.05. 17:47): "Schick aussehen wie Sonntagstarif".
+                        //   Korridor-Anfahrt war im Overlay unsichtbar weil hinweise-Filter nur 'tarif'
+                        //   matched. Eigener Anfahrt-Hint mit 🛣-Symbol wenn vorhanden.
+                        const _anfahrtHint = _korridorAufschlag > 0
+                            ? `<br><span style="font-size:9px;opacity:0.85;color:#92400e;">🛣 Anfahrt aus Heringsdorf · ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€</span>`
+                            : '';
                         if (isVorbestellungNow && pricingJetzt) {
                             // Vorbestellung: Termin-Preis im Overlay + Differenz-Badge
                             mpLabel.textContent = '📅 Zum Termin (Schätzung)';
                             // v6.62.637: 'ca.' prominent als Praefix — Patrick (12.05. 11:48 Variante A)
                             mpAmount.innerHTML = '<span style="font-size:13px;font-weight:600;color:#64748b;">ca.</span> ' + pricing.total + '€';
                             mpAmount.style.color = pricing.total > pricingJetzt.total ? '#b45309' : (pricing.total < pricingJetzt.total ? '#0369a1' : '#047857');
-                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
+                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>' + _anfahrtHint;
                             const diff = pricing.total - pricingJetzt.total;
                             if (Math.abs(diff) > 0.01) {
                                 mpDiff.style.display = 'block';
@@ -4319,7 +4325,7 @@
                             // v6.62.637: 'ca.' prominent als Praefix
                             mpAmount.innerHTML = '<span style="font-size:13px;font-weight:600;color:#64748b;">ca.</span> ' + pricing.total + '€';
                             mpAmount.style.color = '#047857';
-                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>';
+                            mpMeta.innerHTML = km + ' km · ' + min + ' Min<br><span style="font-size:9px;opacity:0.8;">' + _tarifTermin + '</span>' + _anfahrtHint;
                             mpDiff.style.display = 'none';
                         }
                     }

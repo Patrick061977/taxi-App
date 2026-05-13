@@ -4126,6 +4126,51 @@ function parseGermanDatetime(datetimeStr) {
 
 const TZ_BERLIN = { timeZone: 'Europe/Berlin' };
 
+// 🆕 v6.62.684: Patrick (13.05. 17:13): Korridor-Tarif fuer 3-Kaiserbaeder-Bereich.
+//   "Wenn BEIDE Pickup UND Destination ausserhalb der Kaiserbaeder liegen, muessen
+//   wir die Anfahrt vom WEITESTEN Punkt aus berechnen — also der, von dem wir wieder
+//   zurueckmuessen — mit 1,20 €/km."
+const KAISERBAEDER_CENTER = { lat: 53.9501, lon: 14.16 }; // Heringsdorf-Mitte
+const KAISERBAEDER_RADIUS_KM = 8;                          // deckt Ahlbeck/HG/Bansin
+const ANFAHRT_EUR_PER_KM = 1.20;
+
+function haversineKm(a, b) {
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const aa = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+}
+
+function isInKaiserbaederZone(lat, lon) {
+    if (lat == null || lon == null) return true; // bei fehlenden Coords: 'innen' = kein Aufschlag
+    return haversineKm(KAISERBAEDER_CENTER, { lat, lon }) <= KAISERBAEDER_RADIUS_KM;
+}
+
+async function calcKorridorAnfahrtAufschlag(pickupLat, pickupLon, destLat, destLon) {
+    if (isInKaiserbaederZone(pickupLat, pickupLon) || isInKaiserbaederZone(destLat, destLon)) {
+        return { km: 0, eur: 0, applied: false, reason: 'mindestens 1 Punkt in Kaiserbaedern' };
+    }
+    try {
+        const r1 = await calculateRoute(KAISERBAEDER_CENTER, { lat: pickupLat, lon: pickupLon });
+        const r2 = await calculateRoute(KAISERBAEDER_CENTER, { lat: destLat, lon: destLon });
+        const km1 = parseFloat(r1 && r1.distance || 0);
+        const km2 = parseFloat(r2 && r2.distance || 0);
+        const maxKm = Math.max(km1, km2);
+        if (!maxKm || maxKm <= 0) return { km: 0, eur: 0, applied: false, reason: 'OSRM lieferte 0 km' };
+        return {
+            km: maxKm,
+            eur: Math.round(maxKm * ANFAHRT_EUR_PER_KM * 100) / 100,
+            applied: true,
+            reason: `Anfahrt vom weitesten Punkt (${maxKm.toFixed(1)} km Strasse × 1,20 €/km)`,
+            details: { kmZuPickup: km1, kmZuDestination: km2 }
+        };
+    } catch (e) {
+        console.warn('calcKorridorAnfahrt Fehler:', e.message);
+        return { km: 0, eur: 0, applied: false, reason: 'OSRM-Fehler: ' + e.message };
+    }
+}
+
 async function calculateTelegramRoutePrice(booking) {
     if (!booking.pickupLat || !booking.destinationLat) return null;
     try {
@@ -4179,8 +4224,23 @@ async function calculateTelegramRoutePrice(booking) {
         const _wpCount = (booking.waypoints && booking.waypoints.length) || 0;
         const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp,
             { persons: _persons, waypointCount: _wpCount });
-        console.log(`[RoutePrice] Preis: ${pricing.total}€ für ${route.distance} km (persons=${_persons}, wp=${_wpCount})`);
-        return { distance: route.distance, duration: route.duration, price: pricing.total, zuschlagText: pricing.zuschlagText };
+        // 🆕 v6.62.684: Korridor-Aufschlag — wenn pickup UND destination beide ausserhalb
+        //   der Kaiserbaeder, addiere Anfahrt vom weitesten Punkt × 1,20 €/km.
+        const _korridor = await calcKorridorAnfahrtAufschlag(booking.pickupLat, booking.pickupLon, booking.destinationLat, booking.destinationLon);
+        let _totalPrice = pricing.total;
+        let _zuschlagText = pricing.zuschlagText || '';
+        if (_korridor.applied) {
+            _totalPrice = Math.round((_totalPrice + _korridor.eur) * 100) / 100;
+            _zuschlagText = (_zuschlagText ? _zuschlagText + ' · ' : '') + `Aussen-Anfahrt: +${_korridor.eur.toFixed(2)}€ (${_korridor.km.toFixed(1)} km)`;
+        }
+        console.log(`[RoutePrice] Preis: ${_totalPrice}€ für ${route.distance} km (persons=${_persons}, wp=${_wpCount})${_korridor.applied ? ' + Anfahrt ' + _korridor.eur + '€' : ''}`);
+        return {
+            distance: route.distance,
+            duration: route.duration,
+            price: _totalPrice,
+            zuschlagText: _zuschlagText,
+            korridorAufschlag: _korridor.applied ? _korridor : null
+        };
     } catch (e) {
         console.error('[RoutePrice] Fehler:', e.message);
         return null;

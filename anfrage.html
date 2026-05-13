@@ -571,10 +571,33 @@ async function calcAnfPrice() {
         if (remaining > 0) { price += remaining * (isNight ? 2.40 : 2.20); }
         if (anfPax >= 5) price += 10;
         price = Math.round(price / 0.1) * 0.1;
+        // \ud83c\udd95 v6.62.688: Patrick (13.05. 18:07): "Korridor-Aufschlag auch in anfrage.html".
+        //   Wenn Pickup ausserhalb der Kaiserbaeder \u2192 +Anfahrt zum Abholort \u00d7 1,20\u20ac/km.
+        var _KB_CENTER_ANF = { lat: 53.9501, lon: 14.16 };
+        var _KB_RADIUS_KM_ANF = 8;
+        var _hav_anf = function(a, b) {
+            var R = 6371;
+            var dLat = (b.lat - a.lat) * Math.PI / 180;
+            var dLon = (b.lon - a.lon) * Math.PI / 180;
+            var aa = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+        };
+        var _anfAnfahrtKm = 0, _anfAnfahrtEur = 0;
+        if (anfPickupCoords && _hav_anf(_KB_CENTER_ANF, anfPickupCoords) > _KB_RADIUS_KM_ANF) {
+            try {
+                var _osrmKB = await fetch('https://router.project-osrm.org/route/v1/driving/' + _KB_CENTER_ANF.lon + ',' + _KB_CENTER_ANF.lat + ';' + anfPickupCoords.lon + ',' + anfPickupCoords.lat + '?overview=false').then(function(r) { return r.json(); }).catch(function() { return null; });
+                if (_osrmKB && _osrmKB.routes && _osrmKB.routes[0]) {
+                    _anfAnfahrtKm = _osrmKB.routes[0].distance / 1000;
+                    _anfAnfahrtEur = Math.round(_anfAnfahrtKm * 1.20 * 100) / 100;
+                    price = Math.round((price + _anfAnfahrtEur) * 100) / 100;
+                }
+            } catch (e) { /* still */ }
+        }
         document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
         // 🆕 v6.41.43: Feiertags-Label explizit zuerst (hat Priorität)
         var tarifLabel = isFeiertag ? 'Feiertagstarif (Nachttarif)' : (isSunday && !isNightTime ? 'Sonntagstarif' : (isNightTime ? 'Nachttarif' : ''));
-        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '');
+        var _anfAnfahrtHint = _anfAnfahrtEur > 0 ? ' \u00b7 \ud83d\udee3 Anfahrt zum Abholort ' + _anfAnfahrtKm.toFixed(0) + ' km \u00d7 1,20\u20ac = +' + _anfAnfahrtEur.toFixed(2) + '\u20ac' : '';
+        document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '') + _anfAnfahrtHint;
         document.getElementById('anf-price-box').style.display = 'block';
         // Alte Festpreis-Bemerkung leeren wenn neu berechnet wird
         var notesEl = document.getElementById('anf-notes');

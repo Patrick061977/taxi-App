@@ -2745,10 +2745,32 @@
         // 🆕 v6.62.473: Nach Datum-Auswahl Uhrzeit-Feld fokussieren + leeren falls nicht
         //   manuell gefüllt. Patrick: 'Uhrzeit wird gar nicht abgefragt' — Wurzel war dass
         //   onDateTimeChange direkt mit Default-Hour/Minute durchlief.
-        function onBDateChange() {
+        // 🆕 v6.62.662: Patrick (13.05. 09:50): "Zeit-Slot-Bestaetigung nicht eindeutig was
+        //   man druecken muss. Alle auf fruehestmoegliche Uhrzeit einstellen". Wenn User
+        //   ein Datum waehlt + keine Uhrzeit drin → automatisch fruehesten freien Slot
+        //   reinschreiben + den Buchen-Button freischalten. Kein zweiter Klick noetig.
+        async function onBDateChange() {
             const timeInput = document.getElementById('b-time');
-            // Wenn keine Uhrzeit explizit gewählt → fokussieren statt durchspringen
+            // Wenn keine Uhrzeit explizit gewählt → auto-fruehester-Slot ODER Picker
             if (timeInput && !timeInput.value) {
+                const dateVal = document.getElementById('b-date').value;
+                if (dateVal && wannModus === 'vorbestellen' && typeof renderSlotTimeline === 'function') {
+                    try {
+                        // Slot-Timeline rendern berechnet _firstFreeSlotTime
+                        await renderSlotTimeline(dateVal);
+                        const fft = window._firstFreeSlotTime;
+                        if (fft && /^\d{2}:\d{2}$/.test(fft)) {
+                            timeInput.value = fft;
+                            if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
+                            try { syncTimeToLegacyDropdowns(); } catch(_) {}
+                            logBuchen('🕐', 'Auto-Uhrzeit: ' + fft + ' (fruehester freier Slot)');
+                            try { showToast('🕐 Früheste freie Zeit: ' + fft + ' Uhr — Sie können das gerne ändern'); } catch(_) {}
+                            onDateTimeChange();
+                            return;
+                        }
+                    } catch (e) { console.warn('Auto-Slot-Fehler:', e); }
+                }
+                // Fallback (alter Pfad): Time-Picker oeffnen
                 setTimeout(() => { timeInput.focus(); try { timeInput.showPicker && timeInput.showPicker(); } catch(_){} }, 100);
                 return;
             }
@@ -3289,9 +3311,18 @@
                 if (!isPast && !tooSoon && freeVehicles > 0 && vehiclesInShift > 0 && !firstFreeSlotPx) {
                     firstFreeSlotPx = leftPx;
                     firstFreeTime = slotTimeStr;
+                    // 🆕 v6.62.662: Markieren damit onBDateChange diesen Slot
+                    //   auto-selektieren kann (Patrick: "Zeit auf fruehestmoegliche
+                    //   stellen — Slot-Bestaetigung war nicht eindeutig").
+                    block.dataset.firstFree = '1';
+                    block.dataset.slotTime = slotTimeStr;
                 }
                 barEl.appendChild(block);
             }
+            // 🆕 v6.62.662: Globalen "frueheste Zeit"-Cache exposen damit onBDateChange
+            //   die Uhrzeit ohne DOM-Lookup setzen kann.
+            window._firstFreeSlotTime = firstFreeTime;
+            window._firstFreeSlotDate = dateStr;
 
             // Scrollen: Zum gewählten Slot ODER zum ersten freien Slot
             const scrollContainer = document.getElementById('slot-timeline');

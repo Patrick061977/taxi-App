@@ -805,6 +805,23 @@
                     const lbl = document.getElementById('b-time-label');
                     if (!inp || !lbl) return;
                     if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
+                    // 🆕 v6.62.700: Patrick (13.05. 21:21): "Oben bei Zeit steht 16:19 Uhr, das ist
+                    //   der Quatsch. Wir müssen auf 10 Minuten hochrunden." Aufrunden auf nächsten
+                    //   10-Min-Slot fuer konsistente Darstellung mit der Timeline.
+                    try {
+                        const parts = inp.value.split(':');
+                        let h = parseInt(parts[0], 10);
+                        let m = parseInt(parts[1], 10);
+                        if (!isNaN(h) && !isNaN(m) && m % 10 !== 0) {
+                            m = Math.ceil(m / 10) * 10;
+                            if (m >= 60) { m = 0; h = (h + 1) % 24; }
+                            const rounded = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+                            // Auch das Input selbst aktualisieren damit nachfolgende Logik den gerundeten Wert sieht
+                            inp.value = rounded;
+                            lbl.textContent = rounded + ' Uhr';
+                            return;
+                        }
+                    } catch(_) {}
                     lbl.textContent = inp.value + ' Uhr';
                 };
                 </script>
@@ -1596,7 +1613,12 @@
                     btn.className = 'btn-book';
                     btn.onclick = null;
                     if (!_slotIsFree) {
-                        btn.innerHTML = '📅 Bitte Zeit-Slot auswählen';
+                        // 🔧 v6.62.700: Patrick (13.05. 21:21): "Bitte Zeitslot auswaehlen obwohl
+                        //   ich einen gewaehlt habe?" Differenzieren: kein Slot gewaehlt vs.
+                        //   Slot ist belegt (alle Fahrzeuge ausgebucht).
+                        btn.innerHTML = _selectedSlot
+                            ? '🚫 Slot belegt — bitte anderen wählen'
+                            : '📅 Bitte Zeit-Slot auswählen';
                     } else if (!zeitOk) {
                         const diffMin = Math.round((ts - Date.now()) / 60000);
                         btn.innerHTML = diffMin < 0

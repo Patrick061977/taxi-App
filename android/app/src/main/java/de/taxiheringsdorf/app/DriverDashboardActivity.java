@@ -2358,9 +2358,25 @@ public class DriverDashboardActivity extends AppCompatActivity {
         connectFirebase();
     }
 
+    // 🆕 v6.62.665: Foreground-Push-Sound — TaxiFCMService prueft dieses Flag und spielt
+    //   Ringtone + Vibration EXPLIZIT wenn die App offen ist (sonst unterdrueckt Android
+    //   Heads-Up + Channel-Sound). Patrick: "wenn App auf, kommt kein Ton".
+    @Override
+    protected void onResume() {
+        super.onResume();
+        TaxiFCMService.setForeground(true);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        TaxiFCMService.setForeground(false);
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        TaxiFCMService.setForeground(false);
         timerHandler.removeCallbacks(timerTick);
         // v6.50.1: Heartbeat-Loop stoppen, Lock NICHT automatisch löschen — wenn die App
         // nur kurz geschlossen wird, soll der Lock nach STALE_LOCK_MS (5 Min) auslaufen.

@@ -2787,26 +2787,16 @@
                     logBuchen('🕐', 'Uhrzeit aus vorherigem Slot uebernommen: ' + timeFromSlot);
                 }
             }
-            // Wenn keine Uhrzeit explizit gewählt → auto-fruehester-Slot ODER Picker
+            // 🔧 v6.62.702: Patrick (13.05. 21:41): "Springt willkuerlich auf 7 Uhr — ich
+            //   muss doch die Zeit selbst auswaehlen koennen." Auto-Fruehester-Slot-Logik
+            //   (v6.62.662) entfernt. Patrick will stattdessen den Time-Picker oeffnen sehen.
+            //   renderSlotTimeline laeuft noch fuer die Timeline-Anzeige, setzt aber kein b-time mehr.
             if (timeInput && !timeInput.value) {
                 const dateVal = document.getElementById('b-date').value;
                 if (dateVal && wannModus === 'vorbestellen' && typeof renderSlotTimeline === 'function') {
-                    try {
-                        // Slot-Timeline rendern berechnet _firstFreeSlotTime
-                        await renderSlotTimeline(dateVal);
-                        const fft = window._firstFreeSlotTime;
-                        if (fft && /^\d{2}:\d{2}$/.test(fft)) {
-                            timeInput.value = fft;
-                            if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
-                            try { syncTimeToLegacyDropdowns(); } catch(_) {}
-                            logBuchen('🕐', 'Auto-Uhrzeit: ' + fft + ' (fruehester freier Slot)');
-                            try { showToast('🕐 Früheste freie Zeit: ' + fft + ' Uhr — Sie können das gerne ändern'); } catch(_) {}
-                            onDateTimeChange();
-                            return;
-                        }
-                    } catch (e) { console.warn('Auto-Slot-Fehler:', e); }
+                    try { await renderSlotTimeline(dateVal); } catch (e) {}
                 }
-                // Fallback (alter Pfad): Time-Picker oeffnen
+                // Time-Picker zeigen damit der User selber waehlt
                 setTimeout(() => { timeInput.focus(); try { timeInput.showPicker && timeInput.showPicker(); } catch(_){} }, 100);
                 return;
             }

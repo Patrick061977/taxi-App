@@ -4231,10 +4231,17 @@
                         } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }
                     }
                     const _totalPrice = Math.round((pricing.total + _korridorAufschlag) * 100) / 100;
+                    // 🆕 v6.62.685: Patrick wuenscht transparenter Anfahrt-Hinweis wie bei
+                    //   Sonntagstarif. Wir injizieren die Info in pricing.hinweise damit alle
+                    //   Anzeige-Pfade (r-price + map-price-overlay) sie automatisch zeigen.
+                    if (_korridorAufschlag > 0) {
+                        pricing.hinweise.push(`Anfahrt ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€`);
+                        pricing.total = _totalPrice;
+                    }
                     routeData = {
                         km, min,
                         price: _totalPrice,
-                        basePrice: pricing.total,
+                        basePrice: _korridorAufschlag > 0 ? (_totalPrice - _korridorAufschlag) : _totalPrice,
                         korridorAufschlag: _korridorAufschlag,
                         korridorKm: _korridorKm,
                         geometry: route.geometry

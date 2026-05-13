@@ -365,6 +365,15 @@
         <div id="panel-body">
             <div id="ride-status-badge" class="ride-status-new" style="display:none;">⏳ Wartet auf Fahrer</div>
 
+            <!-- v6.62.657: Patrick (12.05.): "Preisschaetzung muss in der Bestaetigungskarte
+                 auch prominenter sein, ueberall hast du es gemacht ausser da wo die Leute
+                 wirklich in Kontakt damit kommen". Headline-Card AUSSERHALB der Collapsible. -->
+            <div id="ride-price-card" style="display:none; margin-top:10px; padding:14px 16px; background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border:2px solid #f59e0b; border-radius:10px; text-align:center; box-shadow:0 2px 8px rgba(245, 158, 11, 0.15);">
+                <div style="font-size:11px; color:#92400e; font-weight:700; letter-spacing:0.8px; margin-bottom:2px;">PREIS CA.</div>
+                <div id="ride-price-amount" style="font-size:34px; font-weight:800; color:#78350f; line-height:1.1; margin-bottom:4px;">— €</div>
+                <div style="font-size:11px; color:#92400e; line-height:1.35;">Schätzwert — Endpreis nach Taxameter<br>(meistens günstiger als geschätzt)</div>
+            </div>
+
             <!-- v6.62.52: Patrick: 'der ganze Termin muss im Tracking-Link drin stehen,
                  nicht aendern, nur Status sehen'. Buchungsdetails fuer den Kunden -->
             <!-- v6.62.97: Padding/Font reduziert damit Panel kompakter wirkt. -->
@@ -747,6 +756,25 @@
                         const _bdWrap = document.getElementById('booking-details-wrap');
                         if (_bdWrap) _bdWrap.style.display = 'block';
                     }
+
+                    // v6.62.657: Prominente Preis-Card oben (ausserhalb Collapsible).
+                    // Bei completed-Status wird sie ausgeblendet — dann zaehlt der finale
+                    // Rechnungsbetrag, nicht die Schaetzung.
+                    try {
+                        const _pc = document.getElementById('ride-price-card');
+                        const _pa = document.getElementById('ride-price-amount');
+                        const _statusLc = (r.status || '').toLowerCase();
+                        const _isDone = ['completed', 'abgeschlossen', 'cancelled', 'storniert'].includes(_statusLc);
+                        if (_pc && _pa && r.price && !_isDone) {
+                            const _pn = parseFloat(r.price);
+                            if (!isNaN(_pn)) {
+                                _pa.textContent = _pn.toFixed(2).replace('.', ',') + ' €';
+                                _pc.style.display = 'block';
+                            }
+                        } else if (_pc) {
+                            _pc.style.display = 'none';
+                        }
+                    } catch (_pcErr) {}
                 }
 
                 // v6.62.134: Kalender-Termin-Download nur bei zukuenftiger Vorbestellung anzeigen

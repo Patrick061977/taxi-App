@@ -590,8 +590,14 @@
             <a href="https://www.umwelt-taxi-insel-usedom.de" title="Zur Hauptseite" style="background:rgba(255,255,255,0.18);border:none;color:white;font-size:18px;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;line-height:1;">←</a>
             <div class="header-logo">🚕 Funk Taxi Heringsdorf</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
             <div id="user-badge" style="display:none;align-items:center;gap:4px;background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;color:white;font-size:12px;font-weight:600;"></div>
+            <!-- 🆕 v6.62.660: Patrick (13.05. 08:27): "bei Buchen-HTML wenn man sich
+                 in sein Konto einloggen will, muss da oben Anmelden stehen. Das
+                 Hamburger-Menuezeichen faellt nicht so schoen auf". Sichtbarer
+                 Anmelden-Button — durch onAuthStateChanged ein/ausgeblendet via
+                 .header-login Klasse (vorhandener Mechanismus). -->
+            <a href="kunden.html" class="header-login" id="header-anmelden-btn" style="font-weight:700;display:inline-flex;align-items:center;gap:4px;">🔐 Anmelden</a>
             <button id="hamburger-btn" onclick="toggleMenu()" style="background:none;border:none;color:white;font-size:26px;cursor:pointer;padding:4px 8px;line-height:1;">☰</button>
         </div>
     </div>

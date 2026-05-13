@@ -27,6 +27,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
     public static final String CHANNEL_NAME = "Neue Fahrten";
     private static final int NOTIFICATION_ID_BASE = 2000;
 
+    // 🆕 v6.62.665: Patrick (13.05. 09:56): "Wenn die App auf ist und dann kommt kein Push
+    //   oder wie, dass man annehmen drueckt — der Fahrer uebersieht das sehr schnell."
+    //   Hintergrund: Android Heads-Up-Notifications werden manchmal unterdrueckt wenn die
+    //   eigene App im Vordergrund ist. Channel-Sound spielt dann nicht. Workaround:
+    //   Activities setzen dieses Flag onResume/onPause — onMessageReceived spielt bei
+    //   isForeground=true den Ringtone + Vibration EXPLIZIT, redundant zum NotificationManager.
+    public static volatile boolean isForeground = false;
+    public static void setForeground(boolean fg) { isForeground = fg; }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -170,6 +179,42 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());
+
+        // 🆕 v6.62.665: Foreground-Fallback — wenn App offen ist und Android Heads-Up
+        //   unterdrueckt, spielen wir Sound + Vibration zusaetzlich direkt ueber Ringtone-
+        //   und Vibrator-API. Nur fuer new_ride (Audio-Alert wichtig), nicht fuer
+        //   cancel/send_sms/etc.
+        if ("new_ride".equals(type) && isForeground) {
+            try {
+                android.media.Ringtone _rt = android.media.RingtoneManager.getRingtone(getApplicationContext(), sound);
+                if (_rt != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        AudioAttributes _aa = new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .build();
+                        try { _rt.setAudioAttributes(_aa); } catch (Throwable _ig) {}
+                    }
+                    _rt.play();
+                    // nach 8s stoppen falls noch laeuft (Ringtone kann sehr lang sein)
+                    new android.os.Handler(getMainLooper()).postDelayed(() -> {
+                        try { if (_rt.isPlaying()) _rt.stop(); } catch (Throwable _ig) {}
+                    }, 8000);
+                }
+            } catch (Throwable _rtErr) { Log.w(TAG, "Foreground-Ringtone Fehler: " + _rtErr.getMessage()); }
+            try {
+                android.os.Vibrator _vib = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (_vib != null && _vib.hasVibrator()) {
+                    long[] _pat = new long[]{0, 800, 300, 800, 300, 800, 300, 800};
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        _vib.vibrate(android.os.VibrationEffect.createWaveform(_pat, -1));
+                    } else {
+                        _vib.vibrate(_pat, -1);
+                    }
+                }
+            } catch (Throwable _vErr) { Log.w(TAG, "Foreground-Vibrate Fehler: " + _vErr.getMessage()); }
+            Log.d(TAG, "Foreground-Audio + Vibrate fuer new_ride " + rideId);
+        }
     }
 
     // v6.62.49: Native SMS-Gateway. Empfaengt FCM type=send_sms, ruft SmsManager und

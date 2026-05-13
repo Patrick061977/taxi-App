@@ -536,6 +536,51 @@ function getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr) {
 // 🆕 v6.41.96: FCM-Push an einen Fahrer/Fahrzeug. Liest fcmToken aus
 // /vehicles/{vid}/fcmToken/token, sendet hochpriore Native-Notification.
 // Wird auch dann zugestellt wenn die WebView tot ist — über Android FCM-Service.
+// 🆕 v6.62.667: sendFCMToAdmins — sendet Push an alle registrierten Admin-Geraete
+//   (/adminFcmTokens/{deviceId}/token). Verwendet von onRideCreated wenn eine
+//   Web-Buchung (source=web-booking/qr-aufsteller) reinkommt.
+//   Patrick (13.05. 08:56): "Web-Anfragen muss man in der Native-App bestaetigen
+//   koennen — kann nicht immer in die Web-App gehen."
+async function sendFCMToAdmins(payload) {
+    try {
+        const snap = await db.ref('adminFcmTokens').once('value');
+        const tokens = [];
+        snap.forEach(c => {
+            const t = c.val();
+            if (t && t.token) tokens.push({ deviceId: c.key, token: t.token, label: t.label || '?' });
+        });
+        if (tokens.length === 0) {
+            console.log('📵 sendFCMToAdmins: Keine Admin-Tokens registriert');
+            return 0;
+        }
+        const data = Object.fromEntries(Object.entries(payload || {}).map(([k, v]) => [k, String(v == null ? '' : v)]));
+        let sent = 0;
+        for (const t of tokens) {
+            try {
+                await admin.messaging().send({
+                    token: t.token,
+                    data,
+                    android: { priority: 'high', ttl: 60_000 }
+                });
+                sent++;
+                console.log(`✅ Admin-FCM an ${t.label} (${t.deviceId}) gesendet`);
+            } catch (e) {
+                console.warn(`❌ Admin-FCM an ${t.label} fehlgeschlagen: ${e.code || e.message}`);
+                if (e.code === 'messaging/registration-token-not-registered' || e.code === 'messaging/invalid-registration-token') {
+                    try { await db.ref('adminFcmTokens/' + t.deviceId).remove(); } catch (_) {}
+                }
+            }
+        }
+        if (payload && payload.rideId) {
+            try { await addRideLog(payload.rideId, '📲', `Admin-FCM-Push gesendet an ${sent}/${tokens.length} Admin(s)`, { quelle: 'sendFCMToAdmins v6.62.667', type: payload.type || '?' }); } catch (_) {}
+        }
+        return sent;
+    } catch (e) {
+        console.error('sendFCMToAdmins Fehler:', e.message);
+        return 0;
+    }
+}
+
 async function sendFCMToVehicle(vehicleId, payload) {
     if (!vehicleId) return false;
     try {
@@ -19841,6 +19886,28 @@ exports.onRideCreated = onValueCreated(
                 console.log(`📱 WhatsApp-Bestätigung an Web-Kunden gesendet: ${ride.customerPhone}`);
             } catch (_waErr) {
                 console.warn('⚠️ WhatsApp Web-Kunden-Bestätigung Fehler:', _waErr.message);
+            }
+        }
+
+        // 🆕 v6.62.667: Patrick (13.05. 08:56): "Web-Anfragen muss man auch in der
+        //   Native-App bestaetigen koennen — kann nicht immer in die Web-App gehen."
+        //   FCM-Push an alle registrierten Admin-Geraete bei web-booking / qr-aufsteller.
+        //   AdminDashboardActivity zeigt die Anfrage bereits in der NEUE-WEB-ANFRAGEN-Sektion;
+        //   Push macht den Fahrer/Admin akustisch aufmerksam, damit er nicht uebersehen wird.
+        if (ride.source === 'web-booking' || ride.source === 'qr-aufsteller') {
+            try {
+                await sendFCMToAdmins({
+                    type: 'new_web_booking',
+                    rideId: rideId,
+                    pickup: ride.pickup || '',
+                    destination: ride.destination || '',
+                    pickupTime: pickupTimeFormatted || (ride.pickupTime || ''),
+                    customerName: ride.customerName || 'Web-Kunde',
+                    source: ride.source,
+                    isSofort: String(!!isSofort)
+                });
+            } catch (_admPushErr) {
+                console.warn('⚠️ Admin-FCM-Push fuer Web-Buchung Fehler:', _admPushErr.message);
             }
         }
 

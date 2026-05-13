@@ -105,6 +105,16 @@ public class TaxiFCMService extends FirebaseMessagingService {
             title = "🚕 Neue Fahrt!";
             body = pickupTime + " · " + customerName + "\n📍 " + pickup;
             if (!destination.isEmpty()) body += "\n🎯 " + destination;
+        } else if ("new_web_booking".equals(type)) {
+            // 🆕 v6.62.667: Web-Buchung (buchen.html / qr-aufsteller) → Admin-Push
+            //   "Bestaetigen" / "Ablehnen" haben Admins nicht direkt im Notification —
+            //   sie tippen den Push, AdminDashboardActivity oeffnet sich, dort sehen sie
+            //   die Anfrage in der "NEUE WEB-ANFRAGEN"-Sektion und koennen sie zuweisen.
+            String src = data.getOrDefault("source", "web-booking");
+            String prefix = "qr-aufsteller".equals(src) ? "📱" : "🌐";
+            title = prefix + " Neue Web-Buchung!";
+            body = pickupTime + " · " + customerName + "\n📍 " + pickup;
+            if (!destination.isEmpty()) body += "\n🎯 " + destination;
         } else if ("ride_cancelled".equals(type)) {
             title = "❌ Fahrt storniert";
             body = customerName + " · " + pickupTime;
@@ -117,7 +127,13 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         // v6.43.2: Notification-Tap öffnet DriverDashboardActivity (nicht MainActivity/WebView).
         // Patrick erlebte: Power-Button-Wakeup → Tippen auf Notification → Login-Screen statt Dashboard.
-        Intent appIntent = new Intent(this, DriverDashboardActivity.class);
+        // 🆕 v6.62.667: Bei Admin-Push (new_web_booking) AdminDashboardActivity oeffnen.
+        Intent appIntent;
+        if ("new_web_booking".equals(type)) {
+            appIntent = new Intent(this, AdminDashboardActivity.class);
+        } else {
+            appIntent = new Intent(this, DriverDashboardActivity.class);
+        }
         appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (rideId != null) appIntent.putExtra("rideId", rideId);
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -182,9 +198,9 @@ public class TaxiFCMService extends FirebaseMessagingService {
 
         // 🆕 v6.62.665: Foreground-Fallback — wenn App offen ist und Android Heads-Up
         //   unterdrueckt, spielen wir Sound + Vibration zusaetzlich direkt ueber Ringtone-
-        //   und Vibrator-API. Nur fuer new_ride (Audio-Alert wichtig), nicht fuer
-        //   cancel/send_sms/etc.
-        if ("new_ride".equals(type) && isForeground) {
+        //   und Vibrator-API. Nur fuer new_ride + new_web_booking (Audio-Alert wichtig),
+        //   nicht fuer cancel/send_sms/etc.
+        if (("new_ride".equals(type) || "new_web_booking".equals(type)) && isForeground) {
             try {
                 android.media.Ringtone _rt = android.media.RingtoneManager.getRingtone(getApplicationContext(), sound);
                 if (_rt != null) {

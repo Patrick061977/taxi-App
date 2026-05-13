@@ -20723,6 +20723,19 @@ exports.onRideUpdated = onValueUpdated(
                 } catch (_) {}
             }
             if (newStatus === 'accepted') {
+                // v6.62.656: Patrick (13.05. 07:44): Push klingelt nach Annehmen weiter.
+                // Cloud-Function sendet jetzt FCM type=cancel_notification an das zugewiesene
+                // Fahrzeug, damit TaxiFCMService die persistente Notification cancelt.
+                const _accVid = after.vehicleId || after.assignedVehicle;
+                if (_accVid) {
+                    try {
+                        await sendFCMToVehicle(_accVid, {
+                            type: 'cancel_notification',
+                            rideId: rideId
+                        });
+                        console.log(`📵 cancel_notification → ${_accVid} fuer ride ${rideId}`);
+                    } catch (_e) { console.warn('cancel_notification FCM err:', _e.message); }
+                }
                 message = `✅ <b>FAHRER ZUGEWIESEN!</b>\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `🚗 <b>Fahrzeug:</b> ${after.vehicle || 'Unbekannt'}${after.vehiclePlate ? ` (${after.vehiclePlate})` : ''}\n` +

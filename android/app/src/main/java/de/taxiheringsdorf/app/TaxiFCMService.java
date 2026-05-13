@@ -49,6 +49,20 @@ public class TaxiFCMService extends FirebaseMessagingService {
             return;
         }
 
+        // v6.62.656: Patrick (13.05. 07:44): 'Push klingelt nach Annehmen weiter, wische
+        // runter raus aus App'. Cloud-Function schickt jetzt type=cancel_notification
+        // wenn Status auf 'accepted' wechselt — wir canceln die persistente Notification.
+        if ("cancel_notification".equals(type)) {
+            String _rid = data.get("rideId");
+            if (_rid != null && !_rid.isEmpty()) {
+                int _nid = NOTIFICATION_ID_BASE + (_rid.hashCode() & 0x7FFF);
+                NotificationManager _nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (_nm != null) _nm.cancel(_nid);
+                Log.d(TAG, "Notification cancelled fuer rideId=" + _rid + " (id=" + _nid + ")");
+            }
+            return;
+        }
+
         String rideId = data.get("rideId");
         String pickup = data.getOrDefault("pickup", "");
         String destination = data.getOrDefault("destination", "");

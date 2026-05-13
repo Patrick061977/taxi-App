@@ -499,6 +499,20 @@ public class CallLogActivity extends AppCompatActivity {
                     .show();
             });
             updateHiddenButtonLabel();
+            // 🆕 v6.62.669: LONG-Press auf Versteckt-Button → CallLog-Debug-Dump.
+            //   Patrick (13.05. 11:17): "André Luther Und Wegener taucht NIE auf egal wann."
+            //   Schreibt die letzten 300 CallLog-Eintraege roh nach /debug/callLog/{deviceId}
+            //   damit Claude analysieren kann ob die Nummer ueberhaupt im Android-System-CallLog ist
+            //   oder ob es ein WhatsApp/Telegram-Call ist (nicht im CallLog).
+            btnHidden.setOnLongClickListener(v -> {
+                new AlertDialog.Builder(this)
+                    .setTitle("🔬 CallLog-Debug-Dump")
+                    .setMessage("Schickt die letzten 300 Android-System-Anrufe an Claude (anonymisiert: Nummern bleiben, keine Namen).\n\nNur fuer Diagnose der \"keine Nummer in Anrufliste\" Bugs.\n\nFortfahren?")
+                    .setPositiveButton("Dump senden", (d, w) -> dumpCallLogToFirebase())
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+                return true;
+            });
         }
 
         // CRM-Cache parallel laden
@@ -590,13 +604,50 @@ public class CallLogActivity extends AppCompatActivity {
                     for (DataSnapshot c : snap.getChildren()) {
                         CrmCustomer cust = CrmCustomer.fromSnap(c);
                         if (cust == null) continue;
-                        if (cust.phone != null) crmByPhone.put(normalizePhone(cust.phone), cust);
-                        if (cust.mobilePhone != null) crmByPhone.put(normalizePhone(cust.mobilePhone), cust);
+                        // 🆕 v6.62.669: ALLE Format-Varianten als Schluessel in die Map,
+                        //   damit Match egal ob CallLog +49.../00 49.../0... liefert.
+                        if (cust.phone != null) addAllPhoneVariants(cust.phone, cust);
+                        if (cust.mobilePhone != null) addAllPhoneVariants(cust.mobilePhone, cust);
                     }
                     adapter.notifyDataSetChanged();
                 }
                 @Override public void onCancelled(@NonNull DatabaseError error) {}
             });
+    }
+
+    // 🆕 v6.62.669: Patrick (13.05. 11:17): "André Luther Und Wegener taucht nie auf egal
+    //   wann er anruft." Theorie: CallLog liefert die Nummer in einem Format, das CRM nicht
+    //   matcht. Wir indexieren jetzt alle 3 deutschen Format-Varianten:
+    //     +491626050075   (international)
+    //     00491626050075  (international mit 00-Prefix, manche Samsung-CallLogs)
+    //     01626050075     (national)
+    //   Plus: last7 (letzte 7 Ziffern) als Fallback-Key, falls Format ganz anders ist.
+    private void addAllPhoneVariants(String phone, CrmCustomer cust) {
+        if (phone == null) return;
+        String norm = normalizePhone(phone);
+        if (norm.isEmpty()) return;
+        crmByPhone.put(norm, cust);
+        // +49xxx → 0xxx und 0049xxx
+        if (norm.startsWith("+49") && norm.length() > 3) {
+            String national = "0" + norm.substring(3);
+            crmByPhone.put(national, cust);
+            crmByPhone.put("00" + norm.substring(1), cust); // +49xxx → 0049xxx
+        } else if (norm.startsWith("0049") && norm.length() > 4) {
+            crmByPhone.put("+" + norm.substring(2), cust);
+            crmByPhone.put("0" + norm.substring(4), cust);
+        } else if (norm.startsWith("0") && !norm.startsWith("00") && norm.length() > 1) {
+            // 01626... → +491626... und 00491626...
+            crmByPhone.put("+49" + norm.substring(1), cust);
+            crmByPhone.put("0049" + norm.substring(1), cust);
+        }
+        // Last-7-Ziffern als Notnagel-Match (Eindeutigkeit bei deutschen Mobilnummern)
+        if (norm.length() >= 7) {
+            String last7 = norm.substring(norm.length() - 7);
+            // Nur als Fallback — nicht ueberschreiben falls schon ein praeziserer Match da
+            if (!crmByPhone.containsKey("LAST7:" + last7)) {
+                crmByPhone.put("LAST7:" + last7, cust);
+            }
+        }
     }
 
     private static String normalizePhone(String p) {
@@ -605,7 +656,14 @@ public class CallLogActivity extends AppCompatActivity {
     }
 
     private CrmCustomer lookupCrm(String phone) {
-        return crmByPhone.get(normalizePhone(phone));
+        String norm = normalizePhone(phone);
+        CrmCustomer c = crmByPhone.get(norm);
+        if (c != null) return c;
+        // 🆕 v6.62.669: Last-7-Fallback
+        if (norm.length() >= 7) {
+            return crmByPhone.get("LAST7:" + norm.substring(norm.length() - 7));
+        }
+        return null;
     }
 
     private void loadCalls() {
@@ -620,8 +678,11 @@ public class CallLogActivity extends AppCompatActivity {
                 //   LIMIT-Keyword in der ORDER BY-Clause als SQL-Injection blockiert.
                 //   Fix: LIMIT via Uri-Query-Parameter (alle Android-Versionen) — KEIN
                 //   String-Concat mehr in der ORDER BY-Clause.
+                // 🆕 v6.62.669: Patrick (13.05.): LIMIT 50 zu klein fuer Taxi-Betrieb,
+                //   manche Anrufer (z.B. André Luther Und Wegener +491626050075) fielen
+                //   raus. Auf 300 gehoben — Samsung-CallLog haelt eh max ~500 Eintraege.
                 android.net.Uri _callsUri = CallLog.Calls.CONTENT_URI.buildUpon()
-                    .appendQueryParameter("limit", "50").build();
+                    .appendQueryParameter("limit", "300").build();
                 Cursor c = getContentResolver().query(_callsUri, proj, null, null, CallLog.Calls.DATE + " DESC");
                 if (c != null) {
                     while (c.moveToNext()) {
@@ -646,6 +707,60 @@ public class CallLogActivity extends AppCompatActivity {
                 adapter.set(result);
                 if (result.isEmpty()) Toast.makeText(this, "Keine Anrufe gefunden (oder alle versteckt)", Toast.LENGTH_SHORT).show();
             });
+        }).start();
+    }
+
+    // 🆕 v6.62.669: CallLog-Debug-Dump fuer "Anrufer taucht nicht auf"-Diagnose.
+    //   Schreibt die letzten 300 Eintraege aus CallLog.Calls roh nach
+    //   /debug/callLog/{deviceId}/{timestamp} damit Claude analysieren kann
+    //   warum z.B. +491626050075 (André Luther Und Wegener) nie auftaucht
+    //   (CallLog enthaelt ihn vielleicht gar nicht — WhatsApp-Anrufe?).
+    private void dumpCallLogToFirebase() {
+        new Thread(() -> {
+            try {
+                String[] proj = {CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.DATE,
+                                 CallLog.Calls.TYPE, CallLog.Calls.DURATION, CallLog.Calls.NEW};
+                android.net.Uri uri = CallLog.Calls.CONTENT_URI.buildUpon()
+                    .appendQueryParameter("limit", "300").build();
+                Cursor c = getContentResolver().query(uri, proj, null, null, CallLog.Calls.DATE + " DESC");
+                List<Map<String, Object>> rows = new ArrayList<>();
+                if (c != null) {
+                    while (c.moveToNext()) {
+                        Map<String, Object> row = new HashMap<>();
+                        String num = c.getString(0);
+                        row.put("number", num != null ? num : "");
+                        // CACHED_NAME wird mit-geliefert, koennte aber sensible Daten enthalten.
+                        // Wir behalten ihn — du musst eh sehen was Android sagt.
+                        String nm = c.getString(1);
+                        if (nm != null && !nm.isEmpty()) row.put("cachedName", nm);
+                        row.put("date", c.getLong(2));
+                        row.put("type", c.getInt(3));
+                        row.put("duration", c.getLong(4));
+                        try { row.put("isNew", c.getInt(5)); } catch (Throwable _t) {}
+                        // Normalisiert + alle Varianten zum Selbst-Pruefen
+                        if (num != null) {
+                            row.put("normalized", normalizePhone(num));
+                            if (num.length() >= 7) row.put("last7", normalizePhone(num).substring(Math.max(0, normalizePhone(num).length() - 7)));
+                        }
+                        rows.add(row);
+                    }
+                    c.close();
+                }
+                Map<String, Object> dump = new HashMap<>();
+                dump.put("createdAt", System.currentTimeMillis());
+                dump.put("deviceModel", android.os.Build.MODEL);
+                dump.put("androidVersion", android.os.Build.VERSION.SDK_INT);
+                dump.put("appVersion", de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+                dump.put("totalRows", rows.size());
+                dump.put("rows", rows);
+                String deviceId = DeviceIdHelper.getOrCreate(this);
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                    .getReference("debug/callLog/" + deviceId + "/" + System.currentTimeMillis())
+                    .setValue(dump);
+                runOnUiThread(() -> Toast.makeText(this, "✅ " + rows.size() + " CallLog-Eintraege an Claude gesendet (debug/callLog/" + deviceId.substring(0,8) + "...)", Toast.LENGTH_LONG).show());
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this, "❌ CallLog-Dump Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
         }).start();
     }
 

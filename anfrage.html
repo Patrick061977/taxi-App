@@ -7,8 +7,12 @@
     <!-- 🆕 v6.62.689: Leaflet im head laden damit Route-Map sofort verfuegbar ist -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
-    <!-- 🔧 v6.62.695: gesture-handling raus — Karte ist jetzt komplett statisch
-         (alle Interaktionen deaktiviert, pointer-events:none). Patrick (13.05. 20:16). -->
+    <!-- 🆕 v6.62.696: gesture-handling wieder rein — Patrick (13.05. 20:30):
+         "Mit 2 Fingern vergroessert sich die ganze Seite, nicht die Karte — sollte
+         doch die Karte zoomen." Plugin macht: 1-Finger zeigt Hint, 2-Finger zoomt
+         die Karte. dragging bleibt aus (keine Pan-Geste). -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css">
+    <script src="https://unpkg.com/leaflet-gesture-handling"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:transparent; color:#1e293b; }
@@ -115,8 +119,8 @@
                  wie bei buchen.html — und die Karte muss FEST sein, kein Pannen, kein Zoomen.
                  Erst NACH Datum/Uhrzeit aufgehen." -->
             <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
-                <!-- pointer-events:none → keinerlei Touch/Mouse-Interaktion auf der Karte -->
-                <div id="anf-main-map" style="width:100%;height:240px;pointer-events:none;"></div>
+                <!-- 🔧 v6.62.696: pointer-events wieder ON damit 2-Finger-Zoom auf die Karte ankommt -->
+                <div id="anf-main-map" style="width:100%;height:240px;"></div>
                 <!-- Top-left: Datum + Uhrzeit (gruener Glas-Overlay wie buchen.html) -->
                 <div id="anf-termin-overlay" style="position:absolute;top:10px;left:10px;z-index:500;background:linear-gradient(135deg,rgba(5,150,105,0.97),rgba(4,120,87,0.97));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(5,150,105,0.35);border:1px solid rgba(255,255,255,0.4);color:white;max-width:160px;">
                     <div style="font-size:9px;opacity:0.9;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">📅 Abfahrt</div>
@@ -133,13 +137,21 @@
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👥 Personen</label>
-                <div style="display:flex;gap:6px;" id="anf-pax-btns">
-                    <button onclick="setAnfPax(1)" class="anf-pax active" style="flex:1;padding:10px;border:2px solid #059669;background:#ecfdf5;color:#059669;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">1</button>
-                    <button onclick="setAnfPax(2)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">2</button>
-                    <button onclick="setAnfPax(3)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">3</button>
-                    <button onclick="setAnfPax(4)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">4</button>
-                    <button onclick="setAnfPax(5)" class="anf-pax" style="flex:1;padding:10px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:15px;cursor:pointer;">5+</button>
+                <!-- 🆕 v6.62.696: Patrick (13.05. 20:31): "Ich kriege 8 Leute ins Auto — da
+                     muesste mindestens 1 bis 8 stehen. 5+ ist zu wenig." 1-8 Buttons + "9+" fuer
+                     groessere Gruppen (oeffnet Prompt fuer freie Eingabe). -->
+                <div style="display:flex;gap:4px;flex-wrap:wrap;" id="anf-pax-btns">
+                    <button onclick="setAnfPax(1)" class="anf-pax active" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #059669;background:#ecfdf5;color:#059669;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">1</button>
+                    <button onclick="setAnfPax(2)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">2</button>
+                    <button onclick="setAnfPax(3)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">3</button>
+                    <button onclick="setAnfPax(4)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">4</button>
+                    <button onclick="setAnfPax(5)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">5</button>
+                    <button onclick="setAnfPax(6)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">6</button>
+                    <button onclick="setAnfPax(7)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">7</button>
+                    <button onclick="setAnfPax(8)" class="anf-pax" style="flex:1;min-width:36px;padding:10px 4px;border:2px solid #e2e8f0;background:white;border-radius:8px;font-size:14px;cursor:pointer;">8</button>
+                    <button onclick="setAnfPaxCustom()" class="anf-pax" id="anf-pax-more" style="flex:1.5;min-width:48px;padding:10px 4px;border:2px solid #f59e0b;background:white;color:#92400e;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">9+</button>
                 </div>
+                <div id="anf-pax-hint" style="display:none;font-size:11px;color:#92400e;margin-top:4px;">Wir koordinieren mehrere Fahrzeuge fuer Ihre Gruppe.</div>
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👤 Name</label>
@@ -511,13 +523,39 @@ var _anfPlacesReady = false, _anfSuggestion = null, _anfToken = null, _anfPlace 
 
 function setAnfPax(n) {
     anfPax = n;
+    // 🔧 v6.62.696: Buttons 1-8 + 9+ — Index 0..7 sind 1..8, Index 8 ist der 9+ Button
     document.querySelectorAll('.anf-pax').forEach(function(b,i) {
-        b.style.borderColor = (i+1)===n ? '#059669' : '#e2e8f0';
-        b.style.background = (i+1)===n ? '#ecfdf5' : 'white';
-        b.style.color = (i+1)===n ? '#059669' : '#1e293b';
-        b.style.fontWeight = (i+1)===n ? '700' : '400';
+        var btnN = (i < 8) ? (i+1) : (n >= 9 ? n : 9);
+        var active = (i < 8) ? ((i+1) === n) : (n >= 9);
+        b.style.borderColor = active ? '#059669' : (i === 8 ? '#f59e0b' : '#e2e8f0');
+        b.style.background = active ? '#ecfdf5' : 'white';
+        b.style.color = active ? '#059669' : (i === 8 ? '#92400e' : '#1e293b');
+        b.style.fontWeight = active ? '700' : (i === 8 ? '600' : '400');
     });
+    // Hint bei Gruppen >8 (mehrere Fahrzeuge noetig)
+    var hint = document.getElementById('anf-pax-hint');
+    if (hint) hint.style.display = (n >= 9) ? 'block' : 'none';
+    // 9+ Button-Label aktualisieren
+    var moreBtn = document.getElementById('anf-pax-more');
+    if (moreBtn) moreBtn.textContent = (n >= 9) ? (n + ' ✎') : '9+';
     calcAnfPrice();
+}
+
+// 🆕 v6.62.696: Patrick (13.05. 20:31): "Wenn 10 oder 15 Leute kommen, weiss ich
+//   nicht wie man das einstellen kann." 9+ Button oeffnet Prompt fuer freie Eingabe
+//   (mit Validation 9..30) und ruft setAnfPax mit dem Wert.
+function setAnfPaxCustom() {
+    var input = prompt('Wie viele Personen reisen mit?\n(9 oder mehr — fuer kleinere Gruppen die 1-8 Buttons nutzen)', anfPax >= 9 ? String(anfPax) : '9');
+    if (input === null) return;
+    var n = parseInt(input, 10);
+    if (isNaN(n) || n < 1) { alert('Bitte eine Zahl eingeben.'); return; }
+    if (n > 30) { alert('Bei mehr als 30 Personen bitte direkt anrufen: 038378/22022'); return; }
+    if (n <= 8) {
+        // Kleine Zahl → einfach normalen Button-Klick simulieren
+        setAnfPax(n);
+        return;
+    }
+    setAnfPax(n);
 }
 
 window.addEventListener('load', async function() {
@@ -687,18 +725,24 @@ async function calcAnfPrice() {
                 //   v6.62.690-scrollIntoView entfernt \u2014 Karte ist jetzt sowieso oben in-flow
                 //   (zwischen Ziel und Datum), kein Scroll-Hijacking mehr.
                 if (!window._anfMap) {
-                    // 🆕 v6.62.695: Karte komplett statisch — Patrick (13.05. 20:16):
-                    //   "Die Karte muss fest sein. Auch 2-Finger klappt nicht — kein Pannen,
-                    //   kein Zoomen." Alle Interaktionen aus, pointer-events:none auf Map-Div.
+                    // 🔧 v6.62.696: 2-Finger zoomt die Karte (Patrick 13.05. 20:30).
+                    //   gestureHandling-Plugin gated alles: 1-Finger zeigt Hint, 2-Finger zoomt.
+                    //   dragging bleibt aus — wir wollen Pinch-Zoom aber kein Pannen.
                     window._anfMap = L.map('anf-main-map', {
                         zoomControl: false, attributionControl: false,
-                        scrollWheelZoom: false, dragging: false, touchZoom: false,
-                        doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false
+                        scrollWheelZoom: false, dragging: false, touchZoom: true,
+                        doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false,
+                        gestureHandling: true
                     }).setView([53.95, 14.16], 12);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);
                 }
-                if (window._anfRouteLayer) { window._anfMap.removeLayer(window._anfRouteLayer); }
-                if (window._anfMarkers) { window._anfMarkers.forEach(function(m) { window._anfMap.removeLayer(m); }); }
+                // \ud83d\udd27 v6.62.696: Patrick (13.05. 20:29): "Bei Ziel-Aenderung wird die Karte gruen,
+                //   aber Destination aendert sich nicht \u2014 erst bei Datum-Wechsel rendert sie neu."
+                //   Ursache vermutlich Stale-Layout: invalidateSize VOR fitBounds erzwingen,
+                //   damit fitBounds die wahren Container-Dimensionen nutzt.
+                try { window._anfMap.invalidateSize(false); } catch(_) {}
+                if (window._anfRouteLayer) { window._anfMap.removeLayer(window._anfRouteLayer); window._anfRouteLayer = null; }
+                if (window._anfMarkers) { window._anfMarkers.forEach(function(m) { try { window._anfMap.removeLayer(m); } catch(_) {} }); }
                 window._anfMarkers = [];
                 var _coords = _routeGeo.coordinates.map(function(c) { return [c[1], c[0]]; });
                 window._anfRouteLayer = L.polyline(_coords, { color: '#10b981', weight: 5, opacity: 0.85 }).addTo(window._anfMap);
@@ -706,8 +750,15 @@ async function calcAnfPrice() {
                 var _destIcon = L.divIcon({ html: '<div style="background:#dc2626;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">\ud83c\udfaf</div>', className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
                 window._anfMarkers.push(L.marker([anfPickupCoords.lat, anfPickupCoords.lon], { icon: _pickIcon }).addTo(window._anfMap));
                 window._anfMarkers.push(L.marker([anfDestCoords.lat, anfDestCoords.lon], { icon: _destIcon }).addTo(window._anfMap));
-                window._anfMap.fitBounds(window._anfRouteLayer.getBounds(), { padding: [30, 30] });
-                setTimeout(function() { window._anfMap.invalidateSize(); }, 100);
+                window._anfMap.fitBounds(window._anfRouteLayer.getBounds(), { padding: [30, 30], animate: false });
+                // Doppelter Schub: invalidateSize sofort + spaeter erneut fuer iOS-Safari
+                try { window._anfMap.invalidateSize(false); } catch(_) {}
+                setTimeout(function() {
+                    try {
+                        window._anfMap.invalidateSize(false);
+                        window._anfMap.fitBounds(window._anfRouteLayer.getBounds(), { padding: [30, 30], animate: false });
+                    } catch(_) {}
+                }, 120);
                 // \ud83c\udd95 v6.62.695: Termin-Overlay links + Preis-Overlay rechts (wie buchen.html)
                 try {
                     var _dEl = document.getElementById('anf-date');

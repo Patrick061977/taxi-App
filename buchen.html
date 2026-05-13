@@ -4202,11 +4202,47 @@
                     const isVorbestellungNow = (wannModus === 'vorbestellen' && pricingTimestamp > Date.now() + 30 * 60 * 1000);
                     const pricingJetzt = isVorbestellungNow ? calculatePrice(parseFloat(km), Date.now()) : null;
 
-                    routeData = { km, min, price: pricing.total, geometry: route.geometry };
+                    // 🆕 v6.62.684: Korridor-Aufschlag — wenn Pickup UND Destination beide
+                    //   AUSSERHALB der 3 Kaiserbäder, Anfahrt vom weitesten Punkt × 1,20 €/km.
+                    //   Patrick (13.05. 17:13): "wenn beide ausserhalb, Anfahrt vom weitesten
+                    //   Punkt — von dem wir wieder zurueck muessen."
+                    const _KB_CENTER = { lat: 53.9501, lon: 14.16 };
+                    const _KB_RADIUS_KM = 8;
+                    const _ANFAHRT_EUR_KM = 1.20;
+                    const _hav = (a, b) => {
+                        const R = 6371;
+                        const dLat = (b.lat - a.lat) * Math.PI / 180;
+                        const dLon = (b.lon - a.lon) * Math.PI / 180;
+                        const aa = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)**2;
+                        return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+                    };
+                    const _pInZone = _hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM;
+                    const _dInZone = _hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM;
+                    let _korridorAufschlag = 0, _korridorKm = 0;
+                    if (!_pInZone && !_dInZone) {
+                        try {
+                            const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
+                            const _r1 = await fetch(_osrm(_KB_CENTER, pickupCoords)).then(r => r.json()).catch(() => null);
+                            const _r2 = await fetch(_osrm(_KB_CENTER, destCoords)).then(r => r.json()).catch(() => null);
+                            const _km1 = _r1 && _r1.routes && _r1.routes[0] ? _r1.routes[0].distance / 1000 : 0;
+                            const _km2 = _r2 && _r2.routes && _r2.routes[0] ? _r2.routes[0].distance / 1000 : 0;
+                            _korridorKm = Math.max(_km1, _km2);
+                            _korridorAufschlag = Math.round(_korridorKm * _ANFAHRT_EUR_KM * 100) / 100;
+                        } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }
+                    }
+                    const _totalPrice = Math.round((pricing.total + _korridorAufschlag) * 100) / 100;
+                    routeData = {
+                        km, min,
+                        price: _totalPrice,
+                        basePrice: pricing.total,
+                        korridorAufschlag: _korridorAufschlag,
+                        korridorKm: _korridorKm,
+                        geometry: route.geometry
+                    };
                     // "Adressen löschen" Button einblenden
                     const clearBtn = document.getElementById('btn-clear-addr');
                     if (clearBtn) clearBtn.style.display = '';
-                    logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${pricing.total}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}`);
+                    logBuchen('🗺️', `Route: ${km}km, ~${min}min, ${_totalPrice}EUR${pricing.hinweise.length > 0 ? ' (' + pricing.hinweise.join(', ') + ')' : ''}${_korridorAufschlag > 0 ? ' + Aussen-Anfahrt ' + _korridorAufschlag + 'EUR' : ''}`);
                     // 🆕 v6.41.64: Debug — Tarif-Auswahl loggen (zum 1,50€-Diff-Bug)
                     if (isVorbestellungNow && pricingJetzt) {
                         const _termDt = new Date(pricingTimestamp);

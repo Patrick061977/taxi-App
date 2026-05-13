@@ -440,9 +440,32 @@ public class DriverDashboardActivity extends AppCompatActivity {
             }
         }
 
-        // v6.62.26: Grosser Pause-Banner — sichtbar nur wenn Schicht aktiv + auf Pause
+        // v6.62.26: Grosser Pause-Banner — Pause + Schicht-Aus + Auto-Ende sichtbar machen
+        // 🆕 v6.62.666: Patrick (13.05. 10:07): "Wenn man nicht aktiv ist, muss das praesent
+        //   sein, da oben muesste es rot sein — der Fahrer uebersieht sehr schnell, wenn
+        //   nach einem Update er nicht wieder online ging." Banner schaltet jetzt um zwischen:
+        //   - Pause (orange): Schicht aktiv aber offline
+        //   - Schicht-Aus (rot): Schicht status='ended'/null/anderes
+        //   - Auto-Ende (rot pulsierend): Schicht status='auto-ended'
         if (tvPauseBanner != null) {
-            tvPauseBanner.setVisibility((shiftActive && !onlineState) ? View.VISIBLE : View.GONE);
+            if (shiftActive && !onlineState) {
+                // Pause: orange (wie bisher)
+                tvPauseBanner.setText("⏸  DU BIST AUF PAUSE  —  Tippen zum Online schalten");
+                tvPauseBanner.setBackgroundColor(Color.parseColor("#F59E0B"));
+                tvPauseBanner.setTextColor(Color.parseColor("#1F2937"));
+                tvPauseBanner.setVisibility(View.VISIBLE);
+            } else if (!shiftActive) {
+                // Nicht-aktiv: ROT — Patrick will deutlichen Hinweis dass keine Auftraege kommen
+                String _bannerText = "auto-ended".equals(status)
+                    ? "⚠️  SCHICHT AUTO-BEENDET  —  Tippen um wieder zu starten"
+                    : "🔴  SCHICHT NICHT AKTIV — KEINE AUFTRAEGE  —  Tippen zum Starten";
+                tvPauseBanner.setText(_bannerText);
+                tvPauseBanner.setBackgroundColor(Color.parseColor("#DC2626"));
+                tvPauseBanner.setTextColor(Color.WHITE);
+                tvPauseBanner.setVisibility(View.VISIBLE);
+            } else {
+                tvPauseBanner.setVisibility(View.GONE);
+            }
         }
 
         // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)
@@ -459,8 +482,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
             timerHandler.removeCallbacks(timerTick);
             timerHandler.post(timerTick);
         } else {
-            tvShiftStatus.setText("auto-ended".equals(status) ? "⚠ Auto-Ende" : "⏸ Aus");
-            tvShiftStatus.setBackgroundColor("auto-ended".equals(status) ? Color.parseColor("#EF4444") : Color.parseColor("#475569"));
+            // 🆕 v6.62.666: Badge ROT auch wenn Schicht einfach 'ended'/null (vorher slate
+            //   #475569 — viel zu unauffaellig). Nur Auto-Ende war vorher rot.
+            tvShiftStatus.setText("auto-ended".equals(status) ? "⚠ Auto-Ende" : "🔴 Aus");
+            tvShiftStatus.setBackgroundColor(Color.parseColor("#DC2626"));
+            tvShiftStatus.setTextColor(Color.WHITE);
             tvShiftDetail.setText("");
             shiftStatsRow.setVisibility(View.GONE);
             timerHandler.removeCallbacks(timerTick);

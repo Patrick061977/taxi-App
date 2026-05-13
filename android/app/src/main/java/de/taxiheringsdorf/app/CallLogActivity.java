@@ -2284,6 +2284,150 @@ public class CallLogActivity extends AppCompatActivity {
         long date;
         long durationSec;
         int type;
+        java.io.File acrFile; // 🆕 v6.62.676: gematchte ACR-Aufnahme (falls vorhanden)
+    }
+
+    // 🆕 v6.62.676: Patrick (13.05. 12:59): "Anrufliste, wuerde ich ganz gerne die
+    //   Anrufe anhoeren oder abhoeren, damit ich die dann in den Kalender eintragen kann."
+    //   ACR speichert unter /sdcard/ACRCalls/ACRPhone/{YYYY}/{MM}/{DD}/{+nummer}/...m4a.
+    //   Wir suchen pro CallEntry die passende m4a (gleicher Tag + gleiche Nummer).
+    private java.io.File findAcrRecording(String phone, long callDate) {
+        if (phone == null || phone.isEmpty()) return null;
+        try {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.setTimeInMillis(callDate);
+            String yyyy = String.valueOf(cal.get(java.util.Calendar.YEAR));
+            String mm = String.format(Locale.GERMANY, "%02d", cal.get(java.util.Calendar.MONTH) + 1);
+            String dd = String.format(Locale.GERMANY, "%02d", cal.get(java.util.Calendar.DAY_OF_MONTH));
+            // ACR normalisiert die Nummer auf +49... Format. Wir versuchen mehrere Varianten.
+            String norm = normalizePhone(phone);
+            String[] variants;
+            if (norm.startsWith("+49")) {
+                variants = new String[]{ norm, "0" + norm.substring(3), "0049" + norm.substring(3) };
+            } else if (norm.startsWith("00")) {
+                variants = new String[]{ "+" + norm.substring(2), norm, "0" + norm.substring(4) };
+            } else if (norm.startsWith("0")) {
+                variants = new String[]{ "+49" + norm.substring(1), norm, "0049" + norm.substring(1) };
+            } else {
+                variants = new String[]{ norm, "+49" + norm, "0" + norm };
+            }
+            String basePath = "/sdcard/ACRCalls/ACRPhone/" + yyyy + "/" + mm + "/" + dd + "/";
+            for (String v : variants) {
+                java.io.File dir = new java.io.File(basePath + v);
+                if (dir.exists() && dir.isDirectory()) {
+                    java.io.File[] files = dir.listFiles((f) -> f.getName().endsWith(".m4a"));
+                    if (files != null && files.length > 0) {
+                        // Nimm die zeitnaechste (am dichtesten am callDate)
+                        java.io.File best = null;
+                        long bestDelta = Long.MAX_VALUE;
+                        for (java.io.File f : files) {
+                            // Filename-Schema: +49xxx-{0/1}-{tsMs}.m4a → ts extrahieren
+                            String n = f.getName();
+                            int p1 = n.lastIndexOf('-');
+                            int p2 = n.lastIndexOf('.');
+                            if (p1 < 0 || p2 < p1) continue;
+                            try {
+                                long ts = Long.parseLong(n.substring(p1 + 1, p2));
+                                long delta = Math.abs(ts - callDate);
+                                if (delta < bestDelta) { bestDelta = delta; best = f; }
+                            } catch (Throwable _ig) {}
+                        }
+                        if (best != null) return best;
+                        return files[0];
+                    }
+                }
+            }
+        } catch (Throwable _t) { Log.w(TAG, "findAcrRecording Fehler: " + _t.getMessage()); }
+        return null;
+    }
+
+    // 🆕 v6.62.676: MediaPlayer-Dialog fuer ACR-Aufnahme. SeekBar + Play/Pause + Auto-Stop.
+    private android.media.MediaPlayer _acrPlayer;
+    private void showAcrPlayerDialog(java.io.File audioFile, String label) {
+        if (audioFile == null || !audioFile.exists()) {
+            Toast.makeText(this, "Audio-Datei nicht gefunden", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try { if (_acrPlayer != null) { try { _acrPlayer.stop(); } catch (Throwable _t) {} _acrPlayer.release(); _acrPlayer = null; } } catch (Throwable _ig) {}
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 16);
+        layout.setPadding(pad, pad, pad, pad);
+        TextView lbl = new TextView(this);
+        lbl.setText(label + "\n" + audioFile.getName() + " · " + (audioFile.length() / 1024) + " KB");
+        lbl.setTextSize(13);
+        lbl.setPadding(0, 0, 0, 16);
+        layout.addView(lbl);
+        final android.widget.SeekBar seek = new android.widget.SeekBar(this);
+        seek.setMax(1000);
+        layout.addView(seek);
+        final TextView pos = new TextView(this);
+        pos.setText("0:00 / ?:??");
+        pos.setTextSize(12);
+        pos.setPadding(0, 8, 0, 0);
+        layout.addView(pos);
+
+        final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+        _acrPlayer = mp;
+        try {
+            mp.setDataSource(audioFile.getAbsolutePath());
+            mp.prepare();
+        } catch (Throwable t) {
+            Toast.makeText(this, "MediaPlayer-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        final int duration = mp.getDuration();
+        final Handler[] hh = new Handler[]{ new Handler(getMainLooper()) };
+        final Runnable[] tick = new Runnable[1];
+        tick[0] = () -> {
+            try {
+                int p = mp.getCurrentPosition();
+                seek.setProgress((int) Math.min(1000, (long) p * 1000 / Math.max(1, duration)));
+                pos.setText(formatMs(p) + " / " + formatMs(duration));
+                if (mp.isPlaying() && hh[0] != null) hh[0].postDelayed(tick[0], 200);
+            } catch (Throwable _t) {}
+        };
+        seek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int progress, boolean fromUser) {
+                if (fromUser) try { mp.seekTo((int) ((long) progress * duration / 1000)); } catch (Throwable _t) {}
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
+        });
+
+        AlertDialog dlg = new AlertDialog.Builder(this)
+            .setTitle("🎵 Anruf-Aufnahme")
+            .setView(layout)
+            .setPositiveButton("▶ Play", null)
+            .setNeutralButton("⏸ Pause", null)
+            .setNegativeButton("Stop / Schliessen", (d, w) -> {
+                try { mp.stop(); } catch (Throwable _t) {}
+                mp.release();
+                _acrPlayer = null;
+                if (hh[0] != null) hh[0].removeCallbacks(tick[0]);
+            })
+            .setOnCancelListener(d -> {
+                try { mp.stop(); } catch (Throwable _t) {}
+                mp.release();
+                _acrPlayer = null;
+                if (hh[0] != null) hh[0].removeCallbacks(tick[0]);
+            })
+            .create();
+        dlg.show();
+        // Buttons: Play startet, Pause toggelt
+        dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(_v -> {
+            try { if (!mp.isPlaying()) { mp.start(); hh[0].post(tick[0]); } } catch (Throwable _t) {}
+        });
+        dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(_v -> {
+            try { if (mp.isPlaying()) mp.pause(); } catch (Throwable _t) {}
+        });
+        // Auto-start
+        try { mp.start(); hh[0].post(tick[0]); } catch (Throwable _t) {}
+    }
+
+    private static String formatMs(int ms) {
+        int s = ms / 1000;
+        return (s / 60) + ":" + String.format(Locale.GERMANY, "%02d", s % 60);
     }
 
     class CallAdapter extends RecyclerView.Adapter<CallAdapter.VH> {
@@ -2333,9 +2477,27 @@ public class CallLogActivity extends AppCompatActivity {
                 else if (ageSec < 3600) age = (ageSec / 60) + " Min";
                 else if (ageSec < 86400) age = (ageSec / 3600) + " Std";
                 else age = (ageSec / 86400) + " Tagen";
-                tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : ""));
+
+                // 🆕 v6.62.676: ACR-Aufnahme suchen (cache am CallEntry damit nicht jedes
+                //   Rebind die Filesystem-Abfrage triggert).
+                if (e.acrFile == null) {
+                    try { e.acrFile = findAcrRecording(e.number, e.date); } catch (Throwable _t) {}
+                }
+                String audioHint = (e.acrFile != null) ? "  🎵 ACR" : "";
+                tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint);
 
                 itemView.setOnClickListener(_v -> showActionDialog(e));
+                // 🆕 v6.62.676: Long-Press → Audio-Player. Patrick: "Anrufe abhoeren, dann
+                //   in den Kalender eintragen".
+                itemView.setOnLongClickListener(_v -> {
+                    if (e.acrFile != null) {
+                        String _lbl = (crm != null ? crm.name : (e.name != null && !e.name.isEmpty() ? e.name : "Unbekannt")) + " · " + e.number;
+                        showAcrPlayerDialog(e.acrFile, _lbl);
+                        return true;
+                    }
+                    Toast.makeText(itemView.getContext(), "Keine ACR-Aufnahme fuer diesen Anruf", Toast.LENGTH_SHORT).show();
+                    return true;
+                });
             }
         }
     }

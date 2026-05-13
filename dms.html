@@ -788,11 +788,15 @@
                         docsCountByVeh[d.vehicleRefId] = (docsCountByVeh[d.vehicleRefId] || 0) + 1;
                     }
                 }
+                // 🆕 v6.62.670: Patrick (13.05. 11:26): "Wenn ich auf die Fahrzeuge klicke,
+                //   kann ich immer nur bearbeiten und nicht die Belege anschauen."
+                //   Loesung: Card-Klick-Default fuehrt jetzt zu den Belegen (showVehicleDocs).
+                //   Bearbeiten erhaelt einen eigenen ✏️-Button (event.stopPropagation).
                 const renderRow = (v) => {
                     const docCount = docsCountByVeh[v.id] || 0;
                     const tuevWarning = v.naechsterTuev ? tuevReminderBadge(v.naechsterTuev) : '';
                     const archivedTag = v.archived ? '<span style="background:#9ca3af;color:white;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;">ARCHIVIERT</span>' : '';
-                    return `<div class="card" style="cursor:pointer;" onclick="openVehicleEditModal('${v.id}')">
+                    return `<div class="card" style="cursor:pointer;" onclick="showVehicleDocs('${v.id}')">
                         <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px;">
                             <div style="flex:1;min-width:200px;">
                                 <div style="font-size:16px;font-weight:700;color:#111827;">
@@ -805,9 +809,19 @@
                             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                                 <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">📄 ${docCount} Belege</span>
                                 ${tuevWarning}
+                                <button onclick="event.stopPropagation();openVehicleEditModal('${v.id}')" style="margin-top:6px;background:#e5e7eb;color:#111827;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ Bearbeiten</button>
                             </div>
                         </div>
                     </div>`;
+                };
+
+                // 🆕 v6.62.670: Bibliothek-Tab oeffnen + auf das Fahrzeug filtern.
+                //   Setzt window._libraryVehicleFilter, renderLibrary respektiert es.
+                window.showVehicleDocs = function(vehId) {
+                    window._libraryVehicleFilter = vehId;
+                    switchTab('library');
+                    // Hinweis-Banner in der Library-Stats anzeigen — passiert ueber renderLibrary,
+                    // dort wird _libraryVehicleFilter gelesen.
                 };
                 let html = '';
                 if (active.length) html += '<h3 style="font-size:13px;margin:8px 4px 8px 4px;color:#059669;">🟢 Aktiv (' + active.length + ')</h3>' + active.map(renderRow).join('');
@@ -1642,8 +1656,23 @@
                 const url = await ref.getDownloadURL();
 
                 const docId = db.ref('docs').push().key;
+                // 🆕 v6.62.670: Patrick (13.05. 11:26) "Der legt keine Belegnummer an,
+                //   komischerweise. Wenn ich da speichere, wird keine Belegnummer angelegt."
+                //   saveDocCore() ruft assignBelegnummer (Z.1240), saveDocument (Manual-
+                //   Save-Button) hat es vergessen. Jetzt nachziehen: gleicher Aufruf
+                //   wie in saveDocCore, atomarer Monats-Counter.
+                let _belegMonat = null, _belegJahr = null, _belegnummer = null;
+                try {
+                    const _belegInfo = await assignBelegnummer(datum);
+                    _belegnummer = _belegInfo.belegnummer;
+                    _belegMonat = _belegInfo.monat;
+                    _belegJahr = _belegInfo.jahr;
+                } catch (e) {
+                    console.warn('Belegnummer-Vergabe in saveDocument fehlgeschlagen:', e.message);
+                }
                 const meta = {
                     docId,
+                    ...(_belegnummer && { belegnummer: _belegnummer, belegMonat: _belegMonat, belegQuartal: _belegMonat, belegJahr: _belegJahr }),
                     kategorie,
                     subKategorie: sub,
                     dokumenttyp: document.getElementById('f-typ').value || null,
@@ -2090,6 +2119,33 @@
             const filter = (document.getElementById('lib-filter').value || '').toLowerCase();
             // v6.62.242: Inbox-Docs (kategorie='_inbox') NICHT in Bibliothek zeigen
             let docs = allDocs.filter(d => d.kategorie !== '_inbox');
+            // 🆕 v6.62.670: Fahrzeug-Filter aus showVehicleDocs (Patrick: "auf das Fahrzeug
+            //   klicken, dann Belege anschauen koennen — nicht immer Bearbeiten-Modal").
+            const _vehFilter = window._libraryVehicleFilter || '';
+            if (_vehFilter) {
+                docs = docs.filter(d => d.vehicleRefId === _vehFilter);
+                // Visueller Hinweis + Clear-Button
+                const _filterBar = document.getElementById('lib-vehicle-filter-bar');
+                if (!_filterBar) {
+                    const _statsEl = document.getElementById('lib-stats');
+                    if (_statsEl && _statsEl.parentElement) {
+                        const _bar = document.createElement('div');
+                        _bar.id = 'lib-vehicle-filter-bar';
+                        _bar.style.cssText = 'background:#fef3c7;border:1px solid #fcd34d;padding:8px 12px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-size:13px;';
+                        _statsEl.parentElement.insertBefore(_bar, _statsEl);
+                    }
+                }
+                const _bar = document.getElementById('lib-vehicle-filter-bar');
+                if (_bar) {
+                    const _v = (_vehiclesCache && _vehiclesCache[_vehFilter]) || {};
+                    _bar.innerHTML = `<div>🚗 <b>Gefiltert auf Fahrzeug:</b> ${escHtml(_v.label || _v.name || _vehFilter)} — ${docs.length} Belege</div>
+                        <button onclick="window._libraryVehicleFilter='';document.getElementById('lib-vehicle-filter-bar')?.remove();renderLibrary()" style="background:#fbbf24;color:#78350f;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✕ Filter aufheben</button>`;
+                    _bar.style.display = 'flex';
+                }
+            } else {
+                const _bar = document.getElementById('lib-vehicle-filter-bar');
+                if (_bar) _bar.remove();
+            }
             if (kat) docs = docs.filter(d => d.kategorie === kat);
             // v6.62.357: SKR03-Filter
             if (haupt) docs = docs.filter(d => d.hauptKategorie === haupt);

@@ -4148,22 +4148,21 @@ function isInKaiserbaederZone(lat, lon) {
 }
 
 async function calcKorridorAnfahrtAufschlag(pickupLat, pickupLon, destLat, destLon) {
-    if (isInKaiserbaederZone(pickupLat, pickupLon) || isInKaiserbaederZone(destLat, destLon)) {
-        return { km: 0, eur: 0, applied: false, reason: 'mindestens 1 Punkt in Kaiserbaedern' };
+    // 🆕 v6.62.687: Patrick (13.05. 18:02): "Anfahrt zum PICKUP, das ist am unkompliziertesten —
+    //   nicht der weiteste Punkt." Vereinfachte Regel: Aufschlag nur wenn pickup ausserhalb,
+    //   basiert nur auf Anfahrt-zum-Pickup. Destination-Position spielt keine Rolle mehr.
+    if (isInKaiserbaederZone(pickupLat, pickupLon)) {
+        return { km: 0, eur: 0, applied: false, reason: 'Pickup in Kaiserbaedern' };
     }
     try {
         const r1 = await calculateRoute(KAISERBAEDER_CENTER, { lat: pickupLat, lon: pickupLon });
-        const r2 = await calculateRoute(KAISERBAEDER_CENTER, { lat: destLat, lon: destLon });
-        const km1 = parseFloat(r1 && r1.distance || 0);
-        const km2 = parseFloat(r2 && r2.distance || 0);
-        const maxKm = Math.max(km1, km2);
-        if (!maxKm || maxKm <= 0) return { km: 0, eur: 0, applied: false, reason: 'OSRM lieferte 0 km' };
+        const km = parseFloat(r1 && r1.distance || 0);
+        if (!km || km <= 0) return { km: 0, eur: 0, applied: false, reason: 'OSRM lieferte 0 km' };
         return {
-            km: maxKm,
-            eur: Math.round(maxKm * ANFAHRT_EUR_PER_KM * 100) / 100,
+            km: km,
+            eur: Math.round(km * ANFAHRT_EUR_PER_KM * 100) / 100,
             applied: true,
-            reason: `Anfahrt vom weitesten Punkt (${maxKm.toFixed(1)} km Strasse × 1,20 €/km)`,
-            details: { kmZuPickup: km1, kmZuDestination: km2 }
+            reason: `Anfahrt zum Pickup (${km.toFixed(1)} km Strasse × 1,20 €/km)`
         };
     } catch (e) {
         console.warn('calcKorridorAnfahrt Fehler:', e.message);

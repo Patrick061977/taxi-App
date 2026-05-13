@@ -4217,16 +4217,15 @@
                         return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
                     };
                     const _pInZone = _hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM;
-                    const _dInZone = _hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM;
                     let _korridorAufschlag = 0, _korridorKm = 0;
-                    if (!_pInZone && !_dInZone) {
+                    // 🆕 v6.62.687: Patrick (13.05. 18:02): "Anfahrt zum PICKUP, am unkompliziertesten."
+                    //   Nur wenn pickup ausserhalb der Kaiserbaeder → Anfahrt zum Pickup × 1,20€/km.
+                    //   Destination-Position ist egal.
+                    if (!_pInZone) {
                         try {
                             const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
                             const _r1 = await fetch(_osrm(_KB_CENTER, pickupCoords)).then(r => r.json()).catch(() => null);
-                            const _r2 = await fetch(_osrm(_KB_CENTER, destCoords)).then(r => r.json()).catch(() => null);
-                            const _km1 = _r1 && _r1.routes && _r1.routes[0] ? _r1.routes[0].distance / 1000 : 0;
-                            const _km2 = _r2 && _r2.routes && _r2.routes[0] ? _r2.routes[0].distance / 1000 : 0;
-                            _korridorKm = Math.max(_km1, _km2);
+                            _korridorKm = _r1 && _r1.routes && _r1.routes[0] ? _r1.routes[0].distance / 1000 : 0;
                             _korridorAufschlag = Math.round(_korridorKm * _ANFAHRT_EUR_KM * 100) / 100;
                         } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }
                     }
@@ -4235,7 +4234,7 @@
                     //   Sonntagstarif. Wir injizieren die Info in pricing.hinweise damit alle
                     //   Anzeige-Pfade (r-price + map-price-overlay) sie automatisch zeigen.
                     if (_korridorAufschlag > 0) {
-                        pricing.hinweise.push(`Anfahrt ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€`);
+                        pricing.hinweise.push(`Anfahrt zum Abholort ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€`);
                         pricing.total = _totalPrice;
                     }
                     routeData = {
@@ -4296,7 +4295,7 @@
                         //   Korridor-Anfahrt war im Overlay unsichtbar weil hinweise-Filter nur 'tarif'
                         //   matched. Eigener Anfahrt-Hint mit 🛣-Symbol wenn vorhanden.
                         const _anfahrtHint = _korridorAufschlag > 0
-                            ? `<br><span style="font-size:9px;opacity:0.85;color:#92400e;">🛣 Anfahrt aus Heringsdorf · ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€</span>`
+                            ? `<br><span style="font-size:9px;opacity:0.85;color:#92400e;">🛣 Anfahrt zum Abholort · ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€</span>`
                             : '';
                         if (isVorbestellungNow && pricingJetzt) {
                             // Vorbestellung: Termin-Preis im Overlay + Differenz-Badge

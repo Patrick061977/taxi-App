@@ -1415,23 +1415,88 @@ public class DriverDashboardActivity extends AppCompatActivity {
         startActivity(i);
     }
 
+    // 🆕 v6.62.664: Patrick (13.05. 10:15): "Bei Einsteiger so machen wie aus der Web-App:
+    //   Stecknadel fuer den Standort wo man ist, Zielort eingeben — Name optional. Abholort
+    //   und Zielort als Koordinaten, nicht als String. Verstehst du was ich meine?"
+    //
+    // Plan: GPS-Button als Pickup-Default (liest /vehicles/{vid} lat/lon aus Firebase und
+    //   reverse-geocoded via Nominatim), Zielort als EditText der live geocoded wird, beide
+    //   coords im Ride speichern. Name wandert nach unten + optional. Phase 2 (spaeter):
+    //   Google-Places-Autocomplete fuer Zielort wie in CallLogActivity.
+    //
+    // State-Container fuer Pickup-/Dest-Koordinaten waehrend der Dialog offen ist.
+    private double[] einsteigerPickupCoords = new double[]{ 0, 0 };
+    private double[] einsteigerDestCoords = new double[]{ 0, 0 };
+    private String einsteigerPickupAddress = "";
+    private String einsteigerDestAddress = "";
+
     private void showEinsteigerDialog() {
         if (currentVehicleId == null) return;
+        einsteigerPickupCoords[0] = 0; einsteigerPickupCoords[1] = 0;
+        einsteigerDestCoords[0] = 0; einsteigerDestCoords[1] = 0;
+        einsteigerPickupAddress = "";
+        einsteigerDestAddress = "";
+
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (getResources().getDisplayMetrics().density * 16);
         layout.setPadding(pad, pad, pad, pad);
 
+        // Pickup-Card (mit GPS-Stecknadel)
+        TextView lblPickup = new TextView(this);
+        lblPickup.setText("📍 Abholort");
+        lblPickup.setTextSize(12);
+        lblPickup.setTextColor(Color.parseColor("#64748b"));
+        layout.addView(lblPickup);
+
         EditText etPickup = new EditText(this);
-        etPickup.setHint("Abholort (optional)");
+        etPickup.setHint("Standort wird per Stecknadel uebernommen ...");
         etPickup.setInputType(InputType.TYPE_CLASS_TEXT);
         layout.addView(etPickup);
 
+        MaterialButton btnGpsPin = new MaterialButton(this);
+        btnGpsPin.setText("📍 GPS-Standort uebernehmen");
+        btnGpsPin.setBackgroundColor(Color.parseColor("#059669"));
+        btnGpsPin.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int gap = (int) (getResources().getDisplayMetrics().density * 6);
+        btnLp.setMargins(0, gap, 0, gap * 2);
+        btnGpsPin.setLayoutParams(btnLp);
+        btnGpsPin.setOnClickListener(v -> {
+            btnGpsPin.setEnabled(false);
+            btnGpsPin.setText("⏳ GPS wird gelesen ...");
+            fetchVehicleGpsAndReverseGeocode((addr, lat, lon) -> {
+                runOnUiThread(() -> {
+                    btnGpsPin.setEnabled(true);
+                    if (addr != null && !addr.isEmpty()) {
+                        etPickup.setText(addr);
+                        einsteigerPickupCoords[0] = lat;
+                        einsteigerPickupCoords[1] = lon;
+                        einsteigerPickupAddress = addr;
+                        btnGpsPin.setText("✓ Standort uebernommen — Tippen fuer Aktualisierung");
+                    } else {
+                        btnGpsPin.setText("📍 GPS-Standort uebernehmen");
+                        Toast.makeText(this, "⚠️ GPS-Standort konnte nicht ermittelt werden — bitte Abholort manuell eintragen", Toast.LENGTH_LONG).show();
+                    }
+                });
+            });
+        });
+        layout.addView(btnGpsPin);
+
+        // Destination
+        TextView lblDest = new TextView(this);
+        lblDest.setText("🎯 Zielort");
+        lblDest.setTextSize(12);
+        lblDest.setTextColor(Color.parseColor("#64748b"));
+        layout.addView(lblDest);
+
         EditText etDest = new EditText(this);
-        etDest.setHint("Zielort");
+        etDest.setHint("z.B. Hotel zur Post, Bansin");
         etDest.setInputType(InputType.TYPE_CLASS_TEXT);
         layout.addView(etDest);
 
+        // Preis + Pax
         EditText etPrice = new EditText(this);
         etPrice.setHint("Preis € (z.B. 12.50)");
         etPrice.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -1442,6 +1507,22 @@ public class DriverDashboardActivity extends AppCompatActivity {
         etPax.setInputType(InputType.TYPE_CLASS_NUMBER);
         layout.addView(etPax);
 
+        // Name (OPTIONAL) — Patrick: "Name brauchen wir nicht, das ist optional"
+        TextView lblName = new TextView(this);
+        lblName.setText("👤 Name (optional)");
+        lblName.setTextSize(11);
+        lblName.setTextColor(Color.parseColor("#94a3b8"));
+        LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        nameLp.setMargins(0, gap * 2, 0, 0);
+        lblName.setLayoutParams(nameLp);
+        layout.addView(lblName);
+
+        EditText etName = new EditText(this);
+        etName.setHint("Default: \"Einsteiger\"");
+        etName.setInputType(InputType.TYPE_CLASS_TEXT);
+        layout.addView(etName);
+
         new AlertDialog.Builder(this)
             .setTitle("🚖 EINSTEIGER-Fahrt")
             .setMessage("Walk-In-Fahrgast — wird sofort als 'picked_up' angelegt.")
@@ -1451,22 +1532,138 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String dest = etDest.getText().toString().trim();
                 String priceStr = etPrice.getText().toString().trim();
                 String paxStr = etPax.getText().toString().trim();
-                createEinsteiger(pickup, dest, priceStr, paxStr);
+                String name = etName.getText().toString().trim();
+                createEinsteiger(pickup, dest, priceStr, paxStr, name);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
     }
 
-    private void createEinsteiger(String pickup, String dest, String priceStr, String paxStr) {
+    // 🆕 v6.62.664: GPS-Lesen + Reverse-Geocoding fuer Einsteiger-Pickup.
+    //   Quelle: /vehicles/{currentVehicleId}/lat,lon (vom ShiftForegroundService gepflegt).
+    //   Reverse-Geocode via Nominatim (gleicher Endpoint wie CallLogActivity).
+    private interface GpsResultCallback { void onResult(String address, double lat, double lon); }
+    private void fetchVehicleGpsAndReverseGeocode(GpsResultCallback cb) {
+        if (currentVehicleId == null) { cb.onResult(null, 0, 0); return; }
+        db.getReference("vehicles/" + currentVehicleId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snap) {
+                Double lat = null, lon = null;
+                try {
+                    Object la = snap.child("lat").getValue();
+                    Object lo = snap.child("lon").getValue();
+                    if (la instanceof Number) lat = ((Number) la).doubleValue();
+                    if (lo instanceof Number) lon = ((Number) lo).doubleValue();
+                    if (lat == null) { Object la2 = snap.child("latitude").getValue(); if (la2 instanceof Number) lat = ((Number) la2).doubleValue(); }
+                    if (lon == null) { Object lo2 = snap.child("longitude").getValue(); if (lo2 instanceof Number) lon = ((Number) lo2).doubleValue(); }
+                } catch (Throwable _t) {}
+                if (lat == null || lon == null || (lat == 0 && lon == 0)) {
+                    cb.onResult(null, 0, 0);
+                    return;
+                }
+                final double fLat = lat, fLon = lon;
+                new Thread(() -> {
+                    try {
+                        String urlStr = "https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=" + fLat + "&lon=" + fLon;
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
+                        conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME + " (admin@funk-taxi-heringsdorf.de)");
+                        conn.setConnectTimeout(8000);
+                        conn.setReadTimeout(8000);
+                        java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) sb.append(line);
+                        br.close(); conn.disconnect();
+                        String json = sb.toString();
+                        // Display-Name extrahieren
+                        int dispIdx = json.indexOf("\"display_name\":\"");
+                        String display = (dispIdx >= 0) ? json.substring(dispIdx + 16, json.indexOf("\"", dispIdx + 16)) : ("" + fLat + ", " + fLon);
+                        // Umlaut-Decode
+                        display = display.replace("\\u00e4","ä").replace("\\u00f6","ö").replace("\\u00fc","ü").replace("\\u00df","ß").replace("\\u00c4","Ä").replace("\\u00d6","Ö").replace("\\u00dc","Ü");
+                        cb.onResult(display, fLat, fLon);
+                    } catch (Throwable t) {
+                        cb.onResult("" + fLat + ", " + fLon, fLat, fLon);
+                    }
+                }).start();
+            }
+            @Override public void onCancelled(DatabaseError error) { cb.onResult(null, 0, 0); }
+        });
+    }
+
+    // 🆕 v6.62.664: Nominatim-Search fuer Zielort beim Anlegen (im Hintergrund).
+    //   Fire-and-forget — wenn nicht gefunden, bleibt destLat/Lon=0 und Auto-Assign muss
+    //   das spaeter selbst nachpflegen (siehe autoAssignRide route-recompute Block).
+    private interface GeocodeCallback { void onResult(double lat, double lon, String compactAddr); }
+    private void nominatimSearch(String query, GeocodeCallback cb) {
+        if (query == null || query.trim().isEmpty()) { cb.onResult(0, 0, null); return; }
+        new Thread(() -> {
+            try {
+                String urlStr = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&addressdetails=1&q="
+                    + java.net.URLEncoder.encode(query, "UTF-8");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL(urlStr).openConnection();
+                conn.setRequestProperty("User-Agent", "TaxiHeringsdorf/" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+                conn.setConnectTimeout(8000); conn.setReadTimeout(8000);
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"));
+                StringBuilder sb = new StringBuilder(); String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close(); conn.disconnect();
+                String json = sb.toString();
+                int latIdx = json.indexOf("\"lat\":\""); int lonIdx = json.indexOf("\"lon\":\"");
+                if (latIdx < 0 || lonIdx < 0) { cb.onResult(0, 0, null); return; }
+                latIdx += 7; lonIdx += 7;
+                double lat = Double.parseDouble(json.substring(latIdx, json.indexOf("\"", latIdx)));
+                double lon = Double.parseDouble(json.substring(lonIdx, json.indexOf("\"", lonIdx)));
+                cb.onResult(lat, lon, null);
+            } catch (Throwable t) {
+                cb.onResult(0, 0, null);
+            }
+        }).start();
+    }
+
+    private void createEinsteiger(String pickup, String dest, String priceStr, String paxStr, String name) {
         if (db == null) return;
+        // Wenn Pickup nicht ueber GPS-Button gesetzt wurde, dennoch Nominatim als Fallback
+        if (pickup.isEmpty() && einsteigerPickupAddress.isEmpty()) pickup = "Standort Fahrer";
+        final String fPickup = pickup;
+        final String fDest = dest;
+        // Destination geocoden (wenn coord noch 0) — dann schreiben
+        if (einsteigerDestCoords[0] == 0 && !dest.isEmpty()) {
+            nominatimSearch(dest, (lat, lon, _addr) -> {
+                einsteigerDestCoords[0] = lat;
+                einsteigerDestCoords[1] = lon;
+                runOnUiThread(() -> writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name));
+            });
+        } else {
+            writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name);
+        }
+    }
+
+    private void writeEinsteigerRide(String pickup, String dest, String priceStr, String paxStr, String name) {
         try {
             DatabaseReference newRef = db.getReference("rides").push();
             Map<String, Object> r = new HashMap<>();
-            r.put("customerName", "Einsteiger");
+            String cName = (name == null || name.trim().isEmpty()) ? "Einsteiger" : name.trim();
+            r.put("customerName", cName);
             r.put("vehicleId", currentVehicleId);
             r.put("status", "picked_up");
             r.put("pickup", pickup.isEmpty() ? "Standort Fahrer" : pickup);
             r.put("destination", dest);
+            // 🆕 v6.62.664: Koordinaten mit speichern — Patrick: "alles als String ist Quatsch"
+            if (einsteigerPickupCoords[0] != 0 || einsteigerPickupCoords[1] != 0) {
+                r.put("pickupLat", einsteigerPickupCoords[0]);
+                r.put("pickupLon", einsteigerPickupCoords[1]);
+                Map<String, Object> pc = new HashMap<>();
+                pc.put("lat", einsteigerPickupCoords[0]);
+                pc.put("lon", einsteigerPickupCoords[1]);
+                r.put("pickupCoords", pc);
+            }
+            if (einsteigerDestCoords[0] != 0 || einsteigerDestCoords[1] != 0) {
+                r.put("destinationLat", einsteigerDestCoords[0]);
+                r.put("destinationLon", einsteigerDestCoords[1]);
+                Map<String, Object> dc = new HashMap<>();
+                dc.put("lat", einsteigerDestCoords[0]);
+                dc.put("lon", einsteigerDestCoords[1]);
+                r.put("destCoords", dc);
+            }
             long now = System.currentTimeMillis();
             r.put("pickupTimestamp", now);
             r.put("pickupTime", new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(now)));
@@ -1484,7 +1681,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 r.put("passengers", pax);
             } catch (Throwable _t) { r.put("passengers", 1); }
             newRef.setValue(r).addOnCompleteListener(task -> {
-                if (task.isSuccessful()) Toast.makeText(this, "✅ EINSTEIGER angelegt", Toast.LENGTH_SHORT).show();
+                if (task.isSuccessful()) Toast.makeText(this, "✅ EINSTEIGER angelegt" + ((einsteigerPickupCoords[0]!=0||einsteigerDestCoords[0]!=0)?" (mit Koordinaten)":""), Toast.LENGTH_SHORT).show();
                 else Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
             });
         } catch (Throwable t) {

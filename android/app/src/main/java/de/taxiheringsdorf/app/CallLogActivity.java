@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.util.Log;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.CallLog;
@@ -2337,7 +2338,7 @@ public class CallLogActivity extends AppCompatActivity {
                     }
                 }
             }
-        } catch (Throwable _t) { Log.w(TAG, "findAcrRecording Fehler: " + _t.getMessage()); }
+        } catch (Throwable _t) { Log.w("CallLogActivity", "findAcrRecording Fehler: " + _t.getMessage()); }
         return null;
     }
 

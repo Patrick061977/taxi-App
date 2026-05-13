@@ -21756,6 +21756,93 @@ exports.onRideUpdated = onValueUpdated(
 // ═══════════════════════════════════════════════════════════════
 // TRIGGER 3: Fahrt gelöscht → Admin-Benachrichtigung
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.683: Patrick (13.05. 16:56): "Wenn Danilo Schicht beendet, sollten seine
+//   Vorbestellungen neu verteilt werden. Heute Seifert-Bug: Danilo hat 16:24 Feierabend
+//   gemacht, Push-Reminder ging 16:43 trotzdem an sein totes Handy."
+//   Cloud-Trigger auf /vehicles/{vid}/shift/status: wenn neu='ended' (oder 'auto-ended')
+//   suche alle ZUKUENFTIGEN Vorbestellungen die diesem Fahrzeug zugewiesen sind, re-
+//   assigne sie sofort via autoAssignRide. Plus Admin-Telegram mit Liste was umverteilt
+//   wurde.
+exports.onShiftStatusChanged = onValueUpdated(
+    {
+        ref: '/vehicles/{vehicleId}/shift/status',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '512MiB'
+    },
+    async (event) => {
+        const vid = event.params.vehicleId;
+        const newStatus = event.data.after.val();
+        const oldStatus = event.data.before.val();
+        if (newStatus === oldStatus) return;
+        const endedStates = ['ended', 'auto-ended'];
+        if (!endedStates.includes(newStatus)) return;
+        if (endedStates.includes(oldStatus)) return; // schon ended → war doppel-trigger
+        console.log(`🛑 onShiftStatusChanged: ${vid} ${oldStatus}→${newStatus} — suche zugewiesene Vorbestellungen`);
+        try {
+            const ridesSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(vid).once('value');
+            const now = Date.now();
+            const affected = [];
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (!['assigned', 'vorbestellt'].includes(r.status)) return;
+                if (!r.pickupTimestamp || r.pickupTimestamp <= now) return;
+                affected.push({ id: c.key, ride: r });
+            });
+            if (affected.length === 0) {
+                console.log(`✅ ${vid} Schicht-Ende: keine offenen Vorbestellungen`);
+                return;
+            }
+            console.log(`🔄 ${affected.length} Vorbestellungen von ${vid} werden umverteilt`);
+            const _vehName = (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+            const reassigned = [];
+            const failed = [];
+            for (const { id, ride } of affected) {
+                try {
+                    // Vehicle aus der Ride entfernen + Status auf 'vorbestellt' (falls 'assigned')
+                    await db.ref('rides/' + id).update({
+                        assignedVehicle: null,
+                        vehicleId: null,
+                        assignedTo: null,
+                        vehicle: null,
+                        vehicleLabel: null,
+                        vehiclePlate: null,
+                        assignedAt: null,
+                        assignedBy: null,
+                        status: 'vorbestellt',
+                        reassignReason: `${_vehName} Schicht-Ende — automatische Umverteilung`,
+                        reassignedAt: now,
+                        updatedAt: now
+                    });
+                    await addRideLog(id, '🔄', `Fahrzeug entfernt: ${_vehName} hat Schicht beendet`, {
+                        quelle: 'onShiftStatusChanged v6.62.683',
+                        altFahrzeug: _vehName,
+                        schichtStatus: newStatus
+                    });
+                    const result = await autoAssignRide(id, { ...ride, _rejectedVehicles: [vid] });
+                    if (result && result.vehicleId) {
+                        reassigned.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, newVehicle: result.name });
+                    } else {
+                        failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime });
+                    }
+                } catch (err) {
+                    console.error(`Reassign-Fehler fuer ${id}:`, err.message);
+                    failed.push({ rideId: id, customerName: ride.customerName, pickupTime: ride.pickupTime, error: err.message });
+                }
+            }
+            // Admin-Telegram mit Zusammenfassung
+            const msg = `🛑 <b>${_vehName} hat Schicht beendet</b> (${newStatus})\n\n` +
+                `<b>${affected.length} Vorbestellung(en)</b> wurden umverteilt:\n\n` +
+                reassigned.map(r => `✅ ${r.customerName || '?'} ${r.pickupTime || ''} → ${r.newVehicle}`).join('\n') +
+                (failed.length ? `\n\n⚠️ <b>${failed.length} konnten NICHT neu zugewiesen werden:</b>\n` + failed.map(f => `❌ ${f.customerName || '?'} ${f.pickupTime || ''}`).join('\n') : '');
+            await sendToAllAdmins(msg, 'shift_end_reassign');
+        } catch (err) {
+            console.error('onShiftStatusChanged Fehler:', err.message);
+        }
+    }
+);
+
 exports.onRideDeleted = onValueDeleted(
     {
         ref: '/rides/{rideId}',

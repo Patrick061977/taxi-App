@@ -4623,6 +4623,20 @@
             logBuchen('🚕', 'BUCHUNG GESTARTET: ' + nameVal + ' | ' + pickup + ' → ' + dest + ' | ' + wannModus);
 
             // 🆕 v6.38.97: Bereits eingeloggt → SMS überspringen, direkt buchen!
+            // 🆕 v6.62.659: Patrick (12.05.): "selbst wenn man angemeldet ist im Konto,
+            //   muss man noch ein SMS eingeben zur Bestaetigung". Bug: _isLoggedIn wird
+            //   asynchron in onAuthStateChanged gesetzt. Wenn User schnell auf Buchen
+            //   klickt (oder Firebase-Auth noch nicht initialisiert), ist _isLoggedIn
+            //   noch false obwohl auth.currentUser bereits einen Phone-User hat. Direkt
+            //   aus auth.currentUser lesen statt nur auf das async-Flag zu vertrauen.
+            const _currentUser = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser : null;
+            const _authPhone = _currentUser ? _currentUser.phoneNumber : null;
+            if (_authPhone) {
+                if (!customerPhone) customerPhone = _authPhone;
+                logBuchen('✅', 'Bereits eingeloggt (auth.currentUser) — überspringe SMS (' + customerPhone + ')');
+                createBooking();
+                return;
+            }
             if (_isLoggedIn && customerPhone) {
                 logBuchen('✅', 'Bereits eingeloggt — überspringe SMS (' + customerPhone + ')');
                 createBooking();

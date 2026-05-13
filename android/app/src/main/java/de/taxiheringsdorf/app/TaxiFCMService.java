@@ -115,6 +115,17 @@ public class TaxiFCMService extends FirebaseMessagingService {
             title = prefix + " Neue Web-Buchung!";
             body = pickupTime + " · " + customerName + "\n📍 " + pickup;
             if (!destination.isEmpty()) body += "\n🎯 " + destination;
+        } else if ("new_anfrage".equals(type)) {
+            // 🆕 v6.62.673: Web-/WhatsApp-Anfrage aus /anfragen/ — noch nicht in /rides
+            //   Patrick: "wo sehe ich offene Anfragen in der Native-App?". Tap auf Push
+            //   oeffnet AdminDashboard, dort steht die Anfrage in der OFFENE-ANFRAGEN-
+            //   Sektion mit "Übernehmen"-Klick-Aktion.
+            String src = data.getOrDefault("source", "web");
+            String prefix = "whatsapp".equalsIgnoreCase(src) ? "💬" : "📥";
+            title = prefix + " Neue " + (src.length() > 0 ? src.toUpperCase() : "WEB") + "-Anfrage!";
+            body = pickupTime + " · " + customerName + "\n📍 " + pickup;
+            if (!destination.isEmpty()) body += "\n🎯 " + destination;
+            body += "\n💡 Tippen zum Übernehmen";
         } else if ("ride_cancelled".equals(type)) {
             title = "❌ Fahrt storniert";
             body = customerName + " · " + pickupTime;
@@ -128,8 +139,9 @@ public class TaxiFCMService extends FirebaseMessagingService {
         // v6.43.2: Notification-Tap öffnet DriverDashboardActivity (nicht MainActivity/WebView).
         // Patrick erlebte: Power-Button-Wakeup → Tippen auf Notification → Login-Screen statt Dashboard.
         // 🆕 v6.62.667: Bei Admin-Push (new_web_booking) AdminDashboardActivity oeffnen.
+        // 🆕 v6.62.673: new_anfrage ebenfalls AdminDashboardActivity.
         Intent appIntent;
-        if ("new_web_booking".equals(type)) {
+        if ("new_web_booking".equals(type) || "new_anfrage".equals(type)) {
             appIntent = new Intent(this, AdminDashboardActivity.class);
         } else {
             appIntent = new Intent(this, DriverDashboardActivity.class);
@@ -200,7 +212,7 @@ public class TaxiFCMService extends FirebaseMessagingService {
         //   unterdrueckt, spielen wir Sound + Vibration zusaetzlich direkt ueber Ringtone-
         //   und Vibrator-API. Nur fuer new_ride + new_web_booking (Audio-Alert wichtig),
         //   nicht fuer cancel/send_sms/etc.
-        if (("new_ride".equals(type) || "new_web_booking".equals(type)) && isForeground) {
+        if (("new_ride".equals(type) || "new_web_booking".equals(type) || "new_anfrage".equals(type)) && isForeground) {
             try {
                 android.media.Ringtone _rt = android.media.RingtoneManager.getRingtone(getApplicationContext(), sound);
                 if (_rt != null) {

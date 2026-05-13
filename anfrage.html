@@ -420,10 +420,9 @@
                 var addrInput = document.getElementById('anf-festpreis-addr-input');
                 if (addrInput) { addrInput.value = ''; addrInput.focus(); }
                 document.getElementById('anf-price').textContent = preis.toFixed(2) + '\u20ac';
-                document.getElementById('anf-price-box').style.display = 'block';
+                // \ud83d\udd27 v6.62.698: untere Preis-Box bleibt versteckt (Patrick OK 21:06) \u2014
+                //   Festpreis wird im Map-Preis-Overlay angezeigt sobald Route geladen ist.
                 document.getElementById('anf-price-label').textContent = 'Pauschalpreis';
-                document.getElementById('anf-price-label').style.color = '#059669';
-                document.getElementById('anf-price-label').style.fontWeight = '700';
                 document.getElementById('anf-route-info').textContent = '\u015awinouj\u015bcie ' + ziel;
                 // \ud83d\udd27 v6.62.695: Festpreis nutzt jetzt Map-Overlay (Preis rechts) wenn Route geladen ist.
                 //   anf-price.textContent reicht hier \u2014 Map-Render passiert spaeter im calcAnfPrice-Flow.
@@ -719,7 +718,10 @@ async function calcAnfPrice() {
         var tarifLabel = isFeiertag ? 'Feiertagstarif (Nachttarif)' : (isSunday && !isNightTime ? 'Sonntagstarif' : (isNightTime ? 'Nachttarif' : ''));
         var _anfAnfahrtHint = _anfAnfahrtEur > 0 ? ' \u00b7 \ud83d\udee3 Anfahrt zum Abholort ' + _anfAnfahrtKm.toFixed(0) + ' km \u00d7 1,20\u20ac = +' + _anfAnfahrtEur.toFixed(2) + '\u20ac' : '';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '') + _anfAnfahrtHint;
-        document.getElementById('anf-price-box').style.display = 'block';
+        // \ud83d\udd27 v6.62.698: Patrick (13.05. 21:06 OK'd): unterer "Geschaetzter Preis" raus \u2014
+        //   ist Doppelung zum Map-Overlay rechts oben. anf-price-box bleibt im DOM
+        //   (anf-route-info / anf-price-label / anf-price werden weiter befuellt \u2014 ggf.
+        //   genutzt von Backend-Submit oder externen Konsumenten), nur sichtbar wird sie nicht.
         // \ud83c\udd95 v6.62.689: Karte + Overlay rendern wenn Route vorhanden
         try {
             var _routeCard = document.getElementById('anf-route-card');

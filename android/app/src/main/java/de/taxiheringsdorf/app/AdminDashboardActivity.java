@@ -374,31 +374,40 @@ public class AdminDashboardActivity extends AppCompatActivity {
     // v6.62.638: Wiederholungs-Dialog mit 2 Varianten — gleiche Strecke oder Rueckfahrt
     // Patrick (12.05. 13:03): "Fahrten kopieren und Abholort/Zielort tauschen"
     // v6.62.640: Koordinaten auch uebernehmen/tauschen (Lattorf-Bug-Fix)
+    // 🆕 v6.62.679: Patrick (13.05. 14:55): "Das normale Umdrehen sind alles Strings.
+    //   Ich will doch die gleiche Maske wie in CRM-Suche bei vergangenen Fahrten — da
+    //   kann ich Places-Autocomplete + Stecknadel benutzen." Statt eigener String-Dialog
+    //   launch'en wir die CrmSearchActivity mit auto_template_ride_id-Extra, die laedt
+    //   dann die volle Ride als Template + zeigt die polierte showVorbestellungMaske.
     private void showRepeatPastRideDialog(Ride r) {
         String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
             + (r.customerName != null ? r.customerName : "?") + "\n"
             + (r.pickup != null ? r.pickup : "?") + "\n→ "
             + (r.destination != null ? r.destination : "?")
-            + "\n\nDaten werden vorbefuellt, du waehlst nur Datum/Zeit.";
+            + "\n\nDie polierte Vorbestellungs-Maske oeffnet sich mit Karte + Adress-Suche.";
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📅 Fahrt wiederholen")
             .setMessage(msg)
-            .setPositiveButton("📅 Gleiche Strecke", (d, w) -> showNewBookingDialog(r))
-            .setNeutralButton("🔄 Rueckfahrt (getauscht)", (d, w) -> {
-                Ride swap = new Ride();
-                swap.customerName = r.customerName;
-                swap.customerPhone = r.customerPhone;
-                swap.pickup = r.destination;       // Tausch
-                swap.destination = r.pickup;        // Tausch
-                swap.passengers = r.passengers;
-                swap.pickupLat = r.destinationLat;
-                swap.pickupLon = r.destinationLon;
-                swap.destinationLat = r.pickupLat;
-                swap.destinationLon = r.pickupLon;
-                showNewBookingDialog(swap);
-            })
+            .setPositiveButton("📅 Gleiche Strecke", (d, w) -> launchCrmTemplate(r, false))
+            .setNeutralButton("🔄 Rueckfahrt (getauscht)", (d, w) -> launchCrmTemplate(r, true))
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // 🆕 v6.62.679: Launch CrmSearchActivity mit Template-Extras. CrmSearchActivity laedt
+    //   die volle Ride, baut Vorlage, optional Swap (Rueckfahrt) und zeigt die Maske.
+    private void launchCrmTemplate(Ride r, boolean swap) {
+        if (r == null || r.id == null) {
+            Toast.makeText(this, "❌ Fahrt-ID fehlt — Vorlage nicht moeglich", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Intent i = new Intent(this, CrmSearchActivity.class);
+        i.putExtra("auto_template_ride_id", r.id);
+        if (swap) i.putExtra("auto_template_swap", "true");
+        // customerId / customerName als Fallback fuer den CrmEntry-Lookup
+        // (wenn der Kunde nicht im CRM ist, baut CrmSearchActivity einen temp-Entry)
+        // CRM-Suche braucht die customerId direkt aus der Ride.
+        startActivity(i);
     }
 
     // Manuelle Buchung ohne Anrufer-Kontext

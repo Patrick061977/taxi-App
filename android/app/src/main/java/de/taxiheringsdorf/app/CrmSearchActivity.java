@@ -445,9 +445,90 @@ public class CrmSearchActivity extends AppCompatActivity {
         Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
     }
 
+    // 🆕 v6.62.679: Patrick (13.05. 14:55): AdminDashboard Rueckfahrt-Klick laeuft
+    //   jetzt durch CrmSearchActivity damit die polierte Vorbestellungs-Maske benutzt
+    //   wird (Places-Autocomplete + Stecknadel-Picker). Intent-Extras:
+    //     auto_template_ride_id  → die Ride die als Vorlage geladen wird
+    //     auto_template_swap     → "true" fuer Rueckfahrt (pickup/dest tauschen)
+    private String _pendingTemplateRideId = null;
+    private boolean _pendingTemplateSwap = false;
+
+    private void _maybeAutoOpenRideTemplate() {
+        String _rid = getIntent() != null ? getIntent().getStringExtra("auto_template_ride_id") : null;
+        if (_rid == null) return;
+        _pendingTemplateRideId = _rid;
+        _pendingTemplateSwap = "true".equals(getIntent().getStringExtra("auto_template_swap"));
+        getIntent().removeExtra("auto_template_ride_id");
+        getIntent().removeExtra("auto_template_swap");
+    }
+
+    private void _runPendingTemplateIfReady() {
+        if (_pendingTemplateRideId == null) return;
+        final String _rid = _pendingTemplateRideId;
+        final boolean _swap = _pendingTemplateSwap;
+        _pendingTemplateRideId = null;
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + _rid).get()
+            .addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || task.getResult() == null || !task.getResult().exists()) {
+                    Toast.makeText(this, "❌ Fahrt-Vorlage nicht gefunden", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
+                if (_full == null) {
+                    Toast.makeText(this, "❌ Vorlage-Daten leer", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Kunde aus CRM-Liste finden (per customerId), sonst temp-Entry bauen
+                String _custId = _full.get("customerId") instanceof String ? (String) _full.get("customerId") : null;
+                CrmEntry e = null;
+                if (_custId != null) {
+                    for (CrmEntry x : all) {
+                        if (_custId.equals(x.id)) { e = x; break; }
+                    }
+                }
+                if (e == null) {
+                    e = new CrmEntry();
+                    e.id = _custId; // kann null sein
+                    e.name = _full.get("customerName") instanceof String ? (String) _full.get("customerName") : null;
+                    e.phone = _full.get("customerPhone") instanceof String ? (String) _full.get("customerPhone") : null;
+                    e.mobilePhone = _full.get("customerMobile") instanceof String ? (String) _full.get("customerMobile") : null;
+                }
+                // Template-Map bauen — gleiche Strip-Logik wie openRideAsTemplate
+                Map<String, Object> _template = new HashMap<>(_full);
+                _template.remove("pickupTimestamp"); _template.remove("pickupTime");
+                _template.remove("vehicleId"); _template.remove("assignedVehicle");
+                _template.remove("assignedTo"); _template.remove("assignedAt");
+                _template.remove("assignedBy"); _template.remove("acceptedAt");
+                _template.remove("acceptedVia"); _template.remove("status");
+                _template.remove("createdAt"); _template.remove("updatedAt");
+                _template.remove("completedAt"); _template.remove("cancelledAt");
+                _template.remove("cancelReason"); _template.remove("invoiceNumber");
+                _template.remove("paymentMethod"); _template.remove("editedAt");
+                _template.remove("editedVia"); _template.remove("source");
+                // Rueckfahrt: pickup/destination + coords tauschen
+                if (_swap) {
+                    Object _p = _template.get("pickup");
+                    Object _d = _template.get("destination");
+                    _template.put("pickup", _d); _template.put("destination", _p);
+                    Object _pl = _template.get("pickupLat"); Object _pn = _template.get("pickupLon");
+                    Object _dl = _template.get("destinationLat"); Object _dn = _template.get("destinationLon");
+                    _template.put("pickupLat", _dl); _template.put("pickupLon", _dn);
+                    _template.put("destinationLat", _pl); _template.put("destinationLon", _pn);
+                    // pickupCoords / destCoords als Map ebenfalls tauschen
+                    Object _pc = _template.get("pickupCoords"); Object _dc = _template.get("destCoords");
+                    _template.put("pickupCoords", _dc); _template.put("destCoords", _pc);
+                    Toast.makeText(this, "🔄 Rueckfahrt — Abhol-/Zielort getauscht", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "📋 Vorlage geladen — waehle neuen Termin", Toast.LENGTH_SHORT).show();
+                }
+                showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
+            });
+    }
+
     private void loadAll() {
         _maybeAutoOpenHistory();
         _maybeAutoOpenCreateDialog();
+        _maybeAutoOpenRideTemplate();
         tvCount.setText("Lade…");
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
             .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -460,6 +541,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                     all.sort((a, b) -> (a.name != null ? a.name : "").compareToIgnoreCase(b.name != null ? b.name : ""));
                     applyFilter(etQuery.getText() != null ? etQuery.getText().toString() : "");
                     _runPendingHistoryIfReady();
+                    _runPendingTemplateIfReady();
                 }
                 @Override public void onCancelled(@NonNull DatabaseError error) {
                     tvCount.setText("Fehler: " + error.getMessage());

@@ -19542,6 +19542,39 @@ exports.scheduledAutoAssign = onSchedule(
 // ═══════════════════════════════════════════════════════════════
 // TRIGGER 1: Neue Fahrt erstellt → Admin-Benachrichtigung
 // ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.673: Patrick (13.05. 12:06): "Wo sehe ich offene Anfragen in der Native-App?"
+//   onValueCreated('/anfragen/{id}') sendet Admin-FCM-Push, AdminDashboardActivity
+//   liest /anfragen direkt und zeigt die Sektion "OFFENE ANFRAGEN" oben in der Liste.
+exports.onAnfrageCreated = onValueCreated(
+    {
+        ref: '/anfragen/{anfrageId}',
+        region: 'europe-west1',
+        memory: '256MiB'
+    },
+    async (event) => {
+        const anfrage = event.data.val();
+        const anfrageId = event.params.anfrageId;
+        if (!anfrage) return;
+        if (anfrage.status && anfrage.status !== 'offen') return; // nur offene Anfragen pushen
+        try {
+            await sendFCMToAdmins({
+                type: 'new_anfrage',
+                anfrageId: anfrageId,
+                rideId: '',
+                pickup: anfrage.pickup || '',
+                destination: anfrage.destination || '',
+                pickupTime: (anfrage.date || '') + (anfrage.time ? ' ' + anfrage.time : ''),
+                customerName: anfrage.name || 'Web-Anfrage',
+                source: anfrage.channel || 'web',
+                isSofort: 'false'
+            });
+            console.log(`📥 Admin-Push fuer neue Anfrage ${anfrageId} (${anfrage.name || '?'}) gesendet`);
+        } catch (e) {
+            console.error('onAnfrageCreated Push-Fehler:', e.message);
+        }
+    }
+);
+
 exports.onRideCreated = onValueCreated(
     {
         ref: '/rides/{rideId}',

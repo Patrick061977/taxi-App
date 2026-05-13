@@ -61,6 +61,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private FirebaseDatabase db;
     private Query openRidesQuery;
     private ValueEventListener openRidesListener;
+    // 🆕 v6.62.673: Patrick (13.05. 12:06): "Wo sehe ich offene Anfragen in der Native-App?"
+    //   AdminDashboard liest jetzt zusaetzlich /anfragen wo status='offen'.
+    private Query offeneAnfragenQuery;
+    private ValueEventListener offeneAnfragenListener;
+    private List<Anfrage> _currentOffeneAnfragen = new ArrayList<>();
+    private List<Ride> _currentRides = new ArrayList<>();
     // v6.62.153: Active-Statuses fuer Disposition-Liste (alle Fahrten die noch nicht abgeschlossen sind)
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
         "warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up");
@@ -198,6 +204,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 @Override public void onCancelled(@NonNull DatabaseError e) { Log.e(TAG, e.getMessage()); }
             };
             openRidesQuery.addValueEventListener(openRidesListener);
+
+            // 🆕 v6.62.673: Patrick (13.05. 12:06): "Wo sehe ich offene Anfragen in der
+            //   Native-App?" — Listener auf /anfragen mit status='offen'.
+            offeneAnfragenQuery = db.getReference("anfragen").orderByChild("status").equalTo("offen");
+            offeneAnfragenListener = new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    _currentOffeneAnfragen.clear();
+                    for (DataSnapshot c : s.getChildren()) {
+                        Anfrage a = Anfrage.fromSnap(c);
+                        if (a != null) _currentOffeneAnfragen.add(a);
+                    }
+                    // Re-render
+                    rebuildAdapterList();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) { Log.e(TAG, "Anfragen-Listener: " + e.getMessage()); }
+            };
+            offeneAnfragenQuery.addValueEventListener(offeneAnfragenListener);
         } catch (Throwable t) {
             Log.e(TAG, "Firebase-Setup: " + t.getMessage());
             Toast.makeText(this, "Firebase-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
@@ -205,7 +228,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     private void onOpenRides(DataSnapshot s) {
-        List<Ride> list = new ArrayList<>();
+        _currentRides.clear();
         for (DataSnapshot c : s.getChildren()) {
             Ride r = Ride.fromSnap(c);
             if (r == null || r.status == null) continue;
@@ -213,8 +236,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
             // v6.62.636: bei _includePast zusaetzlich completed durchlassen — fuer die Wiederholungs-Funktion
             boolean isActive = ACTIVE_STATUSES.contains(r.status);
             boolean isCompletedPast = _includePast && "completed".equals(r.status);
-            if (isActive || isCompletedPast) list.add(r);
+            if (isActive || isCompletedPast) _currentRides.add(r);
         }
+        rebuildAdapterList();
+    }
+
+    // 🆕 v6.62.673: Adapter-Liste neu bauen aus _currentRides + _currentOffeneAnfragen.
+    //   Beide Listener (Rides + Anfragen) rufen das jetzt auf — Layout-Reihenfolge:
+    //     1) "📥 OFFENE ANFRAGEN" Sektion (aus /anfragen status='offen')
+    //     2) "🆕 NEUE WEB-ANFRAGEN" Sektion (aus /rides web-source ohne Vehicle)
+    //     3) Tag-Header + Fahrten chronologisch
+    private void rebuildAdapterList() {
+        List<Ride> list = new ArrayList<>(_currentRides);
         list.sort(Comparator.comparingLong(r -> r.pickupTimestamp != null ? r.pickupTimestamp : Long.MAX_VALUE));
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen direkt in der Native-App sehen'
         // Unzugewiesene Web-Bookings nach oben in eigene Sektion ziehen.
@@ -227,6 +260,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
         // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
         List<Object> sectioned = new ArrayList<>();
+        // 🆕 v6.62.673: OFFENE ANFRAGEN aus /anfragen — ganz oben, da sie noch nicht
+        //   in /rides sind und manuell uebernommen werden muessen.
+        if (!_currentOffeneAnfragen.isEmpty()) {
+            // Nach Erstellungs-Zeit absteigend (neueste oben)
+            _currentOffeneAnfragen.sort((a, b) -> Long.compare(b.createdAt == null ? 0 : b.createdAt, a.createdAt == null ? 0 : a.createdAt));
+            sectioned.add("📥 OFFENE ANFRAGEN (" + _currentOffeneAnfragen.size() + ") — tippen zum übernehmen");
+            sectioned.addAll(_currentOffeneAnfragen);
+        }
         if (!webRequests.isEmpty()) {
             sectioned.add("🆕 NEUE WEB-ANFRAGEN (" + webRequests.size() + ") — bitte annehmen");
             sectioned.addAll(webRequests);
@@ -253,9 +294,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             sectioned.add(r);
         }
         adapter.set(sectioned);
-        tvQueueCount.setText(String.valueOf(list.size()));
-        emptyState.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
-        rv.setVisibility(list.isEmpty() ? View.GONE : View.VISIBLE);
+        // 🆕 v6.62.673: Queue-Count zaehlt jetzt auch offene Anfragen
+        int totalCount = list.size() + _currentOffeneAnfragen.size();
+        tvQueueCount.setText(String.valueOf(totalCount));
+        emptyState.setVisibility(totalCount == 0 ? View.VISIBLE : View.GONE);
+        rv.setVisibility(totalCount == 0 ? View.GONE : View.VISIBLE);
 
         // 🆕 v6.62.636: Patrick (12.05. 09:05): "wenn er trotzdem zur aktuellen Fahrt
         // springt". Auto-Scroll zur ersten Fahrt deren pickupTimestamp >= now —
@@ -359,6 +402,91 @@ public class AdminDashboardActivity extends AppCompatActivity {
     }
 
     // Manuelle Buchung ohne Anrufer-Kontext
+    // 🆕 v6.62.673: Anfrage uebernehmen — Patrick (13.05.) "wo sehe ich offene Anfragen
+    //   in der Native-App?". Tap auf Anfrage-Item oeffnet diesen Dialog: zeigt alle
+    //   Felder als Read-Preview, "Übernehmen" → wandelt nach /rides um (status='vorbestellt'
+    //   wenn future, sonst 'sofort'), markiert die Anfrage als bestaetigt.
+    private void showAnfrageUebernehmenDialog(Anfrage a) {
+        StringBuilder details = new StringBuilder();
+        details.append("Kanal: ").append(a.channel != null ? a.channel : "?").append("\n");
+        if (a.name != null) details.append("Name: ").append(a.name).append("\n");
+        if (a.phone != null) details.append("Tel: ").append(a.phone).append("\n");
+        if (a.email != null) details.append("Email: ").append(a.email).append("\n");
+        if (a.passengers != null) details.append("Personen: ").append(a.passengers).append("\n");
+        if (a.date != null) details.append("Datum: ").append(a.date).append("\n");
+        if (a.time != null) details.append("Uhrzeit: ").append(a.time).append("\n");
+        if (a.pickup != null) details.append("Abholort: ").append(a.pickup).append("\n");
+        if (a.stopp != null && !a.stopp.isEmpty()) details.append("Zwischenstopp: ").append(a.stopp).append("\n");
+        if (a.destination != null) details.append("Zielort: ").append(a.destination).append("\n");
+        if (a.notes != null && !a.notes.isEmpty()) details.append("Notiz: ").append(a.notes).append("\n");
+        new AlertDialog.Builder(this)
+            .setTitle("📥 Anfrage übernehmen")
+            .setMessage(details.toString())
+            .setPositiveButton("✅ Übernehmen", (d, w) -> uebernehmeAnfrage(a))
+            .setNeutralButton("❌ Ablehnen", (d, w) -> {
+                // Status auf abgelehnt setzen
+                db.getReference("anfragen/" + a.id + "/status").setValue("abgelehnt");
+                Toast.makeText(this, "Anfrage abgelehnt", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void uebernehmeAnfrage(Anfrage a) {
+        try {
+            DatabaseReference newRideRef = db.getReference("rides").push();
+            String rideId = newRideRef.getKey();
+            long now = System.currentTimeMillis();
+            // pickupTimestamp aus date + time
+            Long pickupTs = null;
+            String pickupTime = a.time;
+            try {
+                if (a.date != null && a.time != null) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY);
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+                    pickupTs = sdf.parse(a.date + " " + a.time).getTime();
+                }
+            } catch (Throwable _t) { Log.w(TAG, "Anfrage-Datum-Parse: " + _t.getMessage()); }
+            boolean isSofort = pickupTs == null || (pickupTs - now) < 30 * 60_000L;
+            Map<String, Object> ride = new HashMap<>();
+            if (a.name != null) ride.put("customerName", a.name);
+            if (a.phone != null) {
+                ride.put("customerPhone", a.phone);
+                ride.put("customerMobile", a.phone);
+            }
+            if (a.email != null) ride.put("customerEmail", a.email);
+            if (a.pickup != null) ride.put("pickup", a.pickup);
+            if (a.destination != null) ride.put("destination", a.destination);
+            if (a.stopp != null && !a.stopp.isEmpty()) ride.put("zwischenstopp", a.stopp);
+            ride.put("passengers", a.passengers != null ? a.passengers : 1);
+            ride.put("status", isSofort ? "sofort" : "vorbestellt");
+            ride.put("source", "anfrage-uebernahme-native");
+            ride.put("anfrageId", a.id);
+            if (a.notes != null && !a.notes.isEmpty()) ride.put("notes", a.notes);
+            ride.put("createdAt", now);
+            ride.put("updatedAt", now);
+            if (pickupTs != null) ride.put("pickupTimestamp", pickupTs);
+            if (pickupTime != null) ride.put("pickupTime", pickupTime);
+            ride.put("paymentMethod", "bar");
+            // Atomares Update: ride anlegen + anfrage als bestaetigt markieren
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("/rides/" + rideId, ride);
+            updates.put("/anfragen/" + a.id + "/status", "bestaetigt");
+            updates.put("/anfragen/" + a.id + "/rideId", rideId);
+            updates.put("/anfragen/" + a.id + "/uebernommenAt", now);
+            updates.put("/anfragen/" + a.id + "/uebernommenBy", "native_admin");
+            db.getReference().updateChildren(updates).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Toast.makeText(this, "✅ Anfrage übernommen → Ride " + (isSofort ? "sofort" : "vorbestellt"), Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, "❌ Fehler: " + (task.getException() != null ? task.getException().getMessage() : "?"), Toast.LENGTH_LONG).show();
+                }
+            });
+        } catch (Throwable t) {
+            Toast.makeText(this, "❌ Anfrage-Übernahme-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void showNewBookingDialog() { showNewBookingDialog(null); }
     private void showNewBookingDialog(Ride preset) {
         LinearLayout layout = new LinearLayout(this);
@@ -512,6 +640,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         super.onDestroy();
         TaxiFCMService.setForeground(false);
         if (openRidesQuery != null && openRidesListener != null) openRidesQuery.removeEventListener(openRidesListener);
+        // 🆕 v6.62.673: Anfragen-Listener auch entfernen
+        if (offeneAnfragenQuery != null && offeneAnfragenListener != null) offeneAnfragenQuery.removeEventListener(offeneAnfragenListener);
         // v6.62.153: Wenn Patrick von Driver-Hamburger-'Disposition' kam, Admin-Mode wieder
         // ausschalten — sonst denkt CallLogActivity nach Rueckkehr es laeuft Admin-Modus.
         // Nur ausschalten wenn Driver-Vehicle gesetzt ist (= wir kamen aus Driver-Mode).
@@ -627,13 +757,54 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
     }
 
+    // 🆕 v6.62.673: Anfrage-Klasse (/anfragen/{id}) — Web-/WhatsApp-Anfragen die noch
+    //   nicht in /rides/ uebertragen wurden. Patrick: "wo sehe ich offene Anfragen
+    //   in der Native-App?". Felder spiegeln das in dms-Code etablierte Schema:
+    static class Anfrage {
+        String id, name, phone, email, pickup, destination, stopp, date, time, notes, channel, type, status, festpreisAdresse;
+        Integer passengers;
+        Long createdAt;
+        String price; // kann String '—' oder Zahl sein
+
+        static Anfrage fromSnap(DataSnapshot s) {
+            try {
+                Anfrage a = new Anfrage();
+                a.id = s.getKey();
+                a.name = s.child("name").getValue(String.class);
+                a.phone = s.child("phone").getValue(String.class);
+                a.email = s.child("email").getValue(String.class);
+                a.pickup = s.child("pickup").getValue(String.class);
+                a.destination = s.child("destination").getValue(String.class);
+                a.stopp = s.child("stopp").getValue(String.class);
+                a.date = s.child("date").getValue(String.class);
+                a.time = s.child("time").getValue(String.class);
+                a.notes = s.child("notes").getValue(String.class);
+                a.channel = s.child("channel").getValue(String.class);
+                a.type = s.child("type").getValue(String.class);
+                a.status = s.child("status").getValue(String.class);
+                a.festpreisAdresse = s.child("festpreisAdresse").getValue(String.class);
+                Object px = s.child("passengers").getValue();
+                if (px instanceof Number) a.passengers = ((Number) px).intValue();
+                Object ct = s.child("createdAt").getValue();
+                if (ct instanceof Number) a.createdAt = ((Number) ct).longValue();
+                Object pr = s.child("price").getValue();
+                if (pr != null) a.price = String.valueOf(pr);
+                return a;
+            } catch (Throwable t) { return null; }
+        }
+    }
+
     class AdminRideAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         private List<Object> data = new ArrayList<>();
         private static final int TYPE_HEADER = 0;
         private static final int TYPE_RIDE = 1;
+        private static final int TYPE_ANFRAGE = 2;
         void set(List<Object> list) { data = list; notifyDataSetChanged(); }
         @Override public int getItemViewType(int pos) {
-            return data.get(pos) instanceof String ? TYPE_HEADER : TYPE_RIDE;
+            Object o = data.get(pos);
+            if (o instanceof String) return TYPE_HEADER;
+            if (o instanceof Anfrage) return TYPE_ANFRAGE;
+            return TYPE_RIDE;
         }
         @NonNull @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup p, int t) {
@@ -647,6 +818,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
                 return new HeaderVH(v);
             }
+            if (t == TYPE_ANFRAGE) {
+                View v = LayoutInflater.from(p.getContext()).inflate(android.R.layout.simple_list_item_2, p, false);
+                v.setBackgroundColor(Color.parseColor("#7C2D12")); // dunkles Orange — Anfragen sind dringlich
+                v.setPadding(24, 24, 24, 24);
+                return new AnfrageVH(v);
+            }
             View v = LayoutInflater.from(p.getContext()).inflate(android.R.layout.simple_list_item_2, p, false);
             v.setBackgroundColor(Color.parseColor("#1E293B"));
             v.setPadding(24, 24, 24, 24);
@@ -656,6 +833,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             Object item = data.get(pos);
             if (h instanceof HeaderVH && item instanceof String) ((HeaderVH) h).bind((String) item);
             else if (h instanceof RideVH && item instanceof Ride) ((RideVH) h).bind((Ride) item);
+            else if (h instanceof AnfrageVH && item instanceof Anfrage) ((AnfrageVH) h).bind((Anfrage) item);
         }
         @Override public int getItemCount() { return data.size(); }
 
@@ -668,10 +846,45 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (header != null && header.startsWith("🆕")) {
                     tv.setBackgroundColor(Color.parseColor("#7C2D12")); // dunkles Orange-Rot
                     tv.setTextColor(Color.parseColor("#FED7AA"));
+                } else if (header != null && header.startsWith("📥")) {
+                    // 🆕 v6.62.673: Offene-Anfragen-Header noch auffälliger (rot)
+                    tv.setBackgroundColor(Color.parseColor("#991B1B"));
+                    tv.setTextColor(Color.parseColor("#FECACA"));
                 } else {
                     tv.setBackgroundColor(Color.parseColor("#0F172A"));
                     tv.setTextColor(Color.parseColor("#FBBF24"));
                 }
+            }
+        }
+
+        // 🆕 v6.62.673: AnfrageVH — zeigt eine /anfragen-Anfrage im selben Layout wie Ride
+        //   aber mit dunkel-orangem Hintergrund + 📥-Prefix. Tap oeffnet Uebernahme-Dialog.
+        class AnfrageVH extends RecyclerView.ViewHolder {
+            TextView t1, t2;
+            AnfrageVH(View v) {
+                super(v);
+                t1 = v.findViewById(android.R.id.text1);
+                t2 = v.findViewById(android.R.id.text2);
+                t1.setTextColor(Color.parseColor("#FED7AA"));
+                t2.setTextColor(Color.parseColor("#FBA74D"));
+            }
+            void bind(Anfrage a) {
+                StringBuilder line1 = new StringBuilder();
+                line1.append("📥 ").append(a.channel != null ? a.channel.toUpperCase() : "WEB").append("  ");
+                if (a.date != null) line1.append(a.date);
+                if (a.time != null) line1.append(' ').append(a.time);
+                line1.append("  ").append(a.name != null ? a.name : "?");
+                if (a.passengers != null && a.passengers > 1) line1.append("  👥 ").append(a.passengers);
+                t1.setText(line1.toString());
+                StringBuilder line2 = new StringBuilder();
+                line2.append("📍 ").append(a.pickup != null ? a.pickup : "?");
+                if (a.stopp != null && !a.stopp.isEmpty()) line2.append("\n🔶 ").append(a.stopp);
+                line2.append("\n🎯 ").append(a.destination != null ? a.destination : "?");
+                if (a.phone != null && !a.phone.isEmpty()) line2.append("\n📞 ").append(a.phone);
+                if (a.email != null && !a.email.isEmpty()) line2.append("\n✉ ").append(a.email);
+                if (a.notes != null && !a.notes.isEmpty()) line2.append("\n📝 ").append(a.notes);
+                t2.setText(line2.toString());
+                itemView.setOnClickListener(_v -> showAnfrageUebernehmenDialog(a));
             }
         }
 

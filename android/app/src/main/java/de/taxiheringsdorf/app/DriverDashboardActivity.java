@@ -143,7 +143,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
         tvShiftStatus = findViewById(R.id.tv_shift_status);
         tvPauseBanner = findViewById(R.id.tv_pause_banner);
         // v6.62.26: Pause-Banner-Tap schaltet direkt Online (schneller als Hamburger-Menue)
-        if (tvPauseBanner != null) tvPauseBanner.setOnClickListener(v -> toggleOnline());
+        // 🆕 v6.62.681: Patrick (13.05. 15:20): "Banner sagt 'tippen um zu starten',
+        //   passiert aber nichts — beim 2. Tap kommt Pause." Bug: onClick rief immer
+        //   toggleOnline() — das setzt nur online=true ohne Schicht zu starten. Beim
+        //   2. Tap dachte er dann er waere online und zeigte Pause-Dialog.
+        //   Fix: wenn Schicht NICHT aktiv → toggleShift (startet Schicht), sonst
+        //   toggleOnline (Pause toggeln).
+        if (tvPauseBanner != null) tvPauseBanner.setOnClickListener(v -> {
+            if (!shiftActive) {
+                toggleShift();
+            } else {
+                toggleOnline();
+            }
+        });
         // Auch der kleine Header-Badge ist jetzt klickbar — Tap auf '🟢 Aktiv' fuer Pause
         if (tvShiftStatus != null) tvShiftStatus.setOnClickListener(v -> {
             if (shiftActive) toggleOnline();

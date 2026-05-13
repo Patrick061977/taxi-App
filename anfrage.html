@@ -7,10 +7,8 @@
     <!-- 🆕 v6.62.689: Leaflet im head laden damit Route-Map sofort verfuegbar ist -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
-    <!-- 🆕 v6.62.692: Gesture-Handling — Karte auf Mobile nur mit 2 Fingern pannbar
-         (sonst klaut sie Seiten-Scroll) — Patrick (13.05. 18:58) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css">
-    <script src="https://unpkg.com/leaflet-gesture-handling"></script>
+    <!-- 🔧 v6.62.695: gesture-handling raus — Karte ist jetzt komplett statisch
+         (alle Interaktionen deaktiviert, pointer-events:none). Patrick (13.05. 20:16). -->
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:transparent; color:#1e293b; }
@@ -40,7 +38,12 @@
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📍 Abholort</label>
-                <input type="text" id="anf-pickup" placeholder="z.B. Seestr. 12, Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
+                <!-- 🆕 v6.62.695: Patrick (13.05. 20:17): "Leute muessen Abholort und Zielort
+                     separat loeschen koennen, sonst ist das doof." × Button im Input. -->
+                <div style="position:relative;">
+                    <input type="text" id="anf-pickup" placeholder="z.B. Seestr. 12, Heringsdorf" style="width:100%;padding:12px 38px 12px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;box-sizing:border-box;" autocomplete="off">
+                    <button type="button" onclick="clearAnfField('anf-pickup')" aria-label="Abholort löschen" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:#f1f5f9;color:#64748b;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;">&times;</button>
+                </div>
                 <div id="anf-pickup-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
             <!-- Zwischenstopp -->
@@ -57,37 +60,15 @@
             </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🎯 Zielort</label>
-                <input type="text" id="anf-dest" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
+                <div style="position:relative;">
+                    <input type="text" id="anf-dest" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px 38px 12px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;box-sizing:border-box;" autocomplete="off">
+                    <button type="button" onclick="clearAnfField('anf-dest')" aria-label="Zielort löschen" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:#f1f5f9;color:#64748b;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;">&times;</button>
+                </div>
                 <div id="anf-dest-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
-            <!-- 🆕 v6.62.691: Patrick (13.05. 18:47): "Karte direkt nach Adresse, damit User
-                 die anderen Felder darunter weiter sehen kann — nicht ganz unten wo sie wegschwuppt." -->
-            <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
-                <div id="anf-main-map" style="width:100%;height:240px;"></div>
-                <div id="anf-route-overlay" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0)0%,rgba(255,255,255,0.97)40%,rgba(255,255,255,1)100%);padding:18px 16px 14px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;">
-                    <div style="flex:1;text-align:left;">
-                        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#9201; Fahrtdauer</div>
-                        <div id="anf-overlay-time" style="font-size:18px;font-weight:800;color:#0f172a;">&mdash; Min</div>
-                        <div id="anf-overlay-distance" style="font-size:11px;color:#64748b;margin-top:2px;">&mdash; km</div>
-                    </div>
-                    <div style="flex:1;text-align:right;">
-                        <div id="anf-overlay-pricelabel" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#128176; Preis ca.</div>
-                        <div id="anf-overlay-price" style="font-size:24px;font-weight:800;color:#047857;line-height:1.1;">&mdash; &euro;</div>
-                        <div id="anf-overlay-tarif" style="font-size:10px;color:#92400e;margin-top:2px;"></div>
-                    </div>
-                </div>
-            </div>
-            <!-- 🆕 v6.62.692: Patrick (13.05. 18:58): "Der schöne Preis fehlt — wo hast du
-                 den versteckt? Ganz unten wo keiner sieht!" — prominente Preis-Card direkt
-                 nach der Karte. Big-Number, gold/gruener Verlauf, zeigt Tarif + Anfahrt-Hint. -->
-            <div id="anf-bigprice-card" style="display:none;background:linear-gradient(135deg,#fefce8 0%,#ecfdf5 100%);border:2px solid #fde68a;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 14px rgba(245,158,11,0.12);text-align:center;">
-                <div style="font-size:11px;color:#92400e;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">💰 Geschätzter Festpreis</div>
-                <div id="anf-bigprice-amount" style="font-size:38px;font-weight:900;color:#047857;line-height:1;letter-spacing:-1px;">—,— €</div>
-                <div id="anf-bigprice-meta" style="font-size:12px;color:#64748b;margin-top:6px;">— km · ~— Min</div>
-                <div id="anf-bigprice-hint" style="font-size:11px;color:#92400e;margin-top:4px;font-weight:600;"></div>
-            </div>
-            <!-- 🆕 v6.62.692: Datum/Uhrzeit als Wrapper-Cards wie bei buchen.html
-                 (Patrick: "Das sieht gut aus. Das will ich auch.") -->
+            <!-- 🆕 v6.62.692/695: Datum/Uhrzeit als Wrapper-Cards wie bei buchen.html
+                 Patrick (13.05. 20:16): "Erst Abholort, Zielort, Datum, Uhrzeit — DANN
+                 die Karte mit Datum links + Preis rechts wie bei buchen.html." -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-date').showPicker();}catch(_){document.getElementById('anf-date').focus();}})()">
                     <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
@@ -130,6 +111,26 @@
                 lbl.textContent = inp.value + ' Uhr';
             };
             </script>
+            <!-- 🆕 v6.62.695: Patrick (13.05. 20:16): "Karte mit Datum links + Preis rechts
+                 wie bei buchen.html — und die Karte muss FEST sein, kein Pannen, kein Zoomen.
+                 Erst NACH Datum/Uhrzeit aufgehen." -->
+            <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
+                <!-- pointer-events:none → keinerlei Touch/Mouse-Interaktion auf der Karte -->
+                <div id="anf-main-map" style="width:100%;height:240px;pointer-events:none;"></div>
+                <!-- Top-left: Datum + Uhrzeit (gruener Glas-Overlay wie buchen.html) -->
+                <div id="anf-termin-overlay" style="position:absolute;top:10px;left:10px;z-index:500;background:linear-gradient(135deg,rgba(5,150,105,0.97),rgba(4,120,87,0.97));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(5,150,105,0.35);border:1px solid rgba(255,255,255,0.4);color:white;max-width:160px;">
+                    <div style="font-size:9px;opacity:0.9;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">📅 Abfahrt</div>
+                    <div id="anf-termin-day" style="font-size:14px;font-weight:800;line-height:1.15;letter-spacing:-0.3px;">&mdash;</div>
+                    <div id="anf-termin-time" style="font-size:22px;font-weight:800;line-height:1;letter-spacing:-0.5px;margin-top:2px;">&mdash; Uhr</div>
+                </div>
+                <!-- Top-right: Preis -->
+                <div id="anf-price-overlay" style="position:absolute;top:10px;right:10px;z-index:500;background:rgba(255,255,255,0.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:10px 14px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.8);min-width:110px;text-align:right;">
+                    <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:2px;">Preis ca.</div>
+                    <div id="anf-overlay-price" style="font-size:22px;font-weight:800;color:#047857;line-height:1;letter-spacing:-0.5px;">&mdash;€</div>
+                    <div id="anf-overlay-distance" style="font-size:10px;color:#64748b;margin-top:3px;">&mdash; km · ~&mdash; Min</div>
+                    <div id="anf-overlay-tarif" style="display:none;font-size:9px;color:#92400e;margin-top:3px;font-weight:600;"></div>
+                </div>
+            </div>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👥 Personen</label>
                 <div style="display:flex;gap:6px;" id="anf-pax-btns">
@@ -412,16 +413,8 @@
                 document.getElementById('anf-price-label').style.color = '#059669';
                 document.getElementById('anf-price-label').style.fontWeight = '700';
                 document.getElementById('anf-route-info').textContent = '\u015awinouj\u015bcie ' + ziel;
-                // \ud83c\udd95 v6.62.692: Big-Price-Card auch beim Festpreis-Flow zeigen
-                try {
-                    var _fpCard = document.getElementById('anf-bigprice-card');
-                    if (_fpCard) {
-                        _fpCard.style.display = 'block';
-                        document.getElementById('anf-bigprice-amount').textContent = preis.toFixed(2).replace('.', ',') + ' \u20ac';
-                        document.getElementById('anf-bigprice-meta').textContent = '\u015awinouj\u015bcie ' + ziel;
-                        document.getElementById('anf-bigprice-hint').textContent = '\ud83d\udcb3 Festpreis \u2014 vorab bezahlen';
-                    }
-                } catch(_) {}
+                // \ud83d\udd27 v6.62.695: Festpreis nutzt jetzt Map-Overlay (Preis rechts) wenn Route geladen ist.
+                //   anf-price.textContent reicht hier \u2014 Map-Render passiert spaeter im calcAnfPrice-Flow.
                 // Hin-und-Zurück Rabatt anzeigen
                 var rabattBox = document.getElementById('anf-rabatt-box');
                 if (rabattBox) {
@@ -684,23 +677,6 @@ async function calcAnfPrice() {
         var _anfAnfahrtHint = _anfAnfahrtEur > 0 ? ' \u00b7 \ud83d\udee3 Anfahrt zum Abholort ' + _anfAnfahrtKm.toFixed(0) + ' km \u00d7 1,20\u20ac = +' + _anfAnfahrtEur.toFixed(2) + '\u20ac' : '';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '') + _anfAnfahrtHint;
         document.getElementById('anf-price-box').style.display = 'block';
-        // \ud83c\udd95 v6.62.692: Big-Price-Card oben prominent befuellen
-        try {
-            var _bpCard = document.getElementById('anf-bigprice-card');
-            var _bpAmt = document.getElementById('anf-bigprice-amount');
-            var _bpMeta = document.getElementById('anf-bigprice-meta');
-            var _bpHint = document.getElementById('anf-bigprice-hint');
-            if (_bpCard && _bpAmt && _bpMeta) {
-                _bpCard.style.display = 'block';
-                _bpAmt.textContent = price.toFixed(2).replace('.', ',') + ' \u20ac';
-                _bpMeta.textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min';
-                if (_bpHint) {
-                    var _h = tarifLabel ? tarifLabel : '';
-                    if (_anfAnfahrtEur > 0) _h = (_h ? _h + ' \u00b7 ' : '') + '\ud83d\udee3 Anfahrt +' + _anfAnfahrtEur.toFixed(2) + '\u20ac';
-                    _bpHint.textContent = _h;
-                }
-            }
-        } catch(_bpErr) {}
         // \ud83c\udd95 v6.62.689: Karte + Overlay rendern wenn Route vorhanden
         try {
             var _routeCard = document.getElementById('anf-route-card');
@@ -711,9 +687,14 @@ async function calcAnfPrice() {
                 //   v6.62.690-scrollIntoView entfernt \u2014 Karte ist jetzt sowieso oben in-flow
                 //   (zwischen Ziel und Datum), kein Scroll-Hijacking mehr.
                 if (!window._anfMap) {
-                    // 🆕 v6.62.692: gestureHandling — Mobile braucht 2 Finger zum Pannen,
-                    //   sonst klaut Karte die Seiten-Scroll-Geste. Patrick (13.05. 18:58).
-                    window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false, gestureHandling: true }).setView([53.95, 14.16], 12);
+                    // 🆕 v6.62.695: Karte komplett statisch — Patrick (13.05. 20:16):
+                    //   "Die Karte muss fest sein. Auch 2-Finger klappt nicht — kein Pannen,
+                    //   kein Zoomen." Alle Interaktionen aus, pointer-events:none auf Map-Div.
+                    window._anfMap = L.map('anf-main-map', {
+                        zoomControl: false, attributionControl: false,
+                        scrollWheelZoom: false, dragging: false, touchZoom: false,
+                        doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false
+                    }).setView([53.95, 14.16], 12);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);
                 }
                 if (window._anfRouteLayer) { window._anfMap.removeLayer(window._anfRouteLayer); }
@@ -727,15 +708,30 @@ async function calcAnfPrice() {
                 window._anfMarkers.push(L.marker([anfDestCoords.lat, anfDestCoords.lon], { icon: _destIcon }).addTo(window._anfMap));
                 window._anfMap.fitBounds(window._anfRouteLayer.getBounds(), { padding: [30, 30] });
                 setTimeout(function() { window._anfMap.invalidateSize(); }, 100);
-                // Overlay-Texte
-                document.getElementById('anf-overlay-time').textContent = '~' + min + ' Min';
-                document.getElementById('anf-overlay-distance').textContent = km.toFixed(1) + ' km';
+                // \ud83c\udd95 v6.62.695: Termin-Overlay links + Preis-Overlay rechts (wie buchen.html)
+                try {
+                    var _dEl = document.getElementById('anf-date');
+                    var _tEl = document.getElementById('anf-time');
+                    var _terminDay = document.getElementById('anf-termin-day');
+                    var _terminTime = document.getElementById('anf-termin-time');
+                    if (_terminDay && _dEl && _dEl.value) {
+                        try {
+                            var _dObj = new Date(_dEl.value + 'T00:00:00');
+                            _terminDay.textContent = _dObj.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' });
+                        } catch(_) { _terminDay.textContent = _dEl.value; }
+                    }
+                    if (_terminTime && _tEl && _tEl.value) {
+                        _terminTime.textContent = _tEl.value + ' Uhr';
+                    }
+                } catch(_) {}
                 document.getElementById('anf-overlay-price').textContent = price.toFixed(2).replace('.', ',') + ' \u20ac';
+                document.getElementById('anf-overlay-distance').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min';
                 var _ovTarif = document.getElementById('anf-overlay-tarif');
                 if (_ovTarif) {
                     var _hint = tarifLabel ? tarifLabel : '';
                     if (_anfAnfahrtEur > 0) _hint = (_hint ? _hint + ' \u00b7 ' : '') + '\ud83d\udee3 Anfahrt +' + _anfAnfahrtEur.toFixed(2) + '\u20ac';
                     _ovTarif.textContent = _hint;
+                    _ovTarif.style.display = _hint ? 'block' : 'none';
                 }
             }
         } catch (_mapErr) { console.warn('Anfrage-Karten-Render-Fehler:', _mapErr); }
@@ -918,6 +914,24 @@ function clearZwischenstopp() {
     document.getElementById('anf-stopp-box').style.display = 'none';
     document.getElementById('anf-stopp-btn-box').style.display = 'block';
     calcAnfPrice();
+}
+
+// 🆕 v6.62.695: Patrick (13.05. 20:17): "Leute muessen Abholort und Zielort separat
+//   loeschen koennen, sonst ist das doof." Wert + Koordinaten zuruecksetzen, Dropdown
+//   schliessen, Karte/Preis-Box wieder verstecken wenn eines der beiden Felder leer ist.
+function clearAnfField(id) {
+    var el = document.getElementById(id);
+    if (el) { el.value = ''; try { el.focus(); } catch(_) {} }
+    if (id === 'anf-pickup') anfPickupCoords = null;
+    if (id === 'anf-dest')   anfDestCoords = null;
+    var dd = document.getElementById(id + '-dropdown');
+    if (dd) dd.style.display = 'none';
+    if (!anfPickupCoords || !anfDestCoords) {
+        var rc = document.getElementById('anf-route-card');
+        if (rc) rc.style.display = 'none';
+        var pb = document.getElementById('anf-price-box');
+        if (pb) pb.style.display = 'none';
+    }
 }
 
 function toggleRabatt() {

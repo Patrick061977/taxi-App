@@ -56,6 +56,23 @@
                 <input type="text" id="anf-dest" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;" autocomplete="off">
                 <div id="anf-dest-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
+            <!-- 🆕 v6.62.691: Patrick (13.05. 18:47): "Karte direkt nach Adresse, damit User
+                 die anderen Felder darunter weiter sehen kann — nicht ganz unten wo sie wegschwuppt." -->
+            <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
+                <div id="anf-main-map" style="width:100%;height:240px;"></div>
+                <div id="anf-route-overlay" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0)0%,rgba(255,255,255,0.97)40%,rgba(255,255,255,1)100%);padding:18px 16px 14px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;">
+                    <div style="flex:1;text-align:left;">
+                        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#9201; Fahrtdauer</div>
+                        <div id="anf-overlay-time" style="font-size:18px;font-weight:800;color:#0f172a;">&mdash; Min</div>
+                        <div id="anf-overlay-distance" style="font-size:11px;color:#64748b;margin-top:2px;">&mdash; km</div>
+                    </div>
+                    <div style="flex:1;text-align:right;">
+                        <div id="anf-overlay-pricelabel" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#128176; Preis ca.</div>
+                        <div id="anf-overlay-price" style="font-size:24px;font-weight:800;color:#047857;line-height:1.1;">&mdash; &euro;</div>
+                        <div id="anf-overlay-tarif" style="font-size:10px;color:#92400e;margin-top:2px;"></div>
+                    </div>
+                </div>
+            </div>
             <div style="display:flex;gap:8px;margin-bottom:12px;">
                 <div style="flex:1;">
                     <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📅 Datum</label>
@@ -152,22 +169,6 @@
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">💬 Bemerkung</label>
                 <input type="text" id="anf-notes" placeholder="z.B. Kindersitz, Rollstuhl, Zwischenstopp..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
-            </div>
-            <!-- 🆕 v6.62.689: Patrick (13.05. 18:32) Karte mit Route + Preis-Overlay wie buchen.html -->
-            <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
-                <div id="anf-main-map" style="width:100%;height:240px;"></div>
-                <div id="anf-route-overlay" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0)0%,rgba(255,255,255,0.97)40%,rgba(255,255,255,1)100%);padding:18px 16px 14px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;">
-                    <div style="flex:1;text-align:left;">
-                        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#9201; Fahrtdauer</div>
-                        <div id="anf-overlay-time" style="font-size:18px;font-weight:800;color:#0f172a;">&mdash; Min</div>
-                        <div id="anf-overlay-distance" style="font-size:11px;color:#64748b;margin-top:2px;">&mdash; km</div>
-                    </div>
-                    <div style="flex:1;text-align:right;">
-                        <div id="anf-overlay-pricelabel" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#128176; Preis ca.</div>
-                        <div id="anf-overlay-price" style="font-size:24px;font-weight:800;color:#047857;line-height:1.1;">&mdash; &euro;</div>
-                        <div id="anf-overlay-tarif" style="font-size:10px;color:#92400e;margin-top:2px;"></div>
-                    </div>
-                </div>
             </div>
             <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;margin-bottom:12px;font-size:12px;">
                 <div style="color:#64748b;" id="anf-price-label">Gesch&auml;tzter Preis</div>
@@ -623,17 +624,11 @@ async function calcAnfPrice() {
         try {
             var _routeCard = document.getElementById('anf-route-card');
             if (_routeCard && _routeGeo && typeof L !== 'undefined') {
-                var _wasHidden = _routeCard.style.display === 'none' || !_routeCard.style.display;
                 _routeCard.style.display = 'block';
-                // \ud83c\udd95 v6.62.690: Patrick (13.05. 18:38): "Karte soll oben sein nachdem
-                //   Anfrage gesendet \u2014 schwupps nach oben mit dem Preis". Beim ersten
-                //   Render sanft in den sichtbaren Bereich scrollen damit der User die
-                //   schoene Karte direkt sieht.
-                if (_wasHidden) {
-                    setTimeout(function() {
-                        _routeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 200);
-                }
+                // \ud83c\udd95 v6.62.691: Patrick (13.05. 18:47): "Karte direkt nach Adresse damit
+                //   User die restlichen Felder darunter weiter eingeben kann."
+                //   v6.62.690-scrollIntoView entfernt \u2014 Karte ist jetzt sowieso oben in-flow
+                //   (zwischen Ziel und Datum), kein Scroll-Hijacking mehr.
                 if (!window._anfMap) {
                     window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false }).setView([53.95, 14.16], 12);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);

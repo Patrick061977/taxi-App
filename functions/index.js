@@ -19894,7 +19894,12 @@ exports.onRideCreated = onValueCreated(
         //   FCM-Push an alle registrierten Admin-Geraete bei web-booking / qr-aufsteller.
         //   AdminDashboardActivity zeigt die Anfrage bereits in der NEUE-WEB-ANFRAGEN-Sektion;
         //   Push macht den Fahrer/Admin akustisch aufmerksam, damit er nicht uebersehen wird.
-        if (ride.source === 'web-booking' || ride.source === 'qr-aufsteller') {
+        // 🆕 v6.62.668: Patrick (13.05. 10:55): "Web-Anfragen sehe ich noch nicht."
+        //   Bug: nur 'web-booking' + 'qr-aufsteller' getriggert — der alte Anfragen-
+        //   Uebernahme-Flow schreibt aber 'web-anfrage', Berlin-Shuttle 'berlin-shuttle-anfrage'.
+        //   Jetzt: alle 4 Source-Varianten triggern den Admin-Push.
+        const _webSources = ['web-booking', 'qr-aufsteller', 'web-anfrage', 'berlin-shuttle-anfrage'];
+        if (_webSources.includes(ride.source)) {
             try {
                 await sendFCMToAdmins({
                     type: 'new_web_booking',

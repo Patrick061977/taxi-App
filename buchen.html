@@ -4012,14 +4012,17 @@
                         const poiName = item.name || '';
                         let addr = road ? (road + (nr ? ' ' + nr : '')) : '';
                         if (town) addr += (addr ? ', ' : '') + `${pc ? pc + ' ' : ''}${town}`;
-                        let name = '';
+                        // 🆕 v6.62.694: Patrick (13.05. 19:12): POI als Ueberschrift, Adresse drunter
+                        let mainText = '', secText = '';
                         if (poiName && poiName !== road && poiName !== town) {
-                            // POI-Name ist verschieden von Straße → beides zeigen
-                            name = addr ? `${poiName}, ${addr}` : poiName;
+                            mainText = poiName;
+                            secText = addr;
                         } else {
-                            name = addr || poiName;
+                            mainText = addr || poiName;
+                            secText = '';
                         }
-                        results.push({ name: name || item.display_name.split(',').slice(0,2).join(','), lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '📍' });
+                        const name = secText ? `${mainText}, ${secText}` : (mainText || item.display_name.split(',').slice(0,2).join(','));
+                        results.push({ name: name, mainText: mainText, secText: secText, lat: parseFloat(item.lat), lon: parseFloat(item.lon), icon: '📍' });
                     });
                 } catch(e) {}
             }
@@ -4041,7 +4044,8 @@
                         const displayName = secText ? `${mainText}, ${secText}` : mainText;
                         // Duplikat-Check
                         if (results.some(r => r.name.toLowerCase().includes(mainText.toLowerCase()))) continue;
-                        results.push({ name: displayName, placeId: p.placeId, icon: '🔍', source: 'google' });
+                        // 🆕 v6.62.694: mainText/secText separat fuers 2-Zeilen-Layout
+                        results.push({ name: displayName, mainText: mainText, secText: secText, placeId: p.placeId, icon: '🔍', source: 'google' });
                     }
                 } catch(e) { console.warn('Google Places Fehler:', e.message); }
             }
@@ -4063,12 +4067,20 @@
                 }
                 return;
             }
-            dropdown.innerHTML = shown.map((r, i) => `
-                <div class="autocomplete-item" onclick="selectAddr('${inputId}', ${i})">
+            // 🆕 v6.62.694: Patrick (13.05. 19:12) "POI als schoene Ueberschrift, Adresse drunter."
+            //   Vorsichtiger als v6.62.691: keine inneren Flex-Container, nur block-Spans im
+            //   bestehenden Layout — minimaler Eingriff, weniger Risiko fuer Seiteneffekte.
+            dropdown.innerHTML = shown.map((r, i) => {
+                const main = (r.mainText || r.name || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const sec = (r.secText || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const body = sec
+                    ? `<div style="font-weight:600;color:#0f172a;line-height:1.25;">${main}</div><div style="font-size:12px;color:#64748b;line-height:1.25;margin-top:1px;">${sec}</div>`
+                    : `<span>${r.name}</span>`;
+                return `<div class="autocomplete-item" onclick="selectAddr('${inputId}', ${i})">
                     <span>${r.icon}</span>
-                    <span>${r.name}</span>
-                </div>
-            `).join('');
+                    <div style="min-width:0;">${body}</div>
+                </div>`;
+            }).join('');
             dropdown.style.display = 'block';
             window._addrResults = { ...(window._addrResults || {}), [inputId]: shown };
         }

@@ -1250,6 +1250,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
         int blockBufMin = Math.max(15, anfahrtMin + 3);
         long blockAt = nextRide.pickupTimestamp - (blockBufMin * 60_000L);
         long minBisBlock = (blockAt - now) / 60_000L;
+        // 🆕 v6.62.658: Patrick (12.05.): "Oben der pickup Banner hat nicht die richtigen
+        //   Zeiten angezeigt mit losfahren — das war alles sehr viel Vorlauf". Vorher hat
+        //   die LOSFAHREN-Anzeige + "in X Min losfahren" auf blockBufMin (Floor 15 Min)
+        //   basiert, nicht auf der echten Anfahrt. Beispiel: 5 Min Anfahrt → Banner sagte
+        //   "in 15 Min losfahren" obwohl Fahrer erst in 7 Min raus muss. Decoupling:
+        //   - blockBufMin (Sofortfahrt-Verfuegbarkeit) bleibt konservativ (15 Min Floor)
+        //   - losBufMin (echter LOSFAHREN-Trigger) = nur Anfahrt + 2 Min Puffer
+        int losBufMin = Math.max(3, anfahrtMin + 2);
+        long losAt = nextRide.pickupTimestamp - (losBufMin * 60_000L);
+        long minBisLos = (losAt - now) / 60_000L;
         java.text.SimpleDateFormat hmFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
         hmFmt.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
         String pickupHM = hmFmt.format(new java.util.Date(nextRide.pickupTimestamp));
@@ -1262,16 +1272,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // Banner zeigt jetzt realistisch was noch geht: max-Fahrtzeit = restzeit - Puffer
         // (5 Min Anfahrt zu Sofort + 3 Min Boarding + 5 Min Rueckfahrt).
         long maxFahrtMin = minBisBlock - 13;
-        if (minBisBlock <= 0) {
-            // In Losfahr-Zone — los
+        if (minBisLos <= 0) {
+            // 🆕 v6.62.658: LOSFAHREN basiert jetzt auf losBufMin (echte Anfahrt + 2 Min),
+            //   nicht mehr auf blockBufMin (15-Min-Floor) — keine 8 Min frueher als noetig.
             banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
             statusText.setText("🚗 LOSFAHREN! Pickup " + pickupHM + " · " + anfahrtMin + " Min Anfahrt");
             nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else if (minBisBlock < 15) {
-            // Zu kurz fuer eine sinnvolle Sofortfahrt — rot
+            // Zu kurz fuer eine sinnvolle Sofortfahrt — rot. Countdown bezieht sich aufs
+            // tatsaechliche Losfahren (minBisLos), nicht auf blockBufMin.
             banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
-            statusText.setText("🔴 Keine Sofortfahrt mehr — in " + minBisBlock + " Min losfahren!");
+            statusText.setText("🔴 Keine Sofortfahrt mehr — in " + minBisLos + " Min losfahren!");
             nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else if (minBisBlock <= 30) {

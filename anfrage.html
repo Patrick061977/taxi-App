@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi vorbestellen — Funk Taxi Heringsdorf</title>
+    <!-- 🆕 v6.62.689: Leaflet im head laden damit Route-Map sofort verfuegbar ist -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:transparent; color:#1e293b; }
@@ -150,10 +153,26 @@
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">💬 Bemerkung</label>
                 <input type="text" id="anf-notes" placeholder="z.B. Kindersitz, Rollstuhl, Zwischenstopp..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
             </div>
-            <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:12px;text-align:center;margin-bottom:12px;">
-                <div style="font-size:12px;color:#64748b;" id="anf-price-label">Gesch&auml;tzter Preis</div>
-                <div style="font-size:28px;font-weight:800;color:#059669;" id="anf-price">&mdash;</div>
-                <div style="font-size:12px;color:#64748b;" id="anf-route-info"></div>
+            <!-- 🆕 v6.62.689: Patrick (13.05. 18:32) Karte mit Route + Preis-Overlay wie buchen.html -->
+            <div id="anf-route-card" style="display:none;position:relative;background:#fff;border:2px solid #a7f3d0;border-radius:14px;overflow:hidden;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,0.08);">
+                <div id="anf-main-map" style="width:100%;height:240px;"></div>
+                <div id="anf-route-overlay" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0)0%,rgba(255,255,255,0.97)40%,rgba(255,255,255,1)100%);padding:18px 16px 14px 16px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;">
+                    <div style="flex:1;text-align:left;">
+                        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#9201; Fahrtdauer</div>
+                        <div id="anf-overlay-time" style="font-size:18px;font-weight:800;color:#0f172a;">&mdash; Min</div>
+                        <div id="anf-overlay-distance" style="font-size:11px;color:#64748b;margin-top:2px;">&mdash; km</div>
+                    </div>
+                    <div style="flex:1;text-align:right;">
+                        <div id="anf-overlay-pricelabel" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">&#128176; Preis ca.</div>
+                        <div id="anf-overlay-price" style="font-size:24px;font-weight:800;color:#047857;line-height:1.1;">&mdash; &euro;</div>
+                        <div id="anf-overlay-tarif" style="font-size:10px;color:#92400e;margin-top:2px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;margin-bottom:12px;font-size:12px;">
+                <div style="color:#64748b;" id="anf-price-label">Gesch&auml;tzter Preis</div>
+                <div style="font-size:22px;font-weight:800;color:#059669;" id="anf-price">&mdash;</div>
+                <div style="font-size:11px;color:#64748b;" id="anf-route-info"></div>
             </div>
             <!-- Hin-und-Zurück Rabatt (ab 30km) -->
             <div id="anf-rabatt-box" style="display:none;margin-bottom:12px;">
@@ -537,15 +556,16 @@ async function calcAnfPrice() {
     if (anfFestpreisAktiv) return; // Festpreis aktiv — nicht neu berechnen!
     if (!anfPickupCoords || !anfDestCoords) return;
     try {
-        // Route: Pickup → (Stopp) → Ziel
+        // Route: Pickup → (Stopp) → Ziel — 🆕 v6.62.689: overview=full damit wir Polyline rendern koennen
         var waypoints = anfPickupCoords.lon + ',' + anfPickupCoords.lat;
         if (anfStoppCoords) waypoints += ';' + anfStoppCoords.lon + ',' + anfStoppCoords.lat;
         waypoints += ';' + anfDestCoords.lon + ',' + anfDestCoords.lat;
-        var resp = await fetch('https://router.project-osrm.org/route/v1/driving/' + waypoints + '?overview=false');
+        var resp = await fetch('https://router.project-osrm.org/route/v1/driving/' + waypoints + '?overview=full&geometries=geojson');
         var data = await resp.json();
         if (!data.routes || !data.routes[0]) return;
         var km = data.routes[0].distance / 1000;
         var min = Math.ceil(data.routes[0].duration / 60);
+        var _routeGeo = data.routes[0].geometry;
         var anfTime = document.getElementById('anf-time').value || '';
         var anfDate = document.getElementById('anf-date').value || '';
         // 🆕 v6.41.43: Konsistent mit buchen.html — Feiertags-Tarif hinzugefügt
@@ -599,6 +619,38 @@ async function calcAnfPrice() {
         var _anfAnfahrtHint = _anfAnfahrtEur > 0 ? ' \u00b7 \ud83d\udee3 Anfahrt zum Abholort ' + _anfAnfahrtKm.toFixed(0) + ' km \u00d7 1,20\u20ac = +' + _anfAnfahrtEur.toFixed(2) + '\u20ac' : '';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '') + _anfAnfahrtHint;
         document.getElementById('anf-price-box').style.display = 'block';
+        // \ud83c\udd95 v6.62.689: Karte + Overlay rendern wenn Route vorhanden
+        try {
+            var _routeCard = document.getElementById('anf-route-card');
+            if (_routeCard && _routeGeo && typeof L !== 'undefined') {
+                _routeCard.style.display = 'block';
+                if (!window._anfMap) {
+                    window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false }).setView([53.95, 14.16], 12);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);
+                }
+                if (window._anfRouteLayer) { window._anfMap.removeLayer(window._anfRouteLayer); }
+                if (window._anfMarkers) { window._anfMarkers.forEach(function(m) { window._anfMap.removeLayer(m); }); }
+                window._anfMarkers = [];
+                var _coords = _routeGeo.coordinates.map(function(c) { return [c[1], c[0]]; });
+                window._anfRouteLayer = L.polyline(_coords, { color: '#10b981', weight: 5, opacity: 0.85 }).addTo(window._anfMap);
+                var _pickIcon = L.divIcon({ html: '<div style="background:#10b981;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">\ud83d\udccd</div>', className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+                var _destIcon = L.divIcon({ html: '<div style="background:#dc2626;color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">\ud83c\udfaf</div>', className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+                window._anfMarkers.push(L.marker([anfPickupCoords.lat, anfPickupCoords.lon], { icon: _pickIcon }).addTo(window._anfMap));
+                window._anfMarkers.push(L.marker([anfDestCoords.lat, anfDestCoords.lon], { icon: _destIcon }).addTo(window._anfMap));
+                window._anfMap.fitBounds(window._anfRouteLayer.getBounds(), { padding: [30, 30] });
+                setTimeout(function() { window._anfMap.invalidateSize(); }, 100);
+                // Overlay-Texte
+                document.getElementById('anf-overlay-time').textContent = '~' + min + ' Min';
+                document.getElementById('anf-overlay-distance').textContent = km.toFixed(1) + ' km';
+                document.getElementById('anf-overlay-price').textContent = price.toFixed(2).replace('.', ',') + ' \u20ac';
+                var _ovTarif = document.getElementById('anf-overlay-tarif');
+                if (_ovTarif) {
+                    var _hint = tarifLabel ? tarifLabel : '';
+                    if (_anfAnfahrtEur > 0) _hint = (_hint ? _hint + ' \u00b7 ' : '') + '\ud83d\udee3 Anfahrt +' + _anfAnfahrtEur.toFixed(2) + '\u20ac';
+                    _ovTarif.textContent = _hint;
+                }
+            }
+        } catch (_mapErr) { console.warn('Anfrage-Karten-Render-Fehler:', _mapErr); }
         // Alte Festpreis-Bemerkung leeren wenn neu berechnet wird
         var notesEl = document.getElementById('anf-notes');
         if (notesEl && (notesEl.value.indexOf('Festpreis') === 0 || notesEl.value.indexOf('Pauschalpreis') === 0)) notesEl.value = '';

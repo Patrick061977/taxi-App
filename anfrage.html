@@ -7,6 +7,10 @@
     <!-- 🆕 v6.62.689: Leaflet im head laden damit Route-Map sofort verfuegbar ist -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9/dist/leaflet.css">
     <script src="https://unpkg.com/leaflet@1.9/dist/leaflet.js"></script>
+    <!-- 🆕 v6.62.692: Gesture-Handling — Karte auf Mobile nur mit 2 Fingern pannbar
+         (sonst klaut sie Seiten-Scroll) — Patrick (13.05. 18:58) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css">
+    <script src="https://unpkg.com/leaflet-gesture-handling"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:transparent; color:#1e293b; }
@@ -73,16 +77,59 @@
                     </div>
                 </div>
             </div>
+            <!-- 🆕 v6.62.692: Patrick (13.05. 18:58): "Der schöne Preis fehlt — wo hast du
+                 den versteckt? Ganz unten wo keiner sieht!" — prominente Preis-Card direkt
+                 nach der Karte. Big-Number, gold/gruener Verlauf, zeigt Tarif + Anfahrt-Hint. -->
+            <div id="anf-bigprice-card" style="display:none;background:linear-gradient(135deg,#fefce8 0%,#ecfdf5 100%);border:2px solid #fde68a;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 14px rgba(245,158,11,0.12);text-align:center;">
+                <div style="font-size:11px;color:#92400e;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">💰 Geschätzter Festpreis</div>
+                <div id="anf-bigprice-amount" style="font-size:38px;font-weight:900;color:#047857;line-height:1;letter-spacing:-1px;">—,— €</div>
+                <div id="anf-bigprice-meta" style="font-size:12px;color:#64748b;margin-top:6px;">— km · ~— Min</div>
+                <div id="anf-bigprice-hint" style="font-size:11px;color:#92400e;margin-top:4px;font-weight:600;"></div>
+            </div>
+            <!-- 🆕 v6.62.692: Datum/Uhrzeit als Wrapper-Cards wie bei buchen.html
+                 (Patrick: "Das sieht gut aus. Das will ich auch.") -->
             <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">📅 Datum</label>
-                    <input type="date" id="anf-date" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;" onchange="calcAnfPrice()">
+                <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-date').showPicker();}catch(_){document.getElementById('anf-date').focus();}})()">
+                    <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">📅</span>
+                        <div style="flex:1;min-width:0;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
+                            <div id="anf-date-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
+                        </div>
+                    </div>
+                    <input type="date" id="anf-date" onchange="updateAnfDateLabel();calcAnfPrice()" style="position:absolute;left:-9999px;opacity:0;">
                 </div>
-                <div style="flex:1;">
-                    <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">🕐 Uhrzeit</label>
-                    <input type="time" id="anf-time" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;" onchange="calcAnfPrice()">
+                <div style="flex:1;position:relative;" onclick="(function(){try{document.getElementById('anf-time').showPicker();}catch(_){document.getElementById('anf-time').focus();}})()">
+                    <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">🕐</span>
+                        <div style="flex:1;min-width:0;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
+                            <div id="anf-time-label" style="font-size:14px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">— Tippen —</div>
+                        </div>
+                    </div>
+                    <input type="time" id="anf-time" step="600" onchange="updateAnfTimeLabel();calcAnfPrice()" style="position:absolute;left:-9999px;opacity:0;">
                 </div>
             </div>
+            <script>
+            // 🆕 v6.62.692: Label-Update fuer Datum/Uhrzeit-Wrapper-Cards
+            window.updateAnfDateLabel = function() {
+                var inp = document.getElementById('anf-date');
+                var lbl = document.getElementById('anf-date-label');
+                if (!inp || !lbl) return;
+                if (!inp.value) { lbl.textContent = '— Tippen —'; return; }
+                try {
+                    var d = new Date(inp.value + 'T00:00:00');
+                    lbl.textContent = d.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' });
+                } catch(_) { lbl.textContent = inp.value; }
+            };
+            window.updateAnfTimeLabel = function() {
+                var inp = document.getElementById('anf-time');
+                var lbl = document.getElementById('anf-time-label');
+                if (!inp || !lbl) return;
+                if (!inp.value) { lbl.textContent = '— Tippen —'; return; }
+                lbl.textContent = inp.value + ' Uhr';
+            };
+            </script>
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">👥 Personen</label>
                 <div style="display:flex;gap:6px;" id="anf-pax-btns">
@@ -170,7 +217,10 @@
                 <label style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:4px;">💬 Bemerkung</label>
                 <input type="text" id="anf-notes" placeholder="z.B. Kindersitz, Rollstuhl, Zwischenstopp..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
             </div>
-            <div id="anf-price-box" style="display:none;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;margin-bottom:12px;font-size:12px;">
+            <!-- 🔧 v6.62.692: Patrick (18:58) "Preis ganz unten wo keiner sieht." Kleine
+                 Price-Box bleibt im DOM (wegen anf-price-label / anf-route-info Code-Referenzen)
+                 — aber display:none erzwungen weil Big-Price-Card oben das jetzt schoener zeigt. -->
+            <div id="anf-price-box" style="display:none !important;background:#f0fdf4;border:2px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;margin-bottom:12px;font-size:12px;">
                 <div style="color:#64748b;" id="anf-price-label">Gesch&auml;tzter Preis</div>
                 <div style="font-size:22px;font-weight:800;color:#059669;" id="anf-price">&mdash;</div>
                 <div style="font-size:11px;color:#64748b;" id="anf-route-info"></div>
@@ -344,6 +394,8 @@
                     if (dateEl) dateEl.value = minZeit.getFullYear() + '-' + String(minZeit.getMonth()+1).padStart(2,'0') + '-' + String(minZeit.getDate()).padStart(2,'0');
                     if (timeEl) timeEl.value = String(minZeit.getHours()).padStart(2,'0') + ':' + String(Math.ceil(minZeit.getMinutes()/5)*5 % 60).padStart(2,'0');
                 }
+                // 🆕 v6.62.692: Wrapper-Labels nachziehen wenn anf-date/time per Script gesetzt wurden
+                try { if (window.updateAnfDateLabel) window.updateAnfDateLabel(); if (window.updateAnfTimeLabel) window.updateAnfTimeLabel(); } catch(_) {}
                 // Zwischenstopp ausblenden bei Festpreis
                 var stoppBox = document.getElementById('anf-stopp-box');
                 var stoppBtn = document.getElementById('anf-stopp-btn-box');
@@ -360,6 +412,16 @@
                 document.getElementById('anf-price-label').style.color = '#059669';
                 document.getElementById('anf-price-label').style.fontWeight = '700';
                 document.getElementById('anf-route-info').textContent = '\u015awinouj\u015bcie ' + ziel;
+                // \ud83c\udd95 v6.62.692: Big-Price-Card auch beim Festpreis-Flow zeigen
+                try {
+                    var _fpCard = document.getElementById('anf-bigprice-card');
+                    if (_fpCard) {
+                        _fpCard.style.display = 'block';
+                        document.getElementById('anf-bigprice-amount').textContent = preis.toFixed(2).replace('.', ',') + ' \u20ac';
+                        document.getElementById('anf-bigprice-meta').textContent = '\u015awinouj\u015bcie ' + ziel;
+                        document.getElementById('anf-bigprice-hint').textContent = '\ud83d\udcb3 Festpreis \u2014 vorab bezahlen';
+                    }
+                } catch(_) {}
                 // Hin-und-Zurück Rabatt anzeigen
                 var rabattBox = document.getElementById('anf-rabatt-box');
                 if (rabattBox) {
@@ -450,6 +512,8 @@ var _anfPlacesReady = false, _anfSuggestion = null, _anfToken = null, _anfPlace 
     var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     if (d) { d.value = dateStr; d.min = todayStr; }
     if (t) { var hh = String(minTime.getHours()).padStart(2,'0'); var mm = String(Math.ceil(minTime.getMinutes()/5)*5 % 60).padStart(2,'0'); t.value = hh+':'+mm; }
+    // 🆕 v6.62.692: Default-Werte ins Wrapper-Label uebertragen
+    try { if (window.updateAnfDateLabel) window.updateAnfDateLabel(); if (window.updateAnfTimeLabel) window.updateAnfTimeLabel(); } catch(_) {}
 })();
 
 function setAnfPax(n) {
@@ -620,6 +684,23 @@ async function calcAnfPrice() {
         var _anfAnfahrtHint = _anfAnfahrtEur > 0 ? ' \u00b7 \ud83d\udee3 Anfahrt zum Abholort ' + _anfAnfahrtKm.toFixed(0) + ' km \u00d7 1,20\u20ac = +' + _anfAnfahrtEur.toFixed(2) + '\u20ac' : '';
         document.getElementById('anf-route-info').textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min' + (tarifLabel ? ' \u00b7 ' + tarifLabel : '') + _anfAnfahrtHint;
         document.getElementById('anf-price-box').style.display = 'block';
+        // \ud83c\udd95 v6.62.692: Big-Price-Card oben prominent befuellen
+        try {
+            var _bpCard = document.getElementById('anf-bigprice-card');
+            var _bpAmt = document.getElementById('anf-bigprice-amount');
+            var _bpMeta = document.getElementById('anf-bigprice-meta');
+            var _bpHint = document.getElementById('anf-bigprice-hint');
+            if (_bpCard && _bpAmt && _bpMeta) {
+                _bpCard.style.display = 'block';
+                _bpAmt.textContent = price.toFixed(2).replace('.', ',') + ' \u20ac';
+                _bpMeta.textContent = km.toFixed(1) + ' km \u00b7 ~' + min + ' Min';
+                if (_bpHint) {
+                    var _h = tarifLabel ? tarifLabel : '';
+                    if (_anfAnfahrtEur > 0) _h = (_h ? _h + ' \u00b7 ' : '') + '\ud83d\udee3 Anfahrt +' + _anfAnfahrtEur.toFixed(2) + '\u20ac';
+                    _bpHint.textContent = _h;
+                }
+            }
+        } catch(_bpErr) {}
         // \ud83c\udd95 v6.62.689: Karte + Overlay rendern wenn Route vorhanden
         try {
             var _routeCard = document.getElementById('anf-route-card');
@@ -630,7 +711,9 @@ async function calcAnfPrice() {
                 //   v6.62.690-scrollIntoView entfernt \u2014 Karte ist jetzt sowieso oben in-flow
                 //   (zwischen Ziel und Datum), kein Scroll-Hijacking mehr.
                 if (!window._anfMap) {
-                    window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false }).setView([53.95, 14.16], 12);
+                    // 🆕 v6.62.692: gestureHandling — Mobile braucht 2 Finger zum Pannen,
+                    //   sonst klaut Karte die Seiten-Scroll-Geste. Patrick (13.05. 18:58).
+                    window._anfMap = L.map('anf-main-map', { zoomControl: true, attributionControl: false, scrollWheelZoom: false, gestureHandling: true }).setView([53.95, 14.16], 12);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(window._anfMap);
                 }
                 if (window._anfRouteLayer) { window._anfMap.removeLayer(window._anfRouteLayer); }

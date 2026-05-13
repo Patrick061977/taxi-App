@@ -704,11 +704,16 @@ async function calcAnfPrice() {
                 var _osrmKB = await fetch('https://router.project-osrm.org/route/v1/driving/' + _KB_CENTER_ANF.lon + ',' + _KB_CENTER_ANF.lat + ';' + anfPickupCoords.lon + ',' + anfPickupCoords.lat + '?overview=false').then(function(r) { return r.json(); }).catch(function() { return null; });
                 if (_osrmKB && _osrmKB.routes && _osrmKB.routes[0]) {
                     _anfAnfahrtKm = _osrmKB.routes[0].distance / 1000;
-                    _anfAnfahrtEur = Math.round(_anfAnfahrtKm * 1.20 * 100) / 100;
-                    price = Math.round((price + _anfAnfahrtEur) * 100) / 100;
+                    // \ud83d\udd27 v6.62.697: Anfahrt-Aufschlag auf 50-Cent runden (Patrick: "55,43 gibt es nicht").
+                    //   So bleibt das Cent-Krummsel nicht im Endpreis stehen.
+                    _anfAnfahrtEur = Math.round(_anfAnfahrtKm * 1.20 * 2) / 2;
+                    price = price + _anfAnfahrtEur;
                 }
             } catch (e) { /* still */ }
         }
+        // \ud83c\udd95 v6.62.697: Patrick (13.05. 21:02): "55,43 \u2014 so einen Preis gibt es nicht."
+        //   Finaler Preis aufgerundet auf naechste 50-Cent \u2014 saubere Taxi-Preise wie 55,50\u20ac.
+        price = Math.ceil(price * 2) / 2;
         document.getElementById('anf-price').textContent = price.toFixed(2) + '\u20ac';
         // 🆕 v6.41.43: Feiertags-Label explizit zuerst (hat Priorität)
         var tarifLabel = isFeiertag ? 'Feiertagstarif (Nachttarif)' : (isSunday && !isNightTime ? 'Sonntagstarif' : (isNightTime ? 'Nachttarif' : ''));

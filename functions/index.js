@@ -628,6 +628,30 @@ async function estimateNextAvailableMinutes(allRides, vehiclesData, pricingSetti
 async function autoAssignRide(rideId, rideData) {
     console.log('🎯 v6.25.4: Cloud-AutoAssign für Fahrt:', rideId);
     try {
+        // 🛡️ v6.62.663: Patrick (13.05. 10:04): Watchdog hat Tesla unterwegs (status=on_way)
+        // gewaltsam an Toyota Prius IK umgeleitet, weil das Fahrzeug noch in rejectedVehicles
+        // stand. Defensive Sicherung: vor JEDER Zuweisung den aktuellen Status pruefen —
+        // wenn die Fahrt schon accepted/on_way/picked_up/arrived/completed ist, brich ab.
+        // Eine laufende Fahrt darf NIEMALS durch Auto-Assign aus den Haenden des Fahrers
+        // gerissen werden.
+        try {
+            const _curSnap = await db.ref('rides/' + rideId).once('value');
+            const _cur = _curSnap.val();
+            if (_cur) {
+                const _protected = ['accepted', 'on_way', 'picked_up', 'arrived', 'completed', 'cancelled', 'storniert', 'deleted'];
+                if (_protected.includes(_cur.status)) {
+                    console.warn(`🛡️ autoAssignRide ABORT: ${rideId} hat status='${_cur.status}' (geschuetzt, Fahrer laeuft schon)`);
+                    try { await addRideLog(rideId, '🛡️', `autoAssignRide blockiert: status=${_cur.status}`, {
+                        quelle: 'autoAssignRide v6.62.663 Safety',
+                        grund: `Aktive Fahrt darf nicht ueberschrieben werden`,
+                        aktuelleFahrzeug: _cur.assignedVehicleName || _cur.assignedVehicle || '?'
+                    }); } catch (_) {}
+                    return null;
+                }
+            }
+        } catch (_safetyErr) {
+            console.warn('autoAssignRide Safety-Check Fehler (ignored):', _safetyErr.message);
+        }
         const [vehiclesSnap, shiftsSnap, ridesSnap, prioritiesSnap, pricingSnap, prioMalusSnap, optByDaySnap] = await Promise.all([
             db.ref('vehicles').once('value'),
             db.ref('vehicleShifts').once('value'),
@@ -25887,15 +25911,31 @@ exports.rideAction = onRequest(
                     res.status(200).json({ ok: true, action: 'accepted', alreadyProgressed: _curStatus });
                     return;
                 }
-                await db.ref(`rides/${rideId}`).update({
+                // 🛡️ v6.62.663: rejectedVehicles vom akzeptierenden Fahrzeug bereinigen
+                //   (Patrick 13.05. 10:04: Tesla hatte zuvor abgelehnt, dann doch angenommen,
+                //   aber rejectedVehicles enthielt es noch. Watchdog dachte "Tesla hat nicht
+                //   bestaetigt" → Re-Assign auf Prius. Bug-Quelle.)
+                let _cleanRejected = _curRide.rejectedVehicles || null;
+                if (Array.isArray(_cleanRejected) && vehicleId) {
+                    _cleanRejected = _cleanRejected.filter(v => v !== vehicleId);
+                    if (_cleanRejected.length === 0) _cleanRejected = null;
+                }
+                const _acceptUpdate = {
                     status: 'accepted',
                     acceptedAt: now,
                     acceptedVia: 'fcm-notification-action',
                     acceptedByVehicle: vehicleId || null,
                     updatedAt: now
-                });
-                console.log(`✅ rideAction: ${rideId} → accepted via FCM-Action (vehicle ${vehicleId})`);
-                try { await addRideLog(rideId, '✅', `Auftrag via FCM-Notification angenommen`, { quelle: 'rideAction' }); } catch(_) {}
+                };
+                if (_cleanRejected !== (_curRide.rejectedVehicles || null)) {
+                    _acceptUpdate.rejectedVehicles = _cleanRejected;
+                }
+                await db.ref(`rides/${rideId}`).update(_acceptUpdate);
+                console.log(`✅ rideAction: ${rideId} → accepted via FCM-Action (vehicle ${vehicleId}) | rejectedVehicles bereinigt`);
+                try { await addRideLog(rideId, '✅', `Auftrag via FCM-Notification angenommen`, {
+                    quelle: 'rideAction',
+                    rejectedBereinigt: vehicleId && Array.isArray(_curRide.rejectedVehicles) && _curRide.rejectedVehicles.includes(vehicleId) ? 'ja (' + vehicleId + ')' : 'nein'
+                }); } catch(_) {}
                 res.status(200).json({ ok: true, action: 'accepted' });
             } else if (action === 'reject') {
                 // v6.62.248: rejectedVehicles[]-Array updaten + autoAssignRide direkt

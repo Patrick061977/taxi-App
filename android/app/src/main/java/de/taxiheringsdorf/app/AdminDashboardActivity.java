@@ -262,6 +262,23 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // v6.62.161: Tag-Header zwischen Fahrten einfuegen (HEUTE / MORGEN / Datum)
         // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
         List<Object> sectioned = new ArrayList<>();
+
+        // 🆕 v6.62.712: Wartepool-Sektion GANZ OBEN. Patrick (14.05. 11:01):
+        //   "Wartepool prominenter machen, dass ich das auch sehe". Fahrten die nach
+        //   3x Auto-Assign-Fehlschlag im Wartepool gelandet sind brauchen manuelle
+        //   Disposition — werden hier als rote Warn-Sektion sichtbar.
+        List<Ride> wartepoolRides = new ArrayList<>();
+        List<Ride> remainingForSections = new ArrayList<>();
+        for (Ride r : rest) {
+            if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolRides.add(r);
+            else remainingForSections.add(r);
+        }
+        rest = remainingForSections;
+        if (!wartepoolRides.isEmpty()) {
+            sectioned.add("⚠️ WARTEPOOL (" + wartepoolRides.size() + ") — manuelle Disposition noetig!");
+            sectioned.addAll(wartepoolRides);
+        }
+
         // 🆕 v6.62.673: OFFENE ANFRAGEN aus /anfragen — ganz oben, da sie noch nicht
         //   in /rides sind und manuell uebernommen werden muessen.
         if (!_currentOffeneAnfragen.isEmpty()) {
@@ -871,7 +888,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             void bind(String header) {
                 tv.setText(header);
                 // 🆕 v6.62.199: Web-Anfragen-Header in Rot/Orange damit's auffaellt
-                if (header != null && header.startsWith("🆕")) {
+                if (header != null && header.startsWith("⚠️ WARTEPOOL")) {
+                    // 🆕 v6.62.712: Wartepool-Header in tiefem Rot (kraeftiger als andere Sektionen)
+                    tv.setBackgroundColor(Color.parseColor("#7F1D1D"));
+                    tv.setTextColor(Color.parseColor("#FECACA"));
+                } else if (header != null && header.startsWith("🆕")) {
                     tv.setBackgroundColor(Color.parseColor("#7C2D12")); // dunkles Orange-Rot
                     tv.setTextColor(Color.parseColor("#FED7AA"));
                 } else if (header != null && header.startsWith("📥")) {
@@ -945,7 +966,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 //   Sabine Reißer (source='web-anfrage', schon Tesla zugewiesen) war in der
                 //   regulaeren Liste ohne Marker — nicht erkennbar als Web-Quelle. Jetzt
                 //   bekommen ALLE Web-Source-Rides einen 🌐-Prefix, auch wenn bereits zugewiesen.
-                if (r.isUnclaimedWebBooking()) {
+                // 🆕 v6.62.712: Sonderbehandlung fuer Wartepool + Sofort-warteschlange.
+                //   Patrick (14.05. 11:01): "Wartepool prominenter, Sofort-Buchung soll
+                //   erkennbar sein wer sieht das".
+                final boolean _isWartepool = "wartepool".equalsIgnoreCase(r.status);
+                final boolean _isSofortWarteschlange = "warteschlange".equalsIgnoreCase(r.status);
+                if (_isWartepool) {
+                    itemView.setBackgroundColor(Color.parseColor("#7F1D1D")); // tiefes Rot
+                    t1.setText("⚠️ " + when + "  " + (r.customerName != null ? r.customerName : "?") + "  · WARTEPOOL" + vehicleBadge);
+                } else if (_isSofortWarteschlange) {
+                    itemView.setBackgroundColor(Color.parseColor("#78350F")); // dunkles Bernstein
+                    t1.setText("⚡ SOFORT-WS  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
+                } else if (r.isUnclaimedWebBooking()) {
                     itemView.setBackgroundColor(Color.parseColor("#451A03")); // dunkles Orange
                     t1.setText("🆕 WEB  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
                 } else if (r.isWebBookingAnySource()) {

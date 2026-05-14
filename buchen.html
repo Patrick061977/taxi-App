@@ -739,11 +739,98 @@
         <!-- 🆕 v6.41.69: Sticky am oberen Bildschirmrand → bleibt sichtbar beim Scrollen (Mobile-Wunsch) -->
         <div id="step-progress" style="display:none;gap:4px;padding:8px 10px;margin-bottom:10px;background:rgba(255,255,255,0.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid #e5e7eb;border-radius:12px;overflow-x:auto;white-space:nowrap;font-size:11px;font-weight:600;position:sticky;top:8px;z-index:50;box-shadow:0 4px 14px rgba(15,23,42,0.08);"></div>
 
-        <!-- 🔧 v6.62.704: wann-card ist im Markup nach booking-card platziert (siehe weiter unten).
-             Vorher stand sie hier oben + sollte per JS verschoben werden — der JS-Move-Code
-             wurde irgendwann entfernt aber der Kommentar blieb. Resultat: Zeit erschien beim
-             ersten Laden oben (Patrick 14.05.: 'beim Refresh stimmt es, beim ersten Laden
-             nicht'). Markup-Reihenfolge jetzt: Karte → booking-fields (Pickup → Ziel) → Wann. -->
+        <!-- 🔧 v6.62.710: Wann-Card OBEN wiederhergestellt. Patrick (14.05. 10:16):
+             "Sofort ist nicht oben sondern unten — die Leute muessen nach oben sehen wenn
+             sie buchen wollen". v6.62.704 hatte den Toggle versteckt nach unten verschoben. -->
+        <div class="card" id="wann-card" style="padding:12px;">
+<div class="input-group" style="margin-bottom:0;">
+                <label style="margin-bottom:6px;">🕐 Wann?</label>
+                <div class="wann-toggle" id="wann-toggle">
+                    <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
+                    <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
+                </div>
+                <!-- 🆕 v6.41.66: Kompakter "Termin gewählt" Streifen — nach Slot-Wahl statt voller Felder -->
+                <!-- 🔧 v6.62.484: Patrick (08.05. 12:58): "kann man auf das Bild drücken?
+                     irgendwie verleitet das auf dieses kleine Feld zu drücken". Komplett klickbar. -->
+                <div id="termin-compact" onclick="expandVorbestellFelder()" style="display:none;margin-top:8px;padding:10px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">
+                    <div style="font-size:13px;color:#065f46;font-weight:600;flex:1;" id="termin-compact-text">📅 — —</div>
+                    <span style="font-size:11px;color:#059669;font-weight:600;background:white;padding:4px 10px;border:1px solid #a7f3d0;border-radius:6px;pointer-events:none;">✏️ Ändern</span>
+                </div>
+                <div class="vorbestellen-felder" id="vorbestellen-felder">
+                    <!-- 🔧 v6.62.473: Datum darf nicht direkt zum Slot springen ohne Uhrzeit
+                         (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
+                         nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
+                    <!-- 🆕 v6.62.626: Patrick (11.05. 19:18): Termin-Bild click öffnet Picker. -->
+                    <div onclick="(function(e){try{document.getElementById('b-date').showPicker();}catch(_){document.getElementById('b-date').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;margin-bottom:8px;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">📅</span>
+                        <div style="flex:1;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
+                            <div id="b-date-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
+                        </div>
+                        <input type="date" id="b-date" min="" onchange="onBDateChange();updateBDateLabel();" style="position:absolute;left:-9999px;opacity:0;">
+                    </div>
+                    <div onclick="(function(e){try{document.getElementById('b-time').showPicker();}catch(_){document.getElementById('b-time').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <span style="font-size:22px;pointer-events:none;">🕐</span>
+                        <div style="flex:1;pointer-events:none;">
+                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
+                            <div id="b-time-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
+                        </div>
+                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="position:absolute;left:-9999px;opacity:0;">
+                    </div>
+                    <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
+                    <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
+                </div>
+                <script>
+                window.updateBDateLabel = function() {
+                    const inp = document.getElementById('b-date');
+                    const lbl = document.getElementById('b-date-label');
+                    if (!inp || !lbl) return;
+                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
+                    try {
+                        const d = new Date(inp.value + 'T00:00:00');
+                        const opts = { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' };
+                        lbl.textContent = d.toLocaleDateString('de-DE', opts);
+                    } catch(_) { lbl.textContent = inp.value; }
+                };
+                window.updateBTimeLabel = function() {
+                    const inp = document.getElementById('b-time');
+                    const lbl = document.getElementById('b-time-label');
+                    if (!inp || !lbl) return;
+                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
+                    try {
+                        const parts = inp.value.split(':');
+                        let h = parseInt(parts[0], 10);
+                        let m = parseInt(parts[1], 10);
+                        if (!isNaN(h) && !isNaN(m) && m % 10 !== 0) {
+                            m = Math.ceil(m / 10) * 10;
+                            if (m >= 60) { m = 0; h = (h + 1) % 24; }
+                            const rounded = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+                            inp.value = rounded;
+                            lbl.textContent = rounded + ' Uhr';
+                            return;
+                        }
+                    } catch(_) {}
+                    lbl.textContent = inp.value + ' Uhr';
+                };
+                </script>
+                <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
+                <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:12px;color:#64748b;font-weight:600;">Tag wählen</span>
+                        <button onclick="jumpToToday()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📅 Heute</button>
+                    </div>
+                    <div class="day-tabs" id="day-tabs"></div>
+                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
+                        <div id="slot-timeline-inner" style="min-width:600px;">
+                            <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:11px;color:#64748b;font-weight:600;"></div>
+                            <div id="slot-timeline-bar" style="position:relative;height:56px;margin:6px 4px;"></div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
+                    <div id="slot-route-hint" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
         <!-- 🆕 v6.41.55: Sofort-Call-Box zwischen Wann-Card und Karte — sichtbar wenn kein Taxi da -->
         <div class="card" id="sofort-call-box" style="display:none;padding:0;"></div>
         <!-- 🆕 v6.62.516: Verfuegbarkeits-Warnung (alle Fahrzeuge belegt) ganz nach OBEN.
@@ -979,105 +1066,7 @@
 
         <!-- v6.41.58: phone-card + sms-card entfernt — Felder jetzt inline in #step-phone / #step-sms -->
 
-        <!-- 🆕 v6.41.55 / 🔧 v6.62.704: Wann-Card — Termin-Entscheidung (Sofort/Vorbestellen).
-             Hierher verschoben damit Reihenfolge ab dem ersten Render stabil ist: Karte → Adressen → Wann. -->
-        <div class="card" id="wann-card" style="padding:12px;">
-<div class="input-group" style="margin-bottom:0;">
-                <label style="margin-bottom:6px;">🕐 Wann?</label>
-                <div class="wann-toggle" id="wann-toggle">
-                    <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
-                    <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
-                </div>
-                <!-- 🆕 v6.41.66: Kompakter "Termin gewählt" Streifen — nach Slot-Wahl statt voller Felder -->
-                <!-- 🔧 v6.62.484: Patrick (08.05. 12:58): "kann man auf das Bild drücken?
-                     irgendwie verleitet das auf dieses kleine Feld zu drücken". Komplett klickbar. -->
-                <div id="termin-compact" onclick="expandVorbestellFelder()" style="display:none;margin-top:8px;padding:10px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'">
-                    <div style="font-size:13px;color:#065f46;font-weight:600;flex:1;" id="termin-compact-text">📅 — —</div>
-                    <span style="font-size:11px;color:#059669;font-weight:600;background:white;padding:4px 10px;border:1px solid #a7f3d0;border-radius:6px;pointer-events:none;">✏️ Ändern</span>
-                </div>
-                <div class="vorbestellen-felder" id="vorbestellen-felder">
-                    <!-- 🔧 v6.62.473: Datum darf nicht direkt zum Slot springen ohne Uhrzeit
-                         (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
-                         nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
-                    <!-- 🆕 v6.62.626: Patrick (11.05. 19:18): Termin-Bild click öffnet Picker.
-                         Bisher war b-date ein winziges natives Input-Feld. Jetzt Wrapper-Card
-                         mit 📅-Icon — Klick auf irgendeine Stelle der Card öffnet den Native-
-                         Date-Picker via showPicker(). Selbes Pattern für b-time mit 🕐-Icon. -->
-                    <div onclick="(function(e){try{document.getElementById('b-date').showPicker();}catch(_){document.getElementById('b-date').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;margin-bottom:8px;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
-                        <span style="font-size:22px;pointer-events:none;">📅</span>
-                        <div style="flex:1;pointer-events:none;">
-                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
-                            <div id="b-date-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
-                        </div>
-                        <input type="date" id="b-date" min="" onchange="onBDateChange();updateBDateLabel();" style="position:absolute;left:-9999px;opacity:0;">
-                    </div>
-                    <div onclick="(function(e){try{document.getElementById('b-time').showPicker();}catch(_){document.getElementById('b-time').focus();}})(event)" style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
-                        <span style="font-size:22px;pointer-events:none;">🕐</span>
-                        <div style="flex:1;pointer-events:none;">
-                            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
-                            <div id="b-time-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
-                        </div>
-                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="position:absolute;left:-9999px;opacity:0;">
-                    </div>
-                    <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
-                    <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>
-                </div>
-                <script>
-                // 🆕 v6.62.626: Label-Update fuer die neuen Termin-Cards.
-                window.updateBDateLabel = function() {
-                    const inp = document.getElementById('b-date');
-                    const lbl = document.getElementById('b-date-label');
-                    if (!inp || !lbl) return;
-                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
-                    try {
-                        const d = new Date(inp.value + 'T00:00:00');
-                        const opts = { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' };
-                        lbl.textContent = d.toLocaleDateString('de-DE', opts);
-                    } catch(_) { lbl.textContent = inp.value; }
-                };
-                window.updateBTimeLabel = function() {
-                    const inp = document.getElementById('b-time');
-                    const lbl = document.getElementById('b-time-label');
-                    if (!inp || !lbl) return;
-                    if (!inp.value) { lbl.textContent = '— Tippen zum Auswählen —'; return; }
-                    // 🆕 v6.62.700: Patrick (13.05. 21:21): "Oben bei Zeit steht 16:19 Uhr, das ist
-                    //   der Quatsch. Wir müssen auf 10 Minuten hochrunden." Aufrunden auf nächsten
-                    //   10-Min-Slot fuer konsistente Darstellung mit der Timeline.
-                    try {
-                        const parts = inp.value.split(':');
-                        let h = parseInt(parts[0], 10);
-                        let m = parseInt(parts[1], 10);
-                        if (!isNaN(h) && !isNaN(m) && m % 10 !== 0) {
-                            m = Math.ceil(m / 10) * 10;
-                            if (m >= 60) { m = 0; h = (h + 1) % 24; }
-                            const rounded = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-                            // Auch das Input selbst aktualisieren damit nachfolgende Logik den gerundeten Wert sieht
-                            inp.value = rounded;
-                            lbl.textContent = rounded + ' Uhr';
-                            return;
-                        }
-                    } catch(_) {}
-                    lbl.textContent = inp.value + ' Uhr';
-                };
-                </script>
-                <!-- Kalender: Tagesplan mit freien Zeitfenstern -->
-                <div id="vorbestellen-kalender" style="display:none;margin-top:12px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <span style="font-size:12px;color:#64748b;font-weight:600;">Tag wählen</span>
-                        <button onclick="jumpToToday()" style="padding:4px 10px;background:white;color:#059669;border:1px solid #a7f3d0;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">📅 Heute</button>
-                    </div>
-                    <div class="day-tabs" id="day-tabs"></div>
-                    <div id="slot-timeline" style="position:relative;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow-x:auto;overflow-y:hidden;min-height:80px;">
-                        <div id="slot-timeline-inner" style="min-width:600px;">
-                            <div id="slot-timeline-header" style="display:flex;position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;z-index:2;font-size:11px;color:#64748b;font-weight:600;"></div>
-                            <div id="slot-timeline-bar" style="position:relative;height:56px;margin:6px 4px;"></div>
-                        </div>
-                    </div>
-                    <div style="text-align:center;font-size:9px;color:#cbd5e1;margin-top:2px;">↔ Wischen zum Scrollen</div>
-                    <div id="slot-route-hint" style="display:none;"></div>
-                </div>
-            </div>
-        </div>
+        <!-- v6.62.710: wann-card vorher hier (v6.62.704) — wieder nach OBEN verschoben -->
 
         <!-- Erfolg -->
         <div class="card success-card" id="success-card">
@@ -2338,7 +2327,17 @@
 
             const noTaxi = gpsOnlineCount === 0;
             const isSofort = wannModus === 'sofort';
-            const hideEverything = isSofort && noTaxi;
+            // 🔧 v6.62.710: Patrick (14.05. 10:17): "Erst kommt der Telefon-Anruf-Banner,
+            //   dann erst die Buchen-HTML. Sofort-verfuegbar kommt spaet". Wurzel: callBox
+            //   mit "Kein Taxi"-Vollbild blendet Felder/Karte/Buchen-Card aus, sobald
+            //   sofortCount=0 — auch wenn der User noch GAR NICHT auf "Sofort" geklickt
+            //   hat oder noch keine Adresse eingegeben hat (initial sofortCount oft kurz 0).
+            //   Fix: Vollbild-Hide nur dann wenn der User WIRKLICH sofort buchen will,
+            //   d.h. Adressen schon gesetzt sind. Vorher (Initial-Phase) bleiben alle
+            //   Cards sichtbar, der callBox erscheint nicht.
+            const hasAddresses = !!(typeof pickupCoords !== 'undefined' && pickupCoords
+                                    && typeof destCoords !== 'undefined' && destCoords);
+            const hideEverything = isSofort && noTaxi && hasAddresses;
 
             // 🆕 v6.41.63: Booking-Card (TAXI BUCHEN + Alles neu Header) mit verstecken
             const bookingCard = document.getElementById('booking-card');

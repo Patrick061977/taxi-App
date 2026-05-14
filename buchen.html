@@ -3764,7 +3764,21 @@
             nacht_km_3_4: 2.80,
             nacht_km_ab_5: 2.40
         };
-        const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
+        // 🔧 v6.62.708: Bewegliche MV-Feiertage hinzu (Karfreitag/Ostermontag/Himmelfahrt/
+        // Pfingstmontag via Oster-Formel, Reformationstag 10-31 fest).
+        const FEIERTAGE = ['01-01','05-01','10-03','10-31','12-24','12-25','12-26','12-31'];
+        function easterDate(year) {
+            const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+            const d = Math.floor(b / 4), e = b % 4;
+            const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4), k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const month = Math.floor((h + l - 7 * m + 114) / 31);
+            const day = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, month - 1, day);
+        }
 
         // Tarif aus Firebase laden
         db.ref('settings/tarif').once('value', snap => {
@@ -3787,7 +3801,14 @@
         function isFeiertag(date) {
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
-            return FEIERTAGE.includes(`${m}-${d}`);
+            if (FEIERTAGE.includes(`${m}-${d}`)) return true;
+            // 🔧 v6.62.708: Bewegliche Feiertage relativ zum Ostersonntag
+            const year = date.getFullYear();
+            const easter = easterDate(year);
+            const easterDay = new Date(year, easter.getMonth(), easter.getDate()).getTime();
+            const targetDay = new Date(year, date.getMonth(), date.getDate()).getTime();
+            const diffDays = Math.round((targetDay - easterDay) / 86400000);
+            return diffDays === -2 || diffDays === 1 || diffDays === 39 || diffDays === 50;
         }
 
         function calculatePrice(distance, timestamp) {

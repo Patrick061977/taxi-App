@@ -238,7 +238,28 @@ async function loadTarifFromFirebase() {
     }
 }
 
-const FEIERTAGE = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
+// 🔧 v6.62.708: Bewegliche MV-Feiertage hinzu. Patrick (14.05. 10:00): "Heute ist
+// Christi Himmelfahrt, aber Tarif rechnet keinen Feiertagstarif". Vorher nur feste
+// 7 Tage — Karfreitag/Ostermontag/Himmelfahrt/Pfingstmontag/Reformationstag fehlten.
+const FEIERTAGE = ['01-01','05-01','10-03','10-31','12-24','12-25','12-26','12-31'];
+// Spencer's Gauss-Algorithmus fuer Ostersonntag (gregorianisch).
+function easterDate(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+}
 
 const OFFICIAL_VEHICLES = {
     'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222', capacity: 4, priority: 1 },
@@ -3851,7 +3872,14 @@ async function calculateRoute(from, to, waypointCoords = []) {
 function isFeiertag(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    return FEIERTAGE.includes(`${month}-${day}`);
+    if (FEIERTAGE.includes(`${month}-${day}`)) return true;
+    // 🔧 v6.62.708: Bewegliche Feiertage (Karfreitag/Ostermontag/Christi Himmelfahrt/Pfingstmontag)
+    const year = date.getFullYear();
+    const easter = easterDate(year);
+    const easterDayOnly = new Date(year, easter.getMonth(), easter.getDate());
+    const targetDayOnly = new Date(year, date.getMonth(), date.getDate());
+    const diffDays = Math.round((targetDayOnly.getTime() - easterDayOnly.getTime()) / 86400000);
+    return diffDays === -2 || diffDays === 1 || diffDays === 39 || diffDays === 50;
 }
 
 // 🔧 v6.62.440: ECOVIS-/Tarif-Komplettierung — Cloud Function calculatePrice ist jetzt

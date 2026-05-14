@@ -1100,7 +1100,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // halten — nur wirklich laufende Fahrten (on_way/arrived/picked_up) immer zeigen.
         long now = System.currentTimeMillis();
         long windowPast = now - 12L * 3600L * 1000L;
-        long windowFuture = now + 20L * 60L * 1000L;
+        // v6.62.706: Window von 20 → 30 Min damit es zur Banner-Lookahead-Range passt.
+        // Vorher: Banner zeigt Vorbestellung 25 Min in Zukunft an, Liste hat sie aber nicht.
+        // Patrick (14.05.): "Banner sagt in 18 Min losfahren — die Fahrt ist nicht mal auf dem
+        // Fahrerbildschirm". Bug bestand: Disposition filtert auf 20 Min, Banner schaut 30 Min.
+        long windowFuture = now + 30L * 60L * 1000L;
         List<Ride> assigned = new ArrayList<>();
         for (DataSnapshot child : s.getChildren()) {
             Ride r = Ride.fromSnap(child);
@@ -1306,6 +1310,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // Vorher Truncate auf 40 Zeichen — "Heringsdorf, Bahnhof, Am Bahnhof, 17424 …".
         // TextView ist wrap_content ohne maxLines, darf also auf zwei Zeilen umbrechen.
         String pickupAddr = nextRide.pickup != null ? nextRide.pickup : "?";
+        // 🆕 v6.62.706: Patrick (14.05. 09:22): "Was soll der Quatsch? Keine Sofortfahrt mehr —
+        //   die Fahrt ist nicht mal auf dem Fahrerbildschirm". Banner war ohne Kunden-Kontext
+        //   und klang restriktiv. Jetzt: Kundennamen prominent, Uhrzeit prominent, Aktion klar.
+        String customer = nextRide.customerName != null && !nextRide.customerName.isEmpty()
+            ? nextRide.customerName : "Kunde";
         // 🆕 v6.62.378: Patrick (06.05. 18:07): "4 Min Restzeit — keine Sofortfahrt mehr".
         // Banner zeigt jetzt realistisch was noch geht: max-Fahrtzeit = restzeit - Puffer
         // (5 Min Anfahrt zu Sofort + 3 Min Boarding + 5 Min Rueckfahrt).
@@ -1314,27 +1323,27 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // 🆕 v6.62.658: LOSFAHREN basiert jetzt auf losBufMin (echte Anfahrt + 2 Min),
             //   nicht mehr auf blockBufMin (15-Min-Floor) — keine 8 Min frueher als noetig.
             banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
-            statusText.setText("🚗 LOSFAHREN! Pickup " + pickupHM + " · " + anfahrtMin + " Min Anfahrt");
+            statusText.setText("🚗 LOSFAHREN! " + customer + " um " + pickupHM + " · " + anfahrtMin + " Min Anfahrt");
             nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else if (minBisBlock < 15) {
-            // Zu kurz fuer eine sinnvolle Sofortfahrt — rot. Countdown bezieht sich aufs
-            // tatsaechliche Losfahren (minBisLos), nicht auf blockBufMin.
+            // Pickup naht. Wording-Fix v6.62.706: Kunde + Uhrzeit prominent, Sofortfahrt-Sperre
+            // als sekundaere Info (war frueher die Headline, hat verwirrt).
             banner.setBackgroundColor(android.graphics.Color.parseColor("#dc2626"));
-            statusText.setText("🔴 Keine Sofortfahrt mehr — in " + minBisLos + " Min losfahren!");
-            nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
+            statusText.setText("📅 " + customer + " um " + pickupHM + " · in " + minBisLos + " Min losfahren");
+            nextText.setText("📍 " + pickupAddr + "  ·  🚫 keine Sofortfahrten mehr");
             nextText.setVisibility(View.VISIBLE);
         } else if (minBisBlock <= 30) {
             // Nur kurze Sofortfahrt moeglich — gelb
             banner.setBackgroundColor(android.graphics.Color.parseColor("#f59e0b"));
-            statusText.setText("🟡 Nur kurze Fahrt: max " + maxFahrtMin + " Min Fahrtzeit (frei bis " + blockHM + ")");
-            nextText.setText("📅 Pickup " + pickupHM + " · " + pickupAddr);
+            statusText.setText("🟡 Nur kurze Fahrt: max " + maxFahrtMin + " Min (Vorbestellung " + customer + " um " + pickupHM + ")");
+            nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         } else {
             // Locker — gruen
             banner.setBackgroundColor(android.graphics.Color.parseColor("#059669"));
-            statusText.setText("🟢 Frei für Sofort · max " + maxFahrtMin + " Min Fahrtzeit (bis " + blockHM + ")");
-            nextText.setText("📅 Nächste Vorbestellung " + pickupHM + " · " + pickupAddr);
+            statusText.setText("🟢 Frei für Sofort · max " + maxFahrtMin + " Min (Vorbestellung " + customer + " um " + pickupHM + ")");
+            nextText.setText("📍 " + pickupAddr);
             nextText.setVisibility(View.VISIBLE);
         }
         banner.setVisibility(View.VISIBLE);

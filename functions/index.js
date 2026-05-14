@@ -25643,6 +25643,17 @@ exports.claudeFixRide = onRequest(
                 upd.statusTransitionedAt = now;
                 upd.statusTransitionReason = upd.fixReason + ' (acceptedAt/assignedAt geloescht damit PUSH-REMINDER greift)';
             }
+            // 🆕 v6.62.706: Bei Wartepool-Reset MUSS autoAssignAttempts mit zurueck auf 0,
+            //   sonst feuert scheduledAutoAssign sofort wieder wartepool (Check: attempts >= 3).
+            //   Patrick (14.05.): See-Eck hatte attempts=7 stehen — Endlosschleife verhindern.
+            //   Trigger via body.resetAttempts:true ODER body.fromWartepool:true ODER reason enthaelt 'wartepool'.
+            if (body.resetAttempts === true || body.fromWartepool === true || (body.reason && /wartepool/i.test(body.reason))) {
+                upd.autoAssignAttempts = 0;
+                upd.autoAssignLastFailAt = null;
+                upd.wartepoolReason = null;
+                upd.wartepoolAt = null;
+                upd.wartepoolResetAt = now;
+            }
             await db.ref('rides/' + rideId).update(upd);
             await addRideLog(rideId, '🚑', `NOTFALL-FIX: status → ${newStatus}`, {
                 quelle: 'claudeFixRide v6.62.10',

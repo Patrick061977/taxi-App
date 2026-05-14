@@ -22297,17 +22297,45 @@ exports.scheduledOpenRideCheck = onSchedule(
                 if (msUntil > 25 * 60000) return; // nicht Sofortfahrt — scheduledAutoAssign macht Vorbestellungen
                 if (msUntil < -2 * 60 * 60000) return; // > 2h alt → ignorieren (verschollen)
                 if (ride.watchdogLastAttempt && (now - ride.watchdogLastAttempt) < 60000) return;
-                console.log(`🐕 Watchdog: Sofortfahrt ${rideId} ohne Fahrzeug (${ride.customerName || '?'}, ${Math.round(msUntil/60000)}min bis Pickup) → autoAssignRide`);
-                db.ref('rides/' + rideId + '/watchdogLastAttempt').set(now).catch(()=>{});
-                autoAssignRide(rideId, { ...ride, _rejectedVehicles: ride.rejectedVehicles || ride._rejectedVehicles || [] }).then(result => {
-                    if (result && result.vehicleId) {
-                        const _name = result.name || (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
-                        console.log(`✅ Watchdog: ${rideId} → ${_name} zugewiesen`);
-                        addRideLog(rideId, '🐕', `Watchdog: Re-Assigned ${_name}`, { quelle: 'sofortfahrt-watchdog v6.62.248', rejectedVehicles: ride.rejectedVehicles || [] }).catch(()=>{});
-                    } else {
-                        console.log(`⚠️ Watchdog: ${rideId} kein Fahrzeug verfügbar (rejected: ${(ride.rejectedVehicles || []).join(', ') || 'keine'})`);
+                // 🛡️ v6.62.715: Patrick (14.05. 12:35): "Danilo hat angenommen aber sie ist
+                //   wieder weg". Race-Condition: zwischen accept (rideAction) und Watchdog-
+                //   Snapshot war assignedVehicle in der lokalen Cache-Map noch null.
+                //   Watchdog hat deshalb unbeirrt re-assigned und das frische 'accepted'
+                //   ueberschrieben. Fix: VOR dem autoAssignRide-Call NOCHMAL frisch lesen
+                //   (atomar) und nur dann re-assignen wenn die Ride immer noch ohne
+                //   Vehicle UND nicht in den letzten 5 Min angenommen wurde.
+                const _doReassign = async () => {
+                    try {
+                        const _freshSnap = await db.ref('rides/' + rideId).once('value');
+                        const _fresh = _freshSnap.val();
+                        if (!_fresh) return;
+                        if (_fresh.assignedVehicle || _fresh.vehicleId || _fresh.driverId) {
+                            console.log(`🛡️ Watchdog skip ${rideId}: hat inzwischen Vehicle (${_fresh.assignedVehicle || _fresh.vehicleId})`);
+                            return;
+                        }
+                        if (_fresh.acceptedAt && (now - _fresh.acceptedAt) < 5 * 60000) {
+                            console.log(`🛡️ Watchdog skip ${rideId}: in den letzten 5 Min angenommen (acceptedAt: ${new Date(_fresh.acceptedAt).toISOString()})`);
+                            return;
+                        }
+                        if (['accepted', 'on_way', 'arrived', 'picked_up', 'completed'].includes(_fresh.status)) {
+                            console.log(`🛡️ Watchdog skip ${rideId}: Status '${_fresh.status}' — kein Reassign`);
+                            return;
+                        }
+                        console.log(`🐕 Watchdog: Sofortfahrt ${rideId} ohne Fahrzeug (${_fresh.customerName || '?'}, ${Math.round(msUntil/60000)}min bis Pickup) → autoAssignRide`);
+                        await db.ref('rides/' + rideId + '/watchdogLastAttempt').set(now);
+                        const result = await autoAssignRide(rideId, { ..._fresh, _rejectedVehicles: _fresh.rejectedVehicles || [] });
+                        if (result && result.vehicleId) {
+                            const _name = result.name || (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
+                            console.log(`✅ Watchdog: ${rideId} → ${_name} zugewiesen`);
+                            await addRideLog(rideId, '🐕', `Watchdog: Re-Assigned ${_name}`, { quelle: 'sofortfahrt-watchdog v6.62.715', rejectedVehicles: _fresh.rejectedVehicles || [] }).catch(()=>{});
+                        } else {
+                            console.log(`⚠️ Watchdog: ${rideId} kein Fahrzeug verfügbar`);
+                        }
+                    } catch (e) {
+                        console.error('Watchdog Re-Read-Fehler:', e.message);
                     }
-                }).catch(e => console.error('Watchdog autoAssignRide Fehler:', e.message));
+                };
+                _doReassign();
             });
 
             // 🩹 v6.40.34: STUCK-ASSIGNED-WATCHDOG

@@ -977,33 +977,42 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Toast.makeText(this, "❌ Fahrt nicht gefunden", Toast.LENGTH_LONG).show();
                     return;
                 }
-                Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
+                // v6.62.718: pickup/destination direkt aus DataSnapshot lesen via child().getValue(String.class)
+                //   statt Map-Cast — der Cast hatte bei Schindel-Fahrten pickup/dest als null geliefert
+                //   obwohl Firebase die Werte als Strings hat. Vermutlich Kollision mit pickupCoords/destCoords
+                //   sub-Objekten beim raw getValue().
+                com.google.firebase.database.DataSnapshot _snap = task.getResult();
+                Map<String, Object> _full = (Map<String, Object>) _snap.getValue();
                 if (_full == null) {
                     Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
                     return;
                 }
-                // 🔧 v6.62.713/714: Hard-Diagnose — Toast UND Log nach Firebase /settings/buchenLog,
-                //   damit Patrick im System-Monitor (Web) sehen kann was Firebase wirklich liefert.
-                String _diagP1 = _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)";
-                String _diagD1 = _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)";
+                // Pickup + Destination IMMER per typisiertem getValue() lesen — robuster als Map-Cast
+                String _pickupDirect = _snap.child("pickup").getValue(String.class);
+                String _destDirect   = _snap.child("destination").getValue(String.class);
+                if (_pickupDirect != null) _full.put("pickup", _pickupDirect);
+                if (_destDirect != null) _full.put("destination", _destDirect);
+                // 🔧 v6.62.713/714/718: Hard-Diagnose
+                String _diagP1 = _pickupDirect != null ? _pickupDirect : "(null)";
+                String _diagD1 = _destDirect != null ? _destDirect : "(null)";
                 Toast.makeText(this,
                     "🔬 Firebase: pickup=" + (_diagP1.length() > 30 ? _diagP1.substring(0, 30) + "…" : _diagP1)
                     + " | dest=" + (_diagD1.length() > 30 ? _diagD1.substring(0, 30) + "…" : _diagD1)
                     + " | rideId=" + rideId.substring(rideId.length() - 6),
                     Toast.LENGTH_LONG).show();
-                // v6.62.714: zusaetzlich nach /settings/buchenLog schreiben fuer System-Monitor
                 try {
                     java.util.Map<String, Object> _diagEntry = new java.util.HashMap<>();
                     _diagEntry.put("ts", System.currentTimeMillis());
                     _diagEntry.put("icon", "🔬");
-                    _diagEntry.put("event", "openRideAsTemplate Firebase-Load");
+                    _diagEntry.put("event", "openRideAsTemplate Firebase-Load v718");
                     _diagEntry.put("rideId", rideId);
                     _diagEntry.put("pickup", _diagP1);
                     _diagEntry.put("destination", _diagD1);
-                    _diagEntry.put("pickupClass", _full.get("pickup") != null ? _full.get("pickup").getClass().getSimpleName() : "null");
-                    _diagEntry.put("destClass", _full.get("destination") != null ? _full.get("destination").getClass().getSimpleName() : "null");
+                    // Vergleichswerte aus Map-Cast (war buggy)
+                    _diagEntry.put("pickupFromMap", _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)");
+                    _diagEntry.put("destFromMap", _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)");
                     _diagEntry.put("allKeys", new java.util.ArrayList<>(_full.keySet()));
-                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.714");
+                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.718");
                     FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/buchenLog").push().setValue(_diagEntry);
                 } catch (Throwable _diagErr) {
                     Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _diagErr.getMessage());
@@ -1057,11 +1066,17 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Toast.makeText(this, "❌ Fahrt nicht gefunden", Toast.LENGTH_LONG).show();
                     return;
                 }
-                Map<String, Object> _full = (Map<String, Object>) task.getResult().getValue();
+                // v6.62.718: gleicher Fix wie openRideAsTemplate — pickup/destination per typisiertem getValue()
+                com.google.firebase.database.DataSnapshot _snap = task.getResult();
+                Map<String, Object> _full = (Map<String, Object>) _snap.getValue();
                 if (_full == null) {
                     Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
                     return;
                 }
+                String _pickupDirect = _snap.child("pickup").getValue(String.class);
+                String _destDirect   = _snap.child("destination").getValue(String.class);
+                if (_pickupDirect != null) _full.put("pickup", _pickupDirect);
+                if (_destDirect != null) _full.put("destination", _destDirect);
                 // Top-Ziele für die Quick-Chips analog zum Anlegen-Flow
                 showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), rideId, _full);
             });

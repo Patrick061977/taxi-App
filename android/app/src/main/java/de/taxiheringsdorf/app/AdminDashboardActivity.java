@@ -67,9 +67,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private ValueEventListener offeneAnfragenListener;
     private List<Anfrage> _currentOffeneAnfragen = new ArrayList<>();
     private List<Ride> _currentRides = new ArrayList<>();
-    // v6.62.153: Active-Statuses fuer Disposition-Liste (alle Fahrten die noch nicht abgeschlossen sind)
+    // v6.62.153 + v6.62.705: Active-Statuses fuer Disposition-Liste (alle Fahrten die noch nicht abgeschlossen sind)
+    // v6.62.705: "wartepool" hinzu — Patrick (14.05.): "8:45 See-Eck steht gar nicht in meiner Disposition".
+    // Fahrten die nach 3× Auto-Assign-Fehlschlag in den Wartepool fallen waren bisher unsichtbar.
     private static final List<String> ACTIVE_STATUSES = Arrays.asList(
-        "warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up");
+        "warteschlange", "wartepool", "vorbestellt", "new", "accepted", "on_way", "picked_up");
 
     // v6.62.353: Patrick (06.05. 11:50): "Abholort kann ich nicht bearbeiten, ist nur ein
     // Name kein Geopoint" — Edit-Dialog hat fuer pickup/destination nur EditText. Fix:
@@ -986,6 +988,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private static String statusEmoji(String status) {
         switch (status) {
             case "warteschlange": return "⏳";
+            case "wartepool":     return "⚠️"; // v6.62.705
             case "vorbestellt":   return "📅";
             case "new":           return "🆕";
             case "accepted":      return "✅";
@@ -1198,7 +1201,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
         tvStatusLabel.setPadding(0, pad, 0, padHalf);
         layout.addView(tvStatusLabel);
         final android.widget.Spinner spnStatus = new android.widget.Spinner(this);
-        final String[] statusVals = {"warteschlange", "vorbestellt", "new", "accepted", "on_way", "picked_up", "completed", "cancelled"};
+        final String[] statusVals = {"warteschlange", "wartepool", "vorbestellt", "new", "accepted", "on_way", "picked_up", "completed", "cancelled"};
         android.widget.ArrayAdapter<String> statAdapter = new android.widget.ArrayAdapter<>(
             this, android.R.layout.simple_spinner_item, statusVals);
         statAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);

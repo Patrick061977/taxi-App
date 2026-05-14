@@ -18215,7 +18215,12 @@ exports.scheduledReachabilityCheck = onSchedule(
             const windowEnd = now + 30 * 60 * 1000;
             const REALARM_COOLDOWN_MS = 10 * 60 * 1000;
             const STALE_GPS_MS = 10 * 60 * 1000;
-            const BOARDING_BUFFER_MIN = 3;
+            // 🔧 v6.62.717: Patrick (14.05. 17:29): "Schaffbarkeits-Watchdog rechnet Einsteigezeit
+            //   mit dazu — die braucht er nicht. Eigentlich ist nur die Ankunftszeit wichtig".
+            //   Fix: 0 Min Boarding-Puffer im Watchdog. Boarding kann der Fahrer selbst managen
+            //   (1 Min frueher kommen + einsteigen). Watchdog alarmiert nur noch wenn ANKUNFT
+            //   wirklich > Pickup-Zeit ist — keine Push-Spam mehr bei knapper Lage.
+            const BOARDING_BUFFER_MIN = 0;
 
             const [ridesSnap, vehiclesSnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(windowEnd).once('value'),

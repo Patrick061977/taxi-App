@@ -21893,18 +21893,42 @@ exports.onShiftStatusChanged = onValueUpdated(
         const endedStates = ['ended', 'auto-ended'];
         if (!endedStates.includes(newStatus)) return;
         if (endedStates.includes(oldStatus)) return; // schon ended → war doppel-trigger
+        // 🆕 v6.62.709: Patrick (14.05. 10:08): "warum versucht er alles immer zuzuweisen?
+        //   Vorbestellung weg, Vorbestellung hin — das hat doch nichts mit GPS zu tun".
+        //   Bei 'auto-ended' (Heartbeat-Timeout) sind oft App-Pause/-Crash die Ursache,
+        //   nicht ein bewusstes Schicht-Ende. Reassign-Logik nur bei manuellem 'ended'.
+        //   Bei 'auto-ended' nur loggen, keine Vorbestellungen umverteilen — der Fahrer
+        //   ist meist gleich wieder da. Wenn die Schicht laenger weg ist → naechster
+        //   scheduledAutoAssign-Lauf bemerkt es selbst.
+        if (newStatus === 'auto-ended') {
+            console.log(`⏸️ onShiftStatusChanged: ${vid} auto-ended (Heartbeat-Timeout) — Reassign uebersprungen, scheduledAutoAssign uebernimmt naechsten Lauf`);
+            return;
+        }
         console.log(`🛑 onShiftStatusChanged: ${vid} ${oldStatus}→${newStatus} — suche zugewiesene Vorbestellungen`);
         try {
             const ridesSnap = await db.ref('rides').orderByChild('assignedVehicle').equalTo(vid).once('value');
             const now = Date.now();
+            // 🆕 v6.62.709: Patrick: "wenn die Pickup morgen ist hat das nichts mit dem
+            //   Schicht-Ende heute zu tun". Reassign-Fenster auf 6 Stunden begrenzen —
+            //   alles weiter in der Zukunft bleibt zugewiesen, weil der Fahrer in der
+            //   naechsten Schicht (laut Wochenplan) ohnehin wieder da ist.
+            const REASSIGN_WINDOW_MS = 6 * 60 * 60 * 1000; // 6h
             const affected = [];
+            const skippedFuture = [];
             ridesSnap.forEach(c => {
                 const r = c.val();
                 if (!r) return;
                 if (!['assigned', 'vorbestellt'].includes(r.status)) return;
                 if (!r.pickupTimestamp || r.pickupTimestamp <= now) return;
+                if (r.pickupTimestamp > now + REASSIGN_WINDOW_MS) {
+                    skippedFuture.push({ id: c.key, customerName: r.customerName, pickupTime: r.pickupTime });
+                    return;
+                }
                 affected.push({ id: c.key, ride: r });
             });
+            if (skippedFuture.length > 0) {
+                console.log(`⏩ ${vid}: ${skippedFuture.length} Vorbestellung(en) > 6h — bleiben zugewiesen (Wochenplan-Schicht greift)`);
+            }
             if (affected.length === 0) {
                 console.log(`✅ ${vid} Schicht-Ende: keine offenen Vorbestellungen`);
                 return;

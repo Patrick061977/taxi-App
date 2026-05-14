@@ -16928,6 +16928,35 @@ exports.autoResolveConflicts = onSchedule(
                         if (result && result.vehicleId) {
                             const vName = (OFFICIAL_VEHICLES[result.vehicleId] || {}).name || result.vehicleId;
                             console.log(`   ✅ ${ride.customerName || '?'} → ${vName} zugewiesen`);
+                            // 🆕 v6.62.716: Wenn eine Wartepool-Fahrt erfolgreich neu zugewiesen wird,
+                            //   autoAssignAttempts zuruecksetzen + Push an Admin senden.
+                            //   Patrick (14.05. 12:56): "neuer GPS-Fahrer kommt → versuche den".
+                            //   Jetzt: Wartepool-Befreiung = explizite Erfolgsmeldung.
+                            if (ride.status === 'wartepool' || (ride.autoAssignAttempts || 0) >= 3) {
+                                try {
+                                    await db.ref(`rides/${ride.firebaseId}`).update({
+                                        autoAssignAttempts: 0,
+                                        autoAssignLastFailAt: null,
+                                        wartepoolReason: null,
+                                        wartepoolAt: null,
+                                        wartepoolFreedAt: Date.now(),
+                                        wartepoolFreedReason: 'auto-assign-success-after-retry'
+                                    });
+                                    const _msg = `✅ <b>WARTEPOOL aufgeloest</b>\n\n` +
+                                        `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+                                        `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+                                        `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
+                                        `🚗 <b>Jetzt zugewiesen:</b> ${vName}\n\n` +
+                                        `<i>Der Cloud-Auto-Zuweiser hat einen frei gewordenen Wagen gefunden.</i>`;
+                                    await sendToAllAdmins(_msg, 'wartepool_freed');
+                                    await addRideLog(ride.firebaseId, '✅', `Wartepool aufgeloest → ${vName}`, {
+                                        quelle: 'scheduledAutoAssign v6.62.716',
+                                        fahrzeug: vName
+                                    });
+                                } catch (_freeErr) {
+                                    console.error('Wartepool-Aufloesungs-Fehler:', _freeErr.message);
+                                }
+                            }
                             // In allRides aufnehmen für weitere Phasen
                             ride.assignedVehicle = result.vehicleId;
                             allRides.push(ride);
@@ -22290,7 +22319,11 @@ exports.scheduledOpenRideCheck = onSchedule(
                 const ride = child.val();
                 const rideId = child.key;
                 if (ride.assignedVehicle || ride.vehicleId || ride.driverId) return;
-                if (!['new','vorbestellt','warteschlange'].includes(ride.status)) return;
+                // 🆕 v6.62.716: 'wartepool' jetzt auch retry-fähig. Patrick (14.05. 12:56):
+                //   "wenn ein neuer GPS-Fahrer reinkommt — versuche den mal". Watchdog
+                //   probiert ab jetzt auch Wartepool-Sofortfahrten erneut, falls inzwischen
+                //   ein Fahrzeug verfuegbar ist.
+                if (!['new','vorbestellt','warteschlange','wartepool'].includes(ride.status)) return;
                 if (!ride.pickupTimestamp) return;
                 if (ride.cloudWatchdogPaused) return; // manuell pausierbar
                 const msUntil = ride.pickupTimestamp - now;

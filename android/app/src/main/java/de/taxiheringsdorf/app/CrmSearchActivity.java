@@ -982,8 +982,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
                     return;
                 }
-                // 🔧 v6.62.713: Hard-Diagnose-Toast SOFORT nach Firebase-Load.
-                //   Zeigt was Firebase geliefert hat — falls destination fehlt sehen wir es hier.
+                // 🔧 v6.62.713/714: Hard-Diagnose — Toast UND Log nach Firebase /settings/buchenLog,
+                //   damit Patrick im System-Monitor (Web) sehen kann was Firebase wirklich liefert.
                 String _diagP1 = _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)";
                 String _diagD1 = _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)";
                 Toast.makeText(this,
@@ -991,6 +991,23 @@ public class CrmSearchActivity extends AppCompatActivity {
                     + " | dest=" + (_diagD1.length() > 30 ? _diagD1.substring(0, 30) + "…" : _diagD1)
                     + " | rideId=" + rideId.substring(rideId.length() - 6),
                     Toast.LENGTH_LONG).show();
+                // v6.62.714: zusaetzlich nach /settings/buchenLog schreiben fuer System-Monitor
+                try {
+                    java.util.Map<String, Object> _diagEntry = new java.util.HashMap<>();
+                    _diagEntry.put("ts", System.currentTimeMillis());
+                    _diagEntry.put("icon", "🔬");
+                    _diagEntry.put("event", "openRideAsTemplate Firebase-Load");
+                    _diagEntry.put("rideId", rideId);
+                    _diagEntry.put("pickup", _diagP1);
+                    _diagEntry.put("destination", _diagD1);
+                    _diagEntry.put("pickupClass", _full.get("pickup") != null ? _full.get("pickup").getClass().getSimpleName() : "null");
+                    _diagEntry.put("destClass", _full.get("destination") != null ? _full.get("destination").getClass().getSimpleName() : "null");
+                    _diagEntry.put("allKeys", new java.util.ArrayList<>(_full.keySet()));
+                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.714");
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/buchenLog").push().setValue(_diagEntry);
+                } catch (Throwable _diagErr) {
+                    Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _diagErr.getMessage());
+                }
                 // Audit-/Assign-/Status-Felder entfernen damit das Template eine
                 // NEUE Buchung wird — Patrick setzt Datum neu, Cloud weist Fahrzeug
                 // neu zu.

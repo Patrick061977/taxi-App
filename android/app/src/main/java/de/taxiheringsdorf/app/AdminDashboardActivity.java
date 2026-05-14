@@ -686,6 +686,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         Boolean assignmentLocked;
         Long pickupTimestamp;
         Integer passengers;
+        // 🆕 v6.62.707: Fahrtdauer (Min) — fuer Live-Ankunfts-Anzeige + Konflikt-Check im EditDialog
+        Integer estimatedDuration;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
         // 🆕 v6.62.668: Patrick (13.05. 10:55): "Aber die Web-Anfragen sehe ich noch nicht."
         //   Bug-Quelle: source-Strings sind nicht einheitlich — buchen.html schreibt
@@ -730,6 +732,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 if (t instanceof Number) r.pickupTimestamp = ((Number) t).longValue();
                 Object p = s.child("passengers").getValue();
                 if (p instanceof Number) r.passengers = ((Number) p).intValue();
+                // 🆕 v6.62.707: Fahrtdauer aus duration/estimatedDuration (Min). Default 15.
+                Object _dur = s.child("estimatedDuration").getValue();
+                if (_dur == null) _dur = s.child("duration").getValue();
+                if (_dur instanceof Number) r.estimatedDuration = ((Number) _dur).intValue();
                 r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
                 if (r.assignedVehicle == null) r.assignedVehicle = s.child("vehicleId").getValue(String.class);
                 r.assignedVehicleName = s.child("assignedVehicleName").getValue(String.class);
@@ -1163,6 +1169,26 @@ public class AdminDashboardActivity extends AppCompatActivity {
         TextView tvDate = new TextView(this);
         tvDate.setText("📅 " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(cal.getTime()));
         tvDate.setPadding(0, pad, 0, pad);
+        layout.addView(tvDate);
+
+        // 🆕 v6.62.707: Live-Konflikt-Check (Feddertouristik-Stil).
+        // Patrick (14.05. 09:31): "Da konnte man die Kette ja so weit spulen, dass man sagt,
+        //   wenn man jetzt die Abholung 10:20 macht, dann ist man zu der Zeit am Zielort".
+        // Anzeige direkt unter dem Datum-Feld:
+        //   1) Live-Ankunftszeit (pickup + duration)
+        //   2) Konflikte mit anderen Fahrten desselben Fahrzeugs (sichtbar mit Pickup-Zeit)
+        // Aktualisiert nach Time-Picker-Auswahl + Vehicle-Spinner-Aenderung.
+        final TextView tvDateInfo = new TextView(this);
+        tvDateInfo.setPadding(0, 0, 0, pad);
+        tvDateInfo.setTextSize(13);
+        tvDateInfo.setLineSpacing(4f, 1f);
+        layout.addView(tvDateInfo);
+
+        // updateDateInfo: berechnet Ankunftszeit + Konflikte und schreibt in tvDateInfo.
+        // Wird unten nach den Vehicle-Spinner-Definitionen erst erstmal aufgerufen (Runnable
+        // braucht Zugriff auf spnVehicle/vehIds, die kommen weiter unten).
+        final Runnable[] updateDateInfoHolder = new Runnable[1];
+
         tvDate.setOnClickListener(v -> {
             Calendar curr = Calendar.getInstance();
             curr.setTimeInMillis(dateTime[0]);
@@ -1172,10 +1198,10 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     nc.set(y, m, d, h, mi, 0);
                     dateTime[0] = nc.getTimeInMillis();
                     tvDate.setText("📅 " + new SimpleDateFormat("EEE dd.MM.yyyy HH:mm", Locale.GERMANY).format(nc.getTime()));
+                    if (updateDateInfoHolder[0] != null) updateDateInfoHolder[0].run();
                 }, curr.get(Calendar.HOUR_OF_DAY), curr.get(Calendar.MINUTE), true).show(),
                 curr.get(Calendar.YEAR), curr.get(Calendar.MONTH), curr.get(Calendar.DAY_OF_MONTH)).show();
         });
-        layout.addView(tvDate);
 
         // Personenzahl-Spinner 1-8
         TextView tvPaxLabel = new TextView(this);
@@ -1245,6 +1271,74 @@ public class AdminDashboardActivity extends AppCompatActivity {
         }
         spnVehicle.setSelection(vehSel);
         layout.addView(spnVehicle);
+
+        // 🆕 v6.62.707: updateDateInfo — Ankunfts-Zeit + Konflikt-Check.
+        // Wird aufgerufen: initial, nach Date/Time-Picker, nach Vehicle-Spinner-Wechsel.
+        // Konflikt = Ueberlapp dieser Fahrt [dateTime ... dateTime+duration+puffer] mit
+        // anderer Fahrt desselben Fahrzeugs [pickupTs ... pickupTs+oDur+puffer].
+        // Puffer: 5 Min vor Pickup (Anfahrt) + 5 Min nach Ankunft (Wechsel).
+        final java.text.SimpleDateFormat _hmFmt = new java.text.SimpleDateFormat("HH:mm", Locale.GERMANY);
+        final int _curDur = (r.estimatedDuration != null && r.estimatedDuration > 0) ? r.estimatedDuration : 15;
+        Runnable updateDateInfo = () -> {
+            long arrivalTs = dateTime[0] + (long) _curDur * 60_000L;
+            String arrivalHM = _hmFmt.format(new java.util.Date(arrivalTs));
+            StringBuilder info = new StringBuilder();
+            info.append("→ Ankunft am Ziel: ").append(arrivalHM).append(" Uhr  (").append(_curDur).append(" Min Fahrt)");
+
+            int vSel = spnVehicle.getSelectedItemPosition();
+            String selVehId = (vSel > 0 && vSel < vehIds.length) ? vehIds[vSel] : null;
+            int conflictTextColor = android.graphics.Color.parseColor("#059669");
+
+            if (selVehId == null || selVehId.isEmpty()) {
+                info.append("\nℹ️ Kein Fahrzeug zugewiesen — Konflikt-Check ausgesetzt");
+                conflictTextColor = android.graphics.Color.parseColor("#64748b");
+            } else {
+                long newStart = dateTime[0] - 5L * 60_000L;
+                long newEnd = arrivalTs + 5L * 60_000L;
+                java.util.List<String> conflicts = new java.util.ArrayList<>();
+                for (Ride other : _currentRides) {
+                    if (other == null || other.id == null) continue;
+                    if (other.id.equals(r.id)) continue;
+                    if (other.status != null) {
+                        String st = other.status.toLowerCase();
+                        if (st.equals("completed") || st.equals("cancelled") || st.equals("storniert")
+                                || st.equals("deleted") || st.equals("rejected")) continue;
+                    }
+                    if (!selVehId.equals(other.assignedVehicle)) continue;
+                    if (other.pickupTimestamp == null) continue;
+                    int oDur = (other.estimatedDuration != null && other.estimatedDuration > 0) ? other.estimatedDuration : 15;
+                    long oStart = other.pickupTimestamp - 5L * 60_000L;
+                    long oEnd = other.pickupTimestamp + (long) oDur * 60_000L + 5L * 60_000L;
+                    if (newStart < oEnd && newEnd > oStart) {
+                        String oName = (other.customerName != null && !other.customerName.isEmpty())
+                                ? other.customerName : "?";
+                        String oHM = _hmFmt.format(new java.util.Date(other.pickupTimestamp));
+                        conflicts.add("⚠️ Konflikt: " + oName + " um " + oHM + " (" + oDur + " Min)");
+                    }
+                }
+                if (conflicts.isEmpty()) {
+                    info.append("\n✅ Keine Konflikte mit anderen Fahrten dieses Fahrzeugs");
+                } else {
+                    conflictTextColor = android.graphics.Color.parseColor("#dc2626");
+                    for (String c : conflicts) info.append("\n").append(c);
+                    info.append("\n\n💡 Tipp: Pickup ± 5/10/15 Min testen um Konflikte zu umgehen");
+                }
+            }
+            tvDateInfo.setText(info.toString());
+            tvDateInfo.setTextColor(conflictTextColor);
+        };
+        updateDateInfoHolder[0] = updateDateInfo;
+        updateDateInfo.run();
+
+        // Spinner-Listener: Vehicle-Wechsel triggert Konflikt-Re-Check
+        spnVehicle.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                updateDateInfo.run();
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
 
         // v6.62.365: Patrick (06.05. 14:47): "Ich sehe kein Speichern" — Edit-Dialog ist
         // zu lang, Buttons unten verschwinden vom Screen. Fix: ScrollView begrenzt sich

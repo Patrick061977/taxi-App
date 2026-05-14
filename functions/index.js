@@ -21915,6 +21915,24 @@ exports.onRideDeleted = onValueDeleted(
 
         console.log(`📱 onRideDeleted: ${rideId} — ${ride.customerName || 'Unbekannt'}`);
 
+        // 🆕 v6.62.703: Soft-Delete-Archiv fuer Replay/Audit.
+        // Patrick (14.05.): "alle Daten verlaesslich speichern um zu sehen was passiert ist".
+        // Ohne dieses Archiv ist ein geloeschter Ride komplett weg — lifecycleLog,
+        // Push-Events, Status-History alles verloren. /deletedRides wird vom
+        // scheduledHistoryCleanup nach 30 Tagen mit aufgeraeumt.
+        try {
+            const _now = Date.now();
+            const _dateStr = new Date(_now).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+            await db.ref(`deletedRides/${_dateStr}/${rideId}`).set({
+                ...ride,
+                _archivedAt: _now,
+                _archivedReason: 'onRideDeleted'
+            });
+        } catch (_archiveErr) {
+            console.error('onRideDeleted Archiv-Fehler:', _archiveErr.message);
+            // Notification trotzdem senden — Archiv-Fehler darf den Trigger nicht killen.
+        }
+
         const timestamp = formatBerlinTime();
 
         let statusText = 'Nicht zugewiesen';
@@ -21954,6 +21972,48 @@ exports.onRideDeleted = onValueDeleted(
         }
 
         await addTelegramLog('🗑️', 'cloud', `Fahrt gelöscht: ${ride.customerName || '?'}`, { rideId });
+    }
+);
+
+// 🆕 v6.62.703: Driver-Session-Audit-Trail.
+// Patrick (14.05.): "wer wann welche Schicht gemacht hat — fuer Replay verlaesslich speichern".
+// Jeder Wechsel von /vehicles/{vid}/shift/status (active/ended/auto-ended/paused/...)
+// landet als Event in /historicalSessions/{date}/{vehicleId}/{ts}.
+// Das Replay-Tool rekonstruiert daraus Sessions (start→end Paare).
+// Existierende onShiftStatusChanged (Reassign-Logik fuer 'ended') bleibt unberuehrt.
+exports.onShiftStatusEvent = onValueUpdated(
+    {
+        ref: '/vehicles/{vehicleId}/shift/status',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const vid = event.params.vehicleId;
+            const newStatus = event.data.after.val();
+            const oldStatus = event.data.before.val();
+            if (newStatus === oldStatus) return;
+            const now = Date.now();
+            const dateStr = new Date(now).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+            // Driver-Kontext aus /vehicles/{vid}/shift mitnehmen
+            const _shiftSnap = await db.ref(`vehicles/${vid}/shift`).once('value');
+            const _shift = _shiftSnap.val() || {};
+            await db.ref(`historicalSessions/${dateStr}/${vid}/${now}`).set({
+                vehicleId: vid,
+                oldStatus: oldStatus || null,
+                newStatus: newStatus || null,
+                driverUid: _shift.driverUid || null,
+                driverName: _shift.driverName || null,
+                driverEmail: _shift.driverEmail || null,
+                startedAt: _shift.startedAt || null,
+                endedAt: _shift.endedAt || null,
+                ts: now
+            });
+            console.log(`📝 historicalSessions: ${vid} ${oldStatus}→${newStatus} (Driver: ${_shift.driverName || '?'})`);
+        } catch (err) {
+            console.error('onShiftStatusEvent Fehler:', err.message);
+        }
     }
 );
 
@@ -23128,8 +23188,9 @@ exports.scheduledHistoryCleanup = onSchedule(
             // YYYY-MM-DD-Cutoff
             const cutoffDate = new Date(cutoffMs).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
 
-            // Tag-basierte Pfade: historicalGPS/<YYYY-MM-DD>, historicalShifts/<YYYY-MM-DD>
-            for (const path of ['historicalGPS', 'historicalShifts']) {
+            // Tag-basierte Pfade: historicalGPS/<YYYY-MM-DD>, historicalShifts/<YYYY-MM-DD>,
+            // deletedRides/<YYYY-MM-DD>, historicalSessions/<YYYY-MM-DD> (v6.62.703)
+            for (const path of ['historicalGPS', 'historicalShifts', 'deletedRides', 'historicalSessions']) {
                 const snap = await db.ref(path).once('value');
                 if (!snap.val()) continue;
                 const removals = {};

@@ -982,6 +982,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                     Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
                     return;
                 }
+                // 🔧 v6.62.713: Hard-Diagnose-Toast SOFORT nach Firebase-Load.
+                //   Zeigt was Firebase geliefert hat — falls destination fehlt sehen wir es hier.
+                String _diagP1 = _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)";
+                String _diagD1 = _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)";
+                Toast.makeText(this,
+                    "🔬 Firebase: pickup=" + (_diagP1.length() > 30 ? _diagP1.substring(0, 30) + "…" : _diagP1)
+                    + " | dest=" + (_diagD1.length() > 30 ? _diagD1.substring(0, 30) + "…" : _diagD1)
+                    + " | rideId=" + rideId.substring(rideId.length() - 6),
+                    Toast.LENGTH_LONG).show();
                 // Audit-/Assign-/Status-Felder entfernen damit das Template eine
                 // NEUE Buchung wird — Patrick setzt Datum neu, Cloud weist Fahrzeug
                 // neu zu.

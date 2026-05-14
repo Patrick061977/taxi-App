@@ -16915,12 +16915,40 @@ exports.autoResolveConflicts = onSchedule(
                                     autoAssignAttempts: _attemptsNow,
                                     autoAssignLastFailAt: Date.now()
                                 };
+                                let _wartepoolJustEntered = false;
                                 if (_attemptsNow >= 3 && ride.status !== 'wartepool') {
                                     _upd.status = 'wartepool';
                                     _upd.wartepoolReason = 'auto-assign-3x-failed';
                                     _upd.wartepoolAt = Date.now();
+                                    _wartepoolJustEntered = true;
                                 }
                                 await db.ref(`rides/${ride.firebaseId}`).update(_upd);
+                                // 🆕 v6.62.705: Telegram-Push beim Eintritt in Wartepool. Patrick
+                                // (14.05.): "Die See-Eck-Fahrt steht gar nicht in meiner Disposition" —
+                                // wartepool war ein toter Status, Admin merkte es nicht. Jetzt: einmaliger
+                                // Push wenn die Schwelle ueberschritten wird.
+                                if (_wartepoolJustEntered) {
+                                    try {
+                                        const _pickupAtStr = ride.pickupTimestamp
+                                            ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
+                                            : (ride.pickupTime || '?');
+                                        const _msg = '⚠️ <b>WARTEPOOL — Fahrt braucht manuelle Disposition</b>\n\n' +
+                                            `👤 <b>Kunde:</b> ${ride.customerName || '?'}\n` +
+                                            `📍 <b>Von:</b> ${ride.pickup || '?'}\n` +
+                                            `📍 <b>Nach:</b> ${ride.destination || '?'}\n` +
+                                            `⏰ <b>Abholung:</b> ${_pickupAtStr}\n` +
+                                            `🆔 <code>${ride.firebaseId}</code>\n\n` +
+                                            `<i>Auto-Zuweisung hat 3× kein freies Fahrzeug gefunden.\nBitte manuell zuweisen oder Schichtplan pruefen.</i>`;
+                                        await sendToAllAdmins(_msg, 'wartepool_alert');
+                                        await addRideLog(ride.firebaseId, '⚠️', 'Wartepool-Eintritt (3× Auto-Assign-Fehlschlag) — Admin per Telegram benachrichtigt', {
+                                            quelle: 'scheduledAutoAssign v6.62.705',
+                                            grund: 'auto-assign-3x-failed',
+                                            attempts: _attemptsNow
+                                        });
+                                    } catch (_pushErr) {
+                                        console.error('Wartepool-Push-Fehler:', _pushErr.message);
+                                    }
+                                }
                             } catch (_e) {}
                         }
                     } catch(e) {

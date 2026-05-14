@@ -23204,6 +23204,76 @@ exports.scheduledHealthReport = onSchedule(
 //   - Schuetzt vor Storage-Wucherung (~50MB/Monat erwartet sonst)
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.62.712: Daily-Morning-Briefing per Telegram an Admins.
+// Patrick (14.05. 11:01): "Wartepool prominenter machen — Daily-Briefing morgens".
+// Taeglich 07:30 Berlin-Zeit. Erste Iteration zeigt: Wartepool-Stand + Heutige Fahrten.
+// Spaeter erweiterbar um Umsatz, Schichten, Konflikte.
+exports.scheduledMorningBriefing = onSchedule(
+    {
+        schedule: '30 7 * * *',
+        timeZone: 'Europe/Berlin',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const dateStr = new Date(now).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+            // Wartepool laden
+            const wpSnap = await db.ref('rides').orderByChild('status').equalTo('wartepool').once('value');
+            const wartepool = [];
+            wpSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                const pickupAt = r.pickupTimestamp
+                    ? new Date(r.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : '?';
+                wartepool.push({
+                    id: c.key,
+                    customerName: r.customerName || '?',
+                    pickup: r.pickup || '?',
+                    destination: r.destination || '?',
+                    pickupAt
+                });
+            });
+            // Heutige Fahrten zaehlen
+            const todayStart = new Date(new Date(now).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }) + 'T00:00:00').getTime();
+            const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+            const ridesSnap = await db.ref('rides').orderByChild('pickupTimestamp')
+                .startAt(todayStart).endAt(todayEnd).once('value');
+            let heuteCount = 0;
+            let heuteAssigned = 0;
+            let heuteUnassigned = 0;
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (['cancelled', 'storniert', 'deleted'].includes(r.status)) return;
+                heuteCount++;
+                if (r.assignedVehicle) heuteAssigned++;
+                else heuteUnassigned++;
+            });
+            // Message bauen
+            let msg = `☀️ <b>Morgen-Briefing ${dateStr}</b>\n\n`;
+            if (wartepool.length > 0) {
+                msg += `🚨 <b>WARTEPOOL (${wartepool.length})</b> — manuelle Disposition noetig:\n`;
+                wartepool.slice(0, 5).forEach(w => {
+                    msg += `  • ${w.customerName} um ${w.pickupAt}\n     📍 ${w.pickup.substring(0, 40)}\n`;
+                });
+                if (wartepool.length > 5) msg += `  ... +${wartepool.length - 5} weitere\n`;
+                msg += '\n';
+            } else {
+                msg += `✅ Wartepool leer\n\n`;
+            }
+            msg += `📅 <b>Heute</b>: ${heuteCount} Fahrten (${heuteAssigned} zugewiesen, ${heuteUnassigned} offen)\n`;
+            await sendToAllAdmins(msg, 'morning_briefing');
+            console.log(`✅ Morgen-Briefing gesendet (Wartepool: ${wartepool.length}, heute: ${heuteCount})`);
+        } catch (e) {
+            console.error('scheduledMorningBriefing Fehler:', e.message);
+        }
+    }
+);
+
 exports.scheduledHistorySnapshot = onSchedule(
     {
         schedule: 'every 5 minutes',

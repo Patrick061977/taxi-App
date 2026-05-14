@@ -1243,20 +1243,42 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
 
-        // Name-Feld — Hotel/Firma = Gastname (leer); Stammkunde = Kundenname (vorausgefuellt)
-        EditText etName = new EditText(this);
-        etName.setHint(isHotel ? "Gastname (für den gebucht wird)" : "Kundenname");
-        // v6.62.483/.503: im Edit-/Template-Modus den existierenden Namen pre-fillen.
-        if (hasTemplate) {
-            String _existingName = isHotel
-                ? (editRide.get("guestName") != null ? String.valueOf(editRide.get("guestName")) : "")
-                : (editRide.get("customerName") != null ? String.valueOf(editRide.get("customerName")) : "");
-            etName.setText(_existingName);
+        // 🔧 v6.62.711: Patrick (14.05. 10:27): "Wozu soll ich einen Kundennamen eingeben?
+        //   Bei Frau Schindel? Brauche ich keinen Kundennamen eingeben — das ist eine
+        //   Stammkundin." → Bei Stammkunden Name-Feld komplett weg, der Name wird
+        //   automatisch aus e.name (CRM) im Save-Code uebernommen. Nur bei Hotels/Firmen
+        //   bleibt das Feld sichtbar (Gastname-Erfassung fuer wen gebucht wird).
+        final EditText etName;
+        if (isHotel) {
+            etName = new EditText(this);
+            etName.setHint("Gastname (für den gebucht wird)");
+            if (hasTemplate && editRide.get("guestName") != null) {
+                etName.setText(String.valueOf(editRide.get("guestName")));
+            }
+            etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+            layout.addView(etName);
         } else {
-            etName.setText(isHotel ? "" : (e.name != null ? e.name : ""));
+            // Stammkunde — Name kommt aus e.name, kein Eingabefeld noetig
+            etName = null;
+            TextView tvKundeFest = new TextView(this);
+            tvKundeFest.setText("👤 " + (e.name != null ? e.name : "—"));
+            tvKundeFest.setTextSize(15);
+            tvKundeFest.setTextColor(0xFF0F172A);
+            tvKundeFest.setPadding(0, padHalf, 0, padHalf);
+            layout.addView(tvKundeFest);
         }
-        etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        layout.addView(etName);
+
+        // 🔧 v6.62.711: Diagnose-Toast fuer Patricks Bug-Report (14.05. 10:11):
+        //   "Bei vergangenen Fahrten uebernimmt er das Ziel nicht". Zeigt was im Template
+        //   ankommt — falls destination wirklich null ist sehen wir es sofort.
+        if (hasTemplate) {
+            String _diagP = editRide.get("pickup") != null ? String.valueOf(editRide.get("pickup")) : "(null)";
+            String _diagD = editRide.get("destination") != null ? String.valueOf(editRide.get("destination")) : "(null)";
+            Toast.makeText(this,
+                "📋 Template: pickup=" + (_diagP.length() > 30 ? _diagP.substring(0, 30) + "…" : _diagP)
+                + " | dest=" + (_diagD.length() > 30 ? _diagD.substring(0, 30) + "…" : _diagD),
+                Toast.LENGTH_LONG).show();
+        }
 
         if (isHotel) {
             TextView tvAuftrag = new TextView(this);
@@ -1874,7 +1896,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         final boolean[] _alreadySavedRef = { false };
 
         btnSave.setOnClickListener(_btn -> {
-                String name = etName.getText().toString().trim();
+                // 🔧 v6.62.711: etName ist null bei Stammkunden — Name aus e.name nehmen.
+                String name = (etName != null)
+                    ? etName.getText().toString().trim()
+                    : (e.name != null ? e.name.trim() : "");
                 String pickup = tvPickup.getText().toString()
                     .replaceFirst("^📍\\s*", "").replaceFirst("^🎯\\s*", "").trim();
                 String dest = tvDest.getText().toString()

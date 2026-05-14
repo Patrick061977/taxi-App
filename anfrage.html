@@ -672,8 +672,20 @@ async function calcAnfPrice() {
         var _routeGeo = data.routes[0].geometry;
         var anfTime = document.getElementById('anf-time').value || '';
         var anfDate = document.getElementById('anf-date').value || '';
-        // 🆕 v6.41.43: Konsistent mit buchen.html — Feiertags-Tarif hinzugefügt
-        var FEIERTAGE_ANF = ['01-01','05-01','10-03','12-24','12-25','12-26','12-31'];
+        // 🆕 v6.41.43 / 🔧 v6.62.708: Konsistent mit buchen.html + bewegliche Feiertage
+        var FEIERTAGE_ANF = ['01-01','05-01','10-03','10-31','12-24','12-25','12-26','12-31'];
+        function _anfEasterDate(year) {
+            var a = year % 19, b = Math.floor(year / 100), c = year % 100;
+            var d = Math.floor(b / 4), e = b % 4;
+            var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+            var hh = (19 * a + b - d - g + 15) % 30;
+            var ii = Math.floor(c / 4), kk = c % 4;
+            var ll = (32 + 2 * e + 2 * ii - hh - kk) % 7;
+            var mm2 = Math.floor((a + 11 * hh + 22 * ll) / 451);
+            var mo = Math.floor((hh + ll - 7 * mm2 + 114) / 31);
+            var dy = ((hh + ll - 7 * mm2 + 114) % 31) + 1;
+            return new Date(year, mo - 1, dy);
+        }
         var h = new Date().getHours();
         var dayOfWeek = new Date().getDay();
         var feiertagDt = new Date();
@@ -685,6 +697,15 @@ async function calcAnfPrice() {
         var mm = String(feiertagDt.getMonth() + 1).padStart(2, '0');
         var dd = String(feiertagDt.getDate()).padStart(2, '0');
         var isFeiertag = FEIERTAGE_ANF.indexOf(mm + '-' + dd) !== -1;
+        // 🔧 v6.62.708: Bewegliche Feiertage (Karfreitag/Ostermontag/Himmelfahrt/Pfingstmontag)
+        if (!isFeiertag) {
+            var _yr = feiertagDt.getFullYear();
+            var _es = _anfEasterDate(_yr);
+            var _esDay = new Date(_yr, _es.getMonth(), _es.getDate()).getTime();
+            var _tgDay = new Date(_yr, feiertagDt.getMonth(), feiertagDt.getDate()).getTime();
+            var _diff = Math.round((_tgDay - _esDay) / 86400000);
+            if (_diff === -2 || _diff === 1 || _diff === 39 || _diff === 50) isFeiertag = true;
+        }
         var isSunday = dayOfWeek === 0;
         var isNightTime = h >= 22 || h < 6;
         var isNight = isNightTime || isSunday || isFeiertag;

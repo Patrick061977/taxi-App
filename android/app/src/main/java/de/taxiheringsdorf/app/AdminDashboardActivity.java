@@ -52,7 +52,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private static final String TAG = "AdminDashboard";
     private static final String DB_INSTANCE_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
 
-    private TextView tvAdminEmail, tvQueueCount;
+    private TextView tvAdminEmail, tvQueueCount, tvOnlineAmpel;
     private MaterialButton btnMenu, btnCallLog, btnNewBooking;
     private RecyclerView rv;
     private LinearLayout emptyState;
@@ -125,6 +125,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         tvAdminEmail = findViewById(R.id.tv_admin_email);
         tvQueueCount = findViewById(R.id.tv_admin_queue_count);
+        tvOnlineAmpel = findViewById(R.id.tv_admin_online_ampel);
+        // v6.62.726: Online-Fahrer-Ampel — liest /settings/onlineFahrerStatus (cloud-Fn schreibt alle 5 Min)
+        try {
+            db.getReference("settings/onlineFahrerStatus").addValueEventListener(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot s) {
+                    if (tvOnlineAmpel == null) return;
+                    Integer count = s.child("count").getValue(Integer.class);
+                    String level = s.child("level").getValue(String.class);
+                    if (count == null) count = 0;
+                    if (level == null) level = "rot";
+                    int color;
+                    String emoji;
+                    switch (level) {
+                        case "gruen": color = 0xFF059669; emoji = "🟢"; break;
+                        case "gelb":  color = 0xFFF59E0B; emoji = "🟡"; break;
+                        default:      color = 0xFFDC2626; emoji = "🔴"; break;
+                    }
+                    tvOnlineAmpel.setBackgroundColor(color);
+                    tvOnlineAmpel.setText(emoji + " " + count + " Fahrer");
+                }
+                @Override public void onCancelled(@NonNull DatabaseError e) {}
+            });
+        } catch (Throwable t) { Log.w(TAG, "Online-Ampel-Listener: " + t.getMessage()); }
         btnMenu = findViewById(R.id.btn_admin_menu);
         btnCallLog = findViewById(R.id.btn_admin_call_log);
         btnNewBooking = findViewById(R.id.btn_admin_new_booking);

@@ -2,10 +2,12 @@ User-agent: *
 
 # Öffentliche Seiten — sollen gecrawlt werden
 Allow: /landing.html
+Allow: /kein-bock-zu-laufen.html
 Allow: /buchen.html
 Allow: /kunden.html
 Allow: /berlin.html
 Allow: /anfrage.html
+Allow: /ausflugsziele.html
 Allow: /track.html
 Allow: /sitemap.xml
 Allow: /favicon.svg

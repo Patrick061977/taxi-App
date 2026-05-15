@@ -1580,12 +1580,6 @@ public class DriverDashboardActivity extends AppCompatActivity {
         lblDest.setTextColor(Color.parseColor("#64748b"));
         layout.addView(lblDest);
 
-        TextView lblDest = new TextView(this);
-        lblDest.setText("🎯 Zielort");
-        lblDest.setTextSize(12);
-        lblDest.setTextColor(Color.parseColor("#64748b"));
-        layout.addView(lblDest);
-
         EditText etDest = new EditText(this);
         etDest.setHint("z.B. Hotel zur Post, Bansin — oder unten Karten-Picker");
         etDest.setInputType(InputType.TYPE_CLASS_TEXT);

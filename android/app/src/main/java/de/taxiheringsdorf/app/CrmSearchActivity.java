@@ -1012,8 +1012,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                     _diagEntry.put("pickupFromMap", _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)");
                     _diagEntry.put("destFromMap", _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)");
                     _diagEntry.put("allKeys", new java.util.ArrayList<>(_full.keySet()));
-                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.718");
-                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/buchenLog").push().setValue(_diagEntry);
+                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.720");
+                    // v6.62.720: settings/buchenLog hatte 3.2M Bloat-Eintraege → Schindel-Diag separat
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/schindelDiag").push().setValue(_diagEntry);
                 } catch (Throwable _diagErr) {
                     Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _diagErr.getMessage());
                 }
@@ -1335,8 +1336,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                 _diagEntry.put("destCoords", editRide.get("destCoords"));
             }
             _diagEntry.put("kundeName", e != null ? e.name : "(null)");
-            _diagEntry.put("source", "native-CrmSearch-v6.62.719");
-            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/buchenLog").push().setValue(_diagEntry);
+            _diagEntry.put("source", "native-CrmSearch-v6.62.720");
+            // v6.62.720: settings/buchenLog hatte 3.2M Eintraege — Schindel-Diag in eigenen Pfad
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/schindelDiag").push().setValue(_diagEntry);
         } catch (Throwable _err) {
             Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _err.getMessage());
         }

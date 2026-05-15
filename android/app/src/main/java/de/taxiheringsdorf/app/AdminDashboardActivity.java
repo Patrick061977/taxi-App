@@ -24,6 +24,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
+// v6.62.745 (Patrick 15.05. 21:07): MapPicker fuer NewBookingDialog Pickup+Destination
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -61,6 +64,33 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private FirebaseDatabase db;
     private Query openRidesQuery;
     private ValueEventListener openRidesListener;
+
+    // v6.62.745 (Patrick 15.05. 21:07): MapPicker fuer NewBookingDialog Pickup+Destination
+    private EditText pendingPickerField;
+    private double[] pendingPickerCoords;
+    private final ActivityResultLauncher<Intent> mapPickerLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                Intent d = result.getData();
+                String addr = d.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                double lat = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
+                double lon = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                if (pendingPickerField != null && addr != null) pendingPickerField.setText(addr);
+                if (pendingPickerCoords != null && !Double.isNaN(lat) && !Double.isNaN(lon)) {
+                    pendingPickerCoords[0] = lat;
+                    pendingPickerCoords[1] = lon;
+                }
+            });
+
+    private void launchMapPickerFor(EditText field, double[] coordsOut) {
+        pendingPickerField = field;
+        pendingPickerCoords = coordsOut;
+        Intent i = new Intent(this, MapPickerActivity.class);
+        String pre = field.getText() != null ? field.getText().toString().trim() : "";
+        if (!pre.isEmpty()) i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+        mapPickerLauncher.launch(i);
+    }
     // 🆕 v6.62.673: Patrick (13.05. 12:06): "Wo sehe ich offene Anfragen in der Native-App?"
     //   AdminDashboard liest jetzt zusaetzlich /anfragen wo status='offen'.
     private Query offeneAnfragenQuery;
@@ -567,15 +597,48 @@ public class AdminDashboardActivity extends AppCompatActivity {
         if (preset != null && preset.customerPhone != null) etPhone.setText(preset.customerPhone);
         layout.addView(etPhone);
 
+        // v6.62.745 (Patrick 15.05. 21:07): Pickup mit Karten-Picker
+        final double[] newBookingPickupCoords = new double[]{
+            preset != null && preset.pickupLat != null ? preset.pickupLat : 0,
+            preset != null && preset.pickupLon != null ? preset.pickupLon : 0
+        };
+        final double[] newBookingDestCoords = new double[]{
+            preset != null && preset.destinationLat != null ? preset.destinationLat : 0,
+            preset != null && preset.destinationLon != null ? preset.destinationLon : 0
+        };
+
         EditText etPickup = new EditText(this);
-        etPickup.setHint("Abholort");
+        etPickup.setHint("Abholort — oder unten Karten-Picker");
         if (preset != null && preset.pickup != null) etPickup.setText(preset.pickup);
         layout.addView(etPickup);
 
+        MaterialButton btnPickupPicker = new MaterialButton(this);
+        btnPickupPicker.setText("🗺 Abholort auf Karte waehlen");
+        btnPickupPicker.setBackgroundColor(Color.parseColor("#3b82f6"));
+        btnPickupPicker.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams nbLp1 = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int nbGap = (int) (getResources().getDisplayMetrics().density * 6);
+        nbLp1.setMargins(0, nbGap, 0, nbGap);
+        btnPickupPicker.setLayoutParams(nbLp1);
+        btnPickupPicker.setOnClickListener(v -> launchMapPickerFor(etPickup, newBookingPickupCoords));
+        layout.addView(btnPickupPicker);
+
         EditText etDest = new EditText(this);
-        etDest.setHint("Zielort");
+        etDest.setHint("Zielort — oder unten Karten-Picker");
         if (preset != null && preset.destination != null) etDest.setText(preset.destination);
         layout.addView(etDest);
+
+        MaterialButton btnDestPicker = new MaterialButton(this);
+        btnDestPicker.setText("🗺 Zielort auf Karte waehlen");
+        btnDestPicker.setBackgroundColor(Color.parseColor("#3b82f6"));
+        btnDestPicker.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams nbLp2 = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        nbLp2.setMargins(0, nbGap, 0, nbGap);
+        btnDestPicker.setLayoutParams(nbLp2);
+        btnDestPicker.setOnClickListener(v -> launchMapPickerFor(etDest, newBookingDestCoords));
+        layout.addView(btnDestPicker);
 
         EditText etPax = new EditText(this);
         etPax.setHint("Personen (Default 1)");
@@ -640,26 +703,34 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 }
                 r.put("pickup", pickup);
                 r.put("destination", dest);
-                // v6.62.640: Koordinaten aus Preset uebernehmen wenn vorhanden — sonst
-                // landet Rueckfahrt/Kopie ohne Lat/Lon und autoAssign kann nichts machen.
-                // User soll bei manueller Adress-Aenderung ueber das Edit-Modal (Picker) korrigieren.
-                if (preset != null) {
-                    if (preset.pickupLat != null && preset.pickupLon != null
-                        && pickup.equals(preset.pickup != null ? preset.pickup : "")) {
-                        r.put("pickupLat", preset.pickupLat);
-                        r.put("pickupLon", preset.pickupLon);
-                        java.util.Map<String, Object> _pc = new java.util.HashMap<>();
-                        _pc.put("lat", preset.pickupLat); _pc.put("lon", preset.pickupLon);
-                        r.put("pickupCoords", _pc);
-                    }
-                    if (preset.destinationLat != null && preset.destinationLon != null
-                        && dest.equals(preset.destination != null ? preset.destination : "")) {
-                        r.put("destinationLat", preset.destinationLat);
-                        r.put("destinationLon", preset.destinationLon);
-                        java.util.Map<String, Object> _dc = new java.util.HashMap<>();
-                        _dc.put("lat", preset.destinationLat); _dc.put("lon", preset.destinationLon);
-                        r.put("destCoords", _dc);
-                    }
+                // v6.62.745 (Patrick 15.05. 21:07): Coords aus Map-Picker bevorzugen, dann Preset
+                if (newBookingPickupCoords[0] != 0 && newBookingPickupCoords[1] != 0) {
+                    r.put("pickupLat", newBookingPickupCoords[0]);
+                    r.put("pickupLon", newBookingPickupCoords[1]);
+                    java.util.Map<String, Object> _pc = new java.util.HashMap<>();
+                    _pc.put("lat", newBookingPickupCoords[0]); _pc.put("lon", newBookingPickupCoords[1]);
+                    r.put("pickupCoords", _pc);
+                } else if (preset != null && preset.pickupLat != null && preset.pickupLon != null
+                    && pickup.equals(preset.pickup != null ? preset.pickup : "")) {
+                    r.put("pickupLat", preset.pickupLat);
+                    r.put("pickupLon", preset.pickupLon);
+                    java.util.Map<String, Object> _pc = new java.util.HashMap<>();
+                    _pc.put("lat", preset.pickupLat); _pc.put("lon", preset.pickupLon);
+                    r.put("pickupCoords", _pc);
+                }
+                if (newBookingDestCoords[0] != 0 && newBookingDestCoords[1] != 0) {
+                    r.put("destinationLat", newBookingDestCoords[0]);
+                    r.put("destinationLon", newBookingDestCoords[1]);
+                    java.util.Map<String, Object> _dc = new java.util.HashMap<>();
+                    _dc.put("lat", newBookingDestCoords[0]); _dc.put("lon", newBookingDestCoords[1]);
+                    r.put("destCoords", _dc);
+                } else if (preset != null && preset.destinationLat != null && preset.destinationLon != null
+                    && dest.equals(preset.destination != null ? preset.destination : "")) {
+                    r.put("destinationLat", preset.destinationLat);
+                    r.put("destinationLon", preset.destinationLon);
+                    java.util.Map<String, Object> _dc = new java.util.HashMap<>();
+                    _dc.put("lat", preset.destinationLat); _dc.put("lon", preset.destinationLon);
+                    r.put("destCoords", _dc);
                 }
                 r.put("pickupTimestamp", datetime[0]);
                 r.put("pickupTime", new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new java.util.Date(datetime[0])));

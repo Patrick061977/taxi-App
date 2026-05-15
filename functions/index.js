@@ -1792,6 +1792,40 @@ Antworte als reine Beschreibung in Deutsch, knapp aber vollständig. Maximal 150
 // 🆕 v6.41.92: Wiederverwendbare Whisper-Transkription für beide Bots.
 // Nimmt einen Bot-Token + file_id, lädt die Audio-Datei via Telegram-File-API,
 // schickt sie an OpenAI Whisper, gibt Transkript-Text zurück (oder null bei Fehler).
+// 🆕 v6.62.732 (Patrick 15.05. 11:21): Heringsdorf-Vokabular fuer Whisper-Bias.
+// Verhindert typische Eigennamen-Fehler wie 'Maxing-Gorki' statt 'Maxim-Gorki'.
+const HERINGSDORF_VOCAB = 'Heringsdorf, Ahlbeck, Bansin, Zinnowitz, Koserow, Świnoujście, Trassenheide, Karlshagen, Peenemünde, ' +
+    'Maxim-Gorki-Straße, Strandpromenade, Bergstraße, Dünenstraße, Brunnenstraße, Kulmstraße, Seestraße, Bahnhofstraße, Friedensstraße, ' +
+    'Kurpark, Asgard, Aja Strandhotel, Seetelhotel, Maritim, Hotel Residenz, Villa Esplanade, Strandhotel Ahlbeck, ' +
+    'Schäffert, Wydra, Vetter Touristik, Schindel, Petrizien, Funktaxi, Funk-Taxi-Heringsdorf';
+
+// 🆕 v6.62.732: Post-Correction-Mapping fuer typische Whisper-Fehler bei Eigennamen.
+const WHISPER_FIXES = [
+    [/\bMaxing[-\s]*Gorki\b/gi, 'Maxim-Gorki'],
+    [/\bMaxim Gorki\b/g, 'Maxim-Gorki'], // ohne Bindestrich → mit
+    [/\bMaximgorki\b/gi, 'Maxim-Gorki'],
+    [/\bMax-Gorki\b/gi, 'Maxim-Gorki'],
+    [/\bAsgaard\b/gi, 'Asgard'],
+    [/\bAja\s+Strandhotel\b/g, 'Aja Strandhotel'],
+    [/\bAhlbeck\s+er\s+Chaussee\b/gi, 'Ahlbecker Chaussee'],
+    [/\bBrunenstr/gi, 'Brunnenstr'],
+    [/\bDuenenstrasse\b/gi, 'Dünenstraße'],
+    [/\bDuenenstr\b/gi, 'Dünenstr'],
+    [/\bSeesterstr\b/gi, 'Seestraße'],
+    [/\bKulm[-\s]+stra(ss|ß)e\b/gi, 'Kulmstraße'],
+    [/\bSchefferds\b/gi, 'Schäfferts'],
+    [/\bSchefert\b/gi, 'Schäffert'],
+    [/\bScheffert\b/g, 'Schäffert'],
+    [/\bWidra\b/gi, 'Wydra']
+];
+
+function applyWhisperFixes(text) {
+    if (!text) return text;
+    let out = text;
+    for (const [re, rep] of WHISPER_FIXES) out = out.replace(re, rep);
+    return out;
+}
+
 async function transcribeAudio(botTokenForFile, fileId, contextHint = '') {
     try {
         const openaiKey = await getOpenAiApiKey();
@@ -1812,9 +1846,10 @@ async function transcribeAudio(botTokenForFile, fileId, contextHint = '') {
         const formParts = [];
         formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1`);
         formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nde`);
-        if (contextHint) {
-            formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${contextHint}`);
-        }
+        // 🆕 v6.62.732: Heringsdorf-Vokabular IMMER an Whisper-Prompt anhaengen — bias auf
+        // korrekte Schreibweise von Eigennamen (Maxim-Gorki, Schaeffert, Asgard etc.).
+        const fullPrompt = (contextHint ? contextHint + '. ' : '') + HERINGSDORF_VOCAB;
+        formParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${fullPrompt}`);
         const fileHeader = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="voice.ogg"\r\nContent-Type: audio/ogg\r\n\r\n`;
         const fileFooter = `\r\n--${boundary}--\r\n`;
         const textParts = formParts.join('\r\n') + '\r\n';
@@ -1832,7 +1867,12 @@ async function transcribeAudio(botTokenForFile, fileId, contextHint = '') {
             return null;
         }
         const transcribeResult = await transcribeResp.json();
-        return (transcribeResult.text || '').trim() || null;
+        const _raw = (transcribeResult.text || '').trim();
+        if (!_raw) return null;
+        // v6.62.732: Post-Correction fuer typische Whisper-Eigennamen-Fehler
+        const _fixed = applyWhisperFixes(_raw);
+        if (_fixed !== _raw) console.log('🔧 Whisper-Fix angewandt:', _raw.slice(0,100), '→', _fixed.slice(0,100));
+        return _fixed;
     } catch (e) {
         console.error('transcribeAudio Exception:', e.message);
         return null;

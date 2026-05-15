@@ -1581,8 +1581,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
         layout.addView(lblDest);
 
         EditText etDest = new EditText(this);
-        etDest.setHint("z.B. Hotel zur Post, Bansin — oder unten Karten-Picker");
-        etDest.setInputType(InputType.TYPE_CLASS_TEXT);
+        // v6.62.752 (Patrick 15.05. 22:05): Tap auf Zielort-Feld oeffnet DIREKT Karten-Picker
+        // (vorher hat User reinen Text getippt -> nicht geocoded -> Daten-Inkonsistenz)
+        etDest.setHint("🗺 Tippen zum Adresse waehlen (Karte + Suche)");
+        etDest.setInputType(InputType.TYPE_NULL);
+        etDest.setFocusable(false);
+        etDest.setKeyListener(null);
+        etDest.setOnClickListener(v -> launchMapPickerFor(etDest, einsteigerDestCoords));
         layout.addView(etDest);
 
         // v6.62.745 (Patrick 15.05. 21:07): Karten-Picker fuer Destination

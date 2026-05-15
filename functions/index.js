@@ -3397,13 +3397,16 @@ async function searchNominatimForTelegram(query) {
                         if (matchedWords.some(w => addr.startsWith(w) || normKey.startsWith(w) || label.startsWith(w))) matchScore += 10;
                     }
                     // 🔧 v6.38.26: Fuzzy-Fallback — auch bei Tippfehlern matchen
+                    // 🔧 v6.62.737: Fuzzy-Distanz auf max 1 (vorher 2) — verhindert
+                    // 'ellenthin' → 'sallenthin' (Patrick 15.05.: Mellenthin-Drama).
+                    // Substring-Match nur wenn Laengen-Diff <=2 (sonst 'mell' in 'mellenthin' gegen 'sallenthin' falsch positiv).
                     if (matchScore === 0) {
                         const allWords = allText.replace(/[,./]/g, ' ').split(/\s+/).filter(w => w.length > 1);
                         const fuzzyMatched = searchWords.filter(sw =>
                             allWords.some(aw => {
-                                if (aw.includes(sw) || sw.includes(aw)) return true;
-                                const maxD = Math.max(sw.length, aw.length) >= 7 ? 2 : 1;
-                                return _levenshteinDist(sw, aw) <= maxD;
+                                const lenDiff = Math.abs(sw.length - aw.length);
+                                if (lenDiff <= 2 && (aw.includes(sw) || sw.includes(aw))) return true;
+                                return _levenshteinDist(sw, aw) <= 1;
                             })
                         );
                         if (fuzzyMatched.length === searchWords.length) matchScore = 40;
@@ -3734,7 +3737,23 @@ async function searchNominatimForTelegram(query) {
             const gKeySnap = await db.ref('settings/googlePlacesApiKey').once('value');
             const gKey = gKeySnap.val();
             if (gKey) {
-                console.log(`[Google Places] Key gefunden (${gKey.substring(0, 10)}...), suche: "${query + ' Usedom'}"`);
+                // 🔧 v6.62.737: Wenn Ort in Query → den nehmen statt generisches 'Usedom'
+                // Patrick 15.05.: Mellenthin-Suche fand Pudagla, weil 'Usedom' zu breit war.
+                const _USEDOM_ORTE_GP = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz',
+                    'koserow', 'ückeritz', 'uckeritz', 'loddin', 'trassenheide', 'zempin',
+                    'karlshagen', 'peenemünde', 'peenemuende', 'wolgast', 'mellenthin',
+                    'pudagla', 'benz', 'usedom', 'morgenitz', 'neppermin', 'liepe',
+                    'stolpe', 'krummin', 'rankwitz', 'kamminke', 'garz', 'korswandt',
+                    'zirchow', 'dargen', 'mönchow', 'sauzin'];
+                const _searchTextSuffix = (() => {
+                    const _searchLow = query.toLowerCase();
+                    for (const o of _USEDOM_ORTE_GP) {
+                        if (_searchLow.includes(o)) return ''; // Ort schon in Query — nichts anhaengen
+                    }
+                    return ' Usedom';
+                })();
+                const _gQuery = query + _searchTextSuffix;
+                console.log(`[Google Places] Key gefunden (${gKey.substring(0, 10)}...), suche: "${_gQuery}"`);
                 const gResp = await fetch('https://places.googleapis.com/v1/places:searchText', {
                     method: 'POST',
                     headers: {
@@ -3743,7 +3762,7 @@ async function searchNominatimForTelegram(query) {
                         'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
                     },
                     body: JSON.stringify({
-                        textQuery: query + ' Usedom',
+                        textQuery: _gQuery,
                         languageCode: 'de',
                         locationBias: {
                             circle: { center: { latitude: 53.95, longitude: 14.10 }, radius: 25000.0 }
@@ -3870,9 +3889,69 @@ async function searchNominatimForTelegram(query) {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // ERGEBNIS: Lokale Treffer zuerst, dann Nominatim — max 5 gesamt
+    // 🔧 v6.62.737: GLOBALER ORT-FILTER über ALLE Stufen
+    // Wenn Suche einen Ort nennt (z.B. 'mellenthin'), MÜSSEN Treffer aus
+    // diesem Ort sein — sonst raus. Verhindert: Suche 'Schloss­strasse 7
+    // Mellenthin' liefert 'Delbrueckstrasse Heringsdorf' (15 km weg).
+    // Ausnahme: Direkt benachbarte Orte/Ortsteile gleicher PLZ (Pudagla
+    // gehoert zu Mellenthin → PLZ 17429 fuer beide).
     // ═══════════════════════════════════════════════════════════
-    return [...localResults, ...nominatimResults].slice(0, 5);
+    const _ALL_USEDOM_ORTE = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz',
+        'koserow', 'ückeritz', 'uckeritz', 'loddin', 'trassenheide', 'zempin',
+        'karlshagen', 'peenemünde', 'peenemuende', 'wolgast', 'mellenthin',
+        'pudagla', 'benz', 'usedom', 'morgenitz', 'neppermin', 'liepe',
+        'stolpe', 'krummin', 'rankwitz', 'lieper-winkel', 'kamminke',
+        'garz', 'korswandt', 'zirchow', 'dargen', 'mönchow', 'sauzin'];
+    const _searchOrt = searchWords.find(w => _ALL_USEDOM_ORTE.includes(w));
+    let _combined = [...localResults, ...nominatimResults];
+    if (_searchOrt) {
+        const _before = _combined.length;
+        _combined = _combined.filter(r => {
+            const rName = (r.name || '').toLowerCase();
+            const rLabel = (r.label || '').toLowerCase();
+            const rText = rName + ' ' + rLabel;
+            // Treffer-Ort aus dem Ergebnis-Text
+            const rOrt = _ALL_USEDOM_ORTE.find(o => rText.includes(o));
+            if (!rOrt) return true; // kein erkennbarer Ort → behalten (z.B. nur Strasse)
+            if (rOrt === _searchOrt) return true; // exakter Ort-Match
+            // PLZ-Nachbarschaft erlauben: gleiche PLZ → behalten
+            // Vereinfacht: Mellenthin/Pudagla/Benz/Morgenitz teilen PLZ 17429
+            const _GROUP_17429 = ['mellenthin', 'pudagla', 'benz', 'morgenitz', 'neppermin', 'liepe', 'stolpe'];
+            const _GROUP_17424 = ['heringsdorf', 'ahlbeck', 'bansin'];
+            const _GROUP_17449 = ['zinnowitz', 'trassenheide', 'karlshagen', 'peenemünde', 'peenemuende', 'zempin'];
+            const _GROUP_17459 = ['koserow', 'loddin', 'ückeritz', 'uckeritz', 'kölpinsee'];
+            for (const grp of [_GROUP_17429, _GROUP_17424, _GROUP_17449, _GROUP_17459]) {
+                if (grp.includes(_searchOrt) && grp.includes(rOrt)) return true;
+            }
+            console.log(`🛡️ Ort-Filter: "${r.name}" verworfen (Suche=${_searchOrt}, Treffer=${rOrt})`);
+            return false;
+        });
+        if (_combined.length < _before) {
+            console.log(`🛡️ Ort-Filter "${_searchOrt}": ${_before} → ${_combined.length} Treffer`);
+        }
+    }
+
+    // 🔧 v6.62.737: HAUSNR-EXACT-MATCH PRIORITAET
+    // Wenn Suche Hausnr X enthaelt und ein Treffer Hausnr X hat → ganz nach vorn.
+    const _hausnrInQuery = (() => {
+        const _q = (query || '').replace(/\b\d{5}\b/g, '');
+        const _m = _q.match(/\b(\d+\s*[a-z]?)\b/);
+        return _m ? _m[1].replace(/\s+/g, '').toLowerCase() : null;
+    })();
+    if (_hausnrInQuery) {
+        _combined.sort((a, b) => {
+            const _extract = (s) => {
+                const _str = (s || '').replace(/\b\d{5}\b/g, '').toLowerCase();
+                const _m = _str.match(/\b(\d+\s*[a-z]?)\b/);
+                return _m ? _m[1].replace(/\s+/g, '') : null;
+            };
+            const aMatch = _extract(a.name) === _hausnrInQuery ? 1 : 0;
+            const bMatch = _extract(b.name) === _hausnrInQuery ? 1 : 0;
+            return bMatch - aMatch;
+        });
+    }
+
+    return _combined.slice(0, 5);
 }
 
 // 🔧 v6.33.6: Waypoints-Support für Multi-Stop-Routen

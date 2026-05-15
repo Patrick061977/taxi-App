@@ -24146,6 +24146,102 @@ exports.stripeWebhook = onRequest(
 // Versendet Rechnungen per SMTP (Nodemailer) statt EmailJS
 // ═══════════════════════════════════════════════════════════════
 
+// 🆕 v6.62.728 (Patrick 15.05. 10:36): Auftragsbestaetigung an Auftraggeber (Vetter etc.)
+// Nach 'Auftrag uebernehmen' im Native/Web → Email mit Trip-Liste + Bestaetigungs-Bestaetigung.
+exports.sendAuftragsBestaetigung = onRequest(
+    { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
+    async (req, res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+        if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+        if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+        try {
+            const { toEmail, toName, trips, auftragsId, customerName, customerNotes } = req.body;
+            if (!toEmail || !trips || trips.length === 0) {
+                res.status(400).json({ error: 'toEmail + trips erforderlich' });
+                return;
+            }
+            const smtp = (await db.ref('settings/smtp').once('value')).val();
+            if (!smtp || !smtp.host || !smtp.user || !smtp.pass) {
+                res.status(400).json({ error: 'SMTP nicht konfiguriert' });
+                return;
+            }
+            const invSettings = (await db.ref('settings/invoice').once('value')).val() || {};
+            const companyName = invSettings.companyName || 'Funk Taxi Heringsdorf';
+            const ownerName = invSettings.ownerName || 'Patrick Wydra';
+            const companyPhone = invSettings.companyPhone || '038378-22555';
+            const companyEmail = invSettings.companyEmail || smtp.user;
+
+            const tripRows = trips.map((t, i) => {
+                const dt = t.datetime ? new Date(t.datetime).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : (t.date || '?');
+                const pax = t.passengers || t.pax || '?';
+                const guest = t.destinationName || t.pickupName || t.guestName || '';
+                return `<tr style="border-bottom:1px solid #e5e7eb;">
+                    <td style="padding:8px;">${i + 1}</td>
+                    <td style="padding:8px;">${dt}</td>
+                    <td style="padding:8px;"><strong>${guest}</strong></td>
+                    <td style="padding:8px;">${t.pickup || '?'} → ${t.destination || '?'}</td>
+                    <td style="padding:8px;text-align:center;">${pax}</td>
+                </tr>`;
+            }).join('');
+
+            const html = `
+                <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#111827;">
+                    <div style="background:#10b981;color:#fff;padding:18px 22px;border-radius:8px 8px 0 0;">
+                        <h2 style="margin:0;font-size:20px;">✅ Auftragsbestätigung</h2>
+                        <div style="font-size:13px;opacity:0.9;margin-top:4px;">${companyName}</div>
+                    </div>
+                    <div style="background:#fff;padding:22px;border:1px solid #e5e7eb;">
+                        <p>Sehr geehrte Damen und Herren${toName ? ' ' + toName : ''},</p>
+                        <p>vielen Dank für Ihre Buchungsanfrage. Wir bestätigen den Erhalt und die Annahme der folgenden ${trips.length} Fahrt${trips.length > 1 ? 'en' : ''}:</p>
+                        ${auftragsId ? `<p style="color:#6b7280;font-size:13px;">Auftrags-ID: <strong>${auftragsId}</strong></p>` : ''}
+                        <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;">
+                            <thead style="background:#f3f4f6;">
+                                <tr>
+                                    <th style="padding:8px;text-align:left;">#</th>
+                                    <th style="padding:8px;text-align:left;">Termin</th>
+                                    <th style="padding:8px;text-align:left;">Fahrgast</th>
+                                    <th style="padding:8px;text-align:left;">Strecke</th>
+                                    <th style="padding:8px;text-align:center;">Pax</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tripRows}</tbody>
+                        </table>
+                        ${customerNotes ? `<p style="background:#fef3c7;padding:10px;border-radius:6px;font-size:13px;color:#92400e;">📋 ${customerNotes}</p>` : ''}
+                        <p>Bei Änderungswünschen oder Fragen melden Sie sich bitte umgehend.</p>
+                        <p>Mit freundlichen Grüßen<br>${ownerName}<br><strong>${companyName}</strong></p>
+                    </div>
+                    <div style="background:#f9fafb;padding:14px;text-align:center;font-size:12px;color:#6b7280;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+                        📞 ${companyPhone} &nbsp;|&nbsp; ✉️ ${companyEmail}
+                    </div>
+                </div>`;
+
+            const transporter = require('nodemailer').createTransport({
+                host: smtp.host, port: parseInt(smtp.port) || 587,
+                secure: (parseInt(smtp.port) || 587) === 465,
+                auth: { user: smtp.user, pass: smtp.pass }
+            });
+            const fromName = smtp.fromName || companyName;
+            const fromEmail = smtp.fromEmail || smtp.user;
+            await transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: toEmail,
+                subject: `Auftragsbestätigung — ${trips.length} Fahrt${trips.length > 1 ? 'en' : ''} angenommen`,
+                html
+            });
+            // Audit-Log
+            await db.ref('auftragBestaetigungenLog').push({
+                ts: Date.now(), toEmail, toName, customerName, auftragsId, tripCount: trips.length
+            });
+            res.json({ ok: true, sentAt: Date.now() });
+        } catch (e) {
+            console.error('sendAuftragsBestaetigung Fehler:', e.message);
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
 exports.sendInvoiceEmail = onRequest(
     { region: 'europe-west1', timeoutSeconds: 60, invoker: 'public' },
     async (req, res) => {

@@ -21883,15 +21883,20 @@ exports.onRideUpdated = onValueUpdated(
             const _hasPriceData = (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
             if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {
                 console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
-                // Belegnr aus Counter (yyyy-mm-AUSR-NNNN, GoBD lueckenlos)
+                // 🆕 v6.62.731 (Patrick 15.05. 10:57 'a'): Auto-Rechnung nutzt nun den
+                //   gleichen invoiceCounter/{Jahr} wie das manuelle UI — Format '20-YY-NNN'
+                //   (z.B. 20-26-183). Vorher AUSR-Counter (2026-05-AUSR-0001) parallel zum
+                //   manuellen Counter, was zu Verwirrung fuehrte ('gibt es keine fortlaufenden Rechnungen mehr').
                 const _belegDate = after.completedAt
                     ? new Date(after.completedAt).toISOString().slice(0, 10)
                     : new Date().toISOString().slice(0, 10);
-                const _yyyymm = _belegDate.slice(0, 7);
-                const _counterRef = db.ref(`belegCounter/${_yyyymm}/AUSR`);
+                const _belegYear = parseInt(_belegDate.slice(0, 4), 10);
+                const _yyyymm = _belegDate.slice(0, 7); // weiter genutzt fuer physOrdner-Pfad
+                const _counterRef = db.ref(`invoiceCounter/${_belegYear}`);
                 const _counterTx = await _counterRef.transaction(curr => (curr || 0) + 1);
                 const _counterValue = _counterTx.snapshot.val() || 1;
-                const _belegNr = `${_yyyymm}-AUSR-${String(_counterValue).padStart(4, '0')}`;
+                const _shortYear = String(_belegYear).slice(2);
+                const _belegNr = `20-${_shortYear}-${String(_counterValue).padStart(3, '0')}`;
 
                 // Kunde-Daten aus CRM nachladen (Adresse, anrede)
                 let _custData = {};

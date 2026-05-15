@@ -20672,6 +20672,71 @@ exports.onRideUpdated = onValueUpdated(
         const oldVehicle = before.assignedVehicle || before.vehicleId;
         const newVehicle = after.assignedVehicle || after.vehicleId;
 
+        // 🆕 v6.62.725 (Patrick 15.05. 10:01) Punkt 5: Wartepool-Auto-Ruf wenn Fahrt in Wartepool
+        // landet UND 0 GPS-Fahrer online → SMS an alle Schicht-Fahrer 'Hilfe noetig'.
+        if (oldStatus !== 'wartepool' && newStatus === 'wartepool') {
+            try {
+                const [vehiclesSnap, shiftPlanSnap] = await Promise.all([
+                    db.ref('vehicles').once('value'),
+                    db.ref('shiftPlan').once('value')
+                ]);
+                const vehicles = vehiclesSnap.val() || {};
+                const shiftPlan = shiftPlanSnap.val() || {};
+                const nowMs = Date.now();
+                const STALE = 10 * 60 * 1000;
+                const onlineCount = Object.values(vehicles).filter(v =>
+                    v.lat && v.lon && v.online !== false &&
+                    (nowMs - (v.lastSeen || v.lastUpdate || 0)) < STALE
+                ).length;
+                if (onlineCount === 0) {
+                    const today = new Date(nowMs);
+                    const dayKey = ['sonntag','montag','dienstag','mittwoch','donnerstag','freitag','samstag'][today.getDay()];
+                    for (const [vid, vData] of Object.entries(vehicles)) {
+                        const plan = shiftPlan[vid];
+                        const dayPlan = plan && plan.weekly && plan.weekly[dayKey];
+                        if (!dayPlan || !dayPlan.start) continue;
+                        // Telegram an Schicht-Fahrer (driverChatId) — SMS-API ist Browser-only
+                        if (vData.driverChatId) {
+                            try {
+                                await sendTelegramMessage(vData.driverChatId, `🆘 Funktaxi: dringend Hilfe noetig — Fahrt im Wartepool, kein anderer Fahrer online. Kannst du kurz uebernehmen?\n\nPickup: ${after.pickup || '?'} um ${after.pickupTime || '?'}`);
+                                console.log('🆘 Wartepool-Telegram an ' + vData.name + ' (' + vData.driverChatId + ')');
+                            } catch (e) { console.error('Telegram-fail:', e.message); }
+                        }
+                        // Plus pendingSMS-Queue fuer Browser-Pickup (falls Browser online)
+                        if (vData.driverPhone) {
+                            try {
+                                await db.ref('pendingSMS').push({
+                                    phone: vData.driverPhone,
+                                    message: `🆘 Funktaxi WARTEPOOL: ${after.pickup || '?'} um ${after.pickupTime || '?'} — kannst du uebernehmen?`,
+                                    reason: 'wartepool-auto-ruf',
+                                    rideId,
+                                    ts: Date.now()
+                                });
+                            } catch (_) {}
+                        }
+                    }
+                    await sendToAllAdmins(`🆘 <b>WARTEPOOL + 0 FAHRER ONLINE!</b>\n\nFahrt ${after.customerName || '?'} ${after.pickup || '?'} um ${after.pickupTime || '?'} im Wartepool, SMS an Schicht-Fahrer raus.`);
+                }
+            } catch (e) { console.error('Wartepool-AutoRuf:', e.message); }
+        }
+        // Punkt 6: Wartepool-Aufloesung — wenn Fahrt aus Wartepool wieder zugewiesen wird,
+        // Customer informieren ('Vermittelt — Fahrer kommt')
+        if (oldStatus === 'wartepool' && (newStatus === 'accepted' || newStatus === 'assigned' || newStatus === 'on_way')) {
+            try {
+                const phone = after.customerMobile || after.customerPhone;
+                if (phone) {
+                    await db.ref('pendingSMS').push({
+                        phone,
+                        message: `Funktaxi: Ihr Taxi ist vermittelt! ${after.assignedVehicleName || ''} kommt zu ${after.pickup || ''}. Pickup ${after.pickupTime || ''}.`,
+                        reason: 'wartepool-aufloesung',
+                        rideId,
+                        ts: Date.now()
+                    });
+                    console.log('✅ Wartepool-Aufloesungs-SMS-Queue an ' + phone);
+                }
+            } catch (e) { console.error('Wartepool-Resolve-SMS:', e.message); }
+        }
+
         // 🩹 v6.40.21: SOFORT-SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen direkt korrigieren.
         // Reagiert innerhalb von Sekunden auf jeden Schreibpfad (statt alle 10 Min via scheduledAutoAssign).
         // Bedingung: status=assigned + Pickup >60min in Zukunft + kein Fahrer-Akzept (keine on_way/picked_up).
@@ -22960,6 +23025,106 @@ exports.scheduledLateCheck = onSchedule(
         } catch (e) {
             console.error('❌ scheduledLateCheck Fehler:', e.message, e.stack);
         }
+    }
+);
+
+// 🆕 v6.62.725 (Patrick 15.05. 10:01 'mach mal alles'): 7 Operativ-Optimierungen.
+// Punkt 1+2: Online-Fahrer-Underdeckungs-Push.
+// Schickt Telegram an Admins wenn 0 GPS-Fahrer online + offene Vorbestellung in den
+// naechsten 2h existiert. Cooldown 30 Min damit kein Spam.
+exports.scheduledOnlineFahrerCheck = onSchedule(
+    { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const STALE_GPS_MS = 10 * 60 * 1000;
+            const COOLDOWN_MS = 30 * 60 * 1000;
+            const [vehiclesSnap, ridesSnap, lastAlertSnap] = await Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(now + 2 * 60 * 60 * 1000).once('value'),
+                db.ref('settings/lastUnderdeckungAlert').once('value')
+            ]);
+            const vehicles = vehiclesSnap.val() || {};
+            const rides = ridesSnap.val() || {};
+            // Online-Fahrer = GPS-active + nicht in Pause
+            const onlineCount = Object.values(vehicles).filter(v => {
+                if (!v.lat || !v.lon) return false;
+                const lastSeen = v.lastSeen || v.lastUpdate || 0;
+                if (lastSeen && (now - lastSeen) > STALE_GPS_MS) return false;
+                if (v.pauseUntil && v.pauseUntil > now) return false;
+                return v.online !== false;
+            }).length;
+            // Aktive Vorbestellungen die einen Fahrer brauchen
+            const pendingRides = Object.values(rides).filter(r =>
+                r && ['accepted', 'vorbestellt', 'new', 'sofort', 'warteschlange', 'assigned', 'wartepool'].includes(r.status)
+            ).length;
+            if (onlineCount === 0 && pendingRides > 0) {
+                const lastAlert = lastAlertSnap.val() || 0;
+                if (now - lastAlert < COOLDOWN_MS) return;
+                await sendToAllAdmins(`🚨 <b>UNTERDECKUNG!</b>\n\n0 GPS-Fahrer online aber ${pendingRides} aktive Vorbestellungen in den naechsten 2h.\n\nFahrer anrufen oder Schicht kurzfristig besetzen.`);
+                await db.ref('settings/lastUnderdeckungAlert').set(now);
+                console.log('🚨 Underdeckungs-Push an Admins');
+            }
+            // Snapshot fuer Native-Ampel
+            await db.ref('settings/onlineFahrerStatus').set({
+                count: onlineCount,
+                pendingRides,
+                level: onlineCount >= 3 ? 'gruen' : (onlineCount >= 1 ? 'gelb' : 'rot'),
+                updatedAt: now
+            });
+        } catch (e) { console.error('❌ scheduledOnlineFahrerCheck:', e.message); }
+    }
+);
+
+// Punkt 3+4: Schicht-Reminder (15 Min vor Schichtbeginn) + Schicht-Offline-Warnung (>30 Min nach Beginn).
+exports.scheduledShiftReminder = onSchedule(
+    { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const REMINDER_WINDOW_MS = 15 * 60 * 1000;
+            const OFFLINE_TOLERANCE_MS = 30 * 60 * 1000;
+            const [shiftPlanSnap, vehiclesSnap, sentSnap] = await Promise.all([
+                db.ref('shiftPlan').once('value'),
+                db.ref('vehicles').once('value'),
+                db.ref('settings/shiftReminderSent').once('value')
+            ]);
+            const shiftPlan = shiftPlanSnap.val() || {};
+            const vehicles = vehiclesSnap.val() || {};
+            const sentMap = sentSnap.val() || {};
+            const today = new Date(now);
+            const dateStr = today.toISOString().slice(0, 10);
+            const dayKey = ['sonntag', 'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag'][today.getDay()];
+            for (const [vid, vData] of Object.entries(vehicles)) {
+                const plan = shiftPlan[vid];
+                if (!plan) continue;
+                const dayPlan = (plan.exceptions && plan.exceptions[dateStr]) || (plan.weekly && plan.weekly[dayKey]);
+                if (!dayPlan || !dayPlan.start) continue;
+                const [h, m] = dayPlan.start.split(':').map(Number);
+                const shiftStartTs = new Date(now).setHours(h, m, 0, 0);
+                const minToShift = (shiftStartTs - now) / 60000;
+                const lastSeen = vData.lastSeen || vData.lastUpdate || 0;
+                const isOnline = vData.lat && vData.lon && lastSeen > 0 && (now - lastSeen) < OFFLINE_TOLERANCE_MS;
+                // 15-Min-Reminder
+                if (minToShift > 10 && minToShift <= 15) {
+                    const sentKey = vid + '_' + dateStr + '_pre';
+                    if (sentMap[sentKey]) continue;
+                    if (vData.driverChatId) {
+                        try {
+                            await sendTelegram(vData.driverChatId, `⏰ Deine Schicht startet in ${Math.round(minToShift)} Min (${dayPlan.start}).\n\nApp jetzt oeffnen + GPS aktivieren wenn nicht schon online.`);
+                            await db.ref(`settings/shiftReminderSent/${sentKey}`).set(now);
+                        } catch (_) {}
+                    }
+                }
+                // Offline-Warnung 30 Min nach Schichtbeginn
+                if (minToShift < -30 && minToShift > -120 && !isOnline) {
+                    const sentKey = vid + '_' + dateStr + '_offline';
+                    if (sentMap[sentKey]) continue;
+                    await sendToAllAdmins(`⚠️ <b>Fahrer noch nicht online</b>\n\n${vData.name || vid} sollte seit ${Math.abs(Math.round(minToShift))} Min Schicht haben (${dayPlan.start}) ist aber offline.\n\nGPS prüfen oder Fahrer anrufen.`);
+                    await db.ref(`settings/shiftReminderSent/${sentKey}`).set(now);
+                }
+            }
+        } catch (e) { console.error('❌ scheduledShiftReminder:', e.message); }
     }
 );
 

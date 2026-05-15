@@ -20112,6 +20112,58 @@ exports.onRideCreated = onValueCreated(
             }
         }
 
+        // 🆕 v6.62.739: AUTO-GEOCODE wenn Koordinaten weiterhin fehlen
+        // Patrick (15.05. 15:25): "Daten-Inkonsistenz! Native Admin Buchung hat keine Coords."
+        // Native AdminDashboardActivity speichert pickup/destination als reinen Text ohne
+        // Geocoding. Cloud holt Coords nach via Nominatim (gleicher Endpoint wie der Bot).
+        if ((!ride.pickupLat || !ride.destinationLat) && (ride.pickup || ride.destination)) {
+            const _geocoded = [];
+            const _geocodeOne = async (addr) => {
+                if (!addr) return null;
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr + ', Usedom')}&format=json&limit=1&countrycodes=de&addressdetails=1`;
+                    const resp = await fetch(url, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                    const data = await resp.json();
+                    if (!data || data.length === 0) return null;
+                    const r = data[0];
+                    const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+                    // Nur wenn im Usedom-Umkreis (53.8-54.2 / 13.6-14.5) — sonst falscher Treffer
+                    if (lat >= 53.8 && lat <= 54.2 && lon >= 13.6 && lon <= 14.5) return { lat, lon };
+                    return null;
+                } catch (_e) { return null; }
+            };
+            const _updates = {};
+            if (!ride.pickupLat && ride.pickup) {
+                const pc = await _geocodeOne(ride.pickup);
+                if (pc) {
+                    _updates.pickupLat = pc.lat; _updates.pickupLon = pc.lon;
+                    _updates.pickupCoords = { lat: pc.lat, lon: pc.lon };
+                    ride.pickupLat = pc.lat; ride.pickupLon = pc.lon;
+                    _geocoded.push(`Pickup → ${pc.lat.toFixed(4)}/${pc.lon.toFixed(4)}`);
+                }
+            }
+            if (!ride.destinationLat && ride.destination) {
+                const dc = await _geocodeOne(ride.destination);
+                if (dc) {
+                    _updates.destinationLat = dc.lat; _updates.destinationLon = dc.lon;
+                    _updates.destCoords = { lat: dc.lat, lon: dc.lon };
+                    ride.destinationLat = dc.lat; ride.destinationLon = dc.lon;
+                    _geocoded.push(`Destination → ${dc.lat.toFixed(4)}/${dc.lon.toFixed(4)}`);
+                }
+            }
+            if (_geocoded.length > 0) {
+                _updates.autoGeocodedAt = Date.now();
+                _updates.autoGeocodedBy = 'cloud-onRideCreated-v6.62.739';
+                await db.ref('rides/' + rideId).update(_updates);
+                console.log(`📍 v6.62.739 Auto-Geocode: ${_geocoded.join(', ')}`);
+                await addRideLog(rideId, '📍', `Auto-Geocode (Native-Buchung): ${_geocoded.join(', ')}`,
+                    { quelle: 'Nominatim', source: ride.source || 'unbekannt' });
+            } else if (!ride.pickupLat || !ride.destinationLat) {
+                await addRideLog(rideId, '⚠️', 'Auto-Geocode fehlgeschlagen — beide Adressen nicht in OSM',
+                    { pickup: ride.pickup, destination: ride.destination });
+            }
+        }
+
         // 🔧 v6.38.43: Detailliertes Logging für Debugging
         console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}, pickupLat=${ride.pickupLat}, destLat=${ride.destinationLat}`);
 

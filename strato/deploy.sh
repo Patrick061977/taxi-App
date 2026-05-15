@@ -45,6 +45,7 @@ APP_FILES=(
     "hotel.html"
     "landing.html"
     "landing-v2.html"
+    "kein-bock-zu-laufen.html"
     "fahrer-map.html"
     "berlin.html"
     "anfrage.html"

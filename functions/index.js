@@ -26361,12 +26361,19 @@ exports.onDebugErrorForwardToBridge = onValueCreated(
 
         // v6.62.247: Throttle — pro identischer (kind+message)-Kombination max 1 Push pro 5 Min.
         // v6.62.721 (15.05. 06:55): Timestamps + ISO-Dates aus Message rausfiltern damit
-        // Throttle nicht von "[2026-05-14T16:50:32.196Z]" geprefixten Crashes umgangen wird
-        // (jeder Crash hatte sonst eindeutigen Fingerprint, Throttle griff nie).
-        const cleanedMsg = (data.message || '').slice(0, 400)
+        // Throttle nicht von "[2026-05-14T16:50:32.196Z]" geprefixten Crashes umgangen wird.
+        // v6.62.722 (15.05. 08:09): permission_denied + read/write errors auf SETTINGS/* werden
+        // jetzt KOMPLETT auf einen einzigen Fingerprint kollabiert (war: pro Pfad einzeln).
+        // Wenn Patrick einen alten Tab nicht eingeloggt offen hat, spammt er sonst pro
+        // settings/* Pfad einen einzelnen Crash → 30+ unique Pushes.
+        let cleanedMsg = (data.message || '').slice(0, 400)
             .replace(/\[\d{4}-\d{2}-\d{2}T[\d:.]+Z\]/g, '[TS]')
             .replace(/\d{13}/g, '[MS]')
             .replace(/\d{10}/g, '[S]');
+        // permission_denied auf irgendeinem Pfad → einheitlicher Fingerprint
+        if (/permission[_ ]denied|PERMISSION_DENIED/i.test(cleanedMsg)) {
+            cleanedMsg = 'PERMISSION_DENIED firebase read/write (collapsed)';
+        }
         const fingerprint = require('crypto').createHash('md5')
             .update((data.kind || '') + '|' + cleanedMsg.slice(0, 200))
             .digest('hex').slice(0, 16);

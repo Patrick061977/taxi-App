@@ -5171,6 +5171,15 @@ NUR gueltiges JSON, sonst nichts:
 }
 
 async function analyzeTelegramBooking(chatId, text, userName, options = {}) {
+    // 🆕 v6.62.733 (Patrick 15.05. 11:44): WHISPER_FIXES auch fuer Text-Eingabe (nicht nur Audio).
+    //   Wenn Patrick die Sprachnachricht erneut sendet UND Whisper denselben Fehler macht (cache),
+    //   ODER der bereits transkribierte Text erneut in die Buchungs-Pipeline geht, korrigieren wir
+    //   typische Eigennamen-Fehler trotzdem.
+    if (text) {
+        const _orig = text;
+        text = applyWhisperFixes(text);
+        if (text !== _orig) console.log('🔧 Text-Korrektur in analyzeTelegramBooking:', _orig.slice(0,80), '→', text.slice(0,80));
+    }
     const apiKey = await getAnthropicApiKey();
     if (!apiKey) {
         await sendErrorWithMenu(chatId, '⚠️ AI-Assistent nicht konfiguriert.\n\nBitte den Anthropic API-Key in der App eintragen.');

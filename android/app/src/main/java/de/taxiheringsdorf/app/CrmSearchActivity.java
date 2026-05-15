@@ -1309,16 +1309,36 @@ public class CrmSearchActivity extends AppCompatActivity {
             layout.addView(tvKundeFest);
         }
 
-        // 🔧 v6.62.711: Diagnose-Toast fuer Patricks Bug-Report (14.05. 10:11):
-        //   "Bei vergangenen Fahrten uebernimmt er das Ziel nicht". Zeigt was im Template
-        //   ankommt — falls destination wirklich null ist sehen wir es sofort.
-        if (hasTemplate) {
-            String _diagP = editRide.get("pickup") != null ? String.valueOf(editRide.get("pickup")) : "(null)";
-            String _diagD = editRide.get("destination") != null ? String.valueOf(editRide.get("destination")) : "(null)";
-            Toast.makeText(this,
-                "📋 Template: pickup=" + (_diagP.length() > 30 ? _diagP.substring(0, 30) + "…" : _diagP)
-                + " | dest=" + (_diagD.length() > 30 ? _diagD.substring(0, 30) + "…" : _diagD),
-                Toast.LENGTH_LONG).show();
+        // 🔧 v6.62.711/719: Diagnose-Toast + Firebase-Log fuer Schindel-Bug-Suche
+        //   v6.62.719 (Patrick 15.05. 06:29): Diag-Log auch wenn hasTemplate=false weil
+        //   moeglicherweise ein anderer Klick-Pfad showVorbestellungMaske ohne editRide ruft.
+        String _diagP = (hasTemplate && editRide.get("pickup") != null) ? String.valueOf(editRide.get("pickup")) : "(null)";
+        String _diagD = (hasTemplate && editRide.get("destination") != null) ? String.valueOf(editRide.get("destination")) : "(null)";
+        Toast.makeText(this,
+            "📋 Maske: hasTemplate=" + hasTemplate
+            + " pickup=" + (_diagP.length() > 25 ? _diagP.substring(0, 25) + "…" : _diagP)
+            + " dest=" + (_diagD.length() > 25 ? _diagD.substring(0, 25) + "…" : _diagD),
+            Toast.LENGTH_LONG).show();
+        try {
+            java.util.Map<String, Object> _diagEntry = new java.util.HashMap<>();
+            _diagEntry.put("ts", System.currentTimeMillis());
+            _diagEntry.put("icon", "📋");
+            _diagEntry.put("event", "showVorbestellungMaske");
+            _diagEntry.put("hasTemplate", hasTemplate);
+            _diagEntry.put("editRideId", editRideId != null ? editRideId : "(null)");
+            _diagEntry.put("pickup", _diagP);
+            _diagEntry.put("destination", _diagD);
+            if (hasTemplate && editRide != null) {
+                _diagEntry.put("editRideKeys", new java.util.ArrayList<>(editRide.keySet()));
+                _diagEntry.put("destinationLat", editRide.get("destinationLat"));
+                _diagEntry.put("destinationLon", editRide.get("destinationLon"));
+                _diagEntry.put("destCoords", editRide.get("destCoords"));
+            }
+            _diagEntry.put("kundeName", e != null ? e.name : "(null)");
+            _diagEntry.put("source", "native-CrmSearch-v6.62.719");
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/buchenLog").push().setValue(_diagEntry);
+        } catch (Throwable _err) {
+            Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _err.getMessage());
         }
 
         if (isHotel) {

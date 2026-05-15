@@ -118,6 +118,12 @@
 
     function injectButton() {
         if (document.getElementById('pwa-install-btn')) return;
+        // v6.62.747 (Patrick 15.05. 21:21): Auf Desktop ausblenden — passt nicht zur Customer-Mobile-Story
+        const _isMobileDevice = isAndroid || isIOS;
+        if (!_isMobileDevice) {
+            console.log('[PWA-Install] Desktop erkannt — Knopf ausgeblendet');
+            return;
+        }
         const btn = document.createElement('button');
         btn.id = 'pwa-install-btn';
         btn.type = 'button';

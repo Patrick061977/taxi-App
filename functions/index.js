@@ -26360,10 +26360,15 @@ exports.onDebugErrorForwardToBridge = onValueCreated(
         if (!realErrorKinds.includes(data.kind)) return; // battery_check etc. nicht spammen
 
         // v6.62.247: Throttle — pro identischer (kind+message)-Kombination max 1 Push pro 5 Min.
-        // Verhindert Spam wenn Patrick eine cached Page hat die im Loop crasht.
-        // Patrick (10:11): pw-ik-222 Cache-Crash spammte 1x/5sec.
+        // v6.62.721 (15.05. 06:55): Timestamps + ISO-Dates aus Message rausfiltern damit
+        // Throttle nicht von "[2026-05-14T16:50:32.196Z]" geprefixten Crashes umgangen wird
+        // (jeder Crash hatte sonst eindeutigen Fingerprint, Throttle griff nie).
+        const cleanedMsg = (data.message || '').slice(0, 400)
+            .replace(/\[\d{4}-\d{2}-\d{2}T[\d:.]+Z\]/g, '[TS]')
+            .replace(/\d{13}/g, '[MS]')
+            .replace(/\d{10}/g, '[S]');
         const fingerprint = require('crypto').createHash('md5')
-            .update((data.kind || '') + '|' + (data.message || '').slice(0, 200))
+            .update((data.kind || '') + '|' + cleanedMsg.slice(0, 200))
             .digest('hex').slice(0, 16);
         const throttleRef = db.ref(`debugErrorThrottle/${fingerprint}`);
         const lastSnap = await throttleRef.once('value');

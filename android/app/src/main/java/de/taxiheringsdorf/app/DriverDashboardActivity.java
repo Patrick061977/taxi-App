@@ -27,6 +27,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
+// v6.62.745 (Patrick 15.05. 21:07): MapPicker fuer Einsteiger-Destination
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
@@ -1487,6 +1490,35 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private String einsteigerPickupAddress = "";
     private String einsteigerDestAddress = "";
 
+    // v6.62.745 (Patrick 15.05. 21:07): MapPicker fuer Destination im Einsteiger-Dialog
+    // Plus auch fuer AdminDashboard NewBookingDialog (Pickup + Destination).
+    // Pattern aus CrmSearchActivity uebernommen.
+    private EditText pendingPickerField;
+    private double[] pendingPickerCoords;
+    private final ActivityResultLauncher<Intent> mapPickerLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                Intent d = result.getData();
+                String addr = d.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
+                double lat = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
+                double lon = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                if (pendingPickerField != null && addr != null) pendingPickerField.setText(addr);
+                if (pendingPickerCoords != null && !Double.isNaN(lat) && !Double.isNaN(lon)) {
+                    pendingPickerCoords[0] = lat;
+                    pendingPickerCoords[1] = lon;
+                }
+            });
+
+    private void launchMapPickerFor(EditText field, double[] coordsOut) {
+        pendingPickerField = field;
+        pendingPickerCoords = coordsOut;
+        Intent i = new Intent(this, MapPickerActivity.class);
+        String pre = field.getText() != null ? field.getText().toString().trim() : "";
+        if (!pre.isEmpty()) i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, pre);
+        mapPickerLauncher.launch(i);
+    }
+
     private void showEinsteigerDialog() {
         if (currentVehicleId == null) return;
         einsteigerPickupCoords[0] = 0; einsteigerPickupCoords[1] = 0;
@@ -1548,10 +1580,29 @@ public class DriverDashboardActivity extends AppCompatActivity {
         lblDest.setTextColor(Color.parseColor("#64748b"));
         layout.addView(lblDest);
 
+        TextView lblDest = new TextView(this);
+        lblDest.setText("🎯 Zielort");
+        lblDest.setTextSize(12);
+        lblDest.setTextColor(Color.parseColor("#64748b"));
+        layout.addView(lblDest);
+
         EditText etDest = new EditText(this);
-        etDest.setHint("z.B. Hotel zur Post, Bansin");
+        etDest.setHint("z.B. Hotel zur Post, Bansin — oder unten Karten-Picker");
         etDest.setInputType(InputType.TYPE_CLASS_TEXT);
         layout.addView(etDest);
+
+        // v6.62.745 (Patrick 15.05. 21:07): Karten-Picker fuer Destination
+        MaterialButton btnDestPicker = new MaterialButton(this);
+        btnDestPicker.setText("🗺 Adresse auf Karte waehlen");
+        btnDestPicker.setBackgroundColor(Color.parseColor("#3b82f6"));
+        btnDestPicker.setTextColor(Color.WHITE);
+        LinearLayout.LayoutParams destLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int destGap = (int) (getResources().getDisplayMetrics().density * 6);
+        destLp.setMargins(0, destGap, 0, destGap * 2);
+        btnDestPicker.setLayoutParams(destLp);
+        btnDestPicker.setOnClickListener(v -> launchMapPickerFor(etDest, einsteigerDestCoords));
+        layout.addView(btnDestPicker);
 
         // Preis + Pax
         EditText etPrice = new EditText(this);

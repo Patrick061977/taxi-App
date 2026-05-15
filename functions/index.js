@@ -19724,6 +19724,41 @@ exports.onAnfrageCreated = onValueCreated(
     }
 );
 
+// 🆕 v6.62.723: Anfragen-Sackgassen-Watchdog (Patrick 15.05. 08:11 'wo bleiben Fahrten haengen').
+// Alle 30 Min: /anfragen status='offen' und createdAt >2h alt → REMINDER-Push an Admins +
+// Telegram. Plus reminderSentCount fuer eskalation: 1. Reminder bei 2h, 2. bei 4h, 3. bei 6h.
+exports.scheduledOpenAnfrageWatchdog = onSchedule(
+    { schedule: 'every 30 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    async (event) => {
+        try {
+            const snap = await db.ref('anfragen').orderByChild('status').equalTo('offen').once('value');
+            const anfragen = snap.val();
+            if (!anfragen) return;
+            const now = Date.now();
+            const TWO_H = 2 * 60 * 60 * 1000;
+            for (const [id, a] of Object.entries(anfragen)) {
+                if (!a.createdAt || (now - a.createdAt) < TWO_H) continue;
+                const ageH = ((now - a.createdAt) / (60 * 60 * 1000)).toFixed(1);
+                const lastReminder = a.lastReminderAt || 0;
+                const reminderCount = a.reminderSentCount || 0;
+                // Eskalation: 2h → 1. Reminder, dann jeden 2h einen weiteren bis max 5
+                if (reminderCount >= 5) continue;
+                if (lastReminder && (now - lastReminder) < TWO_H) continue;
+                const headline = reminderCount === 0
+                    ? `⏰ Anfrage seit ${ageH}h offen`
+                    : `🚨 Anfrage seit ${ageH}h IGNORIERT (${reminderCount + 1}. Erinnerung)`;
+                const msg = `${headline}\n\n👤 ${a.name || '?'}\n📍 ${a.pickup || '?'}\n🎯 ${a.destination || '?'}\n📅 ${a.date || ''} ${a.time || ''}\n📞 ${a.phone || '?'}\n\nIn Native-Disposition oben tippen.`;
+                try {
+                    await sendToAllAdmins(msg);
+                    await sendFCMToAdmins({ type: 'anfrage_reminder', anfrageId: id, customerName: a.name || '?', source: a.channel || 'web', isSofort: 'false' });
+                    await db.ref(`anfragen/${id}`).update({ lastReminderAt: now, reminderSentCount: reminderCount + 1 });
+                    console.log(`⏰ Anfrage-Reminder ${id} (${a.name}) — ${reminderCount + 1}. Erinnerung nach ${ageH}h`);
+                } catch (e) { console.error('Reminder-Push fail:', e.message); }
+            }
+        } catch (e) { console.error('scheduledOpenAnfrageWatchdog Fehler:', e.message); }
+    }
+);
+
 exports.onRideCreated = onValueCreated(
     {
         ref: '/rides/{rideId}',

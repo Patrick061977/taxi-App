@@ -18270,24 +18270,36 @@ exports.scheduledReachabilityCheck = onSchedule(
                             { lat: tgtLat, lon: tgtLon }
                         );
                         if (!route || route.duration == null) return;
-                        const eta = route.duration; // Minuten
+                        // 🔧 v6.62.724 (Patrick 15.05. 08:21): "Banner wackelt 'in X Min losfahren'.
+                        //   Plus 5 Min Anfahrt Heringsdorf->Ahlbeck ist zu wenig". Fix:
+                        //   - +20% Stadt-Aufschlag auf OSRM (Ampeln, Tempo 30 Zonen)
+                        //   - Hysterese: nur updaten wenn neue ETA |alt-neu| >= 1 Min
+                        //   - Monoton bevor on_way: ETA darf nur SINKEN (steigende ETA = GPS-Drift)
+                        const _etaRaw = route.duration; // Minuten OSRM
+                        const eta = Math.round(_etaRaw * 1.2 + 0.5); // +20% Stadt-Aufschlag, runden
                         const _distKm = route.distance ? parseFloat(route.distance) : null;
                         // v6.62.361 + v6.62.363: laufend zurueckschreiben — pickup ODER destination
                         const _etaUpdate = {};
                         if (_isToDest) {
-                            // Restzeit + Distanz zum Ziel (status=picked_up)
-                            if (ride.drivingTimeToDestination !== eta) {
+                            // Restzeit + Distanz zum Ziel (status=picked_up) — Hysterese 1 Min
+                            const _oldEta = ride.drivingTimeToDestination;
+                            if (_oldEta == null || Math.abs(_oldEta - eta) >= 1) {
                                 _etaUpdate.drivingTimeToDestination = eta;
                             }
-                            if (_distKm != null && Math.abs((ride.drivingDistanceToDestKm || 0) - _distKm) > 0.1) {
+                            if (_distKm != null && Math.abs((ride.drivingDistanceToDestKm || 0) - _distKm) > 0.3) {
                                 _etaUpdate.drivingDistanceToDestKm = _distKm;
                             }
                         } else {
-                            // Restzeit + Distanz zum Pickup (alle anderen aktiven Status)
-                            if (ride.drivingTimeToPickup !== eta) {
+                            // Restzeit + Distanz zum Pickup — Hysterese 1 Min + monoton vor on_way
+                            const _oldEta = ride.drivingTimeToPickup;
+                            const _isPreDrive = !['on_way', 'picked_up'].includes(ride.status);
+                            const _shouldUpdate = _oldEta == null
+                                || Math.abs(_oldEta - eta) >= 1
+                                && (!_isPreDrive || eta < _oldEta); // pre-drive: nur sinken erlauben
+                            if (_shouldUpdate) {
                                 _etaUpdate.drivingTimeToPickup = eta;
                             }
-                            if (_distKm != null && Math.abs((ride.drivingDistanceToPickupKm || 0) - _distKm) > 0.1) {
+                            if (_distKm != null && Math.abs((ride.drivingDistanceToPickupKm || 0) - _distKm) > 0.3) {
                                 _etaUpdate.drivingDistanceToPickupKm = _distKm;
                             }
                         }

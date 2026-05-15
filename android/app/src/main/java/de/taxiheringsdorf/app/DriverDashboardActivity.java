@@ -478,6 +478,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
             } else {
                 tvPauseBanner.setVisibility(View.GONE);
             }
+            // v6.62.734 (Patrick 15.05. 13:35): RecyclerView-paddingTop dynamisch — wenn Banner
+            // sichtbar, schiebt Auftrags-Liste 80dp nach unten damit der Banner nicht ueberdeckt wird.
+            try {
+                androidx.recyclerview.widget.RecyclerView _rv = findViewById(R.id.rv_rides);
+                if (_rv != null) {
+                    int _density = (int) getResources().getDisplayMetrics().density;
+                    int _topPad = (tvPauseBanner.getVisibility() == View.VISIBLE) ? (80 * _density) : (12 * _density);
+                    _rv.setPadding(_rv.getPaddingLeft(), _topPad, _rv.getPaddingRight(), _rv.getPaddingBottom());
+                }
+            } catch (Throwable _ignore) {}
         }
 
         // v6.47.0: Mini-Status-Badge im Header (statt großer Schicht-Karte)

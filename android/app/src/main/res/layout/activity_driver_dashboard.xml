@@ -186,8 +186,8 @@
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- v6.62.26: Grosser Pause-Banner (nur sichtbar wenn auf Pause).
-         Klickbar zum direkten Online-Schalten — schneller als Hamburger-Menue. -->
+    <!-- v6.62.26 / v6.62.734: Grosser Pause-Banner — IMMER ueber Auftraegen sichtbar (elevation 12dp).
+         Patrick (15.05. 13:35): "Wenn ein Auftrag drueber liegt, sehe ich nicht dass ich nicht angemeldet bin." -->
     <TextView
         android:id="@+id/tv_pause_banner"
         android:layout_width="match_parent"
@@ -195,17 +195,19 @@
         android:layout_gravity="top"
         android:layout_marginTop="?attr/actionBarSize"
         android:background="#F59E0B"
+        android:elevation="12dp"
         android:gravity="center"
-        android:padding="16dp"
+        android:padding="18dp"
         android:text="⏸  DU BIST AUF PAUSE  —  Tippen zum Online schalten"
         android:textColor="#1F2937"
-        android:textSize="15sp"
+        android:textSize="17sp"
         android:textStyle="bold"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+    <!-- v6.62.734: nestedScrollingEnabled=true damit Scroll bei 2+ Auftraegen funktioniert (Patrick 15.05. 13:35) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_rides"
         android:layout_width="match_parent"
@@ -213,6 +215,8 @@
         android:padding="12dp"
         android:clipToPadding="false"
         android:paddingBottom="180dp"
+        android:nestedScrollingEnabled="true"
+        android:overScrollMode="always"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <LinearLayout

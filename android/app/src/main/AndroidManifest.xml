@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- v6.62.751 (Patrick 15.05. 21:53): Android 11+ Package Visibility — ohne diese
+         <queries>-Deklaration wirft getPackageInfo() NameNotFoundException AUCH WENN
+         die App installiert ist (Danilos iZettle-Bug "App nicht gefunden"). -->
+    <queries>
+        <package android:name="com.izettle.android" />
+        <package android:name="com.izettle.zettlepro" />
+        <package android:name="com.zettle.payments" />
+        <intent>
+            <action android:name="com.izettle.android.action.START_PAYMENT" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

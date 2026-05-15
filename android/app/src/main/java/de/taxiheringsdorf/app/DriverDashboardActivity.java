@@ -2323,12 +2323,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
             return;
         }
         // v6.59.3: Patrick hat S9+ wo iZettle nicht funktioniert ('Handy zu alt').
-        // Vor dem Intent erstmal prüfen ob die App überhaupt installiert ist.
+        // v6.62.751: Multi-Package-Check (Zettle hat 3+ Package-IDs je nach Version)
+        // + Android 11+ braucht <queries> in Manifest sonst Returns immer NameNotFound.
         boolean izettleInstalled = false;
-        try {
-            getPackageManager().getPackageInfo("com.izettle.android", 0);
-            izettleInstalled = true;
-        } catch (android.content.pm.PackageManager.NameNotFoundException _e) {}
+        String[] _zettlePackages = { "com.izettle.android", "com.izettle.zettlepro", "com.zettle.payments" };
+        for (String _pkg : _zettlePackages) {
+            try {
+                getPackageManager().getPackageInfo(_pkg, 0);
+                izettleInstalled = true;
+                Log.d("Zettle", "Gefunden: " + _pkg);
+                break;
+            } catch (android.content.pm.PackageManager.NameNotFoundException _e) {}
+        }
         if (!izettleInstalled) {
             new AlertDialog.Builder(this)
                 .setTitle("💳 iZettle nicht verfügbar")

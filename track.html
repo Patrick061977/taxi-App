@@ -737,6 +737,42 @@
                         .filter(Boolean);
                     _wpRows.forEach((addr, i) => _rows.push(`<div>🚏 <b>Zwischenstopp ${i + 1}:</b> ${addr}</div>`));
                     if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
+                    // v6.62.751 (Patrick 15.05. 21:52): Fahrzeug + Fahrer sichtbar machen
+                    // damit Kunde weiss WAS und WER kommt (nicht nur Auto-Icon).
+                    const _vehName = r.vehicleLabel || r.vehicle || r.assignedVehicleName || '';
+                    const _vehPlate = r.vehiclePlate || '';
+                    const _drvName = r.driverName || '';
+                    const _drvPhone = r.driverPhone || '';
+                    if (_vehName) {
+                        let _vRow = `<div>🚖 <b>Fahrzeug:</b> ${_vehName}`;
+                        if (_vehPlate) _vRow += ` <span style="color:#475569;">(${_vehPlate})</span>`;
+                        _vRow += `</div>`;
+                        _rows.push(_vRow);
+                    }
+                    if (_drvName) {
+                        let _dRow = `<div>👨‍✈️ <b>Fahrer:</b> ${_drvName}`;
+                        if (_drvPhone) _dRow += ` · <a href="tel:${_drvPhone.replace(/\s+/g,'')}" style="color:#0ea5e9;text-decoration:none;font-weight:600;">📞 ${_drvPhone}</a>`;
+                        _dRow += `</div>`;
+                        _rows.push(_dRow);
+                    }
+                    // Wenn Fahrzeug zugewiesen aber Driver-Name fehlt, async aus /vehicles laden
+                    const _assignedVid = r.assignedVehicle || r.vehicleId;
+                    if (_assignedVid && (!_vehPlate || !_drvName)) {
+                        db.ref('vehicles/' + _assignedVid).once('value').then(snap => {
+                            const v = snap.val() || {};
+                            const _addRows = [];
+                            if (!_vehPlate && v.plate) _addRows.push(`<div>🚖 <b>Kennzeichen:</b> ${v.plate}</div>`);
+                            if (!_drvName && (v.driverName || v.assignedDriverName)) {
+                                const _dn = v.driverName || v.assignedDriverName;
+                                const _dp = v.driverPhone || v.assignedDriverPhone || '';
+                                let _dRow2 = `<div>👨‍✈️ <b>Fahrer:</b> ${_dn}`;
+                                if (_dp) _dRow2 += ` · <a href="tel:${_dp.replace(/\s+/g,'')}" style="color:#0ea5e9;text-decoration:none;font-weight:600;">📞 ${_dp}</a>`;
+                                _dRow2 += `</div>`;
+                                _addRows.push(_dRow2);
+                            }
+                            if (_addRows.length && _bd) _bd.insertAdjacentHTML('beforeend', _addRows.join(''));
+                        }).catch(() => {});
+                    }
                     // 🆕 v6.62.481: Patrick (08.05. 13:18): "die Notizen werden auch nicht in
                     //   der Buchungsbestätigung angezeigt, also das zum Beispiel der Kindersitz
                     //   für drei Jahre, die Notiz". Ride.notes wird seit v6.62.479 vom Native-

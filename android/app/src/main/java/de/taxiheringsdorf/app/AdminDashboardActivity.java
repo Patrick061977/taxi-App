@@ -633,8 +633,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
         };
 
         EditText etPickup = new EditText(this);
-        etPickup.setHint("Abholort — oder unten Karten-Picker");
+        // v6.62.752 (Patrick 22:05): Tap-to-Picker
+        etPickup.setHint("🗺 Tippen zum Abholort waehlen (Karte + Suche)");
+        etPickup.setInputType(InputType.TYPE_NULL);
+        etPickup.setFocusable(false);
+        etPickup.setKeyListener(null);
         if (preset != null && preset.pickup != null) etPickup.setText(preset.pickup);
+        etPickup.setOnClickListener(v -> launchMapPickerFor(etPickup, newBookingPickupCoords));
         layout.addView(etPickup);
 
         MaterialButton btnPickupPicker = new MaterialButton(this);
@@ -650,8 +655,13 @@ public class AdminDashboardActivity extends AppCompatActivity {
         layout.addView(btnPickupPicker);
 
         EditText etDest = new EditText(this);
-        etDest.setHint("Zielort — oder unten Karten-Picker");
+        // v6.62.752 (Patrick 22:05): Tap-to-Picker
+        etDest.setHint("🗺 Tippen zum Zielort waehlen (Karte + Suche)");
+        etDest.setInputType(InputType.TYPE_NULL);
+        etDest.setFocusable(false);
+        etDest.setKeyListener(null);
         if (preset != null && preset.destination != null) etDest.setText(preset.destination);
+        etDest.setOnClickListener(v -> launchMapPickerFor(etDest, newBookingDestCoords));
         layout.addView(etDest);
 
         MaterialButton btnDestPicker = new MaterialButton(this);

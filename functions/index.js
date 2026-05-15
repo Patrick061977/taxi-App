@@ -21824,6 +21824,50 @@ exports.onRideUpdated = onValueUpdated(
             const _oldVName = oldVehicle ? ((OFFICIAL_VEHICLES[oldVehicle] || {}).name || before.vehicle || oldVehicle) : 'keins';
             await addRideLog(rideId, '🚗', `Fahrzeug: ${_oldVName} → ${_newVName}`, { von: _oldVName, nach: _newVName, assignedBy: after.assignedBy || '?', quelle: 'onRideUpdated' });
 
+            // 🆕 v6.62.740: VEHICLE-FELDER KONSISTENT HALTEN (Patrick 15.05. 16:21):
+            // Track-Link zeigte 'Toyota Prius IK' obwohl Tesla zugewiesen → because vehicle/
+            // vehicleLabel werden bei manueller Umbuchung nicht aktualisiert. Cloud schreibt
+            // nur assignedVehicle/vehicleId. Fix: alle 4 Felder synchron halten.
+            try {
+                const _vMeta = OFFICIAL_VEHICLES[newVehicle] || {};
+                const _vUpdates = {
+                    assignedVehicleName: _vMeta.name || newVehicle,
+                    vehicle: _vMeta.name || newVehicle,
+                    vehicleLabel: _vMeta.name || newVehicle,
+                    vehiclePlate: _vMeta.plate || _vMeta.kennzeichen || after.vehiclePlate || ''
+                };
+                await db.ref('rides/' + rideId).update(_vUpdates);
+                console.log(`🚗 v6.62.740: Vehicle-Felder synchronisiert (vehicle/vehicleLabel = ${_vUpdates.vehicle})`);
+            } catch (_vSyncErr) { console.warn('Vehicle-Sync Fehler:', _vSyncErr.message); }
+
+            // 🆕 v6.62.740: CUSTOMER-SMS bei Vehicle-Wechsel WENN bereits informiert
+            // Patrick (15.05. 16:21): "Frau Winkler weiss nicht dass Tesla statt Prius kommt."
+            // Senden nur wenn Status >= accepted (Kunde hat schon Bestaetigung mit altem Fahrer
+            // bekommen) UND es WIRKLICH ein Wechsel war (oldVehicle existierte).
+            if (oldVehicle && oldVehicle !== newVehicle &&
+                ['accepted','assigned','on_way','picked_up','arrived'].includes(newStatus)) {
+                try {
+                    const _custPhone = after.customerMobile || after.customerPhone;
+                    // SMS nur wenn Mobil + nicht Festnetz (kostenlos, harmlos auch bei Mehrfach-Wechsel)
+                    if (_custPhone && /^(\+49|0)1[5-9]/.test(String(_custPhone).replace(/\s/g, ''))) {
+                        const _vName = _newVName.replace(/Funk-?Taxi\s*/i, '').trim();
+                        const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                        const _smsMsg = `Funktaxi: Fahrzeug-Update zu Ihrer Fahrt (${after.pickupTime || ''}): Statt ${_oldVName} kommt jetzt ${_vName}. Live: ${_trackLink}`;
+                        await db.ref('smsQueue').push({
+                            phone: _custPhone,
+                            text: _smsMsg,
+                            rideId,
+                            type: 'fahrzeug_wechsel',
+                            status: 'pending',
+                            createdAt: Date.now()
+                        });
+                        await addRideLog(rideId, '📲', `Kunden-SMS: Fahrzeug-Wechsel ${_oldVName} → ${_vName}`,
+                            { phone: _custPhone, quelle: 'onRideUpdated v6.62.740' });
+                        console.log(`📲 v6.62.740 Customer-SMS Fahrzeug-Wechsel: ${_custPhone}`);
+                    }
+                } catch (_csmsErr) { console.warn('Customer-Vehicle-SMS Fehler:', _csmsErr.message); }
+            }
+
             // 🆕 v6.41.96: Native FCM-Push an die APK des zugewiesenen Fahrzeugs.
             // 🔧 v6.41.99: vehicleId mitschicken damit RideActionReceiver das Annehmen/Ablehnen
             // korrekt mit der Vehicle-ID an rideAction Cloud Function senden kann.

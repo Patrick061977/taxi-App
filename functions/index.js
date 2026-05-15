@@ -4294,17 +4294,19 @@ async function calculateTelegramRoutePrice(booking) {
         // 🆕 v6.62.684: Korridor-Aufschlag — wenn pickup UND destination beide ausserhalb
         //   der Kaiserbaeder, addiere Anfahrt vom weitesten Punkt × 1,20 €/km.
         const _korridor = await calcKorridorAnfahrtAufschlag(booking.pickupLat, booking.pickupLon, booking.destinationLat, booking.destinationLon);
-        let _totalPrice = pricing.total;
-        let _zuschlagText = pricing.zuschlagText || '';
+        // 🔧 v6.62.736: pricing.total ist String (.toFixed) — parseFloat noetig sonst NaN
+        // pricing.zuschlagText ist Array — als Array behalten, nicht zu String concat
+        let _totalPrice = parseFloat(pricing.total);
+        let _zuschlagText = Array.isArray(pricing.zuschlagText) ? [...pricing.zuschlagText] : (pricing.zuschlagText ? [pricing.zuschlagText] : []);
         if (_korridor.applied) {
             _totalPrice = Math.round((_totalPrice + _korridor.eur) * 100) / 100;
-            _zuschlagText = (_zuschlagText ? _zuschlagText + ' · ' : '') + `Aussen-Anfahrt: +${_korridor.eur.toFixed(2)}€ (${_korridor.km.toFixed(1)} km)`;
+            _zuschlagText.push(`Aussen-Anfahrt: +${_korridor.eur.toFixed(2)}€ (${_korridor.km.toFixed(1)} km)`);
         }
         console.log(`[RoutePrice] Preis: ${_totalPrice}€ für ${route.distance} km (persons=${_persons}, wp=${_wpCount})${_korridor.applied ? ' + Anfahrt ' + _korridor.eur + '€' : ''}`);
         return {
             distance: route.distance,
             duration: route.duration,
-            price: _totalPrice,
+            price: _totalPrice.toFixed(2),
             zuschlagText: _zuschlagText,
             korridorAufschlag: _korridor.applied ? _korridor : null
         };

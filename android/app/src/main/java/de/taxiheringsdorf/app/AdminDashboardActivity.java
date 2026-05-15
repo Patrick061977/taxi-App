@@ -195,7 +195,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         btnMenu.setOnClickListener(this::showMenu);
         btnCallLog.setOnClickListener(v -> startActivity(new Intent(this, CallLogActivity.class)));
-        btnNewBooking.setOnClickListener(v -> showNewBookingDialog());
+        // v6.62.749 (Patrick 15.05. 21:30): "Neue Buchung" oeffnet CrmSearchActivity
+        // statt eigenem Dialog → genau gleicher Flow wie 'Neuer Kunde + Vorbestellung'.
+        // User kann Kunde suchen ODER neu anlegen, dann Vorbestellungs-Maske mit
+        // Karten-Picker + Festpreisen + allem was dort schon poliert ist.
+        btnNewBooking.setOnClickListener(v -> startActivity(new Intent(this, CrmSearchActivity.class)));
 
         connectFirebase();
 

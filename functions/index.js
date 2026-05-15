@@ -6350,6 +6350,17 @@ async function continueBookingFlow(chatId, booking, originalText) {
                     //          → Nominatim "Rathenaustraße 3" (richtig!) wurde rausgeworfen!
                     // NEUE Logik: Nominatim nur rauswerfen wenn trusted-Treffer die RICHTIGE Straße haben
                     let _displaySugg2;
+                    // 🔧 v6.62.735: HAUSNUMMER-EXAKTHEIT vor Trusted-Bonus
+                    // Eingabe "Maxim-Gorki-Straße 56" + Geocache hat "21" + "1" + Nominatim hat "56"
+                    // → Alte Logik filterte Nominatim raus, Patrick sah 21/1 als Vorschlag
+                    // → Neue Logik: Wenn Eingabe Hausnr X hat und Nominatim diese Hausnr liefert,
+                    //   wird Nominatim NIE rausgeworfen, sondern AUTO-PRIORISIERT
+                    const _extractHausnr = (s) => {
+                        const _str = (s || '').replace(/\b\d{5}\b/g, '').toLowerCase();
+                        const _m = _str.match(/\b(\d+\s*[a-z]?)\b/);
+                        return _m ? _m[1].replace(/\s+/g, '') : null;
+                    };
+                    const _inputHausnr = _hasHausnrInAddr2 ? _extractHausnr(addressToResolve) : null;
                     if (_hasTrustedSugg2 && _hasHausnrInAddr2) {
                         // Prüfe ob mindestens 1 trusted-Treffer die richtige Straße hat
                         const _qStreetDisp0 = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
@@ -6361,8 +6372,20 @@ async function continueBookingFlow(chatId, booking, originalText) {
                             const sCore = sStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
                             return sCore.includes(_qStreetCore0) || _qStreetCore0.includes(sCore);
                         });
-                        if (_trustedHaveRightStreet) {
-                            // Trusted-Treffer haben richtige Straße → Nominatim raus (wie bisher)
+                        // v6.62.735: Prüfe ob trusted-Treffer auch die richtige HAUSNR haben
+                        const _trustedHaveRightHausnr = _inputHausnr && suggestions.some(s => {
+                            if (s.source === 'nominatim') return false;
+                            return _extractHausnr(s.name) === _inputHausnr;
+                        });
+                        if (_trustedHaveRightStreet && _trustedHaveRightHausnr) {
+                            // Straße + Hausnr in trusted vorhanden → Nominatim raus (alte Logik)
+                            _displaySugg2 = suggestions.filter(s => s.source !== 'nominatim');
+                        } else if (_trustedHaveRightStreet && !_trustedHaveRightHausnr) {
+                            // Richtige Straße aber FALSCHE Hausnr → Nominatim BEHALTEN
+                            // (Patrick: "Maxim-Gorki 56" — Geocache hat 21/1, Nominatim hat 56 → 56 muss rein)
+                            await addTelegramLog('🔍', chatId, `Trusted-Treffer haben Straße aber falsche Hausnr (gesucht: ${_inputHausnr}) → Nominatim-Treffer beibehalten`);
+                            _displaySugg2 = suggestions;
+                        } else if (_trustedHaveRightStreet) {
                             _displaySugg2 = suggestions.filter(s => s.source !== 'nominatim');
                         } else {
                             // Trusted-Treffer haben FALSCHE Straße → Nominatim MUSS rein!
@@ -6373,6 +6396,28 @@ async function continueBookingFlow(chatId, booking, originalText) {
                         _displaySugg2 = suggestions.filter(s => s.source !== 'nominatim');
                     } else {
                         _displaySugg2 = suggestions;
+                    }
+                    // 🔧 v6.62.735: AUTO-SELECT bei exakter Hausnr-Übereinstimmung
+                    // Wenn Eingabe Hausnr X hat und ein Treffer (egal welche Quelle) genau diese Hausnr liefert
+                    // → diesen direkt auswählen, kein "Meinten Sie?"-Dialog
+                    if (_inputHausnr && _displaySugg2.length > 1) {
+                        const _exactHit = _displaySugg2.find(s => _extractHausnr(s.name) === _inputHausnr && s.lat && s.lon);
+                        if (_exactHit) {
+                            // Stelle sicher dass auch der Strassenname passt (kein Random-Match)
+                            const _qStreet = addressToResolve.replace(/\s*\d[\d\w]*\s*[,]?\s*.*$/, '').trim().toLowerCase();
+                            const _qStreetCore = _qStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            const _hitStreet = (_exactHit.name || '').toLowerCase().split(',')[0].replace(/\s*\d+[a-z]?\s*$/i, '').trim();
+                            const _hitCore = _hitStreet.replace(/straße$|str\.?$|weg$|allee$|platz$|ring$|gasse$|damm$|ufer$|steig$/,'');
+                            if (_qStreetCore.length > 2 && (_hitCore.includes(_qStreetCore) || _qStreetCore.includes(_hitCore))) {
+                                await addTelegramLog('✅', chatId, `${fieldLabel} Hausnr-Exakt-Match "${_inputHausnr}": ${_exactHit.name} (${_exactHit.source}) — kein Dialog noetig`);
+                                if (needsPickupResolve) {
+                                    booking.pickup = _exactHit.name; booking.pickupLat = _exactHit.lat; booking.pickupLon = _exactHit.lon;
+                                } else {
+                                    booking.destination = _exactHit.name; booking.destinationLat = _exactHit.lat; booking.destinationLon = _exactHit.lon;
+                                }
+                                return await continueBookingFlow(chatId, booking, originalText);
+                            }
+                        }
                     }
                     if (_explTown2) {
                         const _beforeFilter = _displaySugg2.length;

@@ -2039,6 +2039,33 @@ async function sendErrorWithMenu(chatId, errorText, options = {}) {
     }
 }
 
+// 🆕 v6.62.738: Adress-Sackgasse-Vermeidung — IMMER 3 Wege bieten wenn Adresse nicht gefunden
+// Patrick (15.05. 14:30): "Wenn Adresse nicht gefunden — manuell oder Stecknadel. Keine Sackgassen."
+// Pending bleibt erhalten mit _awaitingRetry — User tippt einfach neue Adresse, fertig.
+async function sendAddressFallback(chatId, fieldType, addressText, options = {}) {
+    const fieldLabel = fieldType === 'pickup' ? 'Abholort' : 'Zielort';
+    const _msg = options.message || `⚠️ <b>Adresse nicht eindeutig gefunden:</b>\n<i>"${addressText}"</i>\n\n` +
+        `So kommen wir weiter:\n` +
+        `▸ <b>📎 Standort senden</b> (Büroklammer → Standort)\n` +
+        `▸ <b>✏️ Adresse neu tippen</b> (z.B. mit PLZ + Hausnummer)\n` +
+        `▸ <b>🏠 Menü</b> (von vorn)`;
+    const _kb = { inline_keyboard: [
+        [{ text: '📎 GPS-Standort senden', callback_data: `gps_help_${fieldType}` }],
+        [{ text: '✏️ Adresse neu eingeben', callback_data: `addr_retry_${fieldType}` }],
+        [{ text: '🏠 Hauptmenü', callback_data: 'main_menu' }],
+        [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+    ]};
+    await sendTelegramMessage(chatId, _msg, { reply_markup: _kb });
+    // Pending mit _awaitingRetry markieren — User-Text wird als neue Adresse fuer dieses Feld interpretiert
+    try {
+        const _p = await getPending(chatId);
+        if (_p) {
+            _p._awaitingRetry = fieldType;
+            await setPending(chatId, _p);
+        }
+    } catch(_e) {}
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.28.0: WhatsApp Business API — Server-seitiger Versand
 // ═══════════════════════════════════════════════════════════════
@@ -10241,10 +10268,20 @@ async function handleMessage(message) {
             ]};
             await sendTelegramMessage(chatId, `❓ <b>Meinten Sie?</b>\n\n📍 ${_bestGuess.name}\n\nSonst bitte PLZ eingeben.`, { reply_markup: keyboard });
         } else {
-            await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → kein Vorschlag → PLZ abfragen`);
+            // 🔧 v6.62.738: PLZ-Abfrage mit ALLEN Auswegen statt nur Abbrechen
+            await addTelegramLog('🔢', chatId, `${fieldLabel} "${text}" → kein Vorschlag → PLZ abfragen + GPS-Option`);
             await sendTelegramMessage(chatId,
-                `📮 <b>${fieldLabel}: "${text}"</b>\n\nAdresse nicht gefunden — bitte PLZ eingeben:\n<i>Beispiel: 17424</i>`,
-                { reply_markup: { inline_keyboard: [[{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]] } }
+                `📮 <b>${fieldLabel}: "${text}"</b>\n\nAdresse nicht gefunden.\n\n` +
+                `So kommen wir weiter:\n` +
+                `▸ <b>PLZ tippen</b> (z.B. 17424)\n` +
+                `▸ <b>📎 GPS-Standort senden</b> (Büroklammer → Standort)\n` +
+                `▸ <b>Andere Adresse mit Hausnummer</b>`,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '📎 GPS-Standort senden', callback_data: `gps_help_${_awaitingField}` }],
+                    [{ text: '✏️ Andere Adresse', callback_data: `addr_retry_${_awaitingField}` }],
+                    [{ text: '🏠 Hauptmenü', callback_data: 'main_menu' }],
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] } }
             );
         }
         return;
@@ -12996,7 +13033,8 @@ async function handleCallback(callback) {
                 await sendTelegramMessage(chatId, '✅ Abholort gesetzt: <b>' + _homeAddr + '</b>');
                 await continueBookingFlow(chatId, _homeBooking, _homePending.originalText || '');
             } else {
-                await sendTelegramMessage(chatId, '⚠️ Adresse nicht gefunden. Bitte tippen Sie den Abholort ein.');
+                // 🔧 v6.62.738: Sackgasse weg — 3 Wege anbieten
+                await sendAddressFallback(chatId, 'pickup', 'Heimatadresse aus CRM');
             }
         }
         return;

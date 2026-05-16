@@ -21854,7 +21854,18 @@ exports.onRideUpdated = onValueUpdated(
                     if (_custPhone && /^(\+49|0)1[5-9]/.test(String(_custPhone).replace(/\s/g, ''))) {
                         const _vName = _newVName.replace(/Funk-?Taxi\s*/i, '').trim();
                         const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
-                        const _smsMsg = `Funktaxi: Fahrzeug-Update zu Ihrer Fahrt (${after.pickupTime || ''}): Statt ${_oldVName} kommt jetzt ${_vName}. Live: ${_trackLink}`;
+                        // 🆕 v6.62.767 (Patrick 16.05. 08:46 "Fahrer ist immer noch nicht zu sehen auf der SMS"):
+                        //   Neuen Fahrer-Vornamen aus vehicles/{newVehicle}/shift/driverName lesen
+                        //   und in die Wechsel-SMS einbauen. Vorher: nur Fahrzeug-Modell ohne Fahrer.
+                        let _newDriverFirst = '';
+                        try {
+                            const _newShiftSnap = await db.ref(`vehicles/${newVehicle}/shift`).once('value');
+                            const _newShift = _newShiftSnap.val() || {};
+                            const _fullName = _newShift.driverName || '';
+                            if (_fullName) _newDriverFirst = _fullName.trim().split(/\s+/)[0];
+                        } catch (_drvErr) { /* Fallback: ohne Name */ }
+                        const _driverInfo = _newDriverFirst ? ` (Fahrer ${_newDriverFirst})` : '';
+                        const _smsMsg = `Funktaxi: Fahrzeug-Update zu Ihrer Fahrt (${after.pickupTime || ''}): Statt ${_oldVName} kommt jetzt ${_vName}${_driverInfo}. Live: ${_trackLink}`;
                         await db.ref('smsQueue').push({
                             phone: _custPhone,
                             text: _smsMsg,

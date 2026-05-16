@@ -434,10 +434,14 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 <!-- 🎬 v6.62.788 (Patrick 16.05. 18:08): grosses Veo-3-Video als Hero-Background (oben sieht cool aus).
      Hover-Reel-Variante kommt unten auf den Cards. -->
 <section class="cinema-hero" aria-label="Trickfilm: Karls Erdbeerhof mit Funk Taxi">
-    <video autoplay loop muted playsinline preload="auto"
+    <video id="hero-video" autoplay loop muted playsinline preload="auto"
            style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;">
         <source src="assets/videos/karls-erdbeerhof.mp4" type="video/mp4">
     </video>
+    <!-- 🎬 v6.62.789 (Patrick 16.05. 18:15): Pause-Button damit Video anhaltbar ist -->
+    <button id="hero-pause-btn" onclick="(function(b){const v=document.getElementById('hero-video');if(v.paused){v.play();b.textContent='⏸';}else{v.pause();b.textContent='▶';}})(this)"
+            style="position:absolute;top:14px;right:14px;z-index:6;background:rgba(0,0,0,0.55);color:white;border:1px solid rgba(255,255,255,0.4);width:42px;height:42px;border-radius:50%;font-size:16px;cursor:pointer;backdrop-filter:blur(4px);"
+            title="Video anhalten/abspielen">⏸</button>
     <div class="ch-stage" aria-hidden="true" style="z-index:0;">
         <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
             <defs>
@@ -1281,12 +1285,15 @@ function renderPois() {
             const card = document.createElement('div');
             card.className = 'poi-card';
             // 🎬 v6.62.788: Wenn POI ein Video hat → Hover-Video + Klick-Modal
-            const hoverVideoHtml = p.video
-                ? `<video class="poi-hover-video" muted loop playsinline preload="none" data-src="${p.video}"></video>`
-                : '';
+            // 🎬 v6.62.789 (Patrick 16.05. 18:15): bei POIs mit Video → das Video
+            //   selber als Card-Image verwenden (erster Frame als Standbild via poster).
+            //   Beim Hover wird abgespielt. Kein Random-picsum-Bild mehr.
+            const cardMediaHtml = p.video
+                ? `<video class="card-img poi-content" src="${p.video}" muted loop playsinline preload="metadata"
+                    style="object-fit:cover;background:#0f172a;"></video>`
+                : `<img class="card-img poi-content" src="${p.img}" alt="${p.name}" loading="lazy">`;
             card.innerHTML = `
-                ${hoverVideoHtml}
-                <img class="card-img poi-content" src="${p.img}" alt="${p.name}" loading="lazy">
+                ${cardMediaHtml}
                 <div class="card-body poi-content">
                     <span class="card-cat">${CAT_LABELS[p.cat] || p.cat}</span>
                     <h3>${p.name} ${p.video ? '<span style="background:#fbbf24;color:#0f172a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-left:4px;">🎬 Video</span>' : ''}</h3>
@@ -1296,19 +1303,13 @@ function renderPois() {
                 </div>
             `;
             if (p.video) {
-                // Lazy-Load Video erst beim Hover damit nicht alle gleichzeitig laden
-                const v = card.querySelector('.poi-hover-video');
-                card.addEventListener('mouseenter', () => {
-                    if (!v.src) v.src = v.dataset.src;
-                    v.play().catch(() => {});
-                });
-                card.addEventListener('mouseleave', () => {
-                    v.pause();
-                    v.currentTime = 0;
-                });
+                // Card-Video: hover startet Wiedergabe, mouseleave pausiert + zurueck auf Standbild
+                const v = card.querySelector('.card-img');
+                card.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+                card.addEventListener('mouseleave', () => { v.pause(); v.currentTime = 0; });
                 // Klick auf Card → Modal (nicht auf Button-Link)
                 card.addEventListener('click', (ev) => {
-                    if (ev.target.closest('.card-btn')) return; // Buchen-Button bleibt eigener Link
+                    if (ev.target.closest('.card-btn')) return;
                     openPoiModal(p);
                 });
             }

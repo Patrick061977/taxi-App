@@ -102,9 +102,14 @@ public class TaxiFCMService extends FirebaseMessagingService {
         String title;
         String body;
         if ("new_ride".equals(type)) {
-            title = "🚕 Neue Fahrt!";
-            body = pickupTime + " · " + customerName + "\n📍 " + pickup;
+            // 🔧 v6.62.776 (Patrick 16.05. 11:10): "Da steht nicht drin was der Push
+            //   genau meint. Wäre cool wenn 'Du wurdest Nicole um 12:40 zugeteilt'
+            //   stehen würde — dass man weiss ob man bestaetigen muss oder annehmen."
+            //   Title nennt Kunde + Zeit explizit, Body fuehrt Aktion ein.
+            title = "🚕 " + customerName + " — " + pickupTime;
+            body = "Dir zugeteilt:\n📍 " + pickup;
             if (!destination.isEmpty()) body += "\n🎯 " + destination;
+            body += "\n👆 ANNEHMEN oder ABLEHNEN tippen";
         } else if ("new_web_booking".equals(type)) {
             // 🆕 v6.62.667: Web-Buchung (buchen.html / qr-aufsteller) → Admin-Push
             //   "Bestaetigen" / "Ablehnen" haben Admins nicht direkt im Notification —

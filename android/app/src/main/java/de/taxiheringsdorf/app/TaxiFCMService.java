@@ -102,13 +102,24 @@ public class TaxiFCMService extends FirebaseMessagingService {
         String title;
         String body;
         if ("new_ride".equals(type)) {
-            // 🔧 v6.62.776 (Patrick 16.05. 11:10): "Da steht nicht drin was der Push
-            //   genau meint. Wäre cool wenn 'Du wurdest Nicole um 12:40 zugeteilt'
-            //   stehen würde — dass man weiss ob man bestaetigen muss oder annehmen."
-            //   Title nennt Kunde + Zeit explizit, Body fuehrt Aktion ein.
-            title = "🚕 " + customerName + " — " + pickupTime;
-            body = "Dir zugeteilt:\n📍 " + pickup;
-            if (!destination.isEmpty()) body += "\n🎯 " + destination;
+            // 🔧 v6.62.785 (Patrick 16.05. 16:28+16:29): "kleiner Push, schwer zu erkennen
+            //   ob es ein Fahrtenpush ist". Patrick will sofort sehen ob's neu/umgeplant
+            //   ist + Pickup-Adresse in der eingeklappten Vorschau.
+            String reason = data.get("reason"); // 'new' / 'reassign' / 'cloud_auto'
+            String isVorbest = data.getOrDefault("isVorbestellung", "false");
+            String prefix;
+            if ("reassign".equals(reason)) prefix = "🔄 UMGEPLANT AUF DICH";
+            else if ("true".equals(isVorbest)) prefix = "📅 NEUE VORBESTELLUNG";
+            else prefix = "🚕 NEUE FAHRT";
+            title = prefix + ": " + customerName + " · " + pickupTime;
+            // ContentText: 1 Zeile, sichtbar auch im Lockscreen eingeklappt
+            // Plus BigText: voller Body inkl. Aktions-Hinweis
+            String shortPickup = pickup.length() > 50 ? pickup.substring(0, 47) + '…' : pickup;
+            body = "📍 " + shortPickup;
+            if (!destination.isEmpty()) {
+                String shortDest = destination.length() > 50 ? destination.substring(0, 47) + '…' : destination;
+                body += "\n🎯 " + shortDest;
+            }
             body += "\n👆 ANNEHMEN oder ABLEHNEN tippen";
         } else if ("new_web_booking".equals(type)) {
             // 🆕 v6.62.667: Web-Buchung (buchen.html / qr-aufsteller) → Admin-Push

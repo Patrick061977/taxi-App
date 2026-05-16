@@ -24377,6 +24377,33 @@ exports.stripeWebhook = onRequest(
                         console.warn('⚠️ Admin-Benachrichtigung fehlgeschlagen:', notifyErr.message);
                     }
 
+                    // 🆕 v6.62.757 (Patrick 16.05. 07:07): FCM-Push an den zugewiesenen Fahrer
+                    // damit er sieht 'Zahlung erhalten' direkt in der Native-App + (geplant)
+                    // das offene Zahlungs-Stage-Fenster schliesst sich automatisch.
+                    try {
+                        const _rideIdFromInvoice = invoice?.rideId || invoice?.rideID || null;
+                        let _assignedVehicleId = null;
+                        if (_rideIdFromInvoice) {
+                            const _rSnap = await db.ref('rides/' + _rideIdFromInvoice).once('value');
+                            const _rData = _rSnap.val();
+                            _assignedVehicleId = _rData?.assignedVehicle || _rData?.vehicleId || null;
+                        }
+                        if (_assignedVehicleId) {
+                            await sendFCMToVehicle(_assignedVehicleId, {
+                                type: 'payment_received',
+                                rideId: _rideIdFromInvoice || '',
+                                invoiceNumber,
+                                amount: amountEur,
+                                customerName: (invoice?.customerName || session.customer_details?.name || ''),
+                                method: 'stripe'
+                            });
+                            console.log(`📲 v6.62.757 Stripe-Payment-FCM an Fahrer ${_assignedVehicleId} (Ride ${_rideIdFromInvoice})`);
+                            try { await addRideLog(_rideIdFromInvoice, '💳', `Stripe-Zahlung eingegangen — FCM an Fahrer`, { amount: amountEur, vehicleId: _assignedVehicleId }); } catch(_) {}
+                        } else {
+                            console.log('📲 Stripe-Payment ohne assignedVehicle — kein FCM');
+                        }
+                    } catch (_fcmErr) { console.warn('⚠️ Stripe-Payment-FCM fehlgeschlagen:', _fcmErr.message); }
+
                     // 🆕 v6.62.124: Patrick: 'eine Zahlungsbestaetigung an Kunden waere
                     // sauber'. Email mit Quittung an Kunde wenn Email vorhanden.
                     try {

@@ -4293,11 +4293,12 @@
                         return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
                     };
                     const _pInZone = _hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM;
+                    const _dInZone = _hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM;
                     let _korridorAufschlag = 0, _korridorKm = 0;
-                    // 🆕 v6.62.687: Patrick (13.05. 18:02): "Anfahrt zum PICKUP, am unkompliziertesten."
-                    //   Nur wenn pickup ausserhalb der Kaiserbaeder → Anfahrt zum Pickup × 1,20€/km.
-                    //   Destination-Position ist egal.
-                    if (!_pInZone) {
+                    // 🔧 v6.62.757 (Patrick 16.05. 07:03): Aufschlag NUR wenn BEIDE Punkte
+                    //   ausserhalb der Kaiserbaeder. Pickup ODER Destination drin → kein Aufschlag.
+                    //   (Korrektur des v6.62.687-Fix der Destination ignorierte)
+                    if (!_pInZone && !_dInZone) {
                         try {
                             const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
                             const _r1 = await fetch(_osrm(_KB_CENTER, pickupCoords)).then(r => r.json()).catch(() => null);
@@ -4305,13 +4306,16 @@
                             _korridorAufschlag = Math.round(_korridorKm * _ANFAHRT_EUR_KM * 100) / 100;
                         } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }
                     }
-                    const _totalPrice = Math.round((pricing.total + _korridorAufschlag) * 100) / 100;
+                    // v6.62.757: pricing.total ist String (.toFixed(2)) — bei String+Number gibts Concat
+                    //   und Math.round(NaN) = NaN → 'NaN€' wurde im UI angezeigt (Flughafen-Bug 16.05.07:07)
+                    const _basePriceNum = parseFloat(pricing.total);
+                    const _totalPrice = Math.round((_basePriceNum + _korridorAufschlag) * 100) / 100;
                     // 🆕 v6.62.685: Patrick wuenscht transparenter Anfahrt-Hinweis wie bei
                     //   Sonntagstarif. Wir injizieren die Info in pricing.hinweise damit alle
                     //   Anzeige-Pfade (r-price + map-price-overlay) sie automatisch zeigen.
                     if (_korridorAufschlag > 0) {
                         pricing.hinweise.push(`Anfahrt zum Abholort ${_korridorKm.toFixed(0)} km × 1,20€ = +${_korridorAufschlag.toFixed(2)}€`);
-                        pricing.total = _totalPrice;
+                        pricing.total = _totalPrice.toFixed(2);
                     }
                     routeData = {
                         km, min,
@@ -4345,9 +4349,12 @@
                             renderSlotTimeline(_slotCalendarDate);
                         }
                     }
-                    // v6.62.755: NaN-Schutz (Patrick 16.05. 07:00 'was ist ein NaN-Preis')
+                    // v6.62.755-757: NaN-Schutz (Patrick 16.05. 07:00 + 07:07 'preis ist immer noch NaN bei flughafen')
                     var _pTotal = parseFloat(pricing.total);
-                    document.getElementById('r-price').textContent = (isNaN(_pTotal) ? '—' : _pTotal.toFixed(2)) + '€';
+                    var _pTotalStr = isNaN(_pTotal) ? '—' : _pTotal.toFixed(2);
+                    // Falls calculatePrice NaN liefert → in pricing.total schreiben damit alle Sub-Anzeigen geschuetzt
+                    if (isNaN(_pTotal)) { pricing.total = '—'; }
+                    document.getElementById('r-price').textContent = _pTotalStr + '€';
                     document.getElementById('r-distance').textContent = km;
                     document.getElementById('r-duration').textContent = '~' + min;
                     // Tarif-Hinweis

@@ -1050,10 +1050,14 @@ const POIS = [
     // 🆕 v6.62.287: 'anim' Property pro POI für Comic-Animation beim Hover
     { name: 'Peenemünde HTM', cat: 'kultur', lat: 54.137, lon: 13.775, address: 'Im Kraftwerk, 17449 Peenemünde',
       desc: 'Historisch-Technisches Museum — wo die Raumfahrt begann.',
-      img: 'images/poi/peenemuende.jpg', anim: 'rocket' },
+      img: 'images/poi/peenemuende.jpg', anim: 'rocket',
+      // 🎬 v6.62.718: longDesc fuer Detail-Modal vorbereitet. Veo-Video kommt spaeter.
+      longDesc: 'Das Historisch-Technische Museum Peenemünde liegt auf dem Gelaende der einstigen Heeresversuchsanstalt, wo Wernher von Braun ab 1942 die A4/V2 entwickelte — die erste Rakete, die den Weltraum erreichte. Heute Mahnmal und Wissenschafts-Museum zugleich: das gewaltige Kraftwerk, originale Triebwerke, ein V1-Marschflugkoerper, der historische Bahnsteig. UNESCO-Welterbe-Antrag laeuft. Funk Taxi bringt Sie aus den Kaiserbaedern in 45 Minuten direkt vor die Tore — kein Parkstress, keine Suche.' },
     { name: 'Schmetterlingsfarm Trassenheide', cat: 'familie', lat: 54.062, lon: 13.892, address: 'Schmetterlingsfarm, Hauptstraße, 17449 Trassenheide',
       desc: '1.000 lebende Falter aus aller Welt — Familien-Highlight.',
-      img: 'https://picsum.photos/seed/schmetterling/400/240', anim: 'butterfly' },
+      img: 'https://picsum.photos/seed/schmetterling/400/240', anim: 'butterfly',
+      // 🎬 v6.62.718: longDesc fuer Detail-Modal vorbereitet. Veo-Video kommt spaeter.
+      longDesc: 'Die Schmetterlingsfarm Trassenheide ist eine der groessten in Europa: ueber 1.000 lebende Falter aus 80 tropischen Arten flattern frei in einer 2.500 m² grossen Tropenhalle mit Wasserfaellen, Orchideen und exotischen Pflanzen. Schmetterlinge landen auf Kinderhaenden, Puppenkasten zeigen den Schluepfvorgang live. Bei Regen die beste Familien-Aktivitaet der Insel. Funk Taxi bringt Sie direkt zum Eingang — und holt Sie nach 2-3 Stunden wieder ab.' },
     { name: 'Karls Erlebnis-Dorf Koserow', cat: 'familie', lat: 54.040, lon: 14.026, address: 'Karls Erlebnis-Dorf Koserow, Zur Seebrücke, 17459 Koserow',
       desc: 'Hofladen, Erdbeerwelt, Riesenrutsche — Spaß für die ganze Familie.',
       img: 'https://picsum.photos/seed/karls/400/240', anim: 'strawberry',
@@ -1110,9 +1114,13 @@ const POIS = [
       desc: 'Familienfreundlicher Sandstrand — flach abfallend, mit Strandkorb-Vermietung und Aufsicht.',
       img: 'https://picsum.photos/seed/trassenheide/400/240', anim: 'gull' },
     // 🆕 v6.62.600: Patrick (11.05. 07:51) — "Weisse Düne ab Neppermin, Segelschiff Achterwasser"
+    // 🎬 v6.62.718 (Patrick 16.05. 21:24): Imagen-Keyframe im Karls-Stil + Ken-Burns-Animation
+    //   bis das Veo-Video da ist. Foto am Anleger Neppermin mit Kapitaen + Familie + Cartoon-Taxi.
     { name: 'Weisse Düne — Segeltörn ab Neppermin', cat: 'natur', lat: 53.985, lon: 13.985, address: 'Anleger Neppermin, 17429 Benz/Usedom',
       desc: 'Deutschlands einziges Segel-Passagierschiff — 45m langer Topgaffel-Schoner. Mittwochs 11–14:30 Uhr klassische Achterwasser-Tour. Auch Greifswalder Bodden + Stettiner Haff.',
-      img: 'https://picsum.photos/seed/weisse-duene/400/240', anim: 'gull' }
+      img: 'images/poi/weisse-duene.png', anim: 'gull',
+      video: 'assets/videos/weisse-duene.mp4',
+      longDesc: 'Die Weisse Duene ist Deutschlands einziges Segel-Passagierschiff: ein 45m langer Topgaffel-Schoner aus Holz, der seit Jahren das Achterwasser, den Greifswalder Bodden und das Stettiner Haff befaehrt. Mittwochs 11–14:30 Uhr legt er vom Anleger Neppermin ab zu einer klassischen 3,5h-Achterwasser-Tour mit echtem Segel-Erlebnis: Wind in den Segeln, Kapitaen am Steuer, Moewen ueberm Boot. Familienfreundlich, mit Verpflegung an Bord. Funk Taxi bringt euch direkt zum Anleger Neppermin — kein Parken, kein Stress.' }
 ];
 
 // 🆕 v6.62.287: Comic-Animations-SVGs pro POI-Typ (8 verschiedene Mini-Cartoons)

@@ -1589,20 +1589,69 @@
                 //   anrufen kann mit konkreter Adresse.
                 const _info = document.getElementById('location-info');
                 if (_info) _info.innerHTML = '📍 GPS gefunden — Adresse wird ermittelt...';
-                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
-                    headers: { 'Accept-Language': 'de' }
-                }).then(r => r.json()).then(d => {
-                    const addr = d.display_name || '';
-                    const a = d.address || {};
-                    const short = [
-                        (a.road || a.pedestrian || a.footway || '') + (a.house_number ? ' ' + a.house_number : ''),
+                // 🆕 v6.62.775 (Patrick 16.05. 11:05): Hausnummer hat Prioritaet —
+                //   wenn Nominatim auf zoom=18 keine 'house_number' liefert (typisch
+                //   wenn der GPS-Punkt mitten auf der Strasse liegt), Fallback auf
+                //   zoom=19 + zusaetzlich Photon-Reverse als zweiter Fallback.
+                //   Patrick: "Seestrasse in Heringsdorf ist ein bisschen ungenau".
+                const _buildShort = (a) => {
+                    const _street = a.road || a.pedestrian || a.footway || a.path || '';
+                    const _streetPart = _street + (a.house_number ? ' ' + a.house_number : '');
+                    return [
+                        _streetPart,
                         a.postcode || '',
                         a.city || a.town || a.village || a.suburb || ''
                     ].filter(Boolean).join(', ');
-                    const display = short || addr || 'unbekannt';
-                    try { myLocationMarker.bindPopup(`<b>Ihr Standort</b><br>${display}`).openPopup(); } catch(_) {}
-                    if (_info) _info.innerHTML = `📍 <b>Sie sind hier:</b><br>${display}`;
-                }).catch(() => {
+                };
+                const _nominatim = (zoom) => fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=${zoom}&addressdetails=1`, {
+                    headers: { 'Accept-Language': 'de' }
+                }).then(r => r.json());
+                (async () => {
+                    let bestAddr = null;
+                    let bestDisplay = '';
+                    let hasNumber = false;
+                    try {
+                        const d1 = await _nominatim(18);
+                        bestAddr = d1.address || {};
+                        bestDisplay = d1.display_name || '';
+                        if (bestAddr.house_number) hasNumber = true;
+                    } catch (_) {}
+                    // Wenn keine Hausnr: zweiter Versuch mit zoom=19 (sucht naechstes Gebaeude)
+                    if (!hasNumber) {
+                        try {
+                            const d2 = await _nominatim(19);
+                            const a2 = d2.address || {};
+                            if (a2.house_number) {
+                                bestAddr = a2;
+                                bestDisplay = d2.display_name || bestDisplay;
+                                hasNumber = true;
+                            }
+                        } catch (_) {}
+                    }
+                    // Wenn IMMER NOCH keine Hausnr → Photon-Fallback (Komoot, gleiche OSM-Quelle aber anderes Indexing)
+                    if (!hasNumber) {
+                        try {
+                            const dp = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&lang=de&limit=1`).then(r => r.json());
+                            const f = dp.features && dp.features[0];
+                            if (f && f.properties && f.properties.housenumber) {
+                                bestAddr = {
+                                    road: f.properties.street || '',
+                                    house_number: f.properties.housenumber,
+                                    postcode: f.properties.postcode || (bestAddr && bestAddr.postcode) || '',
+                                    city: f.properties.city || (bestAddr && (bestAddr.city || bestAddr.town || bestAddr.village)) || ''
+                                };
+                                hasNumber = true;
+                            }
+                        } catch (_) {}
+                    }
+                    const short = bestAddr ? _buildShort(bestAddr) : '';
+                    const display = short || bestDisplay || 'unbekannt';
+                    const _prefix = hasNumber ? '' : '📍 Naehe ';
+                    try { myLocationMarker.bindPopup(`<b>Ihr Standort</b><br>${_prefix}${display}`).openPopup(); } catch(_) {}
+                    if (_info) _info.innerHTML = hasNumber
+                        ? `📍 <b>Sie sind hier:</b><br>${display}`
+                        : `📍 <b>Sie sind in der Naehe von:</b><br>${display}<br><span style="font-size:11px;color:#94a3b8;">(genaue Hausnummer nicht eindeutig)</span>`;
+                })().catch(() => {
                     if (_info) _info.innerHTML = '📍 GPS gefunden (Adresse konnte nicht ermittelt werden)';
                 });
             }, err => {

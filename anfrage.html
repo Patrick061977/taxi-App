@@ -48,6 +48,11 @@
                     <input type="text" id="anf-pickup" placeholder="z.B. Seestr. 12, Heringsdorf" style="width:100%;padding:12px 38px 12px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;box-sizing:border-box;" autocomplete="off">
                     <button type="button" onclick="clearAnfField('anf-pickup')" aria-label="Abholort löschen" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:#f1f5f9;color:#64748b;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;">&times;</button>
                 </div>
+                <!-- v6.62.755 (Patrick 16.05. 06:57): GPS-Stecknadel-Knopf -->
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                    <button type="button" onclick="anfUseGps()" id="anf-gps-btn" style="flex:1;padding:8px 12px;background:#059669;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">📍 Mein Standort (GPS)</button>
+                    <button type="button" onclick="anfOpenMap('anf-pickup')" style="flex:1;padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🗺 Karte</button>
+                </div>
                 <div id="anf-pickup-dropdown" style="display:none;position:relative;background:white;border:2px solid #059669;border-radius:10px;max-height:180px;overflow-y:auto;z-index:100;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
             </div>
             <!-- Zwischenstopp -->
@@ -1020,6 +1025,99 @@ function clearAnfField(id) {
         var pb = document.getElementById('anf-price-box');
         if (pb) pb.style.display = 'none';
     }
+}
+
+// v6.62.755 (Patrick 16.05. 06:57): GPS-Standort + Karten-Picker fuer Anfrage-Pickup
+function anfUseGps() {
+    if (!navigator.geolocation) { alert('GPS auf diesem Geraet nicht verfuegbar.'); return; }
+    var btn = document.getElementById('anf-gps-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ GPS wird gelesen...'; }
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        var lat = pos.coords.latitude, lon = pos.coords.longitude;
+        anfPickupCoords = { lat: lat, lon: lon };
+        // Reverse-Geocode via Nominatim
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=' + lat + '&lon=' + lon, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var addr = d.display_name ? d.display_name.split(',').slice(0, 3).join(',').trim() : (lat.toFixed(5) + ', ' + lon.toFixed(5));
+                document.getElementById('anf-pickup').value = addr;
+                if (btn) { btn.disabled = false; btn.textContent = '✅ Standort uebernommen'; setTimeout(function(){ btn.textContent = '📍 Mein Standort (GPS)'; }, 3000); }
+                try { calcAnfPrice(); } catch(_) {}
+            })
+            .catch(function() {
+                document.getElementById('anf-pickup').value = lat.toFixed(5) + ', ' + lon.toFixed(5);
+                if (btn) { btn.disabled = false; btn.textContent = '📍 Mein Standort (GPS)'; }
+            });
+    }, function(err) {
+        if (btn) { btn.disabled = false; btn.textContent = '📍 Mein Standort (GPS)'; }
+        alert('GPS fehlgeschlagen: ' + (err.message || 'Berechtigung verweigert?'));
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+}
+
+function anfOpenMap(targetField) {
+    var existing = document.getElementById('anf-map-overlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'anf-map-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;flex-direction:column;padding:12px;';
+    overlay.innerHTML = '<div style="background:white;border-radius:12px;flex:1;display:flex;flex-direction:column;overflow:hidden;">' +
+        '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;">' +
+            '<div><div style="font-weight:700;font-size:15px;">🗺 Adresse waehlen</div><div style="font-size:11px;color:#64748b;margin-top:2px;">Tippe auf die Karte oder ziehe die Stecknadel.</div></div>' +
+            '<button onclick="document.getElementById(\'anf-map-overlay\').remove()" style="background:#ef4444;color:white;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;">Schliessen</button>' +
+        '</div>' +
+        '<div id="anf-map-canvas" style="flex:1;"></div>' +
+        '<div style="padding:12px;border-top:1px solid #e5e7eb;">' +
+            '<div id="anf-map-addr" style="margin-bottom:8px;font-size:13px;color:#374151;min-height:18px;">Tippe auf die Karte zum Auswaehlen...</div>' +
+            '<button onclick="anfMapConfirm(\'' + targetField + '\')" id="anf-map-confirm" disabled style="width:100%;padding:12px;background:#059669;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;opacity:0.5;">✅ Adresse uebernehmen</button>' +
+        '</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+    setTimeout(function() {
+        var m = L.map('anf-map-canvas', { zoomControl: true }).setView([53.95, 14.17], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(m);
+        var marker = null;
+        m.on('click', function(e) {
+            if (marker) marker.remove();
+            marker = L.marker(e.latlng, { draggable: true }).addTo(m);
+            window._anfMapPicked = { lat: e.latlng.lat, lon: e.latlng.lng };
+            anfMapReverseGeocode(e.latlng.lat, e.latlng.lng);
+            marker.on('dragend', function(ev) {
+                var ll = ev.target.getLatLng();
+                window._anfMapPicked = { lat: ll.lat, lon: ll.lng };
+                anfMapReverseGeocode(ll.lat, ll.lng);
+            });
+        });
+        // GPS-Default wenn verfuegbar
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(p) {
+                m.setView([p.coords.latitude, p.coords.longitude], 16);
+            }, function() {}, { timeout: 5000 });
+        }
+    }, 100);
+}
+function anfMapReverseGeocode(lat, lon) {
+    document.getElementById('anf-map-addr').innerHTML = '⏳ Adresse wird ermittelt...';
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&lat=' + lat + '&lon=' + lon)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var addr = d.display_name ? d.display_name.split(',').slice(0, 3).join(',').trim() : (lat.toFixed(5) + ', ' + lon.toFixed(5));
+            window._anfMapAddr = addr;
+            document.getElementById('anf-map-addr').innerHTML = '📍 <strong>' + addr + '</strong>';
+            var btn = document.getElementById('anf-map-confirm');
+            btn.disabled = false; btn.style.opacity = '1';
+        })
+        .catch(function() {
+            window._anfMapAddr = lat.toFixed(5) + ', ' + lon.toFixed(5);
+            document.getElementById('anf-map-addr').textContent = window._anfMapAddr;
+        });
+}
+function anfMapConfirm(targetField) {
+    if (!window._anfMapPicked || !window._anfMapAddr) return;
+    document.getElementById(targetField).value = window._anfMapAddr;
+    if (targetField === 'anf-pickup') anfPickupCoords = window._anfMapPicked;
+    else if (targetField === 'anf-dest') anfDestCoords = window._anfMapPicked;
+    document.getElementById('anf-map-overlay').remove();
+    try { calcAnfPrice(); } catch(_) {}
 }
 
 function toggleRabatt() {

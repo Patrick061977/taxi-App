@@ -4345,7 +4345,9 @@
                             renderSlotTimeline(_slotCalendarDate);
                         }
                     }
-                    document.getElementById('r-price').textContent = pricing.total + '€';
+                    // v6.62.755: NaN-Schutz (Patrick 16.05. 07:00 'was ist ein NaN-Preis')
+                    var _pTotal = parseFloat(pricing.total);
+                    document.getElementById('r-price').textContent = (isNaN(_pTotal) ? '—' : _pTotal.toFixed(2)) + '€';
                     document.getElementById('r-distance').textContent = km;
                     document.getElementById('r-duration').textContent = '~' + min;
                     // Tarif-Hinweis

@@ -2926,6 +2926,18 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 long nowMs = System.currentTimeMillis();
                 boolean isPast = canAcceptReject && r.pickupTimestamp != null && r.pickupTimestamp < nowMs - 5L * 60L * 1000L;
 
+                // 🆕 v6.62.778 (Patrick 16.05. 12:14): "Warum muss die 30 Min vorher
+                //   auf meinem Bildschirm stehen — reicht doch wenn ich 15 Min vorher
+                //   die Fahrt zugeteilt bekomme." accepted-Vorbestellungen mit pickup
+                //   > 15 Min in der Zukunft NICHT als 'aktive Fahrt' (mit Navi/Anrufen-
+                //   Toolbar) zeigen, sondern wie eine ruhige assigned-Card.
+                boolean isAccepted = "accepted".equalsIgnoreCase(s);
+                long _minBisPickup = (r.pickupTimestamp != null) ? (r.pickupTimestamp - nowMs) / 60_000L : 0;
+                boolean acceptedFernerTermin = isAccepted && r.pickupTimestamp != null && _minBisPickup > 15;
+                if (acceptedFernerTermin) {
+                    isActive = false; // → keine activeToolbar, kein Status-Next-Button
+                }
+
                 actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 

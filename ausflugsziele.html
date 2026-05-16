@@ -51,16 +51,55 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     position: absolute; inset: 0; pointer-events: none;
 }
 .cinema-hero .ch-stage svg { width: 100%; height: 100%; display: block; }
-/* 🎬 v6.62.787 (Patrick 16.05. 18:05): Fenster in der Mitte weg —
-   Video soll voll sichtbar sein. Text+Buttons nur als kompakte Bottom-Bar. */
+/* 🎬 v6.62.788 (Patrick 16.05. 18:08): Hero oben bleibt mit grossem Video,
+   Text+Buttons als Bottom-Bar (so wie v6.62.787 — funktioniert sauber). */
 .cinema-hero .ch-content {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
     padding: 16px 20px 22px; color: white; text-align: center;
     background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.85) 100%);
 }
 .cinema-hero h1 { font-size: clamp(20px, 3vw, 28px) !important; margin-bottom: 4px !important; }
-.cinema-hero .ch-subtitle { display: none; } /* Text-Lawine weg, Video soll sprechen */
-.cinema-hero .ch-badge { display: none; }    /* Badge auch weg */
+.cinema-hero .ch-subtitle { display: none; }
+.cinema-hero .ch-badge { display: none; }
+
+/* 🎬 v6.62.788: HOVER-VIDEO-PREVIEW auf den Ausflugsziel-Karten —
+   Video laeuft nur wenn Maus drueber. Klick = Detail-Modal. */
+.poi-card { position: relative; overflow: hidden; cursor: pointer; transition: transform .2s; }
+.poi-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+.poi-card .poi-hover-video {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 1;
+}
+.poi-card:hover .poi-hover-video { opacity: 1; }
+.poi-card .poi-content { position: relative; z-index: 2; transition: opacity .25s; }
+.poi-card:hover .poi-content { opacity: 0.15; } /* Text fade-out wenn Video laeuft */
+
+/* Modal fuer Ziel-Info */
+.poi-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 9999;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.poi-modal-overlay.active { display: flex; }
+.poi-modal {
+    background: white; border-radius: 16px; max-width: 720px; width: 100%;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.poi-modal video { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 16px 16px 0 0; display: block; background: #000; }
+.poi-modal-body { padding: 24px; }
+.poi-modal-body h2 { color: #0f172a; font-size: 28px; margin-bottom: 12px; }
+.poi-modal-body p { color: #475569; line-height: 1.6; margin-bottom: 16px; }
+.poi-modal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.poi-modal-actions a {
+    flex: 1; min-width: 180px; padding: 14px 20px; border-radius: 12px;
+    font-weight: 700; text-decoration: none; text-align: center; font-size: 15px;
+}
+.poi-modal-actions .primary { background: #fbbf24; color: #0f172a; }
+.poi-modal-actions .secondary { background: #f1f5f9; color: #0f172a; }
+.poi-modal-close {
+    position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.9);
+    border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 22px;
+    cursor: pointer; z-index: 10;
+}
 .cinema-hero .ch-badge {
     display: inline-block; border: 1.5px solid rgba(255,255,255,0.5);
     border-radius: 100px; padding: 5px 16px; font-size: 13px;
@@ -392,12 +431,11 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 </header>
 
 <!-- v6.62.741 (Patrick 15.05. 19:24): TRICKFILM-HERO mit 30s SVG-Animation -->
-<!-- 🎬 v6.62.786 (Patrick 16.05. 17:58): Veo-3-Video ueberlagert die SVG-Animation
-     (autoplay loop muted — Browser-Policy-konform). SVG bleibt als Fallback wenn Video nicht laedt. -->
+<!-- 🎬 v6.62.788 (Patrick 16.05. 18:08): grosses Veo-3-Video als Hero-Background (oben sieht cool aus).
+     Hover-Reel-Variante kommt unten auf den Cards. -->
 <section class="cinema-hero" aria-label="Trickfilm: Karls Erdbeerhof mit Funk Taxi">
     <video autoplay loop muted playsinline preload="auto"
-           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"
-           poster="">
+           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;">
         <source src="assets/videos/karls-erdbeerhof.mp4" type="video/mp4">
     </video>
     <div class="ch-stage" aria-hidden="true" style="z-index:0;">
@@ -1012,7 +1050,10 @@ const POIS = [
       img: 'https://picsum.photos/seed/schmetterling/400/240', anim: 'butterfly' },
     { name: 'Karls Erlebnis-Dorf Koserow', cat: 'familie', lat: 54.040, lon: 14.026, address: 'Karls Erlebnis-Dorf Koserow, Zur Seebrücke, 17459 Koserow',
       desc: 'Hofladen, Erdbeerwelt, Riesenrutsche — Spaß für die ganze Familie.',
-      img: 'https://picsum.photos/seed/karls/400/240', anim: 'strawberry' },
+      img: 'https://picsum.photos/seed/karls/400/240', anim: 'strawberry',
+      // 🎬 v6.62.788 (Patrick 16.05. 18:08): Hover-Video-Preview + Klick-Modal
+      video: 'assets/videos/karls-erdbeerhof.mp4',
+      longDesc: 'Karls Erlebnis-Dorf in Koserow ist DAS Familien-Highlight der Insel Usedom: eine 24 ha grosse Erdbeer-Welt mit Hofladen, Schoko-Manufaktur, Holz-Achterbahn, Riesenrutsche und der weltbekannten Erdbeer-Schwemme. Kostenloser Eintritt, kostenlose Spielplaetze. Funk Taxi bringt euch entspannt hin und holt euch wieder ab — kein Parkplatz suchen, kein Stress am Wochenende.' },
     { name: 'Streckelsberg Koserow', cat: 'natur', lat: 54.041, lon: 14.060, address: 'Streckelsberg, 17459 Koserow',
       desc: 'Höchster Punkt der Insel (58 m) — Aussicht über die ganze Küste.',
       img: 'https://picsum.photos/seed/streckelsberg/400/240', anim: 'panorama' },
@@ -1239,20 +1280,76 @@ function renderPois() {
         if (visible) {
             const card = document.createElement('div');
             card.className = 'poi-card';
+            // 🎬 v6.62.788: Wenn POI ein Video hat → Hover-Video + Klick-Modal
+            const hoverVideoHtml = p.video
+                ? `<video class="poi-hover-video" muted loop playsinline preload="none" data-src="${p.video}"></video>`
+                : '';
             card.innerHTML = `
-                <img class="card-img" src="${p.img}" alt="${p.name}" loading="lazy">
-                <div class="card-body">
+                ${hoverVideoHtml}
+                <img class="card-img poi-content" src="${p.img}" alt="${p.name}" loading="lazy">
+                <div class="card-body poi-content">
                     <span class="card-cat">${CAT_LABELS[p.cat] || p.cat}</span>
-                    <h3>${p.name}</h3>
+                    <h3>${p.name} ${p.video ? '<span style="background:#fbbf24;color:#0f172a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-left:4px;">🎬 Video</span>' : ''}</h3>
                     ${p.address ? `<div class="card-address">📍 ${p.address}</div>` : ''}
                     <p>${p.desc}</p>
-                    <a class="card-btn" href="buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}">🚕 Mit Funk Taxi hinfahren</a>
+                    <a class="card-btn" href="buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}" onclick="event.stopPropagation()">🚕 Mit Funk Taxi hinfahren</a>
                 </div>
             `;
+            if (p.video) {
+                // Lazy-Load Video erst beim Hover damit nicht alle gleichzeitig laden
+                const v = card.querySelector('.poi-hover-video');
+                card.addEventListener('mouseenter', () => {
+                    if (!v.src) v.src = v.dataset.src;
+                    v.play().catch(() => {});
+                });
+                card.addEventListener('mouseleave', () => {
+                    v.pause();
+                    v.currentTime = 0;
+                });
+                // Klick auf Card → Modal (nicht auf Button-Link)
+                card.addEventListener('click', (ev) => {
+                    if (ev.target.closest('.card-btn')) return; // Buchen-Button bleibt eigener Link
+                    openPoiModal(p);
+                });
+            }
             grid.appendChild(card);
         }
     });
 }
+
+// 🎬 v6.62.788: Detail-Modal pro POI mit Video + Info + CTA
+function openPoiModal(p) {
+    let overlay = document.getElementById('poi-modal-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'poi-modal-overlay';
+        overlay.className = 'poi-modal-overlay';
+        overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closePoiModal(); });
+        document.body.appendChild(overlay);
+    }
+    const longDesc = p.longDesc || p.desc;
+    overlay.innerHTML = `
+        <div class="poi-modal" onclick="event.stopPropagation()">
+            <button class="poi-modal-close" onclick="closePoiModal()">✕</button>
+            ${p.video ? `<video src="${p.video}" autoplay loop muted playsinline></video>` : `<img src="${p.img}" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:16px 16px 0 0;">`}
+            <div class="poi-modal-body">
+                <h2>${p.name}</h2>
+                ${p.address ? `<div style="color:#64748b;margin-bottom:14px;">📍 ${p.address}</div>` : ''}
+                <p>${longDesc}</p>
+                <div class="poi-modal-actions">
+                    <a class="primary" href="buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}">🚕 Mit Funk Taxi hinfahren</a>
+                    <a class="secondary" href="tel:03837822022">📞 038378 22022</a>
+                </div>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('active');
+}
+function closePoiModal() {
+    const overlay = document.getElementById('poi-modal-overlay');
+    if (overlay) overlay.classList.remove('active');
+}
+window.closePoiModal = closePoiModal;
 
 // 🆕 v6.62.287: Comic-Animation pro POI starten
 function playPoiAnimation(idx, x, y) {

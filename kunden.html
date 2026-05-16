@@ -463,6 +463,11 @@
         <!-- LOGIN SCREEN -->
         <div id="login-screen">
             <div class="login-card">
+                <!-- 🆕 v6.62.766 (Patrick 16.05. 08:35): Abbrechen-Button immer sichtbar
+                     damit User aus dem Login zurueck zur Startseite kann ohne Browser-Back. -->
+                <div style="text-align:left;margin-bottom:8px;">
+                    <a href="landing.html" style="display:inline-flex;align-items:center;gap:6px;color:#6b7280;font-size:13px;text-decoration:none;font-weight:600;padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;background:white;">← Abbrechen</a>
+                </div>
                 <div class="icon">🔐</div>
                 <h2>Anmeldung</h2>
                 <p>Geben Sie Ihre Handynummer ein, um Ihre Fahrten zu sehen und zu verwalten.</p>
@@ -501,7 +506,11 @@
                         Anmelden
                     </button>
                     <button class="btn btn-secondary" onclick="backToPhone()">
-                        Andere Nummer
+                        ← Andere Nummer
+                    </button>
+                    <!-- 🆕 v6.62.766: Komplett-Abbrechen im SMS-Step (Patrick 16.05. 08:35) -->
+                    <button class="btn" onclick="location.href='landing.html'" style="width:100%;background:white;color:#6b7280;border:1px solid #e5e7eb;margin-top:6px;font-weight:600;">
+                        Abbrechen
                     </button>
                     <div class="error-text" id="code-error"></div>
                     <div class="info-text">Code 5 Minuten gueltig. <span id="resend-timer"></span></div>
@@ -639,6 +648,11 @@
             </div>
             <button onclick="savePhoneRequired()" id="btn-phone-required-save" style="width:100%;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">
                 💾 Speichern und weiter
+            </button>
+            <!-- 🆕 v6.62.766 (Patrick 16.05. 08:35): Abbrechen muss IMMER moeglich sein.
+                 Signed-out + zurueck zu landing.html — kein Stranden im Pflicht-Modal. -->
+            <button onclick="firebase.auth().signOut().then(()=>{location.href='landing.html';})" style="width:100%;padding:10px;background:white;color:#6b7280;border:1px solid #e5e7eb;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;margin-top:8px;">
+                Abbrechen (Abmelden)
             </button>
         </div>
     </div>

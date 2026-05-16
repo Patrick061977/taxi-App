@@ -564,39 +564,54 @@
         </div>
     </div>
 
-    <!-- PROFIL MODAL -->
+    <!-- PROFIL MODAL — v6.62.765 (Patrick 16.05. 08:29): uebersichtlicher,
+         in Sektionen gegliedert. Telefon nur bei Phone-Auth readonly. -->
     <div class="modal-overlay" id="profile-modal">
         <div class="modal">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3>👤 Mein Konto</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h3 style="margin:0;">👤 Mein Konto</h3>
                 <button onclick="closeProfileModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#6b7280;">✕</button>
             </div>
-            <div class="form-group">
-                <label>👤 Name</label>
-                <input type="text" id="profile-name" placeholder="Vor- und Nachname">
-            </div>
-            <div class="form-group">
-                <label>📧 Email</label>
-                <input type="email" id="profile-email" placeholder="email@beispiel.de">
-            </div>
-            <div class="form-group">
-                <label>📱 Telefon</label>
-                <input type="tel" id="profile-phone" readonly style="background:#f3f4f6;color:#6b7280;">
-            </div>
-            <div class="form-group">
-                <label>🏠 Adresse (Heimadresse)</label>
-                <!-- 🆕 v6.62.401: Adress-Eingabe mit Autocomplete + Karten-Picker -->
-                <div class="address-row">
-                    <div class="address-input-wrap">
-                        <input type="text" id="profile-address" placeholder="Straße, PLZ Ort" autocomplete="off">
-                        <div class="autocomplete-dropdown" id="profile-address-dropdown"></div>
-                    </div>
-                    <button type="button" class="map-btn" onclick="openMapPicker()" title="Auf Karte auswählen">🗺️</button>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:14px;">Hier verwalten Sie Ihre Stammdaten — Name, Kontakt und Heimadresse.</div>
+
+            <!-- Sektion 1: Persoenliche Daten -->
+            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
+                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Persoenliche Daten</div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:13px;">👤 Name</label>
+                    <input type="text" id="profile-name" placeholder="Vor- und Nachname">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:13px;">📧 Email</label>
+                    <input type="email" id="profile-email" placeholder="email@beispiel.de">
+                    <div id="profile-email-hint" style="font-size:11px;color:#6b7280;margin-top:4px;display:none;">Email aus Google-Login uebernommen.</div>
                 </div>
             </div>
-            <div style="font-size:12px;color:#6b7280;background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:16px;">
-                💡 Ihre Heimadresse wird automatisch als Abholort oder Ziel vorgeschlagen.
+
+            <!-- Sektion 2: Telefon -->
+            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;background:#fafbfc;">
+                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Telefonnummer</div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="tel" id="profile-phone" placeholder="z.B. 0151 12345678">
+                    <div id="profile-phone-hint" style="font-size:11px;color:#6b7280;margin-top:6px;line-height:1.4;"></div>
+                </div>
             </div>
+
+            <!-- Sektion 3: Adresse -->
+            <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:14px;background:#fafbfc;">
+                <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Heimadresse</div>
+                <div class="form-group" style="margin-bottom:8px;">
+                    <div class="address-row">
+                        <div class="address-input-wrap">
+                            <input type="text" id="profile-address" placeholder="Straße Hausnr, PLZ Ort" autocomplete="off">
+                            <div class="autocomplete-dropdown" id="profile-address-dropdown"></div>
+                        </div>
+                        <button type="button" class="map-btn" onclick="openMapPicker()" title="Auf Karte auswählen">🗺️</button>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:#6b7280;line-height:1.4;">💡 Wird automatisch als Abhol- oder Zielort vorgeschlagen — spart Tippen bei jeder Buchung.</div>
+            </div>
+
             <div style="display:flex;gap:8px;">
                 <button onclick="closeProfileModal()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">
                     Abbrechen
@@ -948,8 +963,28 @@
             const modal = document.getElementById('profile-modal');
             modal.classList.add('active');
 
+            // 🆕 v6.62.765 (Patrick 16.05. 08:29): Telefon-Feld bei Phone-Auth readonly
+            //   (Nummer ist Login-Identitaet), bei Google-Login bearbeitbar.
+            const user = firebase.auth().currentUser;
+            const isGoogleLogin = user && user.providerData && user.providerData.some(p => p.providerId === 'google.com') && !user.phoneNumber;
+            const phoneInput = document.getElementById('profile-phone');
+            const phoneHint = document.getElementById('profile-phone-hint');
+            if (isGoogleLogin) {
+                phoneInput.removeAttribute('readonly');
+                phoneInput.style.background = 'white';
+                phoneInput.style.color = '#0f172a';
+                phoneHint.textContent = '✏️ Mobilnummer kann hier geaendert werden — der Fahrer braucht sie um Sie bei Ankunft anzurufen.';
+                phoneHint.style.display = 'block';
+            } else {
+                phoneInput.setAttribute('readonly', 'readonly');
+                phoneInput.style.background = '#f3f4f6';
+                phoneInput.style.color = '#6b7280';
+                phoneHint.textContent = '🔒 Per SMS verifiziert — Aenderung nur ueber neuen SMS-Login mit anderer Nummer.';
+                phoneHint.style.display = 'block';
+            }
+
             // Felder befüllen
-            document.getElementById('profile-phone').value = '+' + verifiedPhone;
+            phoneInput.value = verifiedPhone ? '+' + verifiedPhone : '';
             if (customerData) {
                 document.getElementById('profile-name').value = customerData.name || (customerData.firstName ? customerData.firstName + ' ' + (customerData.lastName || '') : '').trim();
                 document.getElementById('profile-email').value = customerData.email || '';
@@ -961,12 +996,15 @@
                 _profileAddressLat = null;
                 _profileAddressLon = null;
             }
+            // Email-Hint nur bei Google-Login zeigen
+            const emailHint = document.getElementById('profile-email-hint');
+            if (emailHint) emailHint.style.display = (user && user.email && !user.phoneNumber) ? 'block' : 'none';
 
             // Header-Info aktualisieren
             const headerInfo = document.getElementById('header-user-info');
             if (headerInfo) {
                 headerInfo.style.display = 'block';
-                document.getElementById('header-phone').textContent = '+' + verifiedPhone;
+                document.getElementById('header-phone').textContent = verifiedPhone ? '+' + verifiedPhone : (user && user.email ? user.email : '');
             }
             // 🆕 v6.62.401: Autocomplete am Adress-Feld einmalig aktivieren
             setupProfileAddressAutocomplete();
@@ -980,6 +1018,25 @@
             const name = document.getElementById('profile-name').value.trim();
             const email = document.getElementById('profile-email').value.trim();
             const address = document.getElementById('profile-address').value.trim();
+            // 🆕 v6.62.765: Telefon nur bei Google-Login aus dem Feld uebernehmen
+            //   (bei Phone-Auth ist verifiedPhone die Login-Identitaet, nicht aenderbar).
+            const phoneInputEl = document.getElementById('profile-phone');
+            const user = firebase.auth().currentUser;
+            const isGoogleLogin = user && user.providerData && user.providerData.some(p => p.providerId === 'google.com') && !user.phoneNumber;
+            let phoneToSave = verifiedPhone ? '+' + verifiedPhone : '';
+            if (isGoogleLogin) {
+                let raw = (phoneInputEl.value || '').trim().replace(/[\s\-\/\(\)]/g, '');
+                if (raw.startsWith('00')) raw = '+' + raw.substring(2);
+                else if (raw.startsWith('0')) raw = '+49' + raw.substring(1);
+                else if (raw && !raw.startsWith('+')) raw = '+49' + raw;
+                if (raw && raw.replace('+', '').length < 8) {
+                    showToast('Telefonnummer zu kurz');
+                    return;
+                }
+                phoneToSave = raw;
+                // verifiedPhone updaten damit Header + naechstes Modal frisch sind
+                verifiedPhone = raw.replace('+', '');
+            }
 
             if (!name) {
                 showToast('Bitte Name eingeben');
@@ -1001,25 +1058,35 @@
             try {
                 if (customerData && customerData.id) {
                     // Bestehendes CRM-Profil updaten
-                    await db.ref('customers/' + customerData.id).update({
+                    const updatePayload = {
                         name: name,
                         email: email || null,
                         address: address || null,
                         addressLat: addressLat,
                         addressLon: addressLon,
                         updatedAt: Date.now()
-                    });
+                    };
+                    // 🆕 v6.62.765: Telefon nur mitspeichern wenn Google-Login (sonst Login-Identitaet)
+                    if (isGoogleLogin && phoneToSave) {
+                        updatePayload.phone = phoneToSave;
+                        updatePayload.mobilePhone = phoneToSave;
+                    }
+                    await db.ref('customers/' + customerData.id).update(updatePayload);
                     customerData.name = name;
                     customerData.email = email;
                     customerData.address = address;
                     customerData.addressLat = addressLat;
                     customerData.addressLon = addressLon;
+                    if (isGoogleLogin && phoneToSave) {
+                        customerData.phone = phoneToSave;
+                        customerData.mobilePhone = phoneToSave;
+                    }
                 } else {
                     // Neues CRM-Profil anlegen
                     const newRef = db.ref('customers').push();
                     const newCustomer = {
                         name: name,
-                        phone: '+' + verifiedPhone,
+                        phone: phoneToSave || ('+' + verifiedPhone),
                         email: email || null,
                         address: address || null,
                         addressLat: addressLat,

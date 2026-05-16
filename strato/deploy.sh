@@ -117,6 +117,17 @@ if [ -d "$PROJECT_ROOT/images" ]; then
     done
 fi
 
+# 🎬 v6.62.786 (Patrick 16.05. 17:58): assets/videos/ Ordner mitkopieren
+#   damit ausflugsziele.html die Veo-3-Hero-Videos finden kann.
+if [ -d "$PROJECT_ROOT/assets" ]; then
+    echo "5d) assets/ Ordner kopieren (Videos, etc.)..."
+    mkdir -p "$OUTPUT_DIR/Taxi-App/assets"
+    cp -r "$PROJECT_ROOT/assets/"* "$OUTPUT_DIR/Taxi-App/assets/" 2>/dev/null || true
+    find "$OUTPUT_DIR/Taxi-App/assets" -type f | while read f; do
+        echo "   -> ${f#$OUTPUT_DIR/Taxi-App/}"
+    done
+fi
+
 # v6.62.646: vendor/ Ordner mitkopieren — Leaflet lokal hosten weil unpkg.com bei
 # manchen Mobilfunk-Providern geblockt wird (Patrick 12.05. 16:59 'C').
 if [ -d "$PROJECT_ROOT/vendor" ]; then

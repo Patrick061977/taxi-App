@@ -97,6 +97,8 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
 }
 .poi-modal-actions .primary { background: #fbbf24; color: #0f172a; }
 .poi-modal-actions .secondary { background: #f1f5f9; color: #0f172a; }
+.poi-modal-actions .ticket { background: #22c55e; color: #fff; }
+.poi-modal-actions .home { background: #0ea5e9; color: #fff; }
 .poi-modal-close {
     position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.9);
     border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 22px;
@@ -1054,12 +1056,14 @@ const POIS = [
       img: 'https://picsum.photos/seed/karls/400/240', anim: 'strawberry',
       // 🎬 v6.62.788 (Patrick 16.05. 18:08): Hover-Video-Preview + Klick-Modal
       video: 'assets/videos/karls-erdbeerhof.mp4',
+      website: 'https://www.karls.de/erlebnis-doerfer/koserow',
       longDesc: 'Karls Erlebnis-Dorf in Koserow ist DAS Familien-Highlight der Insel Usedom: eine 24 ha grosse Erdbeer-Welt mit Hofladen, Schoko-Manufaktur, Holz-Achterbahn, Riesenrutsche und der weltbekannten Erdbeer-Schwemme. Kostenloser Eintritt, kostenlose Spielplaetze. Funk Taxi bringt euch entspannt hin und holt euch wieder ab — kein Parkplatz suchen, kein Stress am Wochenende.' },
     // 🆕 v6.62.600 / 🎬 v6.62.718-720 (Patrick 16.05.): Weisse Duene mit Imagen-Keyframe + Ken-Burns
     { name: 'Weisse Düne — Segeltörn ab Neppermin', cat: 'natur', lat: 53.985, lon: 13.985, address: 'Anleger Neppermin, 17429 Benz/Usedom',
       desc: 'Deutschlands einziges Segel-Passagierschiff — 100-jaehriger Topgaffel-Schoner. Mittwochs 11–14:30 Uhr Achterwasser-Tour ab Neppermin. 75€/Erw, 45€/Kind.',
       img: 'images/poi/weisse-duene.png', anim: 'gull',
       video: 'assets/videos/weisse-duene.mp4',
+      website: 'https://www.weisse-duene.com/toerns.html',
       longDesc: 'Die Weisse Duene ist Deutschlands einziges Segel-Passagierschiff: ein ueber 100 Jahre alter, 45m langer Topgaffel-Schoner aus Holz, der seit 2011 von Jane und Detlef Bothe gefahren wird. Klassische 3,5h-Tour mittwochs 11:00–14:30 Uhr ab Anleger Neppermin ueber das ganze Achterwasser mit echtem Segel-Setzen unter Anleitung des Kapitaens. Auch Abendtouren, Bodden-Touren (Greifswalder Bodden) und Haff-Faehrten (Stettiner Haff/Oder-Delta) im Angebot. Dienstags "Genuss unter Segeln" mit regionalem Buffet (Raeucherfisch, Wurst, Kaese, frisches Brot direkt vom Inselbaecker). Preise: 75€ Erwachsene, 45€ Kinder bis 11 Jahre, Babys frei. Auch fuer private Gruppen-Events buchbar (Hochzeiten, Firmenausfluege, Geburtstage). Tickets + Gutscheine + Reservierung direkt unter weisse-duene.com — Plaetze sind im Sommer schnell weg, frueh buchen! BUCHUNGS-TIPP: Funk Taxi Heringsdorf bringt euch entspannt zum Anleger Neppermin (etwa 35 Min Fahrt aus den Kaiserbaedern) — kein Parkplatz-Problem am Hafen, keine Aengste vor knapper Abfahrtszeit. Vorbestellung empfohlen: 038378-22022 oder keinbockzulaufen.de.' },
     { name: 'Peenemünde HTM', cat: 'kultur', lat: 54.137, lon: 13.775, address: 'Im Kraftwerk, 17449 Peenemünde',
       desc: 'Historisch-Technisches Museum — wo die Raumfahrt begann.',
@@ -1348,6 +1352,8 @@ function openPoiModal(p) {
                 <p>${longDesc}</p>
                 <div class="poi-modal-actions">
                     <a class="primary" href="buchen.html?to=${encodeURIComponent(p.address)}&toLat=${p.lat}&toLon=${p.lon}">🚕 Mit Funk Taxi hinfahren</a>
+                    ${p.website ? `<a class="ticket" href="${p.website}" target="_blank" rel="noopener">🎟️ Tickets bestellen</a>` : ''}
+                    <a class="home" href="https://www.umwelt-taxi-insel-usedom.de/Taxi-App/landing.html" target="_blank" rel="noopener">🏠 Funk Taxi Homepage</a>
                     <a class="secondary" href="tel:03837822022">📞 038378 22022</a>
                 </div>
             </div>

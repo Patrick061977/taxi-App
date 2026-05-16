@@ -23396,77 +23396,78 @@ exports.scheduledOnlineFahrerCheck = onSchedule(
 // v6.62.759 (Patrick 16.05. 07:37): Taegliches Schicht-Briefing per Bridge-Push 06:00
 // Plus On-Demand Bridge-Trigger 'schicht heute' fuer sofortige Abfrage
 async function buildShiftBriefingMessage() {
-    const [shiftPlanSnap, vehiclesSnap] = await Promise.all([
-        db.ref('shiftPlan').once('value'),
+    // v6.62.760: Korrekte Quelle ist vehicleShifts (nicht shiftPlan!)
+    // Mit defaults[dow=0..6 So..Sa] + defaultTimes[dow] + dateStr-Ausnahmen
+    const [vehicleShiftsSnap, vehiclesSnap] = await Promise.all([
+        db.ref('vehicleShifts').once('value'),
         db.ref('vehicles').once('value')
     ]);
-    const shiftPlan = shiftPlanSnap.val() || {};
+    const vehicleShifts = vehicleShiftsSnap.val() || {};
     const vehicles = vehiclesSnap.val() || {};
-    const DAY_KEYS = ['sonntag', 'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag'];
     const DAY_NAMES = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-    const today = new Date();
-    const berlinNow = new Date(today.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-    const dayIdx = berlinNow.getDay();
-    const dayKey = DAY_KEYS[dayIdx];
+    const berlinNow = new Date((new Date()).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    const dow = berlinNow.getDay();
     const dateStr = berlinNow.toISOString().slice(0, 10);
     const dateDe = berlinNow.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const aktiv = [];
-    const pause = [];
-    for (const [vid, plan] of Object.entries(shiftPlan)) {
-        if (!plan || typeof plan !== 'object') continue;
-        if (['0', '1', '2', '3', '4'].includes(vid)) continue;
+    for (const [vid, shifts] of Object.entries(vehicleShifts)) {
+        if (!shifts || typeof shifts !== 'object') continue;
         const vData = vehicles[vid] || {};
         const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
-        const dayException = (plan.exceptions && plan.exceptions[dateStr]) || null;
-        const dayPlan = plan.weekly && plan.weekly[dayKey];
-        let label = null;
-        if (dayException) {
-            if (dayException.start && dayException.end) {
-                label = `🔧 ${dayException.start}-${dayException.end} (Ausnahme)`;
-            } else if (dayException.active === false) {
-                pause.push(`✗ ${vName} (Ausnahme: aus)`);
-                continue;
-            }
+        // Datums-Ausnahme zuerst
+        const dateEntry = shifts[dateStr];
+        if (dateEntry && dateEntry.active === false) continue;
+        let timesLabel = null;
+        if (dateEntry && (dateEntry.startTime || (dateEntry.timeRanges && dateEntry.timeRanges.length > 0))) {
+            const ranges = (dateEntry.timeRanges && dateEntry.timeRanges.length > 0)
+                ? dateEntry.timeRanges : [{ startTime: dateEntry.startTime, endTime: dateEntry.endTime || '23:59' }];
+            timesLabel = '🔧 ' + ranges.map(r => `${r.startTime}-${r.endTime}`).join(', ') + ' (Ausnahme)';
+        } else {
+            const defaults = shifts.defaults || {};
+            if (defaults[dow] !== true) continue;
+            const defTimes = (shifts.defaultTimes || {})[dow];
+            if (!defTimes || !(defTimes.startTime || (defTimes.timeRanges && defTimes.timeRanges.length > 0))) continue;
+            const ranges = (defTimes.timeRanges && defTimes.timeRanges.length > 0)
+                ? defTimes.timeRanges : [{ startTime: defTimes.startTime, endTime: defTimes.endTime || '23:59' }];
+            timesLabel = ranges.map(r => `${r.startTime}-${r.endTime}`).join(', ');
         }
-        if (!label && dayPlan && dayPlan.start) {
-            label = `${dayPlan.start}-${dayPlan.end || '?'}`;
-        }
-        if (label) {
-            aktiv.push(`✓ ${vName} <code>${vid}</code> ${label}`);
-        }
+        aktiv.push(`✓ <b>${vName}</b> <code>${vid}</code>\n   ${timesLabel}`);
     }
-    let msg = `🚖 <b>SCHICHTPLAN ${DAY_NAMES[dayIdx]} ${dateDe}</b>\n\n`;
+    let msg = `🚖 <b>SCHICHTPLAN ${DAY_NAMES[dow]} ${dateDe}</b>\n\n`;
     if (aktiv.length === 0) {
-        msg += '<i>Keine Fahrzeuge laut Wochenplan eingeteilt.</i>';
+        msg += '<i>Keine Fahrzeuge laut Schichtplan eingeteilt.</i>';
     } else {
         msg += aktiv.join('\n');
         msg += `\n\n<b>Total: ${aktiv.length} Fahrzeuge eingeteilt</b>`;
-    }
-    if (pause.length > 0) {
-        msg += '\n\n<i>Ausnahme-AUS:</i>\n' + pause.join('\n');
     }
     return msg;
 }
 
 async function buildWeeklyShiftMessage() {
-    const shiftPlanSnap = await db.ref('shiftPlan').once('value');
+    // v6.62.760: vehicleShifts statt shiftPlan (gleicher Fix wie Today-Briefing)
+    const vehicleShiftsSnap = await db.ref('vehicleShifts').once('value');
     const vehiclesSnap = await db.ref('vehicles').once('value');
-    const shiftPlan = shiftPlanSnap.val() || {};
+    const vehicleShifts = vehicleShiftsSnap.val() || {};
     const vehicles = vehiclesSnap.val() || {};
-    const DAY_KEYS = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'];
-    const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-    let msg = '📅 <b>WOCHENPLAN (laut Wochenplan)</b>\n\n';
-    const allVehicles = Object.entries(shiftPlan).filter(([vid, plan]) =>
-        plan && typeof plan === 'object' && !['0','1','2','3','4'].includes(vid)
-    );
-    for (const [vid, plan] of allVehicles) {
+    // defaults/defaultTimes nutzen dow 0=So .. 6=Sa
+    const DAY_LABELS = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
+    const ORDER = [1, 2, 3, 4, 5, 6, 0];
+    let msg = '📅 <b>WOCHENPLAN (Default-Zeiten)</b>\n\n';
+    for (const [vid, shifts] of Object.entries(vehicleShifts)) {
+        if (!shifts || typeof shifts !== 'object') continue;
         const vData = vehicles[vid] || {};
         const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+        const defaults = shifts.defaults || {};
+        const defTimes = shifts.defaultTimes || {};
         const tageStrings = [];
-        for (let i = 0; i < 7; i++) {
-            const dk = DAY_KEYS[i];
-            const dp = plan.weekly && plan.weekly[dk];
-            if (dp && dp.start) tageStrings.push(`${DAY_NAMES[i]} ${dp.start}-${dp.end || '?'}`);
+        for (const dow of ORDER) {
+            if (defaults[dow] !== true) continue;
+            const dt = defTimes[dow];
+            if (!dt) continue;
+            const ranges = (dt.timeRanges && dt.timeRanges.length > 0)
+                ? dt.timeRanges : [{ startTime: dt.startTime, endTime: dt.endTime || '23:59' }];
+            const tStr = ranges.map(r => `${r.startTime}-${r.endTime}`).join(',');
+            tageStrings.push(`${DAY_LABELS[dow]} ${tStr}`);
         }
         if (tageStrings.length > 0) {
             msg += `🚗 <b>${vName}</b>\n   ${tageStrings.join(' · ')}\n`;

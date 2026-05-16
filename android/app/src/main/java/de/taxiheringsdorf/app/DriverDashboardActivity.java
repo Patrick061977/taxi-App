@@ -1704,6 +1704,23 @@ public class DriverDashboardActivity extends AppCompatActivity {
         etName.setInputType(InputType.TYPE_CLASS_TEXT);
         layout.addView(etName);
 
+        // 🆕 v6.62.783 (Patrick 16.05. 15:34): Telefonnummer-Feld fuer Einsteiger
+        //   damit Track-Link / Anruf-Funktion auch im Einsteiger-Flow geht.
+        TextView lblPhone = new TextView(this);
+        lblPhone.setText("📱 Telefon (optional)");
+        lblPhone.setTextSize(11);
+        lblPhone.setTextColor(Color.parseColor("#94a3b8"));
+        LinearLayout.LayoutParams phoneLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        phoneLp.setMargins(0, gap, 0, 0);
+        lblPhone.setLayoutParams(phoneLp);
+        layout.addView(lblPhone);
+
+        EditText etPhone = new EditText(this);
+        etPhone.setHint("z.B. 0171 1234567");
+        etPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+        layout.addView(etPhone);
+
         // v6.62.764 (Patrick 16.05. 08:15 "Da kann ich nicht scrollen"):
         //   Einsteiger-Dialog Inhalt in ScrollView packen, sonst sind Felder
         //   auf kleinen Displays unter der Tastatur unerreichbar.
@@ -1719,7 +1736,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String priceStr = etPrice.getText().toString().trim();
                 String paxStr = etPax.getText().toString().trim();
                 String name = etName.getText().toString().trim();
-                createEinsteiger(pickup, dest, priceStr, paxStr, name);
+                String phone = etPhone.getText().toString().trim();
+                createEinsteiger(pickup, dest, priceStr, paxStr, name, phone);
             })
             .setNegativeButton("Abbrechen", null)
             .show();
@@ -1805,7 +1823,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }).start();
     }
 
-    private void createEinsteiger(String pickup, String dest, String priceStr, String paxStr, String name) {
+    private void createEinsteiger(String pickup, String dest, String priceStr, String paxStr, String name, String phone) {
         if (db == null) return;
         // Wenn Pickup nicht ueber GPS-Button gesetzt wurde, dennoch Nominatim als Fallback
         if (pickup.isEmpty() && einsteigerPickupAddress.isEmpty()) pickup = "Standort Fahrer";
@@ -1816,14 +1834,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
             nominatimSearch(dest, (lat, lon, _addr) -> {
                 einsteigerDestCoords[0] = lat;
                 einsteigerDestCoords[1] = lon;
-                runOnUiThread(() -> writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name));
+                runOnUiThread(() -> writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name, phone));
             });
         } else {
-            writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name);
+            writeEinsteigerRide(fPickup, fDest, priceStr, paxStr, name, phone);
         }
     }
 
-    private void writeEinsteigerRide(String pickup, String dest, String priceStr, String paxStr, String name) {
+    private void writeEinsteigerRide(String pickup, String dest, String priceStr, String paxStr, String name, String phone) {
         try {
             DatabaseReference newRef = db.getReference("rides").push();
             Map<String, Object> r = new HashMap<>();
@@ -1859,6 +1877,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
             r.put("acceptedVia", "native_dashboard_einsteiger");
             r.put("source", "native_einsteiger");
             r.put("isInsteiger", true);
+            // 🆕 v6.62.783 (Patrick 16.05. 15:34): Telefonnummer einbauen damit Track-SMS + Anruf gehen
+            if (phone != null && !phone.trim().isEmpty()) {
+                String _cleaned = phone.trim().replaceAll("\\s+", "");
+                // Normalisierung: 0171... → +49171...
+                if (_cleaned.startsWith("00")) _cleaned = "+" + _cleaned.substring(2);
+                else if (_cleaned.startsWith("0")) _cleaned = "+49" + _cleaned.substring(1);
+                else if (!_cleaned.startsWith("+")) _cleaned = "+49" + _cleaned;
+                r.put("customerPhone", _cleaned);
+                r.put("customerMobile", _cleaned);
+            }
             try {
                 if (!priceStr.isEmpty()) r.put("price", Double.parseDouble(priceStr.replace(',', '.')));
             } catch (Throwable _t) {}

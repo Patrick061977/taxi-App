@@ -40,6 +40,11 @@
         .btn-secondary { background: white; color: #1e293b; }
         .btn-row { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #f1f5f9; }
         .btn-small { display: inline-block; padding: 7px 12px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 12px; transition: opacity 0.15s; flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* v6.62.758 (Patrick 16.05. 07:32): Auf Handy 3 Buttons abgeschnitten → untereinander stacken */
+        @media (max-width: 600px) {
+            .btn-row { flex-direction: column; }
+            .btn-small { width: 100%; flex: none; padding: 10px 12px; font-size: 13px; }
+        }
         .btn-small:hover { opacity: 0.85; }
         .btn-go { background: #ec4899; color: white; }
         .btn-menu { background: #1e3a8a; color: white; }

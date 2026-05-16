@@ -23431,14 +23431,18 @@ async function buildShiftBriefingMessage() {
                 ? defTimes.timeRanges : [{ startTime: defTimes.startTime, endTime: defTimes.endTime || '23:59' }];
             timesLabel = ranges.map(r => `${r.startTime}-${r.endTime}`).join(', ');
         }
-        aktiv.push(`✓ <b>${vName}</b> <code>${vid}</code>\n   ${timesLabel}`);
+        aktiv.push({ name: vName, vid, times: timesLabel });
     }
-    let msg = `🚖 <b>SCHICHTPLAN ${DAY_NAMES[dow]} ${dateDe}</b>\n\n`;
+    let msg = `━━━━━━━━━━━━━━━━━━━\n🚖 SCHICHTPLAN\n${DAY_NAMES[dow]}, ${dateDe}\n━━━━━━━━━━━━━━━━━━━\n\n`;
     if (aktiv.length === 0) {
-        msg += '<i>Keine Fahrzeuge laut Schichtplan eingeteilt.</i>';
+        msg += '⚠️  Keine Fahrzeuge eingeteilt.';
     } else {
-        msg += aktiv.join('\n');
-        msg += `\n\n<b>Total: ${aktiv.length} Fahrzeuge eingeteilt</b>`;
+        // Sort: nach Start-Zeit
+        aktiv.sort((a, b) => (a.times || '').localeCompare(b.times || ''));
+        for (const a of aktiv) {
+            msg += `🟢  ${a.name}\n     ⏰ ${a.times}\n\n`;
+        }
+        msg += `━━━━━━━━━━━━━━━━━━━\n  Total: ${aktiv.length} Fahrzeug${aktiv.length > 1 ? 'e' : ''}\n━━━━━━━━━━━━━━━━━━━`;
     }
     return msg;
 }
@@ -23452,7 +23456,8 @@ async function buildWeeklyShiftMessage() {
     // defaults/defaultTimes nutzen dow 0=So .. 6=Sa
     const DAY_LABELS = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 0: 'So' };
     const ORDER = [1, 2, 3, 4, 5, 6, 0];
-    let msg = '📅 <b>WOCHENPLAN (Default-Zeiten)</b>\n\n';
+    let msg = '\n\n━━━━━━━━━━━━━━━━━━━\n📅 WOCHENPLAN\n━━━━━━━━━━━━━━━━━━━\n';
+    let anyVehicle = false;
     for (const [vid, shifts] of Object.entries(vehicleShifts)) {
         if (!shifts || typeof shifts !== 'object') continue;
         const vData = vehicles[vid] || {};
@@ -23470,9 +23475,12 @@ async function buildWeeklyShiftMessage() {
             tageStrings.push(`${DAY_LABELS[dow]} ${tStr}`);
         }
         if (tageStrings.length > 0) {
-            msg += `🚗 <b>${vName}</b>\n   ${tageStrings.join(' · ')}\n`;
+            anyVehicle = true;
+            msg += `\n🚗 ${vName}\n`;
+            for (const t of tageStrings) msg += `     ${t}\n`;
         }
     }
+    if (!anyVehicle) msg += '\nKeine Default-Zeiten konfiguriert.\n';
     return msg;
 }
 

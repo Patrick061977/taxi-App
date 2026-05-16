@@ -23393,6 +23393,124 @@ exports.scheduledOnlineFahrerCheck = onSchedule(
 );
 
 // Punkt 3+4: Schicht-Reminder (15 Min vor Schichtbeginn) + Schicht-Offline-Warnung (>30 Min nach Beginn).
+// v6.62.759 (Patrick 16.05. 07:37): Taegliches Schicht-Briefing per Bridge-Push 06:00
+// Plus On-Demand Bridge-Trigger 'schicht heute' fuer sofortige Abfrage
+async function buildShiftBriefingMessage() {
+    const [shiftPlanSnap, vehiclesSnap] = await Promise.all([
+        db.ref('shiftPlan').once('value'),
+        db.ref('vehicles').once('value')
+    ]);
+    const shiftPlan = shiftPlanSnap.val() || {};
+    const vehicles = vehiclesSnap.val() || {};
+    const DAY_KEYS = ['sonntag', 'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag'];
+    const DAY_NAMES = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    const today = new Date();
+    const berlinNow = new Date(today.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+    const dayIdx = berlinNow.getDay();
+    const dayKey = DAY_KEYS[dayIdx];
+    const dateStr = berlinNow.toISOString().slice(0, 10);
+    const dateDe = berlinNow.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const aktiv = [];
+    const pause = [];
+    for (const [vid, plan] of Object.entries(shiftPlan)) {
+        if (!plan || typeof plan !== 'object') continue;
+        if (['0', '1', '2', '3', '4'].includes(vid)) continue;
+        const vData = vehicles[vid] || {};
+        const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+        const dayException = (plan.exceptions && plan.exceptions[dateStr]) || null;
+        const dayPlan = plan.weekly && plan.weekly[dayKey];
+        let label = null;
+        if (dayException) {
+            if (dayException.start && dayException.end) {
+                label = `🔧 ${dayException.start}-${dayException.end} (Ausnahme)`;
+            } else if (dayException.active === false) {
+                pause.push(`✗ ${vName} (Ausnahme: aus)`);
+                continue;
+            }
+        }
+        if (!label && dayPlan && dayPlan.start) {
+            label = `${dayPlan.start}-${dayPlan.end || '?'}`;
+        }
+        if (label) {
+            aktiv.push(`✓ ${vName} <code>${vid}</code> ${label}`);
+        }
+    }
+    let msg = `🚖 <b>SCHICHTPLAN ${DAY_NAMES[dayIdx]} ${dateDe}</b>\n\n`;
+    if (aktiv.length === 0) {
+        msg += '<i>Keine Fahrzeuge laut Wochenplan eingeteilt.</i>';
+    } else {
+        msg += aktiv.join('\n');
+        msg += `\n\n<b>Total: ${aktiv.length} Fahrzeuge eingeteilt</b>`;
+    }
+    if (pause.length > 0) {
+        msg += '\n\n<i>Ausnahme-AUS:</i>\n' + pause.join('\n');
+    }
+    return msg;
+}
+
+async function buildWeeklyShiftMessage() {
+    const shiftPlanSnap = await db.ref('shiftPlan').once('value');
+    const vehiclesSnap = await db.ref('vehicles').once('value');
+    const shiftPlan = shiftPlanSnap.val() || {};
+    const vehicles = vehiclesSnap.val() || {};
+    const DAY_KEYS = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'];
+    const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    let msg = '📅 <b>WOCHENPLAN (laut Wochenplan)</b>\n\n';
+    const allVehicles = Object.entries(shiftPlan).filter(([vid, plan]) =>
+        plan && typeof plan === 'object' && !['0','1','2','3','4'].includes(vid)
+    );
+    for (const [vid, plan] of allVehicles) {
+        const vData = vehicles[vid] || {};
+        const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
+        const tageStrings = [];
+        for (let i = 0; i < 7; i++) {
+            const dk = DAY_KEYS[i];
+            const dp = plan.weekly && plan.weekly[dk];
+            if (dp && dp.start) tageStrings.push(`${DAY_NAMES[i]} ${dp.start}-${dp.end || '?'}`);
+        }
+        if (tageStrings.length > 0) {
+            msg += `🚗 <b>${vName}</b>\n   ${tageStrings.join(' · ')}\n`;
+        }
+    }
+    return msg;
+}
+
+async function sendShiftBriefingToPatrick(source) {
+    const today = await buildShiftBriefingMessage();
+    const week = await buildWeeklyShiftMessage();
+    const full = today + '\n\n' + week;
+    await db.ref('claudeBridge/outbox').push({
+        message: full,
+        targetChatId: 6229490043,
+        via: 'claude',
+        ts: Date.now(),
+        source: source || 'shift-briefing'
+    });
+}
+
+exports.scheduledShiftBriefing = onSchedule(
+    { schedule: '0 6 * * *', region: 'europe-west1', timeZone: 'Europe/Berlin' },
+    async (event) => {
+        try {
+            await sendShiftBriefingToPatrick('scheduledShiftBriefing-06:00');
+            console.log('✅ Schicht-Briefing an Patrick gesendet (06:00)');
+        } catch (e) { console.error('Schicht-Briefing Fehler:', e.message); }
+    }
+);
+
+// On-Demand HTTP-Endpoint fuer sofortige Abfrage
+exports.shiftBriefingNow = onRequest(
+    { region: 'europe-west1', cors: true },
+    async (req, res) => {
+        try {
+            await sendShiftBriefingToPatrick('shiftBriefingNow-onDemand');
+            res.status(200).json({ ok: true, sent: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+);
+
 exports.scheduledShiftReminder = onSchedule(
     { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
     async (event) => {

@@ -1,7 +1,7 @@
 // 🆕 v6.62.402: Minimaler Service Worker für PWA-Installierbarkeit (buchen.html)
 // Zweck: Browser ("Zum Startbildschirm hinzufügen") verlangt einen aktiven SW
 // mit fetch-Handler. Wir cachen nichts aktiv — Network-only, kein Offline-Modus.
-const SW_VERSION = 'buchen-v6.62.402';
+const SW_VERSION = 'buchen-v6.62.763';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();

@@ -4263,10 +4263,27 @@
                 let waypoints = `${pickupCoords.lon},${pickupCoords.lat}`;
                 if (stoppCoords) waypoints += `;${stoppCoords.lon},${stoppCoords.lat}`;
                 waypoints += `;${destCoords.lon},${destCoords.lat}`;
-                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`);
+                // 🔧 v6.62.763 (Patrick 16.05. 07:56 "20 Kilometer Umweg"):
+                //   OSRM nimmt by-default die zeit-schnellste Route — bei Heringsdorf
+                //   fuehrt das ueber B111/Schnellstrecke (20 km, 21 min) statt der
+                //   kuerzeren Nebenstrecke (14 km, 22 min). Wir holen alternatives=true
+                //   und nehmen die KUERZESTE Route solange die Fahrzeit nicht >5 Min
+                //   schlechter ist. Spart Kunde 6 km × Tarif = ~15 €.
+                const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson&alternatives=true`);
                 const data = await resp.json();
                 if (data.routes && data.routes[0]) {
-                    const route = data.routes[0];
+                    let route = data.routes[0];
+                    if (data.routes.length > 1) {
+                        const fastest = data.routes.reduce((a, b) => a.duration <= b.duration ? a : b);
+                        const shortest = data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
+                        // Kuerzeste nehmen wenn maximal 5 Min langsamer als die Schnellste
+                        if ((shortest.duration - fastest.duration) <= 5 * 60) {
+                            route = shortest;
+                        } else {
+                            route = fastest;
+                        }
+                        console.log('[Route-Pick] fastest', (fastest.distance/1000).toFixed(1)+'km/'+(fastest.duration/60).toFixed(1)+'min', 'shortest', (shortest.distance/1000).toFixed(1)+'km/'+(shortest.duration/60).toFixed(1)+'min', '→ gewaehlt:', (route.distance/1000).toFixed(1)+'km');
+                    }
                     const km = (route.distance / 1000).toFixed(1);
                     const min = Math.ceil(route.duration / 60);
 
@@ -4292,12 +4309,15 @@
                         const aa = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLon/2)**2;
                         return R * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
                     };
-                    const _pInZone = _hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM;
-                    const _dInZone = _hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM;
+                    // v6.62.762: Defensive Check fuer Null-/String-Coords
+                    const _pValid = pickupCoords && typeof pickupCoords.lat === 'number' && typeof pickupCoords.lon === 'number';
+                    const _dValid = destCoords && typeof destCoords.lat === 'number' && typeof destCoords.lon === 'number';
+                    const _pInZone = _pValid ? (_hav(_KB_CENTER, pickupCoords) <= _KB_RADIUS_KM) : true; // Default: drin = kein Aufschlag
+                    const _dInZone = _dValid ? (_hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM) : true;
                     let _korridorAufschlag = 0, _korridorKm = 0;
+                    console.log('[KorridorCheck] pickup', pickupCoords, '_pValid', _pValid, '_pInZone', _pInZone, 'dest', destCoords, '_dValid', _dValid, '_dInZone', _dInZone);
                     // 🔧 v6.62.757 (Patrick 16.05. 07:03): Aufschlag NUR wenn BEIDE Punkte
                     //   ausserhalb der Kaiserbaeder. Pickup ODER Destination drin → kein Aufschlag.
-                    //   (Korrektur des v6.62.687-Fix der Destination ignorierte)
                     if (!_pInZone && !_dInZone) {
                         try {
                             const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;

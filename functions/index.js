@@ -27289,6 +27289,29 @@ exports.rideAction = onRequest(
                 if (_cleanRejected !== (_curRide.rejectedVehicles || null)) {
                     _acceptUpdate.rejectedVehicles = _cleanRejected;
                 }
+                // 🆕 v6.62.772 (Patrick 16.05. 10:23 "Bin mit Tesla unterwegs"):
+                //   Wenn vor dem FCM-Accept ein Reassign assignedVehicle genullt hat,
+                //   blieb die Ride mit status='accepted' aber leerem Fahrzeug-Feld
+                //   liegen. Folge: kein Track-Link-Update, keine 'Fahrer faehrt los'-
+                //   SMS, Native-Dashboard erkannte die Fahrt nicht als 'meine'.
+                //   Fix: assignedVehicle/vehicleId/assignedTo/vehicle/vehicleLabel/
+                //   vehiclePlate aus dem akzeptierenden Fahrzeug zurueckschreiben
+                //   wenn aktuell null.
+                if (vehicleId && !_curRide.assignedVehicle && !_curRide.vehicleId) {
+                    const _meta = OFFICIAL_VEHICLES[vehicleId] || {};
+                    _acceptUpdate.assignedVehicle = vehicleId;
+                    _acceptUpdate.vehicleId = vehicleId;
+                    _acceptUpdate.assignedTo = vehicleId;
+                    _acceptUpdate.assignedBy = 'fcm-notification-action';
+                    _acceptUpdate.assignedAt = now;
+                    if (_meta.name) {
+                        _acceptUpdate.vehicle = _meta.name;
+                        _acceptUpdate.vehicleLabel = _meta.name;
+                        _acceptUpdate.assignedVehicleName = _meta.name;
+                    }
+                    if (_meta.plate) _acceptUpdate.vehiclePlate = _meta.plate;
+                    console.log(`🔧 v6.62.772 rideAction: assignedVehicle war NULL → aus acceptedByVehicle ${vehicleId} rekonstruiert`);
+                }
                 await db.ref(`rides/${rideId}`).update(_acceptUpdate);
                 console.log(`✅ rideAction: ${rideId} → accepted via FCM-Action (vehicle ${vehicleId}) | rejectedVehicles bereinigt`);
                 try { await addRideLog(rideId, '✅', `Auftrag via FCM-Notification angenommen`, {

@@ -1557,16 +1557,54 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // 🆕 v6.62.780 (Patrick 16.05. 14:01): Tap auf Ziel-Zeile in der Ride-Card → MapPicker
     //   → Firebase rides/{id}/destination+coords werden aktualisiert. Vor allem fuer Einsteiger
     //   gedacht wo das Ziel zur Anlegezeit oft noch leer ist.
+    // 🆕 v6.62.784 (Patrick 16.05. 15:37): Plus 'GPS-Position als Ziel uebernehmen'-Option —
+    //   wenn Fahrer am Ziel angekommen ist, 1 Tap statt MapPicker.
     private void editRideDestination(Ride r) {
         if (r == null || r.id == null) return;
-        pendingDestEditRideId = r.id;
-        pendingPickerField = null;
-        pendingPickerCoords = null;
-        Intent i = new Intent(this, MapPickerActivity.class);
-        if (r.destination != null && !r.destination.isEmpty()) {
-            i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, r.destination);
-        }
-        mapPickerLauncher.launch(i);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🎯 Ziel setzen / aendern")
+            .setItems(new String[] {
+                "📍 GPS-Standort uebernehmen (du bist da)",
+                "🗺 Karten-Picker (Adresse suchen)",
+                "Abbrechen"
+            }, (d, which) -> {
+                if (which == 0) {
+                    // GPS aus aktuellem Vehicle holen + Reverse-Geocode + direkt in Firebase
+                    final String fRideId = r.id;
+                    Toast.makeText(this, "📡 GPS wird gelesen ...", Toast.LENGTH_SHORT).show();
+                    fetchVehicleGpsAndReverseGeocode((addr, lat, lon) -> {
+                        runOnUiThread(() -> {
+                            if (addr == null || addr.isEmpty()) {
+                                Toast.makeText(this, "⚠️ GPS-Standort nicht ermittelbar", Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            Map<String, Object> u = new HashMap<>();
+                            u.put("destination", addr);
+                            u.put("destinationLat", lat);
+                            u.put("destinationLon", lon);
+                            Map<String, Object> dc = new HashMap<>();
+                            dc.put("lat", lat); dc.put("lon", lon);
+                            u.put("destCoords", dc);
+                            u.put("updatedAt", System.currentTimeMillis());
+                            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                .getReference("rides/" + fRideId).updateChildren(u);
+                            Toast.makeText(this, "🎯 GPS-Ziel: " + addr, Toast.LENGTH_LONG).show();
+                            try { addLifecycleEntry(fRideId, "📍", "Ziel = GPS-Standort (Fahrer am Ziel)", addr); } catch (Throwable _e) {}
+                        });
+                    });
+                } else if (which == 1) {
+                    // Bestehender MapPicker-Pfad
+                    pendingDestEditRideId = r.id;
+                    pendingPickerField = null;
+                    pendingPickerCoords = null;
+                    Intent i = new Intent(this, MapPickerActivity.class);
+                    if (r.destination != null && !r.destination.isEmpty()) {
+                        i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, r.destination);
+                    }
+                    mapPickerLauncher.launch(i);
+                }
+            })
+            .show();
     }
 
     // Hilfsmethode: Lifecycle-Log-Eintrag schreiben (best-effort, no-op bei Fehler)

@@ -551,6 +551,9 @@
             cursor: pointer;
             position: relative;
         }
+        /* v6.62.754: Eigene Kacheln */
+        .kachel-card { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .kachel-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 28px rgba(0,0,0,0.16); }
 
         .service-card:hover {
             box-shadow: 0 16px 40px rgba(0,0,0,0.12);
@@ -1136,99 +1139,33 @@ const ANGEBOT = {
             <!-- 🔧 v6.62.627: Patrick (11.05. 19:34): "Also pauschal Restaurant Flughafen Berlin"
                  — die mit befuellten Sub-Pages zuerst. Reihenfolge: Pauschal, Restaurants,
                  Flughafen, Berlin, Ausflugsziele, dann die mageren SEO-Stubs danach. -->
-            <!-- 🆕 v6.62.198: Pauschalpreise als Service-Card (gelb abgesetzt) -->
-            <a class="service-card" href="pauschalpreise-swinoujscie.html">
-                <div class="service-hero" style="background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%);">
-                    <span class="service-emoji-big">🇵🇱</span>
-                </div>
-                <div class="service-body" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);">
-                    <h3 style="color:#92400e;">Pauschalpreise nach Świnoujście</h3>
-                    <p style="color:#78350f;">Festpreis ohne Überraschungen — Ahlbeck/Heringsdorf/Bansin → Promenade oder Zentrum. Bis 10:00 Uhr buchbar.</p>
-                    <span class="price-badge" style="background:#f59e0b;color:white;">ab 20&euro;</span>
-                </div>
+            <!-- v6.62.754: Patrick-Kacheln statt Unsplash -->
+            <a class="service-card kachel-card" href="pauschalpreise-swinoujscie.html">
+                <img src="images/08_Swinoujscie.png" alt="Pauschalpreise nach Swinoujscie ab 20€" style="width:100%;height:auto;display:block;">
             </a>
-            <!-- 🆕 v6.62.556: Restaurant-Card (Patrick) — Wir fahren Sie hin -->
-            <a class="service-card" href="restaurants-usedom.html">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">🍽️</span>
-                </div>
-                <div class="service-body" style="background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);">
-                    <h3 style="color:#9d174d;">Restaurants in der Nähe</h3>
-                    <p style="color:#831843;">Sie genießen, wir fahren — Hin- und Rückfahrt zu Restaurants auf Usedom. Ohne Promille-Risiko.</p>
-                    <span class="price-badge" style="background:#ec4899;color:white;">nach Tarif</span>
-                </div>
+            <a class="service-card kachel-card" href="restaurants-usedom.html">
+                <img src="images/07_Restaurants.png" alt="Restaurants in der Naehe" style="width:100%;height:auto;display:block;">
             </a>
-            <a class="service-card" href="flughafen-heringsdorf.html">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">✈️</span>
-                </div>
-                <div class="service-body">
-                    <h3>Flughafentransfer</h3>
-                    <p>Zuverl&auml;ssiger Transfer vom Flughafen Heringsdorf zu Ihrem Hotel oder Ferienhaus.</p>
-                    <span class="price-badge">ab 35&euro;</span>
-                </div>
+            <a class="service-card kachel-card" href="flughafen-heringsdorf.html">
+                <img src="images/01_Flughafentransfer.png" alt="Flughafentransfer ab 35€" style="width:100%;height:auto;display:block;">
             </a>
-            <!-- 🆕 v6.62.198: Berlin-Shuttle als Service-Card (blau abgesetzt) -->
-            <a class="service-card" href="berlin.html" id="berlin-shuttle">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1560969184-10fe8719e047?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">🚐</span>
-                </div>
-                <div class="service-body" style="background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 100%);color:white;">
-                    <h3 style="color:white;">Berlin-Shuttle</h3>
-                    <p style="color:#dbeafe;">Direkttransfer Berlin &harr; Usedom im Minibus. Donnerstags, bis 6 Personen, ~3:30 h.</p>
-                    <span class="price-badge" style="background:white;color:#1e3a8a;">299&euro; Hin &amp; R&uuml;ck</span>
-                </div>
+            <a class="service-card kachel-card" href="berlin.html">
+                <img src="images/09_Berlin_Shuttle.png" alt="Berlin-Shuttle" style="width:100%;height:auto;display:block;">
             </a>
-            <!-- 🆕 v6.62.586: Ausflugsziele-Card (Patrick 19:55) — Direkt-Link zu Top-Sehenswuerdigkeiten -->
-            <a class="service-card" href="ausflugsziele.html">
-                <div class="service-hero" style="background:linear-gradient(135deg,#059669 0%,#10b981 100%);">
-                    <span class="service-emoji-big">🌴</span>
-                </div>
-                <div class="service-body" style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);">
-                    <h3 style="color:#065f46;">Ausflugsziele auf Usedom</h3>
-                    <p style="color:#064e3b;">Peenemünde, Wasserschloss Mellenthin, Seebrücke Heringsdorf — entdecken Sie die Insel. Wir fahren Sie hin.</p>
-                    <span class="price-badge" style="background:#10b981;color:white;">nach Tarif</span>
-                </div>
+            <a class="service-card kachel-card" href="ausflugsziele.html">
+                <img src="images/06_Ausflugsziele_Usedom.png" alt="Ausflugsziele Usedom" style="width:100%;height:auto;display:block;">
             </a>
-            <a class="service-card" href="bahnhofstransfer.html">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">🚉</span>
-                </div>
-                <div class="service-body">
-                    <h3>Bahnhofstransfer</h3>
-                    <p>Wir holen Sie an jedem Bahnhof auf Usedom ab &mdash; Heringsdorf, Bansin, Ahlbeck.</p>
-                    <span class="price-badge">ab 10&euro;</span>
-                </div>
+            <a class="service-card kachel-card" href="bahnhofstransfer.html">
+                <img src="images/02_Bahnhofstransfer.png" alt="Bahnhofstransfer" style="width:100%;height:auto;display:block;">
             </a>
-            <a class="service-card" href="krankenfahrten.html">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">🏥</span>
-                </div>
-                <div class="service-body">
-                    <h3>Krankenfahrten</h3>
-                    <p>Fahrten zu &Auml;rzten, Kliniken und Krankenh&auml;usern. Direkte Abrechnung mit der Krankenkasse.</p>
-                    <span class="price-badge">Abrechnung</span>
-                </div>
+            <a class="service-card kachel-card" href="krankenfahrten.html">
+                <img src="images/03_Krankenfahrten.png" alt="Krankenfahrten" style="width:100%;height:auto;display:block;">
             </a>
-            <a class="service-card" href="inselfahrten.html">
-                <div class="service-hero" style="background-image:url('https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=600&amp;auto=format&amp;fit=crop&amp;q=80');">
-                    <span class="service-emoji-big">🏝️</span>
-                </div>
-                <div class="service-body">
-                    <h3>Inselfahrten</h3>
-                    <p>Alle Orte auf Usedom &mdash; von Peenem&uuml;nde bis Swinem&uuml;nde. Auch Tagesausfl&uuml;ge.</p>
-                    <span class="price-badge">nach Tarif</span>
-                </div>
+            <a class="service-card kachel-card" href="inselfahrten.html">
+                <img src="images/04_Inselfahrten.png" alt="Inselfahrten" style="width:100%;height:auto;display:block;">
             </a>
-            <a class="service-card" href="grossraumtaxi.html">
-                <div class="service-hero" style="background:linear-gradient(135deg,#0f766e 0%,#14b8a6 100%);">
-                    <span class="service-emoji-big">🚐</span>
-                </div>
-                <div class="service-body">
-                    <h3>Gro&szlig;raumtaxi</h3>
-                    <p>Platz f&uuml;r bis zu 8 Personen. Ideal f&uuml;r Familien und Gruppen.</p>
-                    <span class="price-badge">auf Anfrage</span>
-                </div>
+            <a class="service-card kachel-card" href="grossraumtaxi.html">
+                <img src="images/05_Grossraumtaxi.png" alt="Grossraumtaxi" style="width:100%;height:auto;display:block;">
             </a>
         </div>
     </div>

@@ -21313,18 +21313,22 @@ exports.onRideUpdated = onValueUpdated(
                     // Fahrer Patrick ist jetzt unterwegs'. Driver-Name aus
                     // vehicles/{vid}/shift/driverName lesen (wird ab v6.62.98 vom Native-
                     // Dashboard beim Schicht-Start geschrieben). Fallback: 'Ihr Fahrer'.
+                    // 🆕 v6.62.768 (Patrick 16.05. 09:06): driverName-Quelle erweitert —
+                    //   shift.driverName ODER currentDriverName (Native-Pairing ohne Schicht).
                     let _driverFirstName = null;
                     try {
                         const _vid = after.assignedVehicle || after.vehicleId;
                         if (_vid) {
-                            const _shiftSnap = await db.ref(`vehicles/${_vid}/shift`).once('value');
-                            const _shift = _shiftSnap.val() || {};
-                            const _full = _shift.driverName || '';
+                            const _vehSnap = await db.ref(`vehicles/${_vid}`).once('value');
+                            const _veh = _vehSnap.val() || {};
+                            const _full = (_veh.shift && _veh.shift.driverName) || _veh.currentDriverName || '';
                             _driverFirstName = _full ? _full.trim().split(/\s+/)[0] : null;
                         }
                     } catch (_dnErr) { /* Fallback: ohne Name */ }
+                    // 🆕 v6.62.768: "8 Pax" rausstrippen — SMS sonst zu lang.
+                    const _vehicleClean = (after.vehicle || '').replace(/\s*\d+\s*Pax\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
                     const _driverPart = _driverFirstName ? `Ihr Fahrer ${_driverFirstName} ist jetzt unterwegs zu Ihnen` : `Ihr Funk-Taxi-Fahrer ist jetzt unterwegs`;
-                    const _vehiclePart = after.vehicle ? ` mit dem ${after.vehicle}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
+                    const _vehiclePart = _vehicleClean ? ` mit dem ${_vehicleClean}${after.vehiclePlate ? ' (' + after.vehiclePlate + ')' : ''}` : '';
                     const _etaPart = _eta ? ` (${_eta})` : '';
                     // 🐛 v6.62.568: nutze _greet (mit Anrede) statt nur Nachname
                     _smsBody = `${_greet}${_driverPart}${_vehiclePart}${_etaPart}.\nLive-Verfolgung: ${_trackingLink}\nFunk Taxi Heringsdorf`;
@@ -21852,20 +21856,27 @@ exports.onRideUpdated = onValueUpdated(
                     const _custPhone = after.customerMobile || after.customerPhone;
                     // SMS nur wenn Mobil + nicht Festnetz (kostenlos, harmlos auch bei Mehrfach-Wechsel)
                     if (_custPhone && /^(\+49|0)1[5-9]/.test(String(_custPhone).replace(/\s/g, ''))) {
-                        const _vName = _newVName.replace(/Funk-?Taxi\s*/i, '').trim();
+                        // 🆕 v6.62.768 (Patrick 16.05. 09:06): "8 Pax" rausstrippen — SMS sonst zu lang.
+                        const _stripPax = (s) => (s || '').replace(/\s*\d+\s*Pax\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
+                        const _vName = _stripPax(_newVName.replace(/Funk-?Taxi\s*/i, ''));
+                        const _oldVNameClean = _stripPax(_oldVName);
                         const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                         // 🆕 v6.62.767 (Patrick 16.05. 08:46 "Fahrer ist immer noch nicht zu sehen auf der SMS"):
-                        //   Neuen Fahrer-Vornamen aus vehicles/{newVehicle}/shift/driverName lesen
-                        //   und in die Wechsel-SMS einbauen. Vorher: nur Fahrzeug-Modell ohne Fahrer.
+                        //   Neuen Fahrer-Vornamen + Kennzeichen einbauen. Quelle fuer driverName:
+                        //   1) vehicles/{vid}/shift/driverName (aktive Schicht)
+                        //   2) vehicles/{vid}/currentDriverName (Native-Pairing ohne Schicht, v6.62.768+)
                         let _newDriverFirst = '';
+                        let _newPlate = '';
                         try {
-                            const _newShiftSnap = await db.ref(`vehicles/${newVehicle}/shift`).once('value');
-                            const _newShift = _newShiftSnap.val() || {};
-                            const _fullName = _newShift.driverName || '';
+                            const _newVehSnap = await db.ref(`vehicles/${newVehicle}`).once('value');
+                            const _newVeh = _newVehSnap.val() || {};
+                            const _fullName = (_newVeh.shift && _newVeh.shift.driverName) || _newVeh.currentDriverName || '';
                             if (_fullName) _newDriverFirst = _fullName.trim().split(/\s+/)[0];
-                        } catch (_drvErr) { /* Fallback: ohne Name */ }
-                        const _driverInfo = _newDriverFirst ? ` (Fahrer ${_newDriverFirst})` : '';
-                        const _smsMsg = `Funktaxi: Fahrzeug-Update zu Ihrer Fahrt (${after.pickupTime || ''}): Statt ${_oldVName} kommt jetzt ${_vName}${_driverInfo}. Live: ${_trackLink}`;
+                            _newPlate = _newVeh.plate || '';
+                        } catch (_drvErr) { /* Fallback: ohne Name/Plate */ }
+                        const _platePart = _newPlate ? ` ${_newPlate}` : '';
+                        const _driverInfo = _newDriverFirst ? ` mit Fahrer ${_newDriverFirst}` : '';
+                        const _smsMsg = `Funktaxi: Fahrzeug-Update zu Ihrer Fahrt (${after.pickupTime || ''}): Statt ${_oldVNameClean} kommt jetzt ${_vName}${_platePart}${_driverInfo}. Live: ${_trackLink}`;
                         await db.ref('smsQueue').push({
                             phone: _custPhone,
                             text: _smsMsg,

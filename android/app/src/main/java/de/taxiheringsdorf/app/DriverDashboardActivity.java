@@ -312,6 +312,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
             tvDriverName.setText("👤 " + fallback);
             tvDriverName.setVisibility(View.VISIBLE);
         }
+        // 🆕 v6.62.768 (Patrick 16.05. 09:06): currentDriverName auf vehicle-Level
+        //   schreiben — unabhaengig vom Schicht-Start. Damit findet die Cloud-Function
+        //   (Vehicle-Wechsel-SMS) auch ohne aktive Schicht einen Fahrer-Namen.
+        final String vidForName = currentVehicleId;
+        if (fallback != null && vidForName != null) {
+            try {
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                    .getReference("vehicles/" + vidForName + "/currentDriverName")
+                    .setValue(fallback);
+            } catch (Throwable _wErr) { /* best-effort */ }
+        }
         // Asynchron /staff durchsuchen — wenn match → mit echtem Namen ersetzen
         final String uid = user.getUid();
         try {
@@ -327,6 +338,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             if (!fullName.isEmpty()) {
                                 tvDriverName.setText("👤 " + fullName);
                                 tvDriverName.setVisibility(View.VISIBLE);
+                                // 🆕 v6.62.768: echten /staff-Namen auch ins Vehicle schreiben.
+                                if (vidForName != null) {
+                                    try {
+                                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                            .getReference("vehicles/" + vidForName + "/currentDriverName")
+                                            .setValue(fullName);
+                                    } catch (Throwable _wErr) { /* best-effort */ }
+                                }
                             }
                             return;
                         }

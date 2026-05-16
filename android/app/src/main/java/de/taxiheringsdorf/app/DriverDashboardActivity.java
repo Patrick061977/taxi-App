@@ -1514,6 +1514,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // Pattern aus CrmSearchActivity uebernommen.
     private EditText pendingPickerField;
     private double[] pendingPickerCoords;
+    // 🆕 v6.62.780: Wenn nicht-null → MapPicker-Result wird in Firebase destination
+    //   der genannten Ride geschrieben statt in ein EditText-Feld.
+    private String pendingDestEditRideId;
     private final ActivityResultLauncher<Intent> mapPickerLauncher =
         registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -1522,12 +1525,64 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 String addr = d.getStringExtra(MapPickerActivity.EXTRA_RESULT_ADDR);
                 double lat = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LAT, Double.NaN);
                 double lon = d.getDoubleExtra(MapPickerActivity.EXTRA_RESULT_LON, Double.NaN);
+                // 🆕 v6.62.780: Ride-Destination-Edit-Pfad hat Vorrang
+                if (pendingDestEditRideId != null) {
+                    final String _rideId = pendingDestEditRideId;
+                    pendingDestEditRideId = null;
+                    if (addr != null && !addr.trim().isEmpty()) {
+                        Map<String, Object> u = new HashMap<>();
+                        u.put("destination", addr);
+                        if (!Double.isNaN(lat) && !Double.isNaN(lon)) {
+                            u.put("destinationLat", lat);
+                            u.put("destinationLon", lon);
+                            Map<String, Object> dc = new HashMap<>();
+                            dc.put("lat", lat); dc.put("lon", lon);
+                            u.put("destCoords", dc);
+                        }
+                        u.put("updatedAt", System.currentTimeMillis());
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                            .getReference("rides/" + _rideId).updateChildren(u);
+                        Toast.makeText(this, "🎯 Ziel aktualisiert: " + addr, Toast.LENGTH_SHORT).show();
+                        try { addLifecycleEntry(_rideId, "🎯", "Ziel geaendert via MapPicker", addr); } catch (Throwable _e) {}
+                    }
+                    return;
+                }
                 if (pendingPickerField != null && addr != null) pendingPickerField.setText(addr);
                 if (pendingPickerCoords != null && !Double.isNaN(lat) && !Double.isNaN(lon)) {
                     pendingPickerCoords[0] = lat;
                     pendingPickerCoords[1] = lon;
                 }
             });
+
+    // 🆕 v6.62.780 (Patrick 16.05. 14:01): Tap auf Ziel-Zeile in der Ride-Card → MapPicker
+    //   → Firebase rides/{id}/destination+coords werden aktualisiert. Vor allem fuer Einsteiger
+    //   gedacht wo das Ziel zur Anlegezeit oft noch leer ist.
+    private void editRideDestination(Ride r) {
+        if (r == null || r.id == null) return;
+        pendingDestEditRideId = r.id;
+        pendingPickerField = null;
+        pendingPickerCoords = null;
+        Intent i = new Intent(this, MapPickerActivity.class);
+        if (r.destination != null && !r.destination.isEmpty()) {
+            i.putExtra(MapPickerActivity.EXTRA_INITIAL_QUERY, r.destination);
+        }
+        mapPickerLauncher.launch(i);
+    }
+
+    // Hilfsmethode: Lifecycle-Log-Eintrag schreiben (best-effort, no-op bei Fehler)
+    private void addLifecycleEntry(String rideId, String emoji, String msg, String details) {
+        if (rideId == null) return;
+        try {
+            Map<String, Object> e = new HashMap<>();
+            e.put("ts", System.currentTimeMillis());
+            e.put("emoji", emoji);
+            e.put("msg", msg);
+            if (details != null) e.put("details", details);
+            e.put("quelle", "native_dashboard_dest_edit");
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(e);
+        } catch (Throwable _e) { /* swallow */ }
+    }
 
     private void launchMapPickerFor(EditText field, double[] coordsOut) {
         pendingPickerField = field;
@@ -2731,6 +2786,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     _destText = "🎯 " + (r.destination != null ? r.destination : "-") + _wpBuilder.toString();
                 }
                 tvDest.setText(_destText);
+                // 🆕 v6.62.780 (Patrick 16.05. 14:01): Tap auf Ziel-Zeile oeffnet MapPicker
+                //   damit Patrick bei Einsteiger (oder anderer aktiver Fahrt) das Ziel
+                //   nachtraeglich aendern kann. Nur bei aktiven Fahrten (sonst koennte
+                //   ein versehentlicher Tap die Adresse einer beendeten Fahrt aendern).
+                if (isActive) {
+                    tvDest.setOnClickListener(v -> editRideDestination(r));
+                } else {
+                    tvDest.setOnClickListener(null);
+                }
                 // v6.62.0: Patrick: 'da oben steht 8.45 Uhr aber jetzt ist 10.45 Uhr'.
                 // pickupTime kann eine ISO-UTC-Zeit sein ("2026-04-27T08:45:00.000Z") wenn die
                 // Buchung von Telegram/Web-App kommt. Direkt anzeigen → falsche UTC-Zeit.

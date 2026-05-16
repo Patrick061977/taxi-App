@@ -2790,7 +2790,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   damit Patrick bei Einsteiger (oder anderer aktiver Fahrt) das Ziel
                 //   nachtraeglich aendern kann. Nur bei aktiven Fahrten (sonst koennte
                 //   ein versehentlicher Tap die Adresse einer beendeten Fahrt aendern).
-                if (isActive) {
+                // 🐛 v6.62.781 Compile-Fix: isActive ist erst weiter unten deklariert →
+                //   inline isActiveStatus(r.status) nutzen.
+                if (isActiveStatus(r.status)) {
                     tvDest.setOnClickListener(v -> editRideDestination(r));
                 } else {
                     tvDest.setOnClickListener(null);

@@ -597,7 +597,7 @@
                  Hamburger-Menuezeichen faellt nicht so schoen auf". Sichtbarer
                  Anmelden-Button — durch onAuthStateChanged ein/ausgeblendet via
                  .header-login Klasse (vorhandener Mechanismus). -->
-            <a href="kunden.html" class="header-login" id="header-anmelden-btn" style="font-weight:700;display:inline-flex;align-items:center;gap:4px;">🔐 Anmelden</a>
+            <a href="kunden.html?v=776" class="header-login" id="header-anmelden-btn" style="font-weight:700;display:inline-flex;align-items:center;gap:4px;">🔐 Anmelden</a>
             <button id="hamburger-btn" onclick="toggleMenu()" style="background:none;border:none;color:white;font-size:26px;cursor:pointer;padding:4px 8px;line-height:1;">☰</button>
         </div>
     </div>
@@ -627,7 +627,7 @@
                     <span style="font-size:20px;">🚕</span>
                     <div><div style="font-size:15px;">Neue Fahrt buchen</div><div style="font-size:11px;color:#6b7280;font-weight:400;">Jetzt oder vorbestellen</div></div>
                 </a>
-                <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <a href="kunden.html?v=776" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                     <span style="font-size:20px;">📋</span>
                     <div><div style="font-size:15px;">Meine Fahrten</div><div style="font-size:11px;color:#6b7280;font-weight:400;">Buchungsübersicht & Stornierung</div></div>
                 </a>
@@ -639,7 +639,7 @@
                 <!-- Anfrage entfernt — Telefon + WhatsApp reichen -->
                 <div style="height:1px;background:#e5e7eb;margin:8px 0;"></div>
                 <div id="menu-auth-section">
-                    <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                    <a href="kunden.html?v=776" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                         <span style="font-size:20px;">👤</span>
                         <div><div style="font-size:15px;">Anmelden / Konto anlegen</div><div style="font-size:11px;color:#6b7280;font-weight:400;">SMS-Code oder mit Google · Daten verwalten</div></div>
                     </a>
@@ -713,7 +713,7 @@
         if (user && ident) {
             if (info) info.textContent = ident;
             if (section) section.innerHTML = `
-                <a href="kunden.html" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <a href="kunden.html?v=776" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;text-decoration:none;color:#1f2937;font-weight:600;margin-bottom:4px;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                     <span style="font-size:20px;">👤</span>
                     <div><div style="font-size:15px;">Mein Konto</div><div style="font-size:11px;color:#6b7280;font-weight:400;">${ident}</div></div>
                 </a>
@@ -1075,7 +1075,7 @@
             <p style="color:#64748b;margin-bottom:10px;font-size:13px;">Sie erhalten Updates sobald ein Fahrer zugewiesen ist.</p>
             <div id="success-details" style="background:#f0fdf4;padding:12px;border-radius:10px;text-align:left;font-size:13px;margin-bottom:10px;"></div>
             <div style="font-size:11px;color:#64748b;text-align:center;margin-bottom:6px;">
-                💡 Status jederzeit im <a href="kunden.html" style="color:#059669;font-weight:600;">Kundenportal</a> abrufen (Login per SMS oder Google)
+                💡 Status jederzeit im <a href="kunden.html?v=776" style="color:#059669;font-weight:600;">Kundenportal</a> abrufen (Login per SMS oder Google)
             </div>
             <div style="font-size:12px;color:#94a3b8;text-align:center;">
                 📞 <a href="tel:+493837822022" style="color:#059669;">038378 22022</a>

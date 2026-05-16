@@ -743,6 +743,12 @@
                     const _vehPlate = r.vehiclePlate || '';
                     const _drvName = r.driverName || '';
                     const _drvPhone = r.driverPhone || '';
+                    // 🆕 v6.62.773 (Patrick 16.05. 10:33): Fahrer-Name + Fahrzeug auch
+                    //   im Karten-Tooltip + ETA-Box anzeigen — nicht nur 'Fahrer in 5 Min'.
+                    //   Werte cachen damit der spaetere ETA-Update sie kennt.
+                    if (_drvName) window._lastKnownDriver = _drvName;
+                    if (_vehName) window._lastKnownVehicle = _vehName.replace(/\s*\d+\s*Pax\s*/gi, '').replace(/\s{2,}/g, ' ').trim();
+                    if (_vehPlate) window._lastKnownPlate = _vehPlate;
                     if (_vehName) {
                         let _vRow = `<div>🚖 <b>Fahrzeug:</b> ${_vehName}`;
                         if (_vehPlate) _vRow += ` <span style="color:#475569;">(${_vehPlate})</span>`;
@@ -762,14 +768,18 @@
                             const v = snap.val() || {};
                             const _addRows = [];
                             if (!_vehPlate && v.plate) _addRows.push(`<div>🚖 <b>Kennzeichen:</b> ${v.plate}</div>`);
-                            if (!_drvName && (v.driverName || v.assignedDriverName)) {
-                                const _dn = v.driverName || v.assignedDriverName;
+                            // 🆕 v6.62.773: shift.driverName ODER currentDriverName ODER assignedDriverName
+                            const _vDriverFull = (v.shift && v.shift.driverName) || v.driverName || v.currentDriverName || v.assignedDriverName;
+                            if (!_drvName && _vDriverFull) {
+                                const _dn = _vDriverFull;
                                 const _dp = v.driverPhone || v.assignedDriverPhone || '';
                                 let _dRow2 = `<div>👨‍✈️ <b>Fahrer:</b> ${_dn}`;
                                 if (_dp) _dRow2 += ` · <a href="tel:${_dp.replace(/\s+/g,'')}" style="color:#0ea5e9;text-decoration:none;font-weight:600;">📞 ${_dp}</a>`;
                                 _dRow2 += `</div>`;
                                 _addRows.push(_dRow2);
+                                window._lastKnownDriver = _dn;
                             }
+                            if (v.plate && !window._lastKnownPlate) window._lastKnownPlate = v.plate;
                             if (_addRows.length && _bd) _bd.insertAdjacentHTML('beforeend', _addRows.join(''));
                         }).catch(() => {});
                     }
@@ -1206,12 +1216,24 @@
                             window._vibedAtPickup = false;
                             const _eta = new Date(Date.now() + _min * 60000);
                             const _etaStr = _eta.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
-                            _box.innerHTML = `${label}: ca. <b>${_min} Min</b> (${_km.toFixed(1)} km) — Ankunft ~ <b>${_etaStr} Uhr</b>`;
-                            // 🆕 v6.62.383: Patrick (06.05. 18:45): "auf der Karte anzeigen
-                            // Fahrer ist in 5 Min vor Ort". Tooltip direkt am Vehicle-Marker.
+                            // 🆕 v6.62.773 (Patrick 16.05. 10:33): Fahrer-Name + Fahrzeug
+                            //   + Kennzeichen in ETA-Box + Karten-Tooltip einbauen — Kunde
+                            //   sieht nicht nur 'Fahrer in 5 Min' sondern 'Patrick im Tesla
+                            //   (PW-MY 222 E) in 5 Min'.
+                            const _drvFirst = (window._lastKnownDriver || '').trim().split(/\s+/)[0];
+                            const _vehShort = window._lastKnownVehicle || '';
+                            const _plate = window._lastKnownPlate || '';
+                            const _whoParts = [];
+                            if (_drvFirst) _whoParts.push(_drvFirst);
+                            if (_vehShort) _whoParts.push('im ' + _vehShort + (_plate ? ' (' + _plate + ')' : ''));
+                            const _whoLabel = _whoParts.length ? _whoParts.join(' ') : 'Fahrer';
+                            _box.innerHTML = `🚕 <b>${_whoLabel}</b><br>Ankunft in ca. <b>${_min} Min</b> (${_km.toFixed(1)} km) — gegen <b>${_etaStr} Uhr</b>`;
+                            // 🆕 v6.62.383/773: Tooltip am Vehicle-Marker — jetzt mit Name + Fahrzeug.
                             try {
                                 if (vehicleMarker && ['accepted','on_way','assigned'].includes(r.status)) {
-                                    const _tipText = `Fahrer in ${_min} Min vor Ort`;
+                                    const _tipText = _drvFirst
+                                        ? `${_drvFirst}${_vehShort ? ' (' + _vehShort + ')' : ''} in ${_min} Min vor Ort`
+                                        : `Fahrer in ${_min} Min vor Ort`;
                                     if (vehicleMarker.getTooltip()) {
                                         vehicleMarker.setTooltipContent(_tipText);
                                     } else {

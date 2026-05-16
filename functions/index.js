@@ -21925,6 +21925,11 @@ exports.onRideUpdated = onValueUpdated(
             } else {
                 try {
                     const _pickupLabel = after.pickupTime || 'Sofort';
+                    // 🆕 v6.62.785 (Patrick 16.05. 16:29): 'reason' fuer FCM-Push damit
+                    //   die Notification 'UMGEPLANT AUF DICH' / 'NEUE FAHRT' / 'NEUE
+                    //   VORBESTELLUNG' deutlich unterscheidet.
+                    const _wasReassign = oldVehicle && oldVehicle !== newVehicle;
+                    const _pushReason = _wasReassign ? 'reassign' : 'new';
                     await sendFCMToVehicle(newVehicle, {
                         type: 'new_ride',
                         rideId,
@@ -21933,7 +21938,8 @@ exports.onRideUpdated = onValueUpdated(
                         destination: after.destination || '',
                         pickupTime: _pickupLabel,
                         customerName: after.customerName || 'Kunde',
-                        isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false'
+                        isVorbestellung: after.status === 'vorbestellt' ? 'true' : 'false',
+                        reason: _pushReason
                     });
                 } catch (_fcmErr) {
                     console.warn('FCM-Push fehlgeschlagen:', _fcmErr.message);

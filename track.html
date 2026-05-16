@@ -441,15 +441,15 @@
             📍 Meinen Standort anzeigen
         </button>
 
-        <!-- 🆕 v6.62.564 / v6.62.583 (Patrick 10.05. 19:33): "Drei Dinger ist zu viel —
-             Ausflugsziele weg, nur Homepage + Restaurants, ein bisschen praesenter machen".
-             Zwei grosse Buttons statt drei kleine. -->
-        <div style="margin-top:14px;padding:14px;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;font-size:14px;line-height:1.5;">
-            <div style="font-weight:700;color:#9d174d;margin-bottom:8px;font-size:15px;">🍽️ Während Sie warten</div>
-            <div style="color:#475569;margin-bottom:12px;">Restaurant für nachher? Wir haben kuratierte Empfehlungen mit echten Bewertungen — Sterne-Küche bis Achterland-Geheimtipp.</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <a href="https://umwelt-taxi-insel-usedom.de/restaurants-usedom.html" target="_blank" rel="noopener" style="background:#ec4899;color:white;padding:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;text-align:center;">🍽️ Restaurants</a>
-                <a href="https://umwelt-taxi-insel-usedom.de/" target="_blank" rel="noopener" style="background:#1e293b;color:white;padding:12px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700;text-align:center;">🌐 Funk Taxi Heringsdorf</a>
+        <!-- 🆕 v6.62.774 (Patrick 16.05. 11:02): "die links unten gehen ein bisschen unter,
+             sieht abgeschnitten aus". Eine Spalte statt zwei → Buttons sind in voller Breite
+             und werden auf Mobile nicht mehr zusammengequetscht. Padding + Font + Marge groesser. -->
+        <div style="margin-top:16px;padding:16px;background:#fdf2f8;border:2px solid #f9a8d4;border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 2px 8px rgba(236,72,153,0.12);">
+            <div style="font-weight:800;color:#9d174d;margin-bottom:6px;font-size:17px;">🍽️ Während Sie warten</div>
+            <div style="color:#475569;margin-bottom:14px;font-size:14px;">Restaurant für nachher? Wir haben kuratierte Empfehlungen mit echten Bewertungen.</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <a href="https://umwelt-taxi-insel-usedom.de/restaurants-usedom.html" target="_blank" rel="noopener" style="background:#ec4899;color:white;padding:16px 14px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:800;text-align:center;display:block;">🍽️ Restaurants auf Usedom ansehen</a>
+                <a href="https://umwelt-taxi-insel-usedom.de/" target="_blank" rel="noopener" style="background:#1e293b;color:white;padding:16px 14px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:800;text-align:center;display:block;">🌐 Funk Taxi Heringsdorf — Homepage</a>
             </div>
         </div>
 
@@ -1569,7 +1569,7 @@
                         iconSize: [30, 30],
                         className: ''
                     })
-                }).addTo(map).bindPopup('Ihr Standort').openPopup();
+                }).addTo(map).bindPopup('<b>Ihr Standort</b><br><span style="color:#64748b;">Adresse wird ermittelt...</span>').openPopup();
                 myLocationCircle = L.circle([lat, lon], {
                     radius: accuracy || 50,
                     color: '#3b82f6',
@@ -1582,6 +1582,29 @@
                 if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
                 map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
                 if (btn) btn.textContent = '📍 Standort aktualisieren';
+                // 🆕 v6.62.774 (Patrick 16.05. 11:02): Reverse-Geocoding der Kunden-
+                //   Position. Patrick: "die wissen nicht wo sie sind, dann klicken
+                //   sie drauf, dann wird sofort geokodiert". Adresse wird in Popup
+                //   + location-info-Box geschrieben damit der Kunde den Fahrer
+                //   anrufen kann mit konkreter Adresse.
+                const _info = document.getElementById('location-info');
+                if (_info) _info.innerHTML = '📍 GPS gefunden — Adresse wird ermittelt...';
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+                    headers: { 'Accept-Language': 'de' }
+                }).then(r => r.json()).then(d => {
+                    const addr = d.display_name || '';
+                    const a = d.address || {};
+                    const short = [
+                        (a.road || a.pedestrian || a.footway || '') + (a.house_number ? ' ' + a.house_number : ''),
+                        a.postcode || '',
+                        a.city || a.town || a.village || a.suburb || ''
+                    ].filter(Boolean).join(', ');
+                    const display = short || addr || 'unbekannt';
+                    try { myLocationMarker.bindPopup(`<b>Ihr Standort</b><br>${display}`).openPopup(); } catch(_) {}
+                    if (_info) _info.innerHTML = `📍 <b>Sie sind hier:</b><br>${display}`;
+                }).catch(() => {
+                    if (_info) _info.innerHTML = '📍 GPS gefunden (Adresse konnte nicht ermittelt werden)';
+                });
             }, err => {
                 alert('Standort-Fehler: ' + err.message + '\n\nBitte GPS aktivieren und Browser-Berechtigung erlauben.');
                 if (btn) btn.textContent = '📍 Meinen Standort anzeigen';

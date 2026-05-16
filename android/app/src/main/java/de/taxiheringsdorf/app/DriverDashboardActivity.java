@@ -1630,10 +1630,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         etName.setInputType(InputType.TYPE_CLASS_TEXT);
         layout.addView(etName);
 
+        // v6.62.764 (Patrick 16.05. 08:15 "Da kann ich nicht scrollen"):
+        //   Einsteiger-Dialog Inhalt in ScrollView packen, sonst sind Felder
+        //   auf kleinen Displays unter der Tastatur unerreichbar.
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(layout);
+
         new AlertDialog.Builder(this)
             .setTitle("🚖 EINSTEIGER-Fahrt")
-            .setMessage("Walk-In-Fahrgast — wird sofort als 'picked_up' angelegt.")
-            .setView(layout)
+            .setView(scroll)
             .setPositiveButton("Anlegen + Starten", (d, w) -> {
                 String pickup = etPickup.getText().toString().trim();
                 String dest = etDest.getText().toString().trim();

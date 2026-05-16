@@ -4322,11 +4322,13 @@ function isInKaiserbaederZone(lat, lon) {
 }
 
 async function calcKorridorAnfahrtAufschlag(pickupLat, pickupLon, destLat, destLon) {
-    // 🆕 v6.62.687: Patrick (13.05. 18:02): "Anfahrt zum PICKUP, das ist am unkompliziertesten —
-    //   nicht der weiteste Punkt." Vereinfachte Regel: Aufschlag nur wenn pickup ausserhalb,
-    //   basiert nur auf Anfahrt-zum-Pickup. Destination-Position spielt keine Rolle mehr.
-    if (isInKaiserbaederZone(pickupLat, pickupLon)) {
-        return { km: 0, eur: 0, applied: false, reason: 'Pickup in Kaiserbaedern' };
+    // 🆕 v6.62.687: Patrick: "Anfahrt zum PICKUP, das ist am unkompliziertesten."
+    // 🔧 v6.62.756 (Patrick 16.05. 07:03): "Wenn Abholort ODER Zielort in den Kaiserbaedern,
+    //   dann KEINE Anfahrt. Nur wenn BEIDE ausserhalb."
+    //   Begruendung: Wenn der Tesla z.B. Flughafen → Heringsdorf faehrt, ist das eine
+    //   normale Hin-Strecke (er fuhr eh aus den Kaiserbaedern hin). Kein Aufschlag.
+    if (isInKaiserbaederZone(pickupLat, pickupLon) || isInKaiserbaederZone(destLat, destLon)) {
+        return { km: 0, eur: 0, applied: false, reason: 'Pickup ODER Destination in Kaiserbaedern' };
     }
     try {
         const r1 = await calculateRoute(KAISERBAEDER_CENTER, { lat: pickupLat, lon: pickupLon });

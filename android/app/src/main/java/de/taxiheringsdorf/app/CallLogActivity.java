@@ -990,6 +990,21 @@ public class CallLogActivity extends AppCompatActivity {
             Toast.makeText(this, "🔄 Getauscht", Toast.LENGTH_SHORT).show();
         });
 
+        // 🆕 v6.62.777 (Patrick 16.05. 11:26): Name-Eingabefeld in Sofort-Fahrt.
+        //   "Hallo Anrufer" in der Kunden-SMS sah unprofessionell aus. Patrick kann
+        //   jetzt den Namen waehrend des Anrufs eingeben — Default ist custName
+        //   (CRM-Name / Telefon-Anzeige-Name / 'Anrufer'), aber editierbar.
+        TextView lblName = new TextView(this);
+        lblName.setText("👤 Name fuer SMS-Anrede");
+        lblName.setTextSize(12);
+        lblName.setPadding(0, pad, 0, padHalf);
+        layout.addView(lblName);
+        EditText etName = new EditText(this);
+        etName.setHint("z.B. Schmidt — wird in 'Hallo Schmidt' verwendet");
+        etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        if (custName != null && !custName.equals("Anrufer")) etName.setText(custName);
+        layout.addView(etName);
+
         // Personenzahl
         TextView lblPax = new TextView(this);
         lblPax.setText("👥 Personenzahl");
@@ -1012,10 +1027,12 @@ public class CallLogActivity extends AppCompatActivity {
                     Toast.makeText(this, "Abholort fehlt", Toast.LENGTH_SHORT).show(); return;
                 }
                 int pax = (Integer) spPax.getSelectedItem();
+                String enteredName = etName.getText().toString().trim();
+                String finalName = !enteredName.isEmpty() ? enteredName : custName;
                 DatabaseReference ref = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push();
                 long now = System.currentTimeMillis();
                 Map<String, Object> r = new HashMap<>();
-                r.put("customerName", custName);
+                r.put("customerName", finalName);
                 if (crm != null) r.put("customerId", crm.id);
                 r.put("customerPhone", e.number);
                 r.put("customerMobile", crm != null && crm.mobilePhone != null ? crm.mobilePhone : e.number);

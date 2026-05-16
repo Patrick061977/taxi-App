@@ -53,16 +53,18 @@
 
         <!-- v6.62.369: Driver-Banner "Frei bis HH:MM · Naechste Vorbestellung HH:MM" -->
         <!-- Patrick (06.05. 14:30): "wie kriegen wir das dem Fahrer uebermittelt dass irgendwann ne Fahrt auf ihn zukommt" -->
+        <!-- v6.62.764 (Patrick 16.05. 08:15 "das ist alles zu gross irgendwie"):
+             Banner kompakter — Padding 8→5, Text 14→12 / 12→10. Spart vertikal ~12dp -->
         <LinearLayout
             android:id="@+id/freebusy_banner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="#059669"
             android:orientation="vertical"
-            android:paddingStart="14dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="8dp"
+            android:paddingStart="12dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="5dp"
             android:visibility="gone">
 
             <TextView
@@ -71,40 +73,42 @@
                 android:layout_height="wrap_content"
                 android:text="🟢 Frei für Sofort-Anfragen"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/freebusy_next"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="1dp"
                 android:textColor="#D1FAE5"
-                android:textSize="12sp"
+                android:textSize="10sp"
                 android:visibility="gone" />
         </LinearLayout>
 
         <!-- v6.47.0: Schlanke Toolbar — Hamburger links, Titel + Status, Schicht-Stats kompakt -->
+        <!-- v6.62.764 (Patrick 16.05. 08:15 "alles zu gross"): Toolbar
+             kompakter — Padding 10→6, Title 17→15, DriverName 13→11, VehicleInfo 11→10 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="8dp"
-            android:paddingTop="10dp"
+            android:paddingTop="6dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="10dp">
+            android:paddingBottom="6dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_menu"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
                 android:text="☰"
                 android:textColor="#F8FAFC"
-                android:textSize="26sp" />
+                android:textSize="22sp" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -118,20 +122,17 @@
                     android:layout_height="wrap_content"
                     android:text="🚕 Funk Taxi — Fahrer"
                     android:textColor="#F8FAFC"
-                    android:textSize="17sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
-                <!-- v6.62.304: Patrick (05.05. 14:11): "der Fahrer müsste sehen,
-                     dass er auch eingeloggt ist mit seinem Namen". Zeigt den Namen
-                     aus /staff (über linkedDriverId) bzw. Fallback auf User-Email. -->
                 <TextView
                     android:id="@+id/tv_driver_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="1dp"
                     android:text=""
                     android:textColor="#10B981"
-                    android:textSize="13sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
@@ -142,7 +143,7 @@
                     android:layout_marginTop="0dp"
                     android:text="Fahrzeug…"
                     android:textColor="#94A3B8"
-                    android:textSize="11sp" />
+                    android:textSize="10sp" />
             </LinearLayout>
 
             <TextView
@@ -150,13 +151,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="#475569"
-                android:paddingStart="8dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
+                android:paddingStart="7dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="3dp"
                 android:text="⏸ Aus"
                 android:textColor="#F8FAFC"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 

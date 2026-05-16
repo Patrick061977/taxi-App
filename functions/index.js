@@ -856,9 +856,17 @@ async function autoAssignRide(rideId, rideData) {
             }
 
             // 🆕 v6.38.97: Abgelehnte Fahrzeuge überspringen (Fahrer hat nicht bestätigt / abgelehnt)
+            // 🔧 v6.62.771 (Patrick 16.05. 09:54): "Wie soll er die Fahrt bestaetigen?
+            //   Er braucht doch gar keine Fahrt bestaetigen! Er wird doch gar nicht
+            //   erst gefragt." — Bei VORBESTELLUNGEN wird der Fahrer erst kurz vor
+            //   Losfahren per Push gefragt. Wenn rejectedVehicles aus einer frueheren
+            //   Sofort-Iteration noch dranhaengt, blockiert es das Fahrzeug komplett —
+            //   obwohl der Fahrer fuer die jetzt-anstehende Vorbestellung gar nicht
+            //   gefragt wurde. Fix: rejectedVehicles-Filter NUR bei Sofortfahrten
+            //   anwenden. Bei Vorbestellungen ignorieren.
             const _rejectedList = rideData._rejectedVehicles || rideData.rejectedVehicles || [];
-            if (_rejectedList.includes(vehicleId)) {
-                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt`);
+            if (isSofort && _rejectedList.includes(vehicleId)) {
+                console.log(`   ❌ ${info.name}: Vom Fahrer abgelehnt/nicht bestätigt (Sofort)`);
                 vehicleScores[vehicleId] = { status: 'rejected', reason: 'Fahrer hat nicht bestätigt', check: 'driver_rejected' };
                 continue;
             }

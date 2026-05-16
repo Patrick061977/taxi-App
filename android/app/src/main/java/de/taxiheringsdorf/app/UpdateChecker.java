@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -15,13 +16,21 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 // v6.52.1: Update-Banner-Logik aus DriverDashboardActivity extrahiert,
 // damit auch LoginActivity (und andere) den Update-Banner zeigen können.
@@ -223,27 +232,85 @@ public final class UpdateChecker {
     }
 
     // v6.62.209: Profi-Update-Flow. Patrick: "erst Schicht beenden + abmelden,
-    // dann Update installieren — keine Geist-Schichten in Firebase".
-    // Wenn aktive Schicht laeuft → Confirm + cleanShutdownForUpdate vor Install.
-    // Sonst (LoginActivity, Admin ohne Schicht): direkt installieren.
+    //   dann Update installieren — keine Geist-Schichten in Firebase".
+    // 🔧 v6.62.770 (Patrick 16.05. 09:26): "Wieso beendet er nicht immer die
+    //   Schicht jetzt wie vorhin automatisch, also dass er die Card bringt".
+    //   Bug: Confirm-Dialog kam nur wenn Activity == DriverDashboardActivity.
+    //   Wenn Patrick aus dem AdminDashboard installierte (gleicher Account, Tesla-
+    //   Schicht parallel aktiv), wurde direkt installiert → Geist-Schicht in
+    //   Firebase. Fix: SharedPrefs "driver"/vehicleId lesen, Firebase-Async-Check
+    //   ob shift.status == 'active'. Funktioniert in JEDER Activity die UpdateChecker
+    //   benutzt (DriverDashboard, AdminDashboard, LoginActivity).
+    private static final String DB_INSTANCE_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
+
     private static void launchInstallIntent(Activity activity, File apk) {
-        if (activity instanceof DriverDashboardActivity) {
-            DriverDashboardActivity dash = (DriverDashboardActivity) activity;
-            if (dash.isShiftActive()) {
-                new androidx.appcompat.app.AlertDialog.Builder(activity)
-                    .setTitle("Update installieren")
-                    .setMessage("Die laufende Schicht wird zuerst sauber beendet, danach startet die Installation.\n\nWeiter?")
-                    .setCancelable(false)
-                    .setPositiveButton("Schicht beenden + Update", (d, w) -> {
-                        Toast.makeText(activity, "Schicht wird beendet…", Toast.LENGTH_SHORT).show();
-                        dash.cleanShutdownForUpdate(() -> doInstallApk(activity, apk));
-                    })
-                    .setNegativeButton("Abbrechen", null)
-                    .show();
-                return;
-            }
+        SharedPreferences prefs = activity.getSharedPreferences("driver", Context.MODE_PRIVATE);
+        String vehicleId = prefs.getString("vehicleId", null);
+        if (vehicleId == null) {
+            SharedPreferences fcmPrefs = activity.getSharedPreferences("fcm", Context.MODE_PRIVATE);
+            vehicleId = fcmPrefs.getString("vehicleId", null);
         }
-        doInstallApk(activity, apk);
+        if (vehicleId == null) {
+            doInstallApk(activity, apk);
+            return;
+        }
+        final String fVid = vehicleId;
+        try {
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                .getReference("vehicles/" + fVid + "/shift/status")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                        String status = snap.getValue(String.class);
+                        if ("active".equals(status)) {
+                            activity.runOnUiThread(() -> showShiftEndDialog(activity, fVid, apk));
+                        } else {
+                            activity.runOnUiThread(() -> doInstallApk(activity, apk));
+                        }
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError err) {
+                        // Im Zweifel sicherheitshalber den Dialog zeigen
+                        activity.runOnUiThread(() -> showShiftEndDialog(activity, fVid, apk));
+                    }
+                });
+        } catch (Throwable t) {
+            Log.w(TAG, "shift.status-Check fehlgeschlagen: " + t.getMessage());
+            doInstallApk(activity, apk);
+        }
+    }
+
+    private static void showShiftEndDialog(Activity activity, String vehicleId, File apk) {
+        new androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("Update installieren")
+            .setMessage("Die laufende Schicht wird zuerst sauber beendet, danach startet die Installation.\n\nWeiter?")
+            .setCancelable(false)
+            .setPositiveButton("Schicht beenden + Update", (d, w) -> {
+                Toast.makeText(activity, "Schicht wird beendet…", Toast.LENGTH_SHORT).show();
+                // Wenn DriverDashboard: bestehenden Pfad nutzen (kein doppeltes Schreiben)
+                if (activity instanceof DriverDashboardActivity) {
+                    ((DriverDashboardActivity) activity).cleanShutdownForUpdate(() -> doInstallApk(activity, apk));
+                    return;
+                }
+                // Sonst (AdminDashboard, LoginActivity etc.) — Schicht direkt in Firebase beenden
+                try {
+                    DatabaseReference shiftRef = FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                        .getReference("vehicles/" + vehicleId + "/shift");
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("status", "ended");
+                    updates.put("endedAt", System.currentTimeMillis());
+                    updates.put("endedReason", "app_update");
+                    shiftRef.updateChildren(updates);
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                        .getReference("vehicles/" + vehicleId + "/online").setValue(false);
+                    Log.i(TAG, "🛑 Schicht beendet wegen App-Update (vehicle=" + vehicleId + ") — Activity=" + activity.getClass().getSimpleName());
+                } catch (Throwable t) {
+                    Log.w(TAG, "Schicht-Ende vor Update fehlgeschlagen: " + t.getMessage());
+                }
+                // 800ms warten damit Firebase committet, dann installieren
+                new android.os.Handler(android.os.Looper.getMainLooper())
+                    .postDelayed(() -> doInstallApk(activity, apk), 800);
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
     }
 
     static void doInstallApk(Activity activity, File apk) {

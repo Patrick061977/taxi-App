@@ -71,8 +71,10 @@ html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 1;
 }
 .poi-card:hover .poi-hover-video { opacity: 1; }
-.poi-card .poi-content { position: relative; z-index: 2; transition: opacity .25s; }
-.poi-card:hover .poi-content { opacity: 0.15; } /* Text fade-out wenn Video laeuft */
+/* 🐛 v6.62.790 (Patrick 16.05. 18:18): nur den TEXT-Body fade-out, NICHT das
+   Video/Image — sonst sieht man das Video bei Hover gar nicht (opacity 0.15). */
+.poi-card .card-body.poi-content { position: relative; z-index: 2; transition: opacity .25s; }
+.poi-card:hover .card-body.poi-content { opacity: 0.15; }
 
 /* Modal fuer Ziel-Info */
 .poi-modal-overlay {

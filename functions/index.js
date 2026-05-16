@@ -20693,7 +20693,13 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
         const _hasDuration = ride.duration || ride.estimatedDuration;
         const _hasDistance = ride.distance || ride.estimatedDistance;
 
-        if (!_hasPickup || !_hasDest) {
+        // 🆕 v6.62.782 (Patrick 16.05. 15:31): Einsteiger ohne Ziel ist legitim
+        //   (Kunde sagt es unterwegs). Pickup ist da, Dest fehlt → kein Alarm.
+        //   Tap-Ziel-Edit kann es spaeter setzen. Nur warnen wenn Pickup fehlt
+        //   ODER wenn die Ride nicht Einsteiger ist.
+        const _isEinsteigerWithoutDest = (ride.source === 'native_einsteiger' || ride.customerName === 'Einsteiger')
+            && _hasPickup && !_hasDest;
+        if ((!_hasPickup || !_hasDest) && !_isEinsteigerWithoutDest) {
             const _missing = [];
             if (!_hasPickup) _missing.push('Abholort-Koordinaten');
             if (!_hasDest) _missing.push('Zielort-Koordinaten');
@@ -20706,6 +20712,9 @@ ${ride.passengers ? `<tr><td style="padding:6px 0;color:#6b7280;">👥 Personen:
             await sendToAllAdmins(_warnMsg);
             await addRideLog(rideId, '⚠️', `Fehlende Daten: ${_missing.join(', ')}`, 'Route nicht berechenbar');
             await logDataInconsistency(rideId, ride, _missing.map(m => `${m} fehlt`));
+        } else if (_isEinsteigerWithoutDest) {
+            console.log(`ℹ️ Einsteiger ${rideId} ohne Ziel — Kunde nennt es unterwegs, kein Alarm`);
+            await addRideLog(rideId, 'ℹ️', `Einsteiger ohne Ziel — Kunde nennt es unterwegs`, 'Tap-Ziel-Edit verfuegbar');
         } else if (!_hasDuration && _hasPickup && _hasDest) {
             // Koordinaten da aber keine Duration → Route nachberechnen
             try {

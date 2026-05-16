@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -1401,6 +1402,15 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvPickup.setOnClickListener(v -> launchPlaces(tvPickup, pickupCoords));
         layout.addView(tvPickup);
 
+        // 🆕 v6.62.769 (Patrick 16.05. 09:09): Globale Quick-Picks fuer Pickup
+        //   (Flughafen, Bahnhoefe, Krankenhaeuser etc.) — laedt aus /settings/quickPicks.
+        //   Hybrid mit Auto-Top-aus-History weiter unten.
+        addGlobalQuickPicksRow(layout, "🛫 Schnellauswahl Abholort", (label, address, lat, lon) -> {
+            tvPickup.setText("📍 " + address);
+            pickupCoords[0] = lat; pickupCoords[1] = lon;
+            Toast.makeText(this, "📍 " + label, Toast.LENGTH_SHORT).show();
+        });
+
         TextView btnSwap = new TextView(this);
         btnSwap.setText("⇅ Abholort ↔ Ziel tauschen");
         btnSwap.setTextSize(13);
@@ -1430,6 +1440,13 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvDest.setPadding(pad / 2, pad, pad / 2, pad);
         tvDest.setOnClickListener(v -> launchPlaces(tvDest, destCoords));
         layout.addView(tvDest);
+
+        // 🆕 v6.62.769: Globale Quick-Picks fuer Zielort
+        addGlobalQuickPicksRow(layout, "🎯 Schnellauswahl Zielort", (label, address, lat, lon) -> {
+            tvDest.setText("🎯 " + address);
+            destCoords[0] = lat; destCoords[1] = lon;
+            Toast.makeText(this, "🎯 " + label, Toast.LENGTH_SHORT).show();
+        });
 
         btnSwap.setOnClickListener(_v -> {
             String pickTxt = tvPickup.getText().toString();
@@ -1619,6 +1636,35 @@ public class CrmSearchActivity extends AppCompatActivity {
         }
         layout.addView(spnPax);
 
+        // 🆕 v6.62.769 (Patrick 16.05. 09:13): Sofort/Vorbestellen-Toggle
+        //   Patrick: "Kann ich eigentlich auch eine Sofort-Fahrt aus der Native-App
+        //   erstellen?" — Ja, aber bisher musste man Datum+Zeit von Hand auf jetzt
+        //   setzen. Jetzt: 1 Tap auf 'Sofort' → pickupTimestamp = jetzt + 1 Min,
+        //   Datum/Zeit-Felder werden ausgegraut.
+        final boolean[] sofortMode = { false };
+        LinearLayout sofortRow = new LinearLayout(this);
+        sofortRow.setOrientation(LinearLayout.HORIZONTAL);
+        sofortRow.setPadding(0, pad, 0, padHalf);
+        TextView btnSofort = new TextView(this);
+        btnSofort.setText("⚡ Sofort");
+        btnSofort.setGravity(android.view.Gravity.CENTER);
+        btnSofort.setPadding(padHalf, padHalf, padHalf, padHalf);
+        btnSofort.setTextSize(14);
+        LinearLayout.LayoutParams sofortBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        sofortBtnLp.setMargins(0, 0, padHalf / 2, 0);
+        btnSofort.setLayoutParams(sofortBtnLp);
+        TextView btnVor = new TextView(this);
+        btnVor.setText("📅 Vorbestellen");
+        btnVor.setGravity(android.view.Gravity.CENTER);
+        btnVor.setPadding(padHalf, padHalf, padHalf, padHalf);
+        btnVor.setTextSize(14);
+        LinearLayout.LayoutParams vorBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        vorBtnLp.setMargins(padHalf / 2, 0, 0, 0);
+        btnVor.setLayoutParams(vorBtnLp);
+        sofortRow.addView(btnSofort);
+        sofortRow.addView(btnVor);
+        layout.addView(sofortRow);
+
         // Datum + Zeit (Default: jetzt + 1h, im Edit-Modus = pickupTimestamp der Ride)
         java.util.Calendar cal = java.util.Calendar.getInstance();
         if (isEdit && editRide.get("pickupTimestamp") instanceof Number) {
@@ -1670,6 +1716,33 @@ public class CrmSearchActivity extends AppCompatActivity {
             dpd.show();
         });
         layout.addView(tvDate);
+
+        // 🆕 v6.62.769: Toggle-Optik. 'Vorbestellen' bleibt der Default-Look,
+        //   'Sofort' (wenn aktiv) hebt sich gruen ab, Datum-Picker wird stumm.
+        Runnable applySofortLook = () -> {
+            if (sofortMode[0]) {
+                btnSofort.setBackgroundColor(0xFF059669);
+                btnSofort.setTextColor(0xFFFFFFFF);
+                btnVor.setBackgroundColor(0xFFE2E8F0);
+                btnVor.setTextColor(0xFF475569);
+                tvDate.setAlpha(0.45f);
+                tvDate.setClickable(false);
+                tvDate.setText("⚡ Sofort — pickup jetzt");
+                datetime[0] = System.currentTimeMillis() + 60_000L; // +1 Min Buffer
+                refreshDateLabel.run();
+            } else {
+                btnSofort.setBackgroundColor(0xFFE2E8F0);
+                btnSofort.setTextColor(0xFF475569);
+                btnVor.setBackgroundColor(0xFF1E40AF);
+                btnVor.setTextColor(0xFFFFFFFF);
+                tvDate.setAlpha(1f);
+                tvDate.setClickable(true);
+                refreshDateLabel.run();
+            }
+        };
+        applySofortLook.run();
+        btnSofort.setOnClickListener(_v -> { sofortMode[0] = true; applySofortLook.run(); });
+        btnVor.setOnClickListener(_v -> { sofortMode[0] = false; applySofortLook.run(); });
 
         // 🆕 v6.62.608: Live-Konflikt-Check unter dem Datum-Picker
         // Patrick (11.05. 12:44): "baue das mal ein, dass ich zumindest weiss, ob der
@@ -1980,9 +2053,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                 if (pax < 1) pax = 1;
                 if (pax > 8) pax = 8;
 
-                long pickupTs = datetime[0];
                 long now = System.currentTimeMillis();
-                if (pickupTs < now + 5L * 60_000L) {
+                // 🆕 v6.62.769: Bei Sofort-Mode pickupTimestamp IMMER auf jetzt+30s setzen
+                //   (Wert beim Toggle-Klick kann veraltet sein wenn User danach laenger braucht).
+                long pickupTs = sofortMode[0] ? (now + 30_000L) : datetime[0];
+                if (!sofortMode[0] && pickupTs < now + 5L * 60_000L) {
                     long minutesPast = (now - pickupTs) / 60_000L;
                     String msg = pickupTs < now
                         ? "❌ Pickup-Zeit liegt " + minutesPast + " Min in der Vergangenheit. Bitte Datum/Zeit ändern."
@@ -2030,7 +2105,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
                 }
                 r.put("customerId", e.id);
-                r.put("status", "vorbestellt");
+                // 🆕 v6.62.769: Sofort-Fahrt aus Native: status='new' + isJetzt=true
+                //   (statt 'vorbestellt'). Cloud-Function autoAssignRide nimmt dann
+                //   den Sofortfahrt-Pfad (GPS schlaegt alles, kein Schichtplan-Filter).
+                r.put("status", sofortMode[0] ? "new" : "vorbestellt");
+                if (sofortMode[0]) r.put("isJetzt", true);
                 r.put("pickup", pickup);
                 r.put("pickupLat", pickupCoords[0]);
                 r.put("pickupLon", pickupCoords[1]);
@@ -3254,5 +3333,87 @@ public class CrmSearchActivity extends AppCompatActivity {
                 itemView.setOnClickListener(_v -> showActionDialog(e));
             }
         }
+    }
+
+    // 🆕 v6.62.769 (Patrick 16.05. 09:09): Globale Quick-Picks (Flughafen, Bf, KH)
+    //   fuer Pickup oder Zielort. Laedt /settings/quickPicks aus Firebase und rendert
+    //   eine horizontal scrollende Chip-Reihe. Tap auf Chip → Callback bekommt
+    //   Label + Adresse + Koordinaten. Wenn /settings/quickPicks leer ist, fallback
+    //   auf hardcoded Standardliste.
+    private interface QuickPickHandler {
+        void onPicked(String label, String address, double lat, double lon);
+    }
+
+    private void addGlobalQuickPicksRow(LinearLayout container, String headerText, QuickPickHandler handler) {
+        int pad = (int) (getResources().getDisplayMetrics().density * 8);
+
+        TextView header = new TextView(this);
+        header.setText(headerText);
+        header.setTextSize(11);
+        header.setTextColor(0xFF64748B);
+        header.setPadding(0, pad / 2, 0, pad / 4);
+        container.addView(header);
+
+        HorizontalScrollView hsv = new HorizontalScrollView(this);
+        hsv.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        hsv.addView(row);
+        LinearLayout.LayoutParams hsvLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hsvLp.setMargins(0, 0, 0, pad / 2);
+        hsv.setLayoutParams(hsvLp);
+        container.addView(hsv);
+
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/quickPicks")
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    boolean rendered = false;
+                    if (snap.exists() && snap.getChildrenCount() > 0) {
+                        for (DataSnapshot child : snap.getChildren()) {
+                            String label = child.child("label").getValue(String.class);
+                            String address = child.child("address").getValue(String.class);
+                            Object lat = child.child("lat").getValue();
+                            Object lon = child.child("lon").getValue();
+                            if (label == null || address == null) continue;
+                            double dLat = (lat instanceof Number) ? ((Number) lat).doubleValue() : Double.NaN;
+                            double dLon = (lon instanceof Number) ? ((Number) lon).doubleValue() : Double.NaN;
+                            addQuickPickChip(row, label, address, dLat, dLon, handler);
+                            rendered = true;
+                        }
+                    }
+                    if (!rendered) {
+                        // Fallback-Defaults (kommen ins UI bis Patrick eigene Picks pflegt)
+                        addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
+                        addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.9518, 14.1648, handler);
+                        addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
+                        addQuickPickChip(row, "🚉 Bf Bansin", "Bansin, Bahnhof, Bahnhofstraße, 17429 Bansin", 53.9707, 14.1217, handler);
+                        addQuickPickChip(row, "🏥 KH Wolgast", "Krankenhaus Wolgast, Chausseestraße 46, 17438 Wolgast", 54.0490, 13.7676, handler);
+                        addQuickPickChip(row, "🏥 KH Greifswald", "Universitätsklinikum Greifswald, Fleischmannstraße 8, 17475 Greifswald", 54.0950, 13.4118, handler);
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError err) {
+                    // Fehler → Default-Liste anzeigen damit User trotzdem was hat
+                    addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
+                    addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.9518, 14.1648, handler);
+                    addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
+                }
+            });
+    }
+
+    private void addQuickPickChip(LinearLayout row, String label, String address, double lat, double lon, QuickPickHandler handler) {
+        int pad = (int) (getResources().getDisplayMetrics().density * 8);
+        TextView chip = new TextView(this);
+        chip.setText(label);
+        chip.setTextSize(13);
+        chip.setTextColor(0xFF0F172A);
+        chip.setBackgroundColor(0xFFF1F5F9);
+        chip.setPadding(pad + pad / 2, pad - 1, pad + pad / 2, pad - 1);
+        LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        chipLp.setMargins(0, 0, pad / 2, 0);
+        chip.setLayoutParams(chipLp);
+        chip.setOnClickListener(v -> handler.onPicked(label, address, lat, lon));
+        row.addView(chip);
     }
 }

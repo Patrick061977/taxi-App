@@ -984,15 +984,36 @@ public class CrmSearchActivity extends AppCompatActivity {
                 //   sub-Objekten beim raw getValue().
                 com.google.firebase.database.DataSnapshot _snap = task.getResult();
                 Map<String, Object> _full = (Map<String, Object>) _snap.getValue();
-                if (_full == null) {
-                    Toast.makeText(this, "❌ Daten leer", Toast.LENGTH_LONG).show();
-                    return;
-                }
+                if (_full == null) _full = new HashMap<>();
                 // Pickup + Destination IMMER per typisiertem getValue() lesen — robuster als Map-Cast
                 String _pickupDirect = _snap.child("pickup").getValue(String.class);
                 String _destDirect   = _snap.child("destination").getValue(String.class);
                 if (_pickupDirect != null) _full.put("pickup", _pickupDirect);
                 if (_destDirect != null) _full.put("destination", _destDirect);
+
+                // 🔧 v6.62.729 (Patrick 17.05. 10:19): Stukenbrock-Bug Fallback —
+                //   Firebase-RTDB-Cache-Verwechslung: vorheriges showRideHistoryDetail()
+                //   liest /rides/{id}/lifecycleLog → cached. openRideAsTemplate() liest dann
+                //   /rides/{id} → Cache liefert nur lifecycleLog-Sub statt voller Ride.
+                //   FALLBACK: Wenn pickup/destination im Firebase-Result LEER sind, dann
+                //   nutze die rideListEntry-Map die in showCustomerRideHistory() bereits
+                //   korrekt befuellt wurde (per .orderByChild("customerId")-Query, der
+                //   nicht den Single-ID-Cache trifft).
+                if (_pickupDirect == null || _destDirect == null) {
+                    Log.w("CrmSearch", "openRideAsTemplate: Firebase-Read leer für " + rideId + " → Fallback auf rideListEntry-Map");
+                    if (_pickupDirect == null && rideListEntry.get("pickup") != null) {
+                        _full.put("pickup", String.valueOf(rideListEntry.get("pickup")));
+                    }
+                    if (_destDirect == null && rideListEntry.get("destination") != null) {
+                        _full.put("destination", String.valueOf(rideListEntry.get("destination")));
+                    }
+                    // Andere Felder aus rideListEntry uebernehmen falls Cache sie ueberschrieben hat
+                    for (String _fld : new String[]{"passengers", "notes", "price", "drivingTimeToPickup"}) {
+                        if (!_full.containsKey(_fld) && rideListEntry.get(_fld) != null) {
+                            _full.put(_fld, rideListEntry.get(_fld));
+                        }
+                    }
+                }
                 // 🔧 v6.62.713/714/718: Hard-Diagnose
                 String _diagP1 = _pickupDirect != null ? _pickupDirect : "(null)";
                 String _diagD1 = _destDirect != null ? _destDirect : "(null)";

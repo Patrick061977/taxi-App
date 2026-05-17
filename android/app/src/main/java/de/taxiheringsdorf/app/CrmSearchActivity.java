@@ -3408,10 +3408,13 @@ public class CrmSearchActivity extends AppCompatActivity {
                         addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
                         // 🔧 v6.62.788 (Patrick 17.05. 11:04): Coords fixed — alte 53.9518/14.1648 zeigten 500m nördlich vom echten Bahnhof, was Stuckenbrock-Auto-Assign in Wartepool warf (OSRM 57m Distanz → no-route)
 addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
-                        addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
-                        addQuickPickChip(row, "🚉 Bf Bansin", "Bansin, Bahnhof, Bahnhofstraße, 17429 Bansin", 53.9707, 14.1217, handler);
-                        addQuickPickChip(row, "🏥 KH Wolgast", "Krankenhaus Wolgast, Chausseestraße 46, 17438 Wolgast", 54.0490, 13.7676, handler);
-                        addQuickPickChip(row, "🏥 KH Greifswald", "Universitätsklinikum Greifswald, Fleischmannstraße 8, 17475 Greifswald", 54.0950, 13.4118, handler);
+                        addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.935974, 14.188589, handler);
+                        // 🔧 v6.62.789 (Patrick 17.05. 11:25): Bf Bansin Coords waren 720m daneben (Nominatim-Verify) → 53.964391/14.129031
+                        addQuickPickChip(row, "🚉 Bf Bansin", "Bansin, Bahnhof, Bahnhofstraße, 17429 Bansin", 53.964391, 14.129031, handler);
+                        // 🔧 v6.62.789: KH Wolgast Coords waren 390m daneben → 54.052386/13.765703 (Kreiskrankenhaus Wolgast)
+                        addQuickPickChip(row, "🏥 KH Wolgast", "Kreiskrankenhaus Wolgast, Chausseestraße 46, 17438 Wolgast", 54.052386, 13.765703, handler);
+                        // 🔧 v6.62.789: Uniklinikum Greifswald Coords waren 1200m daneben → 54.088123/13.402352 (Universitätsmedizin Greifswald, Fleischmannstraße 8)
+                        addQuickPickChip(row, "🏥 UMG Greifswald", "Universitätsmedizin Greifswald, Fleischmannstraße 8, 17475 Greifswald", 54.088123, 13.402352, handler);
                     }
                 }
                 @Override public void onCancelled(@NonNull DatabaseError err) {
@@ -3419,7 +3422,7 @@ addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 
                     addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
                     // 🔧 v6.62.788 (Patrick 17.05. 11:04): Coords fixed — alte 53.9518/14.1648 zeigten 500m nördlich vom echten Bahnhof, was Stuckenbrock-Auto-Assign in Wartepool warf (OSRM 57m Distanz → no-route)
 addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
-                    addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
+                    addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.935974, 14.188589, handler);
                 }
             });
     }

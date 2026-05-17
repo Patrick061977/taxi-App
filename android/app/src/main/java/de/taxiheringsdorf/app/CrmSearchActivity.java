@@ -3406,7 +3406,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (!rendered) {
                         // Fallback-Defaults (kommen ins UI bis Patrick eigene Picks pflegt)
                         addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
-                        addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.9518, 14.1648, handler);
+                        // 🔧 v6.62.788 (Patrick 17.05. 11:04): Coords fixed — alte 53.9518/14.1648 zeigten 500m nördlich vom echten Bahnhof, was Stuckenbrock-Auto-Assign in Wartepool warf (OSRM 57m Distanz → no-route)
+addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
                         addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
                         addQuickPickChip(row, "🚉 Bf Bansin", "Bansin, Bahnhof, Bahnhofstraße, 17429 Bansin", 53.9707, 14.1217, handler);
                         addQuickPickChip(row, "🏥 KH Wolgast", "Krankenhaus Wolgast, Chausseestraße 46, 17438 Wolgast", 54.0490, 13.7676, handler);
@@ -3416,7 +3417,8 @@ public class CrmSearchActivity extends AppCompatActivity {
                 @Override public void onCancelled(@NonNull DatabaseError err) {
                     // Fehler → Default-Liste anzeigen damit User trotzdem was hat
                     addQuickPickChip(row, "🛫 Flughafen", "Flughafen Heringsdorf, 17419 Garz", 53.8785325, 14.1510213, handler);
-                    addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.9518, 14.1648, handler);
+                    // 🔧 v6.62.788 (Patrick 17.05. 11:04): Coords fixed — alte 53.9518/14.1648 zeigten 500m nördlich vom echten Bahnhof, was Stuckenbrock-Auto-Assign in Wartepool warf (OSRM 57m Distanz → no-route)
+addQuickPickChip(row, "🚉 Bf Heringsdorf", "Heringsdorf, Bahnhof, Am Bahnhof, 17424 Heringsdorf", 53.949313, 14.169976, handler);
                     addQuickPickChip(row, "🚉 Bf Ahlbeck", "Ahlbeck, Bahnhof, Bahnhofstraße, 17419 Ahlbeck", 53.9434, 14.1968, handler);
                 }
             });

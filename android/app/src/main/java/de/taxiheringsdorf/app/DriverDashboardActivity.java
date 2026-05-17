@@ -2020,15 +2020,26 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void cancelRide(String rideId) {
         if (db == null || rideId == null) return;
+        // 🆕 v6.62.790 (Patrick 17.05. 12:28): "Pool zurueck" als 5. Option
+        //   "der Kollege hat angenommen, schafft es nicht, will an Pool/anderen Fahrer geben".
+        //   Diese Option storniert NICHT, sondern setzt assignedVehicle=null +
+        //   status='vorbestellt' + autoAssignAttempts=0 → scheduledAutoAssign findet
+        //   neues Fahrzeug in <10 Min.
         String[] reasons = {
+            "🔄 Pool zurück — schaff ich nicht (anderer Fahrer übernimmt)",
             "Kunde nicht erschienen",
             "Adresse falsch / nicht erreichbar",
             "Fahrt nicht möglich (technisch)",
             "Sonstiges"
         };
         new AlertDialog.Builder(this)
-            .setTitle("Fahrt stornieren — Grund?")
+            .setTitle("Fahrt abgeben / stornieren?")
             .setItems(reasons, (d, which) -> {
+                if (which == 0) {
+                    // POOL-ZURUECK: nicht stornieren, freigeben fuer Auto-Assign
+                    passRideToPool(rideId);
+                    return;
+                }
                 Map<String, Object> u = new HashMap<>();
                 u.put("status", "cancelled");
                 u.put("cancelledAt", System.currentTimeMillis());
@@ -2038,6 +2049,38 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 u.put("updatedAt", System.currentTimeMillis());
                 db.getReference("rides/" + rideId).updateChildren(u);
                 Toast.makeText(this, "Fahrt storniert", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    // 🆕 v6.62.790 (Patrick 17.05. 12:28): Fahrt in den Pool zurueckgeben.
+    // Original-Fahrer gibt Fahrt frei → Cloud's scheduledAutoAssign weist sie neu zu.
+    // KEINE Stornierung, KEINE Kunden-Benachrichtigung — der Kunde merkt nichts ausser
+    // dass das Fahrzeug-Kennzeichen wechselt.
+    private void passRideToPool(String rideId) {
+        if (db == null || rideId == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle("🔄 An Pool zurueckgeben")
+            .setMessage("Diese Fahrt wird wieder freigegeben und automatisch an einen anderen Fahrer zugewiesen. Kein Kunden-Storno, kein Auswirkung auf deine Statistik.\n\nFortfahren?")
+            .setPositiveButton("Ja, abgeben", (d, w) -> {
+                Map<String, Object> u = new HashMap<>();
+                u.put("status", "vorbestellt");
+                u.put("assignedVehicle", null);
+                u.put("vehicleId", null);
+                u.put("assignedTo", null);
+                u.put("assignedAt", null);
+                u.put("assignedBy", "driver-pool-handback");
+                u.put("acceptedAt", null);
+                u.put("acceptedVia", null);
+                u.put("autoAssignAttempts", 0);
+                u.put("wartepoolReason", null);
+                u.put("wartepoolAt", null);
+                u.put("poolHandbackAt", System.currentTimeMillis());
+                u.put("poolHandbackBy", currentVehicleId);
+                u.put("updatedAt", System.currentTimeMillis());
+                db.getReference("rides/" + rideId).updateChildren(u);
+                Toast.makeText(this, "🔄 Fahrt freigegeben — wird neu zugewiesen", Toast.LENGTH_LONG).show();
             })
             .setNegativeButton("Abbrechen", null)
             .show();
@@ -2495,6 +2538,16 @@ public class DriverDashboardActivity extends AppCompatActivity {
         }
         pendingZettleRideId = rideId;
         pendingZettleAmount = amount;
+        // 🆕 v6.62.790 (Patrick 17.05. 12:29): Pending-State PERSISTIEREN — wenn Android
+        //   die Activity waehrend Zettle-App killt (Low-RAM), gehen sonst rideId+amount
+        //   verloren → Fahrer kommt aus Zettle zurueck und Bezahl-Dialog oeffnet wieder.
+        try {
+            getSharedPreferences("zettle_pending", MODE_PRIVATE).edit()
+                .putString("rideId", rideId)
+                .putFloat("amount", (float) amount)
+                .putLong("startedAt", System.currentTimeMillis())
+                .apply();
+        } catch (Throwable _t) {}
         try {
             // iZettle App-to-App Intent
             Intent i = new Intent("com.izettle.android.action.START_PAYMENT");
@@ -2524,14 +2577,37 @@ public class DriverDashboardActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_ZETTLE && pendingZettleRideId != null) {
-            if (resultCode == RESULT_OK) {
-                markCompleted(pendingZettleRideId, "izettle", pendingZettleAmount, "App-to-App Intent OK");
-            } else {
-                Toast.makeText(this, "iZettle: Bezahlung abgebrochen oder fehlgeschlagen", Toast.LENGTH_LONG).show();
+        if (requestCode == REQ_ZETTLE) {
+            // 🆕 v6.62.790 (Patrick 17.05. 12:29): Pending-State aus SharedPrefs lesen falls
+            //   Member-Variable null ist (Activity wurde im Hintergrund killed waehrend Zettle).
+            if (pendingZettleRideId == null) {
+                android.content.SharedPreferences sp = getSharedPreferences("zettle_pending", MODE_PRIVATE);
+                pendingZettleRideId = sp.getString("rideId", null);
+                pendingZettleAmount = sp.getFloat("amount", 0f);
             }
-            pendingZettleRideId = null;
-            pendingZettleAmount = 0;
+            if (pendingZettleRideId != null) {
+                if (resultCode == RESULT_OK) {
+                    markCompleted(pendingZettleRideId, "izettle", pendingZettleAmount, "App-to-App Intent OK");
+                } else {
+                    // 🆕 v6.62.790: Patrick 'kommt immer wieder in die Bezahl-Option zurueck'.
+                    //   Wenn resultCode != OK aber Geld dennoch geflossen ist (Zettle-Intent oft
+                    //   buggy), Fahrer manuell entscheiden lassen statt automatisch in Loop.
+                    final String _rideIdFinal = pendingZettleRideId;
+                    final double _amountFinal = pendingZettleAmount;
+                    new AlertDialog.Builder(this)
+                        .setTitle("💳 iZettle-Status unklar")
+                        .setMessage("Die Zettle-App hat keinen klaren OK-Status zurueckgegeben.\n\nIst die Bezahlung erfolgreich gewesen?\n\n• 'JA, BEZAHLT' → Fahrt wird abgeschlossen\n• 'NEIN, ABGEBROCHEN' → Bezahlung wiederholen oder andere Methode waehlen")
+                        .setPositiveButton("✓ JA, bezahlt", (d, w) -> markCompleted(_rideIdFinal, "izettle", _amountFinal, "Manuell bestaetigt (Zettle-Intent unklar)"))
+                        .setNeutralButton("✗ NEIN, abgebrochen", null)
+                        .setNegativeButton("Spaeter", null)
+                        .show();
+                }
+                pendingZettleRideId = null;
+                pendingZettleAmount = 0;
+                try {
+                    getSharedPreferences("zettle_pending", MODE_PRIVATE).edit().clear().apply();
+                } catch (Throwable _t) {}
+            }
         }
     }
 

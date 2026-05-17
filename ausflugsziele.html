@@ -1173,7 +1173,11 @@ function hideTooltip() {
 }
 
 // Tooltip selber bleibt offen wenn Maus drauf geht
-document.getElementById('poi-tooltip').addEventListener('mouseleave', hideTooltip);
+// 🔧 v6.62.731: Defensive — Tooltip wurde mit der Karte entfernt, addEventListener auf null crasht das ganze Script
+{
+    const _tt = document.getElementById('poi-tooltip');
+    if (_tt) _tt.addEventListener('mouseleave', hideTooltip);
+}
 
 // Filter-Buttons
 document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -1189,9 +1193,11 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 renderPois();
 
 // Klick außerhalb schließt Tooltip
+// 🔧 v6.62.731: Defensive — Tooltip nullable (Karte entfernt)
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.poi-hotspot') && !e.target.closest('.poi-tooltip')) {
-        document.getElementById('poi-tooltip').classList.remove('visible');
+        const _tt = document.getElementById('poi-tooltip');
+        if (_tt) _tt.classList.remove('visible');
         document.querySelectorAll('.poi-hotspot').forEach(h => h.classList.remove('active'));
     }
 });

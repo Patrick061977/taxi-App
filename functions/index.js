@@ -5095,6 +5095,105 @@ async function getAnthropicApiKey() {
     return snap.val() || null;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.793 (Patrick 17.05. 22:38): SMART-AUDIO-PRE-ANALYSE
+// Extrahiert aus Audio-Transkript ALLE Felder einer Buchung in EINEM
+// KI-Call. Wird VOR dem Customer-Anlage-Dialog aufgerufen — damit
+// Patrick nur EINEN Confirm-Klick braucht statt 5-6 Stufen.
+// Feature-Flag: /settings/telegram/smartAudioMode (default false).
+// ═══════════════════════════════════════════════════════════════
+async function extractAudioBookingData(transcript, callerPhone) {
+    if (!transcript || transcript.length < 5) return null;
+    const apiKey = await getAnthropicApiKey();
+    if (!apiKey) return null;
+    const _todayDate = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+    const _todayTime = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
+    const systemPrompt = `Du bist ein Taxi-Buchungs-Datenextraktor. Aktuelle Zeit in Berlin: ${_todayDate} ${_todayTime}. Anrufer-Telefon (Festnetz): ${callerPhone || 'unbekannt'}.
+
+Analysiere folgendes Anruf-Transkript eines Taxi-Kunden. Extrahiere alle Buchungs-Daten und gib NUR ein JSON-Objekt zurueck (keine Erklaerung davor/danach):
+
+{
+  "name": "Nachname des Anrufers" (oder null wenn nicht klar),
+  "mobilPhone": "Mobilnummer im E.164-Format wenn im Gespraech genannt" (oder null),
+  "pickup": "Abholadresse — moeglichst genau mit Ort. POI-Namen wie Hotel/Restaurant als Pickup akzeptieren" (oder null),
+  "destination": "Zieladresse" (oder null),
+  "pickupTimestamp": "absoluter Unix-Timestamp ms wann Abholung sein soll" (oder null),
+  "pickupTimeReadable": "menschenlesbare Zeit z.B. 'morgen 12:00' oder 'in 10 Minuten'" (oder null),
+  "passengers": Personenzahl als Nummer (oder null),
+  "gepaeck": true wenn Gepaeck erwaehnt sonst false,
+  "wagentyp": "klein"/"gross"/null je nach 'normales Taxi' vs 'Grossraumtaxi/Bus',
+  "tourType": "einfach"/"hin_und_zurueck"/null,
+  "festpreisEUR": Festpreis in Euro wenn explizit ausgemacht (oder null),
+  "notes": "Sonstige relevante Info (Stamm-Bahnhof, Flugnummer, Gehbehinderung etc.)",
+  "confidence": "high"/"medium"/"low" basierend auf wie klar alle Felder im Transkript waren
+}
+
+Regeln:
+- "morgen 12:00" → pickupTimestamp = morgen 12:00 Berlin-Zeit als Unix-Timestamp ms
+- "in 10 Minuten" → jetzt + 10*60*1000 ms
+- "Bansindorf" → "Bansin Dorf" (Bansin-Ortsteil)
+- "Melntin" → "Mellenthin"
+- POI-Namen wie "Fischers Fritz", "Wald und See" als pickup beibehalten (nicht zu Adresse zwingen)
+- Wenn Personenzahl >= 5 → wagentyp "gross"
+- "Hin und zurueck" mit Wartezeit → tourType "hin_und_zurueck"
+
+NUR JSON, keine Erklaerung.`;
+    try {
+        const resp = await callAnthropicAPI(apiKey, 'claude-sonnet-4-6', 1500, [
+            { role: 'user', content: systemPrompt + '\n\nTRANSKRIPT:\n' + transcript }
+        ]);
+        const txt = (resp?.content?.[0]?.text || '').trim();
+        // JSON aus Antwort extrahieren (KI baut manchmal Backticks)
+        const jsonMatch = txt.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+        const data = JSON.parse(jsonMatch[0]);
+        return data;
+    } catch (e) {
+        console.error('extractAudioBookingData Fehler:', e.message);
+        return null;
+    }
+}
+
+// Smart-Audio-Confirm-Karte zeigen (1-Klick-Anlage von Customer + Ride)
+async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, originalText, userName) {
+    const tokenId = Date.now().toString(36);
+    // Pending speichern: bei Confirm-Klick werden Customer + Ride angelegt
+    await setPending(chatId, {
+        _smartAudioPending: true,
+        _smartAudio: { extracted, callerPhone, originalText, userName },
+        tokenId
+    });
+    let msg = `🎙️ <b>Smart-Audio-Analyse</b>\n<i>(KI hat alles aus dem Transkript extrahiert)</i>\n\n`;
+    msg += `👤 Name: <b>${extracted.name || '?'}</b>\n`;
+    msg += `☎️ Festnetz: ${callerPhone}\n`;
+    if (extracted.mobilPhone) msg += `📱 Mobil: ${extracted.mobilPhone}\n`;
+    msg += `\n📍 Von: <b>${extracted.pickup || '?'}</b>\n`;
+    msg += `🎯 Nach: <b>${extracted.destination || '?'}</b>\n`;
+    if (extracted.pickupTimeReadable) msg += `🕐 Zeit: <b>${extracted.pickupTimeReadable}</b>\n`;
+    if (extracted.passengers) msg += `👥 Personen: <b>${extracted.passengers}</b>${extracted.gepaeck ? ' + Gepäck' : ''}\n`;
+    if (extracted.wagentyp === 'gross') msg += `🚐 Großraumtaxi\n`;
+    if (extracted.tourType === 'hin_und_zurueck') msg += `🔄 Hin und zurück\n`;
+    if (extracted.festpreisEUR) msg += `💰 Festpreis: ${extracted.festpreisEUR}€\n`;
+    if (extracted.notes) msg += `📝 ${extracted.notes}\n`;
+    msg += `\nKonfidenz: <b>${extracted.confidence || '?'}</b>`;
+    const hasAll = extracted.name && extracted.pickup && extracted.destination && extracted.pickupTimestamp;
+    const buttons = [];
+    if (hasAll) {
+        buttons.push([{ text: '✅ KOMPLETT anlegen + buchen', callback_data: `smart_audio_confirm_${tokenId}` }]);
+    } else {
+        msg += `\n\n⚠️ <i>Fehlt: ${[
+            !extracted.name && 'Name',
+            !extracted.pickup && 'Pickup',
+            !extracted.destination && 'Ziel',
+            !extracted.pickupTimestamp && 'Zeit'
+        ].filter(Boolean).join(', ')}</i>`;
+        buttons.push([{ text: '🔄 Klassischer Flow (alle Fragen)', callback_data: `smart_audio_fallback_${tokenId}` }]);
+    }
+    buttons.push([{ text: '✏️ Ändern (klassisch)', callback_data: `smart_audio_fallback_${tokenId}` }]);
+    buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
+    await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // 🆕 v6.10.1: POI-VORSCHLÄGE AUS FAVORITEN
@@ -10640,6 +10739,27 @@ async function handleMessage(message) {
         // 🔧 v6.11.6: Direkt Admin-Auswahl zeigen, Namens-Matching überspringen (zu fehleranfällig bei Transkripten)
         if (message._callerPhone && !message._callerCustomer && message._isAudioFile) {
             await addTelegramLog('📞', chatId, `Audio-Anrufer (Neukunde): ${message._callerPhone}`);
+            // 🆕 v6.62.793 (Patrick 17.05. 22:38): SMART-AUDIO-MODE
+            // Feature-Flag /settings/telegram/smartAudioMode (default false). Wenn ON:
+            // KI-Pre-Analyse VOR den statischen Customer-Anlage-Fragen. Bei vollstaendigen
+            // KI-Daten → 1-Klick-Confirm-Karte statt 5-6 Stufen.
+            try {
+                const _smartSnap = await db.ref('settings/telegram/smartAudioMode').once('value');
+                if (_smartSnap.val() === true) {
+                    await addTelegramLog('🤖', chatId, 'Smart-Audio-Mode aktiv — KI-Pre-Analyse laeuft...');
+                    const extracted = await extractAudioBookingData(text, message._callerPhone);
+                    if (extracted) {
+                        await addTelegramLog('🤖', chatId, `Smart-Audio Extract: name=${extracted.name||'?'} pickup=${(extracted.pickup||'?').slice(0,30)} dest=${(extracted.destination||'?').slice(0,30)} pers=${extracted.passengers||'?'} confidence=${extracted.confidence}`);
+                        await showSmartAudioConfirmCard(chatId, extracted, message._callerPhone, text, userName);
+                        return;
+                    }
+                    await addTelegramLog('⚠️', chatId, 'Smart-Audio Extract leer → Fallback alter Pfad');
+                }
+            } catch (_smartErr) {
+                console.error('Smart-Audio-Mode-Fehler:', _smartErr.message);
+                await addTelegramLog('❌', chatId, `Smart-Audio-Mode-Fehler: ${_smartErr.message} → Fallback alter Pfad`);
+            }
+            // ALTER PFAD (Default OFF — wird auch genutzt wenn KI-Extract fehlschlaegt)
             await setPending(chatId, { taxiChoice: { text, userName }, _callerPhone: message._callerPhone });
             await sendTelegramMessage(chatId,
                 `📞 <b>Unbekannte Nummer:</b> ${message._callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Was möchtest du tun?</b>`, {
@@ -12633,6 +12753,75 @@ async function handleCallback(callback) {
         await addTelegramLog('◀️', chatId, 'Zurück von Personenzahl → Uhrzeit-Auswahl');
         await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _dtPicker: true });
         await showDateTimePicker(chatId, booking, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.62.793 (Patrick 17.05. 22:38): Smart-Audio-Confirm — KOMPLETT Customer + Ride in 1 Klick anlegen
+    if (data.startsWith('smart_audio_confirm_') || data.startsWith('smart_audio_fallback_')) {
+        const pending = await getPending(chatId);
+        if (!pending || !pending._smartAudioPending) {
+            await sendTelegramMessage(chatId, '⚠️ Smart-Audio-Pending nicht gefunden (vermutlich abgelaufen). Bitte Audio neu senden.');
+            return;
+        }
+        const _smart = pending._smartAudio || {};
+        const extracted = _smart.extracted || {};
+        if (data.startsWith('smart_audio_fallback_')) {
+            // User will klassischen Flow → loesche smart-pending, starte alten Pfad
+            await deletePending(chatId);
+            await setPending(chatId, { taxiChoice: { text: _smart.originalText, userName: _smart.userName }, _callerPhone: _smart.callerPhone });
+            await sendTelegramMessage(chatId,
+                `📞 <b>Unbekannte Nummer:</b> ${_smart.callerPhone}\n<i>(nicht im CRM)</i>\n\n🚕 <b>Was möchtest du tun?</b>`, {
+                reply_markup: { inline_keyboard: [
+                    [{ text: '👤 Neukunde anlegen & buchen', callback_data: 'taxi_for_customer' }],
+                    [{ text: '📞 Nummer zu bestehendem Kunden hinzufügen', callback_data: 'add_phone_to_existing' }],
+                    [{ text: '🙋 Für mich selber buchen', callback_data: 'taxi_for_self' }]
+                ]}
+            });
+            return;
+        }
+        // Smart-Audio-Confirm — Customer + Ride in 1 Schritt anlegen
+        try {
+            // 1. Customer anlegen
+            const newCustomerName = extracted.name || ('Neukunde ' + _smart.callerPhone);
+            const _custKey = db.ref('customers').push().key;
+            const _custData = {
+                name: newCustomerName,
+                phone: _smart.callerPhone,
+                mobilePhone: extracted.mobilPhone || _smart.callerPhone,
+                customerKind: 'gelegenheitskunde',
+                createdAt: Date.now(),
+                createdVia: 'telegram-smart-audio-v793',
+                notes: extracted.notes || null
+            };
+            // Pickup als CRM-Adresse falls erkannt
+            if (extracted.pickup) _custData.address = extracted.pickup;
+            await db.ref('customers/' + _custKey).set(_custData);
+            await addTelegramLog('🤖', chatId, `Smart-Audio: Customer angelegt ${newCustomerName} (${_custKey})`);
+
+            // 2. Ride anlegen — direkt analyzeTelegramBooking aufrufen mit preselectedCustomer
+            const preselectedCustomer = {
+                customerId: _custKey,
+                id: _custKey,
+                name: newCustomerName,
+                phone: _smart.callerPhone,
+                mobilePhone: extracted.mobilPhone || _smart.callerPhone,
+                address: extracted.pickup || '',
+                defaultPickup: extracted.pickup || '',
+                customerKind: 'gelegenheitskunde'
+            };
+            await deletePending(chatId);
+            await sendTelegramMessage(chatId, `✅ <b>${newCustomerName}</b> angelegt — analysiere Buchung...`);
+            await analyzeTelegramBooking(chatId, _smart.originalText, _smart.userName, {
+                isAdmin: true,
+                preselectedCustomer,
+                isAudioTranscript: true,
+                _smartAudioPreparsed: extracted  // KI-Daten weitergeben fuer Auto-Confirm
+            });
+        } catch (_e) {
+            console.error('Smart-Audio-Confirm-Fehler:', _e.message);
+            await sendTelegramMessage(chatId, `❌ Smart-Audio-Fehler: ${_e.message}. Bitte klassisch buchen.`);
+            await deletePending(chatId);
+        }
         return;
     }
 

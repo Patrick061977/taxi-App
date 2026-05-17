@@ -894,8 +894,15 @@ async function autoAssignRide(rideId, rideData) {
 
             // v6.62.249: live shift.status='active' = Pflicht bei Sofortfahrten,
             // Wochenplan wird dann IGNORIERT. Patrick (10:42): "wer JETZT online ist
-            // soll fahren — Wochenplan egal bei Sofortfahrten". Bei Vorbestellungen
-            // bleibt Wochenplan-Pflicht (Pickup in Zukunft, Live-Status sagt nichts).
+            // soll fahren — Wochenplan egal bei Sofortfahrten".
+            //
+            // 🔧 v6.62.723 (Patrick 17.05. 07:38): Vorbestellungen sind STRIKT Wochenplan-Pflicht.
+            // KEIN Live-Override mehr. Wenn das Fahrzeug am Pickup-Datum/Zeit nicht im
+            // Wochenplan steht, darf es KEINE Vorbestellung uebernehmen — auch wenn der
+            // Fahrer JETZT live online ist (live-Status sagt nichts ueber Verfuegbarkeit
+            // am zukuenftigen Pickup-Zeitpunkt; Stale 'status=active' aus alter Schicht
+            // hat sonst die Johannknecht-Vorbestellung an pw-sk-222 ohne Sonntag-Dienst
+            // gegeben — siehe Ghost-Fall 17.05.).
             const _isShiftActive = _vData.shift && _vData.shift.status === 'active';
 
             if (isSofort) {
@@ -907,16 +914,12 @@ async function autoAssignRide(rideId, rideData) {
                 }
                 console.log(`   ✅ ${info.name}: Sofortfahrt — Schicht live aktiv (Wochenplan ignoriert)`);
             } else {
-                // Vorbestellung — Wochenplan ist Pflicht (mit live-Override)
+                // Vorbestellung — Wochenplan ist PFLICHT, kein Override mehr.
                 if (!_shiftOk || !_verifyOk.ok) {
-                    if (_isShiftActive) {
-                        console.log(`   ⚠️ ${info.name}: Vorbestellung — Kein Schichtplan, aber Schicht aktiv → erlaubt (Override)`);
-                    } else {
-                        if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
-                        console.log(`   ❌ ${info.name}: Vorbestellung — Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
-                        vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
-                        continue;
-                    }
+                    if (_shiftOk !== _verifyOk.ok) console.warn(`   ⚠️ DISKREPANZ ${info.name}: isVehicleInShift=${_shiftOk}, verify=${_verifyOk.ok} (${_verifyOk.reason})`);
+                    console.log(`   ❌ ${info.name}: Vorbestellung — Kein Dienst am ${dateStr} um ${timeStr} (${_verifyOk.reason})`);
+                    vehicleScores[vehicleId] = { status: 'rejected', reason: _verifyOk.reason || _shiftInfo.reason || 'Kein Dienst', check: 'shift', shiftDetails: _shiftInfo };
+                    continue;
                 }
             }
 

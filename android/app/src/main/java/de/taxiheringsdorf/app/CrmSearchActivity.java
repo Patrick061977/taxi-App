@@ -727,6 +727,31 @@ public class CrmSearchActivity extends AppCompatActivity {
                     // v6.62.601: drivingTimeToPickup laden fuer Push-Zeit-Anzeige
                     Object _drv = s.child("drivingTimeToPickup").getValue();
                     if (_drv instanceof Number) r.put("drivingTimeToPickup", ((Number) _drv).intValue());
+                    // 🆕 v6.62.791 (Patrick 17.05. 17:34): Koords mitladen damit der
+                    //   v6.62.787-Fallback in openRideAsTemplate auch die pickupCoords/destCoords
+                    //   uebernehmen kann. Sonst muss die neue Buchung live geocodet werden →
+                    //   oft fehlgeschlagen / falsche Adresse.
+                    Object _pLat = s.child("pickupLat").getValue();
+                    Object _pLon = s.child("pickupLon").getValue();
+                    Object _dLat = s.child("destinationLat").getValue();
+                    Object _dLon = s.child("destinationLon").getValue();
+                    if (_pLat instanceof Number) r.put("pickupLat", ((Number) _pLat).doubleValue());
+                    if (_pLon instanceof Number) r.put("pickupLon", ((Number) _pLon).doubleValue());
+                    if (_dLat instanceof Number) r.put("destinationLat", ((Number) _dLat).doubleValue());
+                    if (_dLon instanceof Number) r.put("destinationLon", ((Number) _dLon).doubleValue());
+                    // pickupCoords / destCoords als Map (Spiegel-Felder zu Lat/Lon)
+                    if (_pLat instanceof Number && _pLon instanceof Number) {
+                        Map<String, Object> pc = new HashMap<>();
+                        pc.put("lat", ((Number) _pLat).doubleValue());
+                        pc.put("lon", ((Number) _pLon).doubleValue());
+                        r.put("pickupCoords", pc);
+                    }
+                    if (_dLat instanceof Number && _dLon instanceof Number) {
+                        Map<String, Object> dc = new HashMap<>();
+                        dc.put("lat", ((Number) _dLat).doubleValue());
+                        dc.put("lon", ((Number) _dLon).doubleValue());
+                        r.put("destCoords", dc);
+                    }
                     rides.add(r);
                 }
                 // Neueste zuerst

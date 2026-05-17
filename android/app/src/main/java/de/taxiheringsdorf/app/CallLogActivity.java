@@ -476,6 +476,23 @@ public class CallLogActivity extends AppCompatActivity {
         };
         new ItemTouchHelper(swipe).attachToRecyclerView(rv);
 
+        // 🆕 v6.62.725 (Patrick 17.05. 09:19): Manueller Refresh-Button.
+        // Samsung-OneUI killt regelmaessig den 30s-Polling-Handler waehrend
+        // Patrick die Anrufliste-Activity offen hat → letzte Anrufe fehlen.
+        // Refresh-Button erzwingt loadCalls() — kein App-Neustart noetig.
+        android.widget.Button btnRefresh = findViewById(R.id.btn_calls_refresh);
+        if (btnRefresh != null) {
+            btnRefresh.setOnClickListener(v -> {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "🔄 Anrufliste wird aktualisiert", Toast.LENGTH_SHORT).show();
+                    loadCalls();
+                } else {
+                    Toast.makeText(this, "Berechtigung 'Anrufprotokoll' fehlt — bitte in Einstellungen aktivieren", Toast.LENGTH_LONG).show();
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALL_LOG}, REQ_PERM);
+                }
+            });
+        }
+
         // v6.62.386: Patrick (06.05. 19:46): "Andre/Lothar/Wegener nicht in der Anrufliste".
         // Versehentliches Wegswipen ist die wahrscheinlichste Ursache → Reset-Button macht
         // die hidden-Liste zentral aufloesbar ohne App-Daten-Cleanup.

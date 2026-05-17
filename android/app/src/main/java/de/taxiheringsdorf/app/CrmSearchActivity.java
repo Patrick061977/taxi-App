@@ -708,50 +708,29 @@ public class CrmSearchActivity extends AppCompatActivity {
                 }
                 List<Map<String, Object>> rides = new ArrayList<>();
                 for (DataSnapshot s : task.getResult().getChildren()) {
-                    Map<String, Object> r = new HashMap<>();
+                    // 🔧 v6.62.738 (Patrick 17.05. 19:55): Komplette Ride als Map laden statt
+                    //   Field-by-Field. So enthaelt rideListEntry ALLES (auch lifecycleLog,
+                    //   notes, vehicleScores etc.) und der Disposition-Pfad-Cache-Bug
+                    //   wird umgangen — openRideAsTemplate braucht keinen zweiten Firebase-Read
+                    //   mehr (war Quelle des Cache-Bugs).
+                    Map<String, Object> r;
+                    Object _rawVal = s.getValue();
+                    if (_rawVal instanceof Map) {
+                        r = new HashMap<>((Map<String, Object>) _rawVal);
+                    } else {
+                        r = new HashMap<>();
+                    }
                     r.put("id", s.getKey());
-                    r.put("pickup", s.child("pickup").getValue(String.class));
-                    r.put("destination", s.child("destination").getValue(String.class));
-                    r.put("status", s.child("status").getValue(String.class));
+                    // Pickup/destination ZUSAETZLICH typisiert lesen (Map-Cast hatte
+                    // bei manchen Rides null geliefert obwohl Firebase die Strings hatte —
+                    // vermutlich Kollision mit pickupCoords sub-Objekten beim raw getValue).
+                    String _pickupTyped = s.child("pickup").getValue(String.class);
+                    String _destTyped = s.child("destination").getValue(String.class);
+                    if (_pickupTyped != null) r.put("pickup", _pickupTyped);
+                    if (_destTyped != null) r.put("destination", _destTyped);
+                    // pickupTimestamp typisiert (war Long-Sortier-Schluessel)
                     Long _ts = s.child("pickupTimestamp").getValue(Long.class);
                     r.put("pickupTimestamp", _ts != null ? _ts : 0L);
-                    Object _price = s.child("price").getValue();
-                    r.put("price", _price);
-                    Object _pax = s.child("passengers").getValue();
-                    r.put("passengers", _pax instanceof Number ? ((Number) _pax).intValue() : 1);
-                    String _notes = s.child("notes").getValue(String.class);
-                    if (_notes != null) r.put("notes", _notes);
-                    // v6.62.598: invoiceNumber laden fuer Retro-Rechnung-Button
-                    String _invNr = s.child("invoiceNumber").getValue(String.class);
-                    if (_invNr != null) r.put("invoiceNumber", _invNr);
-                    // v6.62.601: drivingTimeToPickup laden fuer Push-Zeit-Anzeige
-                    Object _drv = s.child("drivingTimeToPickup").getValue();
-                    if (_drv instanceof Number) r.put("drivingTimeToPickup", ((Number) _drv).intValue());
-                    // 🆕 v6.62.791 (Patrick 17.05. 17:34): Koords mitladen damit der
-                    //   v6.62.787-Fallback in openRideAsTemplate auch die pickupCoords/destCoords
-                    //   uebernehmen kann. Sonst muss die neue Buchung live geocodet werden →
-                    //   oft fehlgeschlagen / falsche Adresse.
-                    Object _pLat = s.child("pickupLat").getValue();
-                    Object _pLon = s.child("pickupLon").getValue();
-                    Object _dLat = s.child("destinationLat").getValue();
-                    Object _dLon = s.child("destinationLon").getValue();
-                    if (_pLat instanceof Number) r.put("pickupLat", ((Number) _pLat).doubleValue());
-                    if (_pLon instanceof Number) r.put("pickupLon", ((Number) _pLon).doubleValue());
-                    if (_dLat instanceof Number) r.put("destinationLat", ((Number) _dLat).doubleValue());
-                    if (_dLon instanceof Number) r.put("destinationLon", ((Number) _dLon).doubleValue());
-                    // pickupCoords / destCoords als Map (Spiegel-Felder zu Lat/Lon)
-                    if (_pLat instanceof Number && _pLon instanceof Number) {
-                        Map<String, Object> pc = new HashMap<>();
-                        pc.put("lat", ((Number) _pLat).doubleValue());
-                        pc.put("lon", ((Number) _pLon).doubleValue());
-                        r.put("pickupCoords", pc);
-                    }
-                    if (_dLat instanceof Number && _dLon instanceof Number) {
-                        Map<String, Object> dc = new HashMap<>();
-                        dc.put("lat", ((Number) _dLat).doubleValue());
-                        dc.put("lon", ((Number) _dLon).doubleValue());
-                        r.put("destCoords", dc);
-                    }
                     rides.add(r);
                 }
                 // Neueste zuerst
@@ -992,111 +971,67 @@ public class CrmSearchActivity extends AppCompatActivity {
             Toast.makeText(this, "❌ Fahrt-ID fehlt", Toast.LENGTH_LONG).show();
             return;
         }
-        final ProgressDialog _pd = new ProgressDialog(this);
-        _pd.setMessage("Lade Fahrt-Daten als Vorlage…");
-        _pd.setCancelable(false);
-        _pd.show();
-        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rideId).get()
-            .addOnCompleteListener(task -> {
-                _pd.dismiss();
-                if (!task.isSuccessful() || task.getResult() == null || !task.getResult().exists()) {
-                    Toast.makeText(this, "❌ Fahrt nicht gefunden", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                // v6.62.718: pickup/destination direkt aus DataSnapshot lesen via child().getValue(String.class)
-                //   statt Map-Cast — der Cast hatte bei Schindel-Fahrten pickup/dest als null geliefert
-                //   obwohl Firebase die Werte als Strings hat. Vermutlich Kollision mit pickupCoords/destCoords
-                //   sub-Objekten beim raw getValue().
-                com.google.firebase.database.DataSnapshot _snap = task.getResult();
-                Map<String, Object> _full = (Map<String, Object>) _snap.getValue();
-                if (_full == null) _full = new HashMap<>();
-                // Pickup + Destination IMMER per typisiertem getValue() lesen — robuster als Map-Cast
-                String _pickupDirect = _snap.child("pickup").getValue(String.class);
-                String _destDirect   = _snap.child("destination").getValue(String.class);
-                if (_pickupDirect != null) _full.put("pickup", _pickupDirect);
-                if (_destDirect != null) _full.put("destination", _destDirect);
+        // 🔧 v6.62.738 (Patrick 17.05. 19:55): Disposition-Pfad vs CRM-Pfad angeglichen.
+        //   Frueher: zweiter Firebase-Read auf /rides/{id} → Cache-Bug lieferte nur lifecycleLog
+        //   → pickup/dest null (Schindel/Stukenbrock-Bug). Jetzt: KEIN zweiter Firebase-Read mehr.
+        //   showCustomerRideHistory laedt die ganze Ride als Map via s.getValue(), rideListEntry
+        //   enthaelt damit ALLES → direkt als Template-Quelle nutzen. Funktioniert genauso wie
+        //   der Disposition-Pfad 'Gleiche Strecke' (launchCrmTemplate → _runPendingTemplateIfReady).
+        if (rideListEntry == null || rideListEntry.isEmpty()) {
+            Toast.makeText(this, "❌ Fahrt-Daten fehlen", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Map<String, Object> _full = new HashMap<>(rideListEntry);
 
-                // 🔧 v6.62.729 (Patrick 17.05. 10:19): Stukenbrock-Bug Fallback —
-                //   Firebase-RTDB-Cache-Verwechslung: vorheriges showRideHistoryDetail()
-                //   liest /rides/{id}/lifecycleLog → cached. openRideAsTemplate() liest dann
-                //   /rides/{id} → Cache liefert nur lifecycleLog-Sub statt voller Ride.
-                //   FALLBACK: Wenn pickup/destination im Firebase-Result LEER sind, dann
-                //   nutze die rideListEntry-Map die in showCustomerRideHistory() bereits
-                //   korrekt befuellt wurde (per .orderByChild("customerId")-Query, der
-                //   nicht den Single-ID-Cache trifft).
-                if (_pickupDirect == null || _destDirect == null) {
-                    Log.w("CrmSearch", "openRideAsTemplate: Firebase-Read leer für " + rideId + " → Fallback auf rideListEntry-Map");
-                    if (_pickupDirect == null && rideListEntry.get("pickup") != null) {
-                        _full.put("pickup", String.valueOf(rideListEntry.get("pickup")));
-                    }
-                    if (_destDirect == null && rideListEntry.get("destination") != null) {
-                        _full.put("destination", String.valueOf(rideListEntry.get("destination")));
-                    }
-                    // Andere Felder aus rideListEntry uebernehmen falls Cache sie ueberschrieben hat
-                    for (String _fld : new String[]{"passengers", "notes", "price", "drivingTimeToPickup"}) {
-                        if (!_full.containsKey(_fld) && rideListEntry.get(_fld) != null) {
-                            _full.put(_fld, rideListEntry.get(_fld));
-                        }
-                    }
-                }
-                // 🔧 v6.62.713/714/718: Hard-Diagnose
-                String _diagP1 = _pickupDirect != null ? _pickupDirect : "(null)";
-                String _diagD1 = _destDirect != null ? _destDirect : "(null)";
-                Toast.makeText(this,
-                    "🔬 Firebase: pickup=" + (_diagP1.length() > 30 ? _diagP1.substring(0, 30) + "…" : _diagP1)
-                    + " | dest=" + (_diagD1.length() > 30 ? _diagD1.substring(0, 30) + "…" : _diagD1)
-                    + " | rideId=" + rideId.substring(rideId.length() - 6),
-                    Toast.LENGTH_LONG).show();
-                try {
-                    java.util.Map<String, Object> _diagEntry = new java.util.HashMap<>();
-                    _diagEntry.put("ts", System.currentTimeMillis());
-                    _diagEntry.put("icon", "🔬");
-                    _diagEntry.put("event", "openRideAsTemplate Firebase-Load v718");
-                    _diagEntry.put("rideId", rideId);
-                    _diagEntry.put("pickup", _diagP1);
-                    _diagEntry.put("destination", _diagD1);
-                    // Vergleichswerte aus Map-Cast (war buggy)
-                    _diagEntry.put("pickupFromMap", _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)");
-                    _diagEntry.put("destFromMap", _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)");
-                    _diagEntry.put("allKeys", new java.util.ArrayList<>(_full.keySet()));
-                    _diagEntry.put("source", "native-CrmSearchActivity-v6.62.720");
-                    // v6.62.720: settings/buchenLog hatte 3.2M Bloat-Eintraege → Schindel-Diag separat
-                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/schindelDiag").push().setValue(_diagEntry);
-                } catch (Throwable _diagErr) {
-                    Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _diagErr.getMessage());
-                }
-                // Audit-/Assign-/Status-Felder entfernen damit das Template eine
-                // NEUE Buchung wird — Patrick setzt Datum neu, Cloud weist Fahrzeug
-                // neu zu.
-                Map<String, Object> _template = new HashMap<>(_full);
-                _template.remove("pickupTimestamp");
-                _template.remove("pickupTime");
-                _template.remove("vehicleId");
-                _template.remove("assignedVehicle");
-                _template.remove("assignedTo");
-                _template.remove("assignedAt");
-                _template.remove("assignedBy");
-                _template.remove("acceptedAt");
-                _template.remove("acceptedVia");
-                _template.remove("status");
-                _template.remove("createdAt");
-                _template.remove("updatedAt");
-                _template.remove("completedAt");
-                _template.remove("cancelledAt");
-                _template.remove("cancelReason");
-                _template.remove("invoiceNumber");
-                _template.remove("paymentMethod");
-                // 🆕 v6.62.546: Patrick (10.05.): "wir können den Preis nicht eintragen
-                // oder verändern, dass wir als Vorlage schon den Festpreis eintragen
-                // können. Sonst Stammfahrten dass ich die einfach bloss dupliziere und
-                // der Preis übernommen wird." → price BLEIBT als Default im Template,
-                // wird in der Maske vorbefuellt + ist editierbar. Kein remove mehr.
-                _template.remove("editedAt");
-                _template.remove("editedVia");
-                _template.remove("source"); // wird auf 'native_vorbestellung_crmsearch' gesetzt
-                Toast.makeText(this, "📋 Vorlage geladen — wähle neuen Termin", Toast.LENGTH_SHORT).show();
-                showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
-            });
+        // Diag-Log (nur noch fuer Stichprobe — Cache-Bug ist behoben durch oben)
+        try {
+            String _pickupStr = _full.get("pickup") != null ? String.valueOf(_full.get("pickup")) : "(null)";
+            String _destStr = _full.get("destination") != null ? String.valueOf(_full.get("destination")) : "(null)";
+            java.util.Map<String, Object> _diagEntry = new java.util.HashMap<>();
+            _diagEntry.put("ts", System.currentTimeMillis());
+            _diagEntry.put("icon", "🔬");
+            _diagEntry.put("event", "openRideAsTemplate v6.62.738 (rideListEntry direkt)");
+            _diagEntry.put("rideId", rideId);
+            _diagEntry.put("pickup", _pickupStr);
+            _diagEntry.put("destination", _destStr);
+            _diagEntry.put("allKeys", new java.util.ArrayList<>(_full.keySet()));
+            _diagEntry.put("source", "native-CrmSearchActivity-v6.62.738");
+            FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("settings/schindelDiag").push().setValue(_diagEntry);
+        } catch (Throwable _diagErr) {
+            Log.w("CrmSearch", "Diag-Log-Write-Fehler: " + _diagErr.getMessage());
+        }
+
+        // Audit-/Assign-/Status-Felder entfernen damit das Template eine NEUE Buchung wird —
+        // Patrick setzt Datum neu, Cloud weist Fahrzeug neu zu.
+        Map<String, Object> _template = new HashMap<>(_full);
+        _template.remove("pickupTimestamp");
+        _template.remove("pickupTime");
+        _template.remove("vehicleId");
+        _template.remove("assignedVehicle");
+        _template.remove("assignedTo");
+        _template.remove("assignedAt");
+        _template.remove("assignedBy");
+        _template.remove("acceptedAt");
+        _template.remove("acceptedVia");
+        _template.remove("status");
+        _template.remove("createdAt");
+        _template.remove("updatedAt");
+        _template.remove("completedAt");
+        _template.remove("cancelledAt");
+        _template.remove("cancelReason");
+        _template.remove("invoiceNumber");
+        _template.remove("paymentMethod");
+        // 🆕 v6.62.546: price BLEIBT als Default im Template (Stammfahrten-Festpreis)
+        _template.remove("editedAt");
+        _template.remove("editedVia");
+        _template.remove("source"); // wird auf 'native_vorbestellung_crmsearch' gesetzt
+        // v6.62.738: lifecycleLog + vehicleScores raus aus dem Template (sind Ride-spezifisch,
+        // werden bei der neuen Ride von der Cloud neu generiert).
+        _template.remove("lifecycleLog");
+        _template.remove("vehicleScores");
+        _template.remove("id"); // Synthetisches Feld aus showCustomerRideHistory, keine echte Ride-ID
+        Toast.makeText(this, "📋 Vorlage geladen — wähle neuen Termin", Toast.LENGTH_SHORT).show();
+        showVorbestellungMaske(e, new ArrayList<>(), new HashMap<>(), null, _template);
     }
 
     // 🆕 v6.62.483: Bearbeiten-Dialog für eine bestehende Vorbestellung. Lädt die volle

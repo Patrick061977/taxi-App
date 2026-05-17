@@ -47,6 +47,7 @@ on:
       - 'inselfahrten.html'
       - 'grossraumtaxi.html'
       - 'pauschalpreise-swinoujscie.html'
+      - 'taxi-hotel-usedom.html'
       - 'restaurants-usedom.html'
       # 🆕 v6.62.746: Kein-Bock-zu-Laufen Marketing-Sprungbrett-Page (Patrick 15.05.)
       - 'kein-bock-zu-laufen.html'

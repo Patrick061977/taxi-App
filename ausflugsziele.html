@@ -1323,7 +1323,12 @@ function renderPois() {
                 const v = card.querySelector('.card-img');
                 card.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
                 card.addEventListener('mouseleave', () => { v.pause(); v.currentTime = 0; });
-                // Klick auf Card → Modal (nicht auf Button-Link)
+            }
+            // 🔧 v6.62.724 (Patrick 17.05. 09:12): Klick-Handler IMMER setzen,
+            // nicht nur bei Video-POIs — Phaenomenta (nur Bild + longDesc) blieb
+            // sonst weiss beim Klick, weil der Handler im if(p.video)-Block stand.
+            if (p.video || p.longDesc) {
+                card.style.cursor = 'pointer';
                 card.addEventListener('click', (ev) => {
                     if (ev.target.closest('.card-btn')) return;
                     openPoiModal(p);

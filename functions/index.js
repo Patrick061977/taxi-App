@@ -5108,12 +5108,12 @@ async function extractAudioBookingData(transcript, callerPhone) {
     if (!apiKey) return null;
     const _todayDate = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
     const _todayTime = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-    const systemPrompt = `Du bist ein Taxi-Buchungs-Datenextraktor. Aktuelle Zeit in Berlin: ${_todayDate} ${_todayTime}. Anrufer-Telefon (Festnetz): ${callerPhone || 'unbekannt'}.
+    const systemPrompt = `Du bist ein Taxi-Buchungs-Datenextraktor. Aktuelle Zeit in Berlin: ${_todayDate} ${_todayTime}. Anrufer-Telefon: ${callerPhone || 'unbekannt'}.
 
 Analysiere folgendes Anruf-Transkript eines Taxi-Kunden. Extrahiere alle Buchungs-Daten und gib NUR ein JSON-Objekt zurueck (keine Erklaerung davor/danach):
 
 {
-  "name": "Nachname des Anrufers" (oder null wenn nicht klar),
+  "name": "Name wie der Anrufer sich vorstellt — Vorname, Nachname, 'Herr X', 'Frau Y', oder kompletter Name. NICHT null wenn der Anrufer sich irgendwie vorstellt" (oder null wenn wirklich kein Name im Transkript),
   "mobilPhone": "Mobilnummer im E.164-Format wenn im Gespraech genannt" (oder null),
   "pickup": "Abholadresse — moeglichst genau mit Ort. POI-Namen wie Hotel/Restaurant als Pickup akzeptieren" (oder null),
   "destination": "Zieladresse" (oder null),
@@ -5165,8 +5165,11 @@ async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, origina
     });
     let msg = `🎙️ <b>Smart-Audio-Analyse</b>\n<i>(KI hat alles aus dem Transkript extrahiert)</i>\n\n`;
     msg += `👤 Name: <b>${extracted.name || '?'}</b>\n`;
-    msg += `☎️ Festnetz: ${callerPhone}\n`;
-    if (extracted.mobilPhone) msg += `📱 Mobil: ${extracted.mobilPhone}\n`;
+    // 🔧 v6.62.794: Mobil-Erkennung — wenn Phone startet mit 015/016/017 oder +49 15/16/17 → Mobil-Label
+    const _phoneClean = String(callerPhone || '').replace(/[^0-9+]/g, '');
+    const _isMobile = /^(\+49(15|16|17)|0(15|16|17))/.test(_phoneClean);
+    msg += `${_isMobile ? '📱 Mobil' : '☎️ Festnetz'}: ${callerPhone}\n`;
+    if (extracted.mobilPhone && extracted.mobilPhone !== callerPhone) msg += `📱 Weitere Mobil: ${extracted.mobilPhone}\n`;
     msg += `\n📍 Von: <b>${extracted.pickup || '?'}</b>\n`;
     msg += `🎯 Nach: <b>${extracted.destination || '?'}</b>\n`;
     if (extracted.pickupTimeReadable) msg += `🕐 Zeit: <b>${extracted.pickupTimeReadable}</b>\n`;
@@ -5177,16 +5180,24 @@ async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, origina
     if (extracted.notes) msg += `📝 ${extracted.notes}\n`;
     msg += `\nKonfidenz: <b>${extracted.confidence || '?'}</b>`;
     const hasAll = extracted.name && extracted.pickup && extracted.destination && extracted.pickupTimestamp;
+    const hasMost = (extracted.pickup && extracted.destination); // Pickup + Ziel = Minimum fuer Anlage
     const buttons = [];
     if (hasAll) {
         buttons.push([{ text: '✅ KOMPLETT anlegen + buchen', callback_data: `smart_audio_confirm_${tokenId}` }]);
     } else {
-        msg += `\n\n⚠️ <i>Fehlt: ${[
+        const _missing = [
             !extracted.name && 'Name',
             !extracted.pickup && 'Pickup',
             !extracted.destination && 'Ziel',
-            !extracted.pickupTimestamp && 'Zeit'
-        ].filter(Boolean).join(', ')}</i>`;
+            !extracted.pickupTimestamp && 'Zeit',
+            !extracted.passengers && 'Personenzahl'
+        ].filter(Boolean);
+        msg += `\n\n⚠️ <i>Fehlt: ${_missing.join(', ')}</i>`;
+        // 🔧 v6.62.794: Wenn zumindest Pickup+Ziel da → trotzdem Anlage anbieten,
+        // Restfragen werden nach Confirm gestellt (statt komplett zurueck zum 5-Klick-Flow)
+        if (hasMost) {
+            buttons.push([{ text: '✅ Anlegen mit Defaults + Restfragen', callback_data: `smart_audio_confirm_${tokenId}` }]);
+        }
         buttons.push([{ text: '🔄 Klassischer Flow (alle Fragen)', callback_data: `smart_audio_fallback_${tokenId}` }]);
     }
     buttons.push([{ text: '✏️ Ändern (klassisch)', callback_data: `smart_audio_fallback_${tokenId}` }]);

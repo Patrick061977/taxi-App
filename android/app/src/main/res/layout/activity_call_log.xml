@@ -28,6 +28,22 @@
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
+            <!-- 🆕 v6.62.725 (Patrick 17.05. 09:19): Manueller Refresh-Button — wird
+                 gebraucht wenn Samsung-OneUI den Polling-Handler killt. -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_calls_refresh"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:minWidth="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="🔄"
+                android:textColor="#F8FAFC"
+                android:textSize="16sp"
+                app:backgroundTint="#10B981" />
+
             <!-- v6.62.386: Patrick (06.05. 19:46): "Andre/Lothar/Wegener nicht in der
                  Anrufliste". Wahrscheinlich versehentlich weggeswipet → SharedPrefs hidden.
                  Knopf zeigt Anzahl + erlaubt Reset. -->

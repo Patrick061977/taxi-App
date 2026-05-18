@@ -6748,6 +6748,12 @@ async function continueBookingFlow(chatId, booking, originalText) {
                                     await sendTelegramMessage(chatId, _askMsg, { reply_markup: _retryKb });
                                     const _ps = { partial: { ...booking, missing: booking.missing }, originalText };
                                     _ps._awaitingRetry = fieldToResolve;
+                                    // 🆕 v6.62.798 (Patrick 18.05. 09:59): KI-gehoerte Adresse merken,
+                                    //   damit sie nach GPS-Rescue als Alias mitgespeichert wird (z.B. KI
+                                    //   hoerte "Wald am See", Realname "Wald und See" — beide Strings auf
+                                    //   dieselben Koords ablegen, sonst gleiches Audio fuehrt morgen wieder
+                                    //   ins Loch).
+                                    _ps._kiHeardAddress = addressToResolve;
                                     await setPending(chatId, _ps);
                                     return; // Warte auf neue Eingabe
                                 }
@@ -13555,7 +13561,20 @@ async function handleCallback(callback) {
                 });
             } catch (e) { console.warn('[geocache_save] POI-Speichern fehlgeschlagen:', e.message); }
             await addTelegramLog('💾', chatId, `GPS-Adresse im Geocache gespeichert: ${saveAddr}`);
-            await sendTelegramMessage(chatId, `✅ <b>Gespeichert!</b> 📍 ${saveAddr}\n<i>Auch als bekannter Ort in der App gespeichert ⭐</i>`);
+            // 🆕 v6.62.798 (Patrick 18.05. 09:59): KI-gehoerte Variante als Alias mitspeichern.
+            //   Beispiel: KI hoerte "Hotel Wald am See, Rudolf-Breitscheid-Str 8", Realname
+            //   "Hotel Wald und See, ...". Beide Strings auf dieselben Koords ablegen, sonst
+            //   findet das gleiche Audio morgen wieder nichts.
+            let _kiAliasInfo = '';
+            try {
+                const _kiHeard = _gcPending?._kiHeardAddress || '';
+                if (_kiHeard && _kiHeard.trim().toLowerCase() !== saveAddr.trim().toLowerCase() && _kiHeard.length >= 3) {
+                    await saveToGeocache(_kiHeard, saveLat, saveLon, 'ki-alias');
+                    await addTelegramLog('🔗', chatId, `KI-Alias gespeichert: "${_kiHeard}" → "${saveAddr}"`);
+                    _kiAliasInfo = `\n🔗 <i>Auch "${_kiHeard}" wird beim nächsten Mal erkannt</i>`;
+                }
+            } catch (e) { console.warn('[geocache_save] KI-Alias-Speichern fehlgeschlagen:', e.message); }
+            await sendTelegramMessage(chatId, `✅ <b>Gespeichert!</b> 📍 ${saveAddr}\n<i>Auch als bekannter Ort in der App gespeichert ⭐</i>${_kiAliasInfo}`);
         }
         // Buchungsfluss fortsetzen falls wartend
         if (_gcPending?._awaitingGeocache) {
@@ -13563,6 +13582,8 @@ async function handleCallback(callback) {
             delete _gcPending._geocacheAddr;
             delete _gcPending._geocacheLat;
             delete _gcPending._geocacheLon;
+            // v6.62.798: _kiHeardAddress nach Verbrauch aus pending entfernen
+            delete _gcPending._kiHeardAddress;
             await setPending(chatId, _gcPending);
             const _gcBooking = _gcPending.partial || _gcPending.booking;
             if (_gcBooking) await continueBookingFlow(chatId, _gcBooking, _gcPending.originalText || '');

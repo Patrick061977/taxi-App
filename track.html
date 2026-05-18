@@ -739,10 +739,14 @@
                     if (r.destination) _rows.push(`<div>🎯 <b>Zielort:</b> ${r.destination}</div>`);
                     // v6.62.751 (Patrick 15.05. 21:52): Fahrzeug + Fahrer sichtbar machen
                     // damit Kunde weiss WAS und WER kommt (nicht nur Auto-Icon).
+                    // 🐛 v6.62.808 (Patrick 19.05. 00:16): Plate-Fallback um assignedVehiclePlate
+                    //   erweitert. Bisher las track.html nur r.vehiclePlate — Cloud-Function
+                    //   schreibt aber r.assignedVehiclePlate beim Auto-Assign + Native_Dashboard_Grab.
+                    //   Ergebnis: bei den meisten Rides war _vehPlate leer → Tooltip ohne Kennzeichen.
                     const _vehName = r.vehicleLabel || r.vehicle || r.assignedVehicleName || '';
-                    const _vehPlate = r.vehiclePlate || '';
-                    const _drvName = r.driverName || '';
-                    const _drvPhone = r.driverPhone || '';
+                    const _vehPlate = r.vehiclePlate || r.assignedVehiclePlate || '';
+                    const _drvName = r.driverName || r.assignedDriverName || '';
+                    const _drvPhone = r.driverPhone || r.assignedDriverPhone || '';
                     // 🆕 v6.62.773 (Patrick 16.05. 10:33): Fahrer-Name + Fahrzeug auch
                     //   im Karten-Tooltip + ETA-Box anzeigen — nicht nur 'Fahrer in 5 Min'.
                     //   Werte cachen damit der spaetere ETA-Update sie kennt.

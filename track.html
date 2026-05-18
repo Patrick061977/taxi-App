@@ -924,9 +924,25 @@
                 } else if (_hints) {
                     _hints.style.display = 'none';
                 }
-                if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'storniert') {
-                    // Fahrt fertig — Live-Update stoppen
+                // 🆕 v6.62.797 (Patrick 18.05. 10:00): "Nach 'Rechnung ja' soll der Kunde
+                //   die Rechnung im Track-Link runterladen koennen". Code-Block ab Z. 843
+                //   zeigt den Download-Button bereits bei status=completed + invoiceNumber +
+                //   /invoices/{nr}/pdfUrl. ABER: Listener-off() feuerte nach 2 Sek schon —
+                //   die Auto-Invoice-Pipeline (admin-browser: 1.8s Modal-Wait + jsPDF +
+                //   Storage-Upload) braucht 4-8 Sek. Ergebnis: invoiceNumber wurde NACH dem
+                //   Listener-off gesetzt → der Kunde sah nie den Download-Button.
+                // Fix: cancelled/storniert weiterhin nach 2s off (kommt nichts mehr).
+                //   completed bleibt 10 Min live — genug Zeit fuer Auto-Invoice + manuelle
+                //   Edits. Danach off um Firebase-Last zu begrenzen.
+                if (r.status === 'cancelled' || r.status === 'storniert') {
                     setTimeout(() => { db.ref('rides').child(rideId).off(); }, 2000);
+                } else if (r.status === 'completed') {
+                    if (!window._completedOffTimer) {
+                        window._completedOffTimer = setTimeout(() => {
+                            try { db.ref('rides').child(rideId).off(); } catch(_) {}
+                            window._completedOffTimer = null;
+                        }, 10 * 60 * 1000);
+                    }
                 }
             });
 

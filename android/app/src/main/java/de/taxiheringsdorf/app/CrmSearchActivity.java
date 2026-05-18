@@ -1333,7 +1333,11 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Beim Save wird der Customer in /customers angelegt und e.id zugeordnet.
         final boolean isNewCust = (e.id == null || e.id.isEmpty()) && !isHotel;
         final EditText etName;
-        final EditText etBillAddr;
+        // 🆕 v6.62.803 (Patrick 18.05. 23:54): Rechnungsadresse als Picker-TextView statt
+        //   Single-Line-EditText. Adresse ist mehrteilig (Straße/Nr/PLZ/Ort) — Picker mit
+        //   Reverse-Geocoding (MapPickerActivity) liefert strukturierte Adresse + Koordinaten.
+        final TextView tvBillAddr;
+        final double[] billAddrCoords = { Double.NaN, Double.NaN };
         final EditText etCustEmail;
         if (isHotel) {
             etName = new EditText(this);
@@ -1343,7 +1347,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
             layout.addView(etName);
-            etBillAddr = null;
+            tvBillAddr = null;
             etCustEmail = null;
         } else if (isNewCust) {
             // Neukunde — Name + Rechnungsadresse + Email Felder einblenden
@@ -1362,10 +1366,15 @@ public class CrmSearchActivity extends AppCompatActivity {
             etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
             layout.addView(etName);
 
-            etBillAddr = new EditText(this);
-            etBillAddr.setHint("📍 Rechnungsadresse (optional, für Rechnungs-PDF)");
-            etBillAddr.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-            layout.addView(etBillAddr);
+            // 🆕 v6.62.803: Picker statt EditText — Tap → MapPickerActivity → Reverse-Geocode
+            tvBillAddr = new TextView(this);
+            tvBillAddr.setText("📍 Rechnungsadresse wählen… (optional)");
+            tvBillAddr.setTextSize(15);
+            tvBillAddr.setTextColor(0xFF3B82F6);
+            tvBillAddr.setPadding(pad / 2, pad, pad / 2, pad);
+            tvBillAddr.setBackgroundColor(0xFFF1F5F9);
+            tvBillAddr.setOnClickListener(v -> launchPlaces(tvBillAddr, billAddrCoords));
+            layout.addView(tvBillAddr);
 
             etCustEmail = new EditText(this);
             etCustEmail.setHint("📧 E-Mail (optional, für PDF-Versand)");
@@ -1374,7 +1383,7 @@ public class CrmSearchActivity extends AppCompatActivity {
         } else {
             // Stammkunde — Name kommt aus e.name, kein Eingabefeld noetig
             etName = null;
-            etBillAddr = null;
+            tvBillAddr = null;
             etCustEmail = null;
             TextView tvKundeFest = new TextView(this);
             tvKundeFest.setText("👤 " + (e.name != null ? e.name : "—"));
@@ -2300,7 +2309,15 @@ public class CrmSearchActivity extends AppCompatActivity {
                     final String _destFinal = dest;
                     // 🆕 v6.62.802: Neukunde-Daten fuer Pre-Save CRM-Anlage
                     final boolean _isNewCustFinal = isNewCust;
-                    final String _newCustBillAddr = (etBillAddr != null) ? etBillAddr.getText().toString().trim() : "";
+                    // 🆕 v6.62.803: Rechnungsadresse jetzt als Picker — Text aus TextView,
+                    //   Koordinaten separat. Picker setzt entweder '📍 ...' oder bleibt
+                    //   beim Default '...wählen…' → wenn Default, leerer String.
+                    String _billRaw = (tvBillAddr != null && tvBillAddr.getText() != null)
+                        ? tvBillAddr.getText().toString().replaceFirst("^📍\\s*", "").trim()
+                        : "";
+                    final String _newCustBillAddr = (_billRaw.endsWith("wählen…") || _billRaw.isEmpty()) ? "" : _billRaw;
+                    final double _billLat = billAddrCoords[0];
+                    final double _billLon = billAddrCoords[1];
                     final String _newCustEmail = (etCustEmail != null) ? etCustEmail.getText().toString().trim() : "";
                     final String _newCustPhone = (e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : "");
                     // Closure: eigentlicher Save-Vorgang (gleicher Code wie vorher)
@@ -2329,7 +2346,17 @@ public class CrmSearchActivity extends AppCompatActivity {
                             custData.put("phone", _newCustPhone);
                             custData.put("mobilePhone", _newCustPhone);
                         }
-                        if (!_newCustBillAddr.isEmpty()) custData.put("address", _newCustBillAddr);
+                        if (!_newCustBillAddr.isEmpty()) {
+                            custData.put("address", _newCustBillAddr);
+                            // v6.62.803: Koordinaten der Rechnungsadresse mitspeichern
+                            //   (vom MapPicker geliefert) — fuer spaetere Routen/Distanz-Checks.
+                            if (!Double.isNaN(_billLat) && !Double.isNaN(_billLon)) {
+                                custData.put("lat", _billLat);
+                                custData.put("lon", _billLon);
+                                custData.put("addressLat", _billLat);
+                                custData.put("addressLon", _billLon);
+                            }
+                        }
                         if (!_newCustEmail.isEmpty()) custData.put("email", _newCustEmail);
                         custData.put("customerKind", "gelegenheitskunde");
                         custData.put("createdAt", now);

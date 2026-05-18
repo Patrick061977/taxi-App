@@ -23660,6 +23660,10 @@ async function buildShiftBriefingMessage() {
     const aktiv = [];
     for (const [vid, shifts] of Object.entries(vehicleShifts)) {
         if (!shifts || typeof shifts !== 'object') continue;
+        // v6.62.795 (Patrick 18.05. 06:09 'Was ist 0 und was ist 1?'):
+        // Geister-Eintraege wie /vehicleShifts/0, /1 (Test-Daten aus alter Migration)
+        // tauchten als '🟢 0' / '🟢 1' im Briefing auf. Skip wenn kein echtes Vehicle.
+        if (!vehicles[vid] && !(OFFICIAL_VEHICLES || {})[vid]) continue;
         const vData = vehicles[vid] || {};
         const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
         // Datums-Ausnahme zuerst
@@ -23708,6 +23712,8 @@ async function buildWeeklyShiftMessage() {
     let anyVehicle = false;
     for (const [vid, shifts] of Object.entries(vehicleShifts)) {
         if (!shifts || typeof shifts !== 'object') continue;
+        // v6.62.795: Skip Geister-Eintraege (Test-Daten aus alter Migration)
+        if (!vehicles[vid] && !(OFFICIAL_VEHICLES || {})[vid]) continue;
         const vData = vehicles[vid] || {};
         const vName = vData.name || (OFFICIAL_VEHICLES[vid] || {}).name || vid;
         const defaults = shifts.defaults || {};

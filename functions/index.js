@@ -5102,13 +5102,26 @@ async function getAnthropicApiKey() {
 // Patrick nur EINEN Confirm-Klick braucht statt 5-6 Stufen.
 // Feature-Flag: /settings/telegram/smartAudioMode (default false).
 // ═══════════════════════════════════════════════════════════════
-async function extractAudioBookingData(transcript, callerPhone) {
+async function extractAudioBookingData(transcript, callerPhone, audioFileName) {
     if (!transcript || transcript.length < 5) return null;
     const apiKey = await getAnthropicApiKey();
     if (!apiKey) return null;
     const _todayDate = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
     const _todayTime = new Date().toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' });
-    const systemPrompt = `Du bist ein Taxi-Buchungs-Datenextraktor. Aktuelle Zeit in Berlin: ${_todayDate} ${_todayTime}. Anrufer-Telefon: ${callerPhone || 'unbekannt'}.
+    // 🆕 v6.62.799 (Patrick 18.05. 09:46): ACR-Dateiname als Name-Hint mitschicken.
+    //   Format: 'Ort_Kunden-Name_Strasse_Hausnr_+TelNr_YYYY_MM_DD.m4a' — die ersten Tokens
+    //   vor der Telefonnummer sind oft der korrekt geschriebene Kunden-Name. Wenn das Audio
+    //   schlecht ist (Verhoerer 'Villa-See-Schleswig-Nord' statt 'Villa Seeschloßchen'),
+    //   ist der Dateiname die einzige zuverlaessige Quelle fuer die richtige Namens-Schreibweise.
+    let _fileNameHint = '';
+    if (audioFileName) {
+        const _stem = String(audioFileName).replace(/\.[^.]+$/, '');
+        const _beforePhone = _stem.split(/[+\(]\d/)[0].replace(/[_]+$/, '');
+        if (_beforePhone && _beforePhone.length > 2) {
+            _fileNameHint = `\n\nDATEINAME-HINWEIS: "${audioFileName}" — der Teil vor der Telefonnummer ist oft Ort/Name/Strasse: "${_beforePhone}". Wenn der Name im Transkript unklar ist, bevorzuge die Schreibweise aus dem Dateinamen.`;
+        }
+    }
+    const systemPrompt = `Du bist ein Taxi-Buchungs-Datenextraktor. Aktuelle Zeit in Berlin: ${_todayDate} ${_todayTime}. Anrufer-Telefon: ${callerPhone || 'unbekannt'}.${_fileNameHint}
 
 Analysiere folgendes Anruf-Transkript eines Taxi-Kunden. Extrahiere alle Buchungs-Daten und gib NUR ein JSON-Objekt zurueck (keine Erklaerung davor/danach):
 
@@ -5200,6 +5213,10 @@ async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, origina
         }
         buttons.push([{ text: '🔄 Klassischer Flow (alle Fragen)', callback_data: `smart_audio_fallback_${tokenId}` }]);
     }
+    // 🆕 v6.62.799 (Patrick 18.05. 09:46): Name-Edit-Button — bei fehlendem oder falschem
+    //   Namen direkt aus der Smart-Card heraus korrigierbar, ohne zurueck in klassischen
+    //   5-Klick-Flow zu muessen.
+    buttons.push([{ text: extracted.name ? '✏️ Name korrigieren' : '✏️ Name eintragen', callback_data: `smart_audio_edit_name_${tokenId}` }]);
     buttons.push([{ text: '✏️ Ändern (klassisch)', callback_data: `smart_audio_fallback_${tokenId}` }]);
     buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
     await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
@@ -8856,6 +8873,29 @@ async function handleMessage(message) {
         pending = null; // 🔧 v6.38.3: Lokale Variable zurücksetzen — sonst triggert Follow-Up Check mit altem Pending
     }
 
+    // 🆕 v6.62.799 (Patrick 18.05. 09:46): SMART-AUDIO NAME-EDIT — User korrigiert Name
+    //   via '✏️ Name korrigieren' aus der Smart-Card. Folge-Text gilt als neuer Name,
+    //   Card wird neu gerendert.
+    if (pending && pending._smartAudioPending && pending._smartAudioEditName && !isPendingExpired(pending)) {
+        const _newName = (text || '').trim();
+        if (_newName.length < 2) {
+            await sendTelegramMessage(chatId, '⚠️ Name zu kurz. Bitte vollständigen Namen eingeben oder /abbrechen.');
+            return;
+        }
+        const _smartUpd = { ...(pending._smartAudio || {}) };
+        const _extUpd = { ...(_smartUpd.extracted || {}) };
+        const _oldName = _extUpd.name || '(leer)';
+        _extUpd.name = _newName;
+        _smartUpd.extracted = _extUpd;
+        await addTelegramLog('✏️', chatId, `Smart-Audio Name korrigiert: "${_oldName}" → "${_newName}"`);
+        // _smartAudioEditName zuruecksetzen + neue Card zeigen (token bleibt erhalten)
+        const _pendingNoEdit = { ...pending, _smartAudio: _smartUpd };
+        delete _pendingNoEdit._smartAudioEditName;
+        await setPending(chatId, _pendingNoEdit);
+        await showSmartAudioConfirmCard(chatId, _extUpd, _smartUpd.callerPhone, _smartUpd.originalText, _smartUpd.userName);
+        return;
+    }
+
     // 🆕 v6.11.6: NUMMER ZU BESTEHENDEM KUNDEN HINZUFÜGEN — Admin sucht Kunden
     if (pending && pending._awaitingAddPhoneToCustomer && !isPendingExpired(pending)) {
         const searchName = text.trim();
@@ -10764,7 +10804,7 @@ async function handleMessage(message) {
                 const _smartSnap = await db.ref('settings/telegram/smartAudioMode').once('value');
                 if (_smartSnap.val() === true) {
                     await addTelegramLog('🤖', chatId, 'Smart-Audio-Mode aktiv — KI-Pre-Analyse laeuft...');
-                    const extracted = await extractAudioBookingData(text, message._callerPhone);
+                    const extracted = await extractAudioBookingData(text, message._callerPhone, message._audioFileName);
                     if (extracted) {
                         await addTelegramLog('🤖', chatId, `Smart-Audio Extract: name=${extracted.name||'?'} pickup=${(extracted.pickup||'?').slice(0,30)} dest=${(extracted.destination||'?').slice(0,30)} pers=${extracted.passengers||'?'} confidence=${extracted.confidence}`);
                         await showSmartAudioConfirmCard(chatId, extracted, message._callerPhone, text, userName);
@@ -12770,6 +12810,27 @@ async function handleCallback(callback) {
         await addTelegramLog('◀️', chatId, 'Zurück von Personenzahl → Uhrzeit-Auswahl');
         await setPending(chatId, { partial: booking, originalText: pending.originalText || '', _dtPicker: true });
         await showDateTimePicker(chatId, booking, pending.originalText || '');
+        return;
+    }
+
+    // 🆕 v6.62.799 (Patrick 18.05. 09:46): Smart-Audio Name-Edit-Callback — Frage stellen,
+    //   Folge-Text wird im pending._smartAudioEditName-Branch verarbeitet.
+    if (data.startsWith('smart_audio_edit_name_')) {
+        const pendingNe = await getPending(chatId);
+        if (!pendingNe || !pendingNe._smartAudioPending) {
+            await sendTelegramMessage(chatId, '⚠️ Smart-Audio-Pending nicht gefunden (vermutlich abgelaufen). Bitte Audio neu senden.');
+            return;
+        }
+        await setPending(chatId, { ...pendingNe, _smartAudioEditName: true });
+        const _currentName = pendingNe._smartAudio?.extracted?.name || '';
+        await sendTelegramMessage(chatId,
+            `✏️ <b>Namen ${_currentName ? 'korrigieren' : 'eintragen'}</b>\n\n` +
+            (_currentName ? `Aktuell: <code>${_currentName}</code>\n\n` : '') +
+            `Bitte den richtigen Namen eingeben (z.B. <i>Hotel Villa Seeschlößchen</i>, <i>Familie Müller</i>).`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }}
+        );
         return;
     }
 
@@ -16441,7 +16502,12 @@ async function handleAudioFile(message) {
             _isVoiceTranscript: true,
             _isAudioFile: true,
             _callerPhone: callerPhone,
-            _callerCustomer: callerCustomer
+            _callerCustomer: callerCustomer,
+            // 🆕 v6.62.799 (Patrick 18.05. 09:46): Dateiname an Smart-Audio durchreichen.
+            //   ACR-Dateinamen enthalten Ort/Name/Strasse/HausNr/Phone — wenn KI im Transkript
+            //   den Namen verhoert (z.B. 'Villa-See-Schleswig-Nord' statt 'Villa Seeschlößchen'),
+            //   liefert der Dateiname die korrekte Variante als Hint.
+            _audioFileName: fileName || null
         };
         await handleMessage(fakeMessage);
 

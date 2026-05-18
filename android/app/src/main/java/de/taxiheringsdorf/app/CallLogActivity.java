@@ -845,7 +845,8 @@ public class CallLogActivity extends AppCompatActivity {
                     if (admin) {
                         switch (which) {
                             case 0: createSofortFahrtCrm(e, crm); break;
-                            case 1: showPrebookingDialog(e, crm); break;
+                            // v6.62.801: unified CRM-Maske statt eigener Prebooking-Dialog
+                            case 1: openVorbestellungInCrmSearch(e, crm); break;
                             case 2: showCrmEditDialog(crm); break;
                             case 3: openRideHistoryForCustomer(crm); break;
                         }
@@ -853,7 +854,7 @@ public class CallLogActivity extends AppCompatActivity {
                         switch (which) {
                             case 0: createEinsteigerCrm(e, crm); break;
                             case 1: createSofortFahrtCrm(e, crm); break;
-                            case 2: showPrebookingDialog(e, crm); break;
+                            case 2: openVorbestellungInCrmSearch(e, crm); break;
                             case 3: showCrmEditDialog(crm); break;
                             case 4: openRideHistoryForCustomer(crm); break;
                         }
@@ -870,14 +871,14 @@ public class CallLogActivity extends AppCompatActivity {
                         switch (which) {
                             case 0: openCrmCreateInSearchActivity(e); break;
                             case 1: createSofortFahrtPhone(e); break;
-                            case 2: showPrebookingDialog(e, null); break;
+                            case 2: openVorbestellungInCrmSearch(e, null); break;
                         }
                     } else {
                         switch (which) {
                             case 0: openCrmCreateInSearchActivity(e); break;
                             case 1: createEinsteigerWithPhone(e); break;
                             case 2: createSofortFahrtPhone(e); break;
-                            case 3: showPrebookingDialog(e, null); break;
+                            case 3: openVorbestellungInCrmSearch(e, null); break;
                         }
                     }
                 }).show();
@@ -893,6 +894,21 @@ public class CallLogActivity extends AppCompatActivity {
         android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
         i.putExtra("prefill_new_phone", e.number != null ? e.number : "");
         i.putExtra("prefill_new_name", e.name != null ? e.name : "");
+        startActivity(i);
+    }
+
+    // 🆕 v6.62.801 (Patrick 18.05. 11:31): "Vorbestellung erstellen aus der Anrufliste ist
+    // nicht die gleiche Maske wie über das CRM." Genau wie openCrmCreateInSearchActivity:
+    // CrmSearchActivity mit Intent-Extras → _maybeAutoOpenVorbestellung() öffnet die unified
+    // Maske (Tausch-Button, Zwischenstops, Top-5-Ziele, Personen-Spinner, Datum/Zeit).
+    private void openVorbestellungInCrmSearch(CallEntry e, CrmCustomer crm) {
+        android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+        if (crm != null && crm.id != null) {
+            i.putExtra("auto_vorbestellung_customer_id", crm.id);
+        } else {
+            i.putExtra("auto_vorbestellung_phone", e.number != null ? e.number : "");
+            if (e.name != null) i.putExtra("auto_vorbestellung_name", e.name);
+        }
         startActivity(i);
     }
 

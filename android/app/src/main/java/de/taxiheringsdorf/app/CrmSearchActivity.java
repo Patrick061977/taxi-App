@@ -1328,7 +1328,13 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Stammkundin." → Bei Stammkunden Name-Feld komplett weg, der Name wird
         //   automatisch aus e.name (CRM) im Save-Code uebernommen. Nur bei Hotels/Firmen
         //   bleibt das Feld sichtbar (Gastname-Erfassung fuer wen gebucht wird).
+        // 🆕 v6.62.802 (Patrick 18.05. 20:55): NEUKUNDE aus Anrufliste (e.id==null) braucht
+        //   Name + Rechnungsadresse + Email schon HIER, sonst geht keine Rechnung später.
+        //   Beim Save wird der Customer in /customers angelegt und e.id zugeordnet.
+        final boolean isNewCust = (e.id == null || e.id.isEmpty()) && !isHotel;
         final EditText etName;
+        final EditText etBillAddr;
+        final EditText etCustEmail;
         if (isHotel) {
             etName = new EditText(this);
             etName.setHint("Gastname (für den gebucht wird)");
@@ -1337,9 +1343,39 @@ public class CrmSearchActivity extends AppCompatActivity {
             }
             etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
             layout.addView(etName);
+            etBillAddr = null;
+            etCustEmail = null;
+        } else if (isNewCust) {
+            // Neukunde — Name + Rechnungsadresse + Email Felder einblenden
+            TextView tvNewCustHdr = new TextView(this);
+            tvNewCustHdr.setText("🆕 Neukunde — bitte Daten eingeben:");
+            tvNewCustHdr.setTextSize(13);
+            tvNewCustHdr.setTextColor(0xFF0F172A);
+            tvNewCustHdr.setPadding(0, padHalf, 0, padHalf / 2);
+            layout.addView(tvNewCustHdr);
+
+            etName = new EditText(this);
+            etName.setHint("👤 Name (Pflicht)");
+            if (e.name != null && !e.name.isEmpty() && !e.name.equals(e.phone)) {
+                etName.setText(e.name);
+            }
+            etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+            layout.addView(etName);
+
+            etBillAddr = new EditText(this);
+            etBillAddr.setHint("📍 Rechnungsadresse (optional, für Rechnungs-PDF)");
+            etBillAddr.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+            layout.addView(etBillAddr);
+
+            etCustEmail = new EditText(this);
+            etCustEmail.setHint("📧 E-Mail (optional, für PDF-Versand)");
+            etCustEmail.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            layout.addView(etCustEmail);
         } else {
             // Stammkunde — Name kommt aus e.name, kein Eingabefeld noetig
             etName = null;
+            etBillAddr = null;
+            etCustEmail = null;
             TextView tvKundeFest = new TextView(this);
             tvKundeFest.setText("👤 " + (e.name != null ? e.name : "—"));
             tvKundeFest.setTextSize(15);
@@ -2141,7 +2177,12 @@ public class CrmSearchActivity extends AppCompatActivity {
                     if (e.phone != null) r.put("customerPhone", e.phone);
                     if (e.mobilePhone != null) r.put("customerMobile", e.mobilePhone);
                 }
-                r.put("customerId", e.id);
+                // 🆕 v6.62.802: Bei Neukunde wird customerId weiter unten nach CRM-Push gesetzt.
+                //   r.put("customerId", e.id) waere null → hier weglassen, doActualSave-Wrapper
+                //   ergaenzt das nachher.
+                if (!isNewCust) {
+                    r.put("customerId", e.id);
+                }
                 // 🆕 v6.62.769: Sofort-Fahrt aus Native: status='new' + isJetzt=true
                 //   (statt 'vorbestellt'). Cloud-Function autoAssignRide nimmt dann
                 //   den Sofortfahrt-Pfad (GPS schlaegt alles, kein Schichtplan-Filter).
@@ -2257,6 +2298,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                     final String _customerNameFinal = name;
                     final String _pickupFinal = pickup;
                     final String _destFinal = dest;
+                    // 🆕 v6.62.802: Neukunde-Daten fuer Pre-Save CRM-Anlage
+                    final boolean _isNewCustFinal = isNewCust;
+                    final String _newCustBillAddr = (etBillAddr != null) ? etBillAddr.getText().toString().trim() : "";
+                    final String _newCustEmail = (etCustEmail != null) ? etCustEmail.getText().toString().trim() : "";
+                    final String _newCustPhone = (e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : "");
                     // Closure: eigentlicher Save-Vorgang (gleicher Code wie vorher)
                     Runnable doActualSave = () -> {
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)
@@ -2273,6 +2319,39 @@ public class CrmSearchActivity extends AppCompatActivity {
                                 btnSave.setBackgroundColor(0xFF1E40AF);
                             });
                     };
+
+                    // 🆕 v6.62.802: Wenn Neukunde: ZUERST Customer in /customers anlegen,
+                    //   dann customerId in Ride einsetzen, dann doActualSave.
+                    if (_isNewCustFinal) {
+                        Map<String, Object> custData = new HashMap<>();
+                        custData.put("name", _customerNameFinal);
+                        if (!_newCustPhone.isEmpty()) {
+                            custData.put("phone", _newCustPhone);
+                            custData.put("mobilePhone", _newCustPhone);
+                        }
+                        if (!_newCustBillAddr.isEmpty()) custData.put("address", _newCustBillAddr);
+                        if (!_newCustEmail.isEmpty()) custData.put("email", _newCustEmail);
+                        custData.put("customerKind", "gelegenheitskunde");
+                        custData.put("createdAt", now);
+                        custData.put("createdVia", "native-vorbest-quick-add-v802");
+                        String _newCustKey = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers").push().getKey();
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + _newCustKey).setValue(custData)
+                            .addOnSuccessListener(_v2 -> {
+                                r.put("customerId", _newCustKey);
+                                if (!_newCustBillAddr.isEmpty()) r.put("customerAddress", _newCustBillAddr);
+                                if (!_newCustEmail.isEmpty()) r.put("customerEmail", _newCustEmail);
+                                Toast.makeText(this, "✅ Neukunde angelegt: " + _customerNameFinal, Toast.LENGTH_SHORT).show();
+                                doActualSave.run();
+                            })
+                            .addOnFailureListener(ex -> {
+                                Toast.makeText(this, "❌ Customer-Anlage fehlgeschlagen: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                                _alreadySavedRef[0] = false;
+                                btnSave.setEnabled(true);
+                                btnSave.setText("✅ ANLEGEN");
+                                btnSave.setBackgroundColor(0xFF1E40AF);
+                            });
+                        return;
+                    }
                     // 🆕 v6.62.523: Duplikat-Erkennung — Patrick (09.05.): Werner hatte gestern
                     // Abend ZWEI Buchungen (eine aus Anrufliste, eine via CRM-Suche), die als
                     // Duplikat unentdeckt blieben. Dariusz ist heute morgen trotz Storno

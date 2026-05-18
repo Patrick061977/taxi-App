@@ -22687,6 +22687,46 @@ exports.onRideUpdated = onValueUpdated(
                     belegNr: _belegNr, gross: _gross, paymentMethod: after.paymentMethod
                 });
                 console.log(`✅ v6.62.312: Rechnung ${_belegNr} fuer ${rideId} angelegt (${_gross}€)`);
+
+                // 🆕 v6.62.810 (Patrick 19.05. 01:12+01:15): PDF-Generation SERVERSEITIG.
+                //   Bisher musste Admin-Browser (jsPDF) das PDF nachtraeglich generieren —
+                //   wenn der Browser nicht offen war (Nacht!) gab es kein PDF, Track-Link
+                //   zeigte keinen Download-Button. Patrick: 'Ich moechte nicht meinen Admin-
+                //   Browser oeffnen muessen. Mach das im Hintergrund.'
+                //   Loesung: pdfkit (functions/invoice-pdf.js v6.62.391 noch vorhanden) baut
+                //   PDF direkt, Upload zu Firebase Storage, pdfUrl an /invoices/{nr} +
+                //   /rides/{id}/invoicePdfUrl haengen.
+                try {
+                    const invoicePdfMod = require('./invoice-pdf');
+                    // _custData enthaelt schon CRM-Daten
+                    const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(_belegNr, after, _custData || {});
+                    const fileName = `rechnung-${_belegNr}.pdf`;
+                    const bucket = admin.storage().bucket();
+                    const fileRef = bucket.file(`invoices/${fileName}`);
+                    await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
+                    await fileRef.makePublic();
+                    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
+                    // pdfUrl auf beiden Ebenen ablegen
+                    await db.ref(`invoices/${_belegNr}`).update({
+                        pdfUrl,
+                        pdfFileName: fileName,
+                        pdfGeneratedAt: Date.now(),
+                        pdfGeneratedVia: 'cloud_function_pdfkit_v6.62.810'
+                    });
+                    await db.ref(`rides/${rideId}`).update({
+                        invoicePdfUrl: pdfUrl,
+                        invoicePdfGeneratedAt: Date.now()
+                    });
+                    await addRideLog(rideId, '📄', `PDF serverseitig erstellt: ${fileName}`, {
+                        belegNr: _belegNr, pdfUrl, via: 'pdfkit_v6.62.810'
+                    });
+                    console.log(`✅ v6.62.810: PDF ${fileName} → ${pdfUrl}`);
+                } catch (_pdfErr) {
+                    console.error(`❌ v6.62.810 PDF-Generation Fehler ${rideId}:`, _pdfErr.message);
+                    await addRideLog(rideId, '⚠️', `Serverseitige PDF-Generation fehlgeschlagen: ${_pdfErr.message} — Admin-Browser-jsPDF kann noch nachholen`, {
+                        belegNr: _belegNr, error: _pdfErr.message
+                    });
+                }
             }
         } catch (_invErr) {
             console.warn(`⚠️ v6.62.312 Auto-Rechnung Fehler ${rideId}:`, _invErr.message);

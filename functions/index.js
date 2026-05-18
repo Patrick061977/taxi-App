@@ -18826,8 +18826,14 @@ exports.scheduledReachabilityCheck = onSchedule(
                         //   - +20% Stadt-Aufschlag auf OSRM (Ampeln, Tempo 30 Zonen)
                         //   - Hysterese: nur updaten wenn neue ETA |alt-neu| >= 1 Min
                         //   - Monoton bevor on_way: ETA darf nur SINKEN (steigende ETA = GPS-Drift)
-                        const _etaRaw = route.duration; // Minuten OSRM
-                        const eta = Math.round(_etaRaw * 1.2 + 0.5); // +20% Stadt-Aufschlag, runden
+                        // 🔄 v6.62.809 (Patrick 19.05. 00:25, Wolgast-Fahrt): Aufschlag wieder
+                        //   raus. Patrick: 'Die Kunden-SMS ist richtig (OSRM raw), Native zeigt
+                        //   zu viel'. v6.62.724 Aufschlag fuer Heringsdorf->Ahlbeck war wohl
+                        //   spezifisch fuer den Bannerwackel-Bug, nicht fuer die ETA-Anzeige.
+                        //   Wenn Ahlbeck-Anfahrt wieder zu knapp wird → konditional umstellen
+                        //   (z.B. nur <5km +20%) statt pauschal.
+                        const _etaRaw = route.duration; // Minuten OSRM (jetzt raw, kein Aufschlag)
+                        const eta = Math.round(_etaRaw); // OSRM raw, gerundet
                         const _distKm = route.distance ? parseFloat(route.distance) : null;
                         // v6.62.361 + v6.62.363: laufend zurueckschreiben — pickup ODER destination
                         const _etaUpdate = {};

@@ -526,10 +526,65 @@ public class CrmSearchActivity extends AppCompatActivity {
             });
     }
 
+    // 🆕 v6.62.801 (Patrick 18.05. 11:31): CallLog 'Vorbestellung erstellen' soll EXAKT die
+    //   gleiche unified Maske oeffnen wie 'Vorbestellung' in der CRM-Suche (Tausch-Button,
+    //   Zwischenstops, Top-5-Ziele, Personen-Spinner, Datum/Zeit). Intent-Extras:
+    //     auto_vorbestellung_customer_id → fuer CRM-Match (Stammkunde/Hotel/etc.)
+    //     auto_vorbestellung_phone + auto_vorbestellung_name → fuer Neukunden
+    //   In CRM-Match-Fall greift showVorbestellungDialog (mit Top-5-History).
+    //   Im Neukunden-Fall greift showVorbestellungMaske direkt mit leeren Top-Listen.
+    private String _pendingVorbestellungCustomerId = null;
+    private String _pendingVorbestellungPhone = null;
+    private String _pendingVorbestellungName = null;
+
+    private void _maybeAutoOpenVorbestellung() {
+        if (getIntent() == null) return;
+        String _cid = getIntent().getStringExtra("auto_vorbestellung_customer_id");
+        String _phone = getIntent().getStringExtra("auto_vorbestellung_phone");
+        if (_cid == null && (_phone == null || _phone.isEmpty())) return;
+        _pendingVorbestellungCustomerId = _cid;
+        _pendingVorbestellungPhone = _phone;
+        _pendingVorbestellungName = getIntent().getStringExtra("auto_vorbestellung_name");
+        getIntent().removeExtra("auto_vorbestellung_customer_id");
+        getIntent().removeExtra("auto_vorbestellung_phone");
+        getIntent().removeExtra("auto_vorbestellung_name");
+    }
+
+    private void _runPendingVorbestellungIfReady() {
+        if (_pendingVorbestellungCustomerId == null && _pendingVorbestellungPhone == null) return;
+        if (_pendingVorbestellungCustomerId != null) {
+            for (CrmEntry e : all) {
+                if (_pendingVorbestellungCustomerId.equals(e.id)) {
+                    _pendingVorbestellungCustomerId = null;
+                    _pendingVorbestellungPhone = null;
+                    _pendingVorbestellungName = null;
+                    showVorbestellungDialog(e);
+                    return;
+                }
+            }
+            _pendingVorbestellungCustomerId = null;
+            Toast.makeText(this, "❌ Kunde nicht (mehr) im CRM", Toast.LENGTH_LONG).show();
+            return;
+        }
+        // Neukunde: temporaeres CrmEntry mit Phone + Name bauen
+        CrmEntry temp = new CrmEntry();
+        temp.id = null;
+        temp.name = (_pendingVorbestellungName != null && !_pendingVorbestellungName.isEmpty())
+            ? _pendingVorbestellungName : _pendingVorbestellungPhone;
+        temp.phone = _pendingVorbestellungPhone;
+        temp.mobilePhone = _pendingVorbestellungPhone;
+        _pendingVorbestellungCustomerId = null;
+        _pendingVorbestellungPhone = null;
+        _pendingVorbestellungName = null;
+        // Direkt unified Maske mit leeren Top-5 (Neukunde hat keine History)
+        showVorbestellungMaske(temp, new ArrayList<>(), new HashMap<>());
+    }
+
     private void loadAll() {
         _maybeAutoOpenHistory();
         _maybeAutoOpenCreateDialog();
         _maybeAutoOpenRideTemplate();
+        _maybeAutoOpenVorbestellung();
         tvCount.setText("Lade…");
         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers")
             .addListenerForSingleValueEvent(new ValueEventListener() {
@@ -543,6 +598,7 @@ public class CrmSearchActivity extends AppCompatActivity {
                     applyFilter(etQuery.getText() != null ? etQuery.getText().toString() : "");
                     _runPendingHistoryIfReady();
                     _runPendingTemplateIfReady();
+                    _runPendingVorbestellungIfReady();
                 }
                 @Override public void onCancelled(@NonNull DatabaseError error) {
                     tvCount.setText("Fehler: " + error.getMessage());

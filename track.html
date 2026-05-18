@@ -1036,6 +1036,32 @@
                     map.fitBounds(bounds, { padding: [80, 80], maxZoom: 14 });
                 }
 
+                // 🆕 v6.62.796 (Patrick 18.05. 06:54): "Das Icon ist nicht aktualisiert
+                //   mit dem Fahrzeug und Kennzeichen und den Namen, wenn er zur Anfahrt
+                //   ist. Die SMS ist aktualisiert, aber das Icon nicht — die Leute sehen
+                //   nicht was das jetzt fuer ein Fahrzeug ist."
+                // Tooltip-Bind wurde bisher NUR im OSRM-ETA-Block (Z. 1240) gebunden,
+                // der nur bei status=on_way/accepted/assigned UND erfolgreichem OSRM
+                // feuert. Heisst: Bei OSRM-Latenz / OSRM-Down / status=picked_up sah der
+                // Kunde nur '🚕' ohne Label. Wir binden den Tooltip jetzt SOFORT bei
+                // Marker-Erstellung mit den bereits geladenen ride-Werten — der ETA-Block
+                // ueberschreibt dann nur noch den Content (setTooltipContent).
+                try {
+                    const _drvFirstNow = (window._lastKnownDriver || '').trim().split(/\s+/)[0];
+                    const _vehShortNow = window._lastKnownVehicle || '';
+                    const _plateNow = window._lastKnownPlate || '';
+                    const _whoPartsNow = [];
+                    if (_drvFirstNow) _whoPartsNow.push(_drvFirstNow);
+                    if (_vehShortNow) _whoPartsNow.push(_vehShortNow + (_plateNow ? ' (' + _plateNow + ')' : ''));
+                    const _initLabel = _whoPartsNow.length ? _whoPartsNow.join(' · ') : 'Ihr Fahrzeug';
+                    if (vehicleMarker && !vehicleMarker.getTooltip()) {
+                        vehicleMarker.bindTooltip(_initLabel, {
+                            permanent: true, direction: 'top', offset: [0, -22],
+                            className: 'driver-eta-tip'
+                        });
+                    }
+                } catch(_e) { /* visuell, kein crash */ }
+
                 // v6.62.226: Auto-Refit wenn Tesla aus dem Viewport rauslaeuft.
                 // Patrick: 'wenn man die Karte wegwischt war ich nicht zu sehen, weil
                 // ich ein bisschen weiter aus der Karte raus war'. Bei JEDEM GPS-Update

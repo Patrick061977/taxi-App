@@ -5138,6 +5138,8 @@ Analysiere folgendes Anruf-Transkript eines Taxi-Kunden. Extrahiere alle Buchung
   "tourType": "einfach"/"hin_und_zurueck"/null,
   "festpreisEUR": Festpreis in Euro wenn explizit ausgemacht (oder null),
   "notes": "Sonstige relevante Info (Stamm-Bahnhof, Flugnummer, Gehbehinderung etc.)",
+  "customerKind": "hotel"/"firma"/"klinik"/"gelegenheitskunde" — Kunden-Typ aus dem Namen (siehe Regel unten),
+  "guestName": "Name des Fahrgastes wenn der Anrufer FÜR einen Anderen bucht (typisch bei Hotels: 'für Gast Müller', 'Familie Schmidt steigt um 10 ein') — sonst null",
   "confidence": "high"/"medium"/"low" basierend auf wie klar alle Felder im Transkript waren
 }
 
@@ -5149,6 +5151,12 @@ Regeln:
 - POI-Namen wie "Fischers Fritz", "Wald und See" als pickup beibehalten (nicht zu Adresse zwingen)
 - Wenn Personenzahl >= 5 → wagentyp "gross"
 - "Hin und zurueck" mit Wartezeit → tourType "hin_und_zurueck"
+- customerKind-Auto-Erkennung aus dem Namen:
+  • "hotel" — wenn Name "Hotel", "Villa", "Pension", "Residenz", "Strandhotel", "Garni", "Aja", "Seetel", "Maritim", "Steigenberger", "Travel Charme" oder ähnliche Beherbergung enthält
+  • "klinik" — wenn Name "Klinik", "Reha", "Rehabilitation", "Praxis", "Arzt", "Doktor", "Krankenhaus"
+  • "firma" — wenn Name "GmbH", "OHG", "AG", "Gewerbe", "Werkstatt" oder klar gewerblicher Lieferant
+  • "gelegenheitskunde" — Default fuer Privatkunden (Personen-Name ohne Firmen-/Hotel-Bezeichnung)
+- guestName-Erkennung: typisch bei Hotel-Anrufen ("Familie Endress um 14 Uhr", "Herr Müller braucht ein Taxi"). Wenn der Anrufer einen ANDEREN Namen als sich selbst nennt → guestName, NICHT name. Bei Privat-Anrufen meistens null.
 
 NUR JSON, keine Erklaerung.`;
     try {
@@ -5178,6 +5186,16 @@ async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, origina
     });
     let msg = `🎙️ <b>Smart-Audio-Analyse</b>\n<i>(KI hat alles aus dem Transkript extrahiert)</i>\n\n`;
     msg += `👤 Name: <b>${extracted.name || '?'}</b>\n`;
+    // 🆕 v6.62.800 (Patrick 18.05. 11:37): Kunden-Typ anzeigen — KI erkennt jetzt
+    //   hotel/firma/klinik/gelegenheitskunde. Zeigt Patrick was beim Anlegen passiert.
+    if (extracted.customerKind) {
+        const _kindLabels = { hotel: '🏨 Hotel', firma: '🏢 Firma', klinik: '🏥 Klinik', gelegenheitskunde: '🏠 Privat', stammkunde: '⭐ Stammkunde' };
+        msg += `${_kindLabels[String(extracted.customerKind).toLowerCase()] || ('🏷️ ' + extracted.customerKind)}\n`;
+    }
+    // 🆕 v6.62.801 (Patrick 18.05. 11:37): Gastname-Feld bei Hotel/Auftraggeber-Anrufen
+    //   wenn KI einen anderen Namen als den Anrufer erkennt. Wird beim Anlegen als
+    //   ride.guestName gespeichert.
+    if (extracted.guestName) msg += `🧳 Gast: <b>${extracted.guestName}</b>\n`;
     // 🔧 v6.62.794: Mobil-Erkennung — wenn Phone startet mit 015/016/017 oder +49 15/16/17 → Mobil-Label
     const _phoneClean = String(callerPhone || '').replace(/[^0-9+]/g, '');
     const _isMobile = /^(\+49(15|16|17)|0(15|16|17))/.test(_phoneClean);
@@ -12861,20 +12879,35 @@ async function handleCallback(callback) {
         try {
             // 1. Customer anlegen
             const newCustomerName = extracted.name || ('Neukunde ' + _smart.callerPhone);
+            // 🆕 v6.62.800 (Patrick 18.05. 11:37): customerKind aus KI-Heuristik nehmen
+            //   (hotel/firma/klinik/gelegenheitskunde) — Fallback aus Name-Substring wenn KI
+            //   leer war. Verhindert dass Hotel-Neukunden als 'gelegenheitskunde' landen und
+            //   den Auftraggeber-Flow (Gastname-Frage) komplett verfehlen.
+            const _kindRaw = String(extracted.customerKind || '').toLowerCase().trim();
+            const _validKinds = ['hotel', 'firma', 'klinik', 'gelegenheitskunde', 'stammkunde'];
+            let _kind = _validKinds.includes(_kindRaw) ? _kindRaw : null;
+            if (!_kind) {
+                // Fallback-Heuristik aus Name (falls KI das Feld vergessen hat)
+                const _nLow = newCustomerName.toLowerCase();
+                if (/\b(hotel|villa|pension|residenz|strandhotel|garni|aja|seetel|maritim|steigenberger|travel charme)\b/.test(_nLow)) _kind = 'hotel';
+                else if (/\b(klinik|reha|rehabilitation|praxis|arzt|krankenhaus|doktor|dr\.)\b/.test(_nLow)) _kind = 'klinik';
+                else if (/\b(gmbh|ohg|ag|gewerbe|werkstatt|kg)\b/.test(_nLow)) _kind = 'firma';
+                else _kind = 'gelegenheitskunde';
+            }
             const _custKey = db.ref('customers').push().key;
             const _custData = {
                 name: newCustomerName,
                 phone: _smart.callerPhone,
                 mobilePhone: extracted.mobilPhone || _smart.callerPhone,
-                customerKind: 'gelegenheitskunde',
+                customerKind: _kind,
                 createdAt: Date.now(),
-                createdVia: 'telegram-smart-audio-v793',
+                createdVia: 'telegram-smart-audio-v800',
                 notes: extracted.notes || null
             };
             // Pickup als CRM-Adresse falls erkannt
             if (extracted.pickup) _custData.address = extracted.pickup;
             await db.ref('customers/' + _custKey).set(_custData);
-            await addTelegramLog('🤖', chatId, `Smart-Audio: Customer angelegt ${newCustomerName} (${_custKey})`);
+            await addTelegramLog('🤖', chatId, `Smart-Audio: Customer angelegt ${newCustomerName} (${_custKey}) kind=${_kind}`);
 
             // 2. Ride anlegen — direkt analyzeTelegramBooking aufrufen mit preselectedCustomer
             const preselectedCustomer = {
@@ -12885,14 +12918,19 @@ async function handleCallback(callback) {
                 mobilePhone: extracted.mobilPhone || _smart.callerPhone,
                 address: extracted.pickup || '',
                 defaultPickup: extracted.pickup || '',
-                customerKind: 'gelegenheitskunde'
+                customerKind: _kind
             };
             await deletePending(chatId);
-            await sendTelegramMessage(chatId, `✅ <b>${newCustomerName}</b> angelegt — analysiere Buchung...`);
+            const _kindLabel = { hotel: '🏨 Hotel', firma: '🏢 Firma', klinik: '🏥 Klinik', gelegenheitskunde: '🏠 Privat' }[_kind] || _kind;
+            await sendTelegramMessage(chatId, `✅ <b>${newCustomerName}</b> angelegt (${_kindLabel}) — analysiere Buchung...`);
             await analyzeTelegramBooking(chatId, _smart.originalText, _smart.userName, {
                 isAdmin: true,
                 preselectedCustomer,
                 isAudioTranscript: true,
+                // 🆕 v6.62.800: Gastname aus KI-Pre-Analyse als hotelGuestName durchreichen
+                //   damit booking.guestName + _isAuftraggeberBooking gesetzt werden, ohne dass
+                //   die zweite KI-Analyse den Namen nochmal raten muss.
+                hotelGuestName: extracted.guestName || null,
                 _smartAudioPreparsed: extracted  // KI-Daten weitergeben fuer Auto-Confirm
             });
         } catch (_e) {

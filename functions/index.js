@@ -19636,8 +19636,14 @@ exports.scheduledAutoAssign = onSchedule(
             // setzen UND FCM direkt erneut senden. Idempotent: nach status='assigned' fällt
             // die Fahrt aus dem Filter, kein Re-Re-Push.
             {
+                // 🐛 v6.62.804 (Patrick 19.05. 00:06 Wolgast-Bug): Filter akzeptiert jetzt
+                //   sowohl 'vorbestellt' als auch 'accepted'. Hintergrund: Bei native_dashboard_grab
+                //   wird der Status sofort auf 'accepted' gesetzt (manueller Grab durch Fahrer).
+                //   Vorher filterte der Reminder NUR 'vorbestellt' → manuell gegrabbt → keine
+                //   Push-Reminder mehr 15+Anfahrt vor Pickup. Fahrer wusste nicht wann losfahren.
+                const _isReminderEligibleStatus = (s) => s === 'vorbestellt' || s === 'accepted';
                 const _pushReadyList = allRides.filter(r => {
-                    if (r.status !== 'vorbestellt') return false;
+                    if (!_isReminderEligibleStatus(r.status)) return false;
                     const _vid = r.vehicleId || r.assignedVehicle;
                     if (!_vid) return false;
                     if (!r.pickupTimestamp) return false;
@@ -19645,13 +19651,20 @@ exports.scheduledAutoAssign = onSchedule(
                     const _reminderLeadMs = (15 + _anfahrt) * 60000;
                     if ((r.pickupTimestamp - now) > _reminderLeadMs) return false; // zu weit in Zukunft
                     if ((r.pickupTimestamp - now) < -10 * 60000) return false; // schon >10 min überfällig
-                    if (r.acceptedAt) return false; // bereits angenommen
+                    // v6.62.804: acceptedAt-Check NUR fuer 'vorbestellt'. Bei 'accepted' wurde
+                    //   die Ride manuell gegrabbt → acceptedAt ist gesetzt aber Reminder soll
+                    //   trotzdem feuern (sonst kein Losfahren-Banner).
+                    if (r.status === 'vorbestellt' && r.acceptedAt) return false;
                     if (r.assignmentLocked) return false;
+                    // Doppel-Reminder-Schutz: wenn schon mal gepusht (openRideWarned), skip
+                    if (r.openRideWarned) return false;
                     return true;
                 });
                 // 🆕 v6.62.63: Stranded-Vorbestellungs-Warnung — Rides die in den Filter
                 // gehoert haetten, aber durch 'r.acceptedAt' ausgeschlossen wurden (typisch:
                 // claudeFixRide Status-Reset ohne acceptedAt-Loeschung). Sonst still skipped.
+                // v6.62.804: jetzt nur fuer 'vorbestellt' relevant (bei 'accepted' ist
+                //   acceptedAt by-design gesetzt und kein Skip-Grund).
                 const _strandedList = allRides.filter(r => {
                     if (r.status !== 'vorbestellt') return false;
                     const _vid = r.vehicleId || r.assignedVehicle;
@@ -19670,22 +19683,30 @@ exports.scheduledAutoAssign = onSchedule(
                     }
                 }
                 if (_pushReadyList.length > 0) {
-                    console.log(`📲 v6.61.0 PUSH-REMINDER: ${_pushReadyList.length} Vorbestellung(en) in <60 Min → Status 'assigned' + FCM-Re-Push`);
+                    console.log(`📲 v6.61.0 PUSH-REMINDER: ${_pushReadyList.length} Ride(s) in <60 Min → FCM-Re-Push`);
                     for (const r of _pushReadyList) {
                         const _vid = r.vehicleId || r.assignedVehicle;
                         const _vName = (OFFICIAL_VEHICLES[_vid] || {}).name || _vid;
                         const _minUntil = Math.round((r.pickupTimestamp - now) / 60000);
+                        // 🐛 v6.62.804: Bei 'accepted' Status NICHT auf 'assigned' zuruecksetzen
+                        //   (das waere ein Rueckschritt). Nur statusTransition + openRideWarned
+                        //   Flag setzen + FCM. Bei 'vorbestellt' wie gehabt → 'assigned'.
+                        const _wasVorbestellt = r.status === 'vorbestellt';
                         try {
-                            await db.ref('rides/' + r.firebaseId).update({
-                                status: 'assigned',
+                            const _upd = {
                                 statusTransitionedAt: now,
-                                statusTransitionReason: 'v6.61.0 Push-Reminder bei <60 Min vor Pickup',
+                                statusTransitionReason: 'v6.62.804 Push-Reminder bei <60 Min vor Pickup',
+                                openRideWarned: true,  // verhindert Re-Trigger im naechsten 10-Min-Cron
                                 updatedAt: now
-                            });
-                            r.status = 'assigned'; // lokale Kopie aktualisieren
-                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) → assigned`);
-                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: vorbestellt → assigned (Pickup in ${_minUntil} Min)`, {
-                                quelle: 'scheduledAutoAssign v6.61.0',
+                            };
+                            if (_wasVorbestellt) {
+                                _upd.status = 'assigned';
+                            }
+                            await db.ref('rides/' + r.firebaseId).update(_upd);
+                            if (_wasVorbestellt) r.status = 'assigned'; // lokale Kopie aktualisieren
+                            console.log(`   ✅ ${r.customerName || r.firebaseId} (${_vName}, in ${_minUntil} Min) status=${r.status}`);
+                            await addRideLog(r.firebaseId, '📲', `Push-Reminder: ${_wasVorbestellt ? 'vorbestellt→assigned' : 'accepted (bleibt)'}  (Pickup in ${_minUntil} Min)`, {
+                                quelle: 'scheduledAutoAssign v6.62.804',
                                 fahrzeug: _vName,
                                 minutenBisAbholung: _minUntil
                             });

@@ -5294,11 +5294,11 @@ async function showSmartAudioConfirmCard(chatId, extracted, callerPhone, origina
         }
         buttons.push([{ text: '🔄 Klassischer Flow (alle Fragen)', callback_data: `smart_audio_fallback_${tokenId}` }]);
     }
-    // 🆕 v6.62.799 (Patrick 18.05. 09:46): Name-Edit-Button — bei fehlendem oder falschem
-    //   Namen direkt aus der Smart-Card heraus korrigierbar, ohne zurueck in klassischen
-    //   5-Klick-Flow zu muessen.
-    buttons.push([{ text: extracted.name ? '✏️ Name korrigieren' : '✏️ Name eintragen', callback_data: `smart_audio_edit_name_${tokenId}` }]);
-    buttons.push([{ text: '✏️ Ändern (klassisch)', callback_data: `smart_audio_fallback_${tokenId}` }]);
+    // 🆕 v6.62.799/822 (Patrick 18.05. + 19.05. 09:40): Felder einzeln aenderbar
+    //   via Sub-Menue 'Ändern' statt nur Name. Patrick: "wenn ich auf ändern klicke,
+    //   dass da ein Menü kommt, was möchtest du ändern".
+    buttons.push([{ text: '✏️ Felder ändern', callback_data: `smart_audio_edit_menu_${tokenId}` }]);
+    buttons.push([{ text: '🔄 Klassisch (5-Klick Flow)', callback_data: `smart_audio_fallback_${tokenId}` }]);
     buttons.push([{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]);
     await sendTelegramMessage(chatId, msg, { reply_markup: { inline_keyboard: buttons } });
 }
@@ -8954,23 +8954,82 @@ async function handleMessage(message) {
         pending = null; // 🔧 v6.38.3: Lokale Variable zurücksetzen — sonst triggert Follow-Up Check mit altem Pending
     }
 
-    // 🆕 v6.62.799 (Patrick 18.05. 09:46): SMART-AUDIO NAME-EDIT — User korrigiert Name
-    //   via '✏️ Name korrigieren' aus der Smart-Card. Folge-Text gilt als neuer Name,
-    //   Card wird neu gerendert.
-    if (pending && pending._smartAudioPending && pending._smartAudioEditName && !isPendingExpired(pending)) {
-        const _newName = (text || '').trim();
-        if (_newName.length < 2) {
-            await sendTelegramMessage(chatId, '⚠️ Name zu kurz. Bitte vollständigen Namen eingeben oder /abbrechen.');
+    // 🆕 v6.62.799/822: SMART-AUDIO FELD-EDIT — User korrigiert ein einzelnes Feld
+    //   via Sub-Menue 'Felder ändern' aus der Smart-Card. Folge-Text wird parsiert
+    //   und gespeichert, Card wird neu gerendert.
+    //   _smartAudioEditField kann sein: 'name', 'pickup', 'destination', 'date',
+    //   'time', 'passengers'. (v6.62.799 Rueckwaerts-Kompat: alter Key
+    //   _smartAudioEditName wird auch noch akzeptiert)
+    const _editField = pending && pending._smartAudioPending
+        ? (pending._smartAudioEditField || (pending._smartAudioEditName ? 'name' : null))
+        : null;
+    if (_editField && !isPendingExpired(pending)) {
+        const _raw = (text || '').trim();
+        if (!_raw) {
+            await sendTelegramMessage(chatId, '⚠️ Leere Eingabe. Bitte Wert eingeben oder /abbrechen.');
             return;
         }
         const _smartUpd = { ...(pending._smartAudio || {}) };
         const _extUpd = { ...(_smartUpd.extracted || {}) };
-        const _oldName = _extUpd.name || '(leer)';
-        _extUpd.name = _newName;
+        let _logLine = '';
+        let _parseErr = null;
+        if (_editField === 'name') {
+            if (_raw.length < 2) { _parseErr = 'Name zu kurz.'; }
+            else { const _old = _extUpd.name || '(leer)'; _extUpd.name = _raw; _logLine = `Name "${_old}" → "${_raw}"`; }
+        } else if (_editField === 'pickup' || _editField === 'destination') {
+            if (_raw.length < 5) { _parseErr = 'Adresse zu kurz — bitte vollständig eingeben.'; }
+            else { const _old = _extUpd[_editField] || '(leer)'; _extUpd[_editField] = _raw; _logLine = `${_editField} "${_old}" → "${_raw}"`; }
+        } else if (_editField === 'passengers') {
+            const _n = parseInt(_raw, 10);
+            if (!_n || _n < 1 || _n > 8) { _parseErr = 'Personenzahl zwischen 1 und 8.'; }
+            else { _extUpd.passengers = _n; _logLine = `Personenzahl → ${_n}`; }
+        } else if (_editField === 'date' || _editField === 'time') {
+            // Datum + Zeit zusammensetzen — wir behalten den jeweils anderen Wert.
+            const _curr = _extUpd.pickupTimestamp ? new Date(_extUpd.pickupTimestamp) : new Date();
+            // Berlin-Zeit-Komponenten extrahieren
+            const _berlinFmt = new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Berlin', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+            const _parts = Object.fromEntries(_berlinFmt.formatToParts(_curr).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+            let _y = parseInt(_parts.year,10), _mo = parseInt(_parts.month,10), _d = parseInt(_parts.day,10);
+            let _h = parseInt(_parts.hour,10), _min = parseInt(_parts.minute,10);
+            if (_editField === 'date') {
+                // Akzeptiere TT.MM. oder TT.MM.JJJJ oder 'morgen' oder 'heute' oder 'übermorgen'
+                const _now = new Date();
+                if (/^heute$/i.test(_raw)) { /* current date */ }
+                else if (/^morgen$/i.test(_raw)) { const _t = new Date(_now); _t.setDate(_t.getDate()+1); _y=_t.getFullYear(); _mo=_t.getMonth()+1; _d=_t.getDate(); }
+                else if (/^uebermorgen|übermorgen$/i.test(_raw)) { const _t = new Date(_now); _t.setDate(_t.getDate()+2); _y=_t.getFullYear(); _mo=_t.getMonth()+1; _d=_t.getDate(); }
+                else {
+                    const _m = _raw.match(/^(\d{1,2})\.(\d{1,2})\.?(\d{2,4})?/);
+                    if (!_m) { _parseErr = 'Datum-Format: TT.MM. oder "morgen".'; }
+                    else { _d = parseInt(_m[1],10); _mo = parseInt(_m[2],10); if (_m[3]) { let _yy = parseInt(_m[3],10); if (_yy < 100) _yy += 2000; _y = _yy; } }
+                }
+                _logLine = `Datum → ${_d}.${_mo}.${_y}`;
+            } else {
+                // Zeit HH:MM oder HHMM
+                const _m = _raw.replace(/[\.,]/g,':').match(/^(\d{1,2}):?(\d{2})/);
+                if (!_m) { _parseErr = 'Zeit-Format: HH:MM (z.B. 10:08).'; }
+                else { _h = parseInt(_m[1],10); _min = parseInt(_m[2],10); if (_h>23||_min>59) _parseErr = 'Ungueltige Uhrzeit.'; }
+                _logLine = `Zeit → ${String(_h).padStart(2,'0')}:${String(_min).padStart(2,'0')}`;
+            }
+            if (!_parseErr) {
+                // Berlin-Zeit -> UTC-Timestamp
+                // Trick: erzeuge ISO mit +02:00 Offset im Sommer, +01:00 im Winter
+                const _isoLocal = `${_y}-${String(_mo).padStart(2,'0')}-${String(_d).padStart(2,'0')}T${String(_h).padStart(2,'0')}:${String(_min).padStart(2,'0')}:00`;
+                // Sommerzeit: Berlin = UTC+2 zwischen letzter So. Maerz und letzter So. Oktober. Fuer Mai gilt +2.
+                const _testDate = new Date(_isoLocal + 'Z');
+                const _berlinHour = parseInt(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',hour:'2-digit',hour12:false}).format(_testDate),10);
+                const _utcHour = _testDate.getUTCHours();
+                let _offsetH = _berlinHour - _utcHour; if (_offsetH < 0) _offsetH += 24; if (_offsetH > 12) _offsetH -= 24;
+                _extUpd.pickupTimestamp = _testDate.getTime() - _offsetH * 3600_000;
+            }
+        }
+        if (_parseErr) {
+            await sendTelegramMessage(chatId, `⚠️ ${_parseErr} Bitte nochmal eingeben oder /abbrechen.`);
+            return;
+        }
         _smartUpd.extracted = _extUpd;
-        await addTelegramLog('✏️', chatId, `Smart-Audio Name korrigiert: "${_oldName}" → "${_newName}"`);
-        // _smartAudioEditName zuruecksetzen + neue Card zeigen (token bleibt erhalten)
+        await addTelegramLog('✏️', chatId, `Smart-Audio ${_logLine}`);
         const _pendingNoEdit = { ...pending, _smartAudio: _smartUpd };
+        delete _pendingNoEdit._smartAudioEditField;
         delete _pendingNoEdit._smartAudioEditName;
         await setPending(chatId, _pendingNoEdit);
         await showSmartAudioConfirmCard(chatId, _extUpd, _smartUpd.callerPhone, _smartUpd.originalText, _smartUpd.userName);
@@ -12902,7 +12961,7 @@ async function handleCallback(callback) {
             await sendTelegramMessage(chatId, '⚠️ Smart-Audio-Pending nicht gefunden (vermutlich abgelaufen). Bitte Audio neu senden.');
             return;
         }
-        await setPending(chatId, { ...pendingNe, _smartAudioEditName: true });
+        await setPending(chatId, { ...pendingNe, _smartAudioEditField: 'name' });
         const _currentName = pendingNe._smartAudio?.extracted?.name || '';
         await sendTelegramMessage(chatId,
             `✏️ <b>Namen ${_currentName ? 'korrigieren' : 'eintragen'}</b>\n\n` +
@@ -12913,6 +12972,71 @@ async function handleCallback(callback) {
             ] }}
         );
         return;
+    }
+
+    // 🆕 v6.62.822 (Patrick 19.05. 09:40): Sub-Menue 'Felder ändern' — alle Felder
+    //   einzeln editierbar (Name, Pickup, Ziel, Datum, Zeit, Personenzahl). Vorher
+    //   nur Name-Edit oder klassischer 5-Klick-Flow.
+    if (data.startsWith('smart_audio_edit_menu_')) {
+        const _tokenId = data.replace('smart_audio_edit_menu_', '');
+        const _pme = await getPending(chatId);
+        if (!_pme || !_pme._smartAudioPending) {
+            await sendTelegramMessage(chatId, '⚠️ Smart-Audio-Pending nicht gefunden (vermutlich abgelaufen). Bitte Audio neu senden.');
+            return;
+        }
+        const _ex = _pme._smartAudio?.extracted || {};
+        await sendTelegramMessage(chatId,
+            `✏️ <b>Welches Feld ändern?</b>\n\n` +
+            `👤 Name: <code>${_ex.name || '—'}</code>\n` +
+            `📍 Abholort: <code>${_ex.pickup || '—'}</code>\n` +
+            `🎯 Zielort: <code>${_ex.destination || '—'}</code>\n` +
+            `📅 Datum/Zeit: <code>${_ex.pickupTimestamp ? new Date(_ex.pickupTimestamp).toLocaleString('de-DE',{timeZone:'Europe/Berlin'}) : '—'}</code>\n` +
+            `👥 Personen: <code>${_ex.passengers || 1}</code>`,
+            { reply_markup: { inline_keyboard: [
+                [{ text: '👤 Name', callback_data: `smart_audio_edit_name_${_tokenId}` }],
+                [{ text: '📍 Abholort', callback_data: `smart_audio_edit_pickup_${_tokenId}` }],
+                [{ text: '🎯 Zielort', callback_data: `smart_audio_edit_dest_${_tokenId}` }],
+                [{ text: '📅 Datum', callback_data: `smart_audio_edit_date_${_tokenId}` }],
+                [{ text: '🕐 Zeit', callback_data: `smart_audio_edit_time_${_tokenId}` }],
+                [{ text: '👥 Personenzahl', callback_data: `smart_audio_edit_pax_${_tokenId}` }],
+                [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+            ] }}
+        );
+        return;
+    }
+
+    // 🆕 v6.62.822: Einzel-Edit-Handler fuer Pickup/Ziel/Datum/Zeit/Personen.
+    //   Text-Eingabe wird im pending._smartAudioEditField-Branch in handleTextMessage verarbeitet.
+    const _smartEditMap = {
+        'smart_audio_edit_pickup_': { field: 'pickup', label: 'Abholort', icon: '📍', hint: 'Bitte vollständige Adresse eingeben (z.B. Strandstraße 25, 17424 Heringsdorf).' },
+        'smart_audio_edit_dest_':   { field: 'destination', label: 'Zielort', icon: '🎯', hint: 'Bitte vollständige Adresse eingeben.' },
+        'smart_audio_edit_date_':   { field: 'date', label: 'Datum', icon: '📅', hint: 'Format TT.MM. (z.B. <i>19.05.</i> oder <i>morgen</i>).' },
+        'smart_audio_edit_time_':   { field: 'time', label: 'Uhrzeit', icon: '🕐', hint: 'Format HH:MM (z.B. <i>10:08</i>).' },
+        'smart_audio_edit_pax_':    { field: 'passengers', label: 'Personenzahl', icon: '👥', hint: 'Eine Zahl zwischen 1 und 8.' }
+    };
+    for (const _prefix in _smartEditMap) {
+        if (data.startsWith(_prefix)) {
+            const _cfg = _smartEditMap[_prefix];
+            const _pmf = await getPending(chatId);
+            if (!_pmf || !_pmf._smartAudioPending) {
+                await sendTelegramMessage(chatId, '⚠️ Smart-Audio-Pending nicht gefunden (vermutlich abgelaufen). Bitte Audio neu senden.');
+                return;
+            }
+            await setPending(chatId, { ..._pmf, _smartAudioEditField: _cfg.field });
+            const _ex = _pmf._smartAudio?.extracted || {};
+            const _current = _cfg.field === 'date' || _cfg.field === 'time'
+                ? (_ex.pickupTimestamp ? new Date(_ex.pickupTimestamp).toLocaleString('de-DE',{timeZone:'Europe/Berlin'}) : '')
+                : (_ex[_cfg.field] || '');
+            await sendTelegramMessage(chatId,
+                `${_cfg.icon} <b>${_cfg.label} ändern</b>\n\n` +
+                (_current ? `Aktuell: <code>${_current}</code>\n\n` : '') +
+                _cfg.hint,
+                { reply_markup: { inline_keyboard: [
+                    [{ text: '❌ Abbrechen', callback_data: 'cancel_booking' }]
+                ] }}
+            );
+            return;
+        }
     }
 
     // 🆕 v6.62.793 (Patrick 17.05. 22:38): Smart-Audio-Confirm — KOMPLETT Customer + Ride in 1 Klick anlegen

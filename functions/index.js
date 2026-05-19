@@ -5633,7 +5633,8 @@ ADRESSEN — SORGFÄLTIG EXTRAHIEREN:
 • Straße + Hausnummer immer vollständig übernehmen
 • TRENNZEICHEN: Komma, Punkt oder Leerzeichen zwischen Adressteilen ist OK — "Friedrichstraße 9 Ahlbeck" = "Friedrichstraße 9, Ahlbeck"
 • Bekannte Ziele: "Bahnhof Heringsdorf", "Flughafen Heringsdorf (HDF)", "Seebrücke Heringsdorf"
-• Unklare Orte (z.B. nur "Bahnhof", "Kirche", "Hotel") → in question KONKRET nachfragen: "Welchen Bahnhof meinen Sie?"
+• 🆕 v6.62.825: POI-NAMEN wie "kleines Restaurant in Heringsdorf", "Hotel Maritim", "Augenarzt Müller" — IMMER als pickup/destination-String übernehmen (nicht null!), das System sucht via Google Places. NUR wenn der Name SO vage ist dass keine Suche möglich wäre (z.B. nur "Hotel" ohne Ort), in question nachfragen.
+• Bahnhof/Kirche/Hotel OHNE Ort → in question konkret nachfragen "Welcher Bahnhof?", aber MIT Ort ("Hotel im Heringsdorf", "kleines Restaurant in Bansin") → als pickup-String übernehmen
 • NUR ORTSNAME (z.B. "Bansin", "Ahlbeck") OHNE Straße → Adresse übernehmen ABER in question fragen: "Haben Sie eine genaue Adresse in [Ort]? Straße und Hausnummer helfen uns, Sie schneller zu finden."
 • "zu Hause" / "nach Hause" ohne bekannte Heimadresse → null, in missing, fragen: "Was ist Ihre Heimadresse? Straße, Hausnummer und Ort bitte."
 • NIEMALS eine Adresse erfinden oder raten! Nur Adressen setzen die EXPLIZIT im Text stehen.

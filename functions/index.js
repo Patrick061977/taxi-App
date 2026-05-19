@@ -21279,7 +21279,11 @@ exports.onRideUpdated = onValueUpdated(
     {
         ref: '/rides/{rideId}',
         region: 'europe-west1',
-        instance: 'taxi-heringsdorf-default-rtdb'
+        instance: 'taxi-heringsdorf-default-rtdb',
+        // 🆕 v6.62.811: puppeteer/chromium fuer Auto-Rechnung-PDF braucht ~1GB RAM
+        //   + Cold-Start 5-8s. 2GiB gibt Puffer fuer parallele Ride-Updates.
+        memory: '2GiB',
+        timeoutSeconds: 120
     },
     async (event) => {
         const rideId = event.params.rideId;
@@ -22688,41 +22692,40 @@ exports.onRideUpdated = onValueUpdated(
                 });
                 console.log(`✅ v6.62.312: Rechnung ${_belegNr} fuer ${rideId} angelegt (${_gross}€)`);
 
-                // 🆕 v6.62.810 (Patrick 19.05. 01:12+01:15): PDF-Generation SERVERSEITIG.
-                //   Bisher musste Admin-Browser (jsPDF) das PDF nachtraeglich generieren —
-                //   wenn der Browser nicht offen war (Nacht!) gab es kein PDF, Track-Link
-                //   zeigte keinen Download-Button. Patrick: 'Ich moechte nicht meinen Admin-
-                //   Browser oeffnen muessen. Mach das im Hintergrund.'
-                //   Loesung: pdfkit (functions/invoice-pdf.js v6.62.391 noch vorhanden) baut
-                //   PDF direkt, Upload zu Firebase Storage, pdfUrl an /invoices/{nr} +
-                //   /rides/{id}/invoicePdfUrl haengen.
+                // 🆕 v6.62.811 (Patrick 19.05. 06:28): Pixel-Match-PDF via puppeteer.
+                //   Vorgaenger v6.62.810: pdfkit-MVP, simples A4-Layout.
+                //   Jetzt: DIN-5008 HTML-Template (invoice-html.js) + puppeteer
+                //   spiegelt jsPDF-Layout aus index.html (Falzmarken, Adressfenster,
+                //   Firmenblock, Positionen-Tabelle, Fahrtdetails-Box, Footer).
+                //   /settings/invoice wird geladen (Bankdaten/StNr/Logo aus Admin-UI).
                 try {
                     const invoicePdfMod = require('./invoice-pdf');
-                    // _custData enthaelt schon CRM-Daten
-                    const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(_belegNr, after, _custData || {});
+                    const _invSettings = await invoicePdfMod.loadInvoiceSettings(db);
+                    const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(
+                        _belegNr, after, _custData || {}, _invSettings, _invoiceData
+                    );
                     const fileName = `rechnung-${_belegNr}.pdf`;
                     const bucket = admin.storage().bucket();
                     const fileRef = bucket.file(`invoices/${fileName}`);
                     await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
                     await fileRef.makePublic();
                     const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
-                    // pdfUrl auf beiden Ebenen ablegen
                     await db.ref(`invoices/${_belegNr}`).update({
                         pdfUrl,
                         pdfFileName: fileName,
                         pdfGeneratedAt: Date.now(),
-                        pdfGeneratedVia: 'cloud_function_pdfkit_v6.62.810'
+                        pdfGeneratedVia: 'cloud_function_puppeteer_v6.62.811'
                     });
                     await db.ref(`rides/${rideId}`).update({
                         invoicePdfUrl: pdfUrl,
                         invoicePdfGeneratedAt: Date.now()
                     });
                     await addRideLog(rideId, '📄', `PDF serverseitig erstellt: ${fileName}`, {
-                        belegNr: _belegNr, pdfUrl, via: 'pdfkit_v6.62.810'
+                        belegNr: _belegNr, pdfUrl, via: 'puppeteer_v6.62.811'
                     });
-                    console.log(`✅ v6.62.810: PDF ${fileName} → ${pdfUrl}`);
+                    console.log(`✅ v6.62.811: PDF ${fileName} → ${pdfUrl}`);
                 } catch (_pdfErr) {
-                    console.error(`❌ v6.62.810 PDF-Generation Fehler ${rideId}:`, _pdfErr.message);
+                    console.error(`❌ v6.62.811 PDF-Generation Fehler ${rideId}:`, _pdfErr.message);
                     await addRideLog(rideId, '⚠️', `Serverseitige PDF-Generation fehlgeschlagen: ${_pdfErr.message} — Admin-Browser-jsPDF kann noch nachholen`, {
                         belegNr: _belegNr, error: _pdfErr.message
                     });

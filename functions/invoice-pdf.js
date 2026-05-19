@@ -1,11 +1,21 @@
-// v6.62.391: Server-side PDF-Rechnung mit pdfkit.
-// Patrick (06.05. 20:39): "Cloud Function macht's serverseitig, kein offener
-// Browser-Tab noetig". Native-App setzt rides/{id}/needsInvoice=true beim
-// Bezahl-Abschluss → onRideUpdated triggert diese Funktion → PDF nach
-// Storage → invoice in /invoices → invoice.pdfUrl. Vielen-Dank-SMS holt
-// sich den Link aus invoices/<n>/pdfUrl.
+// v6.62.811 (19.05.2026): Pixel-Match-PDF via puppeteer + @sparticuz/chromium.
+// Vorgaenger v6.62.391/810: pdfkit-MVP — simples Layout, kein DIN-5008.
+// Patrick: "Pixel-Identisch waere ich schon ganz gerne." → HTML-Template
+// in invoice-html.js spiegelt jsPDF-Layout aus index.html (DIN-5008,
+// Falzmarken, Adressfenster, Firmenblock, Positionen-Tabelle, Footer).
+//
+// Architektur:
+//   1. /settings/invoice laden (Firmen-Block, Bankdaten, Steuer-Nr)
+//   2. Customer-Daten via ride.customerId
+//   3. buildInvoiceHtml(...) -> HTML-String
+//   4. puppeteer.launch -> page.setContent -> page.pdf -> Buffer
+//
+// Resource-Notiz: chromium braucht >=1GiB Memory. onRideUpdated-Trigger
+// muss entsprechend hochgezogen werden (v6.62.811: 2GiB).
 
-const PDFDocument = require('pdfkit');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
+const { buildInvoiceHtml } = require('./invoice-html');
 
 // 🆕 Belegnummer-Format kompatibel zu web (getNextInvoiceNumber): 20-YY-NNN
 async function getNextServerInvoiceNumber(db) {
@@ -18,103 +28,78 @@ async function getNextServerInvoiceNumber(db) {
     return `20-${shortYear}-${padded}`;
 }
 
-// PDF-Buffer generieren (pdfkit, A4)
-function buildInvoicePdfBuffer(invoiceNumber, ride, customer) {
-    return new Promise((resolve, reject) => {
+// Browser-Instance pro Cloud-Function-Instanz cachen (warm-start spart 3-5s)
+let _browserPromise = null;
+async function getBrowser() {
+    if (_browserPromise) {
         try {
-            const doc = new PDFDocument({ size: 'A4', margin: 50 });
-            const buffers = [];
-            doc.on('data', b => buffers.push(b));
-            doc.on('end', () => resolve(Buffer.concat(buffers)));
-            doc.on('error', reject);
-
-            const totalGross = parseFloat(ride.actualPrice || ride.price || 0);
-            const totalNet = +(totalGross / 1.07).toFixed(2);
-            const totalVat = +(totalGross - totalNet).toFixed(2);
-            const ts = ride.completedAt || ride.acceptedAt || Date.now();
-            const fahrtDatum = new Date(ts).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
-            const fahrtZeit = new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
-            const rechnungsDatum = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
-
-            // Header rechts: RECHNUNG + Nummer + Datum
-            doc.fontSize(22).font('Helvetica-Bold').text('RECHNUNG', 50, 50, { align: 'right' });
-            doc.fontSize(10).font('Helvetica');
-            doc.text(`Rechnungsnummer: ${invoiceNumber}`, { align: 'right' });
-            doc.text(`Rechnungsdatum: ${rechnungsDatum}`, { align: 'right' });
-            doc.moveDown(2);
-
-            // Absender (oben links — Briefkopf)
-            doc.fontSize(11).font('Helvetica-Bold').text('Funk Taxi Patrick Wydra', 50, 50);
-            doc.fontSize(9).font('Helvetica');
-            doc.text('Strandstrasse 25');
-            doc.text('17424 Heringsdorf');
-            doc.text('Tel: 038378 22022');
-            doc.text('taxiwydra@googlemail.com');
-
-            // Empfaenger
-            doc.moveDown(4);
-            doc.fontSize(10).font('Helvetica-Bold').text('Rechnungsempfaenger:');
-            doc.font('Helvetica');
-            doc.text(customer.name || ride.customerName || 'Kunde');
-            if (customer.address) doc.text(customer.address);
-            doc.moveDown();
-
-            // Leistungs-Sektion
-            doc.fontSize(11).font('Helvetica-Bold').text('Leistung:');
-            doc.fontSize(10).font('Helvetica');
-            doc.text(`Datum der Fahrt: ${fahrtDatum}, ${fahrtZeit} Uhr`);
-            if (ride.pickup) doc.text(`Abholort: ${ride.pickup}`);
-            if (ride.destination) doc.text(`Zielort: ${ride.destination}`);
-            if (ride.distance) doc.text(`Strecke: ${ride.distance} km`);
-            doc.moveDown(2);
-
-            // Preis-Block (rechts, gross)
-            doc.fontSize(13).font('Helvetica-Bold');
-            doc.text('Gesamtbetrag:', 350, doc.y, { continued: true });
-            doc.text(` ${totalGross.toFixed(2).replace('.', ',')} EUR`, { align: 'right' });
-            doc.moveDown(0.5);
-
-            // MwSt-Aufschluesselung (Pflichtangabe USt 7% Personenbefoerderung)
-            doc.fontSize(8).font('Helvetica');
-            const vatHint = `* Im Gesamtbetrag von ${totalGross.toFixed(2).replace('.', ',')} EUR (Netto: ${totalNet.toFixed(2).replace('.', ',')} EUR) sind 7 % USt enthalten (${totalVat.toFixed(2).replace('.', ',')} EUR).`;
-            doc.text(vatHint, 50, doc.y, { width: 495 });
-            doc.moveDown(2);
-
-            // Zahlungs-Vermerk
-            doc.fontSize(10).font('Helvetica-Bold');
-            const pm = (ride.paymentMethod || '').toLowerCase();
-            if (pm === 'cash' || pm === 'bar') {
-                doc.text('Betrag in Bar erhalten — Vielen Dank!');
-            } else if (pm === 'stripe' || pm === 'card' || pm === 'kreditkarte') {
-                doc.text('Bezahlt per Stripe (online).');
-            } else if (pm === 'izettle') {
-                doc.text('Bezahlt per Karte (Zettle).');
-            } else if (pm === 'invoice_email' || pm === 'invoice_auftraggeber') {
-                doc.text('Zahlbar innerhalb von 14 Tagen ohne Abzug.');
-            } else {
-                doc.text('Vielen Dank fuer Ihre Fahrt.');
-            }
-
-            doc.moveDown();
-            doc.font('Helvetica');
-            doc.text('Mit freundlichen Gruessen');
-            doc.text('Patrick Wydra');
-
-            // Footer (3 Zeilen unten am Seitenende)
-            doc.fontSize(7).font('Helvetica').fillColor('#666');
-            const footerY = 780;
-            doc.text('Funk Taxi Patrick Wydra | Strandstrasse 25 | 17424 Heringsdorf', 50, footerY, { align: 'center', width: 495 });
-            doc.text('Tel: 038378 22022 | taxiwydra@googlemail.com | funk-taxi-heringsdorf.de', 50, footerY + 10, { align: 'center', width: 495 });
-            doc.text('Kleinunternehmer gem. § 19 UStG — soweit zutreffend. Personenbefoerderung mit USt 7%.', 50, footerY + 20, { align: 'center', width: 495 });
-
-            doc.end();
-        } catch (e) {
-            reject(e);
-        }
+            const b = await _browserPromise;
+            if (b && b.connected !== false) return b;
+        } catch (_e) { /* fall through, neu launchen */ }
+    }
+    _browserPromise = puppeteer.launch({
+        args: [
+            ...chromium.args,
+            '--hide-scrollbars',
+            '--disable-web-security',
+            '--disable-dev-shm-usage',
+            '--no-sandbox'
+        ],
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        defaultViewport: chromium.defaultViewport
     });
+    return _browserPromise;
 }
 
-// Orchestrierung: Belegnummer holen, PDF bauen, Storage upload, /invoices anlegen, /rides aktualisieren
+// PDF-Buffer generieren via puppeteer.
+// settings (optional) ueberschreibt das aus Firebase geladene /settings/invoice.
+async function buildInvoicePdfBuffer(invoiceNumber, ride, customer, settings, invoice) {
+    const html = buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice });
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+    try {
+        await page.setContent(html, { waitUntil: 'domcontentloaded' });
+        // Druck-Format A4, ohne zusaetzliche Margins (das @page-CSS regelt das)
+        const buffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: 0, right: 0, bottom: 0, left: 0 },
+            preferCSSPageSize: true
+        });
+        return buffer;
+    } finally {
+        try { await page.close(); } catch (_e) { /* ignore */ }
+    }
+}
+
+// Settings aus Firebase laden (mit Defaults)
+async function loadInvoiceSettings(db) {
+    try {
+        const snap = await db.ref('settings/invoice').once('value');
+        const settings = snap.val();
+        if (!settings || !settings.companyName) {
+            return {
+                companyName: 'Taxiunternehmen Patrick Wydra',
+                street: 'Amselring 10',
+                city: '17424 Ostseebad Heringsdorf',
+                phone: '038378/22022',
+                email: 'taxiwydra@googlemail.com',
+                bankInfo: 'Kontoinhaber: Patrick Wydra\nVolksbank Vorpommern\nIBAN: DE16 1309 1054 0001 5524 90\nBIC: GENODEF1HST'
+            };
+        }
+        // bankInfo sanity: muss "Kontoinhaber" enthalten
+        if (!settings.bankInfo || !settings.bankInfo.includes('Kontoinhaber')) {
+            settings.bankInfo = 'Kontoinhaber: Patrick Wydra\nVolksbank Vorpommern\nIBAN: DE16 1309 1054 0001 5524 90\nBIC: GENODEF1HST';
+        }
+        return settings;
+    } catch (_e) {
+        return {};
+    }
+}
+
+// Orchestrierung: Belegnummer holen, Settings laden, PDF bauen, Storage upload, /invoices anlegen, /rides aktualisieren.
+// Behaelt Signature von v6.62.391 fuer Rueckwaerts-Kompatibilitaet.
 async function processAutoInvoice(rideId, ride, db, admin) {
     if (!rideId || !ride) throw new Error('rideId/ride leer');
     if (ride.invoiceNumber) {
@@ -122,19 +107,19 @@ async function processAutoInvoice(rideId, ride, db, admin) {
         return { skipped: true, reason: 'already_invoiced' };
     }
 
-    // Customer-Daten laden
     let customer = {};
     if (ride.customerId) {
         try {
             const cs = await db.ref(`customers/${ride.customerId}`).once('value');
             customer = cs.val() || {};
-        } catch (_e) {}
+        } catch (_e) { /* ignore */ }
     }
 
     const invoiceNumber = await getNextServerInvoiceNumber(db);
     console.log(`🧾 Auto-Invoice: erstelle ${invoiceNumber} für ride ${rideId}`);
 
-    const pdfBuffer = await buildInvoicePdfBuffer(invoiceNumber, ride, customer);
+    const settings = await loadInvoiceSettings(db);
+    const pdfBuffer = await buildInvoicePdfBuffer(invoiceNumber, ride, customer, settings);
     const fileName = `rechnung-${invoiceNumber}.pdf`;
     const bucket = admin.storage().bucket();
     const fileRef = bucket.file(`invoices/${fileName}`);
@@ -172,7 +157,7 @@ async function processAutoInvoice(rideId, ride, db, admin) {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         autoGenerated: true,
-        autoGeneratedVia: 'cloud_function_pdfkit_v6.62.391'
+        autoGeneratedVia: 'cloud_function_puppeteer_v6.62.811'
     };
 
     await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
@@ -180,11 +165,11 @@ async function processAutoInvoice(rideId, ride, db, admin) {
         invoiceNumber,
         invoicePdfUrl: pdfUrl,
         invoiceCreatedAt: Date.now(),
-        needsInvoice: false  // Hook abschalten — verhindert erneuten Trigger
+        needsInvoice: false
     });
 
     console.log(`✅ Auto-Invoice fertig: ${invoiceNumber} → ${pdfUrl}`);
     return { invoiceNumber, pdfUrl };
 }
 
-module.exports = { processAutoInvoice, getNextServerInvoiceNumber, buildInvoicePdfBuffer };
+module.exports = { processAutoInvoice, getNextServerInvoiceNumber, buildInvoicePdfBuffer, loadInvoiceSettings };

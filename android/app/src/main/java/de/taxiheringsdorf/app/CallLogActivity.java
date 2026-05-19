@@ -504,15 +504,20 @@ public class CallLogActivity extends AppCompatActivity {
                     Toast.makeText(this, "Keine versteckten Anrufe", Toast.LENGTH_SHORT).show();
                     return;
                 }
+                // 🆕 v6.62.818 (Patrick 19.05. 08:15): + 'Endgültig löschen'-Option.
+                //   Löscht die versteckten Anrufe aus dem Android-Telefon-CallLog
+                //   (braucht WRITE_CALL_LOG Permission). Vorher: nur 'wieder einblenden'.
                 new AlertDialog.Builder(this)
                     .setTitle("🗑 " + hiddenSet.size() + " versteckte Anrufe")
-                    .setMessage("Versehentlich weggeswipet?\n\nAlle wieder einblenden?")
-                    .setPositiveButton("Alle einblenden", (d, w) -> {
+                    .setMessage("• 'Wieder einblenden' = versteckte Liste leeren, Anrufe erscheinen wieder\n"
+                        + "• 'Endgültig löschen' = aus Android-Telefon-CallLog komplett entfernen (auch außerhalb der App)")
+                    .setPositiveButton("Wieder einblenden", (d, w) -> {
                         getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().remove(KEY_HIDDEN).apply();
                         Toast.makeText(this, "✅ " + hiddenSet.size() + " Anrufe wieder sichtbar", Toast.LENGTH_SHORT).show();
                         loadCalls();
                         updateHiddenButtonLabel();
                     })
+                    .setNeutralButton("🗑️ Endgültig löschen", (d, w) -> deleteHiddenCallsFromSystem(hiddenSet))
                     .setNegativeButton("Abbrechen", null)
                     .show();
             });
@@ -610,6 +615,18 @@ public class CallLogActivity extends AppCompatActivity {
                 loadCalls();
             } else {
                 permHint.setVisibility(View.VISIBLE);
+            }
+        } else if (requestCode == REQ_PERM_WRITE_CALL_LOG) {
+            // 🆕 v6.62.818: WRITE_CALL_LOG-Antwort fuer endgueltiges Loeschen
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (_pendingHiddenDelete != null) {
+                    java.util.Set<String> _tmp = _pendingHiddenDelete;
+                    _pendingHiddenDelete = null;
+                    deleteHiddenCallsFromSystem(_tmp);
+                }
+            } else {
+                _pendingHiddenDelete = null;
+                Toast.makeText(this, "❌ Berechtigung verweigert — Anrufe nicht geloescht", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -816,6 +833,45 @@ public class CallLogActivity extends AppCompatActivity {
         int n = getHiddenNumbers().size();
         b.setText("🗑 Versteckt (" + n + ")");
     }
+
+    // 🆕 v6.62.818 (Patrick 19.05. 08:15): Versteckte Anrufe endgueltig aus dem
+    //   Android-Telefon-CallLog loeschen. Braucht WRITE_CALL_LOG Permission.
+    //   Wird beim ersten Klick angefordert; bei Verweigerung Toast + Abbruch.
+    private static final int REQ_PERM_WRITE_CALL_LOG = 7777;
+    private java.util.Set<String> _pendingHiddenDelete = null;
+    private void deleteHiddenCallsFromSystem(java.util.Set<String> hiddenNumbers) {
+        if (hiddenNumbers == null || hiddenNumbers.isEmpty()) return;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            _pendingHiddenDelete = hiddenNumbers;
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_CALL_LOG}, REQ_PERM_WRITE_CALL_LOG);
+            return;
+        }
+        int totalDeleted = 0;
+        for (String num : hiddenNumbers) {
+            try {
+                int n = getContentResolver().delete(
+                    CallLog.Calls.CONTENT_URI,
+                    CallLog.Calls.NUMBER + " = ?",
+                    new String[]{num}
+                );
+                totalDeleted += n;
+            } catch (SecurityException se) {
+                Toast.makeText(this, "❌ WRITE_CALL_LOG-Berechtigung fehlt", Toast.LENGTH_LONG).show();
+                return;
+            } catch (Throwable t) {
+                android.util.Log.w("CallLog", "Loeschen fehlgeschlagen fuer " + num + ": " + t.getMessage());
+            }
+        }
+        // SharedPrefs hidden-Liste auch leeren (Nummern existieren nicht mehr).
+        getSharedPreferences(PREFS_HIDDEN, MODE_PRIVATE).edit().remove(KEY_HIDDEN).apply();
+        Toast.makeText(this, "🗑️ " + totalDeleted + " Anrufe endgueltig geloescht", Toast.LENGTH_LONG).show();
+        loadCalls();
+        updateHiddenButtonLabel();
+    }
+
+    // (v6.62.818: onRequestPermissionsResult-Handler oben bei Z. 610 erweitert um
+    //  REQ_PERM_WRITE_CALL_LOG-Branch — diese Methode wurde entfernt um
+    //  Doppel-Override-Compile-Fehler zu vermeiden.)
 
     // v6.51.0/v6.56.0: Admin-Modus — entweder explizit (AdminDashboardActivity hat
     // SharedPref 'isAdminMode'=true gesetzt) ODER User hat Rolle 'admin' aus Firebase.

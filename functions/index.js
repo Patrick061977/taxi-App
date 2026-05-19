@@ -1346,6 +1346,32 @@ async function autoAssignRide(rideId, rideData) {
                         return null;
                     } else {
                         // Kleiner Konflikt → Abholzeit automatisch verschieben
+                        // 🆕 v6.62.821 (Patrick 19.05. 09:40): Bei Anschluss-Zielen
+                        //   (Bahnhof/Flughafen/Klinik/Krankenhaus) KEIN Zeit-Shift —
+                        //   Kunde verpasst sonst den Zug/Flug/Termin. Stattdessen
+                        //   Konflikt-Push an Admin, manuell entscheiden.
+                        const _destText = `${rideData.destination || ''} ${rideData.pickup || ''}`.toLowerCase();
+                        const _isAnschlussZiel = /(bahnhof|flughafen|airport|krankenhaus|klinik|station|terminal)/.test(_destText);
+                        if (_isAnschlussZiel) {
+                            console.log(`   🚫 v6.62.821: Pickup-Shift blockiert — Anschluss-Ziel: ${rideData.destination}`);
+                            await addRideLog(rideId, '🚫', `Auto-Verschiebung blockiert — Anschluss-Ziel '${rideData.destination}', manuell entscheiden`, {
+                                grund: 'Bahnhof/Flughafen/Klinik im Routen-Text — Zeit-Shift verbietet weil Anschluss',
+                                vorgeschlagen: `+${_delayMin} Min auf ${best.name}`,
+                                konflikt: rideData.pickupShiftReason || `${best.name} erst ab ${_prevEndFormatted} frei`
+                            });
+                            try {
+                                if (typeof sendToAllAdmins === 'function') {
+                                    await sendToAllAdmins(
+                                        `🚫 KONFLIKT — Anschluss-Ziel\n` +
+                                        `Kunde: ${rideData.customerName || '?'}\n` +
+                                        `${rideData.pickup || '?'} → ${rideData.destination || '?'}\n` +
+                                        `Auto-Verschiebung blockiert (+${_delayMin} Min wegen Vorfahrt). Manuell entscheiden!`
+                                    );
+                                }
+                            } catch (_e) { /* ignore */ }
+                            return null;
+                        }
+
                         const _newPickupTs = _earliestArrivalMs + 2 * 60000; // +2 Min Puffer
                         const _newPickupTime = new Date(new Date(_newPickupTs).toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
                         const _newPickupFormatted = _newPickupTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
@@ -1363,6 +1389,35 @@ async function autoAssignRide(rideId, rideData) {
                         // Neuen pickupTime-String generieren
                         const _newTimeStr = String(_newPickupTime.getHours()).padStart(2,'0') + ':' + String(_newPickupTime.getMinutes()).padStart(2,'0');
                         rideData.pickupTime = _newTimeStr;
+
+                        // 🆕 v6.62.821: Lifecycle-Log fuer den Pickup-Shift selbst
+                        //   (frueher: nur pickupShiftReason-Feld in der Ride, KEIN Audit-Trail).
+                        try {
+                            await addRideLog(rideId, '🔄', `Abholzeit verschoben: ${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min)`, {
+                                alt: _oldPickupFormatted,
+                                neu: _newPickupFormatted,
+                                delta: `+${_delayMin} Min`,
+                                fahrzeug: best.name,
+                                grund: `${best.name} erst ab ${_prevEndFormatted} frei (Vorfahrt)`,
+                                ziel: rideData.destination || '?',
+                                notifyLateSms: true
+                            });
+                        } catch (_logErr) { /* ignore */ }
+                        // 🆕 v6.62.821: Admin-Telegram-Push damit Patrick sofort sieht
+                        //   wenn Cloud eine Auto-Verschiebung gemacht hat (vorher nur SMS
+                        //   an Kunde + Lifecycle-Log — Patrick erfuhr nichts).
+                        try {
+                            if (typeof sendToAllAdmins === 'function') {
+                                await sendToAllAdmins(
+                                    `🔄 Auto-Verschiebung\n` +
+                                    `Kunde: ${rideData.customerName || '?'}\n` +
+                                    `${_oldPickupFormatted} → ${_newPickupFormatted} (+${_delayMin} Min)\n` +
+                                    `${rideData.pickup || '?'} → ${rideData.destination || '?'}\n` +
+                                    `Fahrzeug: ${best.name}\n` +
+                                    `Grund: ${best.name} erst ab ${_prevEndFormatted} frei`
+                                );
+                            }
+                        } catch (_e) { /* ignore */ }
                     }
                 }
             }

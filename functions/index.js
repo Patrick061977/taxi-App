@@ -22694,7 +22694,7 @@ exports.onRideUpdated = onValueUpdated(
                     //   (case-insensitive). Beispiel: Pesch von Kreiskrankenhaus Wolgast →
                     //   automatisch "Krankenfahrt" statt "Taxifahrt".
                     positions: [{
-                        description: /(krankenhaus|klinik)/i.test(`${after.pickup || ''} ${after.destination || ''}`) ? 'Krankenfahrt' : 'Taxifahrt',
+                        description: /(krankenhaus|klinik|arzt|doktor|praxis)/i.test(`${after.pickup || ''} ${after.destination || ''}`) ? 'Krankenfahrt' : 'Taxifahrt',
                         quantity: 1,
                         unit: 'Fahrt',
                         amount: _gross,
@@ -24108,7 +24108,7 @@ exports.regenerateInvoicePdf = onRequest(
             if (Array.isArray(invoice.positions) && invoice.positions[0]) {
                 const desc = invoice.positions[0].description || '';
                 const _routeText = `${invoice.pickup || ''} ${invoice.destination || ''}`;
-                const _shouldBeKranken = /(krankenhaus|klinik)/i.test(_routeText);
+                const _shouldBeKranken = /(krankenhaus|klinik|arzt|doktor|praxis)/i.test(_routeText);
                 const _targetDesc = _shouldBeKranken ? 'Krankenfahrt' : 'Taxifahrt';
                 // Aktualisiere wenn alte 'Taxifahrt: X → Y' Form ODER wenn aktueller
                 // Wert weder Taxifahrt noch Krankenfahrt ist ODER wenn Krankenhaus-

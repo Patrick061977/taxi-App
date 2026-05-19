@@ -2555,7 +2555,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             i.putExtra("amount", (int) Math.round(amount * 100));  // Cent
             i.putExtra("currency", "EUR");
             i.putExtra("reference", rideId);
-            i.putExtra("enableTipping", false);
+            // 🆕 v6.62.817 (Patrick 19.05.): enableTipping=true → Zettle-Terminal
+            //   fragt im Display nach Trinkgeld. Trinkgeld kommt mit zurueck im
+            //   Result-Intent und wird in der Ride als 'tip' gespeichert.
+            i.putExtra("enableTipping", true);
             i.putExtra("enableInstallments", false);
             try {
                 startActivityForResult(i, REQ_ZETTLE);

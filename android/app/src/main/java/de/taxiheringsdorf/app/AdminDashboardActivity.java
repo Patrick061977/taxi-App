@@ -1409,14 +1409,16 @@ public class AdminDashboardActivity extends AppCompatActivity {
         final String[] vehIds = {"", "pw-ik-222", "pw-my-222-e", "pw-ki-222", "pw-sk-222", "vg-lk-111", "pw-ym-222-e"};
         final String[] vehLabels = {"— Nicht zugewiesen —",
             "Toyota Prius IK (PW-IK 222)",
-            "Tesla Model Y (PW-MY 222 E)",
+            "Tesla MY222 (PW-MY 222 E)",
             "Toyota Prius II (PW-KI 222)",
             "Renault Traffic 8 Pax (PW-SK 222)",
             "Mercedes Vito 8 Pax (VG-LK 111)",
-            "Tesla (PW-YM 222 E)"};
+            "Tesla YM222 (PW-YM 222 E)"};
+        // 🆕 v6.62.823 (Patrick 19.05. 10:15): Tesla-Namen eindeutig — beide hießen 'Tesla'
+        //   bzw 'Tesla Model Y' → Patrick hat sich beim Schicht-Start vertan.
         final String[] vehNames = {"",
-            "Toyota Prius IK", "Tesla Model Y", "Toyota Prius II",
-            "Renault Traffic 8 Pax", "Mercedes Vito 8 Pax", "Tesla"};
+            "Toyota Prius IK", "Tesla MY222", "Toyota Prius II",
+            "Renault Traffic 8 Pax", "Mercedes Vito 8 Pax", "Tesla YM222"};
         final String[] vehPlates = {"",
             "PW-IK 222", "PW-MY 222 E", "PW-KI 222",
             "PW-SK 222", "VG-LK 111", "PW-YM 222 E"};

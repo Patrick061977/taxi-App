@@ -23993,6 +23993,170 @@ exports.shiftBriefingNow = onRequest(
     }
 );
 
+// 🆕 v6.62.813 (Patrick 19.05.): HTTP-Function um PDF rueckwirkend zu regenerieren.
+//   Use-Cases:
+//     a) Pesch-Rechnung 20-26-188 (Patrick will sehen wie Andrea Pesch + Simmerath
+//        im neuen DIN-5008-Layout aussieht)
+//     b) 76 Bestand-Rechnungen ohne PDF (briefing-Stat) nachtraeglich aufbauen
+//     c) Tests von Layout-Anpassungen ohne neue Fahrt zu provozieren
+//
+//   URL: https://europe-west1-taxi-heringsdorf.cloudfunctions.net/regenerateInvoicePdf
+//        ?invoice=20-26-188&token=<TELEGRAM-BOT-TOKEN>
+//
+//   Was passiert:
+//     1. Lade /invoices/{nr} + /rides/{rideId} + /customers/{customerId} + /settings/invoice
+//     2. Resolved billingAddresses[default] -> customerName/customerAddress
+//        (ueberschreibt nur wenn vorher leer ODER == customer.name fallback)
+//     3. position.description = 'Taxifahrt' wenn alte 'Taxifahrt: X -> Y' Form
+//     4. Speichert die korrigierten Felder in /invoices/{nr} zurueck
+//     5. buildInvoicePdfBuffer -> Storage-Upload -> pdfUrl
+//     6. /invoices/{nr}.pdfUrl + /rides/{rideId}.invoicePdfUrl gesetzt
+//     7. JSON-Response mit before/after Diff
+exports.regenerateInvoicePdf = onRequest(
+    {
+        region: 'europe-west1',
+        cors: true,
+        memory: '2GiB',          // chromium braucht das
+        timeoutSeconds: 120
+    },
+    async (req, res) => {
+        try {
+            const invoiceNumber = String(req.query.invoice || req.body?.invoice || '').trim();
+            const token = String(req.query.token || req.body?.token || '').trim();
+            if (!invoiceNumber) {
+                return res.status(400).json({ error: 'param ?invoice= fehlt' });
+            }
+            // Auth via Telegram-Bot-Token (nur Patrick hat den)
+            const tokSnap = await db.ref('settings/telegram/botToken').once('value');
+            const expected = String(tokSnap.val() || '').trim();
+            if (!expected) {
+                return res.status(500).json({ error: 'settings/telegram/botToken leer — auth nicht moeglich' });
+            }
+            if (token !== expected) {
+                return res.status(401).json({ error: 'token falsch — TELEGRAM_BOT_TOKEN als ?token= mitschicken' });
+            }
+
+            // Daten laden
+            const invSnap = await db.ref(`invoices/${invoiceNumber}`).once('value');
+            const invoice = invSnap.val();
+            if (!invoice) {
+                return res.status(404).json({ error: `Rechnung ${invoiceNumber} nicht gefunden` });
+            }
+            const rideId = invoice.rideId;
+            let ride = {};
+            if (rideId) {
+                const rs = await db.ref(`rides/${rideId}`).once('value');
+                ride = rs.val() || {};
+            }
+            let customer = {};
+            const custId = ride.customerId || invoice.customerId;
+            if (custId) {
+                const cs = await db.ref(`customers/${custId}`).once('value');
+                customer = cs.val() || {};
+            }
+
+            // billingAddresses[] resolven (gleiche Logik wie functions/index.js v6.62.812)
+            let _billingName = '';
+            let _billingAddrStr = '';
+            if (Array.isArray(customer.billingAddresses) && customer.billingAddresses.length > 0) {
+                const _ba = customer.billingAddresses.find(b => b && b.isDefault)
+                    || customer.billingAddresses[0];
+                if (_ba) {
+                    _billingName = (_ba.empfaengerName || _ba.label || '').trim();
+                    const _parts = [];
+                    if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+                    const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
+                    if (_plzOrt) _parts.push(_plzOrt);
+                    if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);
+                    _billingAddrStr = _parts.join(', ');
+                }
+            }
+
+            // Welche Felder muessen wir korrigieren?
+            const before = {
+                customerName: invoice.customerName,
+                customerAddress: invoice.customerAddress,
+                positionDesc: invoice.positions?.[0]?.description
+            };
+            const fixes = {};
+
+            // customerName: ersetze wenn entweder leer ODER es ist nur der CRM-name-Fallback (= customer.name)
+            //   und wir haben einen besseren billingAddresses-Eintrag.
+            if (_billingName && (!invoice.customerName
+                || invoice.customerName.trim() === (customer.name || '').trim()
+                || invoice.customerName === 'Kunde')) {
+                fixes.customerName = _billingName;
+            }
+            // customerAddress: ersetze wenn leer
+            if (_billingAddrStr && !invoice.customerAddress) {
+                fixes.customerAddress = _billingAddrStr;
+            }
+            // position.description: 'Taxifahrt: Pickup → Destination' -> 'Taxifahrt'
+            if (Array.isArray(invoice.positions) && invoice.positions[0]) {
+                const desc = invoice.positions[0].description || '';
+                if (desc.startsWith('Taxifahrt:') && desc.length > 'Taxifahrt'.length + 5) {
+                    const newPos = [...invoice.positions];
+                    newPos[0] = { ...newPos[0], description: 'Taxifahrt' };
+                    fixes.positions = newPos;
+                }
+            }
+
+            // Falls Korrekturen noetig: in DB schreiben BEVOR PDF gebaut wird
+            //   (sonst zeigt PDF die alten Werte).
+            const correctedInvoice = { ...invoice, ...fixes };
+            if (Object.keys(fixes).length > 0) {
+                await db.ref(`invoices/${invoiceNumber}`).update({
+                    ...fixes,
+                    regeneratedAt: Date.now(),
+                    regeneratedFrom: 'cloud_function_v6.62.813'
+                });
+            }
+
+            // PDF bauen
+            const invoicePdfMod = require('./invoice-pdf');
+            const settings = await invoicePdfMod.loadInvoiceSettings(db);
+            const pdfBuffer = await invoicePdfMod.buildInvoicePdfBuffer(
+                invoiceNumber, ride, customer, settings, correctedInvoice
+            );
+            const fileName = `rechnung-${invoiceNumber}.pdf`;
+            const bucket = admin.storage().bucket();
+            const fileRef = bucket.file(`invoices/${fileName}`);
+            await fileRef.save(pdfBuffer, { metadata: { contentType: 'application/pdf' }, resumable: false });
+            await fileRef.makePublic();
+            const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${encodeURI(`invoices/${fileName}`)}`;
+
+            await db.ref(`invoices/${invoiceNumber}`).update({
+                pdfUrl,
+                pdfFileName: fileName,
+                pdfGeneratedAt: Date.now(),
+                pdfGeneratedVia: 'cloud_function_puppeteer_v6.62.813_regenerate'
+            });
+            if (rideId) {
+                await db.ref(`rides/${rideId}`).update({
+                    invoicePdfUrl: pdfUrl,
+                    invoicePdfGeneratedAt: Date.now()
+                });
+            }
+
+            res.status(200).json({
+                ok: true,
+                invoiceNumber,
+                pdfUrl,
+                fixes: Object.keys(fixes),
+                before,
+                after: {
+                    customerName: correctedInvoice.customerName,
+                    customerAddress: correctedInvoice.customerAddress,
+                    positionDesc: correctedInvoice.positions?.[0]?.description
+                }
+            });
+        } catch (e) {
+            console.error('regenerateInvoicePdf-Fehler:', e);
+            res.status(500).json({ error: e.message, stack: (e.stack || '').split('\n').slice(0, 5).join('\n') });
+        }
+    }
+);
+
 exports.scheduledShiftReminder = onSchedule(
     { schedule: 'every 5 minutes', region: 'europe-west1', timeZone: 'Europe/Berlin' },
     async (event) => {

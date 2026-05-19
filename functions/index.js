@@ -22688,10 +22688,13 @@ exports.onRideUpdated = onValueUpdated(
                     paymentMethod: after.paymentMethod || 'cash',
                     paymentStatus: after.paymentMethod === 'cash' ? 'paid' : 'pending',
                     paidAt: after.paymentMethod === 'cash' ? Date.now() : null,
-                    // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route — Pickup/Destination
-                    //   stehen schon in der Fahrtdetails-Box, doppelt + zu lange Position-Zeile).
+                    // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route).
+                    // 🆕 v6.62.815 (Patrick 19.05. 07:33): Auto-Detect Krankenfahrt
+                    //   wenn pickup ODER destination "Krankenhaus" oder "Klinik" enthaelt
+                    //   (case-insensitive). Beispiel: Pesch von Kreiskrankenhaus Wolgast →
+                    //   automatisch "Krankenfahrt" statt "Taxifahrt".
                     positions: [{
-                        description: 'Taxifahrt',
+                        description: /(krankenhaus|klinik)/i.test(`${after.pickup || ''} ${after.destination || ''}`) ? 'Krankenfahrt' : 'Taxifahrt',
                         quantity: 1,
                         unit: 'Fahrt',
                         amount: _gross,
@@ -24099,12 +24102,22 @@ exports.regenerateInvoicePdf = onRequest(
             if (_billingAddrStr && !invoice.customerAddress) {
                 fixes.customerAddress = _billingAddrStr;
             }
-            // position.description: 'Taxifahrt: Pickup → Destination' -> 'Taxifahrt'
+            // 🆕 v6.62.812: position.description: 'Taxifahrt: X → Y' -> 'Taxifahrt'
+            // 🆕 v6.62.815: + Auto-Detect Krankenfahrt wenn Pickup/Destination
+            //   "Krankenhaus" oder "Klinik" enthaelt.
             if (Array.isArray(invoice.positions) && invoice.positions[0]) {
                 const desc = invoice.positions[0].description || '';
-                if (desc.startsWith('Taxifahrt:') && desc.length > 'Taxifahrt'.length + 5) {
+                const _routeText = `${invoice.pickup || ''} ${invoice.destination || ''}`;
+                const _shouldBeKranken = /(krankenhaus|klinik)/i.test(_routeText);
+                const _targetDesc = _shouldBeKranken ? 'Krankenfahrt' : 'Taxifahrt';
+                // Aktualisiere wenn alte 'Taxifahrt: X → Y' Form ODER wenn aktueller
+                // Wert weder Taxifahrt noch Krankenfahrt ist ODER wenn Krankenhaus-
+                // Auto-Detect greift aber 'Taxifahrt' steht.
+                const _isOldLongForm = desc.startsWith('Taxifahrt:') && desc.length > 'Taxifahrt'.length + 5;
+                const _isWrongCategory = (_shouldBeKranken && desc === 'Taxifahrt');
+                if (_isOldLongForm || _isWrongCategory) {
                     const newPos = [...invoice.positions];
-                    newPos[0] = { ...newPos[0], description: 'Taxifahrt' };
+                    newPos[0] = { ...newPos[0], description: _targetDesc };
                     fixes.positions = newPos;
                 }
             }

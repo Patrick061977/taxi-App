@@ -1788,13 +1788,17 @@ public class CrmSearchActivity extends AppCompatActivity {
                     refreshDateLabel.run();
                 }, curr.get(java.util.Calendar.HOUR_OF_DAY), curr.get(java.util.Calendar.MINUTE), true).show();
             }, curr.get(java.util.Calendar.YEAR), curr.get(java.util.Calendar.MONTH), curr.get(java.util.Calendar.DAY_OF_MONTH));
-            // 🆕 v6.62.540: kein Datum vor heute waehlbar
-            java.util.Calendar _today = java.util.Calendar.getInstance();
-            _today.set(java.util.Calendar.HOUR_OF_DAY, 0);
-            _today.set(java.util.Calendar.MINUTE, 0);
-            _today.set(java.util.Calendar.SECOND, 0);
-            _today.set(java.util.Calendar.MILLISECOND, 0);
-            dpd.getDatePicker().setMinDate(_today.getTimeInMillis());
+            // 🆕 v6.62.540: kein Datum vor heute waehlbar — DEAKTIVIERT in v6.62.817
+            //   (Patrick 19.05. 07:59): "Das Datumfeld lässt sich nicht mehr auswählen.
+            //   Ich kann nicht mal den 18. auswählen." Vergangenheits-Picker wieder
+            //   freigegeben fuer Rechnungs-Nachtraege. Sicherheitsnetz: Confirm-Dialog
+            //   beim Speichern in saveBookingFromDialog().
+            // java.util.Calendar _today = java.util.Calendar.getInstance();
+            // _today.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            // _today.set(java.util.Calendar.MINUTE, 0);
+            // _today.set(java.util.Calendar.SECOND, 0);
+            // _today.set(java.util.Calendar.MILLISECOND, 0);
+            // dpd.getDatePicker().setMinDate(_today.getTimeInMillis());
             dpd.show();
         });
         layout.addView(tvDate);
@@ -2112,6 +2116,8 @@ public class CrmSearchActivity extends AppCompatActivity {
         // 🆕 v6.62.507: Save-Once-Flag (final Array fuer Lambda-Closure).
         //   Patrick (08.05. 17:47): Confirmation-OK-Klick triggerte zweiten Save.
         final boolean[] _alreadySavedRef = { false };
+        // 🆕 v6.62.817: Vergangenheits-Datum erlaubt nach Bestaetigung (Nachtrag fuer Rechnung).
+        final boolean[] _backdateConfirmedRef = { false };
 
         btnSave.setOnClickListener(_btn -> {
                 // 🔧 v6.62.711: etName ist null bei Stammkunden — Name aus e.name nehmen.
@@ -2139,12 +2145,29 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // 🆕 v6.62.769: Bei Sofort-Mode pickupTimestamp IMMER auf jetzt+30s setzen
                 //   (Wert beim Toggle-Klick kann veraltet sein wenn User danach laenger braucht).
                 long pickupTs = sofortMode[0] ? (now + 30_000L) : datetime[0];
-                if (!sofortMode[0] && pickupTs < now + 5L * 60_000L) {
+                // 🆕 v6.62.817 (Patrick 19.05.): Vergangenheits-Datum erlaubt — fuer
+                //   Rechnungs-Nachtraege. Erst Bestaetigungs-Dialog, dann erneut Submit.
+                if (!sofortMode[0] && pickupTs < now && !_backdateConfirmedRef[0]) {
                     long minutesPast = (now - pickupTs) / 60_000L;
-                    String msg = pickupTs < now
-                        ? "❌ Pickup-Zeit liegt " + minutesPast + " Min in der Vergangenheit. Bitte Datum/Zeit ändern."
-                        : "⚠️ Pickup-Zeit ist zu nah am Jetzt (<5 Min). Nutze SOFORT-Fahrt statt Vorbestellung.";
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+                    long hoursPast = minutesPast / 60L;
+                    long daysPast = hoursPast / 24L;
+                    String timeStr = daysPast > 0 ? daysPast + " Tag(e)"
+                        : (hoursPast > 0 ? hoursPast + " Std" : minutesPast + " Min");
+                    new AlertDialog.Builder(this)
+                        .setTitle("⚠️ Datum liegt in der Vergangenheit")
+                        .setMessage("Pickup-Zeit liegt " + timeStr + " zurueck.\n\n"
+                            + "Als Rechnungs-Nachtrag anlegen?")
+                        .setPositiveButton("Ja, Nachtrag anlegen", (d, w) -> {
+                            _backdateConfirmedRef[0] = true;
+                            btnSave.performClick();
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                    return;
+                }
+                // Sofortzeit zu nah am Jetzt (zwischen now und now+5min) — bleibt geblockt.
+                if (!sofortMode[0] && pickupTs >= now && pickupTs < now + 5L * 60_000L) {
+                    Toast.makeText(this, "⚠️ Pickup-Zeit ist zu nah am Jetzt (<5 Min). Nutze SOFORT-Fahrt statt Vorbestellung.", Toast.LENGTH_LONG).show();
                     return;
                 }
 

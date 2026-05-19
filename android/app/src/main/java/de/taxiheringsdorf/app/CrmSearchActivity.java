@@ -2118,6 +2118,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         final boolean[] _alreadySavedRef = { false };
         // 🆕 v6.62.817: Vergangenheits-Datum erlaubt nach Bestaetigung (Nachtrag fuer Rechnung).
         final boolean[] _backdateConfirmedRef = { false };
+        // 🆕 v6.62.819: Im Backdate-Dialog stellbare Flags fuer status/Rechnung.
+        final boolean[] _backdateCompletedFlag = { false };
+        final boolean[] _backdateInvoiceFlag = { false };
 
         btnSave.setOnClickListener(_btn -> {
                 // 🔧 v6.62.711: etName ist null bei Stammkunden — Name aus e.name nehmen.
@@ -2145,20 +2148,41 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // 🆕 v6.62.769: Bei Sofort-Mode pickupTimestamp IMMER auf jetzt+30s setzen
                 //   (Wert beim Toggle-Klick kann veraltet sein wenn User danach laenger braucht).
                 long pickupTs = sofortMode[0] ? (now + 30_000L) : datetime[0];
-                // 🆕 v6.62.817 (Patrick 19.05.): Vergangenheits-Datum erlaubt — fuer
-                //   Rechnungs-Nachtraege. Erst Bestaetigungs-Dialog, dann erneut Submit.
+                // 🆕 v6.62.817/819 (Patrick 19.05.): Vergangenheits-Datum erlaubt fuer
+                //   Rechnungs-Nachtraege. Dialog hat 2 Checkboxes (status='completed' +
+                //   Rechnung erstellen). Default: completed=an, Rechnung=aus.
                 if (!sofortMode[0] && pickupTs < now && !_backdateConfirmedRef[0]) {
                     long minutesPast = (now - pickupTs) / 60_000L;
                     long hoursPast = minutesPast / 60L;
                     long daysPast = hoursPast / 24L;
                     String timeStr = daysPast > 0 ? daysPast + " Tag(e)"
                         : (hoursPast > 0 ? hoursPast + " Std" : minutesPast + " Min");
+
+                    android.widget.LinearLayout _dlgLayout = new android.widget.LinearLayout(this);
+                    _dlgLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    int _dlgPad = (int) (16 * getResources().getDisplayMetrics().density);
+                    _dlgLayout.setPadding(_dlgPad * 2, _dlgPad, _dlgPad * 2, _dlgPad);
+
+                    android.widget.CheckBox cbCompleted = new android.widget.CheckBox(this);
+                    cbCompleted.setText("✓ Direkt als 'abgeschlossen' markieren");
+                    cbCompleted.setChecked(true);
+                    cbCompleted.setTextSize(14);
+                    _dlgLayout.addView(cbCompleted);
+
+                    android.widget.CheckBox cbInvoice = new android.widget.CheckBox(this);
+                    cbInvoice.setText("🧾 Rechnung erstellen (Auto-PDF)");
+                    cbInvoice.setChecked(false);
+                    cbInvoice.setTextSize(14);
+                    _dlgLayout.addView(cbInvoice);
+
                     new AlertDialog.Builder(this)
-                        .setTitle("⚠️ Datum liegt in der Vergangenheit")
-                        .setMessage("Pickup-Zeit liegt " + timeStr + " zurueck.\n\n"
-                            + "Als Rechnungs-Nachtrag anlegen?")
-                        .setPositiveButton("Ja, Nachtrag anlegen", (d, w) -> {
+                        .setTitle("⚠️ Datum liegt " + timeStr + " zurueck")
+                        .setMessage("Nachtrag-Vorbestellung anlegen?\n\nOptionen:")
+                        .setView(_dlgLayout)
+                        .setPositiveButton("Anlegen", (d, w) -> {
                             _backdateConfirmedRef[0] = true;
+                            _backdateCompletedFlag[0] = cbCompleted.isChecked();
+                            _backdateInvoiceFlag[0] = cbInvoice.isChecked();
                             btnSave.performClick();
                         })
                         .setNegativeButton("Abbrechen", null)
@@ -2218,8 +2242,21 @@ public class CrmSearchActivity extends AppCompatActivity {
                 // 🆕 v6.62.769: Sofort-Fahrt aus Native: status='new' + isJetzt=true
                 //   (statt 'vorbestellt'). Cloud-Function autoAssignRide nimmt dann
                 //   den Sofortfahrt-Pfad (GPS schlaegt alles, kein Schichtplan-Filter).
-                r.put("status", sofortMode[0] ? "new" : "vorbestellt");
-                if (sofortMode[0]) r.put("isJetzt", true);
+                // 🆕 v6.62.819 (Patrick 19.05. 08:30): Backdate-Fahrt direkt als
+                //   'completed' anlegen wenn Checkbox aktiv. Plus optional Rechnung
+                //   anfordern (invoiceRequested+needsInvoice triggert Auto-PDF).
+                if (_backdateConfirmedRef[0] && _backdateCompletedFlag[0]) {
+                    r.put("status", "completed");
+                    r.put("completedAt", pickupTs);
+                    r.put("isJetzt", false);
+                } else {
+                    r.put("status", sofortMode[0] ? "new" : "vorbestellt");
+                    if (sofortMode[0]) r.put("isJetzt", true);
+                }
+                if (_backdateConfirmedRef[0] && _backdateInvoiceFlag[0]) {
+                    r.put("invoiceRequested", true);
+                    r.put("needsInvoice", true);
+                }
                 r.put("pickup", pickup);
                 r.put("pickupLat", pickupCoords[0]);
                 r.put("pickupLon", pickupCoords[1]);

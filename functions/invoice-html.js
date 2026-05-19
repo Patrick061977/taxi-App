@@ -86,12 +86,32 @@ function buildInvoiceHtml({ invoiceNumber, ride, customer, settings, invoice }) 
 
     const senderLine = `${companyName}, ${street}, ${city}`;
 
-    // Empfänger-Block
-    const recipientName = c.name || r.customerName || 'Kunde';
-    const recipientAddr = c.billingAddress || c.address || r.customerAddress || '';
-    const recipientLines = recipientAddr
-        ? recipientAddr.split(/[,\n]/).map(l => l.trim()).filter(Boolean)
-        : [];
+    // 🆕 v6.62.812: Empfänger aus billingAddresses[] resolven (Sicherheitsnetz —
+    // funktions/index.js setzt eigentlich schon customerName/customerAddress korrekt,
+    // aber falls die Rechnung mit altem Code angelegt wurde nutzen wir hier customer).
+    let _baName = '';
+    let _baLines = [];
+    if (Array.isArray(c.billingAddresses) && c.billingAddresses.length > 0) {
+        const _ba = c.billingAddresses.find(b => b && b.isDefault) || c.billingAddresses[0];
+        if (_ba) {
+            _baName = (_ba.empfaengerName || _ba.label || '').trim();
+            if (_ba.strasse) _baLines.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+            const _po = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
+            if (_po) _baLines.push(_po);
+            if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _baLines.push(_ba.land);
+        }
+    }
+
+    // Empfänger-Block: Invoice-Felder haben Vorrang (functions/index.js v6.62.812 setzt
+    // sie korrekt), dann billingAddresses[default], dann customer.address als Fallback.
+    const recipientName = (inv.customerName || _baName || c.name || r.customerName || 'Kunde').trim();
+    const _invAddr = inv.customerAddress || '';
+    const recipientLines = _invAddr
+        ? _invAddr.split(/[,\n]/).map(l => l.trim()).filter(Boolean)
+        : (_baLines.length > 0
+            ? _baLines
+            : (c.billingAddress || c.address || r.customerAddress || '')
+                .split(/[,\n]/).map(l => l.trim()).filter(Boolean));
     const nameInAddr = recipientLines.length > 0
         && recipientName.length >= 4
         && recipientLines[0].toLowerCase().includes(recipientName.toLowerCase().substring(0, 4));

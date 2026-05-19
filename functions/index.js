@@ -22639,12 +22639,34 @@ exports.onRideUpdated = onValueUpdated(
                     ? `${after.pickup || '?'} → ${_waypointStr} → ${after.destination || '?'}`
                     : `${after.pickup || '?'} → ${after.destination || '?'}`;
 
+                // 🆕 v6.62.812 (Patrick 19.05.): CRM-Rechnungsadressen sind als ARRAY
+                //   _custData.billingAddresses[] hinterlegt (mit label, strasse, plz,
+                //   ort, land, isDefault, ansprechpartner). Pesch hatte z.B.
+                //   billingAddresses[0].label="Andrea Pesch" + Adresse in Simmerath —
+                //   wurde in v6.62.811 ignoriert weil nur _custData.billingAddress (singular)
+                //   gelesen wurde. Jetzt: Default-Eintrag resolven → name + address aufbauen.
+                let _billingName = '';
+                let _billingAddrStr = '';
+                if (Array.isArray(_custData.billingAddresses) && _custData.billingAddresses.length > 0) {
+                    const _ba = _custData.billingAddresses.find(b => b && b.isDefault)
+                        || _custData.billingAddresses[0];
+                    if (_ba) {
+                        _billingName = (_ba.empfaengerName || _ba.label || '').trim();
+                        const _parts = [];
+                        if (_ba.strasse) _parts.push(_ba.strasse + (_ba.adresszusatz ? ', ' + _ba.adresszusatz : ''));
+                        const _plzOrt = [_ba.plz, _ba.ort].filter(Boolean).join(' ').trim();
+                        if (_plzOrt) _parts.push(_plzOrt);
+                        if (_ba.land && _ba.land.toLowerCase() !== 'deutschland') _parts.push(_ba.land);
+                        _billingAddrStr = _parts.join(', ');
+                    }
+                }
+
                 const _invoiceData = {
                     invoiceNumber: _belegNr,
                     rideId,
-                    customerName: after.guestName || after.customerName || _custData.name || 'Kunde',
+                    customerName: after.guestName || after.customerName || _billingName || _custData.name || 'Kunde',
                     customerAnrede: _custData.anrede || '',
-                    customerAddress: _custData.billingAddress || _custData.address || '',
+                    customerAddress: _billingAddrStr || _custData.billingAddress || _custData.address || '',
                     customerEmail: _custData.email || after.customerEmail || '',
                     customerPhone: after.customerPhone || after.customerMobile || _custData.mobilePhone || _custData.phone || '',
                     customerKundennummer: _custData.kundennummer || '',
@@ -22658,8 +22680,10 @@ exports.onRideUpdated = onValueUpdated(
                     paymentMethod: after.paymentMethod || 'cash',
                     paymentStatus: after.paymentMethod === 'cash' ? 'paid' : 'pending',
                     paidAt: after.paymentMethod === 'cash' ? Date.now() : null,
+                    // 🆕 v6.62.812: position.description = "Taxifahrt" (ohne Route — Pickup/Destination
+                    //   stehen schon in der Fahrtdetails-Box, doppelt + zu lange Position-Zeile).
                     positions: [{
-                        description: `Taxifahrt: ${_routeText}`,
+                        description: 'Taxifahrt',
                         quantity: 1,
                         unit: 'Fahrt',
                         amount: _gross,

@@ -20,7 +20,15 @@ const admin = require('firebase-admin');
 // statt den europe-west1 Endpunkt. Ergebnis: scheduledAutoAssign lud nur 3 von 45 Fahrten
 // (US-Instance enthält Legacy-Daten, EU-Instance ist die echte Quelle).
 admin.initializeApp({
-    databaseURL: 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app'
+    databaseURL: 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app',
+    // 🆕 v6.62.814 (Patrick 19.05. 06:53): admin.storage().bucket() warf
+    //   "Bucket name not specified" — FIREBASE_CONFIG env enthaelt zwar
+    //   projectId aber keinen storageBucket. Explizit setzen.
+    //   Default-Bucket: taxi-heringsdorf.firebasestorage.app
+    //   (neue .firebasestorage.app Domain — .appspot.com existiert nicht).
+    //   Betroffen: onRideUpdated Auto-Invoice (v6.62.811), regenerateInvoicePdf
+    //   (v6.62.813), DMS-Doc-Scanner (frueher).
+    storageBucket: 'taxi-heringsdorf.firebasestorage.app'
 });
 const db = admin.database();
 

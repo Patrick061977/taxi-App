@@ -22922,6 +22922,73 @@ exports.onShiftStatusChanged = onValueUpdated(
     }
 );
 
+// 🆕 v6.62.820 (Patrick 19.05. 08:48): CRM-Name-Sync zu aktiven Fahrten.
+//   Patrick: "Ich habe von einer Fahrt am Donnerstag 'Chefkoch' eingetragen,
+//   die heißen eigentlich 'The Chef's Company'. Habe jetzt im CRM geändert
+//   aber die Fahrt heißt immer noch 'Chefkoch'."
+//
+//   Trigger auf /customers/{id}: wenn name geaendert wurde, suche alle Rides
+//   mit customerId === id UND status NICHT IN (completed, cancelled, deleted,
+//   storniert) und aktualisiere customerName.
+//
+//   Historische Rides werden NICHT angefasst — sonst wuerden Belege
+//   nachtraeglich aussehen als waeren sie damals mit dem neuen Namen
+//   ausgestellt worden (Rechnungs-Integritaet).
+exports.onCustomerNameSync = onValueUpdated(
+    {
+        ref: '/customers/{customerId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb',
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const before = event.data.before.val();
+            const after = event.data.after.val();
+            if (!before || !after) return;
+            const oldName = (before.name || '').trim();
+            const newName = (after.name || '').trim();
+            if (!oldName || !newName || oldName === newName) return;
+
+            const customerId = event.params.customerId;
+            console.log(`👤 v6.62.820 Name-Sync: ${customerId} '${oldName}' → '${newName}'`);
+
+            // Aktive Rides finden — query auf customerId nicht direkt moeglich
+            // (Realtime DB hat kein WHERE), also alle Rides lesen + filtern.
+            const ridesSnap = await db.ref('rides').once('value');
+            const ridesObj = ridesSnap.val() || {};
+            const inactiveStatuses = new Set(['completed','cancelled','deleted','storniert']);
+            const updates = {};
+            let updatedCount = 0;
+            for (const rideId in ridesObj) {
+                const r = ridesObj[rideId];
+                if (!r || r.customerId !== customerId) continue;
+                if (inactiveStatuses.has(String(r.status || '').toLowerCase())) continue;
+                if ((r.customerName || '').trim() === newName) continue; // schon aktuell
+                updates[`rides/${rideId}/customerName`] = newName;
+                updates[`rides/${rideId}/updatedAt`] = Date.now();
+                updatedCount++;
+            }
+            if (updatedCount > 0) {
+                await db.ref('/').update(updates);
+                console.log(`✅ v6.62.820: ${updatedCount} aktive Fahrten umbenannt auf '${newName}'`);
+                // Admin-Telegram-Push optional (nur bei mehr als 1 Update)
+                if (updatedCount >= 1 && typeof sendToAllAdmins === 'function') {
+                    try {
+                        await sendToAllAdmins(
+                            `👤 CRM-Sync: '${oldName}' → '${newName}'\n${updatedCount} aktive Fahrt(en) entsprechend umbenannt.`
+                        );
+                    } catch (_e) { /* ignore */ }
+                }
+            } else {
+                console.log(`ℹ️ v6.62.820: keine aktiven Fahrten zum Umbenennen`);
+            }
+        } catch (err) {
+            console.error('onCustomerNameSync Fehler:', err.message);
+        }
+    }
+);
+
 exports.onRideDeleted = onValueDeleted(
     {
         ref: '/rides/{rideId}',

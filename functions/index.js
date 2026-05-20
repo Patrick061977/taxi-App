@@ -28454,9 +28454,19 @@ exports.mailInboxPoller = onSchedule(
 
             console.log(`📥 mailInboxPoller v6.62.830: ${newUids.length} neue Mails (lastUid=${lastUid}, gefunden=${uids.length})`);
 
+            // 🆕 v6.62.834: DATEV-Forward Config aus settings/personalMail/forwardToDatev
+            const fwdCfg = (cfgSnap.val() || {}).forwardToDatev || null;
+            const fwdEnabled = fwdCfg && fwdCfg.enabled === true && fwdCfg.uploadAddress;
+            const fwdWhitelistDomains = new Set((fwdCfg?.whitelistDomains || []).map(s => s.toLowerCase()));
+            const fwdWhitelistAddrs = new Set((fwdCfg?.whitelistAddresses || []).map(s => s.toLowerCase()));
+            const fwdSkipDomains = new Set((fwdCfg?.skipDomains || []).map(s => s.toLowerCase()));
+            const fwdSubjectRegex = fwdCfg?.requireSubjectMatch ? new RegExp(fwdCfg.requireSubjectMatch, 'i') : null;
+            const fwdRequirePdf = fwdCfg?.requirePdfAttachment !== false;
+
             let maxUid = lastUid;
             const pushes = [];
-            for await (const m of client.fetch(newUids, { envelope: true, flags: true, internalDate: true, size: true })) {
+            const forwardCandidates = [];
+            for await (const m of client.fetch(newUids, { envelope: true, flags: true, internalDate: true, size: true, bodyStructure: true })) {
                 if (m.uid > maxUid) maxUid = m.uid;
                 const cls = classifyPersonalEmail(m.envelope, contacts);
                 const fromAddr = m.envelope.from?.[0]?.address || '?';
@@ -28479,9 +28489,89 @@ exports.mailInboxPoller = onSchedule(
                 if (cls.priority === 'high') {
                     pushes.push({ uid: m.uid, fromAddr, fromName, subject, tag: cls.tag, dateMs });
                 }
+                // v6.62.834 DATEV-Forward-Check (nicht aktiv weiterleiten — nur sammeln, später senden)
+                if (fwdEnabled) {
+                    const fromDomain = (fromAddr.split('@')[1] || '').toLowerCase();
+                    const subjMatch = !fwdSubjectRegex || fwdSubjectRegex.test(subject);
+                    const inSkip = fwdSkipDomains.has(fromDomain);
+                    const inWhite = fwdWhitelistDomains.has(fromDomain) || fwdWhitelistAddrs.has(fromAddr.toLowerCase());
+                    if (subjMatch && inWhite && !inSkip) {
+                        forwardCandidates.push({ uid: m.uid, fromAddr, subject, dateMs });
+                    }
+                }
             }
             await db.ref('settings/personalMail/lastCheckedUid').set(maxUid);
             await db.ref('settings/personalMail/lastCheckedAt').set(Date.now());
+
+            // 🆕 v6.62.834: DATEV-Forward — pro Kandidat full source fetchen, PDF-Attachment extrahieren, weiterleiten
+            if (fwdEnabled && forwardCandidates.length > 0) {
+                console.log(`📨 v6.62.834 DATEV-Forward: ${forwardCandidates.length} Kandidaten`);
+                const nodemailer = require('nodemailer');
+                const { simpleParser } = require('mailparser');
+                const smtpSnap = await db.ref('settings/smtp').once('value');
+                const smCfg = smtpSnap.val() || {};
+                const transport = nodemailer.createTransport({
+                    host: smCfg.host,
+                    port: smCfg.port || 587,
+                    secure: (smCfg.port || 587) === 465,
+                    auth: { user: smCfg.user, pass: smCfg.pass }
+                });
+                const fwdNotifications = [];
+                for (const cand of forwardCandidates) {
+                    try {
+                        // Dedup-Check: schon mal weitergeleitet?
+                        const alreadyFwd = await db.ref(`personalMailInbox/${cand.uid}/forwardedToDatev`).once('value');
+                        if (alreadyFwd.exists()) continue;
+
+                        // Source fetchen
+                        let parsed = null;
+                        for await (const m of client.fetch([cand.uid], { source: true }, { uid: true })) {
+                            parsed = await simpleParser(m.source);
+                        }
+                        if (!parsed) continue;
+                        const pdfs = (parsed.attachments || []).filter(a => a.contentType?.startsWith?.('application/pdf'));
+                        if (fwdRequirePdf && pdfs.length === 0) {
+                            await db.ref(`personalMailInbox/${cand.uid}/forwardSkipReason`).set('no-pdf');
+                            continue;
+                        }
+                        // Forward-Mail bauen: Subject mit 'FWD:' prefix, alle PDFs als Attachment
+                        const forwardSubj = `FWD: ${parsed.subject || '(ohne Betreff)'}`;
+                        const forwardText = `Automatisch via Claude-Mail-Bridge weitergeleitete Rechnung.\n\n` +
+                            `Original-Absender: ${parsed.from?.text || cand.fromAddr}\n` +
+                            `Original-Datum: ${parsed.date?.toISOString?.()}\n` +
+                            `Original-Betreff: ${parsed.subject || ''}\n\n` +
+                            `--- Original-Body ---\n${(parsed.text || '').slice(0, 2000)}`;
+                        const info = await transport.sendMail({
+                            from: `"Patrick Wydra (Auto-Forward)" <${smCfg.fromEmail || smCfg.user}>`,
+                            to: fwdCfg.uploadAddress,
+                            subject: forwardSubj,
+                            text: forwardText,
+                            attachments: pdfs.map(a => ({
+                                filename: a.filename || `beleg-${cand.uid}.pdf`,
+                                content: a.content,
+                                contentType: 'application/pdf'
+                            }))
+                        });
+                        await db.ref(`personalMailInbox/${cand.uid}/forwardedToDatev`).set({
+                            ts: Date.now(),
+                            messageId: info.messageId,
+                            target: fwdCfg.uploadAddress,
+                            pdfCount: pdfs.length
+                        });
+                        fwdNotifications.push({ subject: parsed.subject, from: cand.fromAddr, pdfCount: pdfs.length });
+                        console.log(`📨 DATEV-Forward ✅ ${cand.fromAddr} (${pdfs.length} PDF) → ${info.messageId}`);
+                    } catch (fwdErr) {
+                        console.error(`DATEV-Forward fail UID ${cand.uid}:`, fwdErr.message);
+                        await db.ref(`personalMailInbox/${cand.uid}/forwardError`).set({ ts: Date.now(), msg: fwdErr.message });
+                    }
+                }
+                if (fwdNotifications.length > 0 && fwdCfg.notifyAdmin !== false) {
+                    const lines = fwdNotifications.map(n => `• ${n.from} (${n.pdfCount} PDF)\n  <i>${(n.subject || '').slice(0, 70)}</i>`).join('\n');
+                    try {
+                        await sendToAllAdmins(`📨 <b>${fwdNotifications.length} Beleg(e) an DATEV weitergeleitet</b>\n\n${lines}`, 'datev_forward');
+                    } catch (_) {}
+                }
+            }
 
             // Bundled push (max 1 Nachricht pro Lauf, damit kein Spam)
             if (pushes.length > 0) {

@@ -4558,46 +4558,64 @@
         setTimeout(initRecaptcha, 2000);
 
         // 🆕 v6.38.97: Bereits eingeloggten User erkennen (kein SMS nötig)
-        // 🆕 v6.62.661: Patrick (13.05.): _isLoggedIn jetzt auch fuer Google-Login true,
-        //   nicht nur fuer Phone-Auth. Sonst greift der SMS-Skip in bookNow() nicht.
+        // 🆕 v6.62.661: Patrick (13.05.): _isLoggedIn jetzt auch fuer Google-Login true.
+        // 🆕 v6.62.836 Patrick (20.05. 14:32): Login-Badge wieder sichtbar oben,
+        //   Name auch fuer Google-User aus CRM oder displayName ziehen,
+        //   Phone-Feld vorbefuellen falls aus CRM, SMS-Verifikation komplett skippen
+        //   wenn eingeloggt + Phone vorhanden (auch wenn vom Formular).
         let _isLoggedIn = false;
         auth.onAuthStateChanged(function(user) {
             if (user) {
                 _isLoggedIn = true;
                 if (user.phoneNumber) customerPhone = user.phoneNumber;
                 logBuchen('🔐', 'Bereits eingeloggt: ' + (user.phoneNumber || user.email || user.uid));
-                // Name aus CRM laden (Phone → Kundenname).
-                // 🆕 v6.62.661: Phone-Lookup nur wenn phoneNumber da (Google-User ohne).
-                try {
-                    if (!user.phoneNumber) throw new Error('skip-crm-lookup-no-phone');
-                    var _phone = user.phoneNumber.replace(/[^0-9]/g, '');
-                    db.ref('customers').once('value').then(function(snap) {
-                        var found = false;
-                        snap.forEach(function(child) {
-                            if (found) return;
-                            var c = child.val();
-                            var cp = ((c.phone || '') + (c.mobile || c.mobilePhone || '')).replace(/[^0-9]/g, '');
-                            if (cp && _phone.endsWith(cp.slice(-9))) {
-                                found = true;
-                                var nameEl = document.getElementById('b-name');
-                                if (nameEl && !nameEl.value) nameEl.value = c.name || '';
-                                logBuchen('👤', 'CRM-Kunde erkannt: ' + (c.name || '?'));
-                            }
-                        });
-                    });
-                } catch(e) {}
-                // 🔧 v6.39.1: Badge entfernt — Hamburger-Menü zeigt alles (Mein Konto, Abmelden etc.)
+                // v6.62.836: Badge sichtbar mit Name (NICHT mehr ausgeblendet)
                 var badge = document.getElementById('user-badge');
-                if (badge) badge.style.display = 'none';
+                var nameForBadge = user.displayName || (user.email ? user.email.split('@')[0] : (user.phoneNumber || 'Kunde'));
+                if (badge) {
+                    badge.innerHTML = '👤 ' + nameForBadge;
+                    badge.style.display = 'inline-flex';
+                }
+                // Name + Phone aus CRM laden — sowohl ueber Phone-Match ALS AUCH ueber Email
+                db.ref('customers').once('value').then(function(snap) {
+                    var found = null;
+                    var _userPhone = (user.phoneNumber || '').replace(/[^0-9]/g, '');
+                    var _userEmail = (user.email || '').toLowerCase();
+                    snap.forEach(function(child) {
+                        if (found) return;
+                        var c = child.val();
+                        var cp = ((c.phone || '') + (c.mobile || c.mobilePhone || '')).replace(/[^0-9]/g, '');
+                        var ce = (c.email || '').toLowerCase();
+                        var phoneMatch = _userPhone && cp && _userPhone.endsWith(cp.slice(-9));
+                        var emailMatch = _userEmail && ce && _userEmail === ce;
+                        if (phoneMatch || emailMatch) {
+                            found = c;
+                            var nameEl = document.getElementById('b-name');
+                            if (nameEl && !nameEl.value && c.name) nameEl.value = c.name;
+                            var phoneEl = document.getElementById('b-phone');
+                            var phoneNum = c.mobile || c.mobilePhone || c.phone;
+                            if (phoneEl && !phoneEl.value && phoneNum) {
+                                phoneEl.value = String(phoneNum).replace(/^\+49\s*/, '0');
+                            }
+                            if (!customerPhone && phoneNum) customerPhone = phoneNum;
+                            if (badge) badge.innerHTML = '👤 ' + (c.name || nameForBadge);
+                            logBuchen('👤', 'CRM-Kunde erkannt (' + (phoneMatch ? 'Phone' : 'Email') + '): ' + (c.name || '?'));
+                        }
+                    });
+                    // Falls kein CRM-Match aber displayName da: ins b-name-Feld
+                    if (!found && user.displayName) {
+                        var nameEl = document.getElementById('b-name');
+                        if (nameEl && !nameEl.value) nameEl.value = user.displayName;
+                    }
+                }).catch(function(e) { console.warn('CRM-Lookup Fehler:', e.message); });
                 // Kunden-Login Link ausblenden (User ist schon eingeloggt)
                 document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = 'none'; });
-                // 🆕 v6.39.0: Hamburger-Menü aktualisieren
+                // Hamburger-Menü aktualisieren
                 if (typeof updateMenuAuth === 'function') updateMenuAuth(user);
             } else {
                 _isLoggedIn = false;
                 var badge = document.getElementById('user-badge');
                 if (badge) badge.style.display = 'none';
-                // Kunden-Login Link wieder zeigen
                 document.querySelectorAll('.header-login').forEach(function(el) { el.style.display = ''; });
             }
         });

@@ -20880,7 +20880,7 @@ exports.scheduledDispatcherTips = onSchedule(
                     `📍 ${b.pickup || '?'}\n` +
                     `🎯 ${b.destination || '?'}\n` +
                     etaLine +
-                    `\n<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.${stage > 0 ? ' Antworte \\'koppeln\\' damit Sammelfahrt aktiviert wird.' : ''}</i>`;
+                    `\n<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.${stage > 0 ? " Antworte 'koppeln' damit Sammelfahrt aktiviert wird." : ''}</i>`;
                 try {
                     await sendToAllAdmins(msg, 'dispatcher_tip');
                     const tipTs = Date.now();

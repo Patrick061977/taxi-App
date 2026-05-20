@@ -1346,26 +1346,32 @@ async function autoAssignRide(rideId, rideData) {
                         return null;
                     } else {
                         // Kleiner Konflikt → Abholzeit automatisch verschieben
-                        // 🆕 v6.62.821 (Patrick 19.05. 09:40): Bei Anschluss-Zielen
-                        //   (Bahnhof/Flughafen/Klinik/Krankenhaus) KEIN Zeit-Shift —
-                        //   Kunde verpasst sonst den Zug/Flug/Termin. Stattdessen
-                        //   Konflikt-Push an Admin, manuell entscheiden.
-                        const _destText = `${rideData.destination || ''} ${rideData.pickup || ''}`.toLowerCase();
-                        const _isAnschlussZiel = /(bahnhof|flughafen|airport|krankenhaus|klinik|station|terminal)/.test(_destText);
+                        // 🆕 v6.62.821 (Patrick 19.05. 09:40): Bei Anschluss-ZIELEN KEIN Zeit-Shift —
+                        //   Kunde verpasst sonst den Zug/Flug/Termin.
+                        // 🔧 v6.62.841 (Patrick 20.05. 17:03): Schutz NUR bei destination (nicht
+                        //   pickup) und NUR bei echten Anschluss-POIs — 'Bahnhofstraße' als
+                        //   Strassen­name darf NICHT mehr falsch triggern. Wort-Boundary plus
+                        //   Suffix-Check (nicht ge­folgt von 'straße/str.').
+                        const _destOnly = (rideData.destination || '').toLowerCase();
+                        const _anschlussRe = /\b(bahnhof|flughafen|airport|krankenhaus|klinik|station|terminal)(?!(?:str|straße|allee|weg|platz|gasse))/i;
+                        const _isAnschlussZiel = _anschlussRe.test(_destOnly);
                         if (_isAnschlussZiel) {
-                            console.log(`   🚫 v6.62.821: Pickup-Shift blockiert — Anschluss-Ziel: ${rideData.destination}`);
+                            console.log(`   🚫 v6.62.841: Pickup-Shift blockiert — Anschluss-ZIEL: ${rideData.destination}`);
                             await addRideLog(rideId, '🚫', `Auto-Verschiebung blockiert — Anschluss-Ziel '${rideData.destination}', manuell entscheiden`, {
-                                grund: 'Bahnhof/Flughafen/Klinik im Routen-Text — Zeit-Shift verbietet weil Anschluss',
+                                grund: 'Anschluss-POI im ZIEL (Bahnhof/Flughafen/Klinik) — Zeit-Shift verbietet, sonst verpasst Kunde Zug/Flug',
                                 vorgeschlagen: `+${_delayMin} Min auf ${best.name}`,
                                 konflikt: rideData.pickupShiftReason || `${best.name} erst ab ${_prevEndFormatted} frei`
                             });
                             try {
                                 if (typeof sendToAllAdmins === 'function') {
                                     await sendToAllAdmins(
-                                        `🚫 KONFLIKT — Anschluss-Ziel\n` +
-                                        `Kunde: ${rideData.customerName || '?'}\n` +
-                                        `${rideData.pickup || '?'} → ${rideData.destination || '?'}\n` +
-                                        `Auto-Verschiebung blockiert (+${_delayMin} Min wegen Vorfahrt). Manuell entscheiden!`
+                                        `🚫 <b>KONFLIKT — Anschluss-ZIEL</b>\n\n` +
+                                        `👤 ${rideData.customerName || '?'}\n` +
+                                        `📍 ${rideData.pickup || '?'}\n` +
+                                        `🎯 ${rideData.destination || '?'}\n\n` +
+                                        `Auto-Verschiebung blockiert (+${_delayMin} Min wegen ${best.name} Vorfahrt).\nKunde muss Anschluss erreichen — manuell entscheiden!\n\n` +
+                                        `🆔 <code>${rideId}</code>`,
+                                        'anschluss_konflikt'
                                     );
                                 }
                             } catch (_e) { /* ignore */ }

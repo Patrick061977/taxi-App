@@ -28777,6 +28777,71 @@ exports.mailInboxPoller = onSchedule(
                 }
             }
 
+            // 🆕 v6.62.842: AUTO-RESPONDER fuer neue Mails von menschlichen Absendern.
+            // Patrick (20.05. 19:18): "Begruessungs-Antwort bei eingehender Mail —
+            //   'Danke, melden uns'". Schutzregeln:
+            //   1. Nur 1× pro Absender-Adresse pro 24h (Loop-Schutz)
+            //   2. noreply/donotreply/mailer-daemon ausgeschlossen
+            //   3. Werbung/System-Kategorie ausgeschlossen (kein Auto-Reply auf Newsletter)
+            //   4. eigene Adresse (taxiwydra) ausgeschlossen
+            //   5. Settings-Toggle: /settings/personalMail/autoResponder/enabled
+            const arCfg = (cfgSnap.val() || {}).autoResponder || {};
+            const arEnabled = arCfg.enabled === true;
+            if (arEnabled && newUids.length > 0) {
+                const arText = arCfg.text || `Hallo,\n\nvielen Dank für Ihre Nachricht. Patrick Wydra wird sich so schnell wie möglich bei Ihnen melden.\n\nMit freundlichen Grüßen\nClaudia (digitale Sekretärin)\nFunk Taxi Heringsdorf`;
+                const arSubjectPrefix = arCfg.subjectPrefix || 'Re:';
+                const arCategories = new Set(arCfg.categories || ['whitelist', 'wichtig', 'geschaeft', 'gesundheit', 'finanz', 'sonstige']);
+                const arMaxPerRun = arCfg.maxPerRun || 5;
+                const nodemailerAR = require('nodemailer');
+                const transportAR = nodemailerAR.createTransport({
+                    host: smCfg.host || 'smtp.gmail.com',
+                    port: smCfg.port || 587,
+                    secure: (smCfg.port || 587) === 465,
+                    auth: { user: smCfg.user, pass: smCfg.pass }
+                });
+                let arSentCount = 0;
+                for await (const m of client.fetch(newUids, { envelope: true }, { uid: true })) {
+                    if (arSentCount >= arMaxPerRun) break;
+                    const fromAddr = m.envelope.from?.[0]?.address || '';
+                    if (!fromAddr) continue;
+                    const fromLow = fromAddr.toLowerCase();
+                    if (/noreply|no-reply|donotreply|mailer-daemon|postmaster|bounces?@|notification@|info@uploadmail/.test(fromLow)) continue;
+                    if (fromLow === (smCfg.user || '').toLowerCase()) continue; // nicht an sich selbst
+                    const cachedSnap = await db.ref(`personalMailInbox/${m.uid}`).once('value');
+                    const cls = cachedSnap.val() || {};
+                    if (cls.category && !arCategories.has(cls.category)) continue;
+                    if (cls.category === 'werbung' || cls.category === 'system') continue;
+                    // Dedup: schon innerhalb 24h beantwortet?
+                    const arHistRef = db.ref('personalMailAutoResponse/' + Buffer.from(fromLow).toString('base64').replace(/[+/=]/g, '_'));
+                    const arHistSnap = await arHistRef.once('value');
+                    const lastSent = arHistSnap.val()?.lastSentAt || 0;
+                    if ((Date.now() - lastSent) < 24 * 60 * 60 * 1000) continue;
+                    // Sende Auto-Reply
+                    try {
+                        const replySubject = (m.envelope.subject || '').startsWith('Re:') ? m.envelope.subject : `${arSubjectPrefix} ${m.envelope.subject || ''}`.trim();
+                        const info = await transportAR.sendMail({
+                            from: `"Claudia (Funk Taxi Heringsdorf)" <${smCfg.fromEmail || smCfg.user}>`,
+                            to: fromAddr,
+                            subject: replySubject,
+                            text: arText
+                        });
+                        await arHistRef.set({
+                            lastSentAt: Date.now(),
+                            lastTo: fromAddr,
+                            lastMessageId: info.messageId,
+                            sentCount: (arHistSnap.val()?.sentCount || 0) + 1
+                        });
+                        arSentCount++;
+                        console.log(`📬 v6.62.842 Auto-Reply an ${fromAddr} (UID ${m.uid})`);
+                    } catch (arErr) {
+                        console.warn(`Auto-Reply fail an ${fromAddr}:`, arErr.message);
+                    }
+                }
+                if (arSentCount > 0) {
+                    try { await sendToAllAdmins(`📬 <b>Auto-Responder</b>\n\n${arSentCount} Empfangsbestätigung(en) versendet.`, 'auto_reply'); } catch (_) {}
+                }
+            }
+
             // Bundled push (max 1 Nachricht pro Lauf, damit kein Spam)
             if (pushes.length > 0) {
                 const lines = pushes.slice(0, 8).map(p => {

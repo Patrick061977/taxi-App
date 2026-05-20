@@ -28506,6 +28506,201 @@ exports.mailInboxPoller = onSchedule(
     }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.831: TODO-LISTE + DAILY-BRIEFINGS (Sekretärs-Modus Stufe 2)
+// ═══════════════════════════════════════════════════════════════
+// Patrick (20.05. 11:54): "Ich will Struktur — Erinnerungen wenn was offen
+//   ist, Briefings morgens/abends." Datenstruktur:
+//
+//   /personalTodos/{id} = {
+//     title, tag (#taxi/#buchhaltung/#gesundheit/#einkauf/#privat/#graham),
+//     priority ('high'|'normal'|'low'), status ('open'|'done'|'snoozed'),
+//     dueDate (ms) optional, snoozedUntil (ms) optional,
+//     source ('manual'|'mail'|'bridge'|'system'), sourceRef,
+//     createdAt, updatedAt, completedAt, reminderCount, lastReminderAt
+//   }
+//
+//   /personalBriefings/{date} = { morning: {sentAt, content}, evening: {...} }
+//
+// Reminder-Eskalation per Tag-seit-Anlage:
+//   Tag 0-1: kein Push (du arbeitest grad daran)
+//   Tag 2: sanfter Push ('Erinnerung: X noch offen')
+//   Tag 4: Mahn-Push
+//   Tag 7+: rote Eskalation 'erledigen ODER verwerfen'
+
+function _briefingFormatTodo(t, id) {
+    const tagStr = t.tag || '#privat';
+    const prio = t.priority === 'high' ? '🔴' : (t.priority === 'low' ? '⚪' : '🟡');
+    const due = t.dueDate ? ` <i>fällig ${new Date(t.dueDate).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}</i>` : '';
+    return `${prio} <b>${tagStr}</b> ${t.title || '(ohne Titel)'}${due}`;
+}
+
+async function _buildPersonalTodoBlock() {
+    const snap = await db.ref('personalTodos').once('value');
+    const todos = snap.val() || {};
+    const now = Date.now();
+    const open = [];
+    for (const [id, t] of Object.entries(todos)) {
+        if (!t || typeof t !== 'object') continue;
+        if (t.status === 'done') continue;
+        if (t.status === 'snoozed' && t.snoozedUntil && t.snoozedUntil > now) continue;
+        open.push({ ...t, id });
+    }
+    open.sort((a, b) => {
+        const prioRank = { high: 0, normal: 1, low: 2 };
+        const aP = prioRank[a.priority || 'normal'];
+        const bP = prioRank[b.priority || 'normal'];
+        if (aP !== bP) return aP - bP;
+        const aDue = a.dueDate || Infinity;
+        const bDue = b.dueDate || Infinity;
+        if (aDue !== bDue) return aDue - bDue;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    return { open, total: open.length };
+}
+
+async function _buildTaxiBlock() {
+    try {
+        const sysSnap = await db.ref('settings/systemCheck').once('value');
+        const sc = sysSnap.val() || {};
+        const lines = [];
+        if (typeof sc.todayRides === 'number') lines.push(`📅 Heute ${sc.todayRides} Fahrten${sc.todayUnassigned ? `, ${sc.todayUnassigned} ohne Fahrer` : ''}`);
+        if (Array.isArray(sc.issues) && sc.issues.length) {
+            const top = sc.issues.slice(0, 3).map(i => `   • ${i}`).join('\n');
+            lines.push(`⚠️ ${sc.issues.length} Probleme${sc.issues.length > 3 ? ' (Top 3):' : ':'}\n${top}`);
+        }
+        return lines.length ? lines.join('\n') : '✅ Alles ruhig';
+    } catch (_) { return '(Status-Check nicht verfügbar)'; }
+}
+
+async function _buildMailBlock() {
+    try {
+        const snap = await db.ref('personalMailInbox').orderByChild('cachedAt').limitToLast(50).once('value');
+        const items = [];
+        snap.forEach(c => items.push({ ...c.val() }));
+        const now = Date.now();
+        const TWENTYFOUR_H = 24 * 60 * 60 * 1000;
+        const recent = items.filter(m => m && m.priority === 'high' && (now - (m.cachedAt || 0)) < TWENTYFOUR_H);
+        if (!recent.length) return null;
+        const lines = recent.slice(0, 5).map(m => {
+            const dt = new Date(m.date || m.cachedAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const sub = String(m.subject || '?').slice(0, 60).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `   • ${m.tag || '#privat'} ${dt} ${m.fromName || m.from}\n     <i>${sub}</i>`;
+        });
+        return `📧 ${recent.length} wichtige Mails letzte 24h:\n${lines.join('\n')}`;
+    } catch (_) { return null; }
+}
+
+async function _sendBriefing(kind) {
+    const dateLabel = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const header = kind === 'morning'
+        ? `☀️ <b>MORGEN-BRIEFING</b> — ${dateLabel}`
+        : `🌇 <b>ABEND-BRIEFING</b> — ${dateLabel}`;
+    const taxi = await _buildTaxiBlock();
+    const mail = await _buildMailBlock();
+    const todoBlock = await _buildPersonalTodoBlock();
+    const todoLines = todoBlock.open.slice(0, 7).map(t => '   ' + _briefingFormatTodo(t));
+    const todoStr = todoBlock.total
+        ? `📋 ${todoBlock.total} offene ToDos:\n${todoLines.join('\n')}${todoBlock.total > 7 ? `\n   …und ${todoBlock.total - 7} weitere` : ''}`
+        : '📋 Keine offenen ToDos — ✨';
+    const parts = [header, '', `🚖 <b>TAXI</b>\n${taxi}`];
+    if (mail) parts.push('', `<b>POSTEINGANG</b>\n${mail}`);
+    parts.push('', `<b>OFFENE AUFGABEN</b>\n${todoStr}`);
+    if (kind === 'morning') {
+        parts.push('', '<i>Tipp: \'done <id>\' wenn erledigt, \'snooze <id> 2d\' zum Verschieben.</i>');
+    } else {
+        parts.push('', '<i>Wie war der Tag? Morgen bringt Briefing 8 Uhr.</i>');
+    }
+    const text = parts.join('\n');
+    try {
+        await sendToAllAdmins(text, 'briefing_' + kind);
+        const dateKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' });
+        await db.ref(`personalBriefings/${dateKey}/${kind}`).set({ sentAt: Date.now(), totalTodos: todoBlock.total });
+        console.log(`📰 ${kind}-Briefing gesendet (${todoBlock.total} offene ToDos)`);
+    } catch (e) {
+        console.error(`${kind}-Briefing Fehler:`, e.message);
+    }
+}
+
+exports.scheduledMorningBriefing = onSchedule(
+    { schedule: '3 8 * * *', region: 'europe-west1', timeZone: 'Europe/Berlin', timeoutSeconds: 90, memory: '256MiB' },
+    async () => {
+        try {
+            const cfgSnap = await db.ref('settings/briefings').once('value');
+            const cfg = cfgSnap.val() || {};
+            if (cfg.morningDisabled === true) return;
+            await _sendBriefing('morning');
+        } catch (e) { console.error('scheduledMorningBriefing Fehler:', e.message); }
+    }
+);
+
+exports.scheduledEveningBriefing = onSchedule(
+    { schedule: '7 18 * * *', region: 'europe-west1', timeZone: 'Europe/Berlin', timeoutSeconds: 90, memory: '256MiB' },
+    async () => {
+        try {
+            const cfgSnap = await db.ref('settings/briefings').once('value');
+            const cfg = cfgSnap.val() || {};
+            if (cfg.eveningDisabled === true) return;
+            await _sendBriefing('evening');
+        } catch (e) { console.error('scheduledEveningBriefing Fehler:', e.message); }
+    }
+);
+
+// Reminder-Eskalation alle 2h, escalation-stages basierend auf Tagen-seit-Anlage
+exports.scheduledTodoReminder = onSchedule(
+    { schedule: 'every 2 hours', region: 'europe-west1', timeZone: 'Europe/Berlin', timeoutSeconds: 60 },
+    async () => {
+        try {
+            const cfgSnap = await db.ref('settings/todos').once('value');
+            const cfg = cfgSnap.val() || {};
+            if (cfg.remindersDisabled === true) return;
+            const now = Date.now();
+            const snap = await db.ref('personalTodos').orderByChild('status').equalTo('open').once('value');
+            const todos = snap.val() || {};
+            const escalated = [];
+            for (const [id, t] of Object.entries(todos)) {
+                if (!t || typeof t !== 'object') continue;
+                const createdAt = Number(t.createdAt || now);
+                const ageDays = (now - createdAt) / (24 * 60 * 60 * 1000);
+                const dueDate = Number(t.dueDate || 0);
+                const overdue = dueDate && dueDate < now;
+                const dueWithin24h = dueDate && (dueDate - now) > 0 && (dueDate - now) < 24 * 60 * 60 * 1000;
+                let stage = null;
+                if (overdue) stage = 'overdue';
+                else if (dueWithin24h) stage = 'due-soon';
+                else if (ageDays >= 7) stage = 'critical';
+                else if (ageDays >= 4) stage = 'mahnung';
+                else if (ageDays >= 2) stage = 'erinnerung';
+                if (!stage) continue;
+                // Pro Stage max 1 Reminder pro 12h
+                const lastRem = Number(t.lastReminderAt || 0);
+                if ((now - lastRem) < 12 * 60 * 60 * 1000) continue;
+                escalated.push({ id, t, stage, ageDays: Math.floor(ageDays) });
+                await db.ref(`personalTodos/${id}`).update({
+                    lastReminderAt: now,
+                    reminderCount: (Number(t.reminderCount) || 0) + 1,
+                    lastReminderStage: stage
+                });
+            }
+            if (escalated.length === 0) return;
+            const lines = escalated.map(e => {
+                const tagStr = e.t.tag || '#privat';
+                const stageIcon = {
+                    'overdue': '🚨 ÜBERFÄLLIG',
+                    'due-soon': '⏰ Heute fällig',
+                    'critical': '🔴 SEIT 7+ TAGEN',
+                    'mahnung': '🟠 4 Tage offen',
+                    'erinnerung': '🟡 2 Tage offen'
+                }[e.stage] || e.stage;
+                return `${stageIcon}  <b>${tagStr}</b>\n  <code>${e.id.slice(-6)}</code>  ${e.t.title || '?'}`;
+            });
+            const msg = `🔔 <b>TODO-ERINNERUNG</b>\n\n${lines.join('\n\n')}\n\n<i>'done <id>' erledigen oder 'snooze <id> 2d' verschieben.</i>`;
+            await sendToAllAdmins(msg, 'todo_reminder');
+            console.log(`🔔 ${escalated.length} ToDo-Erinnerungen gesendet`);
+        } catch (e) { console.error('scheduledTodoReminder Fehler:', e.message); }
+    }
+);
+
 // 🆕 v6.41.91: Claude-Bridge Outbox-Trigger
 // Wenn Claude (lokal über Browser-Session oder anderswo) was zurück an Telegram sagen will,
 // schreibt es nach /claudeBridge/outbox/{ts} und dieser Trigger sendet es als Bot-Message

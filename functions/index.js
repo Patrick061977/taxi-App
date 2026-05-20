@@ -20811,32 +20811,51 @@ exports.scheduledDispatcherTips = onSchedule(
 
             // ─── TIPP 1: SAMMELFAHRT-CHANCE ────────────────────────────────
             // Paare suchen mit Ziel im 500m-Radius und Pickup-Differenz <30 Min
+            // 🆕 v6.62.837 Patrick (20.05. 14:39): Eskalation, wenn nach 4h immer
+            //   noch nicht gekoppelt → erneuter Push 'ERINNERUNG'. Nach 8h 'DRINGEND'.
+            //   Max 3 Eskalations-Stufen pro Paar pro Tag.
+            const FOUR_H = 4 * 60 * 60 * 1000;
+            const EIGHT_H = 8 * 60 * 60 * 1000;
             const sammelTips = [];
+            const isPaired = (a, b) => {
+                // Schon gekoppelt? gleiches Fahrzeug ODER explizit sammelfahrt=true mit linkedRideId
+                const aVid = a.assignedVehicle || a.vehicleId;
+                const bVid = b.assignedVehicle || b.vehicleId;
+                if (aVid && bVid && aVid === bVid) return true;
+                if (a.sammelfahrt === true && a.linkedRideId === b.firebaseId) return true;
+                if (b.sammelfahrt === true && b.linkedRideId === a.firebaseId) return true;
+                return false;
+            };
             for (let i = 0; i < candidates.length; i++) {
                 const a = candidates[i];
                 if (!a.destinationLat || !a.destinationLon || !a.pickupTimestamp) continue;
-                const aTipped = a.dispatcherTipSent && a.dispatcherTipSent.sammelfahrt;
-                if (aTipped && (now - aTipped.t) < DAY) continue;
                 for (let j = i + 1; j < candidates.length; j++) {
                     const b = candidates[j];
                     if (!b.destinationLat || !b.destinationLon || !b.pickupTimestamp) continue;
-                    const bTipped = b.dispatcherTipSent && b.dispatcherTipSent.sammelfahrt;
-                    if (bTipped && (now - bTipped.t) < DAY) continue;
                     const distMeters = haversineMeters(a.destinationLat, a.destinationLon, b.destinationLat, b.destinationLon);
                     if (distMeters > sammelMaxDistanceMeters) continue;
                     const pickupDiffMin = Math.abs(a.pickupTimestamp - b.pickupTimestamp) / 60000;
                     if (pickupDiffMin > sammelMaxMinDiff) continue;
-                    // Nicht koppeln wenn beide schon DEM SELBEN Fahrzeug zugewiesen sind
-                    const aVid = a.assignedVehicle || a.vehicleId;
-                    const bVid = b.assignedVehicle || b.vehicleId;
-                    if (aVid && bVid && aVid === bVid) continue;
-                    sammelTips.push({ a, b, distMeters, pickupDiffMin });
+                    if (isPaired(a, b)) continue; // schon gekoppelt → kein Tipp
+                    // Eskalation: prüfen ob schon getippt
+                    const aTipped = a.dispatcherTipSent && a.dispatcherTipSent.sammelfahrt;
+                    const bTipped = b.dispatcherTipSent && b.dispatcherTipSent.sammelfahrt;
+                    let stage = 0; // 0=initial
+                    if (aTipped) {
+                        const tippedAge = now - aTipped.t;
+                        if (tippedAge >= EIGHT_H && (aTipped.escalationLevel || 0) < 2) stage = 2;
+                        else if (tippedAge >= FOUR_H && (aTipped.escalationLevel || 0) < 1) stage = 1;
+                        else if (tippedAge < DAY) continue; // schon dran, noch keine Eskalation faellig
+                        else stage = 0; // > 24h = neuer Zyklus
+                    }
+                    sammelTips.push({ a, b, distMeters, pickupDiffMin, stage });
                 }
             }
 
             for (const tip of sammelTips) {
-                const { a, b, distMeters, pickupDiffMin } = tip;
+                const { a, b, distMeters, pickupDiffMin, stage } = tip;
                 const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const stageLabel = stage === 0 ? '🚖 <b>SAMMELFAHRT-CHANCE</b>' : (stage === 1 ? '⏰ <b>ERINNERUNG: Sammelfahrt-Chance — 4h offen</b>' : '🚨 <b>DRINGEND: Sammelfahrt-Chance — 8h offen</b>');
                 // 🆕 v6.62.829 Live-ETA: wenn schon ein Fahrzeug zugewiesen, prüfe ob es
                 // den frühesten Pickup pünktlich schafft (aktuelle GPS-Position → Pickup)
                 const firstPickup = a.pickupTimestamp <= b.pickupTimestamp ? a : b;
@@ -20852,7 +20871,7 @@ exports.scheduledDispatcherTips = onSchedule(
                         etaLine = `\n📡 <b>Live-ETA</b> (${vName}, ${eta.source === 'gps' ? 'aktueller Standort' : 'Home-Base'}): ${eta.durationMin} Min zum ersten Pickup → ${verdict}\n`;
                     }
                 }
-                const msg = '🚖 <b>SAMMELFAHRT-CHANCE</b>\n\n' +
+                const msg = stageLabel + '\n\n' +
                     `Beide Ziele liegen ${Math.round(distMeters)}m auseinander, Pickup ${Math.round(pickupDiffMin)} Min Differenz:\n\n` +
                     `<b>1)</b> ${a.customerName || '?'} ${fmt(a.pickupTimestamp)}\n` +
                     `📍 ${a.pickup || '?'}\n` +
@@ -20861,15 +20880,18 @@ exports.scheduledDispatcherTips = onSchedule(
                     `📍 ${b.pickup || '?'}\n` +
                     `🎯 ${b.destination || '?'}\n` +
                     etaLine +
-                    `\n<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.</i>`;
+                    `\n<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.${stage > 0 ? ' Antworte \\'koppeln\\' damit Sammelfahrt aktiviert wird.' : ''}</i>`;
                 try {
                     await sendToAllAdmins(msg, 'dispatcher_tip');
                     const tipTs = Date.now();
-                    await db.ref(`rides/${a.firebaseId}/dispatcherTipSent/sammelfahrt`).set({ t: tipTs, partner: b.firebaseId });
-                    await db.ref(`rides/${b.firebaseId}/dispatcherTipSent/sammelfahrt`).set({ t: tipTs, partner: a.firebaseId });
-                    await addRideLog(a.firebaseId, '🚖', `Sammelfahrt-Tipp gesendet (Partner: ${b.customerName || b.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.828', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin) });
-                    await addRideLog(b.firebaseId, '🚖', `Sammelfahrt-Tipp gesendet (Partner: ${a.customerName || a.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.828', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin) });
-                    console.log(`🚖 Sammelfahrt-Tipp: ${a.customerName || '?'} + ${b.customerName || '?'} (${Math.round(distMeters)}m, ${Math.round(pickupDiffMin)}min)`);
+                    const tipPayload = { t: tipTs, partner: b.firebaseId, escalationLevel: stage };
+                    const tipPayloadB = { t: tipTs, partner: a.firebaseId, escalationLevel: stage };
+                    await db.ref(`rides/${a.firebaseId}/dispatcherTipSent/sammelfahrt`).set(tipPayload);
+                    await db.ref(`rides/${b.firebaseId}/dispatcherTipSent/sammelfahrt`).set(tipPayloadB);
+                    const stageTxt = stage === 0 ? 'initial' : (stage === 1 ? 'Erinnerung 4h' : 'Eskalation 8h');
+                    await addRideLog(a.firebaseId, '🚖', `Sammelfahrt-Tipp ${stageTxt} (Partner: ${b.customerName || b.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.837', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin), stage });
+                    await addRideLog(b.firebaseId, '🚖', `Sammelfahrt-Tipp ${stageTxt} (Partner: ${a.customerName || a.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.837', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin), stage });
+                    console.log(`🚖 Sammelfahrt-Tipp v6.62.837 stage=${stage}: ${a.customerName || '?'} + ${b.customerName || '?'} (${Math.round(distMeters)}m, ${Math.round(pickupDiffMin)}min)`);
                 } catch (e) {
                     console.error('Sammelfahrt-Tipp Push fehl:', e.message);
                 }
@@ -28685,6 +28707,31 @@ async function _buildMailBlock() {
     } catch (_) { return null; }
 }
 
+async function _buildDispatcherTipsBlock() {
+    try {
+        const now = Date.now();
+        const horizon = now + 24 * 60 * 60 * 1000;
+        const snap = await db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(horizon).once('value');
+        const open = [];
+        snap.forEach(c => {
+            const r = c.val();
+            if (!r) return;
+            const tip = r.dispatcherTipSent?.sammelfahrt;
+            if (!tip) return;
+            // Schon gekoppelt? Skip
+            if (r.sammelfahrt === true) return;
+            const tippedAge = now - tip.t;
+            if (tippedAge > 24 * 60 * 60 * 1000) return;
+            // Pro Paar nur einmal (durch a.firebaseId < tip.partner sort)
+            if (c.key > (tip.partner || '')) return;
+            open.push({ rideId: c.key, partner: tip.partner, customer: r.customerName, ageHours: Math.round(tippedAge / 3600000), escalation: tip.escalationLevel || 0 });
+        });
+        if (open.length === 0) return null;
+        const lines = open.slice(0, 5).map(t => `   • 🚖 ${t.customer || t.rideId.slice(-6)} ↔ ${t.partner.slice(-6)} — Tipp ${t.ageHours}h alt (Stufe ${t.escalation})`).join('\n');
+        return `🤖 ${open.length} OFFENE DISPATCHER-TIPPS:\n${lines}`;
+    } catch (_) { return null; }
+}
+
 async function _sendBriefing(kind) {
     const dateLabel = new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
     const header = kind === 'morning'
@@ -28692,6 +28739,7 @@ async function _sendBriefing(kind) {
         : `🌇 <b>ABEND-BRIEFING</b> — ${dateLabel}`;
     const taxi = await _buildTaxiBlock();
     const mail = await _buildMailBlock();
+    const tipsBlock = await _buildDispatcherTipsBlock();
     const todoBlock = await _buildPersonalTodoBlock();
     const todoLines = todoBlock.open.slice(0, 7).map(t => '   ' + _briefingFormatTodo(t));
     const todoStr = todoBlock.total
@@ -28699,6 +28747,7 @@ async function _sendBriefing(kind) {
         : '📋 Keine offenen ToDos — ✨';
     const parts = [header, '', `🚖 <b>TAXI</b>\n${taxi}`];
     if (mail) parts.push('', `<b>POSTEINGANG</b>\n${mail}`);
+    if (tipsBlock) parts.push('', `<b>DISPATCHER-TIPPS</b>\n${tipsBlock}`);
     parts.push('', `<b>OFFENE AUFGABEN</b>\n${todoStr}`);
     if (kind === 'morning') {
         parts.push('', '<i>Tipp: \'done <id>\' wenn erledigt, \'snooze <id> 2d\' zum Verschieben.</i>');

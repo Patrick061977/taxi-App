@@ -28494,7 +28494,11 @@ exports.mailInboxPoller = onSchedule(
                     const fromDomain = (fromAddr.split('@')[1] || '').toLowerCase();
                     const subjMatch = !fwdSubjectRegex || fwdSubjectRegex.test(subject);
                     const inSkip = fwdSkipDomains.has(fromDomain);
-                    const inWhite = fwdWhitelistDomains.has(fromDomain) || fwdWhitelistAddrs.has(fromAddr.toLowerCase());
+                    // v6.62.835: openMode (Patrick 20.05. 14:26 "alles was jetzt kommt") —
+                    //   wenn openMode=true ODER Whitelist leer → JEDE Domain erlaubt
+                    //   außer in skipDomains. So einfacher zu warten (Skipliste statt Whitelist).
+                    const openMode = fwdCfg?.openMode === true || (fwdWhitelistDomains.size === 0 && fwdWhitelistAddrs.size === 0);
+                    const inWhite = openMode || fwdWhitelistDomains.has(fromDomain) || fwdWhitelistAddrs.has(fromAddr.toLowerCase());
                     if (subjMatch && inWhite && !inSkip) {
                         forwardCandidates.push({ uid: m.uid, fromAddr, subject, dateMs });
                     }

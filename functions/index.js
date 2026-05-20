@@ -21335,6 +21335,58 @@ exports.onRideCreated = onValueCreated(
             console.warn('v6.62.839 Sub-Hausnummer-Check Fehler:', _subVarErr.message);
         }
 
+        // 🚨 v6.62.840 (Patrick 20.05. 16:30 'Grütze' bei Ostseeblick Buchung):
+        // SAFETY-NET — Auftraggeber-Destination-Bug.
+        // Bug-Pattern (Hotel-Residenz-Bug, siehe CLAUDE.md): bei Auftraggeber-Buchungen
+        // setzt das System manchmal die AUFTRAGGEBER-ADRESSE als destination, obwohl
+        // der Auftraggeber-Anrufer ein ANDERES Ziel angegeben hatte (Gast soll vom
+        // Bahnhof zum Wellnesszentrum — System setzt Hotel-Adresse als destination).
+        //
+        // Check: wenn isAuftraggeberBooking=true UND destination-Coords im 100m-Radius
+        // der _auftraggeberAddress liegen, ist das mit hoher Wahrscheinlichkeit der
+        // Bug. Stoppe Auto-Assign, alarmiere Admin per Telegram, blockiere Customer-SMS.
+        try {
+            if (ride._isAuftraggeberBooking === true && ride._auftraggeberLat && ride.destinationLat) {
+                const dlat = parseFloat(ride.destinationLat);
+                const dlon = parseFloat(ride.destinationLon);
+                const alat = parseFloat(ride._auftraggeberLat);
+                const alon = parseFloat(ride._auftraggeberLon);
+                // Haversine (vereinfacht — Bbox-check ~ 100m bei diesem Breitengrad)
+                const meters = Math.sqrt(Math.pow((dlat - alat) * 111000, 2) + Math.pow((dlon - alon) * 71000, 2));
+                if (meters < 150) {
+                    console.warn(`🚨 v6.62.840 AUFTRAGGEBER-DEST-BUG: ride ${rideId} hat destination IM Auftraggeber-Radius (${Math.round(meters)}m). Wahrscheinlich Bug.`);
+                    await db.ref('rides/' + rideId).update({
+                        suspectedAuftraggeberDestBug: true,
+                        suspectedAt: Date.now(),
+                        autoAssignBlocked: true,
+                        autoAssignBlockReason: 'auftraggeber-dest-bug-v6.62.840'
+                    });
+                    const auftraggeberName = ride._auftraggeberName || ride.name || '?';
+                    const gast = ride.guestName || ride.bookedForCustomer || ride.forCustomer || '?';
+                    const msg = `🚨 <b>AUFTRAGGEBER-ZIEL-BUG (möglich)</b>\n\n` +
+                        `Auftraggeber: ${auftraggeberName}\n` +
+                        `Gast: ${gast}\n` +
+                        `📍 Pickup: ${ride.pickup || '?'}\n` +
+                        `🎯 Ziel: ${ride.destination || '?'}\n\n` +
+                        `Das Ziel liegt ${Math.round(meters)}m vom Auftraggeber-Standort — vermutlich hat das System die Hotel-Adresse fälschlich als Ziel eingesetzt statt den eigentlichen Zielort des Gasts.\n\n` +
+                        `<b>Auto-Assign gestoppt.</b> Bitte Ziel manuell prüfen + korrigieren.\n` +
+                        `🆔 <code>${rideId}</code>`;
+                    try { await sendToAllAdmins(msg, 'auftraggeber_dest_bug'); } catch (_) {}
+                    await addRideLog(rideId, '🚨', 'Auftraggeber-Dest-Bug erkannt: Ziel liegt im Auftraggeber-Radius', {
+                        quelle: 'onRideCreated v6.62.840 Safety-Net',
+                        abstand_meter: Math.round(meters),
+                        auftraggeber: auftraggeberName,
+                        ziel: ride.destination
+                    });
+                    // Verhindere weitere Verarbeitung (Auto-Assign, Customer-SMS) durch reload
+                    const _refreshed = await db.ref('rides/' + rideId).once('value');
+                    Object.assign(ride, _refreshed.val() || {});
+                }
+            }
+        } catch (_destBugErr) {
+            console.warn('v6.62.840 Auftraggeber-Dest-Safety-Net Fehler:', _destBugErr.message);
+        }
+
         // 🔧 v6.38.43: Detailliertes Logging für Debugging
         console.log(`📊 onRideCreated Details: pickup=${ride.pickup}, dest=${ride.destination}, status=${ride.status}, pickupTs=${ride.pickupTimestamp}, pickupLat=${ride.pickupLat}, destLat=${ride.destinationLat}`);
 

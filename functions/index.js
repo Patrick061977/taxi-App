@@ -3029,12 +3029,85 @@ function isTelegramModifyQuery(text) {
 // GEOCODING & ROUTING
 // ═══════════════════════════════════════════════════════════════
 
-// 🆕 v6.62.193: geocode() komplett auf Google Places API (New) Text Search migriert.
-// Patrick (01.05.): "alles auf google places umstellen" — Nominatim findet POIs wie
-// "Strandhotel Heringsdorf, Liehrstr. 10" nicht (Auftrag-Import-Bug heute Vetter
-// Touristik 25.04. Koserow). Google Places kennt sie. Multi-Pass-Fallback-Logik
-// (Polnisch / Deutschland / Usedom-Viewbox) wird ueberfluessig — eine Anfrage
-// mit locationBias circle 25km um Heringsdorf reicht. PLZ-Validierung bleibt drin.
+// 🆕 v6.62.839 (Patrick 20.05. 16:11): Hausnummer-Sub-Varianten-Suche.
+// Wenn der User 'Strandpromenade 2' eingibt und der Bot eine eindeutige Hausnr 2 findet,
+// dann gibt es aber in Wirklichkeit oft mehrere Varianten (2a/2b/2c — Wohneinheiten,
+// Eingaenge). Patrick will dass das System bei Bestaetigung schon zeigt:
+// 'Strandpromenade 2 existiert + 2a/2b/2c — welche genau?' — statt erst nach Buchung
+// festzustellen dass die spezifische Variante anders ist.
+//
+// Sucht in Nominatim via Strukturierter Suche nach allen Suffixen a-f fuer die Basis-Hausnr.
+// Returnt Array { hausnr, lat, lon, displayName, ort } — sortiert nach Suffix.
+async function searchHausnumVariants(street, baseHausnr, plz, options = {}) {
+    if (!street || !baseHausnr) return [];
+    const variants = [];
+    const suffixes = ['', 'a', 'b', 'c', 'd', 'e', 'f'];
+    const queryBase = `${street} ${baseHausnr}`;
+    // Parallele Nominatim-Anfragen fuer alle Suffixe
+    const promises = suffixes.map(async (sfx) => {
+        const hn = `${baseHausnr}${sfx}`;
+        try {
+            const url = new URL('https://nominatim.openstreetmap.org/search');
+            url.searchParams.set('street', `${street} ${hn}`);
+            if (plz) url.searchParams.set('postalcode', plz);
+            url.searchParams.set('format', 'json');
+            url.searchParams.set('limit', '3');
+            url.searchParams.set('countrycodes', 'de');
+            url.searchParams.set('addressdetails', '1');
+            const resp = await fetch(url.toString(), {
+                headers: { 'User-Agent': 'FunkTaxiHeringsdorf/v6.62.839' },
+                signal: AbortSignal.timeout(6000)
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            for (const r of (data || [])) {
+                const aHn = r.address?.house_number || '';
+                if (aHn.toLowerCase() !== hn.toLowerCase()) continue;
+                const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+                if (!isFinite(lat) || !isFinite(lon)) continue;
+                if (lat < 53.8 || lat > 54.2 || lon < 13.6 || lon > 14.5) continue;
+                const ort = r.address?.suburb || r.address?.village || r.address?.town || r.address?.city || '';
+                return {
+                    hausnr: hn,
+                    lat, lon,
+                    displayName: r.display_name,
+                    ort,
+                    road: r.address?.road || street,
+                    postcode: r.address?.postcode || plz || ''
+                };
+            }
+            return null;
+        } catch (_e) { return null; }
+    });
+    const results = await Promise.all(promises);
+    for (const r of results) {
+        if (r) variants.push(r);
+    }
+    // Sort: zuerst Basis-Nummer, dann Suffix alphabetisch
+    variants.sort((a, b) => a.hausnr.localeCompare(b.hausnr, 'de', { numeric: true }));
+    return variants;
+}
+
+// 🆕 v6.62.839: Geographischer Kontext-Hint aus Google-Places-display_name extrahieren.
+// "Strandpromenade 2, 17429 Heringsdorf-Seebad" → "Heringsdorf-Mitte"
+// "Liehrstr. 10, 17424 Heringsdorf" → "Heringsdorf (südlich)"
+function _buildGeoContext(displayName, hausnr, road) {
+    if (!displayName) return '';
+    const s = String(displayName);
+    // Erkenne Kaiserbad-Ort + ggf. Suburb
+    const kaiserbad = ['Bansin', 'Heringsdorf', 'Ahlbeck'].find(k => new RegExp('\\b' + k + '\\b', 'i').test(s));
+    if (!kaiserbad) return '';
+    // Bei Strandpromenade extra Kontext: durchgehende Promenade alle 3 Kaiserbäder
+    if (/strandpromenade/i.test(road || s)) {
+        const num = parseInt(hausnr || '0', 10);
+        if (num >= 1 && num <= 8) return 'Heringsdorf-Pier-Bereich';
+        if (num >= 9 && num <= 29) return 'Heringsdorf-Mitte';
+        if (num >= 30 && num <= 45) return 'Bansin-Strandpromenade';
+        if (num >= 46) return 'Ahlbeck-Strandpromenade';
+    }
+    return kaiserbad;
+}
+
 async function geocode(address) {
     const searchKey = address.toLowerCase().trim();
     // v6.48.0: KNOWN_PLACES kommt aus /pois (Firebase) statt Code
@@ -21213,6 +21286,53 @@ exports.onRideCreated = onValueCreated(
                 await addRideLog(rideId, '⚠️', 'Auto-Geocode fehlgeschlagen — Google Places fand keine Treffer',
                     { pickup: ride.pickup, destination: ride.destination });
             }
+        }
+
+        // 🆕 v6.62.839 (Patrick 20.05. 16:11): Sub-Hausnummer-Verifikation.
+        // Wenn Pickup oder Destination eine Hausnummer ohne Suffix hat (z.B. 'Strandpromenade 2'),
+        // suche Sub-Varianten (2a/2b/2c). Wenn solche existieren → Admin-Push mit Auswahl-Buttons
+        // damit Patrick die korrekte Variante final waehlen kann (verhindert Murks-Buchungen).
+        // Nur fuer Vorbestellungen (Pickup > +30 Min), Sofortfahrten haben keine Zeit fuer Rueckfrage.
+        try {
+            const _isFuturePb = ride.pickupTimestamp && (ride.pickupTimestamp - Date.now()) > 30 * 60000;
+            if (_isFuturePb && (ride.status === 'vorbestellt' || !ride.status)) {
+                const checkAddr = async (addr, label) => {
+                    if (!addr) return null;
+                    // Extrahiere Strasse + Hausnr (nur Basis ohne Suffix)
+                    const m = addr.match(/^(.+?)\s+(\d+)(?:[a-z])?\b[,]?\s*(\d{5})?/i);
+                    if (!m) return null;
+                    const street = m[1].trim();
+                    const hausnr = m[2];
+                    const plz = m[3] || '';
+                    // Nur ausfuehren wenn KEIN Suffix in der Original-Adresse (also reine Nummer)
+                    const hasSuffix = /^(.+?)\s+\d+[a-z]\b/i.test(addr);
+                    if (hasSuffix) return null;
+                    const variants = await searchHausnumVariants(street, hausnr, plz);
+                    if (variants.length < 2) return null; // 1 = nur die Hausnummer selbst, 2+ = es gibt Sub-Varianten
+                    return { street, hausnr, plz, variants, label };
+                };
+                const pickupCheck = await checkAddr(ride.pickup, 'Abholort');
+                const destCheck = await checkAddr(ride.destination, 'Zielort');
+                for (const check of [pickupCheck, destCheck]) {
+                    if (!check) continue;
+                    const lines = check.variants.map(v => {
+                        const ctx = _buildGeoContext(v.displayName, v.hausnr, v.road);
+                        return `   • ${v.road} ${v.hausnr}${ctx ? ` (${ctx})` : ''}`;
+                    }).join('\n');
+                    const msg = `🏠 <b>HAUSNUMMER-VARIANTEN bei ${check.label}</b>\n\n` +
+                        `${check.street} ${check.hausnr} — es existieren ${check.variants.length} Varianten:\n${lines}\n\n` +
+                        `<i>Aktuell zugewiesen: ${check.label === 'Abholort' ? ride.pickup : ride.destination}\nFalls falsche Variante: in Disposition bearbeiten.</i>`;
+                    try { await sendToAllAdmins(msg, 'address_variants'); } catch (_) {}
+                    await addRideLog(rideId, '🏠', `${check.variants.length} Hausnummer-Varianten gefunden bei ${check.label}`, {
+                        quelle: 'v6.62.839 Sub-Hausnummer-Check',
+                        strasse: check.street,
+                        hausnr: check.hausnr,
+                        varianten: check.variants.map(v => v.hausnr).join(', ')
+                    });
+                }
+            }
+        } catch (_subVarErr) {
+            console.warn('v6.62.839 Sub-Hausnummer-Check Fehler:', _subVarErr.message);
         }
 
         // 🔧 v6.38.43: Detailliertes Logging für Debugging

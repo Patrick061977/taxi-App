@@ -20647,6 +20647,215 @@ exports.scheduledOpenAnfrageWatchdog = onSchedule(
     }
 );
 
+// 🆕 v6.62.828: DISPONENT-BOT — Patrick (20.05. 10:00 'du bist jetzt der Disponent').
+// Läuft alle 5 Min und schickt Telegram-Tipps für Konflikte/Chancen die das Auto-Assign
+// nicht selbst lösen kann. KEIN LLM, reine Regel-Logik.
+//
+// Stufe-1-Tipps (dieser PR):
+//  1) Sammelfahrt-Chance: 2 Vorbestellungen <30 Min Pickup-Diff mit Ziel im 500m-Radius
+//  2) Schicht-Lücke: Wartepool-Ride + Fahrzeug 30-60 Min außerhalb regulärer Schicht
+//     erreichbar → Verlängerungs-Vorschlag
+//
+// Deduplikation per ride.dispatcherTipSent.{sammelfahrt|schichtluecke} = ts. Max 1
+// Tipp pro Typ pro Ride pro Tag (24h). Verhindert Spam wenn Wartepool persistiert.
+exports.scheduledDispatcherTips = onSchedule(
+    {
+        schedule: 'every 5 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 90,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const DAY = 24 * 60 * 60 * 1000;
+            const horizon = now + 24 * 60 * 60 * 1000; // nächste 24h
+
+            // Settings (mit Defaults)
+            const settingsSnap = await db.ref('settings/dispatcherTips').once('value');
+            const cfg = settingsSnap.val() || {};
+            if (cfg.disabled === true) {
+                console.log('⏸️ scheduledDispatcherTips: deaktiviert via settings.dispatcherTips.disabled');
+                return;
+            }
+            const sammelMaxMinDiff = cfg.sammelMaxMinDiff || 30;
+            const sammelMaxDistanceMeters = cfg.sammelMaxDistanceMeters || 500;
+            const luckeMinMin = cfg.schichtLueckeMinMin || 15;
+            const luckeMaxMin = cfg.schichtLueckeMaxMin || 60;
+
+            // Rides + Vehicles + Shifts laden
+            const [ridesSnap, shiftsSnap] = await Promise.all([
+                db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(horizon).once('value'),
+                db.ref('vehicleShifts').once('value')
+            ]);
+            const shiftsData = shiftsSnap.val() || {};
+            const candidates = [];
+            ridesSnap.forEach(c => {
+                const r = c.val();
+                if (!r) return;
+                if (!['vorbestellt', 'wartepool', 'assigned'].includes(r.status)) return;
+                candidates.push({ ...r, firebaseId: c.key });
+            });
+
+            if (candidates.length === 0) return;
+
+            // ─── TIPP 1: SAMMELFAHRT-CHANCE ────────────────────────────────
+            // Paare suchen mit Ziel im 500m-Radius und Pickup-Differenz <30 Min
+            const sammelTips = [];
+            for (let i = 0; i < candidates.length; i++) {
+                const a = candidates[i];
+                if (!a.destinationLat || !a.destinationLon || !a.pickupTimestamp) continue;
+                const aTipped = a.dispatcherTipSent && a.dispatcherTipSent.sammelfahrt;
+                if (aTipped && (now - aTipped.t) < DAY) continue;
+                for (let j = i + 1; j < candidates.length; j++) {
+                    const b = candidates[j];
+                    if (!b.destinationLat || !b.destinationLon || !b.pickupTimestamp) continue;
+                    const bTipped = b.dispatcherTipSent && b.dispatcherTipSent.sammelfahrt;
+                    if (bTipped && (now - bTipped.t) < DAY) continue;
+                    const distMeters = haversineMeters(a.destinationLat, a.destinationLon, b.destinationLat, b.destinationLon);
+                    if (distMeters > sammelMaxDistanceMeters) continue;
+                    const pickupDiffMin = Math.abs(a.pickupTimestamp - b.pickupTimestamp) / 60000;
+                    if (pickupDiffMin > sammelMaxMinDiff) continue;
+                    // Nicht koppeln wenn beide schon DEM SELBEN Fahrzeug zugewiesen sind
+                    const aVid = a.assignedVehicle || a.vehicleId;
+                    const bVid = b.assignedVehicle || b.vehicleId;
+                    if (aVid && bVid && aVid === bVid) continue;
+                    sammelTips.push({ a, b, distMeters, pickupDiffMin });
+                }
+            }
+
+            for (const tip of sammelTips) {
+                const { a, b, distMeters, pickupDiffMin } = tip;
+                const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const msg = '🚖 <b>SAMMELFAHRT-CHANCE</b>\n\n' +
+                    `Beide Ziele liegen ${Math.round(distMeters)}m auseinander, Pickup ${Math.round(pickupDiffMin)} Min Differenz:\n\n` +
+                    `<b>1)</b> ${a.customerName || '?'} ${fmt(a.pickupTimestamp)}\n` +
+                    `📍 ${a.pickup || '?'}\n` +
+                    `🎯 ${a.destination || '?'}\n\n` +
+                    `<b>2)</b> ${b.customerName || '?'} ${fmt(b.pickupTimestamp)}\n` +
+                    `📍 ${b.pickup || '?'}\n` +
+                    `🎯 ${b.destination || '?'}\n\n` +
+                    `<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.</i>`;
+                try {
+                    await sendToAllAdmins(msg, 'dispatcher_tip');
+                    const tipTs = Date.now();
+                    await db.ref(`rides/${a.firebaseId}/dispatcherTipSent/sammelfahrt`).set({ t: tipTs, partner: b.firebaseId });
+                    await db.ref(`rides/${b.firebaseId}/dispatcherTipSent/sammelfahrt`).set({ t: tipTs, partner: a.firebaseId });
+                    await addRideLog(a.firebaseId, '🚖', `Sammelfahrt-Tipp gesendet (Partner: ${b.customerName || b.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.828', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin) });
+                    await addRideLog(b.firebaseId, '🚖', `Sammelfahrt-Tipp gesendet (Partner: ${a.customerName || a.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.828', distMeters: Math.round(distMeters), pickupDiffMin: Math.round(pickupDiffMin) });
+                    console.log(`🚖 Sammelfahrt-Tipp: ${a.customerName || '?'} + ${b.customerName || '?'} (${Math.round(distMeters)}m, ${Math.round(pickupDiffMin)}min)`);
+                } catch (e) {
+                    console.error('Sammelfahrt-Tipp Push fehl:', e.message);
+                }
+            }
+
+            // ─── TIPP 2: SCHICHT-LÜCKE ─────────────────────────────────────
+            // Wartepool-Rides oder Vorbestellungen <90 Min vor Pickup ohne Fahrzeug:
+            // Welches Fahrzeug wäre 30-60 Min nach SchichtEnd / vor SchichtStart erreichbar?
+            const luckeKandidaten = candidates.filter(r => {
+                if (r.status === 'wartepool') return true;
+                if (r.assignedVehicle || r.vehicleId) return false;
+                if (!r.pickupTimestamp) return false;
+                if ((r.pickupTimestamp - now) > 90 * 60000) return false;
+                return true;
+            });
+
+            for (const r of luckeKandidaten) {
+                const already = r.dispatcherTipSent && r.dispatcherTipSent.schichtluecke;
+                if (already && (now - already.t) < DAY) continue;
+                if (!r.pickupTimestamp) continue;
+
+                const _bd = new Date(r.pickupTimestamp);
+                const _berlinHr = (_bd.getUTCHours() + ((_bd.getUTCMonth() + 1) >= 4 && (_bd.getUTCMonth() + 1) <= 10 ? 2 : 1)) % 24;
+                const pickupTimeStr = String(_berlinHr).padStart(2, '0') + ':' + String(_bd.getUTCMinutes()).padStart(2, '0');
+                const dateStr = berlinDateGlobal(r.pickupTimestamp);
+
+                const matches = [];
+                for (const vid of Object.keys(OFFICIAL_VEHICLES)) {
+                    const info = OFFICIAL_VEHICLES[vid];
+                    if (!info) continue;
+                    if ((info.capacity || 4) < (r.passengers || 1)) continue;
+
+                    // Bereits im Dienst zur Pickup-Zeit → Schicht-Lücke trifft nicht zu (anderes Problem)
+                    if (isVehicleInShift(vid, shiftsData, dateStr, pickupTimeStr)) continue;
+
+                    // Wäre das Fahrzeug innerhalb +/- luckeMinMin..luckeMaxMin Minuten im Dienst?
+                    const shifts = shiftsData[vid];
+                    if (!shifts) continue;
+                    const dow = _bd.getUTCDay(); // Berlin DOW ~ UTC DOW für 17:15 (gleicher Tag)
+                    const defaults = shifts.defaults || [];
+                    if (defaults[dow] !== true) continue; // Tag generell aus → keine Lücke
+                    const defaultEntry = (shifts.defaultTimes || [])[dow];
+                    if (!defaultEntry || !(defaultEntry.startTime || (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 0))) continue;
+                    const ranges = (defaultEntry.timeRanges && defaultEntry.timeRanges.length > 0)
+                        ? defaultEntry.timeRanges
+                        : [{ startTime: defaultEntry.startTime, endTime: defaultEntry.endTime }];
+
+                    const pMin = _berlinHr * 60 + _bd.getUTCMinutes();
+                    let nearestGapMin = Infinity;
+                    let nearestType = null; // 'before' | 'after'
+                    let nearestRangeEnd = null;
+                    for (const rg of ranges) {
+                        if (!rg.startTime || !rg.endTime) continue;
+                        const [sH, sM] = rg.startTime.split(':').map(Number);
+                        const [eH, eM] = rg.endTime.split(':').map(Number);
+                        const sMin = sH * 60 + sM;
+                        const eMin = eH * 60 + eM;
+                        if (pMin < sMin) {
+                            const gap = sMin - pMin;
+                            if (gap < nearestGapMin) { nearestGapMin = gap; nearestType = 'before'; nearestRangeEnd = rg.startTime; }
+                        } else if (pMin > eMin) {
+                            const gap = pMin - eMin;
+                            if (gap < nearestGapMin) { nearestGapMin = gap; nearestType = 'after'; nearestRangeEnd = rg.endTime; }
+                        }
+                    }
+                    if (nearestGapMin >= luckeMinMin && nearestGapMin <= luckeMaxMin) {
+                        matches.push({ vid, name: info.name, gapMin: nearestGapMin, type: nearestType, edge: nearestRangeEnd });
+                    }
+                }
+
+                if (matches.length > 0) {
+                    matches.sort((a, b) => a.gapMin - b.gapMin);
+                    const bestList = matches.slice(0, 3).map(m =>
+                        m.type === 'after'
+                            ? `  • ${m.name}: Schichtende ${m.edge}, nur ${m.gapMin} Min vor Pickup`
+                            : `  • ${m.name}: Schichtstart ${m.edge}, nur ${m.gapMin} Min nach Pickup`
+                    ).join('\n');
+                    const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const msg = '⏰ <b>SCHICHT-LÜCKE — Verlängerung machbar?</b>\n\n' +
+                        `${r.status === 'wartepool' ? '🚨 Wartepool-Fahrt' : '⚠️ Vorbestellung ohne Fahrzeug'}:\n` +
+                        `👤 ${r.customerName || '?'} ${fmt(r.pickupTimestamp)}\n` +
+                        `📍 ${r.pickup || '?'}\n` +
+                        `🎯 ${r.destination || '?'}\n\n` +
+                        `<b>Knapp dran:</b>\n${bestList}\n\n` +
+                        `<i>Fahrer fragen ob ${matches[0].type === 'after' ? 'verlängern' : 'früher starten'}? Sonst manuell zuteilen oder absagen.</i>`;
+                    try {
+                        await sendToAllAdmins(msg, 'dispatcher_tip');
+                        await db.ref(`rides/${r.firebaseId}/dispatcherTipSent/schichtluecke`).set({ t: Date.now(), vehicles: matches.slice(0, 3).map(m => m.vid) });
+                        await addRideLog(r.firebaseId, '⏰', `Schicht-Lücke-Tipp: ${matches.length} Fahrzeug(e) knapp außerhalb Schicht`, { quelle: 'scheduledDispatcherTips v6.62.828', fahrzeuge: matches.slice(0, 3).map(m => `${m.name}(${m.gapMin}min)`).join(', ') });
+                        console.log(`⏰ Schicht-Lücke-Tipp ${r.customerName || '?'} (${pickupTimeStr}): ${matches.map(m => `${m.name}+${m.gapMin}min`).join(', ')}`);
+                    } catch (e) {
+                        console.error('Schicht-Lücke-Tipp Push fehl:', e.message);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('❌ scheduledDispatcherTips Fehler:', e.message, e.stack);
+        }
+    }
+);
+
+// Hilfs-Funktion für Sammelfahrt-Detector (Distanz in Metern)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 exports.onRideCreated = onValueCreated(
     {
         ref: '/rides/{rideId}',

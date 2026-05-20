@@ -20647,6 +20647,86 @@ exports.scheduledOpenAnfrageWatchdog = onSchedule(
     }
 );
 
+// 🆕 v6.62.829: GPS-HEARTBEAT-WATCHDOG — Patrick (20.05. 10:08 'Fahrer per GPS
+// erreichbar oder zumindest sichtbar'). Bisher: ShiftForegroundService pingt
+// vehicles/{vid}/timestamp, aber wenn Akku-Sparmodus / App-Force-Stop killt,
+// merkt niemand dass der Fahrer kein GPS mehr hat — bis der Auto-Assign
+// scheitert. Watchdog prüft alle 3 Min: shift.active=true UND timestamp >5 Min
+// alt → Admin-Push + Fahrer-SMS 'GPS weg, App neu starten'. Dedup per
+// vehicles/{vid}/gpsHeartbeatWarnedAt, max 1 Warnung pro 15 Min.
+exports.scheduledGpsHeartbeatWatchdog = onSchedule(
+    {
+        schedule: 'every 3 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            const cfgSnap = await db.ref('settings/gpsHeartbeat').once('value');
+            const cfg = cfgSnap.val() || {};
+            if (cfg.disabled === true) {
+                console.log('⏸️ scheduledGpsHeartbeatWatchdog: disabled via settings.gpsHeartbeat.disabled');
+                return;
+            }
+            const staleMinutes = cfg.staleMinutes || 5;
+            const warnCooldownMin = cfg.warnCooldownMin || 15;
+            const sendSmsToDriver = cfg.sendSmsToDriver !== false; // default ON
+
+            const vehSnap = await db.ref('vehicles').once('value');
+            const vehicles = vehSnap.val() || {};
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || v.archived === true) continue;
+                const shift = v.shift || {};
+                const sActive = shift.active === true || shift.active === 'true';
+                if (!sActive) continue;
+                const ts = Number(v.timestamp || v.lastUpdate || 0);
+                if (!ts) continue; // noch nie GPS gehabt — andere Story
+                const ageMin = (now - ts) / 60000;
+                if (ageMin < staleMinutes) continue;
+
+                const lastWarn = Number(v.gpsHeartbeatWarnedAt || 0);
+                if (lastWarn && (now - lastWarn) < warnCooldownMin * 60000) continue;
+
+                const vName = (OFFICIAL_VEHICLES[vid] || {}).name || v.name || vid;
+                const driverName = v.currentDriverName || '?';
+                const msg = '🛰️ <b>GPS WEG — Fahrer prüfen!</b>\n\n' +
+                    `🚗 ${vName} (${driverName})\n` +
+                    `⏱ Letztes GPS-Signal vor ${Math.round(ageMin)} Min\n` +
+                    `📞 ${v.currentDriverPhone || '?'}\n\n` +
+                    `<i>Schicht ist aktiv aber Foreground-Service pingt nicht. Akku-Sparmodus / App-Force-Stop? Fahrer-SMS ${sendSmsToDriver ? 'wurde gesendet' : 'AUS'}.</i>`;
+                try {
+                    await sendToAllAdmins(msg, 'gps_warning');
+                    await db.ref(`vehicles/${vid}/gpsHeartbeatWarnedAt`).set(now);
+                    // SMS an Fahrer wenn Telefonnummer + Setting an (über smsQueue-Worker)
+                    if (sendSmsToDriver && v.currentDriverPhone) {
+                        try {
+                            await db.ref('smsQueue').push({
+                                phone: v.currentDriverPhone,
+                                text: `Funk-Taxi: GPS-Signal weg (${Math.round(ageMin)} Min). Bitte Fahrer-App OEFFNEN und Schicht-Status pruefen. Auto-Zuweisung greift sonst nicht.`,
+                                vehicleId: vid,
+                                type: 'gps_heartbeat_warning',
+                                status: 'pending',
+                                createdAt: now
+                            });
+                            await db.ref(`vehicles/${vid}/gpsHeartbeatSmsAt`).set(now);
+                        } catch (smsErr) {
+                            console.error(`GPS-Heartbeat SMS fail ${vid}:`, smsErr.message);
+                        }
+                    }
+                    console.log(`🛰️ GPS-Watchdog: ${vName} ${Math.round(ageMin)}min stale → Admin + ${sendSmsToDriver ? 'Fahrer-SMS' : 'nur Admin'}`);
+                } catch (e) {
+                    console.error(`GPS-Watchdog Push fail ${vid}:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('❌ scheduledGpsHeartbeatWatchdog Fehler:', e.message, e.stack);
+        }
+    }
+);
+
 // 🆕 v6.62.828: DISPONENT-BOT — Patrick (20.05. 10:00 'du bist jetzt der Disponent').
 // Läuft alle 5 Min und schickt Telegram-Tipps für Konflikte/Chancen die das Auto-Assign
 // nicht selbst lösen kann. KEIN LLM, reine Regel-Logik.
@@ -20685,11 +20765,40 @@ exports.scheduledDispatcherTips = onSchedule(
             const luckeMaxMin = cfg.schichtLueckeMaxMin || 60;
 
             // Rides + Vehicles + Shifts laden
-            const [ridesSnap, shiftsSnap] = await Promise.all([
+            const [ridesSnap, shiftsSnap, vehiclesSnap] = await Promise.all([
                 db.ref('rides').orderByChild('pickupTimestamp').startAt(now).endAt(horizon).once('value'),
-                db.ref('vehicleShifts').once('value')
+                db.ref('vehicleShifts').once('value'),
+                db.ref('vehicles').once('value')
             ]);
             const shiftsData = shiftsSnap.val() || {};
+            const vehiclesData = vehiclesSnap.val() || {};
+
+            // 🆕 v6.62.829 Live-ETA-Helper: aktuelle Fahrzeug-Position → Pickup
+            // Liefert {fromLat,fromLon,distance,duration,source} oder null. Fallback
+            // auf homeCoords falls GPS-Daten älter als 10 Min (sonst irreführend).
+            const getLiveEta = async (vid, toLat, toLon) => {
+                const v = vehiclesData[vid];
+                if (!v) return null;
+                const tsAge = Date.now() - Number(v.timestamp || v.lastUpdate || 0);
+                let fromLat, fromLon, posSrc;
+                if (v.lat && v.lon && tsAge < 10 * 60000) {
+                    fromLat = v.lat; fromLon = v.lon; posSrc = 'gps';
+                } else if (v.homeCoords && v.homeCoords.lat) {
+                    fromLat = v.homeCoords.lat; fromLon = v.homeCoords.lon; posSrc = 'home';
+                } else {
+                    return null;
+                }
+                try {
+                    const route = await calculateRoute({ lat: fromLat, lon: fromLon }, { lat: toLat, lon: toLon });
+                    if (!route || !route.duration) return null;
+                    return {
+                        fromLat, fromLon,
+                        distanceKm: Number(route.distance),
+                        durationMin: route.duration,
+                        source: posSrc
+                    };
+                } catch (_) { return null; }
+            };
             const candidates = [];
             ridesSnap.forEach(c => {
                 const r = c.val();
@@ -20728,6 +20837,21 @@ exports.scheduledDispatcherTips = onSchedule(
             for (const tip of sammelTips) {
                 const { a, b, distMeters, pickupDiffMin } = tip;
                 const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                // 🆕 v6.62.829 Live-ETA: wenn schon ein Fahrzeug zugewiesen, prüfe ob es
+                // den frühesten Pickup pünktlich schafft (aktuelle GPS-Position → Pickup)
+                const firstPickup = a.pickupTimestamp <= b.pickupTimestamp ? a : b;
+                const assignedVid = firstPickup.assignedVehicle || firstPickup.vehicleId || a.assignedVehicle || a.vehicleId || b.assignedVehicle || b.vehicleId;
+                let etaLine = '';
+                if (assignedVid && firstPickup.pickupLat && firstPickup.pickupLon) {
+                    const eta = await getLiveEta(assignedVid, firstPickup.pickupLat, firstPickup.pickupLon);
+                    if (eta) {
+                        const vName = (OFFICIAL_VEHICLES[assignedVid] || {}).name || assignedVid;
+                        const arrivalTs = Date.now() + eta.durationMin * 60000;
+                        const diffMin = Math.round((firstPickup.pickupTimestamp - arrivalTs) / 60000);
+                        const verdict = diffMin >= 0 ? `${diffMin} Min Puffer ✅` : `${Math.abs(diffMin)} Min ZU SPÄT ⚠️`;
+                        etaLine = `\n📡 <b>Live-ETA</b> (${vName}, ${eta.source === 'gps' ? 'aktueller Standort' : 'Home-Base'}): ${eta.durationMin} Min zum ersten Pickup → ${verdict}\n`;
+                    }
+                }
                 const msg = '🚖 <b>SAMMELFAHRT-CHANCE</b>\n\n' +
                     `Beide Ziele liegen ${Math.round(distMeters)}m auseinander, Pickup ${Math.round(pickupDiffMin)} Min Differenz:\n\n` +
                     `<b>1)</b> ${a.customerName || '?'} ${fmt(a.pickupTimestamp)}\n` +
@@ -20735,8 +20859,9 @@ exports.scheduledDispatcherTips = onSchedule(
                     `🎯 ${a.destination || '?'}\n\n` +
                     `<b>2)</b> ${b.customerName || '?'} ${fmt(b.pickupTimestamp)}\n` +
                     `📍 ${b.pickup || '?'}\n` +
-                    `🎯 ${b.destination || '?'}\n\n` +
-                    `<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.</i>`;
+                    `🎯 ${b.destination || '?'}\n` +
+                    etaLine +
+                    `\n<i>Vorschlag: 1 Wagen, zwei Stopps. Kunden vorher anrufen ob OK.</i>`;
                 try {
                     await sendToAllAdmins(msg, 'dispatcher_tip');
                     const tipTs = Date.now();
@@ -20817,11 +20942,22 @@ exports.scheduledDispatcherTips = onSchedule(
 
                 if (matches.length > 0) {
                     matches.sort((a, b) => a.gapMin - b.gapMin);
-                    const bestList = matches.slice(0, 3).map(m =>
-                        m.type === 'after'
-                            ? `  • ${m.name}: Schichtende ${m.edge}, nur ${m.gapMin} Min vor Pickup`
-                            : `  • ${m.name}: Schichtstart ${m.edge}, nur ${m.gapMin} Min nach Pickup`
-                    ).join('\n');
+                    // 🆕 v6.62.829 Live-ETA pro Match: aktuelle Position → Pickup
+                    if (r.pickupLat && r.pickupLon) {
+                        for (const m of matches.slice(0, 3)) {
+                            const eta = await getLiveEta(m.vid, r.pickupLat, r.pickupLon);
+                            if (eta) {
+                                m.etaMin = eta.durationMin;
+                                m.etaSource = eta.source;
+                            }
+                        }
+                    }
+                    const bestList = matches.slice(0, 3).map(m => {
+                        const etaPart = m.etaMin != null ? ` · ETA ${m.etaMin}min ${m.etaSource === 'gps' ? '📡' : '🏠'}` : '';
+                        return m.type === 'after'
+                            ? `  • ${m.name}: Schichtende ${m.edge}, nur ${m.gapMin} Min vor Pickup${etaPart}`
+                            : `  • ${m.name}: Schichtstart ${m.edge}, nur ${m.gapMin} Min nach Pickup${etaPart}`;
+                    }).join('\n');
                     const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
                     const msg = '⏰ <b>SCHICHT-LÜCKE — Verlängerung machbar?</b>\n\n' +
                         `${r.status === 'wartepool' ? '🚨 Wartepool-Fahrt' : '⚠️ Vorbestellung ohne Fahrzeug'}:\n` +

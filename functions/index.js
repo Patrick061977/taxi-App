@@ -20545,6 +20545,70 @@ exports.onAnfrageCreated = onValueCreated(
         } catch (e) {
             console.error('onAnfrageCreated Push-Fehler:', e.message);
         }
+        // 🆕 v6.62.827: Anfrage geocoden + Route + Preis berechnen + write-back.
+        // Patrick (20.05. 08:24): Manuela-Rösel-Anfrage hatte zwar Preis 10.50€, aber
+        // keine Coords im /anfragen-Eintrag — Native-Übernahme erzeugte Ride ohne
+        // Coords, Cloud-Auto-Geocode-Fallback scheiterte ('Bansin bhf'). Wenn wir die
+        // Coords schon hier persistieren, kann die Übernahme sie direkt mitnehmen.
+        try {
+            const hasPickupCoords = anfrage.pickupCoords && anfrage.pickupCoords.lat && anfrage.pickupCoords.lon;
+            const hasDestCoords = anfrage.destCoords && anfrage.destCoords.lat && anfrage.destCoords.lon;
+            if (hasPickupCoords && hasDestCoords && anfrage.distance && anfrage.duration) return;
+            const _augment = {};
+            let pLat = hasPickupCoords ? anfrage.pickupCoords.lat : null;
+            let pLon = hasPickupCoords ? anfrage.pickupCoords.lon : null;
+            let dLat = hasDestCoords ? anfrage.destCoords.lat : null;
+            let dLon = hasDestCoords ? anfrage.destCoords.lon : null;
+            if (!hasPickupCoords && anfrage.pickup) {
+                const pc = await geocode(anfrage.pickup);
+                if (pc && typeof pc.lat === 'number' && typeof pc.lon === 'number') {
+                    pLat = pc.lat; pLon = pc.lon;
+                    _augment.pickupCoords = { lat: pc.lat, lon: pc.lon };
+                    _augment.pickupResolved = pc.display_name || anfrage.pickup;
+                }
+            }
+            if (!hasDestCoords && anfrage.destination) {
+                const dc = await geocode(anfrage.destination);
+                if (dc && typeof dc.lat === 'number' && typeof dc.lon === 'number') {
+                    dLat = dc.lat; dLon = dc.lon;
+                    _augment.destCoords = { lat: dc.lat, lon: dc.lon };
+                    _augment.destinationResolved = dc.display_name || anfrage.destination;
+                }
+            }
+            if (pLat && dLat && (!anfrage.distance || !anfrage.duration)) {
+                const _route = await calculateRoute({ lat: pLat, lon: pLon }, { lat: dLat, lon: dLon });
+                if (_route && _route.distance) {
+                    const _dKm = Number(_route.distance).toFixed(1);
+                    _augment.distance = _dKm;
+                    if (_route.duration) _augment.duration = _route.duration;
+                    // Preis nur berechnen wenn nicht schon gesetzt ODER offensichtlich Placeholder
+                    const priceStr = String(anfrage.price || '').trim();
+                    const looksUnset = !priceStr || priceStr === '?' || priceStr === '—' || /^0\.?0*€?$/.test(priceStr);
+                    if (looksUnset) {
+                        let pickupTs = null;
+                        try {
+                            if (anfrage.date && anfrage.time) {
+                                const _berlin = new Date(`${anfrage.date}T${anfrage.time}:00+02:00`);
+                                if (!isNaN(_berlin.getTime())) pickupTs = _berlin.getTime();
+                            }
+                        } catch (_) {}
+                        const _price = calculatePrice(Number(_dKm), pickupTs || Date.now());
+                        if (_price) {
+                            const _pNum = typeof _price === 'object' ? (_price.total || _price.price || 0) : _price;
+                            _augment.price = `${Number(_pNum).toFixed(2)}€`;
+                        }
+                    }
+                }
+            }
+            if (Object.keys(_augment).length > 0) {
+                _augment.augmentedAt = Date.now();
+                _augment.augmentedBy = 'cloud-onAnfrageCreated-v6.62.827';
+                await db.ref(`anfragen/${anfrageId}`).update(_augment);
+                console.log(`📍 v6.62.827 Anfrage ${anfrageId} angereichert: ${Object.keys(_augment).join(', ')}`);
+            }
+        } catch (e) {
+            console.error('onAnfrageCreated Geocode/Augment-Fehler:', e.message);
+        }
     }
 );
 
@@ -20711,30 +20775,17 @@ exports.onRideCreated = onValueCreated(
             }
         }
 
-        // 🆕 v6.62.739: AUTO-GEOCODE wenn Koordinaten weiterhin fehlen
-        // Patrick (15.05. 15:25): "Daten-Inkonsistenz! Native Admin Buchung hat keine Coords."
-        // Native AdminDashboardActivity speichert pickup/destination als reinen Text ohne
-        // Geocoding. Cloud holt Coords nach via Nominatim (gleicher Endpoint wie der Bot).
+        // 🆕 v6.62.827: AUTO-GEOCODE via Google Places (statt Nominatim).
+        // Patrick (20.05. 08:24): "Manuela Rösel-Anfrage: Daten inkonsistent, Bansin bhf
+        // nicht geokodiert." Nominatim findet 'Villa Margot Bergstraße' und 'Bansin bhf'
+        // nicht, Google Places schon (Places mit Usedom-Bias + PLZ-Validierung).
+        // Vorher (v6.62.739): inline Nominatim mit Usedom-Bbox-Filter.
         if ((!ride.pickupLat || !ride.destinationLat) && (ride.pickup || ride.destination)) {
             const _geocoded = [];
-            const _geocodeOne = async (addr) => {
-                if (!addr) return null;
-                try {
-                    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr + ', Usedom')}&format=json&limit=1&countrycodes=de&addressdetails=1`;
-                    const resp = await fetch(url, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
-                    const data = await resp.json();
-                    if (!data || data.length === 0) return null;
-                    const r = data[0];
-                    const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
-                    // Nur wenn im Usedom-Umkreis (53.8-54.2 / 13.6-14.5) — sonst falscher Treffer
-                    if (lat >= 53.8 && lat <= 54.2 && lon >= 13.6 && lon <= 14.5) return { lat, lon };
-                    return null;
-                } catch (_e) { return null; }
-            };
             const _updates = {};
             if (!ride.pickupLat && ride.pickup) {
-                const pc = await _geocodeOne(ride.pickup);
-                if (pc) {
+                const pc = await geocode(ride.pickup);
+                if (pc && typeof pc.lat === 'number' && typeof pc.lon === 'number') {
                     _updates.pickupLat = pc.lat; _updates.pickupLon = pc.lon;
                     _updates.pickupCoords = { lat: pc.lat, lon: pc.lon };
                     ride.pickupLat = pc.lat; ride.pickupLon = pc.lon;
@@ -20742,23 +20793,57 @@ exports.onRideCreated = onValueCreated(
                 }
             }
             if (!ride.destinationLat && ride.destination) {
-                const dc = await _geocodeOne(ride.destination);
-                if (dc) {
+                const dc = await geocode(ride.destination);
+                if (dc && typeof dc.lat === 'number' && typeof dc.lon === 'number') {
                     _updates.destinationLat = dc.lat; _updates.destinationLon = dc.lon;
                     _updates.destCoords = { lat: dc.lat, lon: dc.lon };
                     ride.destinationLat = dc.lat; ride.destinationLon = dc.lon;
                     _geocoded.push(`Destination → ${dc.lat.toFixed(4)}/${dc.lon.toFixed(4)}`);
                 }
             }
+            // v6.62.827: wenn beide Coords da sind aber Distance/Preis fehlen, jetzt nachrechnen
+            if (ride.pickupLat && ride.destinationLat && (!ride.distance || !ride.estimatedPrice)) {
+                try {
+                    const _route = await calculateRoute(
+                        { lat: ride.pickupLat, lon: ride.pickupLon },
+                        { lat: ride.destinationLat, lon: ride.destinationLon }
+                    );
+                    if (_route && _route.distance) {
+                        const _dKm = Number(_route.distance).toFixed(1);
+                        _updates.distance = _dKm;
+                        _updates.estimatedDistance = _dKm;
+                        ride.distance = _dKm; ride.estimatedDistance = _dKm;
+                        if (_route.duration) {
+                            _updates.duration = _route.duration;
+                            _updates.estimatedDuration = _route.duration;
+                            ride.duration = _route.duration;
+                        }
+                        if (!ride.estimatedPrice) {
+                            const _price = calculatePrice(Number(_dKm), ride.pickupTimestamp || Date.now());
+                            if (_price) {
+                                const _pStr = typeof _price === 'object' ? String(_price.total || _price.price || _price) : String(_price);
+                                _updates.estimatedPrice = _pStr;
+                                _updates.price = _pStr;
+                                ride.estimatedPrice = _pStr;
+                                _geocoded.push(`Preis ${_pStr}€ (${_dKm}km)`);
+                            }
+                        } else {
+                            _geocoded.push(`Distance ${_dKm}km`);
+                        }
+                    }
+                } catch (_routeErr) {
+                    console.warn(`⚠️ v6.62.827 Route/Preis-Nachberechnung fehlgeschlagen: ${_routeErr.message}`);
+                }
+            }
             if (_geocoded.length > 0) {
                 _updates.autoGeocodedAt = Date.now();
-                _updates.autoGeocodedBy = 'cloud-onRideCreated-v6.62.739';
+                _updates.autoGeocodedBy = 'cloud-onRideCreated-v6.62.827';
                 await db.ref('rides/' + rideId).update(_updates);
-                console.log(`📍 v6.62.739 Auto-Geocode: ${_geocoded.join(', ')}`);
-                await addRideLog(rideId, '📍', `Auto-Geocode (Native-Buchung): ${_geocoded.join(', ')}`,
-                    { quelle: 'Nominatim', source: ride.source || 'unbekannt' });
+                console.log(`📍 v6.62.827 Auto-Geocode (Google Places): ${_geocoded.join(', ')}`);
+                await addRideLog(rideId, '📍', `Auto-Geocode via Google Places: ${_geocoded.join(', ')}`,
+                    { quelle: 'Google Places + OSRM/Google Directions', source: ride.source || 'unbekannt' });
             } else if (!ride.pickupLat || !ride.destinationLat) {
-                await addRideLog(rideId, '⚠️', 'Auto-Geocode fehlgeschlagen — beide Adressen nicht in OSM',
+                await addRideLog(rideId, '⚠️', 'Auto-Geocode fehlgeschlagen — Google Places fand keine Treffer',
                     { pickup: ride.pickup, destination: ride.destination });
             }
         }

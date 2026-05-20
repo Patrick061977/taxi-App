@@ -28255,6 +28255,234 @@ exports.onAnfrageCreated = onValueCreated(
     }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v6.62.830: PERSONAL MAIL BRIDGE (Sekretärs-Modus)
+// ═══════════════════════════════════════════════════════════════
+// Patrick (20.05. 10:54-11:39): "Ich will Struktur. Du bist meine Sekretärin —
+//   schickst Mails raus, überwachst den Posteingang, schickst Briefings, hilfst
+//   ToDos abzuarbeiten." Stufe 1 hier: SMTP-Sender (Trigger auf
+//   /personalMailQueue/{id}.status='approved') + IMAP-Inbox-Poller (alle 15 Min)
+//   mit Whitelist + Tag-basierter Klassifikation + Telegram-Push für Wichtiges.
+//
+// /personalContacts/{key} = { name, email, role, tag, aliases[], pushPriority }
+// /personalMailQueue/{id} = { to, cc, subject, text, status, ... }
+// /personalMailInbox/{uid} = Cache empfangener Mails mit Kategorie
+// /settings/personalMail/{lastCheckedUid, lastCheckedAt, inboxPollerDisabled}
+
+function _getPersonalMailCfg(cfg) {
+    return {
+        inboxPollerDisabled: cfg.inboxPollerDisabled === true,
+        pushAdminChatId: cfg.pushAdminChatId || 6229490043,
+        maxBackfillDays: cfg.maxBackfillDays || 1
+    };
+}
+
+function classifyPersonalEmail(envelope, contacts) {
+    const from = (envelope.from?.[0]?.address || '').toLowerCase();
+    const fromName = (envelope.from?.[0]?.name || '').toLowerCase();
+    const subject = (envelope.subject || '').toLowerCase();
+    const haystack = from + ' ' + fromName + ' ' + subject;
+    // Whitelist erster Pass
+    for (const c of Object.values(contacts || {})) {
+        if (!c || typeof c !== 'object' || !c.email) continue;
+        if (from === String(c.email).toLowerCase()) {
+            return { category: 'whitelist', tag: c.tag || ('#' + (c.role || 'kontakt')), contactKey: c.key, priority: c.pushPriority || 'high' };
+        }
+    }
+    if (/newsletter|unsubscribe|%off|rabatt|sale|angebot|gutschein|gewinnspiel|-30%|-50%|aktion|flash[- ]sale/.test(haystack)) {
+        return { category: 'werbung', tag: '#werbung', priority: 'mute' };
+    }
+    if (/finanzamt|steuer|ecovis|ihk|gewerbe|krankenkasse|aok|techniker krankenkasse|datev/.test(haystack)) {
+        return { category: 'wichtig', tag: '#behoerde', priority: 'high' };
+    }
+    if (/sparkasse|commerzbank|volksbank|paypal|stripe|zettle|kontoauszug|sepa|interactive ?brokers/.test(haystack)) {
+        return { category: 'finanz', tag: '#buchhaltung', priority: 'normal' };
+    }
+    if (/buchung|reservierung|fahrt|taxi|rechnung|invoice|auftrag|kunde|hotel/.test(haystack)) {
+        return { category: 'geschaeft', tag: '#taxi', priority: 'normal' };
+    }
+    if (/praxis|arzt|doktor|rezept|blutwerte|gramsch|weihs|moskwa|patientenportal/.test(haystack)) {
+        return { category: 'gesundheit', tag: '#gesundheit', priority: 'high' };
+    }
+    if (/noreply|no-reply|donotreply|@github\.com|google business profile|amazon\.de/.test(from + ' ' + subject)) {
+        return { category: 'system', tag: '#system', priority: 'mute' };
+    }
+    return { category: 'sonstige', tag: '#privat', priority: 'normal' };
+}
+
+// Trigger: /personalMailQueue/{id} mit status='approved' → SMTP-Send
+exports.personalMailSender = onValueCreated(
+    {
+        ref: '/personalMailQueue/{id}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const id = event.params.id;
+        const data = event.data.val();
+        if (!data || data.sent === true) return;
+        if (data.status !== 'approved' && data.status !== 'send') return;
+        try {
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const c = smtpSnap.val() || {};
+            if (!c.host || !c.user || !c.pass) throw new Error('settings/smtp unvollständig');
+            const nodemailer = require('nodemailer');
+            const transport = nodemailer.createTransport({
+                host: c.host,
+                port: c.port || 587,
+                secure: (c.port || 587) === 465,
+                auth: { user: c.user, pass: c.pass }
+            });
+            const fromHeader = `"${data.fromName || c.fromName || c.user}" <${c.fromEmail || c.user}>`;
+            const info = await transport.sendMail({
+                from: fromHeader,
+                to: data.to,
+                cc: data.cc || undefined,
+                bcc: data.bcc || undefined,
+                replyTo: data.replyTo || undefined,
+                subject: data.subject || '(kein Betreff)',
+                text: data.text || data.body || '',
+                html: data.html || undefined,
+                inReplyTo: data.inReplyTo || undefined,
+                references: data.references || undefined
+            });
+            await event.data.ref.update({
+                status: 'sent',
+                sent: true,
+                sentAt: Date.now(),
+                messageId: info.messageId,
+                smtpResponse: info.response
+            });
+            console.log(`📧 v6.62.830 Personal-Mail gesendet → ${data.to} (msgId ${info.messageId})`);
+            try {
+                await sendToAllAdmins(
+                    `📧 <b>Mail versendet</b>\n\nAn: ${data.to}\nBetreff: ${data.subject || '(kein Betreff)'}\n<code>${info.messageId}</code>`,
+                    'mail_sent'
+                );
+            } catch (_) {}
+        } catch (e) {
+            await event.data.ref.update({
+                status: 'failed',
+                sent: false,
+                failedAt: Date.now(),
+                failReason: e.message
+            });
+            console.error(`❌ Personal-Mail Send fail ${id}:`, e.message);
+            try {
+                await sendToAllAdmins(
+                    `❌ <b>Mail-Versand fehlgeschlagen</b>\n\nAn: ${data.to || '?'}\nBetreff: ${data.subject || '?'}\nFehler: ${e.message}`,
+                    'mail_failed'
+                );
+            } catch (_) {}
+        }
+    }
+);
+
+// IMAP-Inbox-Poller — alle 15 Min neue Mails klassifizieren + wichtige pushen
+exports.mailInboxPoller = onSchedule(
+    {
+        schedule: 'every 15 minutes',
+        region: 'europe-west1',
+        timeZone: 'Europe/Berlin',
+        timeoutSeconds: 180,
+        memory: '512MiB'
+    },
+    async (event) => {
+        let client = null;
+        try {
+            const cfgSnap = await db.ref('settings/personalMail').once('value');
+            const cfg = _getPersonalMailCfg(cfgSnap.val() || {});
+            if (cfg.inboxPollerDisabled) {
+                console.log('⏸️ mailInboxPoller deaktiviert via settings.personalMail.inboxPollerDisabled');
+                return;
+            }
+            const smtpSnap = await db.ref('settings/smtp').once('value');
+            const sm = smtpSnap.val() || {};
+            if (!sm.user || !sm.pass) {
+                console.error('mailInboxPoller: settings/smtp.user/pass fehlt');
+                return;
+            }
+            const { ImapFlow } = require('imapflow');
+            client = new ImapFlow({
+                host: 'imap.gmail.com',
+                port: 993,
+                secure: true,
+                auth: { user: sm.user, pass: String(sm.pass).replace(/\s+/g, '') },
+                logger: false,
+                emitLogs: false
+            });
+            await client.connect();
+            await client.mailboxOpen('INBOX');
+
+            const lastUidSnap = await db.ref('settings/personalMail/lastCheckedUid').once('value');
+            const lastUid = Number(lastUidSnap.val() || 0);
+            const contactsSnap = await db.ref('personalContacts').once('value');
+            const contactsRaw = contactsSnap.val() || {};
+            // Map keys into contact objects
+            const contacts = {};
+            for (const [k, v] of Object.entries(contactsRaw)) {
+                if (v && typeof v === 'object') contacts[k] = { ...v, key: k };
+            }
+
+            const since = new Date();
+            since.setDate(since.getDate() - cfg.maxBackfillDays);
+            const uids = await client.search({ since });
+            const newUids = uids.filter(u => u > lastUid);
+
+            console.log(`📥 mailInboxPoller v6.62.830: ${newUids.length} neue Mails (lastUid=${lastUid}, gefunden=${uids.length})`);
+
+            let maxUid = lastUid;
+            const pushes = [];
+            for await (const m of client.fetch(newUids, { envelope: true, flags: true, internalDate: true, size: true })) {
+                if (m.uid > maxUid) maxUid = m.uid;
+                const cls = classifyPersonalEmail(m.envelope, contacts);
+                const fromAddr = m.envelope.from?.[0]?.address || '?';
+                const fromName = m.envelope.from?.[0]?.name || '';
+                const subject = m.envelope.subject || '(kein Betreff)';
+                const dateMs = m.internalDate?.getTime() || Date.now();
+                await db.ref(`personalMailInbox/${m.uid}`).set({
+                    uid: m.uid,
+                    date: dateMs,
+                    from: fromAddr,
+                    fromName,
+                    subject: subject.slice(0, 300),
+                    category: cls.category,
+                    tag: cls.tag,
+                    priority: cls.priority,
+                    size: m.size || 0,
+                    seen: m.flags?.has?.('\\Seen') || false,
+                    cachedAt: Date.now()
+                });
+                if (cls.priority === 'high') {
+                    pushes.push({ uid: m.uid, fromAddr, fromName, subject, tag: cls.tag, dateMs });
+                }
+            }
+            await db.ref('settings/personalMail/lastCheckedUid').set(maxUid);
+            await db.ref('settings/personalMail/lastCheckedAt').set(Date.now());
+
+            // Bundled push (max 1 Nachricht pro Lauf, damit kein Spam)
+            if (pushes.length > 0) {
+                const lines = pushes.slice(0, 8).map(p => {
+                    const dt = new Date(p.dateMs).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const fromLabel = (p.fromName || p.fromAddr).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const sub = p.subject.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return `<b>${p.tag}</b> ${dt}\n  ${fromLabel}\n  <i>${sub}</i>`;
+                });
+                const more = pushes.length > 8 ? `\n\n…und ${pushes.length - 8} weitere wichtige Mails.` : '';
+                const msg = `📧 <b>Neue Mails — wichtig</b>\n\n${lines.join('\n\n')}${more}\n\n<i>Sag mir 'lies <uid>' für Body oder 'liste' für Übersicht.</i>`;
+                try { await sendToAllAdmins(msg, 'personal_mail_digest'); } catch (_) {}
+            }
+
+        } catch (e) {
+            console.error('❌ mailInboxPoller Fehler:', e.message, e.stack);
+        } finally {
+            if (client) {
+                try { await client.logout(); } catch (_) {}
+            }
+        }
+    }
+);
+
 // 🆕 v6.41.91: Claude-Bridge Outbox-Trigger
 // Wenn Claude (lokal über Browser-Session oder anderswo) was zurück an Telegram sagen will,
 // schreibt es nach /claudeBridge/outbox/{ts} und dieser Trigger sendet es als Bot-Message

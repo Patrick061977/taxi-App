@@ -21147,6 +21147,74 @@ exports.scheduledDispatcherTips = onSchedule(
                     }
                 }
             }
+            // ─── TIPP 3: BLOCK-ALARM ──────────────────────────────────────
+            // 🆕 v6.62.848 (Patrick 20.05. 21:43): "Wenn das System feststellt 'wir
+            //   können kein Fahrzeug zuteilen, wir haben da ein Problem' soll Claude
+            //   proaktiv melden mit Lösungs-Vorschlägen statt still autoAssignBlocked
+            //   im Backend zu lassen". Drei Block-Klassen:
+            //     A) autoAssignBlocked=true (z.B. Safety-Net v6.62.840 Hotel-Bug)
+            //     B) Sofortfahrt status='new' seit >3 Min ohne Fahrzeug
+            //     C) Vorbestellung <30 Min vor Pickup ohne Fahrzeug
+            //   Push pro Block-Ride einmal, dann Re-Push erst nach 30 Min wenn noch offen.
+            try {
+                const blockedRides = [];
+                ridesSnap.forEach(c => {
+                    const r = c.val();
+                    if (!r) return;
+                    const rid = c.key;
+                    const vid = r.assignedVehicle || r.vehicleId;
+                    const ageMs = r.createdAt ? (now - r.createdAt) : 0;
+                    // A) autoAssignBlocked-Flag explizit gesetzt
+                    if (r.autoAssignBlocked === true && r.status !== 'completed' && r.status !== 'cancelled') {
+                        blockedRides.push({ rid, r, kind: 'A', reason: r.autoAssignBlockReason || 'autoAssignBlocked=true' });
+                        return;
+                    }
+                    // B) Sofortfahrt status='new' >3 Min alt ohne Fahrzeug
+                    if (r.status === 'new' && !vid && ageMs > 3 * 60000) {
+                        blockedRides.push({ rid, r, kind: 'B', reason: `Sofortfahrt seit ${Math.round(ageMs / 60000)} Min ohne Fahrzeug` });
+                        return;
+                    }
+                    // C) Vorbestellung <30 Min vor Pickup ohne Fahrzeug
+                    if (r.status === 'vorbestellt' && !vid && r.pickupTimestamp) {
+                        const minsUntilPickup = (r.pickupTimestamp - now) / 60000;
+                        if (minsUntilPickup > 0 && minsUntilPickup < 30) {
+                            blockedRides.push({ rid, r, kind: 'C', reason: `Vorbestellung in ${Math.round(minsUntilPickup)} Min ohne Fahrzeug` });
+                        }
+                    }
+                });
+                const BLOCK_REPUSH_MS = 30 * 60000;
+                for (const block of blockedRides) {
+                    const { rid, r, kind, reason } = block;
+                    const last = r.dispatcherTipSent && r.dispatcherTipSent.blockAlarm;
+                    if (last && (now - last.t) < BLOCK_REPUSH_MS) continue;
+                    const pickupLbl = r.pickupTimestamp ? new Date(r.pickupTimestamp).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : (r.pickupTime || '?');
+                    let header;
+                    if (kind === 'A') header = '🚨 <b>AUTO-ASSIGN BLOCKIERT</b>';
+                    else if (kind === 'B') header = '🚨 <b>SOFORTFAHRT HÄNGT</b>';
+                    else header = '🚨 <b>VORBESTELLUNG OHNE FAHRZEUG (kurz vor Pickup!)</b>';
+                    const msg = header + '\n\n' +
+                        `<b>Ride:</b> <code>${rid}</code>\n` +
+                        `<b>Kunde:</b> ${r.customerName || '?'}\n` +
+                        `<b>Pickup:</b> ${pickupLbl}\n` +
+                        `📍 ${r.pickup || '?'}\n` +
+                        `🎯 ${r.destination || '?'}\n\n` +
+                        `<b>Grund:</b> ${reason}\n\n` +
+                        `<b>Mögliche Aktionen:</b>\n` +
+                        (kind === 'A' ? `• Auto-Assign-Sperre überprüfen (autoAssignBlockReason)\n• Wenn Sperre falsch → autoAssignBlocked=false setzen\n• Manuell Fahrzeug zuweisen\n` :
+                         kind === 'B' ? `• Schicht aktiv? Welches Fahrzeug ist am nächsten?\n• Manuell Fahrzeug zuweisen\n• Wenn niemand verfügbar → Kunde anrufen + Späteres Zeitfenster anbieten\n` :
+                         `• Schichtplan prüfen — wer hätte 30 Min Anfahrt?\n• Schicht +30 Min verlängern\n• Manuell Fahrzeug zuweisen\n• Wenn niemand verfügbar → Auto-Storno droht in <30 Min!\n`);
+                    try {
+                        await sendToAllAdmins(msg, 'dispatcher_block_alarm');
+                        await db.ref(`rides/${rid}/dispatcherTipSent/blockAlarm`).set({ t: now, kind, reason });
+                        await addRideLog(rid, '🚨', `Block-Alarm gepusht (${kind}): ${reason}`, { quelle: 'scheduledDispatcherTips v6.62.848', kind });
+                        console.log(`🚨 Block-Alarm v6.62.848 ${kind} ${rid}: ${reason}`);
+                    } catch (e) {
+                        console.error('Block-Alarm Push fehl:', e.message);
+                    }
+                }
+            } catch (blockErr) {
+                console.error('❌ Block-Alarm Fehler:', blockErr.message);
+            }
         } catch (e) {
             console.error('❌ scheduledDispatcherTips Fehler:', e.message, e.stack);
         }

@@ -6758,6 +6758,16 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
+            // 🔬 v6.62.858 (Patrick 21.05. 20:50): Diagnose-Log VOR Bypass — wir sehen jetzt
+            //   genau welche Sources/Hausnummern/Koords in suggestions sind.
+            try {
+                const _diag = (suggestions || []).slice(0, 8).map(s => ({
+                    src: s.source, hnr: (s.address && s.address.house_number) || '?',
+                    name: (s.name || '').slice(0, 60), lat: s.lat, lon: s.lon
+                }));
+                console.log(`🔬 [v6.62.858 DIAG] addressToResolve="${addressToResolve}" → ${suggestions?.length || 0} suggestions:`, JSON.stringify(_diag));
+            } catch (_dE) {}
+
             // 🆕 v6.62.855 (Patrick 21.05. 19:37): GOOGLE-PLACES-BYPASS — Patrick: 'alle Filter raus'
             //   Wenn Google Places einen Treffer mit Hausnummer-Exakt-Match liefert UND der
             //   Treffer in Usedom-Box liegt → SOFORT übernehmen, ALLE Filter überspringen.

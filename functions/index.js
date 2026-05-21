@@ -3601,14 +3601,21 @@ async function searchNominatimForTelegram(query) {
                     // Root cause: Score basiert nur auf Anzahl Treffer — ignoriert dass
                     //   ein Ortsname in der Suche fehlt UND ein ANDERER Ort in der Adresse ist.
                     // Fix: Wenn User Ort X sucht aber Adresse Ort Y enthält → reject.
+                    // 🔧 v6.62.853 (Patrick 21.05. 19:13): Kaiserbäder-Synonym-Ausnahme.
+                    //   Bansin/Ahlbeck/Heringsdorf sind EINE Gemeinde (PLZ 17424/17429).
+                    //   'Strandpromenade 17, Bansin' fand in Geocache nur 'Heringsdorf'-Variante
+                    //   und wurde mit Score=0 fälschlich verworfen. Mit Synonym-Liste: durchlassen.
                     const _USEDOM_ORTE = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz', 'ückeritz', 'uckeritz', 'loddin', 'zempin', 'koserow', 'karlshagen', 'peenemünde', 'peenemuende', 'trassenheide'];
+                    const _KAISERBAEDER_SYN = ['heringsdorf', 'ahlbeck', 'bansin'];
                     const searchOrt = searchWords.find(w => _USEDOM_ORTE.includes(w));
                     if (searchOrt) {
                         const addrOrt = _USEDOM_ORTE.find(ort => addr.includes(ort) || labelNorm.includes(ort));
                         if (addrOrt && addrOrt !== searchOrt) {
-                            // User sucht in searchOrt, Adresse in anderem Ort → ungültig
-                            console.log(`🛡️ Ort-Konflikt: Suche "${searchOrt}" vs. Adresse "${addrOrt}" → ${entry.address} verworfen`);
-                            matchScore = 0;
+                            const _bothKB = _KAISERBAEDER_SYN.includes(searchOrt) && _KAISERBAEDER_SYN.includes(addrOrt);
+                            if (!_bothKB) {
+                                console.log(`🛡️ Ort-Konflikt: Suche "${searchOrt}" vs. Adresse "${addrOrt}" → ${entry.address} verworfen`);
+                                matchScore = 0;
+                            }
                         }
                     }
                 }

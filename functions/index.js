@@ -6739,6 +6739,30 @@ async function continueBookingFlow(chatId, booking, originalText) {
 
             const suggestions = await searchNominatimForTelegram(addressToResolve);
 
+            // 🆕 v6.62.855 (Patrick 21.05. 19:37): GOOGLE-PLACES-BYPASS — Patrick: 'alle Filter raus'
+            //   Wenn Google Places einen Treffer mit Hausnummer-Exakt-Match liefert UND der
+            //   Treffer in Usedom-Box liegt → SOFORT übernehmen, ALLE Filter überspringen.
+            //   Verhindert dass Geocache-Einträge mit anderer Hausnummer (z.B. Strandpromenade 18)
+            //   den richtigen Google-Places-Treffer (z.B. Strandpromenade 17) verdrängen.
+            const _v855Took = (suggestions || []).find(s => {
+                if (s.source !== 'google-places') return false;
+                const _hn = (s.address && s.address.house_number || '').toLowerCase();
+                const _inH = (addressToResolve.replace(/\b\d{5}\b/g, '').match(/\b(\d+[a-z]?)\b/i) || [])[1]?.toLowerCase() || '';
+                if (!_inH || _hn !== _inH) return false;
+                if (!s.lat || !s.lon) return false;
+                const _la = parseFloat(s.lat), _lo = parseFloat(s.lon);
+                return _la >= 53.8 && _la <= 54.15 && _lo >= 13.8 && _lo <= 14.35;
+            });
+            if (_v855Took) {
+                await addTelegramLog('✅', chatId, `${fieldLabel} Google-Places-BYPASS (v6.62.855): ${_v855Took.name}`);
+                if (needsPickupResolve) {
+                    booking.pickup = _v855Took.name; booking.pickupLat = _v855Took.lat; booking.pickupLon = _v855Took.lon;
+                } else {
+                    booking.destination = _v855Took.name; booking.destinationLat = _v855Took.lat; booking.destinationLon = _v855Took.lon;
+                }
+                return await continueBookingFlow(chatId, booking, originalText);
+            }
+
             if (suggestions.length > 0) {
                 // Prüfe ob erster Treffer exakt passt (Name enthält Suchbegriff und umgekehrt)
                 const topHit = suggestions[0];

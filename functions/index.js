@@ -4151,7 +4151,17 @@ async function searchNominatimForTelegram(query) {
                 } else {
                     displayName = item.display_name.split(',').slice(0, 3).join(',').trim();
                 }
-                nominatimResults.push({ name: displayName, lat, lon, source: 'nominatim' });
+                // 🆕 v6.62.857 (Patrick 21.05. 20:00): source UND address aus dem Originalitem erhalten!
+                //   Bug: alle allItems wurden hardcoded als source:'nominatim' kopiert — Google-Places-Treffer
+                //   wurden dadurch im _v855Took-BYPASS unsichtbar (filter source!=='google-places' = always true)
+                //   UND im _hasTrustedSugg2-Pfad als untrusted weggefiltert. address fehlte komplett, sodass
+                //   spätere Hausnr-Checks ins Leere liefen. Jetzt: original source/address durchreichen,
+                //   Fallback 'nominatim' nur bei wirklich-unbekannter Quelle.
+                nominatimResults.push({
+                    name: displayName, lat, lon,
+                    source: item.source || 'nominatim',
+                    address: item.address || undefined
+                });
             }
         }
     } catch (e) { console.warn('Nominatim Fehler:', e); }

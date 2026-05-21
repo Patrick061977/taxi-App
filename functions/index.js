@@ -3962,13 +3962,37 @@ async function searchNominatimForTelegram(query) {
                             const coordKey = `${gLat.toFixed(3)}_${gLon.toFixed(3)}`;
                             if (!seen.has(coordKey)) {
                                 seen.add(coordKey);
+                                // 🆕 v6.62.852: formattedAddress in structured Felder parsen
+                                // Format: "Strasse Hausnr, PLZ Stadt, Deutschland"
+                                const _gpParts = (gName || '').split(',').map(s => s.trim());
+                                let _gpRoad = '', _gpHausnr = '', _gpPostcode = '', _gpCity = '';
+                                if (_gpParts.length >= 1) {
+                                    const _seg0 = _gpParts[0];
+                                    const _hnM = _seg0.match(/^(.+?)\s+(\d+[a-z]?)$/i);
+                                    if (_hnM) { _gpRoad = _hnM[1].trim(); _gpHausnr = _hnM[2].toLowerCase(); }
+                                    else { _gpRoad = _seg0; }
+                                }
+                                if (_gpParts.length >= 2) {
+                                    const _seg1 = _gpParts[1];
+                                    const _plzM = _seg1.match(/^(\d{5})\s+(.+)$/);
+                                    if (_plzM) { _gpPostcode = _plzM[1]; _gpCity = _plzM[2].trim(); }
+                                    else { _gpCity = _seg1; }
+                                }
+                                const _isPoiHit = gLabel && gLabel !== _gpParts[0];
                                 allItems.push({
-                                    display_name: gLabel ? (gLabel + ', ' + gName) : gName,
+                                    display_name: _isPoiHit ? (gLabel + ', ' + gName) : gName,
+                                    name: _isPoiHit ? gLabel : '',
                                     lat: gLat, lon: gLon,
                                     source: 'google-places',
-                                    address: { road: gLabel || '', city: '' }
+                                    address: {
+                                        road: _gpRoad,
+                                        house_number: _gpHausnr,
+                                        postcode: _gpPostcode,
+                                        city: _gpCity,
+                                        town: _gpCity,
+                                    }
                                 });
-                                console.log(`[Google Places] Gefunden: ${gLabel} — ${gName}`);
+                                console.log(`[Google Places v6.62.852] road="${_gpRoad}" hnr="${_gpHausnr}" plz="${_gpPostcode}" city="${_gpCity}" poi="${_isPoiHit ? gLabel : '-'}"`);
                             }
                         }
                     }

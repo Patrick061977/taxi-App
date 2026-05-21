@@ -20695,6 +20695,105 @@ exports.onAnfrageCreated = onValueCreated(
     }
 );
 
+// 🆕 v6.62.850 (Patrick 21.05. 10:17): "Kunde bekommt KEINE Bestätigung wenn Web-Anfrage
+//   übernommen wird → er denkt seine Anfrage sei verloren". Sven-Dietrich-Bug 20.05.:
+//   Sven hat Anfrage gestellt, Admin übernahm sie als Vorbestellung, aber Sven bekam
+//   keine SMS → schickte heute Duplikat-Anfrage mit anderer Tel-Nr.
+//
+// Trigger: /anfragen/{id} wird upgedated. Wenn status='bestaetigt' und rideId vorhanden
+//   und smsSent != true → Kunden-SMS mit Vorbestellungs-Bestätigung senden.
+exports.onAnfrageStatusChanged = onValueUpdated(
+    {
+        ref: '/anfragen/{anfrageId}',
+        region: 'europe-west1',
+        memory: '256MiB'
+    },
+    async (event) => {
+        const anfrageId = event.params.anfrageId;
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        if (!after) return;
+        // Nur bei Übergang offen → bestaetigt
+        const wasOpen = !before || before.status === 'offen' || !before.status;
+        const isConfirmed = after.status === 'bestaetigt' && after.rideId;
+        if (!(wasOpen && isConfirmed)) return;
+        if (after.smsSent === true) return; // Idempotent
+
+        try {
+            const phone = after.phone || after.mobilePhone || '';
+            if (!phone) {
+                console.log(`📭 onAnfrageStatusChanged: ${anfrageId} bestaetigt aber kein phone — skip SMS`);
+                return;
+            }
+            if (!isMobileNumber(phone)) {
+                console.log(`📭 onAnfrageStatusChanged: ${anfrageId} phone ${phone} ist keine Mobilnummer — skip SMS`);
+                await db.ref(`anfragen/${anfrageId}`).update({ smsSent: false, smsSkipReason: 'no-mobile' });
+                return;
+            }
+            // SMS-Settings check
+            const _smsSettingsSnap = await db.ref('settings/sms').once('value');
+            const _smsSettings = _smsSettingsSnap.val() || {};
+            if (_smsSettings.statusUpdatesEnabled === false) {
+                console.log(`📭 SMS global disabled, skip`);
+                return;
+            }
+
+            // Ride-Details für Fahrzeug-Info
+            let _vehicleName = '';
+            if (after.rideId) {
+                try {
+                    const _rideSnap = await db.ref(`rides/${after.rideId}`).once('value');
+                    const _ride = _rideSnap.val();
+                    if (_ride) {
+                        const _vid = _ride.assignedVehicle || _ride.vehicleId;
+                        if (_vid && typeof OFFICIAL_VEHICLES !== 'undefined' && OFFICIAL_VEHICLES[_vid]) {
+                            _vehicleName = OFFICIAL_VEHICLES[_vid].name || '';
+                        }
+                    }
+                } catch(_) {}
+            }
+
+            const _name = (after.name || '').trim();
+            const _lastName = _name ? _name.split(/\s+/).pop() : '';
+            const _anrede = _lastName ? `Hallo ${_lastName}` : 'Hallo';
+
+            // Datum/Zeit formatieren
+            let _zeit = '';
+            if (after.date && after.time) {
+                _zeit = ` fuer ${after.date.split('-').reverse().join('.')} um ${after.time} Uhr`;
+            } else if (after.date) {
+                _zeit = ` fuer ${after.date.split('-').reverse().join('.')}`;
+            }
+
+            const _pickup = (after.pickup || '').replace(/, Deutschland$/, '');
+            const _dest = (after.destination || '').replace(/, Deutschland$/, '');
+            const _pax = after.passengers ? `, ${after.passengers} Personen` : '';
+            const _preis = after.price ? `, ca. ${String(after.price).replace('?', '€')}` : '';
+            const _veh = _vehicleName ? ` Fahrzeug ${_vehicleName} wird Sie abholen.` : '';
+
+            const _smsText = `Funk Taxi Heringsdorf: ${_anrede}, Ihre Vorbestellung${_zeit} (${_pickup} → ${_dest}${_pax}${_preis}) ist bei uns angekommen und bestaetigt.${_veh} Bei Fragen 038378 22022.`;
+
+            await db.ref('smsQueue').push({
+                phone: phone,
+                text: _smsText,
+                rideId: after.rideId || null,
+                anfrageId: anfrageId,
+                category: 'anfrage-uebernahme-bestaetigung',
+                createdAt: Date.now(),
+                createdBy: 'cloud-onAnfrageStatusChanged-v6.62.850'
+            });
+            await db.ref(`anfragen/${anfrageId}`).update({
+                smsSent: true,
+                smsSentAt: Date.now(),
+                smsSentBy: 'cloud-onAnfrageStatusChanged-v6.62.850'
+            });
+            console.log(`📲 v6.62.850 Anfrage-Bestaetigungs-SMS an ${phone} fuer Anfrage ${anfrageId} (rideId ${after.rideId})`);
+        } catch (e) {
+            console.error('onAnfrageStatusChanged SMS-Fehler:', e.message);
+        }
+    }
+);
+
 // 🆕 v6.62.723: Anfragen-Sackgassen-Watchdog (Patrick 15.05. 08:11 'wo bleiben Fahrten haengen').
 // Alle 30 Min: /anfragen status='offen' und createdAt >2h alt → REMINDER-Push an Admins +
 // Telegram. Plus reminderSentCount fuer eskalation: 1. Reminder bei 2h, 2. bei 4h, 3. bei 6h.

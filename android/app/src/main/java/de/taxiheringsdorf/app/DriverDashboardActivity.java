@@ -1446,6 +1446,44 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 Log.w(TAG, "Service-Stop fehlgeschlagen: " + t.getMessage());
             }
         } else {
+            // 🆕 v6.62.849 (Patrick 20.05. 10:31): Fahrzeug-Bestätigung + GPS-Permission-Pflicht
+            //   beim Schicht-Start. Vorher startete Schicht ohne Rückfrage und ohne GPS-Check —
+            //   wenn GPS-Permission fehlte/aus war lief die Schicht "leer" (kein Location-Tracking,
+            //   Auto-Assign-Cloud fand das Fahrzeug nicht wegen fehlender Coords).
+            int locPerm = androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION);
+            if (locPerm != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "⚠️ GPS-Berechtigung fehlt — bitte erteilen, dann Schicht starten", Toast.LENGTH_LONG).show();
+                androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{ android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                  android.Manifest.permission.ACCESS_COARSE_LOCATION },
+                    1001);
+                return;
+            }
+            android.location.LocationManager lm = (android.location.LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null || !lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+                new AlertDialog.Builder(this)
+                    .setTitle("📍 GPS deaktiviert")
+                    .setMessage("Schichtstart benötigt aktives GPS. Bitte in den Geräte-Einstellungen GPS einschalten und dann Schicht erneut starten.")
+                    .setPositiveButton("Einstellungen öffnen", (d, w) -> {
+                        try { startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)); } catch (Throwable _ig) {}
+                    })
+                    .setNegativeButton("Abbrechen", null).show();
+                return;
+            }
+            String vName = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleName", currentVehicleId);
+            new AlertDialog.Builder(this)
+                .setTitle("🚗 Schicht starten?")
+                .setMessage("Fahrzeug: " + vName + "\n📍 GPS aktiv ✓\n\nFahrer-App geht jetzt LIVE — Aufträge können kommen.")
+                .setPositiveButton("✅ Schicht starten", (d, w) -> doStartShiftConfirmed())
+                .setNegativeButton("Abbrechen", null).show();
+        }
+    }
+
+    // 🆕 v6.62.849: Eigentlicher Schicht-Start nach Bestätigungsdialog
+    private void doStartShiftConfirmed() {
+        if (currentVehicleId == null || db == null) return;
+        {
             DatabaseReference ref = db.getReference("vehicles/" + currentVehicleId + "/shift");
             Map<String, Object> updates = new HashMap<>();
             updates.put("status", "active");

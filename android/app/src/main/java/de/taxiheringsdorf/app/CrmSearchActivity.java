@@ -2380,14 +2380,24 @@ public class CrmSearchActivity extends AppCompatActivity {
                             r.put("status", "vorbestellt");
                         }
                     }
-                    // 🐛 v6.62.845 (Patrick 20.05. — falsche Adresse 200€, korrigiert auf 15€,
-                    //   alte 200€ blieb in Firebase): Bei _addrChanged MUSS price+distance+
-                    //   drivingTimes auch genullt werden, damit Cloud-Function neu rechnet.
-                    //   Sonst sieht onRideUpdated 'price already set' und überspringt die
-                    //   OSRM-Neuberechnung. Manueller etPrice-Wert override hat Vorrang
-                    //   (wird oben r.put("price",_pVal) wenn nicht leer); leer + Adresse
-                    //   geändert → komplett wegnullen.
-                    if (_addrChanged && _priceStr.isEmpty()) {
+                    // 🐛 v6.62.845/.846 (Patrick 20.05.): falsche Adresse 200€ → korrigiert
+                    //   auf 15€, alte 200€ blieb. v6.62.845 nullte nur wenn etPrice leer war,
+                    //   aber im Edit-Modus wird etPrice mit altem price vorgefüllt (Zeile 2034)
+                    //   — Patrick fasst's nicht an, _priceStr ist nicht leer, mein Skip-Check
+                    //   ging fehl. v6.62.846: bei _addrChanged prüfe auch ob _priceStr
+                    //   IDENTISCH zum Vorfüll-Wert (= unverändert vom alten Preis). Dann
+                    //   ist's eine stale Vorfüllung, nicht ein manueller Override → nullen.
+                    boolean _priceUnchangedFromOld = false;
+                    if (_addrChanged && !_priceStr.isEmpty()) {
+                        Object _oldPriceObj = editRide.get("price");
+                        if (_oldPriceObj instanceof Number) {
+                            String _oldPriceStr = String.format(Locale.GERMANY, "%.2f", ((Number) _oldPriceObj).doubleValue());
+                            if (_oldPriceStr.equals(_priceStr) || _oldPriceStr.replace(',', '.').equals(_priceStr)) {
+                                _priceUnchangedFromOld = true;
+                            }
+                        }
+                    }
+                    if (_addrChanged && (_priceStr.isEmpty() || _priceUnchangedFromOld)) {
                         r.put("price", null);
                         r.put("priceSource", null);
                         r.put("isFixedPrice", null);

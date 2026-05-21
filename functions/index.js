@@ -3986,9 +3986,11 @@ async function searchNominatimForTelegram(query) {
                                     else { _gpCity = _seg1; }
                                 }
                                 const _isPoiHit = gLabel && gLabel !== _gpParts[0];
+                                // 🔧 v6.62.854: name MUSS gefüllt sein damit Straßen-Filter funktioniert
+                                //   (Patrick 21.05. 19:31: 'Strandpromenade 17' wurde rausgefiltert weil name='')
                                 allItems.push({
                                     display_name: _isPoiHit ? (gLabel + ', ' + gName) : gName,
-                                    name: _isPoiHit ? gLabel : '',
+                                    name: _isPoiHit ? (gLabel + ', ' + gName) : gName,
                                     lat: gLat, lon: gLon,
                                     source: 'google-places',
                                     address: {

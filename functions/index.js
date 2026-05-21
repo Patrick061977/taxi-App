@@ -20980,6 +20980,72 @@ exports.scheduledDispatcherTips = onSchedule(
                 }
             }
 
+            // ─── TIPP 1B: SAMMELFAHRT MIT GLEICHEM PICKUP (Route-linear) ────
+            // 🆕 v6.62.847 (Patrick 20.05. 22:04): Wegner+Hartmudt waren gleicher
+            //   Pickup Koserow, beide 22:30 — beide Ziele lagen aber 30+km auseinander
+            //   (Bansin vs Swinemünde). Existierende TIPP 1 prüft NUR ähnliche Ziele
+            //   und hätte das nicht erkannt. Aber: Pickup gleich + Ziele auf gleicher
+            //   Route (eines liegt zwischen Pickup und dem anderen) = perfekte Sammlung.
+            //   Detektor: Pickup-Cluster <300m + Pickup ±5 Min + Linearitäts-Check via
+            //   Haversine (Sammel-Strecke <= 1.4 * fernerer Direkt-Weg = Umweg-Tolerant).
+            const SAMMEL_PICKUP_RADIUS_M = 300;
+            const SAMMEL_PICKUP_TIME_DIFF_MIN = 5;
+            const sammelPickupTips = [];
+            for (let i = 0; i < candidates.length; i++) {
+                const a = candidates[i];
+                if (!a.pickupLat || !a.pickupLon || !a.destinationLat || !a.destinationLon || !a.pickupTimestamp) continue;
+                for (let j = i + 1; j < candidates.length; j++) {
+                    const b = candidates[j];
+                    if (!b.pickupLat || !b.pickupLon || !b.destinationLat || !b.destinationLon || !b.pickupTimestamp) continue;
+                    if (isPaired(a, b)) continue;
+                    const pickupDistMeters = haversineMeters(a.pickupLat, a.pickupLon, b.pickupLat, b.pickupLon);
+                    if (pickupDistMeters > SAMMEL_PICKUP_RADIUS_M) continue;
+                    const pickupDiffMin = Math.abs(a.pickupTimestamp - b.pickupTimestamp) / 60000;
+                    if (pickupDiffMin > SAMMEL_PICKUP_TIME_DIFF_MIN) continue;
+                    // Linearität: liegt eines der Ziele ~zwischen Pickup und dem anderen?
+                    const pickupCx = (a.pickupLat + b.pickupLat) / 2;
+                    const pickupCy = (a.pickupLon + b.pickupLon) / 2;
+                    const distAtoP = haversineMeters(a.destinationLat, a.destinationLon, pickupCx, pickupCy);
+                    const distBtoP = haversineMeters(b.destinationLat, b.destinationLon, pickupCx, pickupCy);
+                    const distAtoB = haversineMeters(a.destinationLat, a.destinationLon, b.destinationLat, b.destinationLon);
+                    const naeher = distAtoP <= distBtoP ? a : b;
+                    const ferner = distAtoP <= distBtoP ? b : a;
+                    const sammelStrecke = Math.min(distAtoP, distBtoP) + distAtoB; // Pickup → näher → ferner
+                    const fernerDirekt = Math.max(distAtoP, distBtoP);
+                    if (sammelStrecke > 1.4 * fernerDirekt) continue; // Umweg > 40% → Sammlung nicht effizient
+                    sammelPickupTips.push({ a, b, naeher, ferner, pickupDistMeters, pickupDiffMin, sammelKm: Math.round(sammelStrecke / 100) / 10, fernerKm: Math.round(fernerDirekt / 100) / 10 });
+                }
+            }
+            for (const tip of sammelPickupTips) {
+                const { a, b, naeher, ferner, pickupDistMeters, pickupDiffMin, sammelKm, fernerKm } = tip;
+                // Dedup über kombinierten Flag (a+b firebaseIds als Key)
+                const aTipped = a.dispatcherTipSent && a.dispatcherTipSent.sammelfahrtPickup;
+                if (aTipped && (now - aTipped.t) < DAY) continue;
+                const fmt = (ts) => new Date(ts).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const msg = `🎯 <b>SAMMELFAHRT-CHANCE (gleicher Pickup)</b>\n\n` +
+                    `Pickup-Punkte nur ${Math.round(pickupDistMeters)}m auseinander, Zeit ${Math.round(pickupDiffMin)} Min Differenz:\n\n` +
+                    `<b>1)</b> ${a.customerName || '?'} ${fmt(a.pickupTimestamp)}\n` +
+                    `📍 ${a.pickup || '?'}\n` +
+                    `🎯 ${a.destination || '?'}\n\n` +
+                    `<b>2)</b> ${b.customerName || '?'} ${fmt(b.pickupTimestamp)}\n` +
+                    `📍 ${b.pickup || '?'}\n` +
+                    `🎯 ${b.destination || '?'}\n\n` +
+                    `📊 <b>Route:</b> ${naeher.customerName || '?'} (näher) → ${ferner.customerName || '?'} (ferner)\n` +
+                    `   Sammel-Strecke: ~${sammelKm} km · ferner-direkt: ~${fernerKm} km · Umweg-Tax: ~${Math.round((sammelKm - fernerKm) * 10) / 10} km\n\n` +
+                    `<i>Vorschlag: 1 Wagen sammelt beide ein, fährt erst zum näheren Ziel, dann zum ferneren. Kunden vorher anrufen ob OK.</i>`;
+                try {
+                    await sendToAllAdmins(msg, 'dispatcher_tip');
+                    const tipTs = Date.now();
+                    await db.ref(`rides/${a.firebaseId}/dispatcherTipSent/sammelfahrtPickup`).set({ t: tipTs, partner: b.firebaseId });
+                    await db.ref(`rides/${b.firebaseId}/dispatcherTipSent/sammelfahrtPickup`).set({ t: tipTs, partner: a.firebaseId });
+                    await addRideLog(a.firebaseId, '🎯', `Sammelfahrt-Pickup-Tipp (Partner: ${b.customerName || b.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.847', pickupDistMeters: Math.round(pickupDistMeters), sammelKm, fernerKm });
+                    await addRideLog(b.firebaseId, '🎯', `Sammelfahrt-Pickup-Tipp (Partner: ${a.customerName || a.firebaseId})`, { quelle: 'scheduledDispatcherTips v6.62.847', pickupDistMeters: Math.round(pickupDistMeters), sammelKm, fernerKm });
+                    console.log(`🎯 Sammelfahrt-Pickup-Tipp v6.62.847: ${a.customerName || '?'} + ${b.customerName || '?'} (Pickup ${Math.round(pickupDistMeters)}m, Sammel ${sammelKm}km vs ${fernerKm}km direkt)`);
+                } catch (e) {
+                    console.error('Sammelfahrt-Pickup-Tipp Push fehl:', e.message);
+                }
+            }
+
             // ─── TIPP 2: SCHICHT-LÜCKE ─────────────────────────────────────
             // Wartepool-Rides oder Vorbestellungen <90 Min vor Pickup ohne Fahrzeug:
             // Welches Fahrzeug wäre 30-60 Min nach SchichtEnd / vor SchichtStart erreichbar?

@@ -376,6 +376,36 @@ public class DriverDashboardActivity extends AppCompatActivity {
             };
             ridesQuery.addValueEventListener(ridesListener);
 
+            // 🆕 v6.62.844 (Patrick 20.05. 21:43): "Push angenommen → leerer Bildschirm".
+            //   Bei FCM-Push-Annehmen launcht RideActionReceiver DashboardActivity mit
+            //   openedFromAccept=true + rideId-Extras. Wenn die Activity hier Cold-Start
+            //   macht, ist der ridesListener oben gerade erst angemeldet — die Antwort
+            //   kommt aber async (oft 1-3 Sek), Patrick sieht in der Zwischenzeit den
+            //   empty_state. Single-Shot-Fetch der angenommenen Ride zeigt sofort einen
+            //   Status-Toast — wenn die Ride existiert + zu uns gehört, wird sie sicher
+            //   im naechsten onRidesUpdate sichtbar (kein leerer Bildschirm-Eindruck).
+            String _openedRideId = getIntent() != null ? getIntent().getStringExtra("rideId") : null;
+            boolean _fromAccept = getIntent() != null && getIntent().getBooleanExtra("openedFromAccept", false);
+            if (_fromAccept && _openedRideId != null && !_openedRideId.isEmpty()) {
+                Toast.makeText(this, "✅ Auftrag angenommen — lade...", Toast.LENGTH_SHORT).show();
+                getIntent().removeExtra("openedFromAccept");
+                final String _rideIdFinal = _openedRideId;
+                db.getReference("rides/" + _openedRideId).get().addOnSuccessListener(snap -> {
+                    if (!snap.exists()) {
+                        Toast.makeText(this, "⚠️ Auftrag " + _rideIdFinal + " nicht (mehr) in Firebase", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    String _vid = snap.child("vehicleId").getValue(String.class);
+                    String _aVid = snap.child("assignedVehicle").getValue(String.class);
+                    boolean _isMine = (currentVehicleId != null) && (currentVehicleId.equals(_vid) || currentVehicleId.equals(_aVid));
+                    if (!_isMine) {
+                        Toast.makeText(this, "⚠️ Auftrag ist nicht (mehr) auf dein Fahrzeug zugewiesen", Toast.LENGTH_LONG).show();
+                    }
+                }).addOnFailureListener(ex -> {
+                    Log.w(TAG, "openedFromAccept-Single-Fetch fehlgeschlagen: " + ex.getMessage());
+                });
+            }
+
             // Today-completed-Listener für Tagesverdienst
             todayCompletedQuery = db.getReference("rides").orderByChild("vehicleId").equalTo(currentVehicleId);
             todayCompletedListener = new ValueEventListener() {

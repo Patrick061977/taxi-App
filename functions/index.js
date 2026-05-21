@@ -3985,6 +3985,77 @@ async function searchNominatimForTelegram(query) {
         // lieber 0 Treffer im Bot als Schrott. Patrick kann dann manuell PLZ + Strasse
         // tippen oder GPS-Sticker schicken.
 
+        // 🆕 v6.62.851 (21.05.2026): Strikt-gefilterter Nominatim-Fallback nur wenn
+        //   Google Places NULL Hausnummer-Match liefert. Patrick: 'Strandpromenade 17
+        //   Bansin' kam nicht durch, Google bot 18 + 15 → falsche Tueren.
+        //   Bedingungen damit Nominatim ueberhaupt aufgerufen wird:
+        //   1) keine Hausnummer-exakte Treffer in allItems
+        //   2) Query enthaelt erkennbare Hausnummer (z.B. "Strandpromenade 17")
+        //   3) Query enthaelt bekannten Usedom-Ort (z.B. "bansin")
+        //   4) Nominatim-Treffer wird zusaetzlich gefiltert:
+        //      - Hausnummer == Eingabe-Hausnummer (exakt)
+        //      - Liegt in Usedom-Box (53.8–54.15 / 13.8–14.35)
+        //      - Strassenname matcht Eingabe-Strasse (substring oder fuzzy)
+        const _inputHausnrFB = (() => {
+            const m = query.replace(/\b\d{5}\b/g, '').match(/\b(\d+[a-z]?)\b/i);
+            return m ? m[1].toLowerCase() : '';
+        })();
+        const _USEDOM_ORTE_FB = ['heringsdorf', 'ahlbeck', 'bansin', 'zinnowitz',
+            'koserow', 'ückeritz', 'uckeritz', 'loddin', 'trassenheide', 'zempin',
+            'karlshagen', 'peenemünde', 'peenemuende', 'wolgast', 'mellenthin',
+            'pudagla', 'benz', 'usedom', 'morgenitz', 'neppermin', 'liepe',
+            'stolpe', 'krummin', 'rankwitz', 'kamminke', 'garz', 'korswandt',
+            'zirchow', 'dargen', 'mönchow', 'sauzin'];
+        const _queryLowFB = query.toLowerCase();
+        const _hasOrtFB = _USEDOM_ORTE_FB.find(o => _queryLowFB.includes(o));
+        const _hasExactHausnrMatchInResults = _inputHausnrFB && allItems.some(it => {
+            const hn = ((it.address && it.address.house_number) || '').toLowerCase();
+            const dn = ((it.display_name || '') + ' ' + (it.address?.road || '')).toLowerCase();
+            return hn === _inputHausnrFB || new RegExp(`\\b${_inputHausnrFB}\\b`).test(dn.replace(/\d{5}/g, ''));
+        });
+        if (_inputHausnrFB && _hasOrtFB && !_hasExactHausnrMatchInResults) {
+            try {
+                // Strasse aus Query extrahieren: alles vor der Hausnummer, ohne Ort
+                let _streetGuess = query
+                    .replace(new RegExp(`\\b${_inputHausnrFB}\\b.*$`, 'i'), '')
+                    .replace(new RegExp(_hasOrtFB, 'gi'), '')
+                    .replace(/,/g, ' ')
+                    .replace(/\b\d{5}\b/g, '')
+                    .trim();
+                if (_streetGuess.length >= 3) {
+                    const _nomUrl = `https://nominatim.openstreetmap.org/search?street=${encodeURIComponent(_inputHausnrFB + ' ' + _streetGuess)}&city=${encodeURIComponent(_hasOrtFB)}&country=Germany&format=json&limit=5&addressdetails=1`;
+                    const _nomResp = await fetch(_nomUrl, { headers: { 'User-Agent': 'FunkTaxiHeringsdorf/1.0' } });
+                    const _nomData = await _nomResp.json();
+                    if (Array.isArray(_nomData) && _nomData.length > 0) {
+                        const _streetLowFB = _streetGuess.toLowerCase().replace(/straße$|str\.?$/, '');
+                        for (const r of _nomData) {
+                            const _lat = parseFloat(r.lat), _lon = parseFloat(r.lon);
+                            if (!(_lat >= 53.8 && _lat <= 54.15 && _lon >= 13.8 && _lon <= 14.35)) continue;
+                            const _rHn = ((r.address && r.address.house_number) || '').toLowerCase();
+                            if (_rHn !== _inputHausnrFB) continue;
+                            const _rRoad = ((r.address && r.address.road) || '').toLowerCase().replace(/straße$|str\.?$/, '');
+                            if (!_rRoad) continue;
+                            if (!(_rRoad.includes(_streetLowFB) || _streetLowFB.includes(_rRoad))) continue;
+                            const _ck = `${_lat.toFixed(3)}_${_lon.toFixed(3)}`;
+                            if (seen.has(_ck)) continue;
+                            seen.add(_ck);
+                            allItems.push({
+                                display_name: r.display_name,
+                                lat: _lat, lon: _lon,
+                                source: 'nominatim-fallback-exact',
+                                address: r.address,
+                                importance: r.importance || 0.1
+                            });
+                            console.log(`[Nominatim-Fallback v6.62.851] Exakt-Match aufgenommen: ${r.display_name}`);
+                            break; // einer reicht
+                        }
+                    }
+                }
+            } catch (_nomFbErr) {
+                console.warn('[Nominatim-Fallback v6.62.851] Fehler:', _nomFbErr.message);
+            }
+        }
+
         // 🔧 v6.25.5: Duplikate nach Koordinaten entfernen (beide Requests liefern oft gleiche Ergebnisse)
         const seenCoords = new Set();
         allItems = allItems.filter(item => {

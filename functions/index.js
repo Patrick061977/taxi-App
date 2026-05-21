@@ -3966,7 +3966,16 @@ async function searchNominatimForTelegram(query) {
                             const gLon = place.location.longitude;
                             const gName = place.formattedAddress || place.displayName?.text || '';
                             const gLabel = place.displayName?.text || '';
-                            const coordKey = `${gLat.toFixed(3)}_${gLon.toFixed(3)}`;
+                            // 🆕 v6.62.856 (Patrick 21.05. 19:50): Google-Places-Treffer NIE mit
+                            //   Geocache-Coord-Keys (3 Dezimal-Stellen) deduplizieren!
+                            //   Bug: Strandpromenade 17 (53.9715/14.1463) + 18 (53.9716/14.1458)
+                            //   landen im gleichen 3-Dezimal-Bucket '53.972_14.146'.
+                            //   Geocache hatte 18 dort, Google's 17 wurde verworfen → der
+                            //   v6.62.855-BYPASS hatte nichts zu finden.
+                            //   Fix: gp_-Prefix + 5 Dezimal-Stellen (~1m) macht GP-Keys unique.
+                            //   Echte Duplikate räumt der spätere seenCoords-Pass (Zeile ~4099)
+                            //   mit 4 Dezimal-Stellen auf.
+                            const coordKey = `gp_${gLat.toFixed(5)}_${gLon.toFixed(5)}`;
                             if (!seen.has(coordKey)) {
                                 seen.add(coordKey);
                                 // 🆕 v6.62.852: formattedAddress in structured Felder parsen

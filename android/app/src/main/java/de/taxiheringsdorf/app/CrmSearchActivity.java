@@ -1323,6 +1323,29 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
 
+        // 🆕 v6.62.843 (Patrick 20.05. 21:38): "wenn ich aus der Anrufliste auf Sofortfahrt
+        //   druecke, ich fahre hin, da muss ich doch kein Fahrzeug auswaehlen — Flughafen
+        //   15-20 km Anfahrt, Kunde soll wissen dass Auto unterwegs ist". Banner zeigt
+        //   eigenes Fahrzeug an damit Patrick sieht dass Sofort-Mode direkt auf ihn
+        //   zuweist (keine Cloud-Auto-Assign-Verzoegerung). Bei Vorbestellung+SofortMode
+        //   im Save unten wird vehicleId+status='accepted' direkt gesetzt.
+        final String _selfVehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+        final String _selfVehicleName = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleName", null);
+        TextView tvSelfVehicleBanner = new TextView(this);
+        if (_selfVehicleId != null) {
+            String _vDisplay = _selfVehicleName != null ? _selfVehicleName : _selfVehicleId;
+            tvSelfVehicleBanner.setText("🚗 Sofort-Modus weist auf dich zu: " + _vDisplay);
+            tvSelfVehicleBanner.setBackgroundColor(0xFFDCFCE7); // hellgrün
+            tvSelfVehicleBanner.setTextColor(0xFF166534);
+        } else {
+            tvSelfVehicleBanner.setText("⚠️ Kein eigenes Fahrzeug aktiv — Cloud weist nach Speichern zu");
+            tvSelfVehicleBanner.setBackgroundColor(0xFFFEF3C7); // hellgelb
+            tvSelfVehicleBanner.setTextColor(0xFF92400E);
+        }
+        tvSelfVehicleBanner.setTextSize(11);
+        tvSelfVehicleBanner.setPadding(padHalf, padHalf, padHalf, padHalf);
+        layout.addView(tvSelfVehicleBanner);
+
         // 🔧 v6.62.711: Patrick (14.05. 10:27): "Wozu soll ich einen Kundennamen eingeben?
         //   Bei Frau Schindel? Brauche ich keinen Kundennamen eingeben — das ist eine
         //   Stammkundin." → Bei Stammkunden Name-Feld komplett weg, der Name wird
@@ -2252,6 +2275,26 @@ public class CrmSearchActivity extends AppCompatActivity {
                 } else {
                     r.put("status", sofortMode[0] ? "new" : "vorbestellt");
                     if (sofortMode[0]) r.put("isJetzt", true);
+                }
+
+                // 🆕 v6.62.843 (Patrick 20.05. 21:38): Sofort-Mode + eigenes Fahrzeug
+                //   aktiv → direkt auf sich selbst zuweisen (status='accepted'). Spart
+                //   Cloud-Auto-Assign-Verzoegerung und triggert sofort Kunden-SMS
+                //   "Wagen unterwegs". Use-Case Patrick: Flughafen-Fahrten 15-20 km
+                //   Anfahrt, Kunde soll wissen dass Auto kommt damit er nicht in anderes
+                //   Taxi einsteigt. Bei isEdit: nur wenn vehicleId nicht schon gesetzt.
+                if (sofortMode[0] && _selfVehicleId != null
+                    && !(_backdateConfirmedRef[0] && _backdateCompletedFlag[0])) {
+                    Object _existingVid = isEdit ? editRide.get("vehicleId") : null;
+                    if (_existingVid == null || String.valueOf(_existingVid).isEmpty()) {
+                        r.put("vehicleId", _selfVehicleId);
+                        r.put("assignedVehicle", _selfVehicleId);
+                        r.put("status", "accepted");
+                        r.put("acceptedAt", now);
+                        r.put("assignedAt", now);
+                        r.put("assignedBy", "native_calllog_quick_self");
+                        r.put("acceptedVia", "native_calllog_quick_self");
+                    }
                 }
                 if (_backdateConfirmedRef[0] && _backdateInvoiceFlag[0]) {
                     r.put("invoiceRequested", true);

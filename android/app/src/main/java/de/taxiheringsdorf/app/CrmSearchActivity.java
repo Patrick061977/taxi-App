@@ -2380,6 +2380,23 @@ public class CrmSearchActivity extends AppCompatActivity {
                             r.put("status", "vorbestellt");
                         }
                     }
+                    // 🐛 v6.62.845 (Patrick 20.05. — falsche Adresse 200€, korrigiert auf 15€,
+                    //   alte 200€ blieb in Firebase): Bei _addrChanged MUSS price+distance+
+                    //   drivingTimes auch genullt werden, damit Cloud-Function neu rechnet.
+                    //   Sonst sieht onRideUpdated 'price already set' und überspringt die
+                    //   OSRM-Neuberechnung. Manueller etPrice-Wert override hat Vorrang
+                    //   (wird oben r.put("price",_pVal) wenn nicht leer); leer + Adresse
+                    //   geändert → komplett wegnullen.
+                    if (_addrChanged && _priceStr.isEmpty()) {
+                        r.put("price", null);
+                        r.put("priceSource", null);
+                        r.put("isFixedPrice", null);
+                        r.put("distance", null);
+                        r.put("drivingTimeToPickup", null);
+                        r.put("drivingTimeToDestination", null);
+                        r.put("drivingDistanceToPickupKm", null);
+                        r.put("drivingDistanceToDestKm", null);
+                    }
                     r.put("editedAt", now);
                     r.put("editedVia", "native_crm_history_edit");
 

@@ -19974,7 +19974,11 @@ exports.scheduledAutoAssign = onSchedule(
                     //   die Ride manuell gegrabbt → acceptedAt ist gesetzt aber Reminder soll
                     //   trotzdem feuern (sonst kein Losfahren-Banner).
                     if (r.status === 'vorbestellt' && r.acceptedAt) return false;
-                    if (r.assignmentLocked) return false;
+                    // 🐛 v6.62.844 (Patrick 20.05. 21:44 Wegner-Hartmudt 22:30): assignmentLocked
+                    //   ist ein Schutz gegen REASSIGNMENT (Cloud-Funktion soll Zuweisung nicht
+                    //   ändern), aber blockierte hier auch den Losfahr-Reminder. Wegner+Hartmudt
+                    //   Sammelfahrt bekam keinen Push-Reminder weil sammelfahrt-Verknüpfung
+                    //   assignmentLocked gesetzt hat. Reminder soll TROTZDEM kommen.
                     // Doppel-Reminder-Schutz: wenn schon mal gepusht (openRideWarned), skip
                     if (r.openRideWarned) return false;
                     return true;

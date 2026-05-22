@@ -1323,25 +1323,18 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
 
-        // 🆕 v6.62.843 (Patrick 20.05. 21:38): "wenn ich aus der Anrufliste auf Sofortfahrt
-        //   druecke, ich fahre hin, da muss ich doch kein Fahrzeug auswaehlen — Flughafen
-        //   15-20 km Anfahrt, Kunde soll wissen dass Auto unterwegs ist". Banner zeigt
-        //   eigenes Fahrzeug an damit Patrick sieht dass Sofort-Mode direkt auf ihn
-        //   zuweist (keine Cloud-Auto-Assign-Verzoegerung). Bei Vorbestellung+SofortMode
-        //   im Save unten wird vehicleId+status='accepted' direkt gesetzt.
+        // 🔧 v6.62.881 (Patrick 22.05. 20:53): "Warum weist bei der Vorbestellung der Sofort-
+        //   Modus auf mich zu? Ich will Fahrzeug auswählen können."
+        // showVorbestellungMaske wird IMMER für Vorbestellungen genutzt (auch aus ACR-Aufnahme,
+        // CRM, Anrufliste). Banner soll daher KEINE Sofort-Mode-Sprache haben.
+        // v6.62.843 hatte "Sofort-Modus weist auf dich zu" — verwirrend bei Vorbestellung.
+        // Jetzt: neutraler Hinweis dass Auto-Assign nach Schichtplan zuweist (oder Patrick
+        // manuell im Live-Monitor / Disposition umplanen kann).
         final String _selfVehicleId = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
-        final String _selfVehicleName = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleName", null);
         TextView tvSelfVehicleBanner = new TextView(this);
-        if (_selfVehicleId != null) {
-            String _vDisplay = _selfVehicleName != null ? _selfVehicleName : _selfVehicleId;
-            tvSelfVehicleBanner.setText("🚗 Sofort-Modus weist auf dich zu: " + _vDisplay);
-            tvSelfVehicleBanner.setBackgroundColor(0xFFDCFCE7); // hellgrün
-            tvSelfVehicleBanner.setTextColor(0xFF166534);
-        } else {
-            tvSelfVehicleBanner.setText("⚠️ Kein eigenes Fahrzeug aktiv — Cloud weist nach Speichern zu");
-            tvSelfVehicleBanner.setBackgroundColor(0xFFFEF3C7); // hellgelb
-            tvSelfVehicleBanner.setTextColor(0xFF92400E);
-        }
+        tvSelfVehicleBanner.setText("💡 Vorbestellung speichert ohne Fahrzeug. Auto-Assign weist das beste Fahrzeug nach Schichtplan zu. Im Disposition-Tab oder Live-Monitor manuell ändern möglich.");
+        tvSelfVehicleBanner.setBackgroundColor(0xFFDBEAFE); // hellblau
+        tvSelfVehicleBanner.setTextColor(0xFF1E40AF);
         tvSelfVehicleBanner.setTextSize(11);
         tvSelfVehicleBanner.setPadding(padHalf, padHalf, padHalf, padHalf);
         layout.addView(tvSelfVehicleBanner);

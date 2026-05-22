@@ -394,10 +394,43 @@ public class CallRecordingsActivity extends AppCompatActivity {
             root.addView(btnCrm);
         }
 
+        // v6.62.862 (Patrick 22.05. 15:32): "wie kann ich die Anrufliste löschen" — Lösch-Button
+        // unten im Detail-Dialog. Mit Bestätigungs-Dialog vor dem tatsächlichen Delete.
+        android.widget.Button btnDelete = new android.widget.Button(this);
+        btnDelete.setText("🗑️ Aufnahme löschen");
+        btnDelete.setTextColor(0xFFef4444);
+        btnDelete.setOnClickListener(v -> confirmDeleteRecording(r));
+        root.addView(btnDelete);
+
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setView(root)
             .setNegativeButton("Schliessen", (d, w) -> stopPlayback())
             .setOnDismissListener(d -> stopPlayback())
+            .show();
+    }
+
+    // v6.62.862: Aufnahme löschen — File von /sdcard/ACRCalls/ACRPhone/.../*.m4a entfernen
+    // + Recording-Eintrag aus Liste raus (notifyDataSetChanged).
+    private void confirmDeleteRecording(Recording r) {
+        String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
+        String name = r.customerName != null ? r.customerName : r.phone;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Aufnahme löschen?")
+            .setMessage(name + "\n" + dt + "\n\nDie m4a-Datei wird vom Telefon gelöscht. Kann nicht rückgängig gemacht werden.")
+            .setPositiveButton("Löschen", (d, w) -> {
+                stopPlayback();
+                boolean ok = false;
+                try { ok = r.file.delete(); } catch (Exception e) { Log.w(TAG, "Delete-Error: " + e.getMessage()); }
+                if (ok) {
+                    Toast.makeText(this, "🗑️ Aufnahme gelöscht", Toast.LENGTH_SHORT).show();
+                    adapter.removeRecording(r);
+                    int total = adapter.getItemCount();
+                    header.setText(total + " Aufnahmen (letzte 90 Tage)");
+                } else {
+                    Toast.makeText(this, "❌ Löschen fehlgeschlagen — Datei evtl. schon weg oder Berechtigung fehlt", Toast.LENGTH_LONG).show();
+                }
+            })
+            .setNegativeButton("Abbrechen", null)
             .show();
     }
 
@@ -428,6 +461,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
     class RecAdapter extends RecyclerView.Adapter<RecHolder> {
         private List<Recording> data = new ArrayList<>();
         void setData(List<Recording> d) { data = d; notifyDataSetChanged(); }
+        void removeRecording(Recording r) {
+            int idx = data.indexOf(r);
+            if (idx >= 0) { data.remove(idx); notifyItemRemoved(idx); }
+        }
         @NonNull @Override public RecHolder onCreateViewHolder(@NonNull android.view.ViewGroup parent, int viewType) {
             LinearLayout row = new LinearLayout(parent.getContext());
             row.setOrientation(LinearLayout.VERTICAL);
@@ -453,8 +490,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
             h.t2.setText(dt + "  ·  " + Formatter.formatShortFileSize(CallRecordingsActivity.this, r.size));
             h.t3.setText(r.phone);
             h.itemView.setOnClickListener(v -> playRecording(r));
-            // Long-press = stop
-            h.itemView.setOnLongClickListener(v -> { stopPlayback(); Toast.makeText(CallRecordingsActivity.this, "Stop", Toast.LENGTH_SHORT).show(); return true; });
+            // v6.62.862: Long-Press = Lösch-Dialog (statt nur Stop, weil Stop ist im Detail-Dialog).
+            h.itemView.setOnLongClickListener(v -> { confirmDeleteRecording(r); return true; });
         }
         @Override public int getItemCount() { return data.size(); }
     }

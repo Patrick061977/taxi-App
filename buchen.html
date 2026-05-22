@@ -4344,17 +4344,21 @@
                     const _dInZone = _dValid ? (_hav(_KB_CENTER, destCoords) <= _KB_RADIUS_KM) : true;
                     let _korridorAufschlag = 0, _korridorKm = 0;
                     console.log('[KorridorCheck] pickup', pickupCoords, '_pValid', _pValid, '_pInZone', _pInZone, 'dest', destCoords, '_dValid', _dValid, '_dInZone', _dInZone);
-                    // 🔧 v6.62.878 (Patrick 22.05. 19:00): "Heringsdorf, Ahlbeck, Bansin
-                    //   — dann wird eine Anfahrt fällig zum Abholort". Heißt: Anfahrt-
-                    //   Aufschlag IMMER dann fällig wenn PICKUP außerhalb der 3 Kaiserbäder
-                    //   ist — egal ob Ziel innerhalb oder außerhalb liegt.
-                    //   Alte Logik (v6.62.757): erst wenn BEIDE außerhalb → unfair für
-                    //   Patrick, weil bei Koserow→Heringsdorf-Fahrt der Taxi LEER nach
-                    //   Koserow fährt + nicht bezahlt bekam.
-                    if (!_pInZone) {
+                    // 🔧 v6.62.879 (Patrick 22.05. 19:11): "Anfahrt nur wenn Pickup UND
+                    //   Destination außerhalb der Kaiserbäder. Strecke ab Ortsausgang
+                    //   Ahlbeck oder Bansin (nicht Heringsdorf-Zentrum)."
+                    // Logik:
+                    //   - Beide außerhalb? → Aufschlag aktiv
+                    //   - Start-Punkt = Ortsausgang Ahlbeck-Ost (53.928, 14.225) wenn Pickup
+                    //     östlich ist (lon > 14.18, z.B. Swinemünde) oder Bansin-West
+                    //     (53.969, 14.097) wenn Pickup westlich (z.B. Koserow, Zinnowitz)
+                    const _AHLBECK_OST = { lat: 53.928, lon: 14.225 };
+                    const _BANSIN_WEST = { lat: 53.969, lon: 14.097 };
+                    if (!_pInZone && !_dInZone) {
                         try {
+                            const _startPoint = (_pValid && pickupCoords.lon > 14.18) ? _AHLBECK_OST : _BANSIN_WEST;
                             const _osrm = (a, b) => `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
-                            const _r1 = await fetch(_osrm(_KB_CENTER, pickupCoords)).then(r => r.json()).catch(() => null);
+                            const _r1 = await fetch(_osrm(_startPoint, pickupCoords)).then(r => r.json()).catch(() => null);
                             _korridorKm = _r1 && _r1.routes && _r1.routes[0] ? _r1.routes[0].distance / 1000 : 0;
                             _korridorAufschlag = Math.round(_korridorKm * _ANFAHRT_EUR_KM * 100) / 100;
                         } catch (_kbErr) { console.warn('Korridor-Aufschlag-Fehler:', _kbErr); }

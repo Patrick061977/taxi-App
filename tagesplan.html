@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Tagesplan — Fahrzeug-Schedule mit Konflikt-Check</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; padding: 12px; }
+.container { max-width: 1600px; margin: 0 auto; }
+header { background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 18px 22px; border-radius: 12px; margin-bottom: 16px; display:flex; align-items:center; justify-content:space-between; }
+h1 { font-size: 22px; }
+.controls { display:flex; gap: 10px; align-items: center; }
+.date-input, .refresh-btn { padding: 8px 14px; border-radius: 8px; border: none; font-size: 14px; }
+.date-input { background: rgba(255,255,255,0.18); color: white; }
+.refresh-btn { background: #fbbf24; color: #78350f; font-weight: 700; cursor: pointer; }
+.vehicle-row { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.vehicle-header { background: linear-gradient(90deg, #1e293b, #334155); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+.vehicle-name { font-weight: 700; font-size: 15px; }
+.vehicle-stats { font-size: 12px; color: #94a3b8; }
+.rides-table { width: 100%; border-collapse: collapse; }
+.rides-table th { background: #0f172a; padding: 6px 10px; font-size: 11px; color: #94a3b8; text-align: left; font-weight: 600; }
+.rides-table td { padding: 6px 10px; font-size: 12px; border-top: 1px solid #334155; }
+.ride-conflict { background: rgba(239, 68, 68, 0.15) !important; }
+.ride-conflict td { border-top: 2px solid #ef4444; }
+.gap-row td { background: #0f172a; padding: 2px 10px; font-size: 10px; color: #64748b; text-align: center; font-style: italic; }
+.gap-conflict { color: #fca5a5 !important; font-weight: 600; background: rgba(239,68,68,0.15) !important; }
+.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.b-new { background: #fcd34d; color: #78350f; }
+.b-accepted { background: #93c5fd; color: #1e3a8a; }
+.b-on_way { background: #86efac; color: #14532d; }
+.b-picked_up { background: #86efac; color: #14532d; }
+.b-completed { background: #cbd5e1; color: #334155; }
+.b-vorbestellt { background: #c4b5fd; color: #4c1d95; }
+.b-wartepool { background: #ef4444; color: white; }
+.assigned-by { font-size: 10px; color: #94a3b8; }
+.wartepool-section { background: #7f1d1d; border-radius: 10px; padding: 14px; margin-top: 16px; }
+.wartepool-section h2 { font-size: 16px; margin-bottom: 10px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat-card { background: #1e293b; padding: 12px; border-radius: 8px; text-align: center; }
+.stat-card .v { font-size: 26px; font-weight: 800; color: #60a5fa; }
+.stat-card .l { font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+.no-rides { padding: 14px; color: #64748b; font-style: italic; text-align: center; }
+
+@media print {
+    body { background: white; color: black; padding: 0; font-size: 11px; }
+    header { background: white !important; color: black; border-bottom: 2px solid black; box-shadow: none; }
+    h1, .vehicle-name { color: black; }
+    .controls { display: none; }
+    .vehicle-row { border: 1px solid #333; page-break-inside: avoid; margin-bottom: 8px; box-shadow: none; }
+    .vehicle-header { background: #e5e5e5 !important; color: black; }
+    .rides-table th { background: #f0f0f0; color: black; }
+    .rides-table td { color: black; border-color: #ccc; }
+    .ride-conflict { background: #fee !important; }
+    .gap-row td { background: white; color: #555; }
+    .wartepool-section { background: #fee; color: black; border: 1px solid #b91c1c; }
+    .wartepool-section h2 { color: #b91c1c; }
+    .summary, .stat-card { background: white; border: 1px solid #ccc; color: black; }
+    .badge { border: 1px solid #999; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>📋 Tagesplan / System-Monitor</h1>
+        <div class="controls">
+            <input type="date" id="datePicker" class="date-input">
+            <button class="refresh-btn" onclick="load()">🔄 Aktualisieren</button>
+            <button class="refresh-btn" onclick="window.print()" style="background:#10b981;color:white;">🖨️ Drucken</button>
+        </div>
+    </header>
+
+    <div class="summary" id="summary"></div>
+    <div id="content"><div class="no-rides">Lade …</div></div>
+</div>
+
+<script>
+const DB = 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app';
+
+function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+document.getElementById('datePicker').value = todayISO();
+document.getElementById('datePicker').addEventListener('change', load);
+
+async function load() {
+    document.getElementById('content').innerHTML = '<div class="no-rides">Lade …</div>';
+    const targetDay = document.getElementById('datePicker').value;
+    const [vehiclesRes, ridesRes] = await Promise.all([
+        fetch(DB + '/vehicles.json'),
+        fetch(DB + '/rides.json')
+    ]);
+    const vehicles = await vehiclesRes.json() || {};
+    const allRides = await ridesRes.json() || {};
+    render(vehicles, allRides, targetDay);
+}
+
+function render(vehicles, allRides, targetDay) {
+    const t0 = new Date(targetDay + 'T00:00:00').getTime();
+    const t1 = t0 + 24*3600*1000;
+
+    // Filter Rides für targetDay
+    const dayRides = Object.entries(allRides)
+        .filter(([k,v]) => v && v.pickupTimestamp >= t0 && v.pickupTimestamp < t1)
+        .map(([k,v]) => ({ id: k, ...v }))
+        .filter(r => r.status !== 'cancelled' && r.status !== 'deleted' && r.status !== 'rejected');
+
+    // Per Vehicle gruppieren
+    const byVeh = {};
+    const wartepool = [];
+    for (const r of dayRides) {
+        const veh = r.assignedVehicle || null;
+        if (!veh || r.status === 'wartepool') {
+            wartepool.push(r);
+        } else {
+            (byVeh[veh] = byVeh[veh] || []).push(r);
+        }
+    }
+    // Sortiere pro Fahrzeug
+    Object.values(byVeh).forEach(arr => arr.sort((a,b) => a.pickupTimestamp - b.pickupTimestamp));
+
+    // Stats
+    const totalRides = dayRides.length;
+    const completed = dayRides.filter(r => r.status === 'completed').length;
+    const vorbestellt = dayRides.filter(r => r.status === 'vorbestellt').length;
+    const wartepoolCount = wartepool.length;
+    let conflictCount = 0;
+    Object.entries(byVeh).forEach(([veh, rides]) => {
+        for (let i = 1; i < rides.length; i++) {
+            const prev = rides[i-1];
+            const cur = rides[i];
+            const prevEnd = prev.pickupTimestamp + (prev.duration || 0) * 60000;
+            const gapMin = Math.round((cur.pickupTimestamp - prevEnd) / 60000);
+            // Konflikt wenn negativer Gap oder gap < drivingTimeToPickup
+            const needMin = cur.drivingTimeToPickup || 0;
+            if (gapMin < needMin) conflictCount++;
+        }
+    });
+
+    document.getElementById('summary').innerHTML = `
+        <div class="stat-card"><div class="v">${totalRides}</div><div class="l">Fahrten gesamt</div></div>
+        <div class="stat-card"><div class="v">${completed}</div><div class="l">erledigt</div></div>
+        <div class="stat-card"><div class="v">${vorbestellt}</div><div class="l">vorbestellt</div></div>
+        <div class="stat-card"><div class="v">${Object.keys(byVeh).length}</div><div class="l">Fahrzeuge im Einsatz</div></div>
+        <div class="stat-card" style="${wartepoolCount > 0 ? 'background:#7f1d1d' : ''}"><div class="v">${wartepoolCount}</div><div class="l">Wartepool</div></div>
+        <div class="stat-card" style="${conflictCount > 0 ? 'background:#7f1d1d' : ''}"><div class="v">${conflictCount}</div><div class="l">Zeit-Konflikte</div></div>
+    `;
+
+    let html = '';
+    for (const veh of Object.keys(byVeh).sort()) {
+        const rides = byVeh[veh];
+        const vehInfo = vehicles[veh] || {};
+        const vehName = vehInfo.name || veh;
+        const plate = vehInfo.kennzeichen || vehInfo.licensePlate || '';
+        const totalKm = rides.reduce((s,r) => s + (parseFloat(r.distance) || 0), 0);
+        const totalDur = rides.reduce((s,r) => s + (r.duration || 0), 0);
+
+        html += `<div class="vehicle-row">
+            <div class="vehicle-header">
+                <div class="vehicle-name">🚗 ${escapeHtml(vehName)} ${plate ? '· ' + escapeHtml(plate) : ''}</div>
+                <div class="vehicle-stats">${rides.length} Fahrt(en) · ${totalKm.toFixed(1)} km · ${totalDur} Min Fahrtzeit</div>
+            </div>
+            <table class="rides-table">
+                <thead><tr>
+                    <th style="width:60px;">Zeit</th>
+                    <th style="width:50px;">Ende</th>
+                    <th>Pickup → Ziel</th>
+                    <th style="width:35px;">Pax</th>
+                    <th style="width:55px;">Km · Min</th>
+                    <th style="width:50px;">Vorlauf</th>
+                    <th style="width:80px;">Status</th>
+                    <th style="width:160px;">Zuweisung</th>
+                </tr></thead>
+                <tbody>`;
+        let prevEnd = null;
+        for (const r of rides) {
+            const t = new Date(r.pickupTimestamp);
+            const end = new Date(r.pickupTimestamp + (r.duration || 0) * 60000);
+            const t_str = t.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const e_str = end.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            // GAP-Row
+            if (prevEnd) {
+                const gapMin = Math.round((r.pickupTimestamp - prevEnd) / 60000);
+                const needMin = r.drivingTimeToPickup || 0;
+                const conflict = gapMin < needMin;
+                html += `<tr class="gap-row"><td colspan="8" class="${conflict ? 'gap-conflict' : ''}">
+                    ${conflict ? '⚠️ ' : '⏱️ '}Lücke ${gapMin} Min ${needMin > 0 ? '(benötigt ≥ ' + needMin + ')' : ''}
+                    ${conflict ? '· KONFLIKT — Fahrer schafft Vorlauf NICHT' : ''}
+                </td></tr>`;
+            }
+
+            const rowClass = (prevEnd && (r.pickupTimestamp - prevEnd) / 60000 < (r.drivingTimeToPickup || 0)) ? 'ride-conflict' : '';
+            const pickup = (r.pickup || '').split(',')[0].slice(0, 35);
+            const dest = (r.destination || '').split(',')[0].slice(0, 35);
+            const guest = r.guestName ? ' · 🙋 ' + escapeHtml(r.guestName.slice(0,30)) : '';
+            html += `<tr class="${rowClass}">
+                <td><b>${t_str}</b></td>
+                <td>${e_str}</td>
+                <td>${escapeHtml(pickup)} → ${escapeHtml(dest)}${guest}</td>
+                <td style="text-align:center;">${r.passengers || 1}</td>
+                <td>${(r.distance || '?')}·${r.duration || '?'}</td>
+                <td style="text-align:center;">${r.drivingTimeToPickup != null ? r.drivingTimeToPickup + '′' : '–'}</td>
+                <td><span class="badge b-${r.status}">${r.status}</span></td>
+                <td class="assigned-by">${escapeHtml(r.assignedBy || '–')}</td>
+            </tr>`;
+            prevEnd = r.pickupTimestamp + (r.duration || 0) * 60000;
+        }
+        html += '</tbody></table></div>';
+    }
+
+    if (wartepool.length) {
+        html += `<div class="wartepool-section">
+            <h2>⚠️ ${wartepool.length} Fahrt(en) im Wartepool — kein Fahrzeug zugewiesen</h2>
+            <table class="rides-table">
+                <thead><tr>
+                    <th>Zeit</th><th>Pickup → Ziel</th><th>Pax</th><th>Km</th><th>Status</th><th>Notiz</th>
+                </tr></thead>
+                <tbody>`;
+        wartepool.sort((a,b) => a.pickupTimestamp - b.pickupTimestamp);
+        for (const r of wartepool) {
+            const t = new Date(r.pickupTimestamp);
+            const t_str = t.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const pickup = (r.pickup || '').split(',')[0].slice(0, 35);
+            const dest = (r.destination || '').split(',')[0].slice(0, 35);
+            html += `<tr>
+                <td><b>${t_str}</b></td>
+                <td>${escapeHtml(pickup)} → ${escapeHtml(dest)}</td>
+                <td>${r.passengers || 1}</td>
+                <td>${r.distance || '?'}</td>
+                <td><span class="badge b-wartepool">${r.status}</span></td>
+                <td>${escapeHtml((r.notes || '').slice(0, 60))}</td>
+            </tr>`;
+        }
+        html += '</tbody></table></div>';
+    }
+
+    if (!Object.keys(byVeh).length && !wartepool.length) {
+        html = '<div class="no-rides">Keine Fahrten an diesem Tag.</div>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+}
+
+function escapeHtml(s) {
+    return String(s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+load();
+setInterval(load, 60000); // alle 60s auto-refresh
+</script>
+</body>
+</html>

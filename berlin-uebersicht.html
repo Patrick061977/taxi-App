@@ -99,6 +99,8 @@ function render(bs) {
         }
     }
     const dateKeys = Object.keys(byDate).sort();
+    // v6.62.871 (Patrick 22.05. 17:59): 4 Pax pro Fahrzeug. Zeigt 'X/4 belegt' + Progress-Balken.
+    const PAX_PRO_FAHRZEUG = 4;
     // Stats
     document.getElementById('stat-total').textContent = bs.filter(a => a.status === 'offen' || a.status === 'bestaetigt' || a.status === 'bestätigt').length;
     document.getElementById('stat-pax').textContent = totalPax;
@@ -112,12 +114,27 @@ function render(bs) {
         const items = byDate[dk];
         const datePax = items.reduce((s,a) => s + (parseInt(a.passengers) || 1), 0);
         const fmt = formatDate(dk);
+        // v6.62.871: Belegungs-Indikator pro Fahrzeug (4er-Block)
+        const vehiclesNeeded = Math.ceil(datePax / PAX_PRO_FAHRZEUG);
+        const capacity = vehiclesNeeded * PAX_PRO_FAHRZEUG;
+        const fillPct = Math.min(100, (datePax / capacity) * 100);
+        const fillColor = datePax >= capacity ? '#ef4444' : datePax >= capacity * 0.75 ? '#f59e0b' : '#10b981';
+        const blocksLeft = capacity - datePax;
         html += `<div class="date-card">
             <div class="date-header">
                 <h2>${fmt}</h2>
                 <div class="date-stat">
-                    <span>👥 ${datePax} Pers.</span>
+                    <span>👥 ${datePax}/${capacity} Pers.</span>
+                    <span>🚐 ${vehiclesNeeded} Fzg.</span>
                     <span>📋 ${items.length} Buchung${items.length>1?'en':''}</span>
+                </div>
+            </div>
+            <div style="padding:8px 18px; background:#0f172a;">
+                <div style="height:8px; background:#334155; border-radius:4px; overflow:hidden;">
+                    <div style="height:100%; width:${fillPct}%; background:${fillColor}; transition:width 0.3s;"></div>
+                </div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:4px;">
+                    ${blocksLeft > 0 ? `Noch ${blocksLeft} Platz/Plätze frei (im aktuellen Fzg.) — bei mehr Buchungen 2. Fzg.` : 'AUSGEBUCHT — bei nächster Buchung 2. Fzg. nötig (Pickup zeitlich versetzen!)'}
                 </div>
             </div>
             <div class="bookings">

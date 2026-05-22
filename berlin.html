@@ -839,8 +839,9 @@
         });
 
         // v6.62.870 (Patrick 22.05. 17:52): Live-Verfügbarkeit — "noch X Plätze frei"
-        // Lädt /anfragen.json, summiert passengers pro Datum, max 8 pro Donnerstag.
-        const MAX_PAX_PRO_TAG = 8;
+        // v6.62.871 (Patrick 22.05. 17:59): MAX_PAX = 4 pro Fahrzeug (korrekter Wert).
+        // Wenn mehr als 4 gebucht: 2. Fahrzeug, also max 8 für 2 Fahrzeuge.
+        const MAX_PAX_PRO_TAG = 4;
         let _availability = {}; // { 'YYYY-MM-DD': summedPax }
         async function loadAvailability() {
             try {

@@ -427,6 +427,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 3, 0, _includePast ? "📅 Nur kommende anzeigen" : "📅 +30 Tage Vergangenheit anzeigen");
         // v6.62.750 (Patrick 15.05. 21:36): Web-Disposition mit Gantt + Drag&Drop in Chrome Custom Tab
         p.getMenu().add(0, 4, 0, "🌐 Web-Disposition (Timeline + Drag&Drop)");
+        // v6.62.828 (Patrick 22.05. 14:48): Lokale ACR-Phone Aufnahmen
+        p.getMenu().add(0, 5, 0, "🎙️ Anruf-Aufnahmen");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -458,6 +460,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                         Toast.makeText(this, "Kein Browser verfuegbar: " + t.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 }
+                return true;
+            }
+            if (item.getItemId() == 5) {
+                // v6.62.828: Lokale ACR-Aufnahmen
+                startActivity(new Intent(this, CallRecordingsActivity.class));
                 return true;
             }
             if (item.getItemId() == 1) {

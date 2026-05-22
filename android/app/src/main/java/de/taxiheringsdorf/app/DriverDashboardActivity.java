@@ -807,6 +807,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
             if (id == R.id.menu_online_toggle)  { toggleOnline(); return true; }
             if (id == R.id.menu_stats)          { startActivity(new Intent(this, StatsActivity.class)); return true; }
             if (id == R.id.menu_crm)            { startActivity(new Intent(this, CrmSearchActivity.class)); return true; }
+            if (id == R.id.menu_recordings)     { startActivity(new Intent(this, CallRecordingsActivity.class)); return true; }
             // v6.62.153: Disposition öffnet AdminDashboardActivity (Operator-Modus
             // mit Liste aller aktiven Fahrten + Tap-to-Edit). isAdminMode-Flag wird in
             // AdminDashboardActivity selbst gesetzt — beim Zurück automatisch zurueckgenommen.

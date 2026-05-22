@@ -48,6 +48,8 @@ APP_FILES=(
     "kein-bock-zu-laufen.html"
     "fahrer-map.html"
     "berlin.html"
+    "berlin-uebersicht.html"
+    "tagesplan.html"
     "anfrage.html"
     "kontakt.html"
     "impressum.html"

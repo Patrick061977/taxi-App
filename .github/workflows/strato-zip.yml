@@ -18,6 +18,8 @@ on:
       - 'landing-v2.html'
       - 'fahrer-map.html'
       - 'berlin.html'
+      - 'berlin-uebersicht.html'
+      - 'tagesplan.html'
       - 'anfrage.html'
       - 'kontakt.html'
       - 'impressum.html'

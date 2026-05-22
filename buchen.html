@@ -761,28 +761,23 @@
                          (Patrick 08.05. 12:23: 'Er springt gleich vom Datum, die Uhrzeit wird gar
                          nicht abgefragt'). Nach Datum-Wahl wird Uhrzeit-Feld fokussiert. -->
                     <!-- 🆕 v6.62.626: Patrick (11.05. 19:18): Termin-Bild click öffnet Picker. -->
-                    <!-- v6.62.875 (Patrick 22.05. 18:36): Picker ging nicht auf bzw. erschien ganz links.
-                         Fix: Input liegt jetzt OBEN AUF dem Custom-Div (position:absolute, full-size,
-                         opacity:0) — Klick öffnet den nativen Picker direkt am sichtbaren Ort. -->
-                    <div style="position:relative; margin-bottom:8px;">
-                        <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;pointer-events:none;">
-                            <span style="font-size:22px;">📅</span>
-                            <div style="flex:1;">
-                                <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Datum</div>
-                                <div id="b-date-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
-                            </div>
-                        </div>
-                        <input type="date" id="b-date" min="" onchange="onBDateChange();updateBDateLabel();" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;background:transparent;">
+                    <!-- v6.62.876 (Patrick 22.05. 18:51): Picker geht IMMER NOCH nicht. v875-Overlay
+                         hat nicht funktioniert (vermutlich Mobile-Browser-Quirk).
+                         Robuster Fix: native Input SICHTBAR machen + groß stylen.
+                         Browser garantiert Picker beim Klick. Custom-Label-Div weggelassen. -->
+                    <div style="margin-bottom:10px;">
+                        <label for="b-date" style="display:flex;align-items:center;gap:10px;font-weight:600;color:#374151;margin-bottom:6px;cursor:pointer;">
+                            <span style="font-size:20px;">📅</span> Datum auswählen
+                        </label>
+                        <input type="date" id="b-date" min="" onchange="onBDateChange();updateBDateLabel();" style="width:100%;padding:14px;font-size:16px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;">
+                        <div id="b-date-label" style="display:none;"></div>
                     </div>
-                    <div style="position:relative;">
-                        <div style="display:flex;align-items:center;gap:10px;padding:14px;border:2px solid #e2e8f0;border-radius:10px;background:white;pointer-events:none;">
-                            <span style="font-size:22px;">🕐</span>
-                            <div style="flex:1;">
-                                <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:2px;">Uhrzeit</div>
-                                <div id="b-time-label" style="font-size:15px;color:#0f172a;font-weight:600;">— Tippen zum Auswählen —</div>
-                            </div>
-                        </div>
-                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;background:transparent;">
+                    <div>
+                        <label for="b-time" style="display:flex;align-items:center;gap:10px;font-weight:600;color:#374151;margin-bottom:6px;cursor:pointer;">
+                            <span style="font-size:20px;">🕐</span> Uhrzeit auswählen
+                        </label>
+                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="width:100%;padding:14px;font-size:16px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;">
+                        <div id="b-time-label" style="display:none;"></div>
                     </div>
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
                     <select id="b-minute" onchange="onDateTimeChange()" style="display:none;"></select>

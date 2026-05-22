@@ -228,6 +228,19 @@ public class CallRecordingsActivity extends AppCompatActivity {
             Collections.sort(all, new Comparator<Recording>() {
                 @Override public int compare(Recording a, Recording b) { return Long.compare(b.timestamp, a.timestamp); }
             });
+            // v6.62.863 (Patrick 22.05. 15:41): Parallel-Anruf-Indikator — wenn 2 Aufnahmen
+            // zeitlich nah beieinander liegen (<60 Sek Abstand), markieren als 'verpasst evt.'
+            // weil ACR Phone NoAccessibility den 2. Anruf nicht zuverlässig aufnimmt während
+            // der 1. läuft.
+            for (int i = 0; i < all.size(); i++) {
+                Recording cur = all.get(i);
+                for (int j = 0; j < all.size(); j++) {
+                    if (i == j) continue;
+                    Recording oth = all.get(j);
+                    long diff = Math.abs(cur.timestamp - oth.timestamp);
+                    if (diff < 60_000) { cur.parallel = true; break; }
+                }
+            }
             int matched = 0;
             for (Recording r : all) if (r.customerName != null) matched++;
             final int finalMatched = matched;
@@ -456,6 +469,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
         long timestamp;
         long size;
         String customerName; // null wenn nicht in CRM
+        boolean parallel; // v6.62.863: anderer Anruf <60 Sek davor/danach — möglich verpasst
     }
 
     class RecAdapter extends RecyclerView.Adapter<RecHolder> {
@@ -485,7 +499,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
             Recording r = data.get(pos);
             String dir = r.direction == 0 ? "⬅️ EIN" : "➡️ AUS";
             String name = r.customerName != null ? r.customerName : r.phone;
-            h.t1.setText(dir + "  " + name);
+            // v6.62.863: Parallel-Anruf-Warnung
+            String prefix = r.parallel ? "⚠️ " : "";
+            h.t1.setText(prefix + dir + "  " + name);
+            if (r.parallel) h.t1.setTextColor(0xFFfbbf24); else h.t1.setTextColor(0xFFffffff);
             String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
             h.t2.setText(dt + "  ·  " + Formatter.formatShortFileSize(CallRecordingsActivity.this, r.size));
             h.t3.setText(r.phone);

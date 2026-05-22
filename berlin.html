@@ -855,18 +855,13 @@
         let _avail_hin = {};    // { 'YYYY-MM-DD': summedPax für Hinfahrten }
         let _avail_rueck = {};  // { 'YYYY-MM-DD': summedPax für Rückfahrten }
         async function loadAvailability() {
+            // v6.62.874: lesen aus /publicData/berlinAvailability statt /anfragen
+            // (/anfragen ist auth-protected, /publicData ist public-readable)
             try {
-                const r = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json');
-                const all = await r.json() || {};
-                _avail_hin = {};
-                _avail_rueck = {};
-                for (const v of Object.values(all)) {
-                    if (!v || v.type !== 'berlin-shuttle') continue;
-                    if (v.status === 'storniert' || v.status === 'duplicate') continue;
-                    const pax = parseInt(v.passengers) || 1;
-                    if (v.dateHin) _avail_hin[v.dateHin] = (_avail_hin[v.dateHin] || 0) + pax;
-                    if (v.dateReturn) _avail_rueck[v.dateReturn] = (_avail_rueck[v.dateReturn] || 0) + pax;
-                }
+                const r = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/publicData/berlinAvailability.json');
+                const data = await r.json() || {};
+                _avail_hin = data.hinPax || {};
+                _avail_rueck = data.rueckPax || {};
                 updateAvailabilityBanner();
                 renderTermineKalender();
             } catch (e) { console.warn('Verfügbarkeit-Lade-Fehler', e); }

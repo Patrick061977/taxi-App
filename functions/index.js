@@ -12,7 +12,7 @@ const CLOUD_FUNCTIONS_BUILD = '21.04.2026 14:35';
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onValueCreated, onValueUpdated, onValueDeleted } = require('firebase-functions/v2/database');
+const { onValueCreated, onValueUpdated, onValueDeleted, onValueWritten } = require('firebase-functions/v2/database');
 const admin = require('firebase-admin');
 
 // v6.61.1: WICHTIG — databaseURL muss explizit gesetzt werden für europe-west1 RTDB.
@@ -20947,6 +20947,47 @@ exports.onAnfrageStatusChanged = onValueUpdated(
             console.log(`📲 v6.62.850 Anfrage-Bestaetigungs-SMS an ${phone} fuer Anfrage ${anfrageId} (rideId ${after.rideId})`);
         } catch (e) {
             console.error('onAnfrageStatusChanged SMS-Fehler:', e.message);
+        }
+    }
+);
+
+// 🆕 v6.62.874 (Patrick 22.05. 18:23): Berlin-Shuttle Verfügbarkeit für Kunden-Frontend.
+// Problem: /anfragen ist read-protected (auth nötig). Frontend von berlin.html und
+// berlin-uebersicht.html kann die Pax-Counts NICHT lesen → Kalender zeigt fälschlich alles grün.
+// Fix: Cloud-Function aggregiert /anfragen → /publicData/berlinAvailability mit ANONYMISIERTEN
+// Counts pro Datum (nur dateHin + Pax-Summe + dateReturn + Pax-Summe — KEINE Namen/Tel/Email).
+// Trigger: bei /anfragen/{id} write (create/update/delete) → recompute.
+async function recomputeBerlinAvailability() {
+    try {
+        const snap = await db.ref('anfragen').once('value');
+        const all = snap.val() || {};
+        const hinPax = {}; // { 'YYYY-MM-DD': summedPax }
+        const rueckPax = {};
+        for (const v of Object.values(all)) {
+            if (!v || v.type !== 'berlin-shuttle') continue;
+            if (v.status === 'storniert' || v.status === 'duplicate') continue;
+            const pax = parseInt(v.passengers) || 1;
+            if (v.dateHin) hinPax[v.dateHin] = (hinPax[v.dateHin] || 0) + pax;
+            if (v.dateReturn) rueckPax[v.dateReturn] = (rueckPax[v.dateReturn] || 0) + pax;
+        }
+        await db.ref('publicData/berlinAvailability').set({
+            hinPax, rueckPax,
+            maxPaxPerVehicle: 4,
+            updatedAt: Date.now()
+        });
+        console.log('🚐 berlinAvailability aktualisiert:', Object.keys(hinPax).length, 'Hin-Termine,', Object.keys(rueckPax).length, 'Rück-Termine');
+    } catch (e) {
+        console.error('recomputeBerlinAvailability Fehler:', e.message);
+    }
+}
+exports.onAnfrageWriteRecomputeBerlinAvailability = onValueWritten(
+    { ref: '/anfragen/{anfrageId}', region: 'europe-west1', memory: '256MiB' },
+    async (event) => {
+        const before = event.data.before.val();
+        const after = event.data.after.val();
+        // Nur recompute wenn Berlin-Shuttle betroffen
+        if ((before && before.type === 'berlin-shuttle') || (after && after.type === 'berlin-shuttle')) {
+            await recomputeBerlinAvailability();
         }
     }
 );

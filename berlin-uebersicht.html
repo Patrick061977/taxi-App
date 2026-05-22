@@ -70,9 +70,13 @@ const DB = 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.
 
 async function load() {
     document.getElementById('content').innerHTML = '<div class="loading">Lade…</div>';
+    // v6.62.874: /anfragen ist auth-protected.
     const res = await fetch(DB + '/anfragen.json');
     const all = await res.json();
-    if (!all) { renderEmpty(); return; }
+    if (!all || all.error) {
+        document.getElementById('content').innerHTML = '<div class="empty">⚠️ Login nötig: Diese Seite zeigt sensible Daten (Telefonnummern, Emails). Bitte erst in der Admin-App einloggen oder URL nur intern aufrufen.<br><br>Für Patrick: schaue stattdessen in der Admin-App unter CRM → Vetter Touristik oder /tagesplan.html für Übersicht.</div>';
+        return;
+    }
     const bs = Object.entries(all)
         .map(([k,v]) => ({ id:k, ...v }))
         .filter(v => v.type === 'berlin-shuttle');

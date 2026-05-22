@@ -2590,10 +2590,36 @@
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
-                felder.style.display = 'flex';
-                initDateTimePickers();
+                // v6.62.877 (Patrick 22.05. 18:56): "erst Abholort+Zielort, DANN Zeit".
+                // Datum/Uhrzeit-Felder erst zeigen wenn beide Adressen gesetzt sind.
+                // Sonst Hinweis-Banner.
+                const hasAdressen = !!(pickupCoords && destCoords);
+                if (hasAdressen) {
+                    felder.style.display = 'flex';
+                    initDateTimePickers();
+                    const adrHint = document.getElementById('vorbestellen-adr-hint');
+                    if (adrHint) adrHint.style.display = 'none';
+                } else {
+                    felder.style.display = 'none';
+                    // Hinweis erzeugen wenn nicht da
+                    let adrHint = document.getElementById('vorbestellen-adr-hint');
+                    if (!adrHint) {
+                        adrHint = document.createElement('div');
+                        adrHint.id = 'vorbestellen-adr-hint';
+                        adrHint.style.cssText = 'background:#fef3c7;border:2px solid #fde68a;padding:14px;border-radius:10px;margin-top:10px;color:#78350f;font-weight:600;text-align:center;';
+                        adrHint.textContent = '👇 Bitte erst Abholort + Zielort unten eintragen, dann erscheint die Zeit-Auswahl hier.';
+                        felder.parentElement.insertBefore(adrHint, felder);
+                    } else {
+                        adrHint.style.display = 'block';
+                    }
+                    // Scroll runter zum Buchen-Block
+                    setTimeout(() => {
+                        const pickup = document.getElementById('b-pickup');
+                        if (pickup) pickup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
                 // Kalender erst zeigen wenn Route berechnet ist
-                if (routeData) {
+                if (routeData && hasAdressen) {
                     kalender.style.display = '';
                     initDateTimePickers();
                     initSlotCalendar();
@@ -4347,6 +4373,19 @@
                         korridorKm: _korridorKm,
                         geometry: route.geometry
                     };
+                    // v6.62.877: Wenn 'Vorbestellen'-Modus aktiv und Adressen+Route da sind,
+                    // jetzt die Datum/Uhrzeit-Felder einblenden (vorher versteckt).
+                    if (typeof wannModus === 'string' && wannModus === 'vorbestellen' && pickupCoords && destCoords) {
+                        const _felder = document.getElementById('vorbestellen-felder');
+                        const _adrHint = document.getElementById('vorbestellen-adr-hint');
+                        if (_felder && _felder.style.display === 'none') {
+                            _felder.style.display = 'flex';
+                            if (typeof initDateTimePickers === 'function') initDateTimePickers();
+                            if (_adrHint) _adrHint.style.display = 'none';
+                            // Scroll zur Uhrzeit-Sektion
+                            setTimeout(() => { _felder.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 200);
+                        }
+                    }
                     // "Adressen löschen" Button einblenden
                     const clearBtn = document.getElementById('btn-clear-addr');
                     if (clearBtn) clearBtn.style.display = '';

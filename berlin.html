@@ -372,6 +372,11 @@
             </div>
         </div>
 
+        <!-- v6.62.870 (Patrick 22.05. 17:52): Live-Verfügbarkeit-Banner — 'noch X Plätze frei' -->
+        <div id="availability-banner" style="display:none; background:linear-gradient(90deg,#dc2626,#ea580c); color:white; padding:14px 18px; border-radius:12px; margin-bottom:14px; text-align:center; font-weight:600; box-shadow:0 4px 12px rgba(220,38,38,0.3);">
+            <span id="ab-text">⏳ Prüfe Verfügbarkeit…</span>
+        </div>
+
         <!-- Buchungsformular -->
         <div class="card" id="booking-form">
             <div class="card-title">🚐 Ihre Berlin-Fahrt anfragen</div>
@@ -827,7 +832,59 @@
             document.getElementById('b-return-dest').addEventListener('input', function() {
                 this.dataset.manual = 'true';
             });
+            // v6.62.870: Verfügbarkeit live laden + auf Date-Picker-Change reagieren
+            loadAvailability();
+            setInterval(loadAvailability, 60000);
+            document.getElementById('b-date-hin').addEventListener('change', updateAvailabilityBanner);
         });
+
+        // v6.62.870 (Patrick 22.05. 17:52): Live-Verfügbarkeit — "noch X Plätze frei"
+        // Lädt /anfragen.json, summiert passengers pro Datum, max 8 pro Donnerstag.
+        const MAX_PAX_PRO_TAG = 8;
+        let _availability = {}; // { 'YYYY-MM-DD': summedPax }
+        async function loadAvailability() {
+            try {
+                const r = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json');
+                const all = await r.json() || {};
+                _availability = {};
+                for (const v of Object.values(all)) {
+                    if (!v || v.type !== 'berlin-shuttle') continue;
+                    if (v.status === 'storniert' || v.status === 'duplicate') continue;
+                    const pax = parseInt(v.passengers) || 1;
+                    if (v.dateHin) _availability[v.dateHin] = (_availability[v.dateHin] || 0) + pax;
+                    if (v.dateReturn) _availability[v.dateReturn] = (_availability[v.dateReturn] || 0) + pax;
+                }
+                updateAvailabilityBanner();
+            } catch (e) { console.warn('Verfügbarkeit-Lade-Fehler', e); }
+        }
+        function updateAvailabilityBanner() {
+            const sel = document.getElementById('b-date-hin');
+            const chosen = sel?.value;
+            const banner = document.getElementById('availability-banner');
+            const text = document.getElementById('ab-text');
+            if (!chosen) { banner.style.display = 'none'; return; }
+            const used = _availability[chosen] || 0;
+            const left = MAX_PAX_PRO_TAG - used;
+            const dt = new Date(chosen + 'T00:00:00');
+            const dtStr = dt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+            if (left <= 0) {
+                banner.style.background = 'linear-gradient(90deg, #7f1d1d, #991b1b)';
+                text.textContent = '❌ ' + dtStr + ' ist AUSGEBUCHT — bitte anderes Datum wählen';
+                banner.style.display = 'block';
+            } else if (left <= 2) {
+                banner.style.background = 'linear-gradient(90deg, #dc2626, #ea580c)';
+                text.textContent = '🔥 Nur noch ' + left + (left === 1 ? ' Platz' : ' Plätze') + ' frei am ' + dtStr + '!';
+                banner.style.display = 'block';
+            } else if (left <= 4) {
+                banner.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+                text.textContent = '⚡ Noch ' + left + ' Plätze frei am ' + dtStr + ' — schnell sein!';
+                banner.style.display = 'block';
+            } else {
+                banner.style.background = 'linear-gradient(90deg, #059669, #10b981)';
+                text.textContent = '✅ ' + left + ' Plätze frei am ' + dtStr;
+                banner.style.display = 'block';
+            }
+        }
 
         // ═══════════════════════════════════════
         // TAG-ANZEIGE

@@ -30,9 +30,18 @@ RewriteRule ^(.*)$ /strandurlaub-heringsdorf-de/$1 [L]
 # v6.62.613: keinbockzulaufen.de -> Taxi-App (merkbare Marketing-Domain).
 # Patrick (11.05.): "Auto vorbeifahrt sieht Aufkleber, kann sich keinbockzulaufen.de
 # leichter merken als umwelt-taxi-insel-usedom.de".
-# Aktivierung: Patrick muss bei Strato die Domain bestellen + auf den Webspace
-# routen. Sobald das passiert ist, leitet dieser Rewrite alle Requests auf
-# landing.html (= /Taxi-App/landing.html via index.php-Fallback).
+#
+# v6.62.869 (Patrick 22.05. 17:45): "Tagesplan + buchen.html funktionieren nicht
+# auf keinbockzulaufen.de". Vorher leitete JEDE Anfrage auf landing.html — also
+# tagesplan.html → landing.html (= 200 landing-Inhalt mit falscher URL). Fix:
+#  - Root (/) → /Taxi-App/landing.html (Standard-Einstieg)
+#  - Alle anderen Pfade (z.B. /tagesplan.html) → /Taxi-App/{path} (identisch zu
+#    umwelt-taxi-insel-usedom.de-Mapping)
 RewriteCond %{HTTP_HOST} ^(www\.)?keinbockzulaufen\.de$ [NC]
 RewriteCond %{REQUEST_URI} !^/Taxi-App/
+RewriteCond %{REQUEST_URI} ^/?$
 RewriteRule ^(.*)$ /Taxi-App/landing.html [L]
+
+RewriteCond %{HTTP_HOST} ^(www\.)?keinbockzulaufen\.de$ [NC]
+RewriteCond %{REQUEST_URI} !^/Taxi-App/
+RewriteRule ^(.*)$ /Taxi-App/$1 [L]

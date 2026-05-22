@@ -377,6 +377,15 @@
             <span id="ab-text">⏳ Prüfe Verfügbarkeit…</span>
         </div>
 
+        <!-- v6.62.873 (Patrick 22.05. 18:04): Termin-Kalender — Kunden sehen freie Plätze pro Donnerstag, getrennt Hin + Rück -->
+        <div class="card" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe); border:1px solid #bae6fd;">
+            <div class="card-title" style="color:#0c4a6e;">📅 Freie Plätze — kommende Donnerstage</div>
+            <div id="termine-kalender" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-top:8px;">
+                <div style="color:#64748b; font-size:13px;">Lade Termine…</div>
+            </div>
+            <div style="font-size:11px; color:#475569; margin-top:10px; text-align:center;">Tippe einen Tag um ihn auszuwählen · 🟢 frei · 🟡 wenig · 🔴 voll</div>
+        </div>
+
         <!-- Buchungsformular -->
         <div class="card" id="booking-form">
             <div class="card-title">🚐 Ihre Berlin-Fahrt anfragen</div>
@@ -840,22 +849,26 @@
 
         // v6.62.870 (Patrick 22.05. 17:52): Live-Verfügbarkeit — "noch X Plätze frei"
         // v6.62.871 (Patrick 22.05. 17:59): MAX_PAX = 4 pro Fahrzeug (korrekter Wert).
+        // v6.62.873 (Patrick 22.05. 18:05): Hin + Rück SEPARAT zählen — nicht summiert.
         // Wenn mehr als 4 gebucht: 2. Fahrzeug, also max 8 für 2 Fahrzeuge.
         const MAX_PAX_PRO_TAG = 4;
-        let _availability = {}; // { 'YYYY-MM-DD': summedPax }
+        let _avail_hin = {};    // { 'YYYY-MM-DD': summedPax für Hinfahrten }
+        let _avail_rueck = {};  // { 'YYYY-MM-DD': summedPax für Rückfahrten }
         async function loadAvailability() {
             try {
                 const r = await fetch('https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app/anfragen.json');
                 const all = await r.json() || {};
-                _availability = {};
+                _avail_hin = {};
+                _avail_rueck = {};
                 for (const v of Object.values(all)) {
                     if (!v || v.type !== 'berlin-shuttle') continue;
                     if (v.status === 'storniert' || v.status === 'duplicate') continue;
                     const pax = parseInt(v.passengers) || 1;
-                    if (v.dateHin) _availability[v.dateHin] = (_availability[v.dateHin] || 0) + pax;
-                    if (v.dateReturn) _availability[v.dateReturn] = (_availability[v.dateReturn] || 0) + pax;
+                    if (v.dateHin) _avail_hin[v.dateHin] = (_avail_hin[v.dateHin] || 0) + pax;
+                    if (v.dateReturn) _avail_rueck[v.dateReturn] = (_avail_rueck[v.dateReturn] || 0) + pax;
                 }
                 updateAvailabilityBanner();
+                renderTermineKalender();
             } catch (e) { console.warn('Verfügbarkeit-Lade-Fehler', e); }
         }
         function updateAvailabilityBanner() {
@@ -864,27 +877,67 @@
             const banner = document.getElementById('availability-banner');
             const text = document.getElementById('ab-text');
             if (!chosen) { banner.style.display = 'none'; return; }
-            const used = _availability[chosen] || 0;
-            const left = MAX_PAX_PRO_TAG - used;
+            // Hinfahrt-Plätze
+            const usedHin = _avail_hin[chosen] || 0;
+            const leftHin = MAX_PAX_PRO_TAG - usedHin;
             const dt = new Date(chosen + 'T00:00:00');
             const dtStr = dt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
-            if (left <= 0) {
+            if (leftHin <= 0) {
                 banner.style.background = 'linear-gradient(90deg, #7f1d1d, #991b1b)';
-                text.textContent = '❌ ' + dtStr + ' ist AUSGEBUCHT — bitte anderes Datum wählen';
+                text.textContent = '❌ Hinfahrt ' + dtStr + ' AUSGEBUCHT — anderes Datum wählen';
                 banner.style.display = 'block';
-            } else if (left <= 2) {
+            } else if (leftHin <= 2) {
                 banner.style.background = 'linear-gradient(90deg, #dc2626, #ea580c)';
-                text.textContent = '🔥 Nur noch ' + left + (left === 1 ? ' Platz' : ' Plätze') + ' frei am ' + dtStr + '!';
+                text.textContent = '🔥 Nur noch ' + leftHin + (leftHin === 1 ? ' Platz' : ' Plätze') + ' für Hinfahrt am ' + dtStr + '!';
                 banner.style.display = 'block';
-            } else if (left <= 4) {
+            } else if (leftHin <= 4) {
                 banner.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
-                text.textContent = '⚡ Noch ' + left + ' Plätze frei am ' + dtStr + ' — schnell sein!';
+                text.textContent = '⚡ Noch ' + leftHin + ' Plätze für Hinfahrt am ' + dtStr;
                 banner.style.display = 'block';
             } else {
                 banner.style.background = 'linear-gradient(90deg, #059669, #10b981)';
-                text.textContent = '✅ ' + left + ' Plätze frei am ' + dtStr;
+                text.textContent = '✅ ' + leftHin + ' Plätze frei für Hinfahrt am ' + dtStr;
                 banner.style.display = 'block';
             }
+        }
+        // v6.62.873: Termin-Kalender — Hin und Rück getrennt pro Donnerstag
+        function renderTermineKalender() {
+            const cont = document.getElementById('termine-kalender');
+            if (!cont) return;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const items = [];
+            for (let i = 0; i <= 90 && items.length < 12; i++) {
+                const d = new Date(today); d.setDate(today.getDate() + i);
+                if (d.getDay() === 4) items.push(d);
+            }
+            cont.innerHTML = items.map(d => {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth()+1).padStart(2,'0');
+                const dd = String(d.getDate()).padStart(2,'0');
+                const key = yyyy + '-' + mm + '-' + dd;
+                const hLeft = MAX_PAX_PRO_TAG - (_avail_hin[key] || 0);
+                const rLeft = MAX_PAX_PRO_TAG - (_avail_rueck[key] || 0);
+                const minLeft = Math.min(hLeft, rLeft);
+                let bg, dot;
+                if (minLeft <= 0)      { bg = '#fee2e2'; dot = '🔴'; }
+                else if (minLeft <= 2) { bg = '#fef3c7'; dot = '🟡'; }
+                else                   { bg = '#dcfce7'; dot = '🟢'; }
+                const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                return '<div onclick="selectKalenderDatum(\''+key+'\')" style="background:'+bg+';border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:10px;cursor:pointer;transition:transform 0.15s;text-align:center;" onmouseover="this.style.transform=\'scale(1.04)\'" onmouseout="this.style.transform=\'scale(1)\'">'+
+                    '<div style="font-size:13px;font-weight:700;color:#0f172a;">'+dot+' '+label+'</div>'+
+                    '<div style="font-size:11px;color:#475569;margin-top:4px;">↪️ Hin: '+(hLeft>0?hLeft+'P frei':'voll')+'</div>'+
+                    '<div style="font-size:11px;color:#475569;">↩️ Rück: '+(rLeft>0?rLeft+'P frei':'voll')+'</div>'+
+                '</div>';
+            }).join('');
+        }
+        function selectKalenderDatum(key) {
+            const hin = document.getElementById('b-date-hin');
+            if (hin) {
+                hin.value = key;
+                hin.dispatchEvent(new Event('change'));
+            }
+            // Scroll zum Buchungsformular
+            document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // ═══════════════════════════════════════

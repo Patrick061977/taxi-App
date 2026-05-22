@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Berlin-Shuttle Übersicht — Funk Taxi Heringsdorf</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #0f172a, #1e293b); color: #e2e8f0; min-height: 100vh; padding: 20px; }
+.container { max-width: 1100px; margin: 0 auto; }
+header { background: linear-gradient(135deg, #1e40af, #3b82f6); padding: 24px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+h1 { font-size: 26px; margin-bottom: 6px; }
+.subtitle { opacity: 0.9; font-size: 14px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; text-align: center; }
+.stat-num { font-size: 36px; font-weight: 800; color: #60a5fa; line-height: 1; }
+.stat-label { font-size: 13px; color: #94a3b8; margin-top: 6px; }
+.date-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+.date-header { background: linear-gradient(90deg, #1e40af, #2563eb); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+.date-header h2 { font-size: 18px; }
+.date-stat { display: flex; gap: 18px; font-size: 14px; }
+.date-stat span { padding: 4px 10px; background: rgba(255,255,255,0.18); border-radius: 6px; }
+.bookings { padding: 0; }
+.booking { padding: 12px 18px; border-top: 1px solid #334155; display: grid; grid-template-columns: 1fr 1.5fr 80px 100px 100px; gap: 12px; align-items: center; font-size: 13px; }
+.booking:first-child { border-top: none; }
+.booking .name { font-weight: 600; color: #f1f5f9; }
+.booking .phone { color: #94a3b8; font-family: monospace; }
+.booking .pax { color: #60a5fa; font-weight: 700; text-align: center; }
+.booking .price { color: #10b981; font-weight: 700; text-align: right; }
+.booking .status { text-align: center; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+.status-offen { background: #fcd34d; color: #78350f; }
+.status-bestaetigt, .status-bestätigt { background: #86efac; color: #14532d; }
+.status-storniert { background: #fca5a5; color: #7f1d1d; }
+.empty { text-align: center; padding: 40px; color: #64748b; }
+.loading { text-align: center; padding: 40px; color: #94a3b8; }
+.refresh-btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.refresh-btn:hover { background: #1d4ed8; }
+.detail-row { padding: 10px 18px; background: #0f172a; font-size: 12px; color: #94a3b8; border-top: 1px solid #334155; }
+@media (max-width: 700px) {
+    .booking { grid-template-columns: 1fr; gap: 4px; }
+    .booking .pax, .booking .price, .booking .status { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>🚐 Berlin-Shuttle Übersicht</h1>
+        <div class="subtitle">Buchungen pro Reisetag · Live aus Firebase</div>
+    </header>
+
+    <div class="summary" id="summary">
+        <div class="stat-card"><div class="stat-num" id="stat-total">…</div><div class="stat-label">Anfragen gesamt</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-pax">…</div><div class="stat-label">Personen gesamt</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-days">…</div><div class="stat-label">Reise-Termine</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-revenue">…</div><div class="stat-label">€ erwartet</div></div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <h2 style="font-size: 18px;">📅 Pro Datum</h2>
+        <button class="refresh-btn" onclick="load()">🔄 Aktualisieren</button>
+    </div>
+
+    <div id="content"><div class="loading">Lade Anfragen…</div></div>
+</div>
+
+<script>
+const DB = 'https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app';
+
+async function load() {
+    document.getElementById('content').innerHTML = '<div class="loading">Lade…</div>';
+    const res = await fetch(DB + '/anfragen.json');
+    const all = await res.json();
+    if (!all) { renderEmpty(); return; }
+    const bs = Object.entries(all)
+        .map(([k,v]) => ({ id:k, ...v }))
+        .filter(v => v.type === 'berlin-shuttle');
+    render(bs);
+}
+
+function render(bs) {
+    if (!bs.length) { renderEmpty(); return; }
+    // Group by date — sowohl Hin als auch Rück trennen
+    const byDate = {};
+    let totalPax = 0, totalRevenue = 0;
+    for (const a of bs) {
+        if (a.status === 'storniert' || a.status === 'duplicate') continue;
+        const dates = [];
+        if (a.dateHin) dates.push({ key: a.dateHin, dir: 'hin' });
+        if (a.dateReturn) dates.push({ key: a.dateReturn, dir: 'rueck' });
+        const pax = parseInt(a.passengers) || 1;
+        const price = parseInt(a.price) || 0;
+        totalPax += pax * (dates.length ? dates.length : 1);
+        totalRevenue += price * (dates.length ? 1 : 1);  // Pauschalpreis ist Gesamt für Hin+Rück
+        for (const d of dates) {
+            byDate[d.key] = byDate[d.key] || [];
+            byDate[d.key].push({ ...a, _dir: d.dir });
+        }
+    }
+    const dateKeys = Object.keys(byDate).sort();
+    // Stats
+    document.getElementById('stat-total').textContent = bs.filter(a => a.status === 'offen' || a.status === 'bestaetigt' || a.status === 'bestätigt').length;
+    document.getElementById('stat-pax').textContent = totalPax;
+    document.getElementById('stat-days').textContent = dateKeys.length;
+    document.getElementById('stat-revenue').textContent = totalRevenue + '€';
+
+    // Cards pro Datum
+    let html = '';
+    if (!dateKeys.length) { html = '<div class="empty">Keine offenen Berlin-Anfragen.</div>'; }
+    for (const dk of dateKeys) {
+        const items = byDate[dk];
+        const datePax = items.reduce((s,a) => s + (parseInt(a.passengers) || 1), 0);
+        const fmt = formatDate(dk);
+        html += `<div class="date-card">
+            <div class="date-header">
+                <h2>${fmt}</h2>
+                <div class="date-stat">
+                    <span>👥 ${datePax} Pers.</span>
+                    <span>📋 ${items.length} Buchung${items.length>1?'en':''}</span>
+                </div>
+            </div>
+            <div class="bookings">
+                ${items.map(a => `
+                    <div class="booking">
+                        <div class="name">${a._dir === 'hin' ? '↪️' : '↩️'} ${escapeHtml(a.name || '?')}</div>
+                        <div class="phone">${escapeHtml(a.phone || '')} ${a.email ? '· ' + escapeHtml(a.email) : ''}</div>
+                        <div class="pax">${a.passengers || 1}P</div>
+                        <div class="price">${a.price || ''}€</div>
+                        <div class="status status-${a.status}">${(a.status || '?').toUpperCase()}</div>
+                    </div>
+                    <div class="detail-row">
+                        ${a._dir === 'hin' ? '📍 Ab: ' + escapeHtml(a.pickup || '') + ' → ' + escapeHtml(a.destination || '') : '📍 Ab: ' + escapeHtml(a.returnPickup || a.destination) + ' → ' + escapeHtml(a.returnDest || a.pickup)}
+                        · 🧳 ${a.luggage || 'normal'}
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+    document.getElementById('content').innerHTML = html;
+}
+
+function renderEmpty() {
+    document.getElementById('stat-total').textContent = '0';
+    document.getElementById('stat-pax').textContent = '0';
+    document.getElementById('stat-days').textContent = '0';
+    document.getElementById('stat-revenue').textContent = '0€';
+    document.getElementById('content').innerHTML = '<div class="empty">Keine Berlin-Shuttle-Anfragen vorhanden.</div>';
+}
+
+function formatDate(d) {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function escapeHtml(s) { return String(s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+load();
+setInterval(load, 30000);  // alle 30 Sek auto-refresh
+</script>
+</body>
+</html>

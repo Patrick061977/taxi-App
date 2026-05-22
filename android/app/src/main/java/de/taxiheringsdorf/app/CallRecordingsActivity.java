@@ -240,18 +240,170 @@ public class CallRecordingsActivity extends AppCompatActivity {
     }
 
     private void playRecording(Recording r) {
+        showRecordingDialog(r);
+    }
+
+    // v6.62.861: Tap = Detail-Dialog mit Audio-Player (Play/Pause/Stop/Seek) + Aktion-Buttons
+    // (Vorbestellung, Sofort-Fahrt, CRM, History) — analog zu CallLogActivity.showActionDialog.
+    private void showRecordingDialog(Recording r) {
+        if (mp != null) { try { mp.stop(); } catch (Exception ig) {} mp.release(); mp = null; }
         try {
-            if (mp != null) { mp.release(); mp = null; }
             mp = new MediaPlayer();
             mp.setDataSource(r.file.getAbsolutePath());
             mp.prepare();
-            mp.start();
-            playing = r;
-            Toast.makeText(this, "Spiele " + (r.customerName != null ? r.customerName : r.phone), Toast.LENGTH_SHORT).show();
-            mp.setOnCompletionListener(p -> { playing = null; });
         } catch (Exception e) {
-            Toast.makeText(this, "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Audio-Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
         }
+        playing = r;
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(20), dp(20), dp(20));
+        root.setBackgroundColor(0xFF1e293b);
+
+        // Header
+        String dirStr = r.direction == 0 ? "⬅️ Eingehend" : "➡️ Ausgehend";
+        String name = r.customerName != null ? r.customerName : r.phone;
+        TextView th = new TextView(this);
+        th.setText(dirStr + "  " + name);
+        th.setTextColor(0xFFffffff); th.setTextSize(17);
+        root.addView(th);
+        TextView td = new TextView(this);
+        td.setText(new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp)) + "  ·  " + r.phone);
+        td.setTextColor(0xFF94a3b8); td.setTextSize(12);
+        td.setPadding(0, dp(4), 0, dp(16));
+        root.addView(td);
+
+        // Audio-Player
+        LinearLayout playerBar = new LinearLayout(this);
+        playerBar.setOrientation(LinearLayout.HORIZONTAL);
+        playerBar.setGravity(Gravity.CENTER_VERTICAL);
+        android.widget.Button playBtn = new android.widget.Button(this);
+        playBtn.setText("▶");
+        playBtn.setTextSize(20);
+        android.widget.Button skipBackBtn = new android.widget.Button(this);
+        skipBackBtn.setText("⏪");
+        skipBackBtn.setOnClickListener(v -> { if (mp != null) { int pos = Math.max(0, mp.getCurrentPosition() - 10000); mp.seekTo(pos); } });
+        android.widget.Button skipFwdBtn = new android.widget.Button(this);
+        skipFwdBtn.setText("⏩");
+        skipFwdBtn.setOnClickListener(v -> { if (mp != null) { int pos = Math.min(mp.getDuration(), mp.getCurrentPosition() + 10000); mp.seekTo(pos); } });
+        TextView posLabel = new TextView(this);
+        posLabel.setTextColor(0xFFcbd5e1);
+        posLabel.setPadding(dp(10), 0, dp(10), 0);
+        posLabel.setText("00:00 / " + msToTime(mp.getDuration()));
+        playerBar.addView(skipBackBtn);
+        playerBar.addView(playBtn);
+        playerBar.addView(skipFwdBtn);
+        playerBar.addView(posLabel);
+        root.addView(playerBar);
+
+        SeekBar seek = new SeekBar(this);
+        seek.setMax(mp.getDuration());
+        seek.setProgress(0);
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean user) { if (user && mp != null) mp.seekTo(p); }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+        });
+        root.addView(seek);
+
+        final Handler[] hr = new Handler[]{ null };
+        final Runnable[] tick = new Runnable[]{ null };
+        playBtn.setOnClickListener(v -> {
+            if (mp == null) return;
+            if (mp.isPlaying()) {
+                mp.pause();
+                playBtn.setText("▶");
+            } else {
+                mp.start();
+                playBtn.setText("⏸");
+                if (hr[0] == null) hr[0] = new Handler(Looper.getMainLooper());
+                tick[0] = () -> {
+                    if (mp == null || !mp.isPlaying()) return;
+                    int p = mp.getCurrentPosition();
+                    seek.setProgress(p);
+                    posLabel.setText(msToTime(p) + " / " + msToTime(mp.getDuration()));
+                    hr[0].postDelayed(tick[0], 250);
+                };
+                hr[0].post(tick[0]);
+            }
+        });
+
+        // Auto-Play sofort
+        try { mp.start(); playBtn.setText("⏸");
+            if (hr[0] == null) hr[0] = new Handler(Looper.getMainLooper());
+            tick[0] = () -> {
+                if (mp == null || !mp.isPlaying()) return;
+                int p = mp.getCurrentPosition();
+                seek.setProgress(p);
+                posLabel.setText(msToTime(p) + " / " + msToTime(mp.getDuration()));
+                hr[0].postDelayed(tick[0], 250);
+            };
+            hr[0].post(tick[0]);
+        } catch (Exception ig) {}
+
+        mp.setOnCompletionListener(p -> { playBtn.setText("▶"); seek.setProgress(mp.getDuration()); });
+
+        // Spacer
+        View spacer = new View(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(16)));
+        root.addView(spacer);
+
+        // Aktion-Buttons (gleiche Logik wie CallLogActivity)
+        TextView actionLbl = new TextView(this);
+        actionLbl.setText("📋 Aktion aus dieser Aufnahme:");
+        actionLbl.setTextColor(0xFFa3a3a3); actionLbl.setTextSize(13);
+        actionLbl.setPadding(0, dp(8), 0, dp(8));
+        root.addView(actionLbl);
+
+        boolean hasCrm = r.customerName != null;
+        android.widget.Button btnVorbestellung = new android.widget.Button(this);
+        btnVorbestellung.setText("📅 Vorbestellung erstellen");
+        btnVorbestellung.setOnClickListener(v -> {
+            android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+            if (hasCrm) {
+                // CrmSearchActivity sucht selbst die CRM-ID per Telefonnummer
+                i.putExtra("auto_vorbestellung_phone", r.phone);
+                i.putExtra("auto_vorbestellung_name", r.customerName);
+            } else {
+                i.putExtra("auto_vorbestellung_phone", r.phone);
+            }
+            startActivity(i);
+        });
+        root.addView(btnVorbestellung);
+
+        if (hasCrm) {
+            android.widget.Button btnHist = new android.widget.Button(this);
+            btnHist.setText("📜 Bisherige Fahrten anschauen");
+            btnHist.setOnClickListener(v -> {
+                android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+                // CrmSearchActivity sucht via Phone → wir öffnen direkt Suche mit Phone als Query
+                i.putExtra("prefill_search_query", r.phone);
+                startActivity(i);
+            });
+            root.addView(btnHist);
+        } else {
+            android.widget.Button btnCrm = new android.widget.Button(this);
+            btnCrm.setText("👤 Als CRM-Kunde anlegen");
+            btnCrm.setOnClickListener(v -> {
+                android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+                i.putExtra("prefill_new_phone", r.phone);
+                startActivity(i);
+            });
+            root.addView(btnCrm);
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setView(root)
+            .setNegativeButton("Schliessen", (d, w) -> stopPlayback())
+            .setOnDismissListener(d -> stopPlayback())
+            .show();
+    }
+
+    private String msToTime(int ms) {
+        int s = ms / 1000;
+        return String.format(Locale.GERMAN, "%02d:%02d", s/60, s%60);
     }
 
     private void stopPlayback() {

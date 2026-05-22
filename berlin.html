@@ -377,13 +377,21 @@
             <div class="card-title">🚐 Ihre Berlin-Fahrt anfragen</div>
 
             <div class="field-group">
-                <label>👤 Ihr Name</label>
-                <input type="text" id="b-name" placeholder="Vor- und Nachname">
+                <label>👤 Ihr Name <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="b-name" placeholder="Vor- und Nachname" required>
             </div>
 
             <div class="field-group">
-                <label>📱 Telefonnummer</label>
-                <input type="tel" id="b-phone" placeholder="z.B. 0151 12345678">
+                <label>📱 Telefonnummer <span style="color:#dc2626;">*</span></label>
+                <input type="tel" id="b-phone" placeholder="z.B. 0151 12345678" required>
+            </div>
+
+            <!-- v6.62.864 (Patrick 22.05. 15:49): Email-Adresse ist Pflicht — sonst keine
+                 Bestätigung möglich. Lehning-Anfrage hatte keine Email weil das Feld fehlte. -->
+            <div class="field-group">
+                <label>📧 E-Mail-Adresse <span style="color:#dc2626;">*</span></label>
+                <input type="email" id="b-email" placeholder="z.B. max.mustermann@email.de" required>
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Wird zur Versendung der Buchungsbestätigung benötigt</div>
             </div>
 
             <div class="persons-row">
@@ -912,6 +920,8 @@
         function getFormData() {
             const name = document.getElementById('b-name').value.trim();
             const phone = document.getElementById('b-phone').value.trim();
+            // v6.62.864 (Patrick 22.05. 15:49): Email-Adresse Pflicht \u2014 sonst keine Best\u00e4tigung m\u00f6glich
+            const email = document.getElementById('b-email').value.trim();
             const dateHin = document.getElementById('b-date-hin').value;
             const pickup = document.getElementById('b-pickup').value.trim();
             const destination = document.getElementById('b-destination').value.trim();
@@ -922,8 +932,13 @@
             const returnPickup = document.getElementById('b-return-pickup').value.trim() || destination;
             const returnDest = document.getElementById('b-return-dest').value.trim() || pickup;
 
-            if (!name || !phone || !dateHin || !pickup || !destination) {
-                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- Hinfahrt-Datum\n- Abholadresse\n- Zieladresse');
+            if (!name || !phone || !email || !dateHin || !pickup || !destination) {
+                alert('Bitte f\u00fcllen Sie alle Pflichtfelder aus:\n\n- Name\n- Telefonnummer\n- E-Mail-Adresse\n- Hinfahrt-Datum\n- Abholadresse\n- Zieladresse');
+                return null;
+            }
+            // E-Mail-Format pr\u00fcfen
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                alert('Bitte geben Sie eine g\u00fcltige E-Mail-Adresse ein.');
                 return null;
             }
 
@@ -936,6 +951,7 @@
             text += '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n';
             text += '\ud83d\udc64 ' + name + '\n';
             text += '\ud83d\udcf1 ' + phone + '\n';
+            text += '\ud83d\udce7 ' + email + '\n';
             text += '\ud83d\udc65 ' + persons + ' Person(en)\n';
             text += '\ud83e\uddf3 Gep\u00e4ck: ' + luggage + '\n\n';
             text += '\ud83d\udccd HINFAHRT (' + dateHinStr + '):\n';
@@ -969,6 +985,7 @@
                     luggage: document.getElementById('b-luggage').value || 'normal',
                     name: document.getElementById('b-name').value || '',
                     phone: document.getElementById('b-phone').value || '',
+                    email: document.getElementById('b-email').value || '',
                     price: String(parseInt(document.getElementById('b-persons').value || 1) * 299),
                     channel: channel,
                     type: 'berlin-shuttle',

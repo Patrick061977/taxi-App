@@ -579,8 +579,118 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 : 0;
             if (gpsAge < 5L * 60L * 1000L) {
                 recalculateETAsForActiveRides(vLat, vLon);
+                // 🆕 v6.62.886 (Patrick 23.05. 08:03): GPS-Auto-Status. Patrick:
+                //   'Bin da + Eingestiegen koennen wir GPS-abhaengig machen, nur Bin
+                //   unterwegs und Fahrt fertig bleibt manuell.'
+                checkGpsAutoStatus(vLat, vLon);
             }
         }
+    }
+
+    // 🆕 v6.62.886: Auto-Status via GPS — arrived (on_way → arrived) + picked_up (arrived → picked_up).
+    // Manuelle Buttons bleiben als Fallback (autoStatusDisabled-Flag verhindert nach manuellem Tap).
+    private final java.util.Map<String, Long> _autoArrivedFirstSeen = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> _autoPickedUpFirstMoving = new java.util.HashMap<>();
+    private final java.util.Map<String, Double> _arrivedAtLat = new java.util.HashMap<>();
+    private final java.util.Map<String, Double> _arrivedAtLon = new java.util.HashMap<>();
+    private final java.util.Map<String, double[]> _lastGpsForSpeed = new java.util.HashMap<>(); // [lat, lon, ts]
+
+    private void checkGpsAutoStatus(double vLat, double vLon) {
+        if (myAssignedRides == null) return;
+        long now = System.currentTimeMillis();
+        for (Ride r : new ArrayList<>(myAssignedRides)) {
+            if (r == null || r.id == null) continue;
+            String st = r.status != null ? r.status.toLowerCase() : "";
+            // Flag pruefen — wenn Fahrer manuell angetippt hat, NIE auto
+            if (Boolean.TRUE.equals(_autoDisabledRides.get(r.id))) continue;
+            // === Trigger 1: on_way → arrived ===
+            if (st.equals("on_way")) {
+                if (r.pickupLat == null || r.pickupLon == null) continue;
+                double dist = haversineMeters(vLat, vLon, r.pickupLat, r.pickupLon);
+                if (dist < 80.0) {
+                    // 5s Stabilitaet — erstes Mal innerhalb 80m? Merke ts. Zweites Mal nach 5s? Trigger.
+                    Long firstSeen = _autoArrivedFirstSeen.get(r.id);
+                    if (firstSeen == null) {
+                        _autoArrivedFirstSeen.put(r.id, now);
+                    } else if (now - firstSeen >= 5_000) {
+                        triggerAutoStatus(r, "arrived", "GPS " + Math.round(dist) + "m vom Pickup");
+                        _autoArrivedFirstSeen.remove(r.id);
+                        _arrivedAtLat.put(r.id, vLat);
+                        _arrivedAtLon.put(r.id, vLon);
+                    }
+                } else {
+                    _autoArrivedFirstSeen.remove(r.id); // Reset wenn raus aus Radius
+                }
+            }
+            // === Trigger 2: arrived → picked_up ===
+            else if (st.equals("arrived")) {
+                Double aLat = _arrivedAtLat.get(r.id);
+                Double aLon = _arrivedAtLon.get(r.id);
+                Long arrivedAt = r.arrivedAt != null ? r.arrivedAt : null;
+                // Wenn Activity gerade gestartet wurde sind die maps leer → ziehe aus Firebase
+                if (aLat == null && r.pickupLat != null) { aLat = r.pickupLat; aLon = r.pickupLon; }
+                if (aLat == null || arrivedAt == null) continue;
+                // Min 30s seit arrived
+                if (now - arrivedAt < 30_000) continue;
+                double distFromArrived = haversineMeters(vLat, vLon, aLat, aLon);
+                // Speed berechnen aus letztem GPS-Punkt
+                double[] last = _lastGpsForSpeed.get(r.id);
+                _lastGpsForSpeed.put(r.id, new double[]{ vLat, vLon, now });
+                double speedKmh = 0;
+                if (last != null) {
+                    double dM = haversineMeters(last[0], last[1], vLat, vLon);
+                    double dSec = (now - last[2]) / 1000.0;
+                    if (dSec > 0 && dSec < 30) speedKmh = (dM / dSec) * 3.6;
+                }
+                if (distFromArrived > 50.0 && speedKmh > 8.0) {
+                    Long firstMoving = _autoPickedUpFirstMoving.get(r.id);
+                    if (firstMoving == null) {
+                        _autoPickedUpFirstMoving.put(r.id, now);
+                    } else if (now - firstMoving >= 10_000) {
+                        triggerAutoStatus(r, "picked_up", "GPS " + Math.round(distFromArrived) + "m weg, " + Math.round(speedKmh) + " km/h");
+                        _autoPickedUpFirstMoving.remove(r.id);
+                    }
+                } else {
+                    _autoPickedUpFirstMoving.remove(r.id);
+                }
+            }
+        }
+    }
+
+    // Set wenn Fahrer manuell tippt — verhindert dass GPS-Auto-Status danach noch korrigiert
+    private final java.util.Map<String, Boolean> _autoDisabledRides = new java.util.HashMap<>();
+
+    private void triggerAutoStatus(Ride r, String newStatus, String reasonGps) {
+        if (r == null || r.id == null) return;
+        Map<String, Object> u = new HashMap<>();
+        u.put("status", newStatus);
+        u.put("updatedAt", System.currentTimeMillis());
+        if ("arrived".equals(newStatus)) u.put("arrivedAt", System.currentTimeMillis());
+        else if ("picked_up".equals(newStatus)) u.put("pickedUpAt", System.currentTimeMillis());
+        u.put("statusSource", "gps-auto");
+        db.getReference("rides/" + r.id).updateChildren(u);
+        Log.d("DriverDashboard", "🛰️ Auto-Status " + r.id + " → " + newStatus + " (" + reasonGps + ")");
+        logLifecycleTap(r.id, "🛰️", "GPS-Auto: Status → " + newStatus, newStatus + " (" + reasonGps + ")");
+        // dezente Vibration (kurz) als Feedback
+        try {
+            android.os.Vibrator vib = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(android.os.VibrationEffect.createWaveform(new long[]{0, 200, 100, 200}, -1));
+                } else { vib.vibrate(300); }
+            }
+        } catch (Throwable _ignore) {}
+    }
+
+    // Haversine-Formel — Distanz zwischen 2 Koordinaten in Metern
+    private static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+                   Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon/2)*Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
     // v6.62.62: Pro Ride throttle — nicht oefter als alle 10s OSRM-Call

@@ -24756,8 +24756,12 @@ exports.scheduledDepartureAlert = onSchedule(
             ridesSnap.forEach(child => {
                 const ride = child.val();
                 const rideId = child.key;
-                // Nur akzeptierte Vorbestellungen
-                if (ride.status !== 'accepted') return;
+                // v6.62.886 (Patrick 23.05. 08:05 Villa-Margot-Bug): auch 'vorbestellt' /
+                // 'assigned' / 'on_way' triggern wenn ein Fahrzeug zugewiesen ist. Viele
+                // Vorbestellungen bleiben 'vorbestellt' weil der Fahrer sie nicht aktiv
+                // 'annimmt' (Cloud-Auto-Assign vergibt sie ohne Annehmen-Tap).
+                const validStatuses = ['accepted', 'vorbestellt', 'assigned', 'on_way'];
+                if (!validStatuses.includes(ride.status)) return;
                 if (ride.departureAlertSent) return;
                 const pickupTs = ride.pickupTimestamp;
                 if (!pickupTs || pickupTs <= now) return;
@@ -24766,11 +24770,13 @@ exports.scheduledDepartureAlert = onSchedule(
                 // Fahrtdauer zum Kunden — wenn fehlt: Default 15 Min (konservativ vor Pickup)
                 const driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
                     ? ride.drivingTimeToPickup : 15;
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 60_000; // 1 Min Puffer
-                // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 90s
-                // (90s damit wir 1 Tick verpassen koennen ohne den Alert zu verlieren)
+                // v6.62.886 (Patrick 23.05. 08:03): 'Trigger ist zu knapp dran, fuenf Minuten
+                // bevor man es nicht mehr schafft.' → 5 Min Vorlauf statt 1 Min.
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 5 * 60_000;
+                // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
+                // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;
-                if (now > losfahrtAt + 90_000) {
+                if (now > losfahrtAt + 120_000) {
                     // Schon vorbei — Flag aber setzen damit wir's nicht ewig prüfen
                     updates[`rides/${rideId}/departureAlertSent`] = true;
                     return;

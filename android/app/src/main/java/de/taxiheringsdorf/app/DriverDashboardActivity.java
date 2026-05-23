@@ -2913,6 +2913,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   price = Vorab-Schätzung (OSRM). Nach Fahrtende soll der echte Wert gewinnen.
         Double actualPrice;
         Long pickupTimestamp;
+        // v6.62.886: Timestamps fuer GPS-Auto-Status. arrivedAt wird gesetzt wenn Status auf
+        // 'arrived' wechselt (per Tap oder per GPS) — checkGpsAutoStatus nutzt das fuer 30s-Wartezeit
+        // bevor picked_up auto-triggern darf.
+        Long arrivedAt, onWayAt, pickedUpAt;
         List<String> waypoints; // v6.62.2: Zwischenstopps (Patrick: 'Zwischenstopp wird nicht angezeigt')
         Integer drivingTimeToPickup; // v6.62.6: Anfahrtszeit in Min (Patrick: 'wie lange braucht er bis zum Ziel')
         Double pickupLat, pickupLon; // v6.62.62: für Live-ETA-Neuberechnung via OSRM
@@ -2961,6 +2965,13 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 else if (ts instanceof Number) r.pickupTimestamp = ((Number) ts).longValue();
                 Object dt = s.child("drivingTimeToPickup").getValue();
                 if (dt instanceof Number) r.drivingTimeToPickup = ((Number) dt).intValue();
+                // v6.62.886: Status-Timestamps fuer GPS-Auto-Status (30s-Wartezeit nach arrived)
+                Object aAt = s.child("arrivedAt").getValue();
+                if (aAt instanceof Number) r.arrivedAt = ((Number) aAt).longValue();
+                Object owAt = s.child("onWayAt").getValue();
+                if (owAt instanceof Number) r.onWayAt = ((Number) owAt).longValue();
+                Object pAt = s.child("pickedUpAt").getValue();
+                if (pAt instanceof Number) r.pickedUpAt = ((Number) pAt).longValue();
                 // v6.62.318: km-Distanz aus Firebase laden (von vorigem fetchOsrmETA gespeichert)
                 Object dpkm = s.child("drivingDistanceToPickupKm").getValue();
                 if (dpkm instanceof Number) r.drivingDistanceToPickupKm = ((Number) dpkm).doubleValue();

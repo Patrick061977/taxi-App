@@ -537,6 +537,13 @@ public class CrmSearchActivity extends AppCompatActivity {
     private String _pendingVorbestellungPhone = null;
     private String _pendingVorbestellungName = null;
 
+    // 🆕 v6.62.882 (Patrick 23.05. 06:24): Anrufer-Telefonnummer wird zwischengespeichert,
+    //   damit die Vorbestellungsmaske den "➕ Diese Nummer dem Kunden zuordnen"-Button
+    //   anzeigen kann, wenn die Anrufer-Tel-Nr NICHT in den Phones des gewaehlten Kunden
+    //   steckt (Duplikat-Bug Hotel "Das Ahlbeck" 5x → soll stattdessen die Nummer am
+    //   bestehenden Kunden ergaenzt werden).
+    private String _callerPhoneForVorbestellung = null;
+
     private void _maybeAutoOpenVorbestellung() {
         if (getIntent() == null) return;
         String _cid = getIntent().getStringExtra("auto_vorbestellung_customer_id");
@@ -555,6 +562,9 @@ public class CrmSearchActivity extends AppCompatActivity {
         if (_pendingVorbestellungCustomerId != null) {
             for (CrmEntry e : all) {
                 if (_pendingVorbestellungCustomerId.equals(e.id)) {
+                    // 🆕 v6.62.882: Anrufer-Telefon zwischenspeichern fuer "+ Diese Nummer
+                    //   dem Kunden zuordnen"-Button in der Vorbestellungsmaske.
+                    _callerPhoneForVorbestellung = _pendingVorbestellungPhone;
                     _pendingVorbestellungCustomerId = null;
                     _pendingVorbestellungPhone = null;
                     _pendingVorbestellungName = null;
@@ -1322,6 +1332,54 @@ public class CrmSearchActivity extends AppCompatActivity {
         tvKundeInfo.setTextColor(0xFF64748B);
         tvKundeInfo.setPadding(0, 0, 0, padHalf);
         layout.addView(tvKundeInfo);
+
+        // 🆕 v6.62.882 (Patrick 23.05. 06:24): "Im VorbestellungsMaske einen Button
+        //   anzeigen, wenn die Anrufer-Tel-Nr NICHT in den CRM-Phones des gewaehlten
+        //   Kunden steckt → Klick erweitert additionalPhones-Array + save in
+        //   /customers/{id}". Hintergrund: 5x "Das Ahlbeck" im CRM weil bei jedem
+        //   neuen Anschluss ein neuer Kunde angelegt statt die Nummer ergaenzt wurde.
+        if (e.id != null && !e.id.isEmpty()
+                && _callerPhoneForVorbestellung != null
+                && !_callerPhoneForVorbestellung.isEmpty()
+                && !_phoneAlreadyOnCustomer(e, _callerPhoneForVorbestellung)) {
+            final String _callerPh = _callerPhoneForVorbestellung;
+            final String _cId = e.id;
+            final android.widget.Button btnAddCaller = new android.widget.Button(this);
+            btnAddCaller.setText("➕ Anrufer-Nummer " + _callerPh + " diesem Kunden zuordnen");
+            btnAddCaller.setAllCaps(false);
+            btnAddCaller.setTextSize(12);
+            btnAddCaller.setBackgroundColor(0xFFFEF3C7); // hell-amber: "Aktion empfohlen"
+            btnAddCaller.setTextColor(0xFF92400E);
+            btnAddCaller.setPadding(padHalf, padHalf, padHalf, padHalf);
+            LinearLayout.LayoutParams _addCallerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _addCallerLp.setMargins(0, 0, 0, padHalf);
+            btnAddCaller.setLayoutParams(_addCallerLp);
+            btnAddCaller.setOnClickListener(_v -> {
+                // additionalPhones-Array zusammensetzen + neue Nummer anhaengen (de-dup)
+                java.util.List<String> _newAddPh = new java.util.ArrayList<>(e.additionalPhones);
+                if (!_newAddPh.contains(_callerPh)) _newAddPh.add(_callerPh);
+                Map<String, Object> _upd = new HashMap<>();
+                _upd.put("additionalPhones", _newAddPh);
+                _upd.put("updatedAt", System.currentTimeMillis());
+                _upd.put("updatedVia", "native_crm_addCallerPhone_v6.62.882");
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + _cId)
+                    .updateChildren(_upd)
+                    .addOnSuccessListener(_ok -> {
+                        e.additionalPhones.add(_callerPh);
+                        btnAddCaller.setText("✅ Nummer " + _callerPh + " hinzugefuegt");
+                        btnAddCaller.setEnabled(false);
+                        btnAddCaller.setBackgroundColor(0xFFD1FAE5);
+                        btnAddCaller.setTextColor(0xFF065F46);
+                        Toast.makeText(this, "✅ Nummer " + _callerPh + " bei " + (e.name != null ? e.name : "Kunde") + " hinterlegt", Toast.LENGTH_LONG).show();
+                        // Anrufer-Phone-Context konsumiert → nicht erneut anbieten
+                        _callerPhoneForVorbestellung = null;
+                    })
+                    .addOnFailureListener(_err ->
+                        Toast.makeText(this, "❌ Fehler beim Speichern: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+            });
+            layout.addView(btnAddCaller);
+        }
 
         // 🔧 v6.62.881 (Patrick 22.05. 20:53): "Warum weist bei der Vorbestellung der Sofort-
         //   Modus auf mich zu? Ich will Fahrzeug auswählen können."
@@ -3326,10 +3384,59 @@ public class CrmSearchActivity extends AppCompatActivity {
         }));
         layout.addView(btnAddFp);
 
+        // ═══ 🆕 v6.62.882 (Patrick 23.05. 06:24): DANGER ZONE — Loeschen + Zusammenfuehren ═══
+        //   Hintergrund: 5x "Das Ahlbeck" im CRM (Duplikate). Patrick will Duplikate manuell
+        //   loeschen + Daten in einen Master-Kunden zusammenfuehren koennen.
+        //   NUR im Edit-Modus (nicht beim Anlegen) sichtbar.
+        final AlertDialog[] _editDialogRef = { null };
+        if (!isNew && e.id != null && !e.id.isEmpty()) {
+            TextView lblDanger = new TextView(this);
+            lblDanger.setText("⚠️ Gefaehrliche Aktionen");
+            lblDanger.setTextSize(12);
+            lblDanger.setTypeface(null, android.graphics.Typeface.BOLD);
+            lblDanger.setTextColor(0xFFB91C1C);
+            lblDanger.setPadding(0, pad, 0, pad / 4);
+            layout.addView(lblDanger);
+
+            // 🔀 Mit anderem Kunden zusammenfuehren
+            android.widget.Button btnMerge = new android.widget.Button(this);
+            btnMerge.setText("🔀 Mit anderem Kunden zusammenfuehren");
+            btnMerge.setAllCaps(false);
+            btnMerge.setTextSize(13);
+            btnMerge.setBackgroundColor(0xFFFEF3C7);
+            btnMerge.setTextColor(0xFF92400E);
+            LinearLayout.LayoutParams _mergeLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _mergeLp.setMargins(0, pad / 4, 0, pad / 4);
+            btnMerge.setLayoutParams(_mergeLp);
+            btnMerge.setOnClickListener(_v -> {
+                if (_editDialogRef[0] != null) _editDialogRef[0].dismiss();
+                showMergeCustomerPicker(e);
+            });
+            layout.addView(btnMerge);
+
+            // 🗑️ Kunden loeschen
+            android.widget.Button btnDelCust = new android.widget.Button(this);
+            btnDelCust.setText("🗑️ Kunden loeschen");
+            btnDelCust.setAllCaps(false);
+            btnDelCust.setTextSize(13);
+            btnDelCust.setBackgroundColor(0xFFFEE2E2);
+            btnDelCust.setTextColor(0xFFB91C1C);
+            LinearLayout.LayoutParams _delLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            _delLp.setMargins(0, pad / 4, 0, pad / 4);
+            btnDelCust.setLayoutParams(_delLp);
+            btnDelCust.setOnClickListener(_v -> {
+                if (_editDialogRef[0] != null) _editDialogRef[0].dismiss();
+                confirmAndDeleteCustomer(e);
+            });
+            layout.addView(btnDelCust);
+        }
+
         String dialogTitle = isNew
             ? "➕ Neuen Kunden anlegen"
             : "📋 " + (e.name != null ? e.name : "?") + " bearbeiten";
-        new AlertDialog.Builder(this)
+        AlertDialog _editDlg = new AlertDialog.Builder(this)
             .setTitle(dialogTitle)
             .setView(scroll)
             .setPositiveButton(isNew ? "Anlegen" : "Speichern", (d, w) -> {
@@ -3426,6 +3533,341 @@ public class CrmSearchActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+        _editDialogRef[0] = _editDlg;
+    }
+
+    // 🆕 v6.62.882 (Patrick 23.05. 06:24): Loescht den Kunden aus /customers/{id}
+    //   mit Sicherheits-Dialog. Vorher Anzahl verknuepfter Rides ermitteln und im
+    //   Bestaetigungs-Dialog anzeigen, damit Patrick weiss was er zerstoert.
+    private void confirmAndDeleteCustomer(CrmEntry e) {
+        if (e == null || e.id == null || e.id.isEmpty()) return;
+        ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Pruefe verknuepfte Fahrten…");
+        _pd.setCancelable(false);
+        _pd.show();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+            .orderByChild("customerId").equalTo(e.id)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    _pd.dismiss();
+                    long _rideCount = snap.getChildrenCount();
+                    String _msg = "Kunde wirklich loeschen?\n\n"
+                        + "👤 " + (e.name != null ? e.name : "?") + "\n"
+                        + "📞 " + telOrMobile(e) + "\n"
+                        + "🆔 " + e.id + "\n\n"
+                        + "🚕 " + _rideCount + " Fahrten verknuepft.\n\n"
+                        + "⚠️ Die Fahrten bleiben in /rides erhalten, verlieren aber die "
+                        + "Kunden-Referenz. Falls die Daten erhalten bleiben sollen, statt "
+                        + "Loeschen den 🔀-Button (Zusammenfuehren) nutzen.";
+                    new AlertDialog.Builder(CrmSearchActivity.this)
+                        .setTitle("🗑️ Kunden loeschen?")
+                        .setMessage(_msg)
+                        .setPositiveButton("🗑️ Endgueltig loeschen", (d, w) -> {
+                            FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                .getReference("customers/" + e.id)
+                                .removeValue()
+                                .addOnSuccessListener(_v -> {
+                                    Toast.makeText(CrmSearchActivity.this,
+                                        "🗑️ Geloescht: " + (e.name != null ? e.name : e.id),
+                                        Toast.LENGTH_LONG).show();
+                                    loadAll();
+                                })
+                                .addOnFailureListener(_err ->
+                                    Toast.makeText(CrmSearchActivity.this,
+                                        "❌ Loeschen fehlgeschlagen: " + _err.getMessage(),
+                                        Toast.LENGTH_LONG).show());
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError err) {
+                    _pd.dismiss();
+                    Toast.makeText(CrmSearchActivity.this,
+                        "❌ Fahrten-Anzahl konnte nicht ermittelt werden: " + err.getMessage(),
+                        Toast.LENGTH_LONG).show();
+                }
+            });
+    }
+
+    // 🆕 v6.62.882 (Patrick 23.05. 06:24): Zeigt eine durchsuchbare Liste ALLER anderen
+    //   Kunden + Auswahl → Bestaetigung → Merge.
+    //   Beim Merge: phone/mobilePhone/additionalPhones aus A in B's additionalPhones
+    //   (de-dup), ALLE /rides mit customerId=A → customerId=B, dann A loeschen.
+    private void showMergeCustomerPicker(CrmEntry source) {
+        if (source == null || source.id == null || source.id.isEmpty()) return;
+
+        // Filterbare Liste aller Kunden ausser source
+        final java.util.List<CrmEntry> _candidates = new java.util.ArrayList<>();
+        for (CrmEntry c : all) {
+            if (c.id != null && !c.id.equals(source.id)) _candidates.add(c);
+        }
+        if (_candidates.isEmpty()) {
+            Toast.makeText(this, "Keine anderen Kunden im CRM.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final java.util.List<CrmEntry> _filtered = new java.util.ArrayList<>(_candidates);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (getResources().getDisplayMetrics().density * 12);
+        layout.setPadding(pad, pad, pad, pad);
+
+        final EditText etSearch = new EditText(this);
+        etSearch.setHint("🔍 Ziel-Kunde suchen (Name oder Telefon)…");
+        etSearch.setTextSize(13);
+        layout.addView(etSearch);
+
+        final TextView tvHint = new TextView(this);
+        tvHint.setText("Tippe auf einen Kunden — die Daten von '" + (source.name != null ? source.name : "?") + "' werden dorthin uebertragen, '" + (source.name != null ? source.name : "?") + "' wird anschliessend geloescht.");
+        tvHint.setTextSize(11);
+        tvHint.setTextColor(0xFF64748B);
+        tvHint.setPadding(0, pad / 2, 0, pad / 2);
+        layout.addView(tvHint);
+
+        // Liste-Container (gleiches Pattern wie _renderFp)
+        final ScrollView listScroll = new ScrollView(this);
+        final LinearLayout listBox = new LinearLayout(this);
+        listBox.setOrientation(LinearLayout.VERTICAL);
+        listScroll.addView(listBox);
+        LinearLayout.LayoutParams _lsLp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, (int)(getResources().getDisplayMetrics().density * 380));
+        listScroll.setLayoutParams(_lsLp);
+        layout.addView(listScroll);
+
+        final AlertDialog[] _pickerRef = { null };
+        final Runnable[] _renderList = { null };
+        _renderList[0] = () -> {
+            listBox.removeAllViews();
+            if (_filtered.isEmpty()) {
+                TextView _empty = new TextView(this);
+                _empty.setText("(Keine Treffer)");
+                _empty.setTextColor(0xFF94A3B8);
+                _empty.setPadding(pad / 2, pad, pad / 2, pad);
+                listBox.addView(_empty);
+                return;
+            }
+            for (CrmEntry c : _filtered) {
+                final CrmEntry _target = c;
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.VERTICAL);
+                row.setPadding(pad / 2, pad / 2, pad / 2, pad / 2);
+                row.setBackgroundColor(0xFFF8FAFC);
+                LinearLayout.LayoutParams _rowLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                _rowLp.setMargins(0, 0, 0, pad / 4);
+                row.setLayoutParams(_rowLp);
+
+                TextView _tvName = new TextView(this);
+                _tvName.setText("👤 " + (_target.name != null ? _target.name : "?"));
+                _tvName.setTextSize(14);
+                _tvName.setTextColor(0xFF0F172A);
+                row.addView(_tvName);
+
+                TextView _tvPh = new TextView(this);
+                _tvPh.setText("📞 " + telOrMobile(_target) + (_target.customerKind != null ? "   ·   " + _target.customerKind : ""));
+                _tvPh.setTextSize(11);
+                _tvPh.setTextColor(0xFF64748B);
+                row.addView(_tvPh);
+
+                row.setOnClickListener(_v -> {
+                    if (_pickerRef[0] != null) _pickerRef[0].dismiss();
+                    confirmAndMergeCustomers(source, _target);
+                });
+                listBox.addView(row);
+            }
+        };
+        _renderList[0].run();
+
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(Editable s) {
+                String q = s.toString().trim().toLowerCase(Locale.GERMANY);
+                _filtered.clear();
+                if (q.isEmpty()) {
+                    _filtered.addAll(_candidates);
+                } else {
+                    for (CrmEntry c : _candidates) {
+                        String _hay = ((c.name != null ? c.name.toLowerCase(Locale.GERMANY) : "")
+                            + " " + c.allPhonesConcat().toLowerCase(Locale.GERMANY)
+                            + " " + (c.address != null ? c.address.toLowerCase(Locale.GERMANY) : ""));
+                        if (_hay.contains(q)) _filtered.add(c);
+                    }
+                }
+                _renderList[0].run();
+            }
+        });
+
+        AlertDialog _picker = new AlertDialog.Builder(this)
+            .setTitle("🔀 Zusammenfuehren mit…")
+            .setView(layout)
+            .setNegativeButton("Abbrechen", null)
+            .show();
+        _pickerRef[0] = _picker;
+    }
+
+    // 🆕 v6.62.882: Bestaetigungs-Dialog + tatsaechliche Merge-Logik.
+    //   Multi-Path-Update: alle Rides mit customerId=source.id auf target.id umlinken
+    //   + target.additionalPhones erweitern + source loeschen — in einem Atomic-Write.
+    private void confirmAndMergeCustomers(CrmEntry source, CrmEntry target) {
+        if (source == null || target == null || source.id == null || target.id == null) return;
+        if (source.id.equals(target.id)) {
+            Toast.makeText(this, "Quelle und Ziel sind identisch.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Erst Rides zaehlen fuer die Nachricht
+        ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Pruefe verknuepfte Fahrten…");
+        _pd.setCancelable(false);
+        _pd.show();
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides")
+            .orderByChild("customerId").equalTo(source.id)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snap) {
+                    _pd.dismiss();
+                    long _rideCount = snap.getChildrenCount();
+                    java.util.List<String> _rideIds = new java.util.ArrayList<>();
+                    for (DataSnapshot r : snap.getChildren()) _rideIds.add(r.getKey());
+
+                    // Phones aus source einsammeln, die NICHT schon in target sind
+                    java.util.List<String> _phonesToAdd = new java.util.ArrayList<>();
+                    java.util.function.Consumer<String> _addIfMissing = (String ph) -> {
+                        if (ph == null) return;
+                        String _t = ph.trim();
+                        if (_t.isEmpty()) return;
+                        if (_phoneAlreadyOnCustomer(target, _t)) return;
+                        // Auch nicht doppelt in der Hinzufuege-Liste
+                        for (String existing : _phonesToAdd) {
+                            if (_normalizePhone(existing).equals(_normalizePhone(_t))) return;
+                        }
+                        _phonesToAdd.add(_t);
+                    };
+                    _addIfMissing.accept(source.phone);
+                    _addIfMissing.accept(source.phone2);
+                    _addIfMissing.accept(source.mobilePhone);
+                    if (source.additionalPhones != null) {
+                        for (String ap : source.additionalPhones) _addIfMissing.accept(ap);
+                    }
+
+                    String _msg = "Daten von:\n"
+                        + "   👤 " + (source.name != null ? source.name : "?") + " (" + source.id + ")\n\n"
+                        + "→ uebertragen auf:\n"
+                        + "   👤 " + (target.name != null ? target.name : "?") + " (" + target.id + ")\n\n"
+                        + "🚕 " + _rideCount + " Fahrten werden umgelinkt.\n"
+                        + "📞 " + _phonesToAdd.size() + " neue Nummern werden hinterlegt"
+                        + (_phonesToAdd.isEmpty() ? "" : ":\n   " + android.text.TextUtils.join(", ", _phonesToAdd))
+                        + "\n\n⚠️ '" + (source.name != null ? source.name : "?") + "' wird anschliessend GELOESCHT.";
+
+                    new AlertDialog.Builder(CrmSearchActivity.this)
+                        .setTitle("🔀 Zusammenfuehren bestaetigen")
+                        .setMessage(_msg)
+                        .setPositiveButton("🔀 Jetzt zusammenfuehren", (d, w) -> {
+                            performMerge(source, target, _rideIds, _phonesToAdd);
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                }
+                @Override public void onCancelled(@NonNull DatabaseError err) {
+                    _pd.dismiss();
+                    Toast.makeText(CrmSearchActivity.this,
+                        "❌ Pruefung fehlgeschlagen: " + err.getMessage(),
+                        Toast.LENGTH_LONG).show();
+                }
+            });
+    }
+
+    // 🆕 v6.62.882: Multi-Path-Update fuer atomic Merge.
+    //   updates = { "/customers/{target}/additionalPhones": [...], "/customers/{source}": null,
+    //               "/rides/{rideId}/customerId": target.id, ... }
+    private void performMerge(CrmEntry source, CrmEntry target,
+                              java.util.List<String> rideIds,
+                              java.util.List<String> phonesToAdd) {
+        ProgressDialog _pd = new ProgressDialog(this);
+        _pd.setMessage("Fuehre Kunden zusammen…");
+        _pd.setCancelable(false);
+        _pd.show();
+
+        // Neue additionalPhones-Liste fuer target zusammenstellen (de-dup gegen existing)
+        java.util.List<String> _newAdd = new java.util.ArrayList<>();
+        if (target.additionalPhones != null) _newAdd.addAll(target.additionalPhones);
+        for (String ph : phonesToAdd) {
+            boolean _dup = false;
+            for (String existing : _newAdd) {
+                if (_normalizePhone(existing).equals(_normalizePhone(ph))) { _dup = true; break; }
+            }
+            if (!_dup) _newAdd.add(ph);
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("/customers/" + target.id + "/additionalPhones", _newAdd);
+        updates.put("/customers/" + target.id + "/updatedAt", System.currentTimeMillis());
+        updates.put("/customers/" + target.id + "/updatedVia", "native_crm_merge_v6.62.882");
+        // Target-Adresse uebernehmen falls target keine hat und source eine hat
+        if ((target.address == null || target.address.isEmpty()) && source.address != null && !source.address.isEmpty()) {
+            updates.put("/customers/" + target.id + "/address", source.address);
+            if (source.lat != null) updates.put("/customers/" + target.id + "/addressLat", source.lat);
+            if (source.lon != null) updates.put("/customers/" + target.id + "/addressLon", source.lon);
+        }
+        // Target-Email uebernehmen falls leer
+        if ((target.email == null || target.email.isEmpty()) && source.email != null && !source.email.isEmpty()) {
+            updates.put("/customers/" + target.id + "/email", source.email);
+        }
+        // Notes anhaengen (nicht ueberschreiben)
+        if (source.notes != null && !source.notes.trim().isEmpty()) {
+            String _newNotes = (target.notes != null && !target.notes.isEmpty())
+                ? (target.notes + "\n\n[Merge v6.62.882 aus " + (source.name != null ? source.name : source.id) + "]:\n" + source.notes)
+                : source.notes;
+            updates.put("/customers/" + target.id + "/notes", _newNotes);
+        }
+        // Alle Rides umlinken
+        for (String rid : rideIds) {
+            updates.put("/rides/" + rid + "/customerId", target.id);
+            updates.put("/rides/" + rid + "/_mergedFrom", source.id);
+            updates.put("/rides/" + rid + "/_mergedAt", System.currentTimeMillis());
+        }
+        // Source loeschen
+        updates.put("/customers/" + source.id, null);
+
+        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference()
+            .updateChildren(updates)
+            .addOnSuccessListener(_v -> {
+                _pd.dismiss();
+                Toast.makeText(this,
+                    "✅ Zusammengefuehrt: " + rideIds.size() + " Fahrten + "
+                        + phonesToAdd.size() + " Nummern auf '" + (target.name != null ? target.name : "?") + "'",
+                    Toast.LENGTH_LONG).show();
+                loadAll();
+            })
+            .addOnFailureListener(_err -> {
+                _pd.dismiss();
+                Toast.makeText(this,
+                    "❌ Merge fehlgeschlagen: " + _err.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            });
+    }
+
+    // 🆕 v6.62.882 (Patrick 23.05. 06:24): Anrufer-Nummer-Check fuer "Diese Nummer
+    //   dem Kunden zuordnen"-Button. Vergleicht normalisiert (nur Ziffern), damit
+    //   "+49 38378 22022" und "038378 22022" als gleich gelten. Prueft phone, phone2,
+    //   mobilePhone UND additionalPhones[*].
+    private static String _normalizePhone(String p) {
+        if (p == null) return "";
+        return p.replaceAll("[^0-9]", "");
+    }
+    private static boolean _phoneAlreadyOnCustomer(CrmEntry e, String phone) {
+        if (e == null || phone == null) return false;
+        String _ph = _normalizePhone(phone);
+        if (_ph.isEmpty()) return true; // leer → nichts hinzufuegen anbieten
+        if (_normalizePhone(e.phone).equals(_ph)) return true;
+        if (_normalizePhone(e.phone2).equals(_ph)) return true;
+        if (_normalizePhone(e.mobilePhone).equals(_ph)) return true;
+        if (e.additionalPhones != null) {
+            for (String ap : e.additionalPhones) {
+                if (_normalizePhone(ap).equals(_ph)) return true;
+            }
+        }
+        return false;
     }
 
     // v6.62.222: Telefonnummer-Anzeige mit mobilePhone-Fallback. Hasbargen-Fall:

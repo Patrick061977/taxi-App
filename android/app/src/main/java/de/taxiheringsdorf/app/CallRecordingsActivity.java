@@ -423,8 +423,37 @@ public class CallRecordingsActivity extends AppCompatActivity {
     }
 
     // v6.62.862: Aufnahme löschen — File von /sdcard/ACRCalls/ACRPhone/.../*.m4a entfernen
-    // + Recording-Eintrag aus Liste raus (notifyDataSetChanged).
+    // v6.62.884 (Patrick 23.05. 06:51): "Berechtigung fehlt" — Android 11+ braucht
+    //   MANAGE_EXTERNAL_STORAGE für Lösch-Zugriff auf fremde App-Files (ACR Phone).
+    //   Permission muss MANUELL in Settings aktiviert werden (kein normaler Permission-
+    //   Request möglich). Wir leiten den User dorthin.
     private void confirmDeleteRecording(Recording r) {
+        // Prüfen ob MANAGE_EXTERNAL_STORAGE erteilt — wenn nicht, Settings-Intent öffnen
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("🔓 Berechtigung fehlt")
+                    .setMessage("Zum Löschen von ACR-Aufnahmen brauchst Du 'Über Apps mit Zugriff auf alle Dateien'.\n\nIn den Einstellungen den Schalter für Funk Taxi auf AN setzen, dann zurück + nochmal Löschen.")
+                    .setPositiveButton("Einstellungen öffnen", (d, w) -> {
+                        try {
+                            android.content.Intent i = new android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                android.net.Uri.parse("package:" + getPackageName()));
+                            startActivity(i);
+                        } catch (Exception e) {
+                            // Fallback: generelle MANAGE_ALL_FILES Liste
+                            try {
+                                startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                            } catch (Exception _e) {
+                                Toast.makeText(this, "Einstellungen → Apps → Funk Taxi → Berechtigungen → 'Alle Dateien verwalten' AN", Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    })
+                    .setNegativeButton("Abbrechen", null)
+                    .show();
+                return;
+            }
+        }
         String dt = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN).format(new Date(r.timestamp));
         String name = r.customerName != null ? r.customerName : r.phone;
         new androidx.appcompat.app.AlertDialog.Builder(this)
@@ -433,14 +462,16 @@ public class CallRecordingsActivity extends AppCompatActivity {
             .setPositiveButton("Löschen", (d, w) -> {
                 stopPlayback();
                 boolean ok = false;
-                try { ok = r.file.delete(); } catch (Exception e) { Log.w(TAG, "Delete-Error: " + e.getMessage()); }
+                String errMsg = null;
+                try { ok = r.file.delete(); }
+                catch (Exception e) { errMsg = e.getMessage(); Log.w(TAG, "Delete-Error: " + e.getMessage()); }
                 if (ok) {
                     Toast.makeText(this, "🗑️ Aufnahme gelöscht", Toast.LENGTH_SHORT).show();
                     adapter.removeRecording(r);
                     int total = adapter.getItemCount();
                     header.setText(total + " Aufnahmen (letzte 90 Tage)");
                 } else {
-                    Toast.makeText(this, "❌ Löschen fehlgeschlagen — Datei evtl. schon weg oder Berechtigung fehlt", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "❌ Löschen fehlgeschlagen" + (errMsg != null ? " — " + errMsg : "") + ". Permission 'Alle Dateien verwalten' aktiv?", Toast.LENGTH_LONG).show();
                 }
             })
             .setNegativeButton("Abbrechen", null)

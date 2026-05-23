@@ -59,6 +59,10 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private TextView header, permHint;
     private RecAdapter adapter;
     private Map<String, String> crmByPhone = new HashMap<>();
+    // 🆕 v6.62.890 (Patrick 23.05. 09:12): Phone → customerId Mapping zusaetzlich. Wird bei
+    //   'Vorbestellung erstellen' an CrmSearchActivity weitergegeben, damit dort der RICHTIGE
+    //   CRM-Match-Pfad (mit Hotel/Stammkunden-Maske) greift statt der Neukunden-Fallback.
+    private Map<String, String> crmIdByPhone = new HashMap<>();
     private MediaPlayer mp;
     private Recording playing;
 
@@ -145,19 +149,28 @@ public class CallRecordingsActivity extends AppCompatActivity {
         ref.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override public void onDataChange(@NonNull DataSnapshot snap) {
                 for (DataSnapshot c : snap.getChildren()) {
+                    String cid = c.getKey();
                     String name = c.child("name").getValue(String.class);
                     String firma = c.child("firmenname").getValue(String.class);
                     String displayName = name != null ? name : (firma != null ? firma : "?");
                     String[] phoneFields = {"phone","mobilePhone","mobile","phone1","phone2","phone3"};
                     for (String f : phoneFields) {
                         String p = c.child(f).getValue(String.class);
-                        if (p != null) crmByPhone.put(normalizePhone(p), displayName);
+                        if (p != null) {
+                            String np = normalizePhone(p);
+                            crmByPhone.put(np, displayName);
+                            if (cid != null) crmIdByPhone.put(np, cid);
+                        }
                     }
                     DataSnapshot addit = c.child("additionalPhones");
                     if (addit.exists()) {
                         for (DataSnapshot ap : addit.getChildren()) {
                             String p = ap.getValue(String.class);
-                            if (p != null) crmByPhone.put(normalizePhone(p), displayName);
+                            if (p != null) {
+                                String np = normalizePhone(p);
+                                crmByPhone.put(np, displayName);
+                                if (cid != null) crmIdByPhone.put(np, cid);
+                            }
                         }
                     }
                 }
@@ -218,7 +231,9 @@ public class CallRecordingsActivity extends AppCompatActivity {
                                 try { r.direction = Integer.parseInt(m.group(2)); } catch (Exception e) { r.direction = 0; }
                                 r.timestamp = ts;
                                 r.size = f.length();
-                                r.customerName = crmByPhone.get(normalizePhone(r.phone));
+                                String np = normalizePhone(r.phone);
+                                r.customerName = crmByPhone.get(np);
+                                r.customerId = crmIdByPhone.get(np);
                                 all.add(r);
                             }
                         }
@@ -376,7 +391,11 @@ public class CallRecordingsActivity extends AppCompatActivity {
         btnVorbestellung.setOnClickListener(v -> {
             android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
             if (hasCrm) {
-                // CrmSearchActivity sucht selbst die CRM-ID per Telefonnummer
+                // 🆕 v6.62.890 (Patrick 23.05. 09:12): customer_id PFLICHT mitgeben, sonst
+                //   faellt CrmSearchActivity in den Neukunden-Fallback und oeffnet eine
+                //   "andere Maske" statt der Hotel/Stammkunden-Maske mit allen voreingestellten
+                //   Daten (Adresse, customerKind, etc.).
+                if (r.customerId != null) i.putExtra("auto_vorbestellung_customer_id", r.customerId);
                 i.putExtra("auto_vorbestellung_phone", r.phone);
                 i.putExtra("auto_vorbestellung_name", r.customerName);
             } else {
@@ -500,6 +519,7 @@ public class CallRecordingsActivity extends AppCompatActivity {
         long timestamp;
         long size;
         String customerName; // null wenn nicht in CRM
+        String customerId;   // 🆕 v6.62.890: CRM-ID fuer korrekten Vorbestell-Maske-Pfad (Hotel/Stamm)
         boolean parallel; // v6.62.863: anderer Anruf <60 Sek davor/danach — möglich verpasst
     }
 

@@ -214,7 +214,10 @@
             border-radius: 10px;
             max-height: 220px;
             overflow-y: auto;
-            z-index: 100;
+            /* v6.62.883 (Patrick 23.05. 06:25): "Karte verdeckt Autocomplete" — z-index 100
+             * war zu niedrig, Leaflet-Karten-Pane lag drüber. 1500 reicht weit über die
+             * Map-Layers (Leaflet max 700) und unter dem Side-Menu (2000). */
+            z-index: 1500;
             margin-top: 4px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }

@@ -20910,9 +20910,11 @@ exports.onAnfrageStatusChanged = onValueUpdated(
                 } catch(_) {}
             }
 
+            // v6.62.894 (Patrick 23.05. 14:47): SMS-Anrede sollte den vollen Namen
+            //   zeigen, nicht nur den Nachnamen ('Hallo Remane' klingt kalt + unhoeflich,
+            //   Patrick: 'es wird kein Name reingeschrieben'). Jetzt 'Hallo Vanessa Remane'.
             const _name = (after.name || '').trim();
-            const _lastName = _name ? _name.split(/\s+/).pop() : '';
-            const _anrede = _lastName ? `Hallo ${_lastName}` : 'Hallo';
+            const _anrede = _name ? `Hallo ${_name}` : 'Hallo';
 
             // Datum/Zeit formatieren
             let _zeit = '';

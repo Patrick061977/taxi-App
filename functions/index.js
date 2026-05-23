@@ -24808,6 +24808,68 @@ exports.scheduledDepartureAlert = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🚪 v6.62.893 (Patrick 23.05. 13:40): Force-Logout per Admin-Tap.
+// 'Wenn ein Fahrer vergisst sich abzumelden, was macht man da?'
+// Admin schreibt /vehicles/{id}/forceLogoutRequest = true → diese Function pusht
+// FCM type=force_logout an den Fahrer-Token. Native-App raeumt sich auf + zur Login-Activity.
+// Plus: shift.status=ended, online=false, activeDevice geclearet, Flag auf 'processed'.
+// ═══════════════════════════════════════════════════════════════
+exports.onForceLogoutRequested = onValueWritten(
+    {
+        ref: '/vehicles/{vehicleId}/forceLogoutRequest',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const vehicleId = event.params.vehicleId;
+        const newVal = event.data.after.val();
+        if (newVal !== true) return; // nur auf true reagieren
+        try {
+            console.log(`🚪 Force-Logout angefordert fuer ${vehicleId}`);
+            // FCM-Push an Fahrer (Token muss noch existieren — wenn der Admin vorher den Token
+            // entfernt hat, geht der Push verloren. Deshalb: Push ZUERST, dann cleanup).
+            const tokenSnap = await db.ref(`vehicles/${vehicleId}/fcmToken/token`).once('value');
+            const token = tokenSnap.val();
+            if (token) {
+                try {
+                    await admin.messaging().send({
+                        token,
+                        data: {
+                            type: 'force_logout',
+                            reason: 'Admin hat dich abgemeldet (Schicht beendet ohne Logout)'
+                        },
+                        android: { priority: 'high', ttl: 60_000 }
+                    });
+                    console.log(`✅ Force-Logout FCM gesendet an ${vehicleId}`);
+                } catch (e) {
+                    console.warn(`⚠️ Force-Logout FCM Fehler ${vehicleId}: ${e.message}`);
+                }
+            } else {
+                console.log(`📵 Force-Logout: Kein FCM-Token fuer ${vehicleId} — App kriegt nichts mit`);
+            }
+            // Server-side Cleanup unabhaengig davon ob FCM zugestellt wurde
+            const now = Date.now();
+            const cleanup = {
+                [`vehicles/${vehicleId}/shift/status`]: 'ended',
+                [`vehicles/${vehicleId}/shift/endedAt`]: now,
+                [`vehicles/${vehicleId}/shift/endedReason`]: 'admin_force_logout',
+                [`vehicles/${vehicleId}/shift/forceEnded`]: true,
+                [`vehicles/${vehicleId}/online`]: false,
+                [`vehicles/${vehicleId}/available`]: false,
+                [`vehicles/${vehicleId}/dispatchStatus`]: 'offline',
+                [`vehicles/${vehicleId}/activeDevice`]: null,
+                [`vehicles/${vehicleId}/forceLogoutRequest`]: null,
+                [`vehicles/${vehicleId}/forceLogoutProcessedAt`]: now
+            };
+            await db.ref().update(cleanup);
+            console.log(`✅ Force-Logout server-cleanup ${vehicleId} fertig`);
+        } catch (e) {
+            console.error(`❌ onForceLogoutRequested ${vehicleId}:`, e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🚕 ONLINE-TRIGGER — v6.40.34
 // Reagiert innerhalb Sekunden wenn ein Fahrzeug online geht.
 // Sucht unzugewiesene Sofort-Fahrten und weist sie zu.

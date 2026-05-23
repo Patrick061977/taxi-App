@@ -58,6 +58,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
             return;
         }
 
+        // 🆕 v6.62.893 (Patrick 23.05. 13:40): Force-Logout vom Admin.
+        // 'Wenn ein Fahrer vergisst sich abzumelden, was macht man da?' Lösung: Admin tippt
+        // im Fleet-Map den Knopf 'Fahrer abmelden' → Cloud schreibt forceLogoutRequest=true
+        // → Cloud-Function pushed FCM type=force_logout → App raeumt sich auf + zur Login-Activity.
+        if ("force_logout".equals(type)) {
+            handleForceLogout(data);
+            return;
+        }
+
         // 🆕 v6.62.885 (Patrick 23.05. 07:11): Losfahr-Vibration ohne Sound.
         // 'Sound habe ich ja schon wenn ich annehme. Ich brauch nur eine Vibration'.
         // Cloud Function scheduledDepartureAlert pusht 1× pro accepted-Vorbestellung wenn
@@ -267,6 +276,54 @@ public class TaxiFCMService extends FirebaseMessagingService {
                 }
             } catch (Throwable _vErr) { Log.w(TAG, "Foreground-Vibrate Fehler: " + _vErr.getMessage()); }
             Log.d(TAG, "Foreground-Audio + Vibrate fuer new_ride " + rideId);
+        }
+    }
+
+    // 🆕 v6.62.893: Force-Logout-Handler. Cloud-Function pushed type=force_logout —
+    // hier raeumen wir die Session auf + zwingen die App zur Login-Activity.
+    private void handleForceLogout(Map<String, String> data) {
+        String reason = data.getOrDefault("reason", "Admin-Aktion");
+        Log.i(TAG, "🚪 Force-Logout empfangen: " + reason);
+        try {
+            // 1. Foreground-Service stoppen (Schicht-Heartbeats)
+            try {
+                Intent stopSvc = new Intent(this, ShiftForegroundService.class);
+                stopSvc.setAction(ShiftForegroundService.ACTION_STOP);
+                startService(stopSvc);
+            } catch (Throwable _t) { Log.w(TAG, "Service-Stop: " + _t.getMessage()); }
+            // 2. Vehicle-Lock clearen (activeDevice + lastHeartbeat) — best-effort
+            try {
+                String vid = getSharedPreferences("driver", MODE_PRIVATE).getString("vehicleId", null);
+                if (vid != null) {
+                    com.google.firebase.database.FirebaseDatabase.getInstance(
+                        "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                        .getReference("vehicles/" + vid + "/activeDevice").removeValue();
+                }
+            } catch (Throwable _t) { Log.w(TAG, "Lock-Clear: " + _t.getMessage()); }
+            // 3. FirebaseAuth sign out
+            try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut(); } catch (Throwable _t) {}
+            // 4. SharedPreferences clearen
+            try { getSharedPreferences("driver", MODE_PRIVATE).edit().clear().apply(); } catch (Throwable _t) {}
+            // 5. LoginActivity oeffnen
+            try {
+                Intent loginI = new Intent(this, LoginActivity.class);
+                loginI.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(loginI);
+            } catch (Throwable _t) { Log.w(TAG, "LoginActivity-Open: " + _t.getMessage()); }
+            // 6. Notification damit der Fahrer sieht warum er abgemeldet wurde
+            try {
+                NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle("🚪 Vom Admin abgemeldet")
+                    .setContentText(reason)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true);
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) nm.notify(NOTIFICATION_ID_BASE + 9000, b.build());
+            } catch (Throwable _t) {}
+            Log.i(TAG, "✅ Force-Logout abgeschlossen");
+        } catch (Throwable t) {
+            Log.e(TAG, "Force-Logout Fehler: " + t.getMessage());
         }
     }
 

@@ -92,6 +92,19 @@ public class CallRecordingsActivity extends AppCompatActivity {
         header.setText("Lade …");
         root.addView(header);
 
+        // 🆕 v6.62.892 (Patrick 23.05. 11:15): Bulk-Loesch-Button (alle aelter als 30 Tage).
+        //   Patrick: 'ich muss die Fahrten ja loeschen koennen damit das nicht ueberquillt'.
+        //   Einzel-Loeschen via Samsung Owner-Lock unzuverlaessig — Bulk loescht in einem Rutsch
+        //   mit allen 6 Strategien pro Datei + zeigt eine Erfolgs-Statistik am Ende.
+        android.widget.Button btnBulkDelete = new android.widget.Button(this);
+        btnBulkDelete.setText("🗑️ Alle aelter als 30 Tage löschen");
+        btnBulkDelete.setTextColor(0xFFef4444);
+        btnBulkDelete.setOnClickListener(v -> confirmBulkDeleteOlderThan30Days());
+        LinearLayout.LayoutParams bulkLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        bulkLp.setMargins(dp(16), 0, dp(16), dp(8));
+        btnBulkDelete.setLayoutParams(bulkLp);
+        root.addView(btnBulkDelete);
+
         permHint = new TextView(this);
         permHint.setPadding(dp(16), dp(16), dp(16), dp(16));
         permHint.setTextColor(0xFFef4444);
@@ -512,6 +525,41 @@ public class CallRecordingsActivity extends AppCompatActivity {
                     try { ok = r.file.delete(); Log.i(TAG, "Second file.delete: " + ok); }
                     catch (Exception e) { /* still */ }
                 }
+                // 🆕 v6.62.892 (Patrick 23.05. 12:30): canWrite=false trotz MANAGE_EXTERNAL_STORAGE
+                //   auf Samsung S9+ — drei zusaetzliche Strategien:
+                // Try 4: setWritable(true)+setReadable(true) erzwingen, dann File.delete()
+                if (!ok) {
+                    try {
+                        r.file.setWritable(true, false);
+                        r.file.setReadable(true, false);
+                        ok = r.file.delete();
+                        Log.i(TAG, "Try 4 setWritable+delete: " + ok + " (canW=" + r.file.canWrite() + ")");
+                    } catch (Exception e) { Log.w(TAG, "Try 4 Fehler: " + e.getMessage()); }
+                }
+                // Try 5: java.nio.file.Files.delete(Path) — andere API mit anderer Exception
+                if (!ok && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        java.nio.file.Files.delete(r.file.toPath());
+                        ok = !r.file.exists();
+                        Log.i(TAG, "Try 5 Files.delete: " + ok);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Try 5 Fehler: " + e.getMessage());
+                        errMsg = (errMsg == null ? "" : errMsg + " · ") + "nio: " + e.getMessage();
+                    }
+                }
+                // Try 6: Rename-Trick — erst in .tmp_to_delete umbenennen + dann loeschen.
+                //   Manchmal hilft das gegen Samsung Owner-Lock (rename = neue File-Entity).
+                if (!ok) {
+                    try {
+                        java.io.File tmp = new java.io.File(r.file.getParentFile(), r.file.getName() + ".tmp_to_delete");
+                        boolean renamed = r.file.renameTo(tmp);
+                        Log.i(TAG, "Try 6 rename: " + renamed);
+                        if (renamed) {
+                            ok = tmp.delete();
+                            Log.i(TAG, "Try 6 delete after rename: " + ok);
+                        }
+                    } catch (Exception e) { Log.w(TAG, "Try 6 Fehler: " + e.getMessage()); }
+                }
                 if (ok) {
                     Toast.makeText(this, "🗑️ Aufnahme gelöscht", Toast.LENGTH_SHORT).show();
                     adapter.removeRecording(r);
@@ -530,6 +578,118 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private String msToTime(int ms) {
         int s = ms / 1000;
         return String.format(Locale.GERMAN, "%02d:%02d", s/60, s%60);
+    }
+
+    // 🆕 v6.62.892: Bulk-Loesch von ACR-Aufnahmen aelter als 30 Tage.
+    // Iteriert ueber /sdcard/ACRCalls/ACRPhone/{year}/{month}/{day}/{phoneDir}/*.m4a,
+    // versucht pro Datei alle 6 Loesch-Strategien, zeigt am Ende eine Statistik.
+    private void confirmBulkDeleteOlderThan30Days() {
+        // Permission-Check wie bei Einzel-Loesch
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🔓 Berechtigung fehlt")
+                .setMessage("Bulk-Loesch braucht 'Über Apps mit Zugriff auf alle Dateien'.\nEinstellungen → Funk Taxi → Berechtigungen → 'Alle Dateien verwalten' AN.")
+                .setPositiveButton("Einstellungen öffnen", (d, w) -> {
+                    try {
+                        startActivity(new android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            android.net.Uri.parse("package:" + getPackageName())));
+                    } catch (Exception e) { /* ignore */ }
+                })
+                .setNegativeButton("Abbrechen", null).show();
+            return;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Alle Aufnahmen > 30 Tage loeschen?")
+            .setMessage("Alle ACR-Aufnahmen die aelter als 30 Tage sind, werden vom Telefon entfernt. Kann nicht rueckgaengig gemacht werden.\n\nWeiter?")
+            .setPositiveButton("Ja, alle loeschen", (d, w) -> runBulkDeleteOlderThan30Days())
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void runBulkDeleteOlderThan30Days() {
+        stopPlayback();
+        final long cutoff = System.currentTimeMillis() - 30L * 24L * 3600L * 1000L;
+        new Thread(() -> {
+            int found = 0, deleted = 0, failed = 0;
+            if (!ACR_ROOT.exists()) {
+                runOnUiThread(() -> Toast.makeText(this, "ACR-Ordner nicht gefunden", Toast.LENGTH_LONG).show());
+                return;
+            }
+            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)-(\\d+)\\.m4a$");
+            File[] years = ACR_ROOT.listFiles();
+            if (years == null) { runOnUiThread(() -> Toast.makeText(this, "Keine Dateien", Toast.LENGTH_LONG).show()); return; }
+            for (File year : years) {
+                if (!year.isDirectory()) continue;
+                File[] months = year.listFiles();
+                if (months == null) continue;
+                for (File month : months) {
+                    if (!month.isDirectory()) continue;
+                    File[] days = month.listFiles();
+                    if (days == null) continue;
+                    for (File day : days) {
+                        if (!day.isDirectory()) continue;
+                        File[] phoneDirs = day.listFiles();
+                        if (phoneDirs == null) continue;
+                        for (File phoneDir : phoneDirs) {
+                            if (!phoneDir.isDirectory()) continue;
+                            File[] files = phoneDir.listFiles();
+                            if (files == null) continue;
+                            for (File f : files) {
+                                if (!f.isFile()) continue;
+                                java.util.regex.Matcher m = fileRe.matcher(f.getName());
+                                if (!m.matches()) continue;
+                                long ts;
+                                try { ts = Long.parseLong(m.group(3)); } catch (Exception e) { continue; }
+                                if (ts >= cutoff) continue;
+                                found++;
+                                if (bulkDeleteOneFile(f)) deleted++; else failed++;
+                            }
+                        }
+                    }
+                }
+            }
+            final int _found = found, _del = deleted, _fail = failed;
+            runOnUiThread(() -> {
+                Toast.makeText(this, "🗑️ Bulk-Loesch fertig: " + _del + " gelöscht / " + _fail + " fehlgeschlagen / " + _found + " >30 Tage", Toast.LENGTH_LONG).show();
+                scanRecordings(); // Liste neu laden
+            });
+        }).start();
+    }
+
+    // Versucht eine Datei zu loeschen mit allen 6 Strategien hintereinander.
+    private boolean bulkDeleteOneFile(File f) {
+        // Try 1: direct
+        try { if (f.delete()) return true; } catch (Exception e) { /* */ }
+        // Try 2: MediaStore (Android 10+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                android.content.ContentResolver cr = getContentResolver();
+                int n = cr.delete(android.provider.MediaStore.Files.getContentUri("external"),
+                                  android.provider.MediaStore.Files.FileColumns.DATA + "=?",
+                                  new String[]{ f.getAbsolutePath() });
+                if (n > 0 || !f.exists()) return true;
+            } catch (Exception e) { /* */ }
+        }
+        // Try 3: setWritable + delete
+        try {
+            f.setWritable(true, false);
+            f.setReadable(true, false);
+            if (f.delete()) return true;
+        } catch (Exception e) { /* */ }
+        // Try 4: nio Files.delete
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try { java.nio.file.Files.delete(f.toPath()); if (!f.exists()) return true; }
+            catch (Exception e) { /* */ }
+        }
+        // Try 5: rename + delete
+        try {
+            File tmp = new File(f.getParentFile(), f.getName() + ".tmp_to_delete");
+            if (f.renameTo(tmp)) {
+                if (tmp.delete()) return true;
+            }
+        } catch (Exception e) { /* */ }
+        return false;
     }
 
     private void stopPlayback() {

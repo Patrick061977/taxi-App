@@ -482,15 +482,45 @@ public class CallRecordingsActivity extends AppCompatActivity {
                 stopPlayback();
                 boolean ok = false;
                 String errMsg = null;
+                String diag = "exists=" + r.file.exists() + " canW=" + r.file.canWrite() + " absPath=" + r.file.getAbsolutePath();
+                Log.i(TAG, "Delete-Versuch: " + diag);
+                // Try 1: direct file.delete()
                 try { ok = r.file.delete(); }
-                catch (Exception e) { errMsg = e.getMessage(); Log.w(TAG, "Delete-Error: " + e.getMessage()); }
+                catch (Exception e) { errMsg = e.getMessage(); Log.w(TAG, "Delete-Error file.delete(): " + e.getMessage()); }
+                Log.i(TAG, "Direct delete result: " + ok);
+                // 🆕 v6.62.890 (Patrick 23.05. 09:25): 'Alle Dateien verwalten aktiv' aber Loeschen
+                //   fehlschlaegt. Auf Samsung S9+ (Android 10/11) kann file.delete() trotz
+                //   MANAGE_EXTERNAL_STORAGE fehlschlagen wenn ACR-App als Owner der Datei
+                //   im MediaStore registriert ist. Fallback ueber ContentResolver+MediaStore-DELETE.
+                if (!ok && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        android.content.ContentResolver cr = getContentResolver();
+                        android.net.Uri uri = android.provider.MediaStore.Files.getContentUri("external");
+                        int deleted = cr.delete(uri, android.provider.MediaStore.Files.FileColumns.DATA + "=?",
+                                                new String[]{ r.file.getAbsolutePath() });
+                        Log.i(TAG, "MediaStore delete result: " + deleted + " rows");
+                        if (deleted > 0) ok = true;
+                        else errMsg = (errMsg == null ? "" : errMsg + " · ") + "MediaStore 0 Rows";
+                    } catch (Exception e) {
+                        Log.w(TAG, "MediaStore-Delete Fehler: " + e.getMessage());
+                        errMsg = (errMsg == null ? "" : errMsg + " · ") + "MediaStore: " + e.getMessage();
+                    }
+                }
+                // Try 3: Falls noch nicht gelöscht — File.delete() noch mal probieren, vielleicht
+                // hat MediaStore-Delete den Owner-Lock gelöst.
+                if (!ok) {
+                    try { ok = r.file.delete(); Log.i(TAG, "Second file.delete: " + ok); }
+                    catch (Exception e) { /* still */ }
+                }
                 if (ok) {
                     Toast.makeText(this, "🗑️ Aufnahme gelöscht", Toast.LENGTH_SHORT).show();
                     adapter.removeRecording(r);
                     int total = adapter.getItemCount();
                     header.setText(total + " Aufnahmen (letzte 90 Tage)");
                 } else {
-                    Toast.makeText(this, "❌ Löschen fehlgeschlagen" + (errMsg != null ? " — " + errMsg : "") + ". Permission 'Alle Dateien verwalten' aktiv?", Toast.LENGTH_LONG).show();
+                    String fullMsg = "❌ Löschen fehlgeschlagen" + (errMsg != null ? " — " + errMsg : "") + "\n" + diag;
+                    Toast.makeText(this, fullMsg, Toast.LENGTH_LONG).show();
+                    Log.w(TAG, fullMsg);
                 }
             })
             .setNegativeButton("Abbrechen", null)

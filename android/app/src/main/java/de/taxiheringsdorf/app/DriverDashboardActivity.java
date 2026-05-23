@@ -3323,7 +3323,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   Toolbar) zeigen, sondern wie eine ruhige assigned-Card.
                 boolean isAccepted = "accepted".equalsIgnoreCase(s);
                 long _minBisPickup = (r.pickupTimestamp != null) ? (r.pickupTimestamp - nowMs) / 60_000L : 0;
-                boolean acceptedFernerTermin = isAccepted && r.pickupTimestamp != null && _minBisPickup > 15;
+                // v6.62.887 (Patrick 23.05. 08:08): 'Bin unterwegs-Button erscheint nicht
+                //   wenn ich angenommen habe.' Der hardcoded 15-Min-Filter war zu pauschal.
+                //   Patrick: 'Button soll kommen 5 Min + Anfahrt vor pickup'. Das ist genau
+                //   losfahrtAt (gleicher Zeitpunkt wie Departure-Vibration).
+                long _driveMin = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0)
+                    ? r.drivingTimeToPickup : 15;
+                long _bufferUntilDeparture = _driveMin + 5;
+                boolean acceptedFernerTermin = isAccepted && r.pickupTimestamp != null
+                    && _minBisPickup > _bufferUntilDeparture;
                 if (acceptedFernerTermin) {
                     isActive = false; // → keine activeToolbar, kein Status-Next-Button
                 }

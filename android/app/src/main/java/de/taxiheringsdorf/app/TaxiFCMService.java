@@ -58,6 +58,15 @@ public class TaxiFCMService extends FirebaseMessagingService {
             return;
         }
 
+        // 🆕 v6.62.885 (Patrick 23.05. 07:11): Losfahr-Vibration ohne Sound.
+        // 'Sound habe ich ja schon wenn ich annehme. Ich brauch nur eine Vibration'.
+        // Cloud Function scheduledDepartureAlert pusht 1× pro accepted-Vorbestellung wenn
+        // der Losfahr-Zeitpunkt erreicht wird (pickupTimestamp - drivingTimeToPickup).
+        if ("departure_alert".equals(type)) {
+            handleDepartureAlert(data);
+            return;
+        }
+
         // v6.62.656: Patrick (13.05. 07:44): 'Push klingelt nach Annehmen weiter, wische
         // runter raus aus App'. Cloud-Function schickt jetzt type=cancel_notification
         // wenn Status auf 'accepted' wechselt — wir canceln die persistente Notification.
@@ -259,6 +268,60 @@ public class TaxiFCMService extends FirebaseMessagingService {
             } catch (Throwable _vErr) { Log.w(TAG, "Foreground-Vibrate Fehler: " + _vErr.getMessage()); }
             Log.d(TAG, "Foreground-Audio + Vibrate fuer new_ride " + rideId);
         }
+    }
+
+    // 🆕 v6.62.885: Losfahr-Alarm fuer akzeptierte Vorbestellungen.
+    // Patrick (23.05. 07:09): 'Mir fehlt eine Vibration wenn ich spaetestens losfahren muss.'
+    // Server-side schickt scheduledDepartureAlert dieses FCM 1× pro Ride wenn 'losfahrtAt'
+    // erreicht ist. Nur Vibration (kein Ringtone) — Patrick will keinen doppelten Sound.
+    private void handleDepartureAlert(Map<String, String> data) {
+        String rideId = data.get("rideId");
+        String customerName = data.getOrDefault("customerName", "Kunde");
+        String pickup = data.getOrDefault("pickup", "");
+        String pickupTime = data.getOrDefault("pickupTime", "");
+        int notificationId = NOTIFICATION_ID_BASE + 5000 + (rideId != null ? rideId.hashCode() & 0x3FFF : 0);
+
+        Intent appIntent = new Intent(this, DriverDashboardActivity.class);
+        appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (rideId != null) appIntent.putExtra("rideId", rideId);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, rideId != null ? rideId.hashCode() : 0, appIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        String title = "🚨 JETZT LOSFAHREN: " + customerName;
+        String body = "Pickup um " + pickupTime + (pickup.isEmpty() ? "" : "\n📍 " + pickup);
+        // Langes, deutliches Vibration-Pattern. Kein Sound.
+        long[] vibrationPat = new long[]{0, 1000, 400, 1000, 400, 1000, 400, 1500};
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(body.split("\n")[0])
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSound(null) // Patrick: kein Sound, nur Vibration
+            .setVibrate(vibrationPat)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent);
+
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(notificationId, builder.build());
+
+        // Foreground-Fallback: zusaetzliche Vibration explizit (Notification-Channel-Sound
+        // ist null aber Channel vibriert noch auf Vibration-Pattern. Sicherheitshalber).
+        try {
+            android.os.Vibrator vib = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(android.os.VibrationEffect.createWaveform(vibrationPat, -1));
+                } else {
+                    vib.vibrate(vibrationPat, -1);
+                }
+            }
+        } catch (Throwable _vErr) { Log.w(TAG, "Departure-Vibrate Fehler: " + _vErr.getMessage()); }
+        Log.d(TAG, "🚨 Departure-Alert dispatched fuer rideId=" + rideId);
     }
 
     // v6.62.49: Native SMS-Gateway. Empfaengt FCM type=send_sms, ruft SmsManager und

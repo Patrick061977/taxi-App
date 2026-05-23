@@ -24724,6 +24724,84 @@ exports.scheduledOpenRideCheck = onSchedule(
 );
 
 // ═══════════════════════════════════════════════════════════════
+// 🚨 v6.62.885 (Patrick 23.05. 07:09): scheduledDepartureAlert
+// Patrick: 'Mir fehlt eine Vibration wenn ich spätestens losfahren muss zum Kunden'.
+// Bei akzeptierten Vorbestellungen prüfen wir jede Minute ob der Losfahr-Zeitpunkt
+// erreicht ist (= pickupTimestamp - drivingTimeToPickup - 1 Min Puffer) und schicken
+// EINMAL pro Ride einen FCM-Push type=departure_alert an das zugewiesene Fahrzeug.
+// Native-App vibriert dann (kein Ringtone — Patrick will keinen Doppel-Sound).
+// ═══════════════════════════════════════════════════════════════
+exports.scheduledDepartureAlert = onSchedule(
+    {
+        schedule: 'every 1 minutes',
+        region: 'europe-west1',
+        timeoutSeconds: 60,
+        memory: '256MiB'
+    },
+    async (event) => {
+        try {
+            const now = Date.now();
+            // Nur Rides im Fenster der nächsten 6h — alles weiter weg ist nicht 'gleich losfahren'
+            const horizon = now + 6 * 60 * 60 * 1000;
+            const ridesSnap = await db.ref('rides')
+                .orderByChild('pickupTimestamp')
+                .startAt(now)
+                .endAt(horizon)
+                .once('value');
+            if (!ridesSnap.val()) return;
+
+            let alerted = 0;
+            const updates = {};
+
+            ridesSnap.forEach(child => {
+                const ride = child.val();
+                const rideId = child.key;
+                // Nur akzeptierte Vorbestellungen
+                if (ride.status !== 'accepted') return;
+                if (ride.departureAlertSent) return;
+                const pickupTs = ride.pickupTimestamp;
+                if (!pickupTs || pickupTs <= now) return;
+                const vehicleId = ride.assignedVehicle || ride.vehicleId;
+                if (!vehicleId) return;
+                // Fahrtdauer zum Kunden — wenn fehlt: Default 15 Min (konservativ vor Pickup)
+                const driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
+                    ? ride.drivingTimeToPickup : 15;
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 60_000; // 1 Min Puffer
+                // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 90s
+                // (90s damit wir 1 Tick verpassen koennen ohne den Alert zu verlieren)
+                if (now < losfahrtAt) return;
+                if (now > losfahrtAt + 90_000) {
+                    // Schon vorbei — Flag aber setzen damit wir's nicht ewig prüfen
+                    updates[`rides/${rideId}/departureAlertSent`] = true;
+                    return;
+                }
+                // Match — Push raus + Flag
+                const payload = {
+                    type: 'departure_alert',
+                    rideId,
+                    customerName: ride.customerName || 'Kunde',
+                    pickup: ride.pickup || ride.pickupAddress || '',
+                    pickupTime: ride.pickupTime || ''
+                };
+                sendFCMToVehicle(vehicleId, payload).then(ok => {
+                    if (ok) console.log(`🚨 Departure-Alert FCM gesendet fuer ${rideId} → ${vehicleId}`);
+                }).catch(_e => {});
+                updates[`rides/${rideId}/departureAlertSent`] = true;
+                updates[`rides/${rideId}/departureAlertSentAt`] = now;
+                alerted++;
+            });
+
+            if (Object.keys(updates).length > 0) {
+                await db.ref().update(updates);
+            }
+            if (alerted > 0) console.log(`🚨 scheduledDepartureAlert: ${alerted} Alerts dispatched`);
+        } catch (e) {
+            console.error('❌ scheduledDepartureAlert Fehler:', e.message);
+        }
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════
 // 🚕 ONLINE-TRIGGER — v6.40.34
 // Reagiert innerhalb Sekunden wenn ein Fahrzeug online geht.
 // Sucht unzugewiesene Sofort-Fahrten und weist sie zu.

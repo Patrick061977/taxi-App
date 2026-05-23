@@ -913,6 +913,17 @@ async function autoAssignRide(rideId, rideData) {
             // gegeben — siehe Ghost-Fall 17.05.).
             const _isShiftActive = _vData.shift && _vData.shift.status === 'active';
 
+            // 🆕 v6.62.897 (Patrick 23.05. 15:07): forceEnded ist HARD BLOCK.
+            // 'Warum wird der Renault Traffic immer noch zugewiesen?' Patrick hat
+            //  die Schicht beendet, Dariusz' Handy schreibt aber per Heartbeat
+            //  shift.status='active' zurueck → ohne diesen Check faellt das System
+            //  drauf rein. forceEnded ist das Admin-Override und MUSS ueberprueft werden.
+            if (_vData.shift && _vData.shift.forceEnded === true) {
+                console.log(`   ❌ ${info.name}: Schicht von Admin forciert beendet (forceEnded=true)`);
+                vehicleScores[vehicleId] = { status: 'rejected', reason: 'Schicht durch Admin beendet (forceEnded)', check: 'forceEnded' };
+                continue;
+            }
+
             if (isSofort) {
                 // Sofortfahrt — nur live aktive Schicht zählt
                 if (!_isShiftActive) {
@@ -20259,6 +20270,12 @@ exports.scheduledAutoAssign = onSchedule(
                 if (_vehData.active === false || _vehData.deactivated === true) {
                     const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
                     console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} ist DEAKTIVIERT → umplanen!`);
+                    return true;
+                }
+                // 🆕 v6.62.897 (Patrick 23.05. 15:07): forceEnded auch → umplanen.
+                if (_vehData.shift && _vehData.shift.forceEnded === true) {
+                    const vName = (OFFICIAL_VEHICLES[vid]||{}).name || vid;
+                    console.log(`🔄 scheduledAutoAssign: ${r.customerName || r.firebaseId} — ${vName} hat shift.forceEnded → umplanen!`);
                     return true;
                 }
 

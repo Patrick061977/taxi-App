@@ -96,14 +96,30 @@ public class CallRecordingsActivity extends AppCompatActivity {
         //   Patrick: 'ich muss die Fahrten ja loeschen koennen damit das nicht ueberquillt'.
         //   Einzel-Loeschen via Samsung Owner-Lock unzuverlaessig — Bulk loescht in einem Rutsch
         //   mit allen 6 Strategien pro Datei + zeigt eine Erfolgs-Statistik am Ende.
-        android.widget.Button btnBulkDelete = new android.widget.Button(this);
-        btnBulkDelete.setText("🗑️ Alle aelter als 30 Tage löschen");
-        btnBulkDelete.setTextColor(0xFFef4444);
-        btnBulkDelete.setOnClickListener(v -> confirmBulkDeleteOlderThan30Days());
+        // 🆕 v6.62.895 (Patrick 23.05. 14:54): Bulk-Verstecken statt Bulk-Loeschen
+        //   (zuverlaessig auf Samsung). Datei bleibt, wird aber nicht mehr angezeigt.
+        android.widget.Button btnBulkHide = new android.widget.Button(this);
+        btnBulkHide.setText("👁️ Alle aelter als 30 Tage verstecken");
+        btnBulkHide.setTextColor(0xFF6b7280);
+        btnBulkHide.setOnClickListener(v -> confirmBulkHideOlderThan30Days());
         LinearLayout.LayoutParams bulkLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         bulkLp.setMargins(dp(16), 0, dp(16), dp(8));
-        btnBulkDelete.setLayoutParams(bulkLp);
-        root.addView(btnBulkDelete);
+        btnBulkHide.setLayoutParams(bulkLp);
+        root.addView(btnBulkHide);
+
+        // Versteckte einblenden
+        android.widget.Button btnShowHidden = new android.widget.Button(this);
+        btnShowHidden.setText("🔓 Versteckte einblenden");
+        btnShowHidden.setTextColor(0xFF6b7280);
+        btnShowHidden.setOnClickListener(v -> {
+            _showHidden = !_showHidden;
+            btnShowHidden.setText(_showHidden ? "🔒 Versteckte ausblenden" : "🔓 Versteckte einblenden");
+            scanRecordings();
+        });
+        LinearLayout.LayoutParams sh = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        sh.setMargins(dp(16), 0, dp(16), dp(8));
+        btnShowHidden.setLayoutParams(sh);
+        root.addView(btnShowHidden);
 
         permHint = new TextView(this);
         permHint.setPadding(dp(16), dp(16), dp(16), dp(16));
@@ -201,7 +217,37 @@ public class CallRecordingsActivity extends AppCompatActivity {
         return p.replaceAll("[^0-9+]", "");
     }
 
+    // 🆕 v6.62.895 (Patrick 23.05. 14:54): Verstecken-Set aus SharedPreferences.
+    //   Echtes Loeschen klappt nicht zuverlaessig auf Samsung S9+. 'Verstecken' filtert
+    //   die m4a-Datei aus der Liste raus (Datei bleibt im Speicher, ACR Phone verwaltet das).
+    private java.util.Set<String> _hiddenRecordingPaths = new java.util.HashSet<>();
+    private boolean _showHidden = false;
+
+    private void loadHiddenSet() {
+        try {
+            String json = getSharedPreferences("acr_recordings", MODE_PRIVATE).getString("hidden_paths", "[]");
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            _hiddenRecordingPaths.clear();
+            for (int i = 0; i < arr.length(); i++) _hiddenRecordingPaths.add(arr.getString(i));
+        } catch (Throwable _t) { _hiddenRecordingPaths.clear(); }
+    }
+    private void saveHiddenSet() {
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray();
+            for (String p : _hiddenRecordingPaths) arr.put(p);
+            getSharedPreferences("acr_recordings", MODE_PRIVATE).edit().putString("hidden_paths", arr.toString()).apply();
+        } catch (Throwable _t) {}
+    }
+    private void hideRecording(Recording r) {
+        if (r == null || r.file == null) return;
+        _hiddenRecordingPaths.add(r.file.getAbsolutePath());
+        saveHiddenSet();
+        adapter.removeRecording(r);
+        Toast.makeText(this, "👁️ Versteckt — Datei bleibt im Speicher", Toast.LENGTH_SHORT).show();
+    }
+
     private void scanRecordings() {
+        loadHiddenSet();
         if (!ACR_ROOT.exists() || !ACR_ROOT.isDirectory()) {
             header.setText("ACR-Ordner nicht gefunden:\n" + ACR_ROOT.getAbsolutePath());
             progress.setVisibility(View.GONE);
@@ -238,6 +284,8 @@ public class CallRecordingsActivity extends AppCompatActivity {
                                 long ts;
                                 try { ts = Long.parseLong(m.group(3)); } catch (Exception e) { continue; }
                                 if (ts < cutoff) continue;
+                                // 🆕 v6.62.895: Versteckte Dateien rausfiltern (es sei denn _showHidden=true)
+                                if (!_showHidden && _hiddenRecordingPaths.contains(f.getAbsolutePath())) continue;
                                 Recording r = new Recording();
                                 r.file = f;
                                 r.phone = m.group(1);
@@ -439,20 +487,37 @@ public class CallRecordingsActivity extends AppCompatActivity {
             root.addView(btnCrm);
         }
 
+        // 🆕 v6.62.895 (Patrick 23.05. 14:54): Verstecken-Button (zuverlaessig, anders als Loeschen)
+        android.widget.Button btnHide = new android.widget.Button(this);
+        btnHide.setText("👁️ Aufnahme verstecken");
+        btnHide.setTextColor(0xFF6b7280);
+        btnHide.setOnClickListener(v -> {
+            hideRecording(r);
+            // Detail-Dialog schliessen
+            try {
+                if (currentDetailDialog != null) { currentDetailDialog.dismiss(); currentDetailDialog = null; }
+            } catch (Throwable _t) {}
+            int total = adapter.getItemCount();
+            header.setText(total + " Aufnahmen (letzte 90 Tage)");
+        });
+        root.addView(btnHide);
+
         // v6.62.862 (Patrick 22.05. 15:32): "wie kann ich die Anrufliste löschen" — Lösch-Button
         // unten im Detail-Dialog. Mit Bestätigungs-Dialog vor dem tatsächlichen Delete.
         android.widget.Button btnDelete = new android.widget.Button(this);
-        btnDelete.setText("🗑️ Aufnahme löschen");
+        btnDelete.setText("🗑️ Aufnahme löschen (riskant — Samsung Owner-Lock)");
         btnDelete.setTextColor(0xFFef4444);
         btnDelete.setOnClickListener(v -> confirmDeleteRecording(r));
         root.addView(btnDelete);
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        currentDetailDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setView(root)
             .setNegativeButton("Schliessen", (d, w) -> stopPlayback())
-            .setOnDismissListener(d -> stopPlayback())
+            .setOnDismissListener(d -> { stopPlayback(); currentDetailDialog = null; })
             .show();
     }
+
+    private androidx.appcompat.app.AlertDialog currentDetailDialog = null;
 
     // v6.62.862: Aufnahme löschen — File von /sdcard/ACRCalls/ACRPhone/.../*.m4a entfernen
     // v6.62.884 (Patrick 23.05. 06:51): "Berechtigung fehlt" — Android 11+ braucht
@@ -578,6 +643,68 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private String msToTime(int ms) {
         int s = ms / 1000;
         return String.format(Locale.GERMAN, "%02d:%02d", s/60, s%60);
+    }
+
+    // 🆕 v6.62.895 (Patrick 23.05. 14:54): Bulk-Verstecken (zuverlaessig).
+    private void confirmBulkHideOlderThan30Days() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Alle Aufnahmen > 30 Tage verstecken?")
+            .setMessage("Alle ACR-Aufnahmen aelter als 30 Tage werden aus der Liste versteckt. Die Dateien bleiben im Speicher (kannst du ueber 'Versteckte einblenden' jederzeit wiederholen).\n\nWeiter?")
+            .setPositiveButton("Ja, verstecken", (d, w) -> runBulkHideOlderThan30Days())
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private void runBulkHideOlderThan30Days() {
+        stopPlayback();
+        loadHiddenSet();
+        final long cutoff = System.currentTimeMillis() - 30L * 24L * 3600L * 1000L;
+        new Thread(() -> {
+            int found = 0, hidden = 0;
+            if (!ACR_ROOT.exists()) {
+                runOnUiThread(() -> Toast.makeText(this, "ACR-Ordner nicht gefunden", Toast.LENGTH_LONG).show());
+                return;
+            }
+            java.util.regex.Pattern fileRe = java.util.regex.Pattern.compile("^(\\+?\\d+)-(\\d)-(\\d+)\\.m4a$");
+            File[] years = ACR_ROOT.listFiles();
+            if (years == null) { runOnUiThread(() -> Toast.makeText(this, "Keine Dateien", Toast.LENGTH_LONG).show()); return; }
+            for (File year : years) {
+                if (!year.isDirectory()) continue;
+                File[] months = year.listFiles(); if (months == null) continue;
+                for (File month : months) {
+                    if (!month.isDirectory()) continue;
+                    File[] days = month.listFiles(); if (days == null) continue;
+                    for (File day : days) {
+                        if (!day.isDirectory()) continue;
+                        File[] phoneDirs = day.listFiles(); if (phoneDirs == null) continue;
+                        for (File phoneDir : phoneDirs) {
+                            if (!phoneDir.isDirectory()) continue;
+                            File[] files = phoneDir.listFiles(); if (files == null) continue;
+                            for (File f : files) {
+                                if (!f.isFile()) continue;
+                                java.util.regex.Matcher m = fileRe.matcher(f.getName());
+                                if (!m.matches()) continue;
+                                long ts;
+                                try { ts = Long.parseLong(m.group(3)); } catch (Exception e) { continue; }
+                                if (ts >= cutoff) continue;
+                                found++;
+                                String path = f.getAbsolutePath();
+                                if (!_hiddenRecordingPaths.contains(path)) {
+                                    _hiddenRecordingPaths.add(path);
+                                    hidden++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            saveHiddenSet();
+            final int _found = found, _hid = hidden;
+            runOnUiThread(() -> {
+                Toast.makeText(this, "👁️ " + _hid + " versteckt (von " + _found + " >30 Tage)", Toast.LENGTH_LONG).show();
+                scanRecordings();
+            });
+        }).start();
     }
 
     // 🆕 v6.62.892: Bulk-Loesch von ACR-Aufnahmen aelter als 30 Tage.

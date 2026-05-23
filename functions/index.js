@@ -20849,6 +20849,65 @@ exports.onAnfrageCreated = onValueCreated(
         } catch (e) {
             console.error('onAnfrageCreated Geocode/Augment-Fehler:', e.message);
         }
+
+        // 🆕 v6.62.896 (Patrick 23.05. 15:00): Auto-CRM-Anlage bei Web-Anfragen.
+        // 'Telefonnummer von Vanessa Remane wird nicht erkannt → Eintrag wird nicht
+        //  im CRM angelegt → SMS-Anrede ohne Name. Wenn ich erst manuell CRM anlege,
+        //  klappt es.'
+        // Logik: Wenn anfrage.phone vorhanden und nicht schon in /customers → CRM-Eintrag
+        // anlegen + customerId in Anfrage zurueckschreiben (damit Ride dieselbe nutzt).
+        try {
+            const _phoneRaw = (anfrage.phone || '').trim();
+            if (_phoneRaw && (anfrage.name || '').trim()) {
+                const _phoneNorm = _phoneRaw.replace(/[^0-9+]/g, '');
+                // Suche in /customers nach gleicher Phone (alle Felder)
+                const _allCustSnap = await db.ref('customers').once('value');
+                let _matchedId = null;
+                _allCustSnap.forEach(cs => {
+                    if (_matchedId) return;
+                    const c = cs.val() || {};
+                    const candidates = [c.phone, c.mobilePhone, c.mobile, c.phone1, c.phone2, c.phone3];
+                    if (c.additionalPhones) {
+                        if (Array.isArray(c.additionalPhones)) candidates.push(...c.additionalPhones);
+                        else candidates.push(...Object.values(c.additionalPhones));
+                    }
+                    for (const p of candidates) {
+                        if (!p) continue;
+                        const np = String(typeof p === 'string' ? p : (p && p.phone) || '').replace(/[^0-9+]/g, '');
+                        if (np && np === _phoneNorm) { _matchedId = cs.key; return true; }
+                    }
+                });
+                if (!_matchedId) {
+                    // Neuanlage
+                    const newRef = db.ref('customers').push();
+                    const _name = anfrage.name.trim();
+                    const _firstName = _name.split(/\s+/).slice(0, -1).join(' ') || _name;
+                    const _lastName = _name.split(/\s+/).pop() || '';
+                    const _isMobile = /^(\+49|0)1[5-7]/.test(_phoneNorm.replace(/\s/g, ''));
+                    const _newCust = {
+                        name: _name,
+                        firstName: _firstName,
+                        lastName: _lastName,
+                        phone: _isMobile ? '' : _phoneRaw,
+                        mobilePhone: _isMobile ? _phoneRaw : '',
+                        email: anfrage.email || '',
+                        customerKind: 'gelegenheitskunde',
+                        createdAt: Date.now(),
+                        createdBy: 'cloud-onAnfrageCreated-auto-' + anfrageId,
+                        source: 'web-anfrage-' + (anfrage.channel || 'web')
+                    };
+                    await newRef.set(_newCust);
+                    _matchedId = newRef.key;
+                    console.log(`👤 v6.62.896 Auto-CRM angelegt fuer ${_name} (${_phoneRaw}) → ${_matchedId}`);
+                }
+                // CustomerId in der Anfrage zurueckschreiben (Native-Uebernahme nimmt sie mit)
+                if (_matchedId && _matchedId !== anfrage.customerId) {
+                    await db.ref(`anfragen/${anfrageId}/customerId`).set(_matchedId);
+                }
+            }
+        } catch (e) {
+            console.error('onAnfrageCreated Auto-CRM-Fehler:', e.message);
+        }
     }
 );
 

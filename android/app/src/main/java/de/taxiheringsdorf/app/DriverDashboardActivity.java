@@ -3329,7 +3329,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   losfahrtAt (gleicher Zeitpunkt wie Departure-Vibration).
                 long _driveMin = (r.drivingTimeToPickup != null && r.drivingTimeToPickup > 0)
                     ? r.drivingTimeToPickup : 15;
-                long _bufferUntilDeparture = _driveMin + 5;
+                long _bufferUntilDeparture = _driveMin + 10;
                 boolean acceptedFernerTermin = isAccepted && r.pickupTimestamp != null
                     && _minBisPickup > _bufferUntilDeparture;
                 if (acceptedFernerTermin) {

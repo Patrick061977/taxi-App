@@ -24772,7 +24772,7 @@ exports.scheduledDepartureAlert = onSchedule(
                     ? ride.drivingTimeToPickup : 15;
                 // v6.62.886 (Patrick 23.05. 08:03): 'Trigger ist zu knapp dran, fuenf Minuten
                 // bevor man es nicht mehr schafft.' → 5 Min Vorlauf statt 1 Min.
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 5 * 60_000;
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 10 * 60_000;
                 // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
                 // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;

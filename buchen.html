@@ -2916,6 +2916,11 @@
                 const slotTime = hourVal + ':' + String(roundedMin).padStart(2, '0');
                 _selectedSlot = slotTime + '_' + dateVal;
                 _slotCalendarDate = dateVal;
+                // 🆕 v6.62.906 (Patrick 24.05. 08:30): 'Warum steht da Zeitslot waehlen wenn ich
+                //   den schon ausgewaehlt habe?' Wenn Patrick Datum+Zeit direkt eingegeben hat,
+                //   ist _selectedSlot oben schon gesetzt — _slotIsFree default true machen, wird
+                //   spaeter im Timeline-Render korrigiert wenn der Slot blockiert ist.
+                _slotIsFree = true;
                 // Tag-Tab aktiv setzen
                 document.querySelectorAll('.day-tab').forEach(t => {
                     t.classList.toggle('active', t._dateStr === dateVal);

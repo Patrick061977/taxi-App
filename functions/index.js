@@ -24951,7 +24951,22 @@ exports.scheduledDepartureAlert = onSchedule(
                     pickupTime: ride.pickupTime || ''
                 };
                 sendFCMToVehicle(vehicleId, payload).then(ok => {
-                    if (ok) console.log(`🚨 Departure-Alert FCM gesendet fuer ${rideId} → ${vehicleId}`);
+                    if (ok) {
+                        console.log(`🚨 Departure-Alert FCM gesendet fuer ${rideId} → ${vehicleId}`);
+                        // 🆕 v6.62.907 (Patrick 24.05. 08:43): Eigenes Lifecycle-Log-Entry damit
+                        //   Patrick im Verlauf sehen kann ob/wann der Losfahr-Push gesendet wurde.
+                        try {
+                            addRideLog(rideId, '🚨', `Losfahr-Alarm (Vibration) gesendet an ${vehicleId}`, {
+                                vehicleId, type: 'departure_alert', losfahrtAt: new Date(losfahrtAt).toISOString(),
+                                pickupAt: new Date(pickupTs).toISOString(), driveMin
+                            }).catch(()=>{});
+                        } catch(_) {}
+                    } else {
+                        console.warn(`⚠️ Departure-Alert FCM FEHLGESCHLAGEN fuer ${rideId} → ${vehicleId}`);
+                        try {
+                            addRideLog(rideId, '⚠️', `Losfahr-Alarm FCM FEHLGESCHLAGEN an ${vehicleId}`, { vehicleId, type: 'departure_alert' }).catch(()=>{});
+                        } catch(_) {}
+                    }
                 }).catch(_e => {});
                 updates[`rides/${rideId}/departureAlertSent`] = true;
                 updates[`rides/${rideId}/departureAlertSentAt`] = now;

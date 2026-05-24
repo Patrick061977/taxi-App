@@ -338,6 +338,21 @@ public class TaxiFCMService extends FirebaseMessagingService {
         String pickupTime = data.getOrDefault("pickupTime", "");
         int notificationId = NOTIFICATION_ID_BASE + 5000 + (rideId != null ? rideId.hashCode() & 0x3FFF : 0);
 
+        // 🆕 v6.62.907 (Patrick 24.05. 08:43): Audit-Trail ins Lifecycle-Log damit Patrick
+        //   im Verlauf sieht ob der Losfahr-Push empfangen wurde.
+        if (rideId != null && !rideId.isEmpty()) {
+            try {
+                java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("t", System.currentTimeMillis());
+                entry.put("icon", "🚨");
+                entry.put("action", "Losfahr-Alarm EMPFANGEN am Handy");
+                entry.put("source", "🤖 Native v" + de.taxiheringsdorf.app.BuildConfig.VERSION_NAME);
+                entry.put("device", android.os.Build.MODEL);
+                com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app")
+                    .getReference("rides/" + rideId + "/lifecycleLog").push().setValue(entry);
+            } catch (Throwable _logErr) { Log.w(TAG, "Departure-Lifecycle-Log Fehler: " + _logErr.getMessage()); }
+        }
+
         Intent appIntent = new Intent(this, DriverDashboardActivity.class);
         appIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (rideId != null) appIntent.putExtra("rideId", rideId);

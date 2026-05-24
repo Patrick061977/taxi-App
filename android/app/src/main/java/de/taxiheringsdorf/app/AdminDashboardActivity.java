@@ -429,6 +429,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 4, 0, "🌐 Web-Disposition (Timeline + Drag&Drop)");
         // v6.62.828 (Patrick 22.05. 14:48): Lokale ACR-Phone Aufnahmen
         p.getMenu().add(0, 5, 0, "🎙️ Anruf-Aufnahmen");
+        // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge
+        p.getMenu().add(0, 6, 0, "🚗 Fahrzeug-Status (Live)");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -467,6 +469,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 startActivity(new Intent(this, CallRecordingsActivity.class));
                 return true;
             }
+            if (item.getItemId() == 6) {
+                // 🆕 v6.62.909: Live-Schichtstatus-Modal
+                showFleetStatusDialog();
+                return true;
+            }
             if (item.getItemId() == 1) {
                 getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", false).apply();
                 startActivity(new Intent(this, VehiclePickerActivity.class));
@@ -494,6 +501,104 @@ public class AdminDashboardActivity extends AppCompatActivity {
     //   kann ich Places-Autocomplete + Stecknadel benutzen." Statt eigener String-Dialog
     //   launch'en wir die CrmSearchActivity mit auto_template_ride_id-Extra, die laedt
     //   dann die volle Ride als Template + zeigt die polierte showVorbestellungMaske.
+    // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge.
+    //   Patrick: 'jeder so sieht welches Fahrzeug zurzeit aktiv ist'. Schritt 1
+    //   nur Anzeige — Editor kommt spaeter (v6.62.910+).
+    private void showFleetStatusDialog() {
+        com.google.firebase.database.FirebaseDatabase fdb;
+        try { fdb = com.google.firebase.database.FirebaseDatabase.getInstance("https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app"); }
+        catch (Throwable _t) { Toast.makeText(this, "Firebase nicht erreichbar", Toast.LENGTH_LONG).show(); return; }
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(20, 24, 20, 12);
+        TextView loading = new TextView(this);
+        loading.setText("⏳ Lade Fahrzeuge…");
+        loading.setTextColor(0xFF94a3b8);
+        loading.setPadding(0, 16, 0, 16);
+        container.addView(loading);
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(container);
+        androidx.appcompat.app.AlertDialog d = new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🚗 Fahrzeug-Status (Live)")
+            .setView(sv)
+            .setNegativeButton("Schliessen", null)
+            .show();
+
+        fdb.getReference("vehicles").addListenerForSingleValueEvent(new com.google.firebase.database.ValueEventListener() {
+            @Override public void onDataChange(@NonNull com.google.firebase.database.DataSnapshot snap) {
+                container.removeView(loading);
+                long now = System.currentTimeMillis();
+                int rendered = 0;
+                for (com.google.firebase.database.DataSnapshot c : snap.getChildren()) {
+                    String vid = c.getKey();
+                    Object plate = c.child("plate").getValue();
+                    Object name = c.child("name").getValue();
+                    Object currentDriver = c.child("currentDriverName").getValue();
+                    Object online = c.child("online").getValue();
+                    Object shiftStatus = c.child("shift/status").getValue();
+                    Boolean forceEnded = (Boolean) c.child("shift/forceEnded").getValue();
+                    Object lastUpdate = c.child("lastUpdate").getValue();
+                    long lastUpdateMs = (lastUpdate instanceof Number) ? ((Number) lastUpdate).longValue() : 0;
+                    long ageSec = lastUpdateMs > 0 ? (now - lastUpdateMs) / 1000 : -1;
+
+                    String emoji; int bg, fg;
+                    boolean isActive = "active".equals(shiftStatus) && Boolean.TRUE.equals(online);
+                    boolean isPaused = "active".equals(shiftStatus) && !Boolean.TRUE.equals(online);
+                    boolean isForceEnded = Boolean.TRUE.equals(forceEnded);
+                    if (isForceEnded) { emoji = "🚪"; bg = 0xFFfde2e2; fg = 0xFF991b1b; }
+                    else if (isActive) { emoji = "🟢"; bg = 0xFFd1fae5; fg = 0xFF065f46; }
+                    else if (isPaused) { emoji = "🟡"; bg = 0xFFfef3c7; fg = 0xFF78350f; }
+                    else { emoji = "🔴"; bg = 0xFFf3f4f6; fg = 0xFF374151; }
+
+                    LinearLayout row = new LinearLayout(AdminDashboardActivity.this);
+                    row.setOrientation(LinearLayout.VERTICAL);
+                    row.setBackgroundColor(bg);
+                    row.setPadding(16, 12, 16, 12);
+                    LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    rl.setMargins(0, 0, 0, 10);
+                    row.setLayoutParams(rl);
+                    TextView title = new TextView(AdminDashboardActivity.this);
+                    String _name = name != null ? name.toString() : vid;
+                    String _plate = plate != null ? plate.toString() : "";
+                    title.setText(emoji + "  " + _name + (!_plate.isEmpty() ? " (" + _plate + ")" : ""));
+                    title.setTextColor(fg);
+                    title.setTextSize(15);
+                    title.setTypeface(null, android.graphics.Typeface.BOLD);
+                    row.addView(title);
+
+                    if (currentDriver != null && !currentDriver.toString().isEmpty()) {
+                        TextView drv = new TextView(AdminDashboardActivity.this);
+                        drv.setText("👤 " + currentDriver);
+                        drv.setTextColor(fg);
+                        drv.setTextSize(13);
+                        row.addView(drv);
+                    }
+
+                    String stStr = isForceEnded ? "Schicht beendet (Admin)" : (
+                        isActive ? "Aktiv im Dienst" : (isPaused ? "Pause" : "Ausser Dienst"));
+                    TextView st = new TextView(AdminDashboardActivity.this);
+                    st.setText("⚙️ " + stStr + (ageSec >= 0 ? " · GPS vor " + (ageSec < 60 ? ageSec + " sec" : (ageSec / 60) + " min") : ""));
+                    st.setTextColor(fg);
+                    st.setTextSize(12);
+                    row.addView(st);
+
+                    container.addView(row);
+                    rendered++;
+                }
+                if (rendered == 0) {
+                    TextView none = new TextView(AdminDashboardActivity.this);
+                    none.setText("Keine Fahrzeuge gefunden.");
+                    none.setTextColor(0xFF94a3b8);
+                    container.addView(none);
+                }
+            }
+            @Override public void onCancelled(@NonNull com.google.firebase.database.DatabaseError err) {
+                loading.setText("⚠️ Fehler: " + err.getMessage());
+            }
+        });
+    }
+
     private void showRepeatPastRideDialog(Ride r) {
         String msg = "Diese Fahrt als neue Vorbestellung anlegen?\n\n"
             + (r.customerName != null ? r.customerName : "?") + "\n"

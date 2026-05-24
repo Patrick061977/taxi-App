@@ -1441,7 +1441,9 @@
 
             const phoneVariants = getPhoneVariants(verifiedPhone);
 
-            ridesListener = db.ref('rides').on('value', snapshot => {
+            // v6.62.920 (Patrick 24.05.): limitToLast(200) statt ALL (1500+ rides). Kunden brauchen
+            // sowieso nur ihre letzten ~10-20 Fahrten — 200 ist mehr als grosszuegig und spart ~85% Bytes.
+            ridesListener = db.ref('rides').orderByChild('createdAt').limitToLast(200).on('value', snapshot => {
                 const allRides = snapshot.val() || {};
                 customerRides = [];
 

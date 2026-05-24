@@ -525,8 +525,12 @@ public class CallRecordingsActivity extends AppCompatActivity {
     //   Permission muss MANUELL in Settings aktiviert werden (kein normaler Permission-
     //   Request möglich). Wir leiten den User dorthin.
     private void confirmDeleteRecording(Recording r) {
-        // Prüfen ob MANAGE_EXTERNAL_STORAGE erteilt — wenn nicht, Settings-Intent öffnen
+        // 🆕 v6.62.899 (Patrick 24.05. 07:20): Permission-Check je nach Android-Version.
+        //   Patrick's S9+ hat Android 8.0 (API 26) — MANAGE_EXTERNAL_STORAGE existiert dort
+        //   NICHT. WRITE_EXTERNAL_STORAGE ist Pflicht. ADB-Shell rm hat bewiesen dass die
+        //   Datei loeschbar IST, also ist es ein App-Permission-Problem.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: MANAGE_EXTERNAL_STORAGE (Settings-Intent)
             if (!Environment.isExternalStorageManager()) {
                 new androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("🔓 Berechtigung fehlt")
@@ -538,16 +542,20 @@ public class CallRecordingsActivity extends AppCompatActivity {
                                 android.net.Uri.parse("package:" + getPackageName()));
                             startActivity(i);
                         } catch (Exception e) {
-                            // Fallback: generelle MANAGE_ALL_FILES Liste
-                            try {
-                                startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-                            } catch (Exception _e) {
-                                Toast.makeText(this, "Einstellungen → Apps → Funk Taxi → Berechtigungen → 'Alle Dateien verwalten' AN", Toast.LENGTH_LONG).show();
-                            }
+                            try { startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)); }
+                            catch (Exception _e) { Toast.makeText(this, "Einstellungen → Apps → Funk Taxi → Berechtigungen → 'Alle Dateien verwalten' AN", Toast.LENGTH_LONG).show(); }
                         }
                     })
-                    .setNegativeButton("Abbrechen", null)
-                    .show();
+                    .setNegativeButton("Abbrechen", null).show();
+                return;
+            }
+        } else {
+            // Android 10 und aelter: WRITE_EXTERNAL_STORAGE Runtime-Permission
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{ android.Manifest.permission.WRITE_EXTERNAL_STORAGE }, 9988);
+                Toast.makeText(this, "Bitte 'Speicher' erlauben + nochmal Loeschen tippen", Toast.LENGTH_LONG).show();
                 return;
             }
         }

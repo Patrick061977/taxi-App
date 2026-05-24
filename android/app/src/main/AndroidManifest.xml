@@ -231,4 +231,11 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- 🆕 v6.62.899 (Patrick 24.05. 07:20): Patrick hat S9+ mit Android 8.0 / API 26.
+         MANAGE_EXTERNAL_STORAGE existiert erst ab API 30 → auf Android 8 ist es WIRKUNGSLOS.
+         WRITE_EXTERNAL_STORAGE ist das Aequivalent unter API 30 — ohne das kann die App
+         keine ACR-m4a-Dateien loeschen. ADB-Shell-rm funktioniert problemlos (Shell-User ist
+         in sdcard_rw-Gruppe). -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
 </manifest>

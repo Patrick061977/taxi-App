@@ -745,7 +745,10 @@
         <!-- 🔧 v6.62.710: Wann-Card OBEN wiederhergestellt. Patrick (14.05. 10:16):
              "Sofort ist nicht oben sondern unten — die Leute muessen nach oben sehen wenn
              sie buchen wollen". v6.62.704 hatte den Toggle versteckt nach unten verschoben. -->
-        <div class="card" id="wann-card" style="padding:12px;">
+        <div class="card" id="wann-card" style="padding:12px;position:relative;">
+            <!-- 🆕 v6.62.911 (Patrick 24.05. 09:45): X-Close-Button oben rechts.
+                 Wenn User fertig ist mit Editieren → tippt X → Card schliesst + zeigt Compact-Badge mit aktuellen Werten. -->
+            <button id="wann-card-close" onclick="closeWannCard()" style="display:none;position:absolute;top:8px;right:8px;width:32px;height:32px;padding:0;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:50%;cursor:pointer;font-size:16px;color:#475569;line-height:1;z-index:5;" title="Schliessen">✕</button>
 <div class="input-group" style="margin-bottom:0;">
                 <label style="margin-bottom:6px;">🕐 Wann?</label>
                 <div class="wann-toggle" id="wann-toggle">
@@ -1577,6 +1580,28 @@
             }
             if (wannCard) wannCard.style.display = 'none';
             if (compact) compact.style.display = 'flex';
+        }
+
+        // 🆕 v6.62.911 (Patrick 24.05. 09:45): X-Close-Button schliesst Wann-Card sauber.
+        //   Nach Editing tippt User auf X → Wann-Card weg + Compact-Badge zeigt aktuelle Werte.
+        function closeWannCard() {
+            const wannCard = document.getElementById('wann-card');
+            const compact = document.getElementById('termin-compact');
+            const compactText = document.getElementById('termin-compact-text');
+            const closeBtn = document.getElementById('wann-card-close');
+            const dV = (document.getElementById('b-date')?.value || '').trim();
+            const tV = (document.getElementById('b-time')?.value || '').trim();
+            if (compactText && dV && tV) {
+                try {
+                    const d = new Date(dV + 'T00:00:00');
+                    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                    const dayLabel = dayNames[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
+                    compactText.textContent = `📅 ${dayLabel} um ${tV} Uhr · Tippen zum Aendern`;
+                } catch(_) { compactText.textContent = `📅 ${dV} ${tV} · Tippen zum Aendern`; }
+            }
+            if (wannCard) wannCard.style.display = 'none';
+            if (compact && dV && tV) compact.style.display = 'flex';
+            if (closeBtn) closeBtn.style.display = 'none';
         }
 
         // 🆕 v6.41.66: Felder wieder ausklappen (über Termin-Chip oder Karten-Badge)
@@ -2658,6 +2683,9 @@
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
+                // 🆕 v6.62.911: X-Close-Button auf Wann-Card aktivieren (nur bei Vorbest)
+                const _closeBtn = document.getElementById('wann-card-close');
+                if (_closeBtn) _closeBtn.style.display = 'block';
                 // 🆕 v6.62.902 (Patrick 24.05. 08:07 — Flow-Umkehr): 'bei buchen erscheint keine zeit'.
                 //   Alter Code von v6.62.877 wollte 'erst Adressen, dann Zeit' — Patrick hat seine
                 //   Meinung geaendert: 'der flow muss passen' → erst ZEIT, dann Adressen.

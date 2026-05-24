@@ -2589,6 +2589,30 @@
             // 🆕 v6.41.71: Wann-Card IMMER wieder sichtbar machen (war ggf. durch collapseVorbestellFelder versteckt)
             const wannCard = document.getElementById('wann-card');
             if (wannCard) wannCard.style.display = '';
+
+            // 🆕 v6.62.901 (Patrick 24.05. 08:02): Vorbestellungs-Flow umdrehen — erst Zeit, DANN Adressen.
+            // Patrick: 'der flow muss passen'. Bei Vorbestellung erst Zeit-Eingabe sichtbar, Adressen+Karte
+            // erst NACH gewaehltem Datum/Zeit. Bei Sofort: alles wie bisher (Adressen+Karte gleich sichtbar).
+            const _pickupDestCard = document.getElementById('pickup-dest-card');
+            const _liveTaxiCard = document.getElementById('live-taxi-card');
+            const _dateVal = (document.getElementById('b-date')?.value || '').trim();
+            const _timeVal = (document.getElementById('b-time')?.value || '').trim();
+            const _hasTime = !!(_dateVal && _timeVal);
+            if (mode === 'vorbestellen' && !_hasTime) {
+                // Vorbestellung gewählt, aber noch keine Zeit → Adressen + Karte verstecken
+                if (_pickupDestCard) _pickupDestCard.style.display = 'none';
+                if (_liveTaxiCard) _liveTaxiCard.style.display = 'none';
+            } else {
+                // Sofort ODER Vorbestellung mit Zeit → Adressen-Card sichtbar
+                if (_pickupDestCard) _pickupDestCard.style.display = '';
+                // Karte: bei Sofort immer, bei Vorbest mit Zeit erst wenn Route da
+                if (_liveTaxiCard) {
+                    if (mode === 'sofort') _liveTaxiCard.style.display = '';
+                    else if (routeData) _liveTaxiCard.style.display = '';
+                    else _liveTaxiCard.style.display = 'none';
+                }
+            }
+
             const felder = document.getElementById('vorbestellen-felder');
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {

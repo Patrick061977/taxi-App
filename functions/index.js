@@ -20298,6 +20298,21 @@ exports.scheduledAutoAssign = onSchedule(
                     return true; // Inkonsistente Daten → immer umplanen
                 }
 
+                // 🆕 v6.62.913 (Patrick 24.05. 09:53): 10-Min-Heartbeat-Grace.
+                //   Patrick: 'du kannst nicht jedes Mal wenn ich ein Update mache die Schichten
+                //   umverteilen. Fahrer muss mind. 10 Min offline sein.'
+                //   Wenn vehicle.shift.lastHeartbeat < 10 Min alt ist → Fahrer hat nur kurz
+                //   die App neu gestartet, kommt gleich wieder. KEINE Umverteilung.
+                if (_vehData.shift && _vehData.shift.lastHeartbeat) {
+                    const _hbAgeMin = (Date.now() - _vehData.shift.lastHeartbeat) / 60_000;
+                    if (_hbAgeMin < 10) {
+                        // Fahrer ist 'online genug' — Heartbeat vor weniger als 10 Min
+                        // → Nicht umplanen, auch wenn shift.status temporaer falsch ist.
+                        // (Skip alle weiteren Umplanungs-Checks unten ausser Inkonsistenz)
+                        return false;
+                    }
+                }
+
                 // 🔧 v6.38.27: Vier-Augen-Prinzip — zwei unabhängige Prüfungen
                 const _check1 = isVehicleInShift(vid, shiftsData, pickupDateStr, pickupTimeStr);
                 const _check2 = verifyVehicleShiftIndependent(vid, shiftsData, pickupDateStr, pickupTimeStr);
@@ -20480,6 +20495,18 @@ exports.scheduledAutoAssign = onSchedule(
                     const _vDataForceEnded = (vehiclesData[vehicleId] || {}).shift;
                     if (_vDataForceEnded && _vDataForceEnded.forceEnded === true) {
                         console.log(`   ❌ ${info.name}: shift.forceEnded=true (Admin-Block)`);
+                        continue;
+                    }
+                    // 🆕 v6.62.913 (Patrick 24.05. 09:53): assignmentBlacklist UND rejectedVehicles
+                    //   respektieren. Patrick: 'selbst wenn ich Ablehnen druecke wird trotzdem
+                    //   permanent geschossen.' rideAction-reject schreibt rejectedVehicles[]
+                    //   (existierend seit v6.62.248) — wir MUESSEN das hier respektieren.
+                    if (Array.isArray(ride.assignmentBlacklist) && ride.assignmentBlacklist.includes(vehicleId)) {
+                        console.log(`   ❌ ${info.name}: in assignmentBlacklist`);
+                        continue;
+                    }
+                    if (Array.isArray(ride.rejectedVehicles) && ride.rejectedVehicles.includes(vehicleId)) {
+                        console.log(`   ❌ ${info.name}: in rejectedVehicles (Fahrer hat abgelehnt)`);
                         continue;
                     }
                     // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung

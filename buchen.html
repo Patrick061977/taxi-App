@@ -1580,11 +1580,20 @@
         }
 
         // 🆕 v6.41.66: Felder wieder ausklappen (über Termin-Chip oder Karten-Badge)
+        // 🆕 v6.62.910 (Patrick 24.05. 09:41): Toggle-Verhalten — wenn Wann-Card schon offen,
+        //   beim erneuten Klick wieder collapsen. So kann Patrick den Termin-Overlay/Badge
+        //   nutzen um zwischen 'Termin-View' und 'Termin-Edit' zu togglen.
         function expandVorbestellFelder() {
             const wannCard = document.getElementById('wann-card');
             const felder = document.getElementById('vorbestellen-felder');
             const kalender = document.getElementById('vorbestellen-kalender');
             const compact = document.getElementById('termin-compact');
+            // Toggle: wenn schon offen → wieder zumachen
+            if (wannCard && wannCard.style.display !== 'none') {
+                wannCard.style.display = 'none';
+                if (compact) compact.style.display = 'flex';
+                return;
+            }
             if (wannCard) wannCard.style.display = '';
             if (felder) felder.style.display = 'flex';
             if (kalender && routeData) kalender.style.display = '';

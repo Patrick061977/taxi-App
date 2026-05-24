@@ -543,6 +543,9 @@ public class CrmSearchActivity extends AppCompatActivity {
     //   steckt (Duplikat-Bug Hotel "Das Ahlbeck" 5x → soll stattdessen die Nummer am
     //   bestehenden Kunden ergaenzt werden).
     private String _callerPhoneForVorbestellung = null;
+    // 🆕 v6.62.915: Neukunden-Anrede + Kunden-Typ Spinners (in showVorbestellungMaske gesetzt)
+    private android.widget.Spinner _newCustAnredeSpinner = null;
+    private android.widget.Spinner _newCustKindSpinner = null;
 
     private void _maybeAutoOpenVorbestellung() {
         if (getIntent() == null) return;
@@ -1431,6 +1434,26 @@ public class CrmSearchActivity extends AppCompatActivity {
             tvNewCustHdr.setTextColor(0xFF0F172A);
             tvNewCustHdr.setPadding(0, padHalf, 0, padHalf / 2);
             layout.addView(tvNewCustHdr);
+
+            // 🆕 v6.62.915 (Patrick 24.05. 10:30): Anrede-Spinner (Herr/Frau)
+            //   + Kunden-Typ-Spinner (Gelegenheitskunde/Stammkunde/Hotel/Firma/Klinik).
+            //   Wird beim CRM-Auto-Anlegen mitgespeichert. Anrede wird in SMS-Bestaetigungen
+            //   genutzt ('Sehr geehrter Herr X' statt 'Hallo X').
+            android.widget.Spinner spAnrede = new android.widget.Spinner(this);
+            String[] _anredeOpts = { "(keine Anrede)", "Herr", "Frau" };
+            android.widget.ArrayAdapter<String> _anredeAd = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, _anredeOpts);
+            _anredeAd.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spAnrede.setAdapter(_anredeAd);
+            layout.addView(spAnrede);
+            _newCustAnredeSpinner = spAnrede;
+
+            android.widget.Spinner spKind = new android.widget.Spinner(this);
+            String[] _kindOpts = { "Gelegenheitskunde", "Stammkunde", "Hotel", "Firma", "Klinik" };
+            android.widget.ArrayAdapter<String> _kindAd = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, _kindOpts);
+            _kindAd.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spKind.setAdapter(_kindAd);
+            layout.addView(spKind);
+            _newCustKindSpinner = spKind;
 
             etName = new EditText(this);
             etName.setHint("👤 Name (Pflicht)");
@@ -2539,9 +2562,27 @@ public class CrmSearchActivity extends AppCompatActivity {
                             }
                         }
                         if (!_newCustEmail.isEmpty()) custData.put("email", _newCustEmail);
-                        custData.put("customerKind", "gelegenheitskunde");
+                        // 🆕 v6.62.915 (Patrick 24.05. 10:30): Anrede + Kunden-Typ aus Spinnern lesen
+                        try {
+                            if (_newCustAnredeSpinner != null) {
+                                int pos = _newCustAnredeSpinner.getSelectedItemPosition();
+                                if (pos == 1) custData.put("anrede", "Herr");
+                                else if (pos == 2) custData.put("anrede", "Frau");
+                            }
+                            String _kindStr = "gelegenheitskunde";
+                            if (_newCustKindSpinner != null) {
+                                String _selected = String.valueOf(_newCustKindSpinner.getSelectedItem()).toLowerCase();
+                                if (_selected.startsWith("stamm")) _kindStr = "stammkunde";
+                                else if (_selected.startsWith("hotel")) _kindStr = "hotel";
+                                else if (_selected.startsWith("firma")) _kindStr = "firma";
+                                else if (_selected.startsWith("klinik")) _kindStr = "klinik";
+                            }
+                            custData.put("customerKind", _kindStr);
+                        } catch (Throwable _spErr) {
+                            custData.put("customerKind", "gelegenheitskunde");
+                        }
                         custData.put("createdAt", now);
-                        custData.put("createdVia", "native-vorbest-quick-add-v802");
+                        custData.put("createdVia", "native-vorbest-quick-add-v915");
                         String _newCustKey = FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers").push().getKey();
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + _newCustKey).setValue(custData)
                             .addOnSuccessListener(_v2 -> {

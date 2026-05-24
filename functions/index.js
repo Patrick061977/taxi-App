@@ -573,13 +573,25 @@ function getShiftInfoDetailed(vehicleId, shiftsData, dateStr, timeStr) {
 async function sendFCMToAdmins(payload) {
     try {
         const snap = await db.ref('adminFcmTokens').once('value');
+        // 🆕 v6.62.908 (Patrick 24.05. 09:13): 'Stille Admins' — User die als Fahrer aktiv
+        //   sind wollen KEINE Admin-Pushes mehr (kein new_anfrage, kein new_web_booking).
+        //   /settings/silentAdminTokens[] enthaelt deviceIds die ausgenommen werden.
+        let silentDeviceIds = [];
+        try {
+            const _silentSnap = await db.ref('settings/silentAdminTokens').once('value');
+            const _v = _silentSnap.val();
+            if (Array.isArray(_v)) silentDeviceIds = _v;
+            else if (_v && typeof _v === 'object') silentDeviceIds = Object.values(_v);
+        } catch (_) {}
         const tokens = [];
         snap.forEach(c => {
             const t = c.val();
-            if (t && t.token) tokens.push({ deviceId: c.key, token: t.token, label: t.label || '?' });
+            if (t && t.token && !silentDeviceIds.includes(c.key)) {
+                tokens.push({ deviceId: c.key, token: t.token, label: t.label || '?' });
+            }
         });
         if (tokens.length === 0) {
-            console.log('📵 sendFCMToAdmins: Keine Admin-Tokens registriert');
+            console.log('📵 sendFCMToAdmins: Keine Admin-Tokens registriert (oder alle silent)');
             return 0;
         }
         const data = Object.fromEntries(Object.entries(payload || {}).map(([k, v]) => [k, String(v == null ? '' : v)]));
@@ -22183,20 +22195,30 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📢 onRideCreated: Sende Admin-Benachrichtigung für ${rideId}...`);
         let _adminNotifResult = 'unbekannt';
-        try {
-            // 🔧 v6.38.45: Admin-Chat-IDs loggen damit man sieht WER benachrichtigt wurde
-            const _adminChatsSnap = await db.ref('settings/telegram/adminChats').once('value');
-            const _rawAdmChats = _adminChatsSnap.val();
-            const _admChatList = Array.isArray(_rawAdmChats) ? _rawAdmChats : (typeof _rawAdmChats === 'object' && _rawAdmChats !== null ? Object.values(_rawAdmChats) : (_rawAdmChats ? [_rawAdmChats] : []));
-
-            await sendToAllAdmins(message, 'new_ride');
-            _adminNotifResult = `gesendet an ${_admChatList.length} Admin(s): ${_admChatList.join(', ')}`;
-            console.log(`✅ onRideCreated: Admin-Benachrichtigung gesendet für ${rideId} an ${_admChatList.length} Admins`);
-        } catch (_notifErr) {
-            _adminNotifResult = `FEHLER: ${_notifErr.message}`;
-            console.error(`❌ onRideCreated: sendToAllAdmins FEHLER für ${rideId}:`, _notifErr.message, _notifErr.stack);
+        // 🆕 v6.62.908 (Patrick 24.05. 09:15): Admin-Push nur fuer Web-Quellen,
+        //   NICHT fuer manuell erstellte Vorbestellungen (Native-Admin/Telegram-Admin).
+        //   Patrick: 'Warum kam von Frau Wonka jetzt ein Push? Den brauche ich nicht.
+        //   Web-Anfrage ist okay'. → Admin der die Fahrt SELBST anlegt sieht sie eh,
+        //   braucht keine doppelte Notification.
+        const _webOrAnfrageSources = ['web-booking', 'qr-aufsteller', 'web-anfrage', 'berlin-shuttle-anfrage', 'whatsapp', 'sms-anfrage'];
+        const _isFromWebOrAnfrage = _webOrAnfrageSources.includes(ride.source);
+        if (_isFromWebOrAnfrage) {
+            try {
+                const _adminChatsSnap = await db.ref('settings/telegram/adminChats').once('value');
+                const _rawAdmChats = _adminChatsSnap.val();
+                const _admChatList = Array.isArray(_rawAdmChats) ? _rawAdmChats : (typeof _rawAdmChats === 'object' && _rawAdmChats !== null ? Object.values(_rawAdmChats) : (_rawAdmChats ? [_rawAdmChats] : []));
+                await sendToAllAdmins(message, 'new_ride');
+                _adminNotifResult = `gesendet an ${_admChatList.length} Admin(s): ${_admChatList.join(', ')}`;
+                console.log(`✅ onRideCreated: Admin-Push gesendet für ${rideId} (source=${ride.source})`);
+            } catch (_notifErr) {
+                _adminNotifResult = `FEHLER: ${_notifErr.message}`;
+                console.error(`❌ onRideCreated: sendToAllAdmins FEHLER für ${rideId}:`, _notifErr.message);
+            }
+            await sendToSystemChannel(message, 'new_ride');
+        } else {
+            _adminNotifResult = `SKIP — source=${ride.source} (kein Web/Anfrage, vermutlich manuell)`;
+            console.log(`⏭️ onRideCreated: Admin-Push SKIP für ${rideId} — source=${ride.source} (manuell erstellt, kein Push noetig)`);
         }
-        await sendToSystemChannel(message, 'new_ride');
 
         // 🆕 v6.38.96: WhatsApp-Bestätigung an Web-Kunden
         if (ride.source === 'web-booking' && ride.customerPhone) {

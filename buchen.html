@@ -1540,6 +1540,14 @@
         function collapseVorbestellFelder() {
             if (wannModus !== 'vorbestellen') return;
             if (!_slotIsFree || !_selectedSlot) return;
+            // 🆕 v6.62.903 (Patrick 24.05. 08:13): 'Zeit verschwindet wenn ich Datum eingestellt habe'.
+            //   Wann-Card NIE collapsen solange b-time leer ODER Adressen fehlen — Patrick muss
+            //   die Uhrzeit + Adressen aktiv eingeben koennen. Auto-Collapse nur wenn ALLE Daten
+            //   da sind (Datum + Zeit + beide Adressen).
+            const _tVal = (document.getElementById('b-time')?.value || '').trim();
+            const _dVal = (document.getElementById('b-date')?.value || '').trim();
+            if (!_tVal || !_dVal) return;
+            if (!pickupCoords || !destCoords) return;
             const wannCard = document.getElementById('wann-card');
             if (wannCard) wannCard.style.display = 'none';
             // Compact-Streifen brauchen wir auch nicht mehr — Termin-Badge ist auf der Karte
@@ -2860,6 +2868,12 @@
             // Gewählte Zeit aus Dropdowns holen und passenden Slot markieren
             const dateVal = document.getElementById('b-date').value;
             const timeVal = document.getElementById('b-time').value;
+            // 🆕 v6.62.903 (Patrick 24.05. 08:13): Sobald Zeit gesetzt (Vorbestellungs-Modus)
+            //   → Adressen-Card einblenden (vorher versteckt durch setWann).
+            if (wannModus === 'vorbestellen' && dateVal && timeVal) {
+                const _pdCard = document.getElementById('pickup-dest-card');
+                if (_pdCard) _pdCard.style.display = '';
+            }
             // 🚑 v6.62.473: NUR weiter wenn Uhrzeit explizit gesetzt ist (Patrick: 'Zeit wird
             //   gar nicht abgefragt'). hour/minute-Selects sind hidden und können stale Defaults
             //   haben — wir verwenden b-time als Single Source of Truth.

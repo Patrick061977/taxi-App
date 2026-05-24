@@ -20674,6 +20674,36 @@ exports.scheduledAutoAssign = onSchedule(
                     }
                 }
 
+                // 🆕 v6.62.900 (Patrick 24.05. 07:46): Atomic Re-Read VOR der Zuweisung.
+                // 'Wenn die Fahrt erl ist, ist die erledigt' — Patrick hat sich aufgeregt weil
+                // scheduledAutoAssign eine completed Ride trotzdem zugewiesen + Push raus hatte.
+                // Race: Zwischen allRides-Load und assign-Schritt kann sich die Ride aendern.
+                // Defense: nochmal frisch lesen + Status pruefen.
+                try {
+                    const _freshSnap = await db.ref('rides/' + rideId).once('value');
+                    const _freshRide = _freshSnap.val();
+                    if (!_freshRide) {
+                        console.log(`   ⏭️ ${rideId}: in DB nicht mehr vorhanden — skip Zuweisung`);
+                        continue;
+                    }
+                    const _freshStatus = (_freshRide.status || '').toLowerCase();
+                    if (['completed','cancelled','storniert','cancelled_pending_driver','deleted','on_way','picked_up','arrived','accepted'].includes(_freshStatus)) {
+                        console.log(`   ⏭️ ${rideId}: status='${_freshStatus}' (frisch gelesen) — skip Zuweisung + Push`);
+                        continue;
+                    }
+                    if (_freshRide.assignedVehicle || _freshRide.vehicleId) {
+                        console.log(`   ⏭️ ${rideId}: schon ${_freshRide.assignedVehicle || _freshRide.vehicleId} zugewiesen (frisch) — skip`);
+                        continue;
+                    }
+                    if (_freshRide.selfDriven === true) {
+                        console.log(`   ⏭️ ${rideId}: selfDriven=true — skip Auto-Zuweisung`);
+                        continue;
+                    }
+                } catch (_freshErr) {
+                    console.warn(`   ⚠️ Atomic Re-Read Fehler ${rideId}:`, _freshErr.message);
+                    // Bei Fehler trotzdem weiter — besser als hard fail
+                }
+
                 // Fahrzeug zuweisen
                 vehicleScores[bestCandidate.vehicleId].status = 'chosen';
                 const bestInfo = OFFICIAL_VEHICLES[bestCandidate.vehicleId] || {};
@@ -21017,23 +21047,65 @@ exports.onAnfrageStatusChanged = onValueUpdated(
 
             const _smsText = `Funk Taxi Heringsdorf: ${_anrede}, Ihre Vorbestellung${_zeit} (${_pickup} → ${_dest}${_pax}${_preis}) ist bei uns angekommen und bestaetigt.${_veh} Bei Fragen 038378 22022.`;
 
-            await db.ref('smsQueue').push({
-                phone: phone,
-                text: _smsText,
-                rideId: after.rideId || null,
-                anfrageId: anfrageId,
-                category: 'anfrage-uebernahme-bestaetigung',
-                createdAt: Date.now(),
-                createdBy: 'cloud-onAnfrageStatusChanged-v6.62.850'
-            });
-            await db.ref(`anfragen/${anfrageId}`).update({
-                smsSent: true,
-                smsSentAt: Date.now(),
-                smsSentBy: 'cloud-onAnfrageStatusChanged-v6.62.850'
-            });
-            console.log(`📲 v6.62.850 Anfrage-Bestaetigungs-SMS an ${phone} fuer Anfrage ${anfrageId} (rideId ${after.rideId})`);
+            // 🆕 v6.62.900 (Patrick 24.05. 07:41): Channel-respektierende Bestaetigung.
+            // 'Bei Web-Anfrage per WhatsApp oder Email — Bestaetigung ueber gleiches Medium senden.'
+            // Logik:
+            //   anfrage.channel='email' → personalMailQueue mit anfrage.email
+            //   anfrage.channel='whatsapp' → smsQueue mit metadata.whatsapp=true (Native-SMS-Gateway koennte
+            //     spaeter auch WhatsApp-Intent triggern, aktuell faellt es auf SMS zurueck)
+            //   anfrage.channel='web' / default → smsQueue (wie bisher)
+            const _channel = (after.channel || '').toLowerCase();
+            const _email = (after.email || '').trim();
+            if (_channel === 'email' && _email) {
+                // Email-Bestaetigung
+                const _emailBody = `Sehr geehrte/r ${_name},\n\n` +
+                    `vielen Dank fuer Ihre Reservierung — wir bestaetigen Ihnen den Transfer:\n\n` +
+                    (after.date ? `  Datum:    ${after.date.split('-').reverse().join('.')}\n` : '') +
+                    (after.time ? `  Pickup:   ${after.time} Uhr\n` : '') +
+                    `  Von:      ${_pickup}\n` +
+                    `  Nach:     ${_dest}\n` +
+                    (after.passengers ? `  Personen: ${after.passengers}\n` : '') +
+                    (after.price ? `  Preis:    ca. ${String(after.price).replace('?', '€')}\n` : '') +
+                    (_vehicleName ? `\nFahrzeug ${_vehicleName} wird Sie abholen.\n` : '') +
+                    `\nBei Fragen erreichen Sie uns unter 038378/22022.\n\n` +
+                    `Mit freundlichen Gruessen\nPatrick Wydra\nFunk Taxi Heringsdorf`;
+                await db.ref('personalMailQueue').push({
+                    to: _email,
+                    subject: `Bestaetigung Ihrer Taxi-Buchung${_zeit}`,
+                    text: _emailBody,
+                    status: 'approved',
+                    createdAt: Date.now(),
+                    source: 'cloud-onAnfrageStatusChanged-v6.62.900-channel-email',
+                    rideId: after.rideId || null,
+                    anfrageId: anfrageId
+                });
+                await db.ref(`anfragen/${anfrageId}`).update({
+                    confirmSent: true, confirmChannel: 'email',
+                    confirmSentAt: Date.now(), confirmSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900'
+                });
+                console.log(`📧 v6.62.900 Anfrage-Bestaetigungs-EMAIL an ${_email} fuer Anfrage ${anfrageId}`);
+            } else {
+                // SMS (Default + WhatsApp-Channel — letzter faellt auf SMS zurueck bis WhatsApp-Bot live ist)
+                await db.ref('smsQueue').push({
+                    phone: phone,
+                    text: _smsText,
+                    rideId: after.rideId || null,
+                    anfrageId: anfrageId,
+                    category: 'anfrage-uebernahme-bestaetigung',
+                    createdAt: Date.now(),
+                    createdBy: 'cloud-onAnfrageStatusChanged-v6.62.900',
+                    channel: _channel || 'web',
+                    asWhatsapp: _channel === 'whatsapp'
+                });
+                await db.ref(`anfragen/${anfrageId}`).update({
+                    smsSent: true, smsSentAt: Date.now(),
+                    smsSentBy: 'cloud-onAnfrageStatusChanged-v6.62.900',
+                    confirmChannel: _channel === 'whatsapp' ? 'whatsapp-via-sms' : 'sms'
+                });
+                console.log(`📲 v6.62.900 Anfrage-Bestaetigungs-SMS an ${phone} (channel=${_channel}) fuer Anfrage ${anfrageId}`);
+            }
         } catch (e) {
-            console.error('onAnfrageStatusChanged SMS-Fehler:', e.message);
+            console.error('onAnfrageStatusChanged Bestaetigungs-Fehler:', e.message);
         }
     }
 );

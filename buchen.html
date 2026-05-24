@@ -2617,38 +2617,18 @@
             const kalender = document.getElementById('vorbestellen-kalender');
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
-                // v6.62.877 (Patrick 22.05. 18:56): "erst Abholort+Zielort, DANN Zeit".
-                // Datum/Uhrzeit-Felder erst zeigen wenn beide Adressen gesetzt sind.
-                // Sonst Hinweis-Banner.
-                const hasAdressen = !!(pickupCoords && destCoords);
-                if (hasAdressen) {
-                    felder.style.display = 'flex';
-                    initDateTimePickers();
-                    const adrHint = document.getElementById('vorbestellen-adr-hint');
-                    if (adrHint) adrHint.style.display = 'none';
-                } else {
-                    felder.style.display = 'none';
-                    // Hinweis erzeugen wenn nicht da
-                    let adrHint = document.getElementById('vorbestellen-adr-hint');
-                    if (!adrHint) {
-                        adrHint = document.createElement('div');
-                        adrHint.id = 'vorbestellen-adr-hint';
-                        adrHint.style.cssText = 'background:#fef3c7;border:2px solid #fde68a;padding:14px;border-radius:10px;margin-top:10px;color:#78350f;font-weight:600;text-align:center;';
-                        adrHint.textContent = '👇 Bitte erst Abholort + Zielort unten eintragen, dann erscheint die Zeit-Auswahl hier.';
-                        felder.parentElement.insertBefore(adrHint, felder);
-                    } else {
-                        adrHint.style.display = 'block';
-                    }
-                    // Scroll runter zum Buchen-Block
-                    setTimeout(() => {
-                        const pickup = document.getElementById('b-pickup');
-                        if (pickup) pickup.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
-                }
+                // 🆕 v6.62.902 (Patrick 24.05. 08:07 — Flow-Umkehr): 'bei buchen erscheint keine zeit'.
+                //   Alter Code von v6.62.877 wollte 'erst Adressen, dann Zeit' — Patrick hat seine
+                //   Meinung geaendert: 'der flow muss passen' → erst ZEIT, dann Adressen.
+                //   Datum/Uhrzeit-Felder JETZT SOFORT sichtbar wenn Vorbestellen aktiv.
+                felder.style.display = 'flex';
+                initDateTimePickers();
+                // Alten 'erst-Adressen'-Hint wenn vorhanden ausblenden
+                const adrHint = document.getElementById('vorbestellen-adr-hint');
+                if (adrHint) adrHint.style.display = 'none';
                 // Kalender erst zeigen wenn Route berechnet ist
-                if (routeData && hasAdressen) {
+                if (routeData && pickupCoords && destCoords) {
                     kalender.style.display = '';
-                    initDateTimePickers();
                     initSlotCalendar();
                 } else {
                     kalender.style.display = 'none';

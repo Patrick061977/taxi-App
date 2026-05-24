@@ -20461,6 +20461,15 @@ exports.scheduledAutoAssign = onSchedule(
 
                 for (const [vehicleId, info] of Object.entries(OFFICIAL_VEHICLES)) {
                     if (info.capacity < passengers) continue;
+                    // 🆕 v6.62.898 (Patrick 24.05. 06:43 Recurrence): forceEnded HARD BLOCK
+                    //   im scheduledAutoAssign Candidate-Filter. Bug: v6.62.897 hatte den
+                    //   Check nur in scoreVehicle (anderer Code-Pfad), nicht in dieser Loop.
+                    //   Hofses 8.8./15.8. wurde trotz shift.forceEnded weiter pw-sk-222 zugewiesen.
+                    const _vDataForceEnded = (vehiclesData[vehicleId] || {}).shift;
+                    if (_vDataForceEnded && _vDataForceEnded.forceEnded === true) {
+                        console.log(`   ❌ ${info.name}: shift.forceEnded=true (Admin-Block)`);
+                        continue;
+                    }
                     // 🔧 v6.38.27: Vier-Augen-Prinzip bei Zuweisung
                     const _sc1 = isVehicleInShift(vehicleId, shiftsData, dateStr, timeStr);
                     const _sc2 = verifyVehicleShiftIndependent(vehicleId, shiftsData, dateStr, timeStr);
@@ -21447,6 +21456,8 @@ exports.scheduledDispatcherTips = onSchedule(
                     const info = OFFICIAL_VEHICLES[vid];
                     if (!info) continue;
                     if ((info.capacity || 4) < (r.passengers || 1)) continue;
+                    // 🆕 v6.62.898: forceEnded HARD BLOCK
+                    if ((vehiclesData[vid] || {}).shift && vehiclesData[vid].shift.forceEnded === true) continue;
 
                     // Bereits im Dienst zur Pickup-Zeit → Schicht-Lücke trifft nicht zu (anderes Problem)
                     if (isVehicleInShift(vid, shiftsData, dateStr, pickupTimeStr)) continue;
@@ -25310,6 +25321,11 @@ exports.scheduledLateCheck = onSchedule(
                     }
                     if (!isVehicleInShift(altVid, shiftsData, dateStr, timeStr)) {
                         altCheckResults.push({ vid: altVid, skipReason: 'not in shift' });
+                        continue;
+                    }
+                    // 🆕 v6.62.898: forceEnded HARD BLOCK (auch bei Late-Rescue)
+                    if ((vehiclesData[altVid] || {}).shift && vehiclesData[altVid].shift.forceEnded === true) {
+                        altCheckResults.push({ vid: altVid, skipReason: 'forceEnded' });
                         continue;
                     }
                     // Override IGNORIEREN — bypassEnabled=true (default)

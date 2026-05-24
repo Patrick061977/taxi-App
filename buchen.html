@@ -851,7 +851,7 @@
             <div class="card-title" style="margin-bottom:10px;">📍 Wohin solls gehen?</div>
             <div class="input-group">
                 <label>📍 Abholort</label>
-                <input type="text" id="b-pickup" placeholder="Stecknadel drücken oder Abholort eintippen" autocomplete="off" style="padding-left:14px;padding-right:70px;">
+                <input type="text" id="b-pickup" placeholder="Stecknadel drücken oder Abholort eintippen" autocomplete="off" onfocus="maybeCollapseWannCardOnPickupFocus()" style="padding-left:14px;padding-right:70px;">
                 <button onclick="clearAddressField('pickup')" title="Abholort löschen" style="position:absolute;right:48px;top:28px;width:28px;height:28px;padding:0;background:#f1f5f9;border:none;border-radius:50%;cursor:pointer;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;">✕</button>
                 <button class="gps-btn" onclick="useGPS('pickup')" title="Standort per Stecknadel setzen">📍</button>
                 <div class="autocomplete-dropdown" id="b-pickup-dropdown"></div>
@@ -1553,6 +1553,30 @@
             // Compact-Streifen brauchen wir auch nicht mehr — Termin-Badge ist auf der Karte
             const compact = document.getElementById('termin-compact');
             if (compact) compact.style.display = 'none';
+        }
+
+        // 🆕 v6.62.904 (Patrick 24.05. 08:20): 'Wenn Abholort angeklickt wird kann Zeitfenster
+        //   nach oben verschwinden — Bildschirm frei machen, nicht blockiert'.
+        //   Wann-Card collapsen + termin-compact-Streifen zeigen (klickbar zum Expand).
+        //   Bedingung: Datum + Zeit muessen schon gesetzt sein, sonst hat User noch nichts.
+        function maybeCollapseWannCardOnPickupFocus() {
+            if (wannModus !== 'vorbestellen') return;
+            const dV = (document.getElementById('b-date')?.value || '').trim();
+            const tV = (document.getElementById('b-time')?.value || '').trim();
+            if (!dV || !tV) return;
+            const wannCard = document.getElementById('wann-card');
+            const compact = document.getElementById('termin-compact');
+            const compactText = document.getElementById('termin-compact-text');
+            if (compactText) {
+                try {
+                    const d = new Date(dV + 'T00:00:00');
+                    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                    const dayLabel = dayNames[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
+                    compactText.textContent = `📅 ${dayLabel} um ${tV} Uhr · Tippen zum Ändern`;
+                } catch(_) { compactText.textContent = `📅 ${dV} ${tV} · Tippen zum Ändern`; }
+            }
+            if (wannCard) wannCard.style.display = 'none';
+            if (compact) compact.style.display = 'flex';
         }
 
         // 🆕 v6.41.66: Felder wieder ausklappen (über Termin-Chip oder Karten-Badge)

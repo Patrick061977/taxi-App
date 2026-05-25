@@ -1579,6 +1579,35 @@ async function autoAssignRide(rideId, rideData) {
             });
         }
 
+        // 🆕 v6.62.921 (Patrick 25.05. 07:53): Bei Vorbestellungs-Zuweisung SOFORT FCM-Push
+        //   an Fahrer-Native — analog zu scheduledAutoAssign-Pfad. Sofortfahrten erhalten
+        //   den FCM via onRideUpdated wenn status='assigned' wechselt. Vorbestellungen
+        //   bleiben auf status='vorbestellt' bis kurz vor Pickup — daher hier expliziter
+        //   FCM-Push direkt bei Zuweisung.
+        if (!isSofort && best.vehicleId) {
+            try {
+                await sendFCMToVehicle(best.vehicleId, {
+                    type: 'new_ride',
+                    isReminder: 'false',
+                    rideId,
+                    customerName: rideData.customerName || '?',
+                    pickup: rideData.pickup || '',
+                    destination: rideData.destination || '',
+                    pickupTime: rideData.pickupTime || timeStr,
+                    pickupTimestamp: String(rideData.pickupTimestamp || ''),
+                    assignedBy: 'cloud-auto-assign'
+                });
+                await addRideLog(rideId, '📲', `FCM-Push neue Vorbestellung an ${best.name} (sofort bei Zuweisung)`, {
+                    fahrzeug: best.name,
+                    vehicleId: best.vehicleId,
+                    quelle: 'autoAssignRide-direct-FCM',
+                    version: 'v6.62.921'
+                });
+            } catch (fcmErr) {
+                console.error(`❌ v6.62.921 Vorbest-FCM-Push fail:`, fcmErr.message);
+            }
+        }
+
         best.drivingTimeMin = drivingTimeMin;
         return best;
     } catch (err) {
@@ -20815,6 +20844,38 @@ exports.scheduledAutoAssign = onSchedule(
                     `Score: ${bestScore} | Leerfahrt: ${bestDrivingTime} Min`;
                 await sendToAllAdmins(autoAssignMsg);
                 await sendToSystemChannel(autoAssignMsg, 'auto_assign');
+
+                // 🆕 v6.62.921 (Patrick 25.05. 07:53): Bei Vorbestellungs-Zuweisung SOFORT
+                //   FCM-Push an Fahrer-Native — nicht erst beim 7-15-Min-Reminder.
+                //   Vorher kam der Push erst wenn die Cloud-Function die Status-Transition
+                //   vorbestellt→assigned kurz vor Pickup gemacht hat. Patrick: "Push muss
+                //   schon kommen wenn die Fahrt in die Native-App auflaeuft" — sprich:
+                //   beim assignedAt-Zeitpunkt (also jetzt).
+                //   Sofortfahrten: erhalten den FCM via onRideUpdated wenn Status='assigned'
+                //   wechselt — dort schon vorhanden. Hier brauchen wir den Vorbest-Pfad.
+                if (!isSofort && bestCandidate.vehicleId) {
+                    try {
+                        await sendFCMToVehicle(bestCandidate.vehicleId, {
+                            type: 'new_ride',
+                            isReminder: 'false',
+                            rideId,
+                            customerName: ride.customerName || '?',
+                            pickup: ride.pickup || '',
+                            destination: ride.destination || '',
+                            pickupTime: ride.pickupTime || timeStr,
+                            pickupTimestamp: String(ride.pickupTimestamp || ''),
+                            assignedBy: 'cloud-scheduled-auto-assign'
+                        });
+                        await addRideLog(rideId, '📲', `FCM-Push neue Vorbestellung an ${bestCandidate.name} (sofort bei Zuweisung)`, {
+                            fahrzeug: bestCandidate.name,
+                            vehicleId: bestCandidate.vehicleId,
+                            quelle: 'scheduledAutoAssign-direct-FCM',
+                            version: 'v6.62.921'
+                        });
+                    } catch (fcmErr) {
+                        console.error(`❌ v6.62.921 Vorbest-FCM-Push fail:`, fcmErr.message);
+                    }
+                }
             }
 
             // v6.61.2: Wartezeit-Schätzung für noch-unzugewiesene Fahrten aktualisieren.

@@ -19979,10 +19979,17 @@ exports.scheduledAutoAssign = onSchedule(
 
             // 🆕 v6.38.46: STALE-VEHICLE-CLEANUP — Fahrzeuge ohne GPS-Update > 15 Min offline setzen
             // 🔧 v6.38.50 BUG-13 FIX: NIEMALS Fahrzeuge löschen die auf aktiver Fahrt sind!
-            // Sammle alle aktiven Fahrten vorab
+            // 🆕 v6.62.946 (Patrick 25.05. 18:14 'OK' fuer Cost-Detox):
+            //   Vorher: db.ref('rides').once('value') = ALLE rides (5-15 MB pro Call ×144/Tag).
+            //   Jetzt: nur status in [on_way, picked_up, assigned, accepted] queries.
+            //   Spart ~1-2 GB/Tag Daueraufschlag, hat aber dieselbe Funktionalitaet
+            //   (wir brauchen die _hasActiveRide-Liste fuer Schutz-Check unten).
             const _allRidesForCleanup = [];
-            const _ridesSnapCleanup = await db.ref('rides').once('value');
-            if (_ridesSnapCleanup.exists()) _ridesSnapCleanup.forEach(c => { const r = c.val(); if (r) { r._id = c.key; _allRidesForCleanup.push(r); } });
+            const _activeStatusesForCleanup = ['on_way', 'picked_up', 'assigned', 'accepted'];
+            await Promise.all(_activeStatusesForCleanup.map(async (st) => {
+                const _snap = await db.ref('rides').orderByChild('status').equalTo(st).once('value');
+                if (_snap.exists()) _snap.forEach(c => { const r = c.val(); if (r) { r._id = c.key; _allRidesForCleanup.push(r); } });
+            }));
 
             const STALE_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minuten
             for (const [vid, vData] of Object.entries(vehiclesData)) {
@@ -23259,16 +23266,29 @@ exports.onRideUpdated = onValueUpdated(
             //   Vehicle-Feld activeRideStatus synchronisieren — Kollegen-Karte
             //   (fahrer-map.html) liest das fuer die Marker-Farbe + Popup. Vorher
             //   wurde es NIRGENDS gesetzt → alle Marker zeigten 'Frei'.
+            // 🆕 v6.62.946 (Patrick 25.05. 18:14 Cost-Detox): Diff-Check + atomares update().
+            //   Vorher: zwei .set() Calls pro Status-Change × jeder Status-Change
+            //   → bei 7 Status-Steps pro Fahrt (sofort→assigned→accepted→on_way→arrived
+            //   →picked_up→completed) = 14 Writes pro Fahrt. Jetzt: ein update() mit Diff-Check.
             try {
                 const _vidForStatus = after.assignedVehicle || after.vehicleId;
                 if (_vidForStatus) {
                     if (['accepted', 'on_way', 'arrived', 'picked_up', 'assigned'].includes(newStatus)) {
-                        await db.ref(`vehicles/${_vidForStatus}/activeRideStatus`).set(newStatus);
-                        await db.ref(`vehicles/${_vidForStatus}/activeRideId`).set(rideId);
+                        const _curSnap = await db.ref(`vehicles/${_vidForStatus}`).child('activeRideStatus').once('value');
+                        if (_curSnap.val() !== newStatus) {
+                            const _upd = {};
+                            _upd[`vehicles/${_vidForStatus}/activeRideStatus`] = newStatus;
+                            _upd[`vehicles/${_vidForStatus}/activeRideId`] = rideId;
+                            await db.ref().update(_upd);
+                        }
                     } else if (['completed', 'cancelled', 'storniert', 'deleted'].includes(newStatus)) {
-                        // Fahrt fertig → Vehicle ist wieder frei
-                        await db.ref(`vehicles/${_vidForStatus}/activeRideStatus`).remove();
-                        await db.ref(`vehicles/${_vidForStatus}/activeRideId`).remove();
+                        const _curSnap = await db.ref(`vehicles/${_vidForStatus}`).child('activeRideStatus').once('value');
+                        if (_curSnap.exists()) {
+                            const _upd = {};
+                            _upd[`vehicles/${_vidForStatus}/activeRideStatus`] = null;
+                            _upd[`vehicles/${_vidForStatus}/activeRideId`] = null;
+                            await db.ref().update(_upd);
+                        }
                     }
                 }
             } catch (_arsErr) { /* non-critical */ }
@@ -25089,11 +25109,18 @@ exports.scheduledDepartureAlert = onSchedule(
                             ? ride.pickupTime
                             : new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
                         const _minUntil = Math.round((ride.pickupTimestamp - now) / 60_000);
+                        // 🆕 v6.62.946 (Patrick 25.05. 18:14 'OK' fuer Cost-Detox):
+                        //   updatedAt + statusTransitionReason WEGGELASSEN — nur Echo wenn wirklich
+                        //   etwas Inhaltliches passiert (status-Change). openRideWarned ist nur
+                        //   Marker — sollte den onRideUpdated-Loop-Breaker (Z22847) nicht durchbrechen.
+                        //   Vorher: updates schrieb 4 Felder + updatedAt → onRideUpdated voll durch
+                        //   → Telegram + activeRideStatus + 2GiB Memory Cold-Start. Spart ~0.5 GB/Tag.
                         updates[`rides/${rideId}/openRideWarned`] = true;
-                        updates[`rides/${rideId}/statusTransitionedAt`] = now;
-                        updates[`rides/${rideId}/statusTransitionReason`] = 'v6.62.928 Akzeptanz-Alarm 15+Anfahrt vor Pickup';
-                        updates[`rides/${rideId}/updatedAt`] = now;
-                        if (_wasVorbestellt) updates[`rides/${rideId}/status`] = 'assigned';
+                        if (_wasVorbestellt) {
+                            updates[`rides/${rideId}/status`] = 'assigned';
+                            updates[`rides/${rideId}/statusTransitionedAt`] = now;
+                            updates[`rides/${rideId}/statusTransitionReason`] = 'v6.62.928 Akzeptanz-Alarm';
+                        }
                         arrivalAlerts++;
                         arrivalAlertPromises.push((async () => {
                             try {

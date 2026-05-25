@@ -71,6 +71,24 @@
             background: #3B82F6; border: none; color: white; padding: 10px 24px;
             border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
         }
+        .submit-box {
+            background: #1E293B; border: 1px solid #334155; border-radius: 12px;
+            padding: 16px; margin-bottom: 20px;
+        }
+        .submit-box h3 { font-size: 15px; color: #FCD34D; margin-bottom: 10px; }
+        .submit-box textarea {
+            width: 100%; background: #0F172A; border: 1px solid #334155; color: #F8FAFC;
+            padding: 10px; border-radius: 8px; font-size: 14px; resize: vertical;
+            min-height: 60px; font-family: inherit;
+        }
+        .submit-box button {
+            background: #10B981; border: none; color: white; padding: 10px 24px;
+            border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+            margin-top: 10px;
+        }
+        .submit-box button:disabled { background: #6B7280; cursor: wait; }
+        .submit-box .hint { font-size: 12px; color: #94A3B8; margin-top: 6px; }
+        .submit-status { font-size: 13px; color: #10B981; margin-top: 8px; min-height: 18px; }
     </style>
 </head>
 <body>
@@ -78,11 +96,20 @@
         <h1>🌴 Urlaubs-Watchlist</h1>
         <div class="subtitle">Patrick's Reise-Wishlist im graham-value-Style — Snapshots, Trends, beste Reisezeit.</div>
 
+        <!-- v6.62.949: Eingabefeld direkt in der Seite -->
+        <div id="submit-section" style="display:none;">
+            <div class="submit-box">
+                <h3>📝 Neue Reise anfragen</h3>
+                <textarea id="urlaub-query" placeholder="z.B. 'Kreta, 5 Personen (2 Erw + 3 Kinder 16/13/10), Juni 2026, beste Family-Hotels mit Strand'"></textarea>
+                <button id="urlaub-submit">🔍 Claude recherchieren lassen</button>
+                <div class="hint">→ Du bekommst in ~2-3 Min einen neuen Eintrag in der Liste unten. Claude sucht aktuelle Preise + Top-Hotels + Buchungs-Links.</div>
+                <div id="urlaub-submit-status" class="submit-status"></div>
+            </div>
+        </div>
+
         <div class="info-box">
             <strong>💡 Wie das funktioniert:</strong><br>
-            Frag Claude über die <strong>Telegram-Bridge</strong> (Funktaxiclaude-Bot) nach einer Reise. Beispiel:<br>
-            <code>Reise: Mallorca, 5 Personen (2 Erw + 3 Kinder 16/13/10), günstigster Termin 2026</code><br>
-            Claude recherchiert + speichert das Ergebnis hier ab. Beim nächsten Check vergleicht Claude die Preise.
+            Tipp einen Reisewunsch oben ein → Claude recherchiert + speichert das Ergebnis hier ab. Beim nächsten Check (Button am Eintrag) vergleicht Claude die Preise.
         </div>
 
         <div id="status-box"></div>
@@ -240,12 +267,15 @@
 
         auth.onAuthStateChanged(user => {
             const status = document.getElementById('status-box');
+            const submitSection = document.getElementById('submit-section');
             if (!user) {
                 status.innerHTML = '<div class="login-prompt"><p>🔒 Bitte einloggen.</p><button onclick="signInWithGoogle()">Mit Google anmelden</button></div>';
                 document.getElementById('watchlist').innerHTML = '';
+                if (submitSection) submitSection.style.display = 'none';
                 return;
             }
             status.innerHTML = '';
+            if (submitSection) submitSection.style.display = 'block';
             db.ref('urlaubWatchlist').on('value', render);
         });
 
@@ -253,6 +283,42 @@
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).catch(e => alert('Login-Fehler: ' + e.message));
         };
+
+        // v6.62.949: Submit-Handler — Anfrage in /urlaubRequests schreiben
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('urlaub-submit');
+            const ta = document.getElementById('urlaub-query');
+            const stat = document.getElementById('urlaub-submit-status');
+            if (!btn || !ta) return;
+            btn.addEventListener('click', async () => {
+                const q = ta.value.trim();
+                if (q.length < 5) { stat.textContent = '❌ Mindestens 5 Zeichen Reisewunsch eingeben'; stat.style.color = '#EF4444'; return; }
+                const u = auth.currentUser;
+                if (!u) { stat.textContent = '❌ Nicht eingeloggt'; stat.style.color = '#EF4444'; return; }
+                btn.disabled = true;
+                btn.textContent = '⏳ Sende Anfrage…';
+                stat.textContent = '';
+                try {
+                    const ts = Date.now();
+                    await db.ref('urlaubRequests/' + ts).set({
+                        query: q,
+                        ts,
+                        by: u.uid,
+                        byEmail: u.email || '',
+                        status: 'pending'
+                    });
+                    stat.style.color = '#10B981';
+                    stat.textContent = '✅ Anfrage gespeichert. Claude recherchiert nun — Eintrag erscheint in ~2-3 Min hier unten.';
+                    ta.value = '';
+                } catch (e) {
+                    stat.style.color = '#EF4444';
+                    stat.textContent = '❌ Fehler: ' + e.message;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Claude recherchieren lassen';
+                }
+            });
+        });
     </script>
 </body>
 </html>

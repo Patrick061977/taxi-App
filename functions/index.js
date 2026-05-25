@@ -25915,6 +25915,37 @@ async function buildWeeklyShiftMessage() {
     return msg;
 }
 
+// 🆕 v6.62.949 (Patrick 25.05. 18:59): Urlaub-Eingabefeld in urlaub.html
+//   Wenn User eine Reise-Anfrage submittet, schreibt die Web-App nach /urlaubRequests.
+//   Dieser Trigger leitet die Anfrage an Patrick weiter (Bridge-Outbox) damit ich
+//   sie sehe + recherchieren + Snapshot in /urlaubWatchlist schreiben kann.
+exports.onUrlaubRequestCreated = onValueCreated(
+    {
+        ref: '/urlaubRequests/{reqId}',
+        region: 'europe-west1',
+        instance: 'taxi-heringsdorf-default-rtdb'
+    },
+    async (event) => {
+        const req = event.data.val();
+        if (!req || !req.query) return;
+        try {
+            await db.ref('claudeBridge/outbox').push({
+                message: `📥 NEUE URLAUB-ANFRAGE via urlaub.html\n\n` +
+                         `Wunsch: ${req.query}\n` +
+                         `Von: ${req.byEmail || req.by || 'unbekannt'}\n\n` +
+                         `→ Bitte recherchieren + Snapshot in /urlaubWatchlist schreiben.`,
+                targetChatId: 6229490043,
+                via: 'claude',
+                ts: Date.now(),
+                source: 'urlaub-request'
+            });
+            console.log(`📥 v6.62.949 Urlaub-Request weitergeleitet an Patrick: ${req.query.slice(0,60)}`);
+        } catch (e) {
+            console.error('onUrlaubRequestCreated err:', e.message);
+        }
+    }
+);
+
 async function sendShiftBriefingToPatrick(source) {
     const today = await buildShiftBriefingMessage();
     const week = await buildWeeklyShiftMessage();

@@ -186,6 +186,17 @@
       ".read": "auth != null",
       ".write": true,
       ".indexOn": ["ts", "read"]
+    },
+
+    "urlaubWatchlist": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+
+    "urlaubRequests": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["ts", "status"]
     }
   }
 }

@@ -25093,8 +25093,15 @@ exports.scheduledDepartureAlert = onSchedule(
                 //   (Sound + Annehmen-/Ablehnen-Buttons). Vorher lief das in scheduledAutoAssign
                 //   (10-Min-Cron), zu unregelmaessig — Patrick: 'es kommt kein Alarm'.
                 //   openRideWarned ist der bestehende Idempotenz-Flag aus scheduledAutoAssign.
+                // 🆕 v6.62.952 (Patrick 25.05. 19:34 'warum 2x Alarm fuer Hasbargen'):
+                //   Akzeptanz-Alarm darf NICHT bei status='accepted' triggern — der Fahrer
+                //   hat schon akzeptiert. Vorher triggerte v6.62.928 bei BEIDEN Status →
+                //   bei Sofortfahrt mit Pickup in 18 Min wurde 'accepted' im 15+3-Fenster
+                //   nochmal alarmiert. Hasbargen heute 19:23 angenommen, 19:27 wieder Push.
+                //   Fix: nur 'vorbestellt' und 'assigned' eligible. Bei 'accepted' ist
+                //   der Akzeptanz-Schritt logisch schon getan.
                 if (!ride.openRideWarned
-                    && ['vorbestellt', 'accepted'].includes(ride.status)
+                    && ['vorbestellt', 'assigned'].includes(ride.status)
                     && ride.pickupTimestamp
                     && (ride.assignedVehicle || ride.vehicleId)) {
                     const _vid = ride.assignedVehicle || ride.vehicleId;

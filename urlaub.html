@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urlaubs-Watchlist — Funk Taxi Patrick</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif; }
+        body { background: #0F172A; color: #F8FAFC; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 24px; margin-bottom: 4px; color: #FCD34D; }
+        .subtitle { color: #94A3B8; font-size: 13px; margin-bottom: 20px; }
+        .info-box {
+            background: #1E293B; border-left: 4px solid #10B981;
+            padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13px;
+            line-height: 1.5;
+        }
+        .info-box code { background: #0F172A; padding: 2px 6px; border-radius: 4px; color: #FCD34D; }
+        .empty-state {
+            background: #1E293B; padding: 40px 20px; border-radius: 12px;
+            text-align: center; color: #94A3B8; font-size: 14px;
+        }
+        .watchlist { display: flex; flex-direction: column; gap: 12px; }
+        .card {
+            background: #1E293B; border-radius: 12px; padding: 16px 18px;
+            border: 1px solid #334155;
+        }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+            margin-bottom: 10px;
+        }
+        .card-title { font-size: 17px; font-weight: 600; color: #F8FAFC; }
+        .card-meta { color: #94A3B8; font-size: 12px; margin-top: 3px; }
+        .trend-badge {
+            padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+            white-space: nowrap;
+        }
+        .trend-up { background: #DC2626; color: white; }
+        .trend-down { background: #10B981; color: white; }
+        .trend-flat { background: #6B7280; color: white; }
+        .trend-new { background: #3B82F6; color: white; }
+        .card-current {
+            background: #0F172A; padding: 12px; border-radius: 8px; margin-bottom: 10px;
+            font-size: 13px; line-height: 1.5; white-space: pre-wrap;
+        }
+        .card-current-price { font-size: 22px; font-weight: 700; color: #FCD34D; margin-bottom: 4px; }
+        .card-snapshots {
+            margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155;
+            font-size: 12px;
+        }
+        .snapshot-toggle {
+            background: none; border: none; color: #60A5FA; cursor: pointer;
+            font-size: 12px; padding: 0; font-weight: 600;
+        }
+        .snapshot-list { display: none; margin-top: 8px; }
+        .snapshot-list.open { display: block; }
+        .snapshot-row {
+            padding: 6px 0; border-bottom: 1px solid #334155; color: #94A3B8;
+        }
+        .snapshot-row:last-child { border-bottom: none; }
+        .delete-btn {
+            background: none; border: 1px solid #6B7280; color: #94A3B8;
+            padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+            margin-top: 8px;
+        }
+        .delete-btn:hover { border-color: #DC2626; color: #DC2626; }
+        .login-prompt {
+            background: #1E293B; padding: 30px; border-radius: 12px; text-align: center;
+        }
+        .login-prompt button {
+            background: #3B82F6; border: none; color: white; padding: 10px 24px;
+            border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌴 Urlaubs-Watchlist</h1>
+        <div class="subtitle">Patrick's Reise-Wishlist im graham-value-Style — Snapshots, Trends, beste Reisezeit.</div>
+
+        <div class="info-box">
+            <strong>💡 Wie das funktioniert:</strong><br>
+            Frag Claude über die <strong>Telegram-Bridge</strong> (Funktaxiclaude-Bot) nach einer Reise. Beispiel:<br>
+            <code>Reise: Mallorca, 5 Personen (2 Erw + 3 Kinder 16/13/10), günstigster Termin 2026</code><br>
+            Claude recherchiert + speichert das Ergebnis hier ab. Beim nächsten Check vergleicht Claude die Preise.
+        </div>
+
+        <div id="status-box"></div>
+        <div id="watchlist" class="watchlist"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2eHFzAVOO4MwsKsR1WoQHGYrA-r9p1IY",
+            authDomain: "taxi-heringsdorf.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-heringsdorf",
+            storageBucket: "taxi-heringsdorf.appspot.com",
+            messagingSenderId: "886448081276",
+            appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        function fmtEUR(n) {
+            if (n == null || isNaN(n)) return '—';
+            return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) + ' €';
+        }
+        function fmtDate(ts) {
+            if (!ts) return '—';
+            const d = new Date(ts);
+            return d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+        function fmtAge(ts) {
+            const diffMs = Date.now() - ts;
+            const diffH = diffMs / 36e5;
+            const diffD = diffH / 24;
+            if (diffH < 1) return Math.round(diffMs / 60000) + ' Min';
+            if (diffD < 1) return Math.round(diffH) + ' Std';
+            if (diffD < 30) return Math.round(diffD) + ' Tg';
+            return Math.round(diffD / 30) + ' Mo';
+        }
+
+        function trendBadge(snapshots) {
+            if (!snapshots || snapshots.length === 0) return '<span class="trend-badge trend-new">NEU</span>';
+            if (snapshots.length === 1) return '<span class="trend-badge trend-new">Initial</span>';
+            const last = snapshots[snapshots.length - 1];
+            const prev = snapshots[snapshots.length - 2];
+            if (!last.priceFrom || !prev.priceFrom) return '<span class="trend-badge trend-flat">—</span>';
+            const delta = last.priceFrom - prev.priceFrom;
+            const pct = (delta / prev.priceFrom) * 100;
+            if (Math.abs(pct) < 3) return '<span class="trend-badge trend-flat">≈ ' + Math.round(pct) + '%</span>';
+            if (delta < 0) return '<span class="trend-badge trend-down">↓ ' + Math.round(-pct) + '% guenstiger</span>';
+            return '<span class="trend-badge trend-up">↑ ' + Math.round(pct) + '% teurer</span>';
+        }
+
+        function renderCard(id, entry) {
+            const snaps = entry.snapshots || [];
+            const last = snaps[snaps.length - 1] || {};
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${escapeHtml(entry.title || '(unbenannt)')}</div>
+                        <div class="card-meta">
+                            ${escapeHtml(entry.personen || '')}
+                            ${entry.createdAt ? ' · seit ' + fmtAge(entry.createdAt) : ''}
+                            ${last.ts ? ' · letzter Check: ' + fmtAge(last.ts) + ' her' : ''}
+                        </div>
+                    </div>
+                    ${trendBadge(snaps)}
+                </div>
+                ${last.priceFrom ? `<div class="card-current">
+                    <div class="card-current-price">ab ${fmtEUR(last.priceFrom)}${last.priceTo ? ' bis ' + fmtEUR(last.priceTo) : ''}</div>
+                    ${last.summary ? escapeHtml(last.summary) : ''}
+                </div>` : ''}
+                ${snaps.length > 1 ? `
+                    <div class="card-snapshots">
+                        <button class="snapshot-toggle">📊 ${snaps.length} Snapshots — anzeigen</button>
+                        <div class="snapshot-list">
+                            ${snaps.slice().reverse().map(s => `
+                                <div class="snapshot-row">
+                                    <strong>${fmtDate(s.ts)}</strong> — ${fmtEUR(s.priceFrom)}${s.priceTo ? '–' + fmtEUR(s.priceTo) : ''}
+                                    ${s.summary ? '<br>' + escapeHtml(s.summary).slice(0, 200) : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                <button class="delete-btn" data-id="${id}">🗑️ Watchlist-Eintrag löschen</button>
+            `;
+            const toggle = card.querySelector('.snapshot-toggle');
+            const list = card.querySelector('.snapshot-list');
+            if (toggle) toggle.addEventListener('click', () => {
+                list.classList.toggle('open');
+                toggle.textContent = list.classList.contains('open')
+                    ? '📊 ' + snaps.length + ' Snapshots — verbergen'
+                    : '📊 ' + snaps.length + ' Snapshots — anzeigen';
+            });
+            card.querySelector('.delete-btn').addEventListener('click', () => {
+                if (confirm('Watchlist-Eintrag "' + (entry.title || id) + '" wirklich löschen?')) {
+                    db.ref('urlaubWatchlist/' + id).remove();
+                }
+            });
+            return card;
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        }
+
+        function render(snapshot) {
+            const wrap = document.getElementById('watchlist');
+            wrap.innerHTML = '';
+            const data = snapshot.val() || {};
+            const entries = Object.entries(data)
+                .map(([id, v]) => ({ id, ...v }))
+                .sort((a, b) => {
+                    const aT = (a.snapshots && a.snapshots.length) ? a.snapshots[a.snapshots.length - 1].ts : a.createdAt || 0;
+                    const bT = (b.snapshots && b.snapshots.length) ? b.snapshots[b.snapshots.length - 1].ts : b.createdAt || 0;
+                    return bT - aT;
+                });
+            if (entries.length === 0) {
+                wrap.innerHTML = `
+                    <div class="empty-state">
+                        <p style="font-size:48px;">📭</p>
+                        <p style="margin-top:12px;">Noch keine Reisen in der Watchlist.</p>
+                        <p style="margin-top:8px;font-size:12px;">Schick Claude eine Reiseanfrage via Telegram-Bridge, dann erscheint sie hier.</p>
+                    </div>
+                `;
+                return;
+            }
+            for (const e of entries) {
+                wrap.appendChild(renderCard(e.id, e));
+            }
+        }
+
+        auth.onAuthStateChanged(user => {
+            const status = document.getElementById('status-box');
+            if (!user) {
+                status.innerHTML = '<div class="login-prompt"><p>🔒 Bitte einloggen.</p><button onclick="signInWithGoogle()">Mit Google anmelden</button></div>';
+                document.getElementById('watchlist').innerHTML = '';
+                return;
+            }
+            status.innerHTML = '';
+            db.ref('urlaubWatchlist').on('value', render);
+        });
+
+        window.signInWithGoogle = function() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(e => alert('Login-Fehler: ' + e.message));
+        };
+    </script>
+</body>
+</html>

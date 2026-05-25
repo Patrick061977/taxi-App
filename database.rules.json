@@ -22,7 +22,7 @@
     },
 
     "invoices": {
-      ".read": true,
+      ".read": "auth != null",
       ".write": "auth != null",
       ".indexOn": ["rideId", "createdAt", "stripePaymentStatus"]
     },

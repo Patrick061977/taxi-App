@@ -71,11 +71,18 @@
                 android:textColor="#FFFFFF"
                 android:textSize="13sp" />
 
+            <!-- v6.62.931: SwitchCompat.makeLayout() crash auf Android 8 wenn textOn/Off null —
+                 explizit leere Strings setzen + showText=false. NullPointerException
+                 'CharSequence.length()' in StaticLayout.<init> war die Crash-Quelle. -->
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/shift_today_switch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:checked="true" />
+                android:checked="true"
+                android:text=""
+                android:textOn=""
+                android:textOff=""
+                android:showText="false" />
         </LinearLayout>
 
         <!-- Wochenplan (7 Tage) — kompakter Grid mit kleinen Buttons -->

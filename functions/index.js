@@ -1579,34 +1579,13 @@ async function autoAssignRide(rideId, rideData) {
             });
         }
 
-        // 🆕 v6.62.921 (Patrick 25.05. 07:53): Bei Vorbestellungs-Zuweisung SOFORT FCM-Push
-        //   an Fahrer-Native — analog zu scheduledAutoAssign-Pfad. Sofortfahrten erhalten
-        //   den FCM via onRideUpdated wenn status='assigned' wechselt. Vorbestellungen
-        //   bleiben auf status='vorbestellt' bis kurz vor Pickup — daher hier expliziter
-        //   FCM-Push direkt bei Zuweisung.
-        if (!isSofort && best.vehicleId) {
-            try {
-                await sendFCMToVehicle(best.vehicleId, {
-                    type: 'new_ride',
-                    isReminder: 'false',
-                    rideId,
-                    customerName: rideData.customerName || '?',
-                    pickup: rideData.pickup || '',
-                    destination: rideData.destination || '',
-                    pickupTime: rideData.pickupTime || timeStr,
-                    pickupTimestamp: String(rideData.pickupTimestamp || ''),
-                    assignedBy: 'cloud-auto-assign'
-                });
-                await addRideLog(rideId, '📲', `FCM-Push neue Vorbestellung an ${best.name} (sofort bei Zuweisung)`, {
-                    fahrzeug: best.name,
-                    vehicleId: best.vehicleId,
-                    quelle: 'autoAssignRide-direct-FCM',
-                    version: 'v6.62.921'
-                });
-            } catch (fcmErr) {
-                console.error(`❌ v6.62.921 Vorbest-FCM-Push fail:`, fcmErr.message);
-            }
-        }
+        // 🚫 v6.62.927 (Patrick 25.05. 10:30, KORRIGIERT v6.62.921):
+        //   "Nein, es soll überhaupt nichts gepusht werden bei der Vorbestellung. Es soll
+        //   einfach nur abgelegt werden. Der Push soll kommen, kurz bevor die Fahrt ist.
+        //   Der Alarm soll kommen 15 Min + Anfahrt. Vorher soll überhaupt nichts passieren,
+        //   weil wir wissen ja gar nicht, wer GPS online ist."
+        //   v6.62.921 hatte hier FCM-Push direkt bei Vorbest-Zuweisung — wird entfernt.
+        //   Losfahr-Alarm (Native, 15 Min + drivingTimeToPickup vor Pickup) uebernimmt.
 
         best.drivingTimeMin = drivingTimeMin;
         return best;
@@ -20868,29 +20847,9 @@ exports.scheduledAutoAssign = onSchedule(
                 //   beim assignedAt-Zeitpunkt (also jetzt).
                 //   Sofortfahrten: erhalten den FCM via onRideUpdated wenn Status='assigned'
                 //   wechselt — dort schon vorhanden. Hier brauchen wir den Vorbest-Pfad.
-                if (!isSofort && bestCandidate.vehicleId) {
-                    try {
-                        await sendFCMToVehicle(bestCandidate.vehicleId, {
-                            type: 'new_ride',
-                            isReminder: 'false',
-                            rideId,
-                            customerName: ride.customerName || '?',
-                            pickup: ride.pickup || '',
-                            destination: ride.destination || '',
-                            pickupTime: ride.pickupTime || timeStr,
-                            pickupTimestamp: String(ride.pickupTimestamp || ''),
-                            assignedBy: 'cloud-scheduled-auto-assign'
-                        });
-                        await addRideLog(rideId, '📲', `FCM-Push neue Vorbestellung an ${bestCandidate.name} (sofort bei Zuweisung)`, {
-                            fahrzeug: bestCandidate.name,
-                            vehicleId: bestCandidate.vehicleId,
-                            quelle: 'scheduledAutoAssign-direct-FCM',
-                            version: 'v6.62.921'
-                        });
-                    } catch (fcmErr) {
-                        console.error(`❌ v6.62.921 Vorbest-FCM-Push fail:`, fcmErr.message);
-                    }
-                }
+                // 🚫 v6.62.927 (Patrick 25.05. 10:30): KEIN FCM-Push bei Vorbest-Zuweisung,
+                //   Losfahr-Alarm uebernimmt 15 Min + drivingTimeToPickup vor Pickup.
+                //   v6.62.921-Pfad hier wurde entfernt — analog autoAssignRide Z1587.
             }
 
             // v6.61.2: Wartezeit-Schätzung für noch-unzugewiesene Fahrten aktualisieren.

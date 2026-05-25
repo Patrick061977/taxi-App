@@ -17,6 +17,7 @@ on:
       - 'landing.html'
       - 'landing-v2.html'
       - 'fahrer-map.html'
+      - 'urlaub.html'
       - 'berlin.html'
       - 'berlin-uebersicht.html'
       - 'tagesplan.html'

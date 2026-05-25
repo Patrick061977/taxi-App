@@ -152,6 +152,12 @@
             android:foregroundServiceType="location"
             android:exported="false" />
 
+        <!-- v6.62.935: Alarm-Sound-Service mit MAX-Volume-Override fuer Lautlos-Modus -->
+        <service
+            android:name=".AlertSoundService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
         <!-- v6.41.96: FCM-Service für Push-Notifications bei neuen Aufträgen -->
         <service
             android:name=".TaxiFCMService"

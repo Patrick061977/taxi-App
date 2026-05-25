@@ -38,6 +38,9 @@ public class RideActionReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "Action: " + (isAccept ? "ACCEPT" : "REJECT") + " für rideId=" + rideId + " vehicleId=" + vehicleId);
 
+        // 🆕 v6.62.935: Lautlos-Override-Alarm sofort stoppen — Fahrer hat reagiert.
+        try { AlertSoundService.stop(context); } catch (Throwable _ignore) {}
+
         // v6.62.5: Patrick: 'wenn ich auf Annehmen klicke, muss ich sofort in die App reinkommen'.
         // Bei ACCEPT direkt DriverDashboardActivity launchen — HTTP-Call läuft async daneben.
         // (Bei REJECT bleibt der Fahrer wo er ist — er hat ja abgelehnt, kein Grund die App zu öffnen.)

@@ -1961,6 +1961,19 @@ public class CrmSearchActivity extends AppCompatActivity {
         btnSofort.setOnClickListener(_v -> { sofortMode[0] = true; applySofortLook.run(); });
         btnVor.setOnClickListener(_v -> { sofortMode[0] = false; applySofortLook.run(); });
 
+        // 🆕 v6.62.944 (Patrick 25.05. 16:30 'Native weist mir immer direkt zu'):
+        //   Checkbox 'Ich fahre selbst' steuert ob bei Sofortfahrten direkt currentVehicleId
+        //   zugewiesen wird (v6.62.843-Verhalten) oder die Fahrt in den autoAssign-Pool geht.
+        //   Default OFF — wenn ich am Anruf bin aber das Auto NICHT selbst fahre, soll
+        //   die Fahrt normal verteilt werden.
+        final android.widget.CheckBox cbSelfDriven = new android.widget.CheckBox(this);
+        cbSelfDriven.setText("🚗 Ich fahre diese Fahrt selbst (Sofort-Zuweisung an mich)");
+        cbSelfDriven.setChecked(false);
+        cbSelfDriven.setTextSize(13);
+        cbSelfDriven.setPadding(padHalf, padHalf, padHalf, padHalf);
+        cbSelfDriven.setTextColor(0xFF475569);
+        layout.addView(cbSelfDriven);
+
         // 🆕 v6.62.608: Live-Konflikt-Check unter dem Datum-Picker
         // Patrick (11.05. 12:44): "baue das mal ein, dass ich zumindest weiss, ob der
         // Termin ueberlappt oder nicht ueberlappt".
@@ -2391,7 +2404,12 @@ public class CrmSearchActivity extends AppCompatActivity {
                 //   "Wagen unterwegs". Use-Case Patrick: Flughafen-Fahrten 15-20 km
                 //   Anfahrt, Kunde soll wissen dass Auto kommt damit er nicht in anderes
                 //   Taxi einsteigt. Bei isEdit: nur wenn vehicleId nicht schon gesetzt.
+                // 🆕 v6.62.944 (Patrick 25.05. 16:30): Selbst-Fahrt-Zuweisung NUR wenn
+                //   die Checkbox 'Ich fahre selbst' aktiv ist. Vor v6.62.944 wurde das
+                //   automatisch gemacht bei sofortMode → Patrick: 'Native App weist mir
+                //   immer direkt zu, da ist ein Fehler in der Vorbestellungsmaske'.
                 if (sofortMode[0] && _selfVehicleId != null
+                    && cbSelfDriven.isChecked()
                     && !(_backdateConfirmedRef[0] && _backdateCompletedFlag[0])) {
                     Object _existingVid = isEdit ? editRide.get("vehicleId") : null;
                     if (_existingVid == null || String.valueOf(_existingVid).isEmpty()) {

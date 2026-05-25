@@ -242,6 +242,20 @@ public class TaxiFCMService extends FirebaseMessagingService {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(notificationId, builder.build());
 
+        // 🆕 v6.62.935 (Patrick 25.05. 14:12 "Handy auf Lautlos — das darf nicht passieren"):
+        //   AlertSoundService startet einen Foreground-MediaPlayer mit USAGE_ALARM +
+        //   STREAM_ALARM auf Max — bricht durch Lautlos-Modus durch (wie eine Wecker-App).
+        //   Nur fuer new_ride (Order-Push). Stoppt automatisch nach 30s oder via
+        //   RideActionReceiver bei Accept/Reject.
+        if ("new_ride".equals(type) && rideId != null) {
+            try {
+                AlertSoundService.start(this);
+                Log.d(TAG, "AlertSoundService gestartet fuer new_ride " + rideId);
+            } catch (Throwable t) {
+                Log.w(TAG, "AlertSoundService start fail: " + t.getMessage());
+            }
+        }
+
         // 🆕 v6.62.665: Foreground-Fallback — wenn App offen ist und Android Heads-Up
         //   unterdrueckt, spielen wir Sound + Vibration zusaetzlich direkt ueber Ringtone-
         //   und Vibrator-API. Nur fuer new_ride + new_web_booking (Audio-Alert wichtig),

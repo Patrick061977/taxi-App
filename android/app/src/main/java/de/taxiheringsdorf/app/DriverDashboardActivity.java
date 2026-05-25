@@ -119,6 +119,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_driver_dashboard);
+        // 🆕 v6.62.935: Lautlos-Override-Alarm stoppen sobald Dashboard offen ist
+        //   (Fahrer hat die Notification getippt oder App selbst geoeffnet).
+        try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
 
         // v6.62.86: Periodischer ETA-Trigger starten (v6.62.318: alle 15s)
         etaTickHandler.postDelayed(etaTick, 15_000L);

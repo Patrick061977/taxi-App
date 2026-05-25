@@ -1,0 +1,304 @@
+package de.taxiheringsdorf.app;
+
+import android.content.Context;
+import android.os.Bundle;
+import android.text.format.DateFormat;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.tabs.TabLayout;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Schichtplan-Editor in Native-App (Patrick 25.05.2026).
+ * 3 Tabs: Editor | Anwesenheit | Fahrer-Plan-View.
+ * Schreibt in /vehicleShifts/{vid}/defaults[dow] + /vehicleShifts/{vid}/{YYYY-MM-DD}/active.
+ * Architektur 1:1 zum Web-Editor (index.html ~Z. 35181, 40057, 40435).
+ */
+public class ShiftEditorActivity extends AppCompatActivity {
+    private static final String TAG = "ShiftEditor";
+    private static final String DB_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
+
+    private static final String[] DAY_LABELS = {"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
+
+    // OFFICIAL_VEHICLES — analog zu functions/index.js. In-Memory weil sich das selten aendert.
+    private static final Map<String, String> OFFICIAL_VEHICLES = new LinkedHashMap<String, String>() {{
+        put("pw-my-222-e", "Tesla Model Y (PW-MY 222 E)");
+        put("pw-ym-222-e", "Tesla Model Y (PW-YM 222 E)");
+        put("pw-sk-222", "Renault Traffic 8 Pax (PW-SK 222)");
+        put("pw-sj-222", "Mercedes Vito 8 Pax (PW-SJ 222)");
+        put("pw-ki-222", "Toyota Prius KI (PW-KI 222)");
+        put("pw-ik-222", "Toyota Prius IK (PW-IK 222)");
+        put("vg-lk-111", "Mercedes Vito LK (VG-LK 111)");
+        put("sbg-v-104", "Sprinter (SBG-V 104)");
+    }};
+
+    private FrameLayout content;
+    private RecyclerView editorList;
+    private LinearLayout attendanceContainer;
+    private LinearLayout driverViewContainer;
+    private RecyclerView attendanceList;
+    private RecyclerView driverViewList;
+    private TabLayout tabs;
+
+    private final List<VehicleShift> data = new ArrayList<>();
+    private VehicleAdapter adapter;
+    private DatabaseReference shiftsRef;
+    private ValueEventListener shiftsListener;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_shift_editor);
+
+        MaterialToolbar toolbar = findViewById(R.id.shift_editor_toolbar);
+        toolbar.setNavigationOnClickListener(v -> finish());
+
+        content = findViewById(R.id.shift_content);
+        editorList = findViewById(R.id.shift_editor_list);
+        attendanceContainer = findViewById(R.id.shift_attendance_container);
+        driverViewContainer = findViewById(R.id.shift_driver_view_container);
+        attendanceList = findViewById(R.id.shift_attendance_list);
+        driverViewList = findViewById(R.id.shift_driver_view_list);
+        tabs = findViewById(R.id.shift_tabs);
+
+        editorList.setLayoutManager(new LinearLayoutManager(this));
+        attendanceList.setLayoutManager(new LinearLayoutManager(this));
+        driverViewList.setLayoutManager(new LinearLayoutManager(this));
+
+        adapter = new VehicleAdapter();
+        editorList.setAdapter(adapter);
+
+        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override public void onTabSelected(TabLayout.Tab tab) { showTab(tab.getPosition()); }
+            @Override public void onTabUnselected(TabLayout.Tab tab) { }
+            @Override public void onTabReselected(TabLayout.Tab tab) { }
+        });
+
+        // Initial empty: alle Fahrzeuge mit leeren Daten
+        for (Map.Entry<String, String> e : OFFICIAL_VEHICLES.entrySet()) {
+            VehicleShift vs = new VehicleShift();
+            vs.vehicleId = e.getKey();
+            vs.name = e.getValue();
+            data.add(vs);
+        }
+        adapter.notifyDataSetChanged();
+
+        attachListener();
+    }
+
+    private void showTab(int idx) {
+        editorList.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
+        attendanceContainer.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
+        driverViewContainer.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
+
+        if (idx == 1) {
+            // Anwesenheits-Tab: noch nicht implementiert (Stub)
+            TextView label = findViewById(R.id.attendance_date_label);
+            label.setText("Anwesenheit (in Arbeit – v6.62.923)");
+        } else if (idx == 2) {
+            TextView hint = findViewById(R.id.driver_view_hint);
+            hint.setText("Read-only Fahrer-Wochenplan (in Arbeit – v6.62.923)");
+        }
+    }
+
+    private void attachListener() {
+        shiftsRef = FirebaseDatabase.getInstance(DB_URL).getReference("vehicleShifts");
+        shiftsListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snap) {
+                String todayKey = todayDateKey();
+                for (VehicleShift vs : data) {
+                    DataSnapshot vSnap = snap.child(vs.vehicleId);
+                    vs.defaults = new boolean[7];
+                    DataSnapshot defSnap = vSnap.child("defaults");
+                    if (defSnap.exists()) {
+                        int i = 0;
+                        for (DataSnapshot c : defSnap.getChildren()) {
+                            if (i < 7) {
+                                Boolean b = c.getValue(Boolean.class);
+                                vs.defaults[i++] = b != null && b;
+                            }
+                        }
+                    }
+                    // Day-Override fuer heute
+                    DataSnapshot todaySnap = vSnap.child(todayKey);
+                    vs.todayOverride = todaySnap.exists();
+                    vs.todayActive = !todaySnap.exists() || todaySnap.hasChild("active") ? bool(todaySnap.child("active").getValue()) : null;
+                    if (vs.todayOverride && vs.todayActive == null) vs.todayActive = true;
+                    vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
+                    vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
+                }
+                adapter.notifyDataSetChanged();
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Listener err: " + error.getMessage());
+            }
+        };
+        shiftsRef.addValueEventListener(shiftsListener);
+    }
+
+    private static Boolean bool(Object o) {
+        if (o instanceof Boolean) return (Boolean) o;
+        return null;
+    }
+    private static String strOrNull(Object o) { return o == null ? null : String.valueOf(o); }
+
+    private static String todayDateKey() {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+        return f.format(new Date());
+    }
+
+    private static int todayDow() {
+        Calendar c = Calendar.getInstance();
+        // Calendar.SUNDAY=1, MONDAY=2, ..., SATURDAY=7
+        // Wir wollen 0=So, 1=Mo, ..., 6=Sa
+        return c.get(Calendar.DAY_OF_WEEK) - 1;
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (shiftsRef != null && shiftsListener != null) shiftsRef.removeEventListener(shiftsListener);
+        super.onDestroy();
+    }
+
+    /* ─── Model ─── */
+    static class VehicleShift {
+        String vehicleId;
+        String name;
+        boolean[] defaults = new boolean[7];
+        boolean todayOverride;
+        Boolean todayActive;
+        String todayStartTime;
+        String todayEndTime;
+    }
+
+    /* ─── Adapter ─── */
+    class VehicleAdapter extends RecyclerView.Adapter<VehicleViewHolder> {
+        @NonNull @Override
+        public VehicleViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_shift_vehicle_card, parent, false);
+            return new VehicleViewHolder(v);
+        }
+        @Override
+        public void onBindViewHolder(@NonNull VehicleViewHolder h, int position) {
+            h.bind(data.get(position));
+        }
+        @Override public int getItemCount() { return data.size(); }
+    }
+
+    class VehicleViewHolder extends RecyclerView.ViewHolder {
+        private final TextView name;
+        private final TextView todayBadge;
+        private final TextView todayTimes;
+        private final MaterialSwitch todaySwitch;
+        private final LinearLayout weekRow;
+        private final TextView weekSummary;
+
+        VehicleViewHolder(@NonNull View itemView) {
+            super(itemView);
+            name = itemView.findViewById(R.id.shift_vehicle_name);
+            todayBadge = itemView.findViewById(R.id.shift_today_badge);
+            todayTimes = itemView.findViewById(R.id.shift_today_times);
+            todaySwitch = itemView.findViewById(R.id.shift_today_switch);
+            weekRow = itemView.findViewById(R.id.shift_week_row);
+            weekSummary = itemView.findViewById(R.id.shift_week_summary);
+        }
+
+        void bind(VehicleShift vs) {
+            name.setText(vs.name);
+            // Heute-Status berechnen
+            int dow = todayDow();
+            boolean isActiveToday;
+            if (vs.todayOverride) {
+                isActiveToday = vs.todayActive != null && vs.todayActive;
+            } else {
+                isActiveToday = vs.defaults[dow];
+            }
+            todayBadge.setText(isActiveToday ? "HEUTE AKTIV" : "HEUTE INAKTIV");
+            todayBadge.setBackgroundColor(isActiveToday ? 0xFF10B981 : 0xFFEF4444);
+            String times = (vs.todayStartTime != null ? vs.todayStartTime : "00:00") + "–" +
+                    (vs.todayEndTime != null ? vs.todayEndTime : "23:59");
+            todayTimes.setText(vs.todayOverride ? times + "  (Override)" : times);
+
+            todaySwitch.setOnCheckedChangeListener(null);
+            todaySwitch.setChecked(isActiveToday);
+            todaySwitch.setOnCheckedChangeListener((btn, checked) -> {
+                if (!btn.isPressed()) return; // ignore programmatic
+                String dateKey = todayDateKey();
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("active", checked);
+                entry.put("startTime", checked ? "00:00" : null);
+                entry.put("endTime", checked ? "23:59" : null);
+                entry.put("setAt", System.currentTimeMillis());
+                entry.put("setBy", "native-shift-editor");
+                FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
+                        .setValue(entry)
+                        .addOnSuccessListener(unused -> Toast.makeText(itemView.getContext(),
+                                vs.name + ": heute " + (checked ? "AN" : "AUS"), Toast.LENGTH_SHORT).show())
+                        .addOnFailureListener(e -> Toast.makeText(itemView.getContext(),
+                                "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            });
+
+            // Wochenplan-Buttons
+            weekRow.removeAllViews();
+            StringBuilder summary = new StringBuilder();
+            for (int i = 0; i < 7; i++) {
+                final int idx = i;
+                Button b = new Button(itemView.getContext());
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+                lp.setMarginStart(2); lp.setMarginEnd(2);
+                b.setLayoutParams(lp);
+                // DAY_LABELS[i] mit i=0..6 entspricht So..Sa (Calendar.DAY_OF_WEEK - 1)
+                b.setText(DAY_LABELS[i]);
+                b.setTextSize(11);
+                b.setMinHeight(0); b.setMinimumHeight(0);
+                b.setPadding(2, 8, 2, 8);
+                boolean active = vs.defaults[i];
+                b.setBackgroundColor(active ? 0xFF065F46 : 0xFF334155);
+                b.setTextColor(active ? 0xFFFFFFFF : 0xFF94A3B8);
+                b.setOnClickListener(v -> {
+                    boolean newActive = !vs.defaults[idx];
+                    FirebaseDatabase.getInstance(DB_URL)
+                            .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + idx)
+                            .setValue(newActive)
+                            .addOnSuccessListener(unused -> Toast.makeText(itemView.getContext(),
+                                    vs.name + " " + DAY_LABELS[idx] + ": " + (newActive ? "AN" : "AUS"), Toast.LENGTH_SHORT).show());
+                });
+                weekRow.addView(b);
+                if (active) summary.append(DAY_LABELS[i]).append(' ');
+            }
+            weekSummary.setText("Wochen-Default: " + (summary.length() == 0 ? "(keine Tage)" : summary.toString().trim()));
+        }
+    }
+}

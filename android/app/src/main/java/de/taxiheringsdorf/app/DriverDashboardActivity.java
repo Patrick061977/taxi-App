@@ -3440,15 +3440,68 @@ public class DriverDashboardActivity extends AppCompatActivity {
 
     private void rejectRide(String rideId) {
         if (db == null || rideId == null) return;
-        Map<String, Object> u = new HashMap<>();
-        u.put("vehicleId", null);
-        u.put("assignedVehicle", null);
-        u.put("vehicle", null);
-        u.put("status", "new");
-        u.put("rejectedBy", currentVehicleId);
-        u.put("rejectedAt", System.currentTimeMillis());
-        u.put("rejectedVia", "native_dashboard");
-        u.put("updatedAt", System.currentTimeMillis());
-        db.getReference("rides/" + rideId).updateChildren(u);
+        // 🆕 v6.62.930 (Patrick 25.05. 11:35 + 11:37): "Push verarbeitet anders als
+        //   wenn ich unten ablehne. Kommt da irgendwie komischerweise immer wieder."
+        //   Befund: In-App-Reject hat KEIN rejectedVehicles[]-Update gemacht →
+        //   autoAssign vergab die Fahrt sofort wieder an denselben Fahrer.
+        //   Cloud-Function rideAction (Push-Pfad, Z30433) macht es richtig.
+        //   Fix: gleiche Logik in Native nachziehen — rejectedVehicles[] auffuellen,
+        //   damit autoAssign das Fahrzeug uebergeht. Felder 1:1 wie rideAction.
+        final long now = System.currentTimeMillis();
+        final String myVid = currentVehicleId;
+        db.getReference("rides/" + rideId).get().addOnSuccessListener(snap -> {
+            try {
+                java.util.List<String> existingRejected = new java.util.ArrayList<>();
+                Object _raw = snap.child("rejectedVehicles").getValue();
+                if (_raw instanceof java.util.List) {
+                    for (Object o : (java.util.List<?>) _raw) {
+                        if (o instanceof String) existingRejected.add((String) o);
+                    }
+                }
+                if (myVid != null && !existingRejected.contains(myVid)) existingRejected.add(myVid);
+
+                Map<String, Object> u = new HashMap<>();
+                u.put("vehicleId", null);
+                u.put("assignedVehicle", null);
+                u.put("vehicle", null);
+                u.put("assignedTo", null);
+                u.put("assignedAt", null);
+                u.put("assignedBy", null);
+                u.put("assignmentExpiresAt", null);
+                u.put("status", "new");
+                u.put("rejectedBy", myVid);
+                u.put("rejectedAt", now);
+                u.put("rejectedVia", "native_dashboard");
+                u.put("rejectedVehicles", existingRejected);
+                u.put("updatedAt", now);
+                db.getReference("rides/" + rideId).updateChildren(u);
+            } catch (Throwable t) {
+                Log.e("DriverDashboard", "rejectRide v6.62.930 Fehler: " + t.getMessage(), t);
+                // Fallback: bisheriges Verhalten (mindestens Status zurueck)
+                Map<String, Object> u = new HashMap<>();
+                u.put("vehicleId", null);
+                u.put("assignedVehicle", null);
+                u.put("vehicle", null);
+                u.put("status", "new");
+                u.put("rejectedBy", myVid);
+                u.put("rejectedAt", now);
+                u.put("rejectedVia", "native_dashboard");
+                u.put("updatedAt", now);
+                db.getReference("rides/" + rideId).updateChildren(u);
+            }
+        }).addOnFailureListener(e -> {
+            Log.e("DriverDashboard", "rejectRide v6.62.930 read fail: " + e.getMessage());
+            // Fallback: ohne rejectedVehicles aber zumindest Status zurueck
+            Map<String, Object> u = new HashMap<>();
+            u.put("vehicleId", null);
+            u.put("assignedVehicle", null);
+            u.put("vehicle", null);
+            u.put("status", "new");
+            u.put("rejectedBy", myVid);
+            u.put("rejectedAt", now);
+            u.put("rejectedVia", "native_dashboard");
+            u.put("updatedAt", now);
+            db.getReference("rides/" + rideId).updateChildren(u);
+        });
     }
 }

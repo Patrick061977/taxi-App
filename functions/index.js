@@ -25014,11 +25014,70 @@ exports.scheduledDepartureAlert = onSchedule(
             if (!ridesSnap.val()) return;
 
             let alerted = 0;
+            let arrivalAlerts = 0;
             const updates = {};
+            const arrivalAlertPromises = [];
 
             ridesSnap.forEach(child => {
                 const ride = child.val();
                 const rideId = child.key;
+
+                // 🆕 v6.62.928 (Patrick 25.05. 10:40 'ja'): NEUE-FAHRT-AKZEPTANZ-ALARM
+                //   15 Min + drivingTimeToPickup vor Pickup → FCM type=new_ride isReminder=true
+                //   (Sound + Annehmen-/Ablehnen-Buttons). Vorher lief das in scheduledAutoAssign
+                //   (10-Min-Cron), zu unregelmaessig — Patrick: 'es kommt kein Alarm'.
+                //   openRideWarned ist der bestehende Idempotenz-Flag aus scheduledAutoAssign.
+                if (!ride.openRideWarned
+                    && ['vorbestellt', 'accepted'].includes(ride.status)
+                    && ride.pickupTimestamp
+                    && (ride.assignedVehicle || ride.vehicleId)) {
+                    const _vid = ride.assignedVehicle || ride.vehicleId;
+                    const _driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
+                        ? ride.drivingTimeToPickup : 10;
+                    const _arrivalAlertAt = ride.pickupTimestamp - (15 + _driveMin) * 60_000;
+                    // Fenster: [arrivalAlertAt, arrivalAlertAt + 2 Min] — 2 Min Puffer
+                    if (now >= _arrivalAlertAt && now <= _arrivalAlertAt + 120_000) {
+                        const _wasVorbestellt = ride.status === 'vorbestellt';
+                        const _isIsoPickup = typeof ride.pickupTime === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(ride.pickupTime);
+                        const _pickupLabel = (ride.pickupTime && !_isIsoPickup)
+                            ? ride.pickupTime
+                            : new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });
+                        const _minUntil = Math.round((ride.pickupTimestamp - now) / 60_000);
+                        updates[`rides/${rideId}/openRideWarned`] = true;
+                        updates[`rides/${rideId}/statusTransitionedAt`] = now;
+                        updates[`rides/${rideId}/statusTransitionReason`] = 'v6.62.928 Akzeptanz-Alarm 15+Anfahrt vor Pickup';
+                        updates[`rides/${rideId}/updatedAt`] = now;
+                        if (_wasVorbestellt) updates[`rides/${rideId}/status`] = 'assigned';
+                        arrivalAlerts++;
+                        arrivalAlertPromises.push((async () => {
+                            try {
+                                await sendFCMToVehicle(_vid, {
+                                    type: 'new_ride',
+                                    rideId,
+                                    vehicleId: _vid,
+                                    pickup: ride.pickup || '',
+                                    destination: ride.destination || '',
+                                    pickupTime: _pickupLabel,
+                                    customerName: ride.customerName || 'Kunde',
+                                    isVorbestellung: 'false',
+                                    isReminder: 'true'
+                                });
+                                await addRideLog(rideId, '📲', `Akzeptanz-Alarm 15+${_driveMin}min vor Pickup gesendet an ${_vid} (in ${_minUntil} Min)`, {
+                                    fahrzeug: _vid,
+                                    quelle: 'scheduledDepartureAlert v6.62.928 Pass1',
+                                    minutenBisAbholung: _minUntil,
+                                    driveMin: _driveMin
+                                });
+                                console.log(`📲 v6.62.928 Akzeptanz-Alarm: ${ride.customerName || rideId} → ${_vid} (in ${_minUntil} Min)`);
+                            } catch (_pErr) {
+                                console.error(`   ❌ v6.62.928 Akzeptanz-Alarm fail ${rideId}: ${_pErr.message}`);
+                            }
+                        })());
+                        // Nicht returnen — der departure_alert-Pass unten kann fuer dieselbe Ride
+                        //   spaeter (10 Min vor Pickup) noch zusaetzlich die Vibration ausloesen.
+                    }
+                }
+
                 // v6.62.886 (Patrick 23.05. 08:05 Villa-Margot-Bug): auch 'vorbestellt' /
                 // 'assigned' / 'on_way' triggern wenn ein Fahrzeug zugewiesen ist. Viele
                 // Vorbestellungen bleiben 'vorbestellt' weil der Fahrer sie nicht aktiv
@@ -25075,10 +25134,15 @@ exports.scheduledDepartureAlert = onSchedule(
                 alerted++;
             });
 
+            // v6.62.928: erst auf alle Akzeptanz-Alarm-FCMs warten, dann updates schreiben
+            if (arrivalAlertPromises.length > 0) {
+                await Promise.allSettled(arrivalAlertPromises);
+            }
             if (Object.keys(updates).length > 0) {
                 await db.ref().update(updates);
             }
-            if (alerted > 0) console.log(`🚨 scheduledDepartureAlert: ${alerted} Alerts dispatched`);
+            if (alerted > 0) console.log(`🚨 scheduledDepartureAlert: ${alerted} Vibration-Alerts dispatched`);
+            if (arrivalAlerts > 0) console.log(`📲 v6.62.928 scheduledDepartureAlert: ${arrivalAlerts} Akzeptanz-Alarm(e) (15+Anfahrt vor Pickup) dispatched`);
         } catch (e) {
             console.error('❌ scheduledDepartureAlert Fehler:', e.message);
         }

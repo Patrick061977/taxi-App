@@ -18217,6 +18217,21 @@ exports.autoResolveConflicts = onSchedule(
 
                 if (inShift) continue;
 
+                // 🆕 v6.62.923 (Patrick 25.05. 09:57): 10-Min-Heartbeat-Grace, analog
+                //   scheduledAutoAssign (Z20335 seit v6.62.913). Bei App-Update vom Fahrer
+                //   ist die App ~5-10s offline, autoResolveConflicts darf das Fahrzeug NICHT
+                //   sofort wegnehmen. Wenn vehicle.shift.lastHeartbeat < 10 Min alt → skip.
+                try {
+                    const _hbSnap = await db.ref(`vehicles/${ride.assignedVehicle}/shift/lastHeartbeat`).once('value');
+                    const _hb = _hbSnap.val();
+                    if (_hb && (Date.now() - _hb) < 10 * 60 * 1000) {
+                        const _hbAgeMin = Math.round((Date.now() - _hb) / 60000);
+                        debugPhase0Lines.push(`⏸️ ${ride.customerName || '?'} → ${vName}: 10-Min-Grace (Heartbeat ${_hbAgeMin} Min alt) — kein Reassign`);
+                        console.log(`⏸️ v6.62.923 Heartbeat-Grace: ${ride.customerName || '?'} → ${vName} (HB ${_hbAgeMin} Min alt)`);
+                        continue;
+                    }
+                } catch (_hbErr) { /* non-critical */ }
+
                 // Fahrzeug hat keinen Dienst → Alternative suchen
                 const currInfo = OFFICIAL_VEHICLES[ride.assignedVehicle] || {};
                 console.warn(`📅 SCHICHT-PROBLEM: ${ride.customerName || '?'} (${rideTimeStr}) auf ${currInfo.name} — kein Dienst am ${rideDateStr}!`);
@@ -23039,7 +23054,25 @@ exports.onRideUpdated = onValueUpdated(
                 const pickupTimeStr = String(pickupBerlin.getHours()).padStart(2,'0') + ':' + String(pickupBerlin.getMinutes()).padStart(2,'0');
 
                 // Grund 1: Fahrzeug hat keinen Dienst
-                const needsReassign_noShift = !isVehicleInShift(newVehicle, shiftsData, pickupDateStr, pickupTimeStr);
+                let needsReassign_noShift = !isVehicleInShift(newVehicle, shiftsData, pickupDateStr, pickupTimeStr);
+
+                // 🆕 v6.62.923 (Patrick 25.05. 09:57): 10-Min-Heartbeat-Grace.
+                //   Wenn der Fahrer gerade nur kurz offline ist (App-Update),
+                //   sein Wochenplan-Eintrag aber temporaer nicht greift → NICHT reassign.
+                //   Analog zu scheduledAutoAssign (Z20335) und autoResolveConflicts.Phase0 (Z18218).
+                if (needsReassign_noShift) {
+                    try {
+                        const _hbSnap = await db.ref(`vehicles/${newVehicle}/shift/lastHeartbeat`).once('value');
+                        const _hb = _hbSnap.val();
+                        if (_hb && (Date.now() - _hb) < 10 * 60 * 1000) {
+                            const _hbAgeMin = Math.round((Date.now() - _hb) / 60000);
+                            const vName = (OFFICIAL_VEHICLES[newVehicle] || {}).name || newVehicle;
+                            console.log(`⏸️ v6.62.923 onRideUpdated Heartbeat-Grace: ${after.customerName || rideId} → ${vName} (HB ${_hbAgeMin} Min alt)`);
+                            await addRideLog(rideId, '⏸️', `Heartbeat-Grace: ${vName} HB ${_hbAgeMin} Min alt — kein Reassign`, { altFahrzeug: vName, quelle: 'onRideUpdated v6.62.923 Heartbeat-Grace' });
+                            needsReassign_noShift = false;
+                        }
+                    } catch (_hbErr) { /* non-critical */ }
+                }
 
                 // Grund 2: War Sofortfahrt (GPS), ist jetzt Vorbestellung → neu optimieren
                 const minutesUntilPickup = (after.pickupTimestamp - Date.now()) / 60000;

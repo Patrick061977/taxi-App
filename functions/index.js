@@ -21776,6 +21776,34 @@ exports.onRideCreated = onValueCreated(
 
         console.log(`📱 onRideCreated: ${rideId} — ${ride.customerName || 'Unbekannt'} — source: ${ride.source || 'browser'}`);
 
+        // 🆕 v6.62.941 (Patrick 25.05. 15:35 "Sofortfahrt + 5/10 Min Vorlauf"):
+        //   Wenn Sofortfahrt (pickupTimestamp <= now + 60s ODER isJetzt=true),
+        //   addiere konfigurierbaren Vorlauf (default 0). So hat das System Puffer
+        //   fuer Anfahrtszeit-Berechnung + Push-Reminder + Akzeptanz-Alarm.
+        //   Setting: /settings/sofortVorlaufMin (0/5/10 Min)
+        try {
+            const _isPastOrCancelled = ['completed', 'cancelled', 'deleted', 'storniert'].includes(ride.status);
+            const _nowMs = Date.now();
+            const _pickupTs = ride.pickupTimestamp || _nowMs;
+            const _isSofortRide = (ride.isJetzt === true || _pickupTs <= _nowMs + 60_000) && !_isPastOrCancelled && !ride.pastDateBooking;
+            if (_isSofortRide && !ride.sofortVorlaufApplied) {
+                const _vorlaufSnap = await db.ref('settings/sofortVorlaufMin').once('value');
+                const _vorlauf = Number(_vorlaufSnap.val()) || 0;
+                if (_vorlauf > 0 && _vorlauf <= 30) {
+                    const _neuPickup = _nowMs + _vorlauf * 60_000;
+                    await db.ref(`rides/${rideId}`).update({
+                        pickupTimestamp: _neuPickup,
+                        sofortVorlaufApplied: _vorlauf,
+                        sofortVorlaufAppliedAt: _nowMs,
+                        updatedAt: _nowMs
+                    });
+                    console.log(`⏰ v6.62.941 Sofort+Vorlauf: ${rideId} pickup ${_pickupTs} → ${_neuPickup} (+${_vorlauf} Min)`);
+                    ride.pickupTimestamp = _neuPickup;
+                    ride.sofortVorlaufApplied = _vorlauf;
+                }
+            }
+        } catch (_vErr) { console.warn('v6.62.941 sofortVorlauf fehlgeschlagen:', _vErr.message); }
+
         // 🆕 v6.62.171: Past-Date-Auto-Schutz fuer historische Auftrag-Importe.
         // Wenn confirmAuftragImport eine Ride bereits mit status='completed' + completedBy=
         // 'auftrag-import-historic' anlegt (Patrick reicht z.B. Vetter 25.04. nachtraeglich

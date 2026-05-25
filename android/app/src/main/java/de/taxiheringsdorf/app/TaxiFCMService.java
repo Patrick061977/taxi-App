@@ -200,12 +200,16 @@ public class TaxiFCMService extends FirebaseMessagingService {
             acceptIntent = PendingIntent.getBroadcast(this, ("a"+rideId).hashCode(), acceptI,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-            Intent rejectI = new Intent(this, RideActionReceiver.class);
-            rejectI.setAction(RideActionReceiver.ACTION_REJECT);
-            rejectI.putExtra(RideActionReceiver.EXTRA_RIDE_ID, rideId);
-            rejectI.putExtra(RideActionReceiver.EXTRA_NOTIFICATION_ID, notificationId);
-            rejectI.putExtra(RideActionReceiver.EXTRA_VEHICLE_ID, vehicleId);
-            rejectIntent = PendingIntent.getBroadcast(this, ("r"+rideId).hashCode(), rejectI,
+            // 🆕 v6.62.937 (Patrick 25.05. 14:41 "B - zweimal druecken zum Ablehnen"):
+            //   Ablehnen-Button oeffnet jetzt die App auf einem Confirm-Dialog statt
+            //   direkt abzulehnen. Verhindert versehentliche Rejects in der Notification.
+            Intent rejectI = new Intent(this, DriverDashboardActivity.class);
+            rejectI.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            rejectI.putExtra("rideId", rideId);
+            rejectI.putExtra("confirmReject", true);
+            rejectI.putExtra("notificationId", notificationId);
+            rejectI.putExtra("vehicleId", vehicleId);
+            rejectIntent = PendingIntent.getActivity(this, ("r"+rideId).hashCode(), rejectI,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
 

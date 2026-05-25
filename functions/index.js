@@ -30439,6 +30439,16 @@ exports.rideAction = onRequest(
                     quelle: 'rideAction',
                     rejectedBereinigt: vehicleId && Array.isArray(_curRide.rejectedVehicles) && _curRide.rejectedVehicles.includes(vehicleId) ? 'ja (' + vehicleId + ')' : 'nein'
                 }); } catch(_) {}
+                // 🆕 v6.62.937 (Patrick 25.05. 14:37): Status-Diary Telegram
+                try {
+                    const _vName = (OFFICIAL_VEHICLES[vehicleId] || {}).name || vehicleId || '?';
+                    const _custName = _curRide.customerName || '?';
+                    const _pickup = (_curRide.pickup || '').slice(0, 50);
+                    await sendToAllAdmins(
+                        `✅ <b>AKZEPTIERT</b>\n📋 ${_custName} • ${_pickup}\n🚖 ${_vName}`,
+                        'status_diary'
+                    );
+                } catch(_te) { /* non-critical */ }
                 res.status(200).json({ ok: true, action: 'accepted' });
             } else if (action === 'reject') {
                 // v6.62.248: rejectedVehicles[]-Array updaten + autoAssignRide direkt
@@ -30468,6 +30478,16 @@ exports.rideAction = onRequest(
                 });
                 console.log(`❌ rideAction: ${rideId} → rejected by ${vehicleId}. Rejected-List: ${newRejected.join(', ')}. Versuche Re-Assign…`);
                 try { await addRideLog(rideId, '❌', `Auftrag via FCM-Notification abgelehnt`, { quelle: 'rideAction', rejectedBy: vehicleId, rejectedVehicles: newRejected }); } catch(_) {}
+                // 🆕 v6.62.937 (Patrick 25.05. 14:37 'Status-Diary'): Telegram
+                try {
+                    const _vName = (OFFICIAL_VEHICLES[vehicleId] || {}).name || vehicleId || '?';
+                    const _custName = _curRide.customerName || '?';
+                    const _pickup = (_curRide.pickup || '').slice(0, 50);
+                    await sendToAllAdmins(
+                        `❌ <b>ABGELEHNT</b>\n📋 ${_custName} • ${_pickup}\n🚖 ${_vName} hat abgelehnt → Re-Assign laeuft`,
+                        'status_diary'
+                    );
+                } catch(_te) { /* non-critical */ }
                 // Sofort autoAssignRide nochmal aufrufen mit aktualisierter Reject-List
                 try {
                     const _ride = { ..._curRide, rejectedVehicles: newRejected, _rejectedVehicles: newRejected, status: 'new', vehicleId: null, assignedVehicle: null };

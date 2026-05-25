@@ -23227,6 +23227,24 @@ exports.onRideUpdated = onValueUpdated(
             // 🆕 v6.38.31: Lifecycle-Log — Status-Änderung
             await addRideLog(rideId, '📊', `Status: ${oldStatus} → ${newStatus}`, { altStatus: oldStatus, neuStatus: newStatus, quelle: 'onRideUpdated' });
 
+            // 🆕 v6.62.939 (Patrick 25.05. 15:04 "ob akzeptiert wurde sehen"):
+            //   Vehicle-Feld activeRideStatus synchronisieren — Kollegen-Karte
+            //   (fahrer-map.html) liest das fuer die Marker-Farbe + Popup. Vorher
+            //   wurde es NIRGENDS gesetzt → alle Marker zeigten 'Frei'.
+            try {
+                const _vidForStatus = after.assignedVehicle || after.vehicleId;
+                if (_vidForStatus) {
+                    if (['accepted', 'on_way', 'arrived', 'picked_up', 'assigned'].includes(newStatus)) {
+                        await db.ref(`vehicles/${_vidForStatus}/activeRideStatus`).set(newStatus);
+                        await db.ref(`vehicles/${_vidForStatus}/activeRideId`).set(rideId);
+                    } else if (['completed', 'cancelled', 'storniert', 'deleted'].includes(newStatus)) {
+                        // Fahrt fertig → Vehicle ist wieder frei
+                        await db.ref(`vehicles/${_vidForStatus}/activeRideStatus`).remove();
+                        await db.ref(`vehicles/${_vidForStatus}/activeRideId`).remove();
+                    }
+                }
+            } catch (_arsErr) { /* non-critical */ }
+
             // v6.62.44: Patrick: 'Web-Kunde soll Handy weglegen koennen — wenn ich frei werde,
             // klingelt sein Handy mit Fahrer-ist-unterwegs-SMS, dass er sich nicht mehr kuemmern muss'.
             // Status-Wechsel-SMS bei warteschlange/vorbestellt → assigned/accepted (Fahrer-Zuweisung).

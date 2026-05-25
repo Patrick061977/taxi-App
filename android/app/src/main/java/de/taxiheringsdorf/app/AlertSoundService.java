@@ -44,6 +44,14 @@ public class AlertSoundService extends Service {
         stopSelf();
     };
 
+    // 🆕 v6.62.945 (Patrick 25.05. 17:16 "Gebimmel geht 10-15s weiter nach Annehmen"):
+    //   Statische Referenz auf den aktiven Player + Volume, damit Stop SOFORT moeglich
+    //   ist ohne Intent-Round-Trip (Intent → Service-onStartCommand → stopSelf → onDestroy
+    //   dauert ~1-3s). Annehmen-Button kann jetzt direkt MediaPlayer.stop() aufrufen.
+    private static MediaPlayer _activePlayer = null;
+    private static Integer _activeSavedAlarmVolume = null;
+    private static Context _activeServiceCtx = null;
+
     public static void start(Context ctx) {
         try {
             Intent i = new Intent(ctx, AlertSoundService.class);
@@ -56,6 +64,23 @@ public class AlertSoundService extends Service {
     }
 
     public static void stop(Context ctx) {
+        // 🆕 v6.62.945: Direkt-Stop ueber statischen Player — keine Intent-Latenz.
+        try {
+            if (_activePlayer != null) {
+                try { if (_activePlayer.isPlaying()) _activePlayer.stop(); } catch (Throwable _i) {}
+                try { _activePlayer.release(); } catch (Throwable _i) {}
+                _activePlayer = null;
+                Log.i(TAG, "Sofort-Stop via statische Ref (kein Intent-Wait)");
+            }
+            if (_activeSavedAlarmVolume != null) {
+                try {
+                    android.media.AudioManager am = (android.media.AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                    if (am != null) am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, _activeSavedAlarmVolume, 0);
+                } catch (Throwable _i) {}
+                _activeSavedAlarmVolume = null;
+            }
+        } catch (Throwable _e) {}
+        // Plus Intent damit Service ordentlich aufraeumt (Foreground-Notification entfernen)
         try {
             Intent i = new Intent(ctx, AlertSoundService.class);
             i.setAction(ACTION_STOP);
@@ -116,6 +141,10 @@ public class AlertSoundService extends Service {
             player.setLooping(true);
             player.prepare();
             player.start();
+            // 🆕 v6.62.945: Static-Ref fuer Sofort-Stop ohne Intent-Latenz
+            _activePlayer = player;
+            _activeSavedAlarmVolume = savedAlarmVolume;
+            _activeServiceCtx = getApplicationContext();
             Log.i(TAG, "MediaPlayer started — looping ALARM-Sound");
         } catch (Throwable t) {
             Log.e(TAG, "MediaPlayer start fail: " + t.getMessage(), t);
@@ -136,6 +165,10 @@ public class AlertSoundService extends Service {
             try { player.release(); } catch (Throwable _i) {}
             player = null;
         }
+        // v6.62.945: Static-Ref clearen (vermutlich schon von stop() entleert)
+        _activePlayer = null;
+        _activeSavedAlarmVolume = null;
+        _activeServiceCtx = null;
 
         // Alarm-Volume zurueck setzen
         if (savedAlarmVolume != null) {

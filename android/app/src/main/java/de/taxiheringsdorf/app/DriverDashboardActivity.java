@@ -3440,6 +3440,8 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // an den Fahrer geht und der Cloud-Watchdog Ruhe gibt.
     private void acceptRide(String rideId) {
         if (db == null || rideId == null || currentVehicleId == null) return;
+        // 🆕 v6.62.945: Alarm sofort stoppen (Patrick 17:16 "Gebimmel geht 10-15s weiter nach Annehmen")
+        try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
         Map<String, Object> u = new HashMap<>();
         u.put("status", "accepted");
         u.put("vehicleId", currentVehicleId);

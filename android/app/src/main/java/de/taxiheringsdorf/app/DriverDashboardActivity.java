@@ -3347,6 +3347,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     isActive = false; // → keine activeToolbar, kein Status-Next-Button
                 }
 
+                // v6.62.924: Reset btnAccept-Sichtbarkeit fuer recycelte ViewHolder
+                btnAccept.setVisibility(View.VISIBLE);
+
                 actionRow.setVisibility(canAcceptReject ? View.VISIBLE : View.GONE);
                 activeToolbar.setVisibility(isActive ? View.VISIBLE : View.GONE);
 
@@ -3362,6 +3365,19 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         btnReject.setOnClickListener(v -> rejectRide(r.id));
                         btnAccept.setOnClickListener(v -> acceptRide(r.id));
                     }
+                }
+
+                // 🆕 v6.62.924 (Patrick 25.05. 10:00): "kann ich die Fahrt auch wieder
+                //   in den Pool zurueckgeben als Fahrer, wenn ich versehentlich angenommen
+                //   habe?". Bei accepted + fernerer Termin (>10 Min bis pickup) bekommt
+                //   der Fahrer einen Zurueck-in-Pool-Button. Vorher war hier kein Button
+                //   sichtbar — Fahrer haengte fest. Nutzt bestehende passRideToPool()
+                //   Funktion (v6.62.790).
+                if ("accepted".equalsIgnoreCase(s) && acceptedFernerTermin && _minBisPickup > 10) {
+                    actionRow.setVisibility(View.VISIBLE);
+                    btnAccept.setVisibility(View.GONE);
+                    btnReject.setText("↩️ Zurück in Pool");
+                    btnReject.setOnClickListener(v -> passRideToPool(r.id));
                 }
                 if (isActive) {
                     btnStatusNext.setText(nextStatusLabel(r.status));

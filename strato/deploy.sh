@@ -51,6 +51,7 @@ APP_FILES=(
     "berlin-uebersicht.html"
     "tagesplan.html"
     "anfrage.html"
+    "urlaub.html"
     "kontakt.html"
     "impressum.html"
     "ausflugsziele.html"

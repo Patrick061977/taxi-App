@@ -426,21 +426,29 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 for (int i = 0; i < rides.size() - 1; i++) {
                     Ride cur = rides.get(i);
                     Ride nxt = rides.get(i + 1);
-                    // Ende von cur = pickupTimestamp + duration (Fahrtdauer)
                     long curDur = cur.estimatedDuration != null && cur.estimatedDuration > 0 ? cur.estimatedDuration : 10;
                     long curEnd = cur.pickupTimestamp + curDur * 60_000;
-                    // Anfahrt zur nächsten Fahrt (drivingTimeToPickup von der naechsten Ride)
                     long nxtDrive = nxt.drivingTimeToPickup != null && nxt.drivingTimeToPickup > 0 ? nxt.drivingTimeToPickup : 10;
                     long gapMin = (nxt.pickupTimestamp - curEnd) / 60_000;
-                    long required = nxtDrive + 3; // 3 Min Buffer fuer Ein-/Ausladen
+                    long required = nxtDrive + 3;
                     if (gapMin < required) {
                         long deficit = required - gapMin;
-                        cur.conflictHint = "⚠️ Engpass: nächste Fahrt (" + (nxt.customerName != null ? nxt.customerName : "?") + " " +
+                        // 🆕 v6.62.954 Phase 2A: Bahnhof-Priorität HIGH (Verspätung = Zug verpasst)
+                        boolean curIsBahnhof = cur.destination != null && cur.destination.toLowerCase().contains("bahnhof");
+                        boolean nxtIsBahnhof = nxt.destination != null && nxt.destination.toLowerCase().contains("bahnhof");
+                        String curPrio = curIsBahnhof ? " 🚆HIGH" : "";
+                        String nxtPrio = nxtIsBahnhof ? " 🚆HIGH" : "";
+                        // Wenn next.Bahnhof HIGH und cur.normal: cur soll vorgezogen werden (kann nicht zu spät an Bahnhof kommen)
+                        // Wenn cur.Bahnhof HIGH: nxt verschieben oder Re-Assign
+                        cur.conflictHint = "⚠️ Engpass" + curPrio + ": nächste Fahrt (" + (nxt.customerName != null ? nxt.customerName : "?") + nxtPrio + " " +
                             new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(nxt.pickupTimestamp)) + ") in " + gapMin + " Min, " + nxtDrive + " Min Anfahrt — " + deficit + " Min zu spät";
                         cur.conflictDeficit = (int) deficit;
                         cur.conflictNextRideId = nxt.id;
-                        nxt.conflictHint = "🚆 Vorgaenger (" + (cur.customerName != null ? cur.customerName : "?") + " " +
-                            new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(cur.pickupTimestamp)) + ") läuft über — " + deficit + " Min Konflikt";
+                        cur.conflictIsBahnhofNext = nxtIsBahnhof;
+                        nxt.conflictHint = "🚆 Vorgaenger (" + (cur.customerName != null ? cur.customerName : "?") + curPrio + " " +
+                            new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(cur.pickupTimestamp)) + ") läuft über — " + deficit + " Min Konflikt" + nxtPrio;
+                        nxt.conflictDeficit = (int) deficit;
+                        nxt.conflictIsBahnhofSelf = nxtIsBahnhof;
                     }
                 }
             }
@@ -1051,6 +1059,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
         transient String conflictHint;
         transient Integer conflictDeficit; // Min die fehlen
         transient String conflictNextRideId;
+        // 🆕 v6.62.954 Phase 2A: Bahnhof-Prio
+        transient boolean conflictIsBahnhofNext;
+        transient boolean conflictIsBahnhofSelf;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
         // 🆕 v6.62.668: Patrick (13.05. 10:55): "Aber die Web-Anfragen sehe ich noch nicht."
         //   Bug-Quelle: source-Strings sind nicht einheitlich — buchen.html schreibt
@@ -1398,25 +1409,53 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         final String _rid = r.id;
         final long _origTs = r.pickupTimestamp;
-        java.util.function.IntConsumer apply = (min) -> {
+        final String _custName = r.customerName != null ? r.customerName : "Kunde";
+        final String _custPhone = r.customerPhone;
+        // 🆕 v6.62.954 Phase 2A: SMS-Checkbox unter Buttons (default off)
+        java.util.function.BiConsumer<Integer, Boolean> apply = (min, sendSms) -> {
             long newTs = _origTs - min * 60_000L;
             java.util.Map<String, Object> u = new java.util.HashMap<>();
             u.put("pickupTimestamp", newTs);
             SimpleDateFormat _tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
             _tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
-            u.put("pickupTime", _tf.format(new Date(newTs)));
+            String newTimeStr = _tf.format(new Date(newTs));
+            u.put("pickupTime", newTimeStr);
             u.put("smartScheduleShiftedMin", min);
             u.put("smartScheduleShiftedAt", System.currentTimeMillis());
             u.put("smartScheduleShiftedBy", "admin-time-shift");
             u.put("updatedAt", System.currentTimeMillis());
             com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + _rid).updateChildren(u)
-                .addOnSuccessListener(_ok -> Toast.makeText(AdminDashboardActivity.this,
-                    "✅ Pickup um " + min + " Min vorgezogen → " + _tf.format(new Date(newTs)), Toast.LENGTH_LONG).show())
+                .addOnSuccessListener(_ok -> {
+                    Toast.makeText(AdminDashboardActivity.this,
+                        "✅ Pickup um " + min + " Min vorgezogen → " + newTimeStr, Toast.LENGTH_LONG).show();
+                    // 🆕 v6.62.954: optional SMS an Kunde
+                    if (sendSms && _custPhone != null && _custPhone.length() > 4) {
+                        java.util.Map<String, Object> sms = new java.util.HashMap<>();
+                        sms.put("phone", _custPhone);
+                        sms.put("message", "Funktaxi: Hallo " + _custName + ", Ihr Taxi kommt " + min + " Min frueher als geplant — neue Pickup-Zeit: " + newTimeStr + ".");
+                        sms.put("reason", "smart-schedule-shift");
+                        sms.put("rideId", _rid);
+                        sms.put("ts", System.currentTimeMillis());
+                        com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("pendingSMS").push().setValue(sms);
+                        Toast.makeText(AdminDashboardActivity.this, "📲 SMS an " + _custName + " in Queue", Toast.LENGTH_SHORT).show();
+                    }
+                })
                 .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
                     "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
         };
-        b.setPositiveButton("💡 " + suggested + " Min vorziehen (empfohlen)", (d, w) -> apply.accept(suggested));
-        b.setNeutralButton("− 5 Min", (d, w) -> apply.accept(5));
+        // Container für Checkbox
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        container.setPadding(pad, pad/2, pad, 0);
+        final android.widget.CheckBox cbSms = new android.widget.CheckBox(this);
+        cbSms.setText("📲 SMS an " + _custName + " senden (frueher kommen)");
+        cbSms.setChecked(_custPhone != null && _custPhone.length() > 4);
+        if (_custPhone == null || _custPhone.length() <= 4) cbSms.setEnabled(false);
+        container.addView(cbSms);
+        b.setView(container);
+        b.setPositiveButton("💡 " + suggested + " Min vorziehen (empfohlen)", (d, w) -> apply.accept(suggested, cbSms.isChecked()));
+        b.setNeutralButton("− 5 Min", (d, w) -> apply.accept(5, cbSms.isChecked()));
         b.setNegativeButton("Abbrechen", null);
         AlertDialog dlg = b.show();
     }

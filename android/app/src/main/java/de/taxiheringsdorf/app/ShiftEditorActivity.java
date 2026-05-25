@@ -77,42 +77,57 @@ public class ShiftEditorActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_shift_editor);
+        // 🆕 v6.62.929 (Patrick 25.05. 11:03 "Schicht-Editor stürzt ab"):
+        //   Komplettes onCreate in try/catch — beim Crash zeigt Toast statt Hard-Crash,
+        //   plus stacktrace in Crashlytics. Liefert beim naechsten Test die Info was
+        //   genau gecrasht ist.
+        try {
+            setContentView(R.layout.activity_shift_editor);
 
-        MaterialToolbar toolbar = findViewById(R.id.shift_editor_toolbar);
-        toolbar.setNavigationOnClickListener(v -> finish());
+            MaterialToolbar toolbar = findViewById(R.id.shift_editor_toolbar);
+            if (toolbar != null) toolbar.setNavigationOnClickListener(v -> finish());
 
-        content = findViewById(R.id.shift_content);
-        editorList = findViewById(R.id.shift_editor_list);
-        attendanceContainer = findViewById(R.id.shift_attendance_container);
-        driverViewContainer = findViewById(R.id.shift_driver_view_container);
-        attendanceList = findViewById(R.id.shift_attendance_list);
-        driverViewList = findViewById(R.id.shift_driver_view_list);
-        tabs = findViewById(R.id.shift_tabs);
+            content = findViewById(R.id.shift_content);
+            editorList = findViewById(R.id.shift_editor_list);
+            attendanceContainer = findViewById(R.id.shift_attendance_container);
+            driverViewContainer = findViewById(R.id.shift_driver_view_container);
+            attendanceList = findViewById(R.id.shift_attendance_list);
+            driverViewList = findViewById(R.id.shift_driver_view_list);
+            tabs = findViewById(R.id.shift_tabs);
 
-        editorList.setLayoutManager(new LinearLayoutManager(this));
-        attendanceList.setLayoutManager(new LinearLayoutManager(this));
-        driverViewList.setLayoutManager(new LinearLayoutManager(this));
+            if (editorList != null) editorList.setLayoutManager(new LinearLayoutManager(this));
+            if (attendanceList != null) attendanceList.setLayoutManager(new LinearLayoutManager(this));
+            if (driverViewList != null) driverViewList.setLayoutManager(new LinearLayoutManager(this));
 
-        adapter = new VehicleAdapter();
-        editorList.setAdapter(adapter);
+            adapter = new VehicleAdapter();
+            if (editorList != null) editorList.setAdapter(adapter);
 
-        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
-            @Override public void onTabSelected(TabLayout.Tab tab) { showTab(tab.getPosition()); }
-            @Override public void onTabUnselected(TabLayout.Tab tab) { }
-            @Override public void onTabReselected(TabLayout.Tab tab) { }
-        });
+            if (tabs != null) {
+                tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+                    @Override public void onTabSelected(TabLayout.Tab tab) { showTab(tab.getPosition()); }
+                    @Override public void onTabUnselected(TabLayout.Tab tab) { }
+                    @Override public void onTabReselected(TabLayout.Tab tab) { }
+                });
+            }
 
-        // Initial empty: alle Fahrzeuge mit leeren Daten
-        for (Map.Entry<String, String> e : OFFICIAL_VEHICLES.entrySet()) {
-            VehicleShift vs = new VehicleShift();
-            vs.vehicleId = e.getKey();
-            vs.name = e.getValue();
-            data.add(vs);
+            // Initial empty: alle Fahrzeuge mit leeren Daten
+            for (Map.Entry<String, String> e : OFFICIAL_VEHICLES.entrySet()) {
+                VehicleShift vs = new VehicleShift();
+                vs.vehicleId = e.getKey();
+                vs.name = e.getValue();
+                data.add(vs);
+            }
+            adapter.notifyDataSetChanged();
+
+            attachListener();
+        } catch (Throwable t) {
+            Log.e(TAG, "🚨 ShiftEditor onCreate Crash: " + t.getMessage(), t);
+            try {
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(t);
+            } catch (Throwable _ignore) { /* Crashlytics evtl. nicht init */ }
+            Toast.makeText(this, "Schicht-Editor Fehler: " + t.getMessage() + " — Crashlytics-Log gesendet", Toast.LENGTH_LONG).show();
+            // Activity nicht killen — User kann zurueck navigieren
         }
-        adapter.notifyDataSetChanged();
-
-        attachListener();
     }
 
     private void showTab(int idx) {
@@ -135,29 +150,53 @@ public class ShiftEditorActivity extends AppCompatActivity {
         shiftsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snap) {
-                String todayKey = todayDateKey();
-                for (VehicleShift vs : data) {
-                    DataSnapshot vSnap = snap.child(vs.vehicleId);
-                    vs.defaults = new boolean[7];
-                    DataSnapshot defSnap = vSnap.child("defaults");
-                    if (defSnap.exists()) {
-                        int i = 0;
-                        for (DataSnapshot c : defSnap.getChildren()) {
-                            if (i < 7) {
-                                Boolean b = c.getValue(Boolean.class);
-                                vs.defaults[i++] = b != null && b;
+                // v6.62.929: try/catch um den Parse-Block — wenn ein Fahrzeug ungewoehnliche
+                //   Daten in Firebase hat (z.B. defaults als Object statt Array, oder
+                //   {active:"true"} als String) → Snapshot-Parser wirft ClassCastException
+                //   → Activity-Crash. Defensive parsing macht das tolerant.
+                try {
+                    String todayKey = todayDateKey();
+                    for (VehicleShift vs : data) {
+                        try {
+                            DataSnapshot vSnap = snap.child(vs.vehicleId);
+                            vs.defaults = new boolean[7];
+                            DataSnapshot defSnap = vSnap.child("defaults");
+                            if (defSnap.exists()) {
+                                int i = 0;
+                                for (DataSnapshot c : defSnap.getChildren()) {
+                                    if (i < 7) {
+                                        try {
+                                            Object raw = c.getValue();
+                                            if (raw instanceof Boolean) vs.defaults[i] = (Boolean) raw;
+                                            else if (raw instanceof String) vs.defaults[i] = "true".equalsIgnoreCase((String) raw);
+                                            else if (raw instanceof Number) vs.defaults[i] = ((Number) raw).intValue() != 0;
+                                            else vs.defaults[i] = false;
+                                        } catch (Throwable _ignore) { vs.defaults[i] = false; }
+                                        i++;
+                                    }
+                                }
                             }
+                            // Day-Override fuer heute
+                            DataSnapshot todaySnap = vSnap.child(todayKey);
+                            vs.todayOverride = todaySnap.exists();
+                            vs.todayActive = null;
+                            if (todaySnap.exists() && todaySnap.hasChild("active")) {
+                                vs.todayActive = bool(todaySnap.child("active").getValue());
+                            }
+                            if (vs.todayOverride && vs.todayActive == null) vs.todayActive = true;
+                            vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
+                            vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
+                        } catch (Throwable rowErr) {
+                            Log.w(TAG, "Parse-Fehler fuer " + vs.vehicleId + ": " + rowErr.getMessage());
                         }
                     }
-                    // Day-Override fuer heute
-                    DataSnapshot todaySnap = vSnap.child(todayKey);
-                    vs.todayOverride = todaySnap.exists();
-                    vs.todayActive = !todaySnap.exists() || todaySnap.hasChild("active") ? bool(todaySnap.child("active").getValue()) : null;
-                    if (vs.todayOverride && vs.todayActive == null) vs.todayActive = true;
-                    vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
-                    vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
+                    if (adapter != null) adapter.notifyDataSetChanged();
+                } catch (Throwable t) {
+                    Log.e(TAG, "🚨 ShiftEditor onDataChange Crash: " + t.getMessage(), t);
+                    try {
+                        com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(t);
+                    } catch (Throwable _ignore) {}
                 }
-                adapter.notifyDataSetChanged();
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Listener err: " + error.getMessage());

@@ -274,6 +274,13 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void openVehiclePicker() {
+        // 🆕 v6.62.929 (Patrick 25.05. 11:03): Bei JEDEM Login die gecachte Rolle
+        //   zuruecksetzen. Sonst: Patrick logged sich als Fahrer ein → role='fahrer'
+        //   in SharedPrefs → wechselt zu Admin-Account → loadRoleAsync laeuft async,
+        //   aber isAdmin() liest sofort den alten Cache. Bug-Symptom: "Ich bleibe
+        //   Fahrer obwohl ich mich als Admin einlogge".
+        PermissionsHelper.clearCache(this);
+        PermissionsHelper.loadRoleAsync(this);
         startActivity(new Intent(this, VehiclePickerActivity.class));
         finish();
     }

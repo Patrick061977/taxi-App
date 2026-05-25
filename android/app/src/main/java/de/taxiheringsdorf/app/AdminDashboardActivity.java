@@ -348,6 +348,57 @@ public class AdminDashboardActivity extends AppCompatActivity {
             sectioned.add("🆕 NEUE WEB-ANFRAGEN (" + webRequests.size() + ") — bitte annehmen");
             sectioned.addAll(webRequests);
         }
+
+        // 🆕 v6.62.932 (Patrick 25.05. 12:29-12:30 'e' + 'dispo'): Wartepool +
+        //   offene Anfragen als prominente Top-Banner — geht in der Dispo-Liste sonst unter.
+        try {
+            android.widget.LinearLayout _wpBanner = findViewById(R.id.admin_wartepool_banner);
+            android.widget.TextView _wpText = findViewById(R.id.admin_wartepool_banner_text);
+            if (_wpBanner != null && _wpText != null) {
+                int _wpCount = wartepoolRides.size();
+                if (_wpCount > 0) {
+                    _wpText.setText("⚠️ WARTEPOOL: " + _wpCount + " Fahrt" + (_wpCount == 1 ? "" : "en") + " warten — manuelle Disposition!");
+                    _wpBanner.setVisibility(android.view.View.VISIBLE);
+                    final List<Ride> _firstWartepool = new ArrayList<>(wartepoolRides);
+                    _wpBanner.setOnClickListener(_v -> {
+                        try {
+                            int _idx = sectioned.indexOf(_firstWartepool.isEmpty() ? null : _firstWartepool.get(0));
+                            if (_idx > 0 && rv != null) rv.smoothScrollToPosition(_idx);
+                        } catch (Throwable _ignore) {}
+                    });
+                } else {
+                    _wpBanner.setVisibility(android.view.View.GONE);
+                    _wpBanner.setOnClickListener(null);
+                }
+            }
+            android.widget.LinearLayout _anfBanner = findViewById(R.id.admin_anfragen_banner);
+            android.widget.TextView _anfText = findViewById(R.id.admin_anfragen_banner_text);
+            if (_anfBanner != null && _anfText != null) {
+                int _anfCount = _currentOffeneAnfragen.size() + webRequests.size();
+                if (_anfCount > 0) {
+                    _anfText.setText("📥 " + _anfCount + " offene Web-/WhatsApp-Anfrage" + (_anfCount == 1 ? "" : "n") + " — bitte uebernehmen");
+                    _anfBanner.setVisibility(android.view.View.VISIBLE);
+                    _anfBanner.setOnClickListener(_v -> {
+                        try {
+                            // Scroll zum ersten OFFENE-ANFRAGEN- oder NEUE-WEB-ANFRAGEN-Header
+                            for (int i = 0; i < sectioned.size(); i++) {
+                                Object o = sectioned.get(i);
+                                if (o instanceof String) {
+                                    String s = (String) o;
+                                    if (s.startsWith("📥 OFFENE ANFRAGEN") || s.startsWith("🆕 NEUE WEB-ANFRAGEN")) {
+                                        if (rv != null) rv.smoothScrollToPosition(i);
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (Throwable _ignore) {}
+                    });
+                } else {
+                    _anfBanner.setVisibility(android.view.View.GONE);
+                    _anfBanner.setOnClickListener(null);
+                }
+            }
+        } catch (Throwable _ignore) { /* defensive — falls Banner-IDs in altem Layout fehlen */ }
         Calendar lastDay = null;
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0); today.set(Calendar.MINUTE, 0);

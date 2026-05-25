@@ -136,12 +136,180 @@ public class ShiftEditorActivity extends AppCompatActivity {
         driverViewContainer.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
 
         if (idx == 1) {
-            // Anwesenheits-Tab: noch nicht implementiert (Stub)
+            // 🆕 v6.62.943 (Patrick 25.05. 16:19 "1+2"): Anwesenheits-Tab.
+            //   Listet alle aktiven Mitarbeiter (/staff/{id}/active=true) mit Switch
+            //   fuer heute. Schreibt /attendance/{YYYY-MM-DD}/{staffId} = boolean.
             TextView label = findViewById(R.id.attendance_date_label);
-            label.setText("Anwesenheit (in Arbeit – v6.62.923)");
+            SimpleDateFormat _hdr = new SimpleDateFormat("EEEE, dd.MM.yyyy", Locale.GERMANY);
+            label.setText("Anwesenheit — " + _hdr.format(new Date()));
+            loadAttendance();
         } else if (idx == 2) {
+            // 🆕 v6.62.943 Tab 3: Read-only Wochenplan pro Fahrzeug — selbe Daten
+            //   wie Editor, aber ohne Bearbeiten-Buttons.
             TextView hint = findViewById(R.id.driver_view_hint);
-            hint.setText("Read-only Fahrer-Wochenplan (in Arbeit – v6.62.923)");
+            hint.setText("Wochenplan-Übersicht (read-only) — zum Bearbeiten Tab 'Editor' nutzen");
+            loadDriverView();
+        }
+    }
+
+    /* ─── v6.62.943 Tab 2: Anwesenheit ─── */
+    private final List<Staff> _staffList = new ArrayList<>();
+    private AttendanceAdapter _attAdapter;
+
+    private static class Staff {
+        String id;
+        String firstName;
+        String lastName;
+        boolean attendedToday;
+    }
+
+    private void loadAttendance() {
+        if (attendanceList == null) return;
+        if (_attAdapter == null) {
+            _attAdapter = new AttendanceAdapter();
+            attendanceList.setAdapter(_attAdapter);
+        }
+        final String _today = todayDateKey();
+        FirebaseDatabase.getInstance(DB_URL).getReference("staff").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot staffSnap) {
+                FirebaseDatabase.getInstance(DB_URL).getReference("attendance/" + _today).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot attSnap) {
+                        try {
+                            _staffList.clear();
+                            for (DataSnapshot c : staffSnap.getChildren()) {
+                                Boolean _active = c.child("active").getValue(Boolean.class);
+                                if (Boolean.FALSE.equals(_active)) continue;
+                                Staff s = new Staff();
+                                s.id = c.getKey();
+                                s.firstName = c.child("firstName").getValue(String.class);
+                                s.lastName = c.child("lastName").getValue(String.class);
+                                Boolean _att = attSnap.child(s.id).getValue(Boolean.class);
+                                s.attendedToday = _att != null && _att;
+                                _staffList.add(s);
+                            }
+                            _staffList.sort((a, b) -> {
+                                String an = (a.lastName != null ? a.lastName : a.id);
+                                String bn = (b.lastName != null ? b.lastName : b.id);
+                                return an.compareToIgnoreCase(bn);
+                            });
+                            _attAdapter.notifyDataSetChanged();
+                        } catch (Throwable t) { Log.w(TAG, "loadAttendance: " + t.getMessage()); }
+                    }
+                    @Override public void onCancelled(@NonNull DatabaseError error) {}
+                });
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private class AttendanceAdapter extends RecyclerView.Adapter<AttendanceAdapter.VH> {
+        @NonNull @Override
+        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            LinearLayout row = new LinearLayout(parent.getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            int pad = (int)(14 * parent.getResources().getDisplayMetrics().density);
+            row.setPadding(pad, pad, pad, pad);
+            row.setBackgroundColor(0xFF1E293B);
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            int mar = (int)(4 * parent.getResources().getDisplayMetrics().density);
+            rowLp.setMargins(mar, mar, mar, mar);
+            row.setLayoutParams(rowLp);
+            TextView name = new TextView(parent.getContext());
+            name.setTextColor(0xFFF8FAFC);
+            name.setTextSize(15);
+            LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+            name.setLayoutParams(nameLp);
+            row.addView(name);
+            MaterialSwitch sw = new MaterialSwitch(parent.getContext());
+            sw.setText("");
+            sw.setTextOn("");
+            sw.setTextOff("");
+            sw.setShowText(false);
+            row.addView(sw);
+            return new VH(row, name, sw);
+        }
+        @Override
+        public void onBindViewHolder(@NonNull VH h, int position) {
+            Staff s = _staffList.get(position);
+            String _disp = (s.firstName != null ? s.firstName : "") + " " + (s.lastName != null ? s.lastName : s.id);
+            h.name.setText(_disp.trim());
+            h.sw.setOnCheckedChangeListener(null);
+            h.sw.setChecked(s.attendedToday);
+            h.sw.setOnCheckedChangeListener((btn, checked) -> {
+                if (!btn.isPressed()) return;
+                s.attendedToday = checked;
+                String _today = todayDateKey();
+                FirebaseDatabase.getInstance(DB_URL).getReference("attendance/" + _today + "/" + s.id)
+                    .setValue(checked)
+                    .addOnSuccessListener(unused -> Toast.makeText(ShiftEditorActivity.this,
+                        _disp.trim() + ": " + (checked ? "ANWESEND" : "ABWESEND"), Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this,
+                        "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            });
+        }
+        @Override public int getItemCount() { return _staffList.size(); }
+        class VH extends RecyclerView.ViewHolder {
+            TextView name; MaterialSwitch sw;
+            VH(View v, TextView n, MaterialSwitch s) { super(v); name = n; sw = s; }
+        }
+    }
+
+    /* ─── v6.62.943 Tab 3: Read-only Wochenplan-Uebersicht ─── */
+    private DriverViewAdapter _drvAdapter;
+
+    private void loadDriverView() {
+        if (driverViewList == null) return;
+        if (_drvAdapter == null) {
+            _drvAdapter = new DriverViewAdapter();
+            driverViewList.setAdapter(_drvAdapter);
+        }
+        _drvAdapter.notifyDataSetChanged();
+    }
+
+    private class DriverViewAdapter extends RecyclerView.Adapter<DriverViewAdapter.VH> {
+        @NonNull @Override
+        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            LinearLayout row = new LinearLayout(parent.getContext());
+            row.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int)(14 * parent.getResources().getDisplayMetrics().density);
+            row.setPadding(pad, pad, pad, pad);
+            row.setBackgroundColor(0xFF1E293B);
+            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            int mar = (int)(4 * parent.getResources().getDisplayMetrics().density);
+            rowLp.setMargins(mar, mar, mar, mar);
+            row.setLayoutParams(rowLp);
+            TextView name = new TextView(parent.getContext());
+            name.setTextColor(0xFFF8FAFC);
+            name.setTextSize(15);
+            name.setTypeface(null, android.graphics.Typeface.BOLD);
+            row.addView(name);
+            TextView days = new TextView(parent.getContext());
+            days.setTextColor(0xFF94A3B8);
+            days.setTextSize(13);
+            days.setPadding(0, (int)(4 * parent.getResources().getDisplayMetrics().density), 0, 0);
+            row.addView(days);
+            return new VH(row, name, days);
+        }
+        @Override
+        public void onBindViewHolder(@NonNull VH h, int position) {
+            VehicleShift vs = data.get(position);
+            h.name.setText(vs.name);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 7; i++) {
+                sb.append(DAY_LABELS[i]).append(vs.defaults[i] ? " ✅  " : " ⬜  ");
+            }
+            int dow = todayDow();
+            boolean activeToday = vs.todayOverride ? (vs.todayActive != null && vs.todayActive) : vs.defaults[dow];
+            sb.append("\nHeute: ").append(activeToday ? "AKTIV" : "INAKTIV");
+            if (vs.todayOverride) sb.append(" (Override)");
+            h.days.setText(sb.toString());
+        }
+        @Override public int getItemCount() { return data.size(); }
+        class VH extends RecyclerView.ViewHolder {
+            TextView name; TextView days;
+            VH(View v, TextView n, TextView d) { super(v); name = n; days = d; }
         }
     }
 

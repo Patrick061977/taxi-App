@@ -487,6 +487,20 @@ public class CallRecordingsActivity extends AppCompatActivity {
             root.addView(btnCrm);
         }
 
+        // 🆕 v6.62.940 (Patrick 25.05. 15:10): Telefonnummer mit BESTEHENDEM CRM verknuepfen.
+        //   Use-Case: Hotel hat mehrere Nummern, alte Nummer war im CRM, neue Nummer kommt rein →
+        //   diese neue Nummer am bestehenden Eintrag ergaenzen statt als neuen Kunden anzulegen.
+        android.widget.Button btnLink = new android.widget.Button(this);
+        btnLink.setText("🔗 Mit anderem CRM-Kunde verknüpfen");
+        btnLink.setTextColor(0xFF1d4ed8);
+        btnLink.setOnClickListener(v -> {
+            android.content.Intent i = new android.content.Intent(this, CrmSearchActivity.class);
+            i.putExtra("link_phone_to_crm", r.phone);
+            startActivity(i);
+            try { if (currentDetailDialog != null) { currentDetailDialog.dismiss(); currentDetailDialog = null; } } catch (Throwable _t) {}
+        });
+        root.addView(btnLink);
+
         // 🆕 v6.62.895 (Patrick 23.05. 14:54): Verstecken-Button (zuverlaessig, anders als Loeschen)
         android.widget.Button btnHide = new android.widget.Button(this);
         btnHide.setText("👁️ Aufnahme verstecken");

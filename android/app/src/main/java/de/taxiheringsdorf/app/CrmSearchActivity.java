@@ -723,6 +723,40 @@ public class CrmSearchActivity extends AppCompatActivity {
     // v6.62.78: Action-Dialog statt direktem Edit. Patrick: 'aus CRM-Suche eine
     // Vorbestellung erstellen, mit haeufigsten Zielen als Quick-Buttons'.
     private void showActionDialog(CrmEntry e) {
+        // 🆕 v6.62.940 (Patrick 25.05. 15:10 "Telefonnummer mit CRM-Eintrag verknuepfen"):
+        //   Wenn der Activity-Intent ein link_phone_to_crm-Extra mitbringt, ist das
+        //   Tap-Verhalten anders: keine Action-Auswahl → direkt Nummer hinzufuegen.
+        String _linkPhone = getIntent() != null ? getIntent().getStringExtra("link_phone_to_crm") : null;
+        if (_linkPhone != null && !_linkPhone.isEmpty() && e.id != null) {
+            if (_phoneAlreadyOnCustomer(e, _linkPhone)) {
+                Toast.makeText(this, "Nummer " + _linkPhone + " ist bereits bei " + (e.name != null ? e.name : "Kunde") + " hinterlegt", Toast.LENGTH_LONG).show();
+                return;
+            }
+            new AlertDialog.Builder(this)
+                .setTitle("🔗 Nummer " + _linkPhone + " hinzufügen?")
+                .setMessage("Soll die Telefonnummer " + _linkPhone + " bei '" + (e.name != null ? e.name : "?") + "' als zusätzliche Nummer hinterlegt werden?")
+                .setPositiveButton("Ja, verknüpfen", (d, w) -> {
+                    java.util.List<String> _newAddPh = new java.util.ArrayList<>(e.additionalPhones);
+                    if (!_newAddPh.contains(_linkPhone)) _newAddPh.add(_linkPhone);
+                    Map<String, Object> _upd = new HashMap<>();
+                    _upd.put("additionalPhones", _newAddPh);
+                    _upd.put("updatedAt", System.currentTimeMillis());
+                    _upd.put("updatedVia", "native_crm_linkPhone_v6.62.940");
+                    FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("customers/" + e.id)
+                        .updateChildren(_upd)
+                        .addOnSuccessListener(_ok -> {
+                            e.additionalPhones.add(_linkPhone);
+                            Toast.makeText(this, "✅ Nummer " + _linkPhone + " bei " + (e.name != null ? e.name : "Kunde") + " hinterlegt", Toast.LENGTH_LONG).show();
+                            getIntent().removeExtra("link_phone_to_crm");
+                            finish();
+                        })
+                        .addOnFailureListener(_err ->
+                            Toast.makeText(this, "❌ Fehler: " + _err.getMessage(), Toast.LENGTH_LONG).show());
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+            return;
+        }
         // v6.62.90: Wenn keine Coords im CRM → Background-Geocoding triggern damit
         // sie beim spaeteren Save da sind. Falls schon da → no-op.
         if (e.address != null && !e.address.isEmpty() && (e.lat == null || e.lon == null)) {

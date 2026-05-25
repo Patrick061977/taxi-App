@@ -400,43 +400,43 @@ public class ShiftEditorActivity extends AppCompatActivity {
     /* ─── v6.62.955 Time-Edit-Dialog (Patrick 25.05. 21:28 "selbst veraendern") ─── */
     private void showTimeEditDialog(VehicleShift vs) {
         // Aktuelle Werte parsen
-        int[] startHM = parseHM(vs.todayStartTime != null ? vs.todayStartTime : "06:00");
-        int[] endHM = parseHM(vs.todayEndTime != null ? vs.todayEndTime : "22:00");
+        final int[] startHM = parseHM(vs.todayStartTime != null ? vs.todayStartTime : "06:00");
+        final int[] endHM = parseHM(vs.todayEndTime != null ? vs.todayEndTime : "22:00");
 
+        // 🆕 v6.62.956 (Patrick 25.05. 21:38 'kann End-Zeit nicht einstellen, mach kleiner'):
+        //   Statt riesigen TimePickern (Clock-Mode) machen wir simple HH:MM-Inputs mit Stepper-Buttons.
+        //   Passt auch auf S9+ Screen mit 2x Zeit-Einstellung.
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         int pad = (int)(16 * getResources().getDisplayMetrics().density);
         root.setPadding(pad, pad, pad, pad);
 
-        android.widget.TextView lblStart = new android.widget.TextView(this);
-        lblStart.setText("Schicht-START:");
-        lblStart.setTextSize(14);
-        lblStart.setTextColor(0xFF94A3B8);
-        root.addView(lblStart);
-        final android.widget.TimePicker tpStart = new android.widget.TimePicker(this);
-        tpStart.setIs24HourView(true);
-        tpStart.setHour(startHM[0]);
-        tpStart.setMinute(startHM[1]);
-        root.addView(tpStart);
+        final int[] start = { startHM[0], startHM[1] };
+        final int[] end = { endHM[0], endHM[1] };
 
-        android.widget.TextView lblEnd = new android.widget.TextView(this);
-        lblEnd.setText("Schicht-ENDE:");
-        lblEnd.setTextSize(14);
-        lblEnd.setTextColor(0xFF94A3B8);
-        lblEnd.setPadding(0, pad, 0, 0);
-        root.addView(lblEnd);
-        final android.widget.TimePicker tpEnd = new android.widget.TimePicker(this);
-        tpEnd.setIs24HourView(true);
-        tpEnd.setHour(endHM[0]);
-        tpEnd.setMinute(endHM[1]);
-        root.addView(tpEnd);
+        // START-Zeile
+        android.widget.LinearLayout startRow = makeTimeRow(this, "🟢 START:", start);
+        root.addView(startRow);
+
+        // ENDE-Zeile
+        android.widget.LinearLayout endRow = makeTimeRow(this, "🔴 ENDE:", end);
+        endRow.setPadding(0, pad, 0, 0);
+        root.addView(endRow);
+
+        // Hint
+        android.widget.TextView hint = new android.widget.TextView(this);
+        hint.setText("Mit '+' / '−' Buttons aendern. 15-Min-Schritte.");
+        hint.setTextSize(11);
+        hint.setTextColor(0xFF94A3B8);
+        hint.setPadding(0, pad, 0, 0);
+        root.addView(hint);
 
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⏰ " + vs.name + " — Zeit setzen (HEUTE)")
             .setView(root)
             .setPositiveButton("Speichern", (d, w) -> {
-                String startStr = String.format(Locale.GERMANY, "%02d:%02d", tpStart.getHour(), tpStart.getMinute());
-                String endStr = String.format(Locale.GERMANY, "%02d:%02d", tpEnd.getHour(), tpEnd.getMinute());
+                String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
+                String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
                 String dateKey = todayDateKey();
                 Map<String, Object> entry = new HashMap<>();
                 entry.put("active", true);
@@ -454,6 +454,74 @@ public class ShiftEditorActivity extends AppCompatActivity {
             })
             .setNegativeButton("Abbrechen", null)
             .show();
+    }
+
+    // v6.62.956: kompakter Zeit-Stepper (Label + −15min + HH:MM + +15min)
+    private static android.widget.LinearLayout makeTimeRow(Context ctx, String label, int[] hm) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        android.widget.TextView lbl = new android.widget.TextView(ctx);
+        lbl.setText(label);
+        lbl.setTextSize(16);
+        lbl.setTypeface(null, android.graphics.Typeface.BOLD);
+        lbl.setTextColor(0xFFF8FAFC);
+        android.widget.LinearLayout.LayoutParams lblLp = new android.widget.LinearLayout.LayoutParams(0,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f);
+        lbl.setLayoutParams(lblLp);
+        row.addView(lbl);
+
+        android.widget.Button minus = new android.widget.Button(ctx);
+        minus.setText("−15");
+        minus.setTextSize(13);
+        row.addView(minus);
+
+        android.widget.TextView val = new android.widget.TextView(ctx);
+        val.setText(String.format(Locale.GERMANY, "  %02d:%02d  ", hm[0], hm[1]));
+        val.setTextSize(20);
+        val.setTypeface(null, android.graphics.Typeface.BOLD);
+        val.setTextColor(0xFFFCD34D);
+        val.setGravity(android.view.Gravity.CENTER);
+        android.widget.LinearLayout.LayoutParams valLp = new android.widget.LinearLayout.LayoutParams(0,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1.5f);
+        val.setLayoutParams(valLp);
+        row.addView(val);
+
+        android.widget.Button plus = new android.widget.Button(ctx);
+        plus.setText("+15");
+        plus.setTextSize(13);
+        row.addView(plus);
+
+        Runnable update = () -> val.setText(String.format(Locale.GERMANY, "  %02d:%02d  ", hm[0], hm[1]));
+        minus.setOnClickListener(v -> {
+            int total = hm[0] * 60 + hm[1] - 15;
+            if (total < 0) total += 24 * 60;
+            hm[0] = total / 60; hm[1] = total % 60;
+            update.run();
+        });
+        plus.setOnClickListener(v -> {
+            int total = hm[0] * 60 + hm[1] + 15;
+            total = total % (24 * 60);
+            hm[0] = total / 60; hm[1] = total % 60;
+            update.run();
+        });
+        // Lang-Tippen = ±60 Min
+        minus.setOnLongClickListener(v -> {
+            int total = hm[0] * 60 + hm[1] - 60;
+            if (total < 0) total += 24 * 60;
+            hm[0] = total / 60; hm[1] = total % 60;
+            update.run();
+            return true;
+        });
+        plus.setOnLongClickListener(v -> {
+            int total = hm[0] * 60 + hm[1] + 60;
+            total = total % (24 * 60);
+            hm[0] = total / 60; hm[1] = total % 60;
+            update.run();
+            return true;
+        });
+        return row;
     }
 
     private static int[] parseHM(String s) {

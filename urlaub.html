@@ -157,7 +157,7 @@
                 </div>
                 ${last.priceFrom ? `<div class="card-current">
                     <div class="card-current-price">ab ${fmtEUR(last.priceFrom)}${last.priceTo ? ' bis ' + fmtEUR(last.priceTo) : ''}</div>
-                    ${last.summary ? escapeHtml(last.summary) : ''}
+                    ${last.summary ? escapeHtmlWithLinks(last.summary) : ''}
                 </div>` : ''}
                 ${snaps.length > 1 ? `
                     <div class="card-snapshots">
@@ -193,6 +193,23 @@
         function escapeHtml(s) {
             if (s == null) return '';
             return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        }
+
+        // v6.62.947b: URLs in Snapshots als klickbare Links rendern + Zeilenumbrueche
+        //   Patrick (25.05. 18:35): "ich würde natürlich Links wünschen"
+        function escapeHtmlWithLinks(s) {
+            if (s == null) return '';
+            const escaped = escapeHtml(s);
+            // URL-Regex: http(s)://... bis Whitespace
+            const withLinks = escaped.replace(/https?:\/\/[^\s<]+/g, url => {
+                // Trailing punctuation aus Link rausnehmen (',.;) etc.)
+                const m = url.match(/^(.*?)([,.;:!?)\]}]*)$/);
+                const cleanUrl = m ? m[1] : url;
+                const trail = m ? m[2] : '';
+                return `<a href="${cleanUrl}" target="_blank" rel="noopener" style="color:#60A5FA;text-decoration:underline;">${cleanUrl}</a>${trail}`;
+            });
+            // Newlines zu <br>
+            return withLinks.replace(/\n/g, '<br>');
         }
 
         function render(snapshot) {

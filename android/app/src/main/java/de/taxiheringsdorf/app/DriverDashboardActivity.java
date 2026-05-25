@@ -123,6 +123,25 @@ public class DriverDashboardActivity extends AppCompatActivity {
         //   (Fahrer hat die Notification getippt oder App selbst geoeffnet).
         try { AlertSoundService.stop(this); } catch (Throwable _ignore) {}
 
+        // 🆕 v6.62.937 (Patrick 25.05. 14:41 'B - zweimal druecken zum Ablehnen'):
+        //   Wenn der Intent confirmReject=true mitbringt, wurde die Ablehnen-Notification
+        //   getippt. Statt direkt abzulehnen: AlertDialog 'Wirklich ablehnen?' anzeigen.
+        Intent _intent = getIntent();
+        if (_intent != null && _intent.getBooleanExtra("confirmReject", false)) {
+            final String _rid = _intent.getStringExtra("rideId");
+            if (_rid != null) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    new AlertDialog.Builder(this)
+                        .setTitle("❌ Fahrt wirklich ablehnen?")
+                        .setMessage("Bist du sicher? Die Fahrt wird einem anderen Fahrer zugewiesen.\n\nWenn du sie behalten willst: Abbrechen tippen.")
+                        .setPositiveButton("Ja, ablehnen", (d, w) -> rejectRide(_rid))
+                        .setNegativeButton("Abbrechen", null)
+                        .setCancelable(true)
+                        .show();
+                }, 400);
+            }
+        }
+
         // v6.62.86: Periodischer ETA-Trigger starten (v6.62.318: alle 15s)
         etaTickHandler.postDelayed(etaTick, 15_000L);
         // v6.62.320: Display-Tick alle 5s — rendert Adapter-Items neu damit der

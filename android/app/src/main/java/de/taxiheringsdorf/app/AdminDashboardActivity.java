@@ -19,6 +19,7 @@ import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.Date;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -415,7 +416,7 @@ public class AdminDashboardActivity extends AppCompatActivity {
             java.util.Map<String, java.util.List<Ride>> _byVid = new java.util.HashMap<>();
             for (Ride r : rest) {
                 if (r.pickupTimestamp == null || r.pickupTimestamp < System.currentTimeMillis() - 60000) continue;
-                String vid = r.assignedVehicle != null ? r.assignedVehicle : r.vehicleId;
+                String vid = r.assignedVehicle;
                 if (vid == null || vid.isEmpty()) continue;
                 _byVid.computeIfAbsent(vid, k -> new java.util.ArrayList<>()).add(r);
             }

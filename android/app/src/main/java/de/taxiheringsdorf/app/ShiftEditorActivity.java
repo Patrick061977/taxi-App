@@ -397,6 +397,74 @@ public class ShiftEditorActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    /* ─── v6.62.955 Time-Edit-Dialog (Patrick 25.05. 21:28 "selbst veraendern") ─── */
+    private void showTimeEditDialog(VehicleShift vs) {
+        // Aktuelle Werte parsen
+        int[] startHM = parseHM(vs.todayStartTime != null ? vs.todayStartTime : "06:00");
+        int[] endHM = parseHM(vs.todayEndTime != null ? vs.todayEndTime : "22:00");
+
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        root.setPadding(pad, pad, pad, pad);
+
+        android.widget.TextView lblStart = new android.widget.TextView(this);
+        lblStart.setText("Schicht-START:");
+        lblStart.setTextSize(14);
+        lblStart.setTextColor(0xFF94A3B8);
+        root.addView(lblStart);
+        final android.widget.TimePicker tpStart = new android.widget.TimePicker(this);
+        tpStart.setIs24HourView(true);
+        tpStart.setHour(startHM[0]);
+        tpStart.setMinute(startHM[1]);
+        root.addView(tpStart);
+
+        android.widget.TextView lblEnd = new android.widget.TextView(this);
+        lblEnd.setText("Schicht-ENDE:");
+        lblEnd.setTextSize(14);
+        lblEnd.setTextColor(0xFF94A3B8);
+        lblEnd.setPadding(0, pad, 0, 0);
+        root.addView(lblEnd);
+        final android.widget.TimePicker tpEnd = new android.widget.TimePicker(this);
+        tpEnd.setIs24HourView(true);
+        tpEnd.setHour(endHM[0]);
+        tpEnd.setMinute(endHM[1]);
+        root.addView(tpEnd);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⏰ " + vs.name + " — Zeit setzen (HEUTE)")
+            .setView(root)
+            .setPositiveButton("Speichern", (d, w) -> {
+                String startStr = String.format(Locale.GERMANY, "%02d:%02d", tpStart.getHour(), tpStart.getMinute());
+                String endStr = String.format(Locale.GERMANY, "%02d:%02d", tpEnd.getHour(), tpEnd.getMinute());
+                String dateKey = todayDateKey();
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("active", true);
+                entry.put("startTime", startStr);
+                entry.put("endTime", endStr);
+                entry.put("setAt", System.currentTimeMillis());
+                entry.put("setBy", "native-shift-editor-timeedit");
+                FirebaseDatabase.getInstance(DB_URL)
+                    .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
+                    .setValue(entry)
+                    .addOnSuccessListener(unused -> Toast.makeText(this,
+                        vs.name + ": heute " + startStr + "–" + endStr, Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(e -> Toast.makeText(this,
+                        "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Abbrechen", null)
+            .show();
+    }
+
+    private static int[] parseHM(String s) {
+        try {
+            String[] p = s.split(":");
+            return new int[]{ Integer.parseInt(p[0]), Integer.parseInt(p[1]) };
+        } catch (Throwable t) {
+            return new int[]{ 6, 0 };
+        }
+    }
+
     /* ─── Model ─── */
     static class VehicleShift {
         String vehicleId;
@@ -454,7 +522,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
             todayBadge.setBackgroundColor(isActiveToday ? 0xFF10B981 : 0xFFEF4444);
             String times = (vs.todayStartTime != null ? vs.todayStartTime : "00:00") + "–" +
                     (vs.todayEndTime != null ? vs.todayEndTime : "23:59");
-            todayTimes.setText(vs.todayOverride ? times + "  (Override)" : times);
+            todayTimes.setText("⏰ " + (vs.todayOverride ? times + "  (Override) — tippen zum Aendern" : times + "  — tippen zum Aendern"));
+            // 🆕 v6.62.955 (Patrick 25.05. 21:28): Tap auf Zeit-Anzeige öffnet 2-stufigen Time-Picker
+            todayTimes.setOnClickListener(v -> showTimeEditDialog(vs));
 
             todaySwitch.setOnCheckedChangeListener(null);
             todaySwitch.setChecked(isActiveToday);

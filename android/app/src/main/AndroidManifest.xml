@@ -96,6 +96,14 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.62.922: ShiftEditorActivity — Schichtplan-Editor in Native-App (Patrick 25.05.) -->
+        <activity
+            android:name=".ShiftEditorActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.57.0: CrmSearchActivity — direkter CRM-Zugriff ohne Anrufliste-Umweg -->
         <activity
             android:name=".CrmSearchActivity"

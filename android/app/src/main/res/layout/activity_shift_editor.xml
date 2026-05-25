@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:keepScreenOn="true"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/shift_editor_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#1E293B"
+        app:title="📅 Schicht-Editor"
+        app:titleTextColor="#FFFFFF"
+        app:navigationIcon="?attr/homeAsUpIndicator" />
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/shift_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1E293B"
+        app:tabIndicatorColor="#10B981"
+        app:tabSelectedTextColor="#FFFFFF"
+        app:tabTextColor="#94A3B8">
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/shift_tab_editor"
+            android:text="Editor" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/shift_tab_attendance"
+            android:text="Anwesenheit" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/shift_tab_driver_view"
+            android:text="Fahrer-Plan" />
+    </com.google.android.material.tabs.TabLayout>
+
+    <FrameLayout
+        android:id="@+id/shift_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- Tab 1: Editor — Liste aller Fahrzeuge mit Wochenplan + Day-Override -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/shift_editor_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false"
+            android:visibility="visible" />
+
+        <!-- Tab 2: Anwesenheit — Liste Mitarbeiter mit Ja/Nein-Toggle pro Tag (read-only Datum-Auswahl) -->
+        <LinearLayout
+            android:id="@+id/shift_attendance_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/attendance_date_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Heute"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:paddingBottom="8dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/shift_attendance_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </LinearLayout>
+
+        <!-- Tab 3: Fahrer-Plan-View (read-only Wochenplan) -->
+        <LinearLayout
+            android:id="@+id/shift_driver_view_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/driver_view_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Wochenplan deiner Fahrzeuge"
+                android:textColor="#94A3B8"
+                android:textSize="13sp"
+                android:paddingBottom="8dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/shift_driver_view_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

@@ -431,6 +431,8 @@ public class AdminDashboardActivity extends AppCompatActivity {
         p.getMenu().add(0, 5, 0, "🎙️ Anruf-Aufnahmen");
         // 🆕 v6.62.909 (Patrick 24.05. 09:35): Live-Schichtstatus aller Fahrzeuge
         p.getMenu().add(0, 6, 0, "🚗 Fahrzeug-Status (Live)");
+        // 🆕 v6.62.922 (Patrick 25.05. 09:27): Schichtplan-Editor in Native-App
+        p.getMenu().add(0, 7, 0, "📅 Schichtplan-Editor");
         p.getMenu().add(0, 1, 0, "🚗 Zurück zu Fahrzeugauswahl");
         p.getMenu().add(0, 2, 0, "🚪 Logout");
         p.setOnMenuItemClickListener(item -> {
@@ -472,6 +474,11 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (item.getItemId() == 6) {
                 // 🆕 v6.62.909: Live-Schichtstatus-Modal
                 showFleetStatusDialog();
+                return true;
+            }
+            if (item.getItemId() == 7) {
+                // 🆕 v6.62.922: Schichtplan-Editor (3 Tabs: Editor/Anwesenheit/Fahrer-View)
+                startActivity(new Intent(this, ShiftEditorActivity.class));
                 return true;
             }
             if (item.getItemId() == 1) {

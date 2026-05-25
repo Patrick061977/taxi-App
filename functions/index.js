@@ -30385,10 +30385,20 @@ exports.rideAction = onRequest(
                 //   (Patrick 13.05. 10:04: Tesla hatte zuvor abgelehnt, dann doch angenommen,
                 //   aber rejectedVehicles enthielt es noch. Watchdog dachte "Tesla hat nicht
                 //   bestaetigt" → Re-Assign auf Prius. Bug-Quelle.)
+                // 🆕 v6.62.936 (Patrick 25.05. 14:37 "warum kann es zu mir zurückkommen wenn
+                //   ich abgelehnt habe?"): Wenn nach dem Filter <=1 Element uebrig bleibt, war
+                //   die Logik vorher rejectedVehicles=null zu setzen — das wischte ALLE OTHER
+                //   rejects weg. Jetzt nur das akzeptierende Fahrzeug rausziehen, REST belassen.
                 let _cleanRejected = _curRide.rejectedVehicles || null;
                 if (Array.isArray(_cleanRejected) && vehicleId) {
+                    const _before = [..._cleanRejected];
                     _cleanRejected = _cleanRejected.filter(v => v !== vehicleId);
-                    if (_cleanRejected.length === 0) _cleanRejected = null;
+                    // ← v6.62.936: NICHT mehr auf null setzen wenn leer — leere Liste belassen
+                    //   (sonst werden andere rejects geloescht durch ein null-overwrite, was im
+                    //   Folge-Lauf scheduledAutoAssign nicht weiss dass es vermeiden soll)
+                    if (_before.length !== _cleanRejected.length) {
+                        console.log(`🛡️ v6.62.936 rideAction Accept: ${vehicleId} aus rejectedVehicles entfernt, bleibt: ${_cleanRejected.join(',') || '[]'}`);
+                    }
                 }
                 const _acceptUpdate = {
                     status: 'accepted',
@@ -30397,7 +30407,7 @@ exports.rideAction = onRequest(
                     acceptedByVehicle: vehicleId || null,
                     updatedAt: now
                 };
-                if (_cleanRejected !== (_curRide.rejectedVehicles || null)) {
+                if (Array.isArray(_cleanRejected) && _cleanRejected.length !== ((_curRide.rejectedVehicles || []).length)) {
                     _acceptUpdate.rejectedVehicles = _cleanRejected;
                 }
                 // 🆕 v6.62.772 (Patrick 16.05. 10:23 "Bin mit Tesla unterwegs"):

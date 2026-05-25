@@ -405,6 +405,46 @@ public class AdminDashboardActivity extends AppCompatActivity {
         today.set(Calendar.SECOND, 0); today.set(Calendar.MILLISECOND, 0);
         Calendar tomorrow = (Calendar) today.clone();
         tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+
+        // 🆕 v6.62.950 (Patrick 25.05. 19:10+19:21+19:22 'Smart-Scheduler'):
+        //   Konflikt-Detection pro Fahrzeug: sortiere alle zukuenftigen Pickups,
+        //   berechne Gap zwischen Ende-Fahrt-X und Pickup-Fahrt-Y. Wenn Gap < Anfahrt
+        //   + 5min Buffer → setze conflictHint mit Vorschlags-Text. Wird in der Card
+        //   als ⚠️-Badge angezeigt + Tap öffnet Time-Picker.
+        try {
+            java.util.Map<String, java.util.List<Ride>> _byVid = new java.util.HashMap<>();
+            for (Ride r : rest) {
+                if (r.pickupTimestamp == null || r.pickupTimestamp < System.currentTimeMillis() - 60000) continue;
+                String vid = r.assignedVehicle != null ? r.assignedVehicle : r.vehicleId;
+                if (vid == null || vid.isEmpty()) continue;
+                _byVid.computeIfAbsent(vid, k -> new java.util.ArrayList<>()).add(r);
+            }
+            for (java.util.Map.Entry<String, java.util.List<Ride>> e : _byVid.entrySet()) {
+                java.util.List<Ride> rides = e.getValue();
+                rides.sort((a, b) -> Long.compare(a.pickupTimestamp, b.pickupTimestamp));
+                for (int i = 0; i < rides.size() - 1; i++) {
+                    Ride cur = rides.get(i);
+                    Ride nxt = rides.get(i + 1);
+                    // Ende von cur = pickupTimestamp + duration (Fahrtdauer)
+                    long curDur = cur.estimatedDuration != null && cur.estimatedDuration > 0 ? cur.estimatedDuration : 10;
+                    long curEnd = cur.pickupTimestamp + curDur * 60_000;
+                    // Anfahrt zur nächsten Fahrt (drivingTimeToPickup von der naechsten Ride)
+                    long nxtDrive = nxt.drivingTimeToPickup != null && nxt.drivingTimeToPickup > 0 ? nxt.drivingTimeToPickup : 10;
+                    long gapMin = (nxt.pickupTimestamp - curEnd) / 60_000;
+                    long required = nxtDrive + 3; // 3 Min Buffer fuer Ein-/Ausladen
+                    if (gapMin < required) {
+                        long deficit = required - gapMin;
+                        cur.conflictHint = "⚠️ Engpass: nächste Fahrt (" + (nxt.customerName != null ? nxt.customerName : "?") + " " +
+                            new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(nxt.pickupTimestamp)) + ") in " + gapMin + " Min, " + nxtDrive + " Min Anfahrt — " + deficit + " Min zu spät";
+                        cur.conflictDeficit = (int) deficit;
+                        cur.conflictNextRideId = nxt.id;
+                        nxt.conflictHint = "🚆 Vorgaenger (" + (cur.customerName != null ? cur.customerName : "?") + " " +
+                            new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date(cur.pickupTimestamp)) + ") läuft über — " + deficit + " Min Konflikt";
+                    }
+                }
+            }
+        } catch (Throwable _confErr) { Log.w(TAG, "Konflikt-Detection: " + _confErr.getMessage()); }
+
         for (Ride r : rest) {
             if (r.pickupTimestamp == null) continue;
             Calendar c = Calendar.getInstance();
@@ -1004,6 +1044,12 @@ public class AdminDashboardActivity extends AppCompatActivity {
         Integer passengers;
         // 🆕 v6.62.707: Fahrtdauer (Min) — fuer Live-Ankunfts-Anzeige + Konflikt-Check im EditDialog
         Integer estimatedDuration;
+        // 🆕 v6.62.707: Anfahrt zum Pickup (Min) — wird vom Cloud-Backend gesetzt
+        Integer drivingTimeToPickup;
+        // 🆕 v6.62.950: Smart-Scheduler Konflikt-Hint (gerendert als ⚠️-Badge auf Card)
+        transient String conflictHint;
+        transient Integer conflictDeficit; // Min die fehlen
+        transient String conflictNextRideId;
         // 🆕 v6.62.199: Patrick: 'Web-Anfragen muessen in der Native-App sichtbar sein'
         // 🆕 v6.62.668: Patrick (13.05. 10:55): "Aber die Web-Anfragen sehe ich noch nicht."
         //   Bug-Quelle: source-Strings sind nicht einheitlich — buchen.html schreibt
@@ -1052,6 +1098,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 Object _dur = s.child("estimatedDuration").getValue();
                 if (_dur == null) _dur = s.child("duration").getValue();
                 if (_dur instanceof Number) r.estimatedDuration = ((Number) _dur).intValue();
+                // v6.62.950 Smart-Scheduler braucht Anfahrtszeit
+                Object _drv = s.child("drivingTimeToPickup").getValue();
+                if (_drv instanceof Number) r.drivingTimeToPickup = ((Number) _drv).intValue();
                 r.assignedVehicle = s.child("assignedVehicle").getValue(String.class);
                 if (r.assignedVehicle == null) r.assignedVehicle = s.child("vehicleId").getValue(String.class);
                 r.assignedVehicleName = s.child("assignedVehicleName").getValue(String.class);
@@ -1270,9 +1319,14 @@ public class AdminDashboardActivity extends AppCompatActivity {
                 //   erkennbar sein wer sieht das".
                 final boolean _isWartepool = "wartepool".equalsIgnoreCase(r.status);
                 final boolean _isSofortWarteschlange = "warteschlange".equalsIgnoreCase(r.status);
+                // 🆕 v6.62.950 Smart-Scheduler — Konflikt-Hint rendert als ⚠️-Prefix + Tap öffnet Time-Picker
+                final String conflictPrefix = r.conflictHint != null ? "⚠️ ENGPASS  " : "";
                 if (_isWartepool) {
                     itemView.setBackgroundColor(Color.parseColor("#7F1D1D")); // tiefes Rot
                     t1.setText("⚠️ " + when + "  " + (r.customerName != null ? r.customerName : "?") + "  · WARTEPOOL" + vehicleBadge);
+                } else if (r.conflictHint != null) {
+                    itemView.setBackgroundColor(Color.parseColor("#7C2D12")); // Rot-Braun bei Konflikt
+                    t1.setText(conflictPrefix + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
                 } else if (_isSofortWarteschlange) {
                     itemView.setBackgroundColor(Color.parseColor("#78350F")); // dunkles Bernstein
                     t1.setText("⚡ SOFORT-WS  " + when + "  " + (r.customerName != null ? r.customerName : "?") + statusBadge + vehicleBadge);
@@ -1298,21 +1352,75 @@ public class AdminDashboardActivity extends AppCompatActivity {
                     }
                 }
                 route.append("\n🎯 ").append(r.destination != null ? r.destination : "?");
+                // 🆕 v6.62.950 Smart-Scheduler: Konflikt-Hint unter Route
+                if (r.conflictHint != null) {
+                    route.append("\n").append(r.conflictHint).append("\n💡 Karte tippen → Pickup verschieben um Konflikt zu lösen");
+                }
                 t2.setText(route.toString());
                 // v6.62.153: Tap → Edit-Dialog (Patrick: 'will Fahrten bearbeiten aus der App')
                 // v6.62.636: Bei abgeschlossenen Vergangenheits-Fahrten → Wiederhol-Dialog
                 //   (Patrick 12.05. 09:05: 'in der Vergangenheit Fahrten sehen und daraus
                 //   wieder Vorbestellungen machen').
+                // 🆕 v6.62.950 Smart-Scheduler: Bei Konflikt → Time-Shift-Dialog statt Edit
                 final boolean isCompletedPast = "completed".equals(r.status)
                     && r.pickupTimestamp != null && r.pickupTimestamp < System.currentTimeMillis();
                 if (isCompletedPast) {
                     itemView.setOnClickListener(_v -> showRepeatPastRideDialog(r));
+                } else if (r.conflictHint != null) {
+                    itemView.setOnClickListener(_v -> showTimeShiftDialog(r));
                 } else {
                     itemView.setOnClickListener(_v -> showEditRideDialog(r));
                 }
             }
         }
     }
+
+    // 🆕 v6.62.950 Smart-Scheduler: Time-Shift-Dialog
+    private void showTimeShiftDialog(Ride r) {
+        if (r == null || r.pickupTimestamp == null) return;
+        SimpleDateFormat tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
+        tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+        String currentTime = tf.format(new Date(r.pickupTimestamp));
+        int deficit = r.conflictDeficit != null ? r.conflictDeficit : 5;
+        int suggested = Math.max(deficit + 1, 5); // mind. 1 Min mehr als Defizit, mind. 5 Min
+        StringBuilder msg = new StringBuilder();
+        msg.append("Aktueller Pickup: ").append(currentTime).append("\n\n");
+        if (r.conflictHint != null) msg.append(r.conflictHint).append("\n\n");
+        msg.append("💡 Vorschlag: ").append(suggested).append(" Min vorziehen → ");
+        msg.append(tf.format(new Date(r.pickupTimestamp - suggested * 60_000L)));
+        msg.append("\n\nWie viele Min vorziehen?");
+
+        // Buttons: -5 / -10 / -15 / vorgeschlagen
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+            .setTitle("⏰ Pickup verschieben — " + (r.customerName != null ? r.customerName : "?"))
+            .setMessage(msg.toString());
+
+        final String _rid = r.id;
+        final long _origTs = r.pickupTimestamp;
+        java.util.function.IntConsumer apply = (min) -> {
+            long newTs = _origTs - min * 60_000L;
+            java.util.Map<String, Object> u = new java.util.HashMap<>();
+            u.put("pickupTimestamp", newTs);
+            SimpleDateFormat _tf = new SimpleDateFormat("HH:mm", Locale.GERMANY);
+            _tf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Berlin"));
+            u.put("pickupTime", _tf.format(new Date(newTs)));
+            u.put("smartScheduleShiftedMin", min);
+            u.put("smartScheduleShiftedAt", System.currentTimeMillis());
+            u.put("smartScheduleShiftedBy", "admin-time-shift");
+            u.put("updatedAt", System.currentTimeMillis());
+            com.google.firebase.database.FirebaseDatabase.getInstance(DB_URL_AD).getReference("rides/" + _rid).updateChildren(u)
+                .addOnSuccessListener(_ok -> Toast.makeText(AdminDashboardActivity.this,
+                    "✅ Pickup um " + min + " Min vorgezogen → " + _tf.format(new Date(newTs)), Toast.LENGTH_LONG).show())
+                .addOnFailureListener(e -> Toast.makeText(AdminDashboardActivity.this,
+                    "❌ Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        };
+        b.setPositiveButton("💡 " + suggested + " Min vorziehen (empfohlen)", (d, w) -> apply.accept(suggested));
+        b.setNeutralButton("− 5 Min", (d, w) -> apply.accept(5));
+        b.setNegativeButton("Abbrechen", null);
+        AlertDialog dlg = b.show();
+    }
+
+    private static final String DB_URL_AD = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
 
     // v6.62.161: Helper fuer Tag-Vergleich
     private static boolean sameDay(Calendar a, Calendar b) {

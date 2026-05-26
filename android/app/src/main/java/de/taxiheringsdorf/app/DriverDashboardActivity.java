@@ -719,6 +719,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
     // (v6.62.318: 20s → 10s, Patrick: ETA zeigt Wert aber bewegt sich nicht beim Fahren)
     private final java.util.Map<String, Long> lastEtaCalc = new java.util.HashMap<>();
 
+    // v6.62.965 (SPEED-B): Live-GPS-Cache fuer displayTick-Hochrechnung.
+    // Patrick 26.05.: 'Web-Fleet-Map fuehlt sich schneller an als Native-ETA' — Befund:
+    // Web hat 5s-Refresh + Firebase-GPS-Listener, Native rechnet nur alle 15s OSRM neu.
+    // Loesung: displayTick (5s) berechnet zwischen den OSRM-Calls per Haversine-Delta
+    // aus aktueller GPS-Position eine Live-Schaetzung. Quelle: etaTick (15s Vehicle-Snap).
+    private Double myCurrentLat = null, myCurrentLon = null;
+    private long myCurrentLocAt = 0L;
+
     private void recalculateETAsForActiveRides(double vLat, double vLon) {
         if (myAssignedRides == null) return;
         long now = System.currentTimeMillis();
@@ -833,6 +841,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                     changed = true;
                                 }
                             }
+                            // v6.62.965 (SPEED-B): OSRM-Anker fuer Live-Hochrechnung im displayTick
+                            rr.osrmAnchorKm = distanceKm;
+                            rr.osrmAnchorMin = durationMin;
+                            rr.osrmAnchorFromLat = fromLat;
+                            rr.osrmAnchorFromLon = fromLon;
                             break;
                         }
                     }
@@ -890,6 +903,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                         changed = true;
                                     }
                                 }
+                                // v6.62.965 (SPEED-B): Auch im Haversine-Fallback Anker setzen
+                                rr.osrmAnchorKm = distKmF;
+                                rr.osrmAnchorMin = durMinF;
+                                rr.osrmAnchorFromLat = fromLat;
+                                rr.osrmAnchorFromLon = fromLon;
                                 break;
                             }
                         }
@@ -1137,6 +1155,43 @@ public class DriverDashboardActivity extends AppCompatActivity {
     private final Runnable displayTick = new Runnable() {
         @Override public void run() {
             try {
+                // v6.62.965 (SPEED-B): Live-Hochrechnung der ETA aus aktueller GPS-Position
+                // BEVOR der Adapter neu rendert. Patrick 26.05.: 'Web fuehlt sich schneller an'
+                // → zwischen den 15s-OSRM-Calls per Delta-Haversine die km/min skalieren.
+                // GPS muss frisch sein (< 2 Min alt), sonst kein Live-Update.
+                if (myAssignedRides != null && myCurrentLat != null && myCurrentLon != null
+                        && (System.currentTimeMillis() - myCurrentLocAt) < 120_000L) {
+                    for (Ride r : new ArrayList<>(myAssignedRides)) {
+                        if (r == null) continue;
+                        if (r.osrmAnchorKm == null || r.osrmAnchorMin == null) continue;
+                        if (r.osrmAnchorFromLat == null || r.osrmAnchorFromLon == null) continue;
+                        String st = r.status != null ? r.status.toLowerCase() : "";
+                        boolean isPrePickup = st.equals("assigned") || st.equals("accepted")
+                                || st.equals("sofort") || st.equals("vorbestellt") || st.equals("on_way");
+                        boolean isPostPickup = st.equals("picked_up");
+                        Double tLat = null, tLon = null;
+                        if (isPrePickup) { tLat = r.pickupLat; tLon = r.pickupLon; }
+                        else if (isPostPickup) { tLat = r.destinationLat; tLon = r.destinationLon; }
+                        if (tLat == null || tLon == null) continue;
+                        double hOldKm = haversineMeters(r.osrmAnchorFromLat, r.osrmAnchorFromLon, tLat, tLon) / 1000.0;
+                        double hNewKm = haversineMeters(myCurrentLat, myCurrentLon, tLat, tLon) / 1000.0;
+                        double liveKm = Math.max(0.05, r.osrmAnchorKm + (hNewKm - hOldKm));
+                        int liveMin;
+                        if (r.osrmAnchorKm > 0.1) {
+                            liveMin = Math.max(1, (int) Math.round(r.osrmAnchorMin * (liveKm / r.osrmAnchorKm)));
+                        } else {
+                            liveMin = Math.max(1, (int) Math.round(liveKm * 1.3 / 40.0 * 60.0));
+                        }
+                        double liveKmRounded = Math.round(liveKm * 10.0) / 10.0;
+                        if (isPrePickup) {
+                            r.drivingDistanceToPickupKm = liveKmRounded;
+                            r.drivingTimeToPickup = liveMin;
+                        } else {
+                            r.drivingDistanceToDestKm = liveKmRounded;
+                            r.drivingTimeToDestination = liveMin;
+                        }
+                    }
+                }
                 if (rideAdapter != null && rideAdapter.getItemCount() > 0) {
                     rideAdapter.notifyDataSetChanged();
                 }
@@ -1159,7 +1214,11 @@ public class DriverDashboardActivity extends AppCompatActivity {
                             if (lat instanceof Number && lon instanceof Number) {
                                 long age = (ts instanceof Number) ? System.currentTimeMillis() - ((Number) ts).longValue() : 0;
                                 if (age < 5L * 60L * 1000L) {
-                                    recalculateETAsForActiveRides(((Number) lat).doubleValue(), ((Number) lon).doubleValue());
+                                    // v6.62.965 (SPEED-B): GPS-Cache fuer displayTick-Live-Hochrechnung
+                                    myCurrentLat = ((Number) lat).doubleValue();
+                                    myCurrentLon = ((Number) lon).doubleValue();
+                                    myCurrentLocAt = System.currentTimeMillis();
+                                    recalculateETAsForActiveRides(myCurrentLat, myCurrentLon);
                                 }
                             }
                         }
@@ -2946,6 +3005,12 @@ public class DriverDashboardActivity extends AppCompatActivity {
         Integer drivingTimeToDestination; // v6.62.75: Min bis Ziel (live, nach picked_up)
         Double drivingDistanceToPickupKm; // v6.62.318: km-Distanz zum Pickup (Patrick: 'Fahrer sieht nicht wie weit weg')
         Double drivingDistanceToDestKm; // v6.62.318: km-Distanz zum Ziel
+        // v6.62.965 (SPEED-B): OSRM-Anker fuer Live-Haversine-Hochrechnung zwischen OSRM-Calls.
+        // Speichert beim letzten OSRM-Call die gemeldete Distanz/Min + Fahrer-Position.
+        // displayTick (5s) berechnet aus Delta-Haversine eine Live-Schaetzung statt 15s zu warten.
+        Double osrmAnchorKm;
+        Integer osrmAnchorMin;
+        Double osrmAnchorFromLat, osrmAnchorFromLon;
         // v6.62.358: Patrick "der fahrer sieht die stornierte fahrt nicht mehr"
         Long cancelledAt;
         String cancelledBy, cancelledVia, cancelReason;

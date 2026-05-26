@@ -876,7 +876,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         Math.cos(fromLat * Math.PI/180.0) * Math.cos(toLat * Math.PI/180.0) *
                         Math.sin(dLon/2.0) * Math.sin(dLon/2.0);
                     double distKm = 6371.0 * 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    int durMin = Math.max(1, (int) Math.round(distKm * 1.3 / 40.0 * 60.0));
+                    // v6.62.966 (Patrick 26.05.): Faktor 1.3 → 1.6. 1.3 war zu optimistisch
+                    // (Inselstrasse Usedom hat viele Bogen) — siehe Kloss-Ride 2 Min Schaetzung
+                    // vs. real ~4 Min. 1.6 = 60 % Umweg ueber Luftlinie.
+                    int durMin = Math.max(1, (int) Math.round(distKm * 1.6 / 40.0 * 60.0));
                     final double distKmF = Math.round(distKm * 10.0) / 10.0;
                     final int durMinF = durMin;
                     final String _modeF = mode;
@@ -1180,7 +1183,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         if (r.osrmAnchorKm > 0.1) {
                             liveMin = Math.max(1, (int) Math.round(r.osrmAnchorMin * (liveKm / r.osrmAnchorKm)));
                         } else {
-                            liveMin = Math.max(1, (int) Math.round(liveKm * 1.3 / 40.0 * 60.0));
+                            liveMin = Math.max(1, (int) Math.round(liveKm * 1.6 / 40.0 * 60.0));
                         }
                         double liveKmRounded = Math.round(liveKm * 10.0) / 10.0;
                         if (isPrePickup) {
@@ -2385,6 +2388,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
         else if (next.equals("arrived")) u.put("arrivedAt", System.currentTimeMillis());
         else if (next.equals("picked_up")) u.put("pickedUpAt", System.currentTimeMillis());
         db.getReference("rides/" + r.id).updateChildren(u);
+
+        // v6.62.966 (Patrick 26.05.): Auto-Pickup nach MANUELLEM Bin-Da-Tap reparieren.
+        // Bug: arrived manuell getippt → _arrivedAtLat/Lon leer → checkGpsAutoStatus
+        // fiel auf pickupLat zurueck, aber das passt nicht wenn Fahrer den Punkt nicht
+        // exakt getroffen hat. Fix: aktuelle GPS-Position als Anker speichern.
+        if (next.equals("arrived") && myCurrentLat != null && myCurrentLon != null) {
+            _arrivedAtLat.put(r.id, myCurrentLat);
+            _arrivedAtLon.put(r.id, myCurrentLon);
+        }
 
         // v6.62.69: Tap-Audit — wer hat den Status-Tap ausgeloest. Cloud onRideUpdated
         // loggt den Status-Wechsel selbst, aber wir wissen nicht ob es ein Driver-Tap oder

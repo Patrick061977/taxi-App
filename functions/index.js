@@ -26361,6 +26361,54 @@ exports.scheduledShiftHeartbeatCheck = onSchedule(
 
             let autoEnded = 0;
             let warned = 0;
+            let reactivated = 0;
+
+            // 🆕 v6.62.963 (Patrick 26.05.2026 16:08): REACTIVATE-Check vor Auto-End.
+            //   Bug-Scenario: shift wurde auto-ended (Heartbeat 11 Min Pause), aber
+            //   Native-App startet wieder → Heartbeat kommt → shift.status='auto-ended'
+            //   bleibt aber stehen → Patrick sieht in App »online«, Cloud-Dispo sieht
+            //   »beendet« → keine neuen Fahrten zugewiesen. Fix: bei frischem Signal
+            //   nach autoEndedAt → reaktivieren.
+            for (const [vid, v] of Object.entries(vehicles)) {
+                if (!v || !v.shift) continue;
+                if (v.shift.status !== 'auto-ended') continue;
+                if (!v.shift.autoEndedAt) continue;
+
+                const lastBeat = v.shift.lastHeartbeat || 0;
+                const gpsBeat = v.timestamp || v.lastUpdate || 0;
+                const freshSignal = Math.max(lastBeat, gpsBeat);
+                const signalAge = now - freshSignal;
+
+                // Frischer Heartbeat ODER GPS-Update innerhalb 5 Min UND nach autoEnd
+                if (signalAge < 5 * 60 * 1000 && freshSignal > v.shift.autoEndedAt) {
+                    const offlineMin = Math.round((now - v.shift.autoEndedAt) / 60000);
+                    console.log(`🔄 Watchdog: Schicht von ${v.name || vid} reaktivieren (Heartbeat zurueck nach ${offlineMin} Min)`);
+                    try {
+                        await db.ref(`vehicles/${vid}/shift`).update({
+                            status: 'active',
+                            autoEndedAt: null,
+                            endedAt: null,
+                            endedReason: null,
+                            reactivatedAt: now,
+                            reactivatedReason: `Heartbeat zurueck nach ${offlineMin} Min`
+                        });
+                        await db.ref(`vehicles/${vid}`).update({
+                            online: true,
+                            available: true,
+                            updatedAt: now
+                        });
+                        const msg = `🔄 <b>Schicht REAKTIVIERT</b>\n\n` +
+                            `🚗 ${v.name || vid}\n` +
+                            `👤 ${v.shift.driverName || v.currentDriver || 'Fahrer'}\n` +
+                            `💓 Heartbeat zurück nach ${offlineMin} Min Offline-Zeit\n` +
+                            `✅ Fahrzeug ist wieder dispatchbar`;
+                        await sendToAllAdmins(msg, 'shift_reactivated');
+                        reactivated++;
+                    } catch (_reactErr) {
+                        console.error(`❌ Schicht-Reaktivierung ${vid}:`, _reactErr.message);
+                    }
+                }
+            }
 
             for (const [vid, v] of Object.entries(vehicles)) {
                 if (!v || !v.shift) continue;

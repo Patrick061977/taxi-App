@@ -787,8 +787,17 @@ public class DriverDashboardActivity extends AppCompatActivity {
         // No-op (v6.62.437)
     }
 
+    // v6.62.968: Native Routing-Key (separat vom Web-Key in Cloud Function).
+    // Restrictions: keine Application-Restriction, API-Restriction enthaelt
+    // routes.googleapis.com (siehe gcloud-Update vom 26.05.).
+    private static final String GOOGLE_ROUTES_API_KEY = "AIzaSyAu9CsnLMLLQbXkWckWSV7uIzLB94hJ-HE";
+
     private void fetchOsrmETA(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
         new Thread(() -> {
+            // 🆕 v6.62.968 (Patrick 26.05.): Google Routes API NEW als primaeres Routing.
+            // TRAFFIC_AWARE liefert Live-Verkehrslage. OSRM bleibt als Fallback, Haversine
+            // als Notfall (keine Netz/keine Routing-Engine).
+            if (tryGoogleRoute(rideId, fromLat, fromLon, toLat, toLon, mode)) return;
             try {
                 String url = String.format(Locale.US,
                     "https://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=false",
@@ -811,55 +820,9 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 if (routes.length() == 0) return;
                 double durationSec = routes.getJSONObject(0).getDouble("duration");
                 int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
-                // v6.62.318: Patrick (06.05. 07:12): "Fahrer sieht nicht, wie weit er
-                // jetzt vom Kunden entfernt ist". OSRM liefert auch distance in Metern
-                // → wir speichern km zusaetzlich zur Min-Anzeige.
                 double distanceMeters = routes.getJSONObject(0).optDouble("distance", 0);
-                final double distanceKm = Math.round(distanceMeters / 100.0) / 10.0; // 1 Nachkommastelle
-                // Local update + UI redraw
-                final String _mode = mode;
-                runOnUiThread(() -> {
-                    boolean changed = false;
-                    for (Ride rr : myAssignedRides) {
-                        if (rr.id != null && rr.id.equals(rideId)) {
-                            if ("destination".equals(_mode)) {
-                                if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != durationMin) {
-                                    rr.drivingTimeToDestination = durationMin;
-                                    changed = true;
-                                }
-                                if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - distanceKm) > 0.05) {
-                                    rr.drivingDistanceToDestKm = distanceKm;
-                                    changed = true;
-                                }
-                            } else {
-                                if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durationMin) {
-                                    rr.drivingTimeToPickup = durationMin;
-                                    changed = true;
-                                }
-                                if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - distanceKm) > 0.05) {
-                                    rr.drivingDistanceToPickupKm = distanceKm;
-                                    changed = true;
-                                }
-                            }
-                            // v6.62.965 (SPEED-B): OSRM-Anker fuer Live-Hochrechnung im displayTick
-                            rr.osrmAnchorKm = distanceKm;
-                            rr.osrmAnchorMin = durationMin;
-                            rr.osrmAnchorFromLat = fromLat;
-                            rr.osrmAnchorFromLon = fromLon;
-                            break;
-                        }
-                    }
-                    if (changed && rideAdapter != null) rideAdapter.notifyDataSetChanged();
-                });
-                // Firebase update damit Admin-Dashboard den Live-Wert sieht
-                if (db != null) {
-                    String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
-                    String distField = "destination".equals(mode) ? "drivingDistanceToDestKm" : "drivingDistanceToPickupKm";
-                    db.getReference("rides/" + rideId + "/" + field).setValue(durationMin);
-                    db.getReference("rides/" + rideId + "/" + distField).setValue(distanceKm);
-                    db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
-                }
-                logEtaDebug(rideId, "fetch-success", fromLat, fromLon, durationMin + "min " + distanceKm + "km");
+                double distanceKm = Math.round(distanceMeters / 100.0) / 10.0;
+                applyEtaResult(rideId, durationMin, distanceKm, fromLat, fromLon, mode, "osrm-fallback");
             } catch (Exception e) {
                 Log.w(TAG, "OSRM-ETA fuer ride " + rideId + " fehlgeschlagen: " + e.getMessage());
                 logEtaDebug(rideId, "fetch-error", fromLat, fromLon, e.getMessage());
@@ -876,60 +839,113 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         Math.cos(fromLat * Math.PI/180.0) * Math.cos(toLat * Math.PI/180.0) *
                         Math.sin(dLon/2.0) * Math.sin(dLon/2.0);
                     double distKm = 6371.0 * 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    // v6.62.966 (Patrick 26.05.): Faktor 1.3 → 1.6. 1.3 war zu optimistisch
-                    // (Inselstrasse Usedom hat viele Bogen) — siehe Kloss-Ride 2 Min Schaetzung
-                    // vs. real ~4 Min. 1.6 = 60 % Umweg ueber Luftlinie.
                     int durMin = Math.max(1, (int) Math.round(distKm * 1.6 / 40.0 * 60.0));
-                    final double distKmF = Math.round(distKm * 10.0) / 10.0;
-                    final int durMinF = durMin;
-                    final String _modeF = mode;
-                    runOnUiThread(() -> {
-                        boolean changed = false;
-                        for (Ride rr : myAssignedRides) {
-                            if (rr.id != null && rr.id.equals(rideId)) {
-                                if ("destination".equals(_modeF)) {
-                                    if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != durMinF) {
-                                        rr.drivingTimeToDestination = durMinF;
-                                        changed = true;
-                                    }
-                                    if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - distKmF) > 0.05) {
-                                        rr.drivingDistanceToDestKm = distKmF;
-                                        changed = true;
-                                    }
-                                } else {
-                                    if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != durMinF) {
-                                        rr.drivingTimeToPickup = durMinF;
-                                        changed = true;
-                                    }
-                                    if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - distKmF) > 0.05) {
-                                        rr.drivingDistanceToPickupKm = distKmF;
-                                        changed = true;
-                                    }
-                                }
-                                // v6.62.965 (SPEED-B): Auch im Haversine-Fallback Anker setzen
-                                rr.osrmAnchorKm = distKmF;
-                                rr.osrmAnchorMin = durMinF;
-                                rr.osrmAnchorFromLat = fromLat;
-                                rr.osrmAnchorFromLon = fromLon;
-                                break;
-                            }
-                        }
-                        if (changed && rideAdapter != null) rideAdapter.notifyDataSetChanged();
-                    });
-                    if (db != null) {
-                        String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
-                        String distField = "destination".equals(mode) ? "drivingDistanceToDestKm" : "drivingDistanceToPickupKm";
-                        db.getReference("rides/" + rideId + "/" + field).setValue(durMin);
-                        db.getReference("rides/" + rideId + "/" + distField).setValue(distKmF);
-                        db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
-                        db.getReference("rides/" + rideId + "/liveEtaMethod").setValue("haversine-fallback");
-                    }
+                    double distKmF = Math.round(distKm * 10.0) / 10.0;
+                    applyEtaResult(rideId, durMin, distKmF, fromLat, fromLon, mode, "haversine-fallback");
                     Log.i(TAG, "ETA Haversine-Fallback fuer ride " + rideId + ": " + durMin + " Min, " + distKmF + " km");
                 } catch (Throwable _t) {
                     Log.w(TAG, "Haversine-Fallback ebenfalls fehlgeschlagen: " + _t.getMessage());
                 }
             }
         }, "osrm-eta-" + rideId).start();
+    }
+
+    // 🆕 v6.62.968: Google Routes API NEW (TRAFFIC_AWARE) — primaeres Routing.
+    // Returns true wenn Erfolg + applyEtaResult bereits aufgerufen. False = Caller soll Fallback.
+    private boolean tryGoogleRoute(String rideId, double fromLat, double fromLon, double toLat, double toLon, String mode) {
+        java.net.HttpURLConnection conn = null;
+        try {
+            String body = String.format(Locale.US,
+                "{\"origin\":{\"location\":{\"latLng\":{\"latitude\":%.7f,\"longitude\":%.7f}}}," +
+                "\"destination\":{\"location\":{\"latLng\":{\"latitude\":%.7f,\"longitude\":%.7f}}}," +
+                "\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}",
+                fromLat, fromLon, toLat, toLon);
+            conn = (java.net.HttpURLConnection) new java.net.URL(
+                "https://routes.googleapis.com/directions/v2:computeRoutes").openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("X-Goog-Api-Key", GOOGLE_ROUTES_API_KEY);
+            conn.setRequestProperty("X-Goog-FieldMask", "routes.duration,routes.distanceMeters");
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                os.write(body.getBytes("UTF-8"));
+            }
+            if (conn.getResponseCode() != 200) return false;
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line);
+            br.close();
+            org.json.JSONObject json = new org.json.JSONObject(sb.toString());
+            if (!json.has("routes")) return false;
+            org.json.JSONArray routes = json.getJSONArray("routes");
+            if (routes.length() == 0) return false;
+            org.json.JSONObject route = routes.getJSONObject(0);
+            int distanceMeters = route.optInt("distanceMeters", 0);
+            String durStr = route.optString("duration", "0s");
+            double durationSec = Double.parseDouble(durStr.replace("s", ""));
+            int durationMin = Math.max(1, (int) Math.round(durationSec / 60.0));
+            double distanceKm = Math.round(distanceMeters / 100.0) / 10.0;
+            applyEtaResult(rideId, durationMin, distanceKm, fromLat, fromLon, mode, "google-routes");
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Google Routes API fehlgeschlagen fuer ride " + rideId + ", fallback OSRM: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    // 🆕 v6.62.968: Gemeinsamer UI- + Firebase-Update fuer alle 3 Routing-Quellen
+    // (Google Routes, OSRM, Haversine). Setzt auch OSRM-Anker fuer displayTick-Live-Hochrechnung.
+    private void applyEtaResult(String rideId, int durationMin, double distanceKm,
+                                double fromLat, double fromLon, String mode, String source) {
+        final int _durationMin = durationMin;
+        final double _distanceKm = distanceKm;
+        final String _mode = mode;
+        runOnUiThread(() -> {
+            boolean changed = false;
+            for (Ride rr : myAssignedRides) {
+                if (rr.id != null && rr.id.equals(rideId)) {
+                    if ("destination".equals(_mode)) {
+                        if (rr.drivingTimeToDestination == null || rr.drivingTimeToDestination != _durationMin) {
+                            rr.drivingTimeToDestination = _durationMin;
+                            changed = true;
+                        }
+                        if (rr.drivingDistanceToDestKm == null || Math.abs(rr.drivingDistanceToDestKm - _distanceKm) > 0.05) {
+                            rr.drivingDistanceToDestKm = _distanceKm;
+                            changed = true;
+                        }
+                    } else {
+                        if (rr.drivingTimeToPickup == null || rr.drivingTimeToPickup != _durationMin) {
+                            rr.drivingTimeToPickup = _durationMin;
+                            changed = true;
+                        }
+                        if (rr.drivingDistanceToPickupKm == null || Math.abs(rr.drivingDistanceToPickupKm - _distanceKm) > 0.05) {
+                            rr.drivingDistanceToPickupKm = _distanceKm;
+                            changed = true;
+                        }
+                    }
+                    // OSRM-Anker (auch fuer Google + Haversine — Name historisch, Inhalt = letzter Routing-Wert)
+                    rr.osrmAnchorKm = _distanceKm;
+                    rr.osrmAnchorMin = _durationMin;
+                    rr.osrmAnchorFromLat = fromLat;
+                    rr.osrmAnchorFromLon = fromLon;
+                    break;
+                }
+            }
+            if (changed && rideAdapter != null) rideAdapter.notifyDataSetChanged();
+        });
+        if (db != null) {
+            String field = "destination".equals(mode) ? "drivingTimeToDestination" : "drivingTimeToPickup";
+            String distField = "destination".equals(mode) ? "drivingDistanceToDestKm" : "drivingDistanceToPickupKm";
+            db.getReference("rides/" + rideId + "/" + field).setValue(durationMin);
+            db.getReference("rides/" + rideId + "/" + distField).setValue(distanceKm);
+            db.getReference("rides/" + rideId + "/liveEtaUpdatedAt").setValue(System.currentTimeMillis());
+            db.getReference("rides/" + rideId + "/liveEtaMethod").setValue(source);
+        }
     }
 
     // v6.47.0: Hamburger-Menu mit allen Schicht-/Account-Aktionen

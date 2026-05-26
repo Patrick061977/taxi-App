@@ -21778,8 +21778,17 @@ exports.scheduledDispatcherTips = onSchedule(
                         return;
                     }
                     // B) Sofortfahrt status='new' >3 Min alt ohne Fahrzeug
+                    // 🐛 v6.62.962 (Patrick 26.05. 12:54): False-Alarm bei Vorbestellungen
+                    //   die kurz auf 'new' fallen (z.B. nach Re-Init/Reassign): ageMs nahm
+                    //   den GESTRIGEN createdAt → '1419 Min hängt' obwohl Pickup gerade
+                    //   gleich kommt. Fix: nur als Sofort werten wenn isSofort-Flag ODER
+                    //   Pickup innerhalb 60 Min, sonst ist's ne Vorbestellung im 'new'-Limbo.
                     if (r.status === 'new' && !vid && ageMs > 3 * 60000) {
-                        blockedRides.push({ rid, r, kind: 'B', reason: `Sofortfahrt seit ${Math.round(ageMs / 60000)} Min ohne Fahrzeug` });
+                        const _msUntilPickup = r.pickupTimestamp ? (r.pickupTimestamp - now) : Infinity;
+                        const _isReallySofort = r.isSofort === true || (_msUntilPickup > -10 * 60000 && _msUntilPickup < 60 * 60000);
+                        if (_isReallySofort) {
+                            blockedRides.push({ rid, r, kind: 'B', reason: `Sofortfahrt seit ${Math.round(ageMs / 60000)} Min ohne Fahrzeug` });
+                        }
                         return;
                     }
                     // C) Vorbestellung <30 Min vor Pickup ohne Fahrzeug

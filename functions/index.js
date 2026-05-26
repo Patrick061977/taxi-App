@@ -4289,20 +4289,73 @@ async function searchNominatimForTelegram(query) {
 }
 
 // 🔧 v6.33.6: Waypoints-Support für Multi-Stop-Routen
-// 🆕 v6.62.824 (Patrick 19.05. 10:43): OSRM kann ausfallen (heute morgen Rosier-Buchung
-//   blockiert wegen OSRM-Timeout). Jetzt Fallback-Chain: OSRM → Google Maps Directions.
-//   Google nutzt den vorhandenen Maps-API-Key aus settings/googleMapsApiKey.
+// 🆕 v6.62.967 (Patrick 26.05.): Reihenfolge gedreht — Google Routes API (NEW)
+//   primaer mit TRAFFIC_AWARE, OSRM nur noch Notfall-Fallback wenn Google streikt.
+//   Patrick: "kein Umwegfaktor, Verkehr soll automatisch beruecksichtigt werden".
+//   Google Routes API liefert duration MIT aktueller Verkehrslage,
+//   distanceMeters auf der Strasse (nicht Luftlinie).
 async function calculateRoute(from, to, waypointCoords = []) {
-    // Versuch 1: OSRM (gratis, primary)
+    // Versuch 1: Google Routes API (NEW, TRAFFIC_AWARE)
+    try {
+        const apiKeySnap = await db.ref('settings/googleMapsApiKey').once('value');
+        const apiKey = apiKeySnap.val();
+        if (!apiKey) {
+            console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Skip Google, direkt OSRM');
+            throw new Error('No API key');
+        }
+        const body = {
+            origin: { location: { latLng: { latitude: from.lat, longitude: from.lon } } },
+            destination: { location: { latLng: { latitude: to.lat, longitude: to.lon } } },
+            travelMode: 'DRIVE',
+            routingPreference: 'TRAFFIC_AWARE'
+        };
+        if (waypointCoords && waypointCoords.length > 0) {
+            body.intermediates = waypointCoords.map(wp => ({
+                location: { latLng: { latitude: wp.lat, longitude: wp.lon } }
+            }));
+            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (Google Routes)`);
+        }
+        const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.legs.duration,routes.legs.distanceMeters'
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!resp.ok) throw new Error('Google Routes HTTP ' + resp.status);
+        const data = await resp.json();
+        if (!data.routes || !data.routes[0]) throw new Error('Google Routes kein Ergebnis');
+        const route = data.routes[0];
+        const totalDistanceKm = (route.distanceMeters || 0) / 1000;
+        const totalDurationMin = Math.round(parseInt(String(route.duration || '0').replace('s', '')) / 60);
+        const legs = (route.legs || []).map(l => ({
+            duration: Math.round(parseInt(String(l.duration || '0').replace('s', '')) / 60),
+            distance: +(((l.distanceMeters || 0) / 1000).toFixed(1))
+        }));
+        console.log(`✅ Google Routes (TRAFFIC_AWARE): ${totalDistanceKm.toFixed(1)} km, ${totalDurationMin} min`);
+        return {
+            distance: totalDistanceKm.toFixed(1),
+            duration: totalDurationMin,
+            legs: legs.length > 0 ? legs : [{ duration: totalDurationMin, distance: +totalDistanceKm.toFixed(1) }],
+            source: 'google-routes'
+        };
+    } catch (e) {
+        console.warn('⚠️ Google Routes fehlgeschlagen, Fallback OSRM:', e.message);
+    }
+
+    // Versuch 2: OSRM (Fallback wenn Google nicht antwortet)
     try {
         let coordinates = `${from.lon},${from.lat}`;
         if (waypointCoords && waypointCoords.length > 0) {
             waypointCoords.forEach(wp => { coordinates += `;${wp.lon},${wp.lat}`; });
-            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (OSRM)`);
+            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (OSRM-Fallback)`);
         }
         coordinates += `;${to.lon},${to.lat}`;
         const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`, {
-            signal: AbortSignal.timeout(8000) // 8s timeout, sonst fallback
+            signal: AbortSignal.timeout(8000)
         });
         if (!resp.ok) throw new Error('OSRM HTTP ' + resp.status);
         const data = await resp.json();
@@ -4316,53 +4369,12 @@ async function calculateRoute(from, to, waypointCoords = []) {
                 distance: (route.distance / 1000).toFixed(1),
                 duration: Math.round(route.duration / 60),
                 legs,
-                source: 'osrm'
+                source: 'osrm-fallback'
             };
         }
         throw new Error('OSRM kein Route-Ergebnis');
     } catch (e) {
-        console.warn('⚠️ OSRM fehlgeschlagen, Fallback Google Maps:', e.message);
-    }
-
-    // Versuch 2: Google Maps Directions API (Fallback)
-    try {
-        const apiKeySnap = await db.ref('settings/googleMapsApiKey').once('value');
-        const apiKey = apiKeySnap.val();
-        if (!apiKey) {
-            console.warn('⚠️ Kein Google-Maps-API-Key in settings/googleMapsApiKey — Fallback nicht moeglich');
-            return null;
-        }
-        const origin = `${from.lat},${from.lon}`;
-        const destination = `${to.lat},${to.lon}`;
-        let url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&language=de&region=de&key=${apiKey}`;
-        if (waypointCoords && waypointCoords.length > 0) {
-            const wpStr = waypointCoords.map(wp => `${wp.lat},${wp.lon}`).join('|');
-            url += `&waypoints=${encodeURIComponent(wpStr)}`;
-            console.log(`🛑 Multi-Stop Route mit ${waypointCoords.length} Zwischenstopps (Google)`);
-        }
-        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!resp.ok) throw new Error('Google HTTP ' + resp.status);
-        const data = await resp.json();
-        if (data.status !== 'OK' || !data.routes || !data.routes[0]) {
-            throw new Error('Google status ' + data.status + (data.error_message ? ': ' + data.error_message : ''));
-        }
-        const route = data.routes[0];
-        // Google liefert distance/duration pro leg in Metern/Sekunden
-        const legs = (route.legs || []).map(l => ({
-            duration: Math.round((l.duration?.value || 0) / 60),
-            distance: +(((l.distance?.value || 0) / 1000).toFixed(1))
-        }));
-        const totalDist = legs.reduce((s, l) => s + l.distance, 0);
-        const totalDur = legs.reduce((s, l) => s + l.duration, 0);
-        console.log(`✅ Google Directions Fallback OK: ${totalDist} km, ${totalDur} min`);
-        return {
-            distance: totalDist.toFixed(1),
-            duration: totalDur,
-            legs,
-            source: 'google'
-        };
-    } catch (e) {
-        console.error('❌ Google Maps Directions Fallback fehlgeschlagen:', e.message);
+        console.error('❌ Beide Routing-Engines down (Google + OSRM):', e.message);
     }
 
     return null;

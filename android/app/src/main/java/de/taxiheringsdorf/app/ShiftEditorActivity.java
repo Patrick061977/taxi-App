@@ -425,12 +425,25 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
         // Hint
         android.widget.TextView hint = new android.widget.TextView(this);
-        hint.setText("Mit '+' / '−' Buttons aendern. 15-Min-Schritte.");
+        hint.setText("Mit '+' / '−' Buttons aendern. 15-Min-Schritte. Lang-Tippen = ±60 Min.");
         hint.setTextSize(11);
         hint.setTextColor(0xFF94A3B8);
         hint.setPadding(0, pad, 0, 0);
         root.addView(hint);
 
+        // 🆕 v6.62.957 (Patrick 26.05. 07:15 'Also heute'): Checkbox 'Auch fuer alle <Wochentag> setzen'
+        // schreibt zusaetzlich /vehicleShifts/{vid}/defaultTimes/{dow} damit naechste Woche
+        // gleicher Wochentag automatisch dieselbe Zeit hat.
+        int _dow = todayDow();
+        final String[] dayNames = {"Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage"};
+        final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
+        cbAllSame.setText("📅 Auch fuer alle " + dayNames[_dow] + " als Standard setzen");
+        cbAllSame.setChecked(true);
+        cbAllSame.setTextSize(13);
+        cbAllSame.setPadding(0, pad/2, 0, 0);
+        root.addView(cbAllSame);
+
+        final int finalDow = _dow;
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⏰ " + vs.name + " — Zeit setzen (HEUTE)")
             .setView(root)
@@ -444,6 +457,17 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 entry.put("endTime", endStr);
                 entry.put("setAt", System.currentTimeMillis());
                 entry.put("setBy", "native-shift-editor-timeedit");
+                // v6.62.957: defaultTimes parallel setzen wenn Checkbox aktiv
+                if (cbAllSame.isChecked()) {
+                    Map<String, Object> defT = new HashMap<>();
+                    defT.put("startTime", startStr);
+                    defT.put("endTime", endStr);
+                    FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + finalDow)
+                        .updateChildren(defT)
+                        .addOnSuccessListener(_ok -> Toast.makeText(this,
+                            "📅 Default fuer alle " + dayNames[finalDow] + " auf " + startStr + "–" + endStr + " gesetzt", Toast.LENGTH_LONG).show());
+                }
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)

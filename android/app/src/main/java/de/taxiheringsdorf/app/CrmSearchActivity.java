@@ -384,6 +384,23 @@ public class CrmSearchActivity extends AppCompatActivity {
         findViewById(R.id.btn_crm_back).setOnClickListener(v -> finish());
         // v6.62.384: Patrick (06.05. 19:40): "Kunde anlegen in der Native-App"
         findViewById(R.id.btn_crm_new).setOnClickListener(v -> openCreateDialog());
+        // 🆕 v6.62.960 (Patrick 26.05. 08:27): "in einem Rutsch Kunde + Vorbestellung
+        //   anlegen, zusaetzlich zur bestehenden Maske". Ein leerer CrmEntry mit id=null
+        //   triggert in showVorbestellungMaske den isNewCust-Pfad (Z1445+): Anrede/Kunden-
+        //   Typ-Spinner + Name + Rechnungsadresse + Email + alle Vorbestellungs-Felder
+        //   in EINER Maske. Beim Save wird Customer + Ride hintereinander angelegt
+        //   (Z2598-2654, schon vorhanden seit v6.62.802/.915). Alter Flow bleibt 1:1.
+        android.view.View btnNewWithBooking = findViewById(R.id.btn_crm_new_with_booking);
+        if (btnNewWithBooking != null) {
+            btnNewWithBooking.setOnClickListener(v -> {
+                CrmEntry temp = new CrmEntry();
+                temp.id = null;
+                temp.name = "";
+                temp.phone = "";
+                temp.mobilePhone = "";
+                showVorbestellungMaske(temp, new java.util.ArrayList<>(), new java.util.HashMap<>());
+            });
+        }
         etQuery = findViewById(R.id.et_crm_query);
         tvCount = findViewById(R.id.tv_crm_count);
         rv = findViewById(R.id.rv_crm);
@@ -1444,6 +1461,10 @@ public class CrmSearchActivity extends AppCompatActivity {
         //   Beim Save wird der Customer in /customers angelegt und e.id zugeordnet.
         final boolean isNewCust = (e.id == null || e.id.isEmpty()) && !isHotel;
         final EditText etName;
+        // 🆕 v6.62.960 (Patrick 26.05. 08:27): One-Shot-Maske → Neukunde braucht
+        //   eigenes Telefon-Feld (vorher kam phone nur aus e.phone bei Anrufliste-Pfad,
+        //   ueber den 'Neu+Fahrt'-Button ist e.phone leer).
+        final EditText etNewCustPhone;
         // 🆕 v6.62.803 (Patrick 18.05. 23:54): Rechnungsadresse als Picker-TextView statt
         //   Single-Line-EditText. Adresse ist mehrteilig (Straße/Nr/PLZ/Ort) — Picker mit
         //   Reverse-Geocoding (MapPickerActivity) liefert strukturierte Adresse + Koordinaten.
@@ -1460,6 +1481,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             layout.addView(etName);
             tvBillAddr = null;
             etCustEmail = null;
+            etNewCustPhone = null;
         } else if (isNewCust) {
             // Neukunde — Name + Rechnungsadresse + Email Felder einblenden
             TextView tvNewCustHdr = new TextView(this);
@@ -1497,6 +1519,15 @@ public class CrmSearchActivity extends AppCompatActivity {
             etName.setInputType(InputType.TYPE_TEXT_FLAG_CAP_WORDS);
             layout.addView(etName);
 
+            // 🆕 v6.62.960: Telefon-Feld fuer Neukunde (Pflicht fuer SMS-Bestaetigungen)
+            etNewCustPhone = new EditText(this);
+            etNewCustPhone.setHint("📞 Telefon (z.B. +49…)");
+            String _prefillPhone = (e.phone != null && !e.phone.isEmpty()) ? e.phone
+                : (e.mobilePhone != null ? e.mobilePhone : "");
+            if (!_prefillPhone.isEmpty()) etNewCustPhone.setText(_prefillPhone);
+            etNewCustPhone.setInputType(InputType.TYPE_CLASS_PHONE);
+            layout.addView(etNewCustPhone);
+
             // 🆕 v6.62.803: Picker statt EditText — Tap → MapPickerActivity → Reverse-Geocode
             tvBillAddr = new TextView(this);
             tvBillAddr.setText("📍 Rechnungsadresse wählen… (optional)");
@@ -1516,6 +1547,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             etName = null;
             tvBillAddr = null;
             etCustEmail = null;
+            etNewCustPhone = null;
             TextView tvKundeFest = new TextView(this);
             tvKundeFest.setText("👤 " + (e.name != null ? e.name : "—"));
             tvKundeFest.setTextSize(15);
@@ -2575,7 +2607,11 @@ public class CrmSearchActivity extends AppCompatActivity {
                     final double _billLat = billAddrCoords[0];
                     final double _billLon = billAddrCoords[1];
                     final String _newCustEmail = (etCustEmail != null) ? etCustEmail.getText().toString().trim() : "";
-                    final String _newCustPhone = (e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : "");
+                    // 🆕 v6.62.960: Phone aus EditText wenn vorhanden (One-Shot-Maske),
+                    //   sonst Fallback auf e.phone/e.mobilePhone (Anrufliste-Pfad).
+                    String _phoneRaw = (etNewCustPhone != null) ? etNewCustPhone.getText().toString().trim() : "";
+                    final String _newCustPhone = !_phoneRaw.isEmpty() ? _phoneRaw
+                        : ((e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : ""));
                     // Closure: eigentlicher Save-Vorgang (gleicher Code wie vorher)
                     Runnable doActualSave = () -> {
                         FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides").push().setValue(r)

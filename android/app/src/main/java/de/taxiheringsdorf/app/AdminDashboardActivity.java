@@ -321,21 +321,17 @@ public class AdminDashboardActivity extends AppCompatActivity {
         // Patrick: 'Disposition wie normaler Kalender, sortiert nach Tagen'.
         List<Object> sectioned = new ArrayList<>();
 
-        // 🆕 v6.62.712: Wartepool-Sektion GANZ OBEN. Patrick (14.05. 11:01):
-        //   "Wartepool prominenter machen, dass ich das auch sehe". Fahrten die nach
-        //   3x Auto-Assign-Fehlschlag im Wartepool gelandet sind brauchen manuelle
-        //   Disposition — werden hier als rote Warn-Sektion sichtbar.
-        List<Ride> wartepoolRides = new ArrayList<>();
-        List<Ride> remainingForSections = new ArrayList<>();
+        // 🆕 v6.62.958 (Patrick 25.05. 19:20 + 26.05. 07:20 'beides'): Wartepool-Fahrten
+        //   bleiben jetzt INLINE in der Tag-Timeline + rot markiert (Card-Render Z1322).
+        //   Die getrennte Wartepool-Sektion oben (v6.62.712) ist weggefallen — der
+        //   Banner v6.62.932 zeigt die Anzahl prominent, der Rest erscheint im
+        //   normalen Zeitplan-Flow.
+        // Wartepool-Count nur fuer Statistik
+        int wartepoolCount = 0;
         for (Ride r : rest) {
-            if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolRides.add(r);
-            else remainingForSections.add(r);
+            if (r.status != null && "wartepool".equalsIgnoreCase(r.status)) wartepoolCount++;
         }
-        rest = remainingForSections;
-        if (!wartepoolRides.isEmpty()) {
-            sectioned.add("⚠️ WARTEPOOL (" + wartepoolRides.size() + ") — manuelle Disposition noetig!");
-            sectioned.addAll(wartepoolRides);
-        }
+        // rest bleibt unveraendert — wartepool-Rides werden in der Tag-Loop einsortiert
 
         // 🆕 v6.62.673: OFFENE ANFRAGEN aus /anfragen — ganz oben, da sie noch nicht
         //   in /rides sind und manuell uebernommen werden muessen.
@@ -356,15 +352,19 @@ public class AdminDashboardActivity extends AppCompatActivity {
             android.widget.LinearLayout _wpBanner = findViewById(R.id.admin_wartepool_banner);
             android.widget.TextView _wpText = findViewById(R.id.admin_wartepool_banner_text);
             if (_wpBanner != null && _wpText != null) {
-                int _wpCount = wartepoolRides.size();
-                if (_wpCount > 0) {
-                    _wpText.setText("⚠️ WARTEPOOL: " + _wpCount + " Fahrt" + (_wpCount == 1 ? "" : "en") + " warten — manuelle Disposition!");
+                if (wartepoolCount > 0) {
+                    _wpText.setText("⚠️ WARTEPOOL: " + wartepoolCount + " Fahrt" + (wartepoolCount == 1 ? "" : "en") + " warten — manuelle Disposition!");
                     _wpBanner.setVisibility(android.view.View.VISIBLE);
-                    final List<Ride> _firstWartepool = new ArrayList<>(wartepoolRides);
+                    // v6.62.958: erste Wartepool-Ride in sectioned finden (inline jetzt)
                     _wpBanner.setOnClickListener(_v -> {
                         try {
-                            int _idx = sectioned.indexOf(_firstWartepool.isEmpty() ? null : _firstWartepool.get(0));
-                            if (_idx > 0 && rv != null) rv.smoothScrollToPosition(_idx);
+                            for (int i = 0; i < sectioned.size(); i++) {
+                                Object o = sectioned.get(i);
+                                if (o instanceof Ride && "wartepool".equalsIgnoreCase(((Ride)o).status)) {
+                                    if (rv != null) rv.smoothScrollToPosition(i);
+                                    break;
+                                }
+                            }
                         } catch (Throwable _ignore) {}
                     });
                 } else {

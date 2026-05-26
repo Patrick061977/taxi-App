@@ -17954,8 +17954,11 @@ exports.autoResolveConflicts = onSchedule(
                 const r = { ...c.val(), firebaseId: c.key };
                 if (!r.pickupTimestamp) return;
                 if (['deleted','cancelled','storniert','cancelled_pending_driver','completed'].includes(r.status)) return;
-                if (r.assignmentLocked) return;
-                // Fuer allRides (Reassignment-Kandidaten): nur > vorlaufMin in Zukunft
+                // 🐛 v6.62.959 (Patrick 26.05. 07:58 Mercedes-Pile-Up):
+                //   assignmentLocked machte System BLIND fuer Konflikte. Schroeder+Pohmann
+                //   waren gelockt → autoResolveConflicts sah sie nicht → 09:55/10:00/10:15
+                //   auf Mercedes blieb unentdeckt. Jetzt: gelockte Rides bleiben in beiden
+                //   Listen sichtbar; Reassign-Filter weiter unten respektiert das Lock.
                 if (r.pickupTimestamp > now + vorlaufMin * 60000) {
                     if (r.assignedVehicle) {
                         allRides.push(r);
@@ -18989,7 +18992,8 @@ exports.autoResolveConflicts = onSchedule(
                     r.pickupTimestamp > now + 60 * 60 * 1000 &&
                     ['vorbestellt', 'assigned'].includes(r.status) &&
                     r.pickupLat && r.destinationLat &&
-                    (r.duration || r.estimatedDuration)
+                    (r.duration || r.estimatedDuration) &&
+                    !r.assignmentLocked  // 🆕 v6.62.959: gelockte nicht reassignen (Phase 4 pusht stattdessen)
                 );
                 if (reassignableRides.length > 0) {
                     reassignableRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
@@ -19211,6 +19215,71 @@ exports.autoResolveConflicts = onSchedule(
                 }
             } catch (p3err) {
                 console.error('❌ Phase 3 Fehler:', p3err.message, p3err.stack);
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 🆕 v6.62.959: PHASE 4 — Konflikt-Sichtung ueber gelockte Rides
+            // Patrick 26.05. 07:58 Mercedes-Pile-Up: Schroeder+Pohmann waren gelockt,
+            // System war blind. Jetzt: scanne pro Fahrzeug ueberlappende Rides; wenn
+            // mind. 1 davon assignmentLocked=true → Telegram-Push an Admin mit
+            // Vorschlag (System darf nicht selbst umweisen, aber Admin soll's wissen).
+            // Duplikat-Schutz: /lockedConflictPushed/{key} mit 30-Min-Cooldown.
+            // ═══════════════════════════════════════════════════════════
+            try {
+                const lockedConflicts = [];
+                // Gruppieren pro Fahrzeug
+                const ridesByVehicle = {};
+                for (const r of allActiveAssignedRides) {
+                    const vid = r.assignedVehicle || r.vehicleId;
+                    if (!vid) continue;
+                    if (!ridesByVehicle[vid]) ridesByVehicle[vid] = [];
+                    ridesByVehicle[vid].push(r);
+                }
+                for (const vid of Object.keys(ridesByVehicle)) {
+                    const list = ridesByVehicle[vid].sort((a,b) => a.pickupTimestamp - b.pickupTimestamp);
+                    for (let i = 0; i < list.length - 1; i++) {
+                        const a = list[i], b = list[i+1];
+                        const aDurMs = ((a.duration || a.estimatedDuration || 15) + boardingTime + alightingTime) * 60000;
+                        const aEnd = a.pickupTimestamp + aDurMs;
+                        // Leerfahrt-Abschaetzung 5 Min wenn keine Koords
+                        const leerfahrtMs = 5 * 60000;
+                        if (aEnd + leerfahrtMs <= b.pickupTimestamp) continue; // kein Konflikt
+                        // Konflikt — ist mind. 1 davon locked?
+                        if (!a.assignmentLocked && !b.assignmentLocked) continue; // wird von Phase 2/3 behandelt
+                        const overlapMin = Math.round((aEnd + leerfahrtMs - b.pickupTimestamp) / 60000);
+                        lockedConflicts.push({ vid, a, b, overlapMin });
+                    }
+                }
+                if (lockedConflicts.length > 0) {
+                    const _COOLDOWN_MS = 30 * 60 * 1000;
+                    for (const lc of lockedConflicts) {
+                        // Stabile Key: kleinere ID zuerst
+                        const ids = [lc.a.firebaseId, lc.b.firebaseId].sort();
+                        const key = `${ids[0]}__${ids[1]}`;
+                        const pushedSnap = await db.ref(`lockedConflictPushed/${key}`).once('value');
+                        const lastPush = pushedSnap.val();
+                        if (lastPush && (now - lastPush) < _COOLDOWN_MS) continue;
+                        const vName = (OFFICIAL_VEHICLES[lc.vid] || {}).name || lc.vid;
+                        const aLock = lc.a.assignmentLocked ? '🔒' : '';
+                        const bLock = lc.b.assignmentLocked ? '🔒' : '';
+                        const msg = `⚠️ <b>Konflikt mit gelockter Fahrt</b>\n\n` +
+                            `🚗 ${vName} hat zeitliche Ueberschneidung um ~${lc.overlapMin} Min:\n\n` +
+                            `${aLock} ${berlinTime(lc.a.pickupTimestamp)} ${lc.a.customerName || '?'}\n` +
+                            `       ${(lc.a.pickup || '?').substring(0,30)} → ${(lc.a.destination || '?').substring(0,30)}\n\n` +
+                            `${bLock} ${berlinTime(lc.b.pickupTimestamp)} ${lc.b.customerName || '?'}\n` +
+                            `       ${(lc.b.pickup || '?').substring(0,30)} → ${(lc.b.destination || '?').substring(0,30)}\n\n` +
+                            `<i>System darf nicht umweisen wegen Lock. Bitte manuell pruefen oder Lock entfernen.</i>`;
+                        try {
+                            await sendToAllAdmins(msg, 'locked_conflict');
+                            await db.ref(`lockedConflictPushed/${key}`).set(now);
+                            console.log(`⚠️ Locked-Conflict-Push: ${vName} ${lc.a.customerName} ↔ ${lc.b.customerName} (${lc.overlapMin} Min)`);
+                        } catch (_pushErr) {
+                            console.error('Locked-Conflict-Push Fehler:', _pushErr.message);
+                        }
+                    }
+                }
+            } catch (p4err) {
+                console.error('❌ Phase 4 (Locked-Conflict-Sicht) Fehler:', p4err.message);
             }
 
             // 🔧 v6.34.0: Debug Phase 2 per Telegram senden

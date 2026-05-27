@@ -13,8 +13,10 @@
     <item android:id="@+id/menu_crm" android:title="📋 CRM-Suche" />
     <!-- v6.62.828: Anruf-Aufnahmen lokal (ACR Phone) -->
     <item android:id="@+id/menu_recordings" android:title="🎙️ Aufnahmen" />
+    <!-- v6.62.971: Live-Übersicht aktive Fahrzeuge + kommende Fahrten -->
+    <item android:id="@+id/menu_dispo_live" android:title="🚖 Dispo Live" />
     <!-- v6.62.153: Native Operator-Tab — Patrick: 'will Disposition direkt aus der Native-App' -->
-    <item android:id="@+id/menu_dispo" android:title="🗂 Disposition" />
+    <item android:id="@+id/menu_dispo" android:title="🗂 Disposition (bearbeiten)" />
     <!-- v6.62.642: Patrick (12.05. 14:36): 'Karte mit allen Fahrer-Standorten' -->
     <item android:id="@+id/menu_map" android:title="🗺️ Karte (Kollegen)" />
     <item android:id="@+id/menu_webapp" android:title="🌐 Web-App öffnen" />

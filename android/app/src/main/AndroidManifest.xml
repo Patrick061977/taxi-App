@@ -88,6 +88,14 @@
             android:launchMode="singleTask"
             android:exported="false" />
 
+        <!-- v6.62.971: DispoActivity — Live-Übersicht aktive Fahrzeuge + kommende Fahrten 2h -->
+        <activity
+            android:name=".DispoActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.Driver"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <!-- v6.51.0: AdminDashboardActivity — Admin-Modus ohne Fahrzeug für Patrick auf S9+ -->
         <activity
             android:name=".AdminDashboardActivity"

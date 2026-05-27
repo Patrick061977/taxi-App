@@ -1732,11 +1732,20 @@ function showAnfrageSuccess() {
             _bannerEl.className = 'eta-banner-available';
             _bannerEl.style.display = 'block';
 
-            // 🆕 v6.62.975 (Patrick 27.05. 20:15): Konkrete Wartezeit-Minuten im Banner.
-            // ETA = minDistKm * 1.5 (Stadt-Faktor) / 35 km/h * 60 → Min, min 1.
+            // 🆕 v6.62.975 (Patrick 27.05. 20:15): Konkrete Wartezeit-Minuten.
+            // 🆕 v6.62.976 (Patrick 27.05. 20:21): OSRM-Routing wie buchen.html — Banner-Zahl
+            // soll mit der buchen.html-Sofort-Wartezeit übereinstimmen.
+            // Pre-Filter Top 3 nach Haversine, dann parallele OSRM-Calls → minETA.
             const _allCandsForEta = _hasSofortFrei ? _freeVehicles : _candidates;
-            const _minDistKm = Math.min(..._allCandsForEta.map(c => c.distKm));
-            const _etaMin = Math.max(1, Math.round(_minDistKm * 1.5 / 35 * 60));
+            const _top3 = _allCandsForEta.slice().sort((a,b)=>a.distKm-b.distKm).slice(0,3);
+            let _etaMin;
+            try {
+                const _etas = await Promise.all(_top3.map(c =>
+                    _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON)));
+                _etaMin = Math.max(1, Math.min(..._etas));
+            } catch (_e) {
+                _etaMin = Math.max(1, Math.round(Math.min(..._allCandsForEta.map(c=>c.distKm)) * 1.5 / 35 * 60));
+            }
             if (_hasSofortFrei) {
                 _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
                     <span class="eta-text">⚡ Taxi sofort verfügbar — nur ${_etaMin} Min Wartezeit</span>

@@ -216,28 +216,47 @@ public class TaxiFCMService extends FirebaseMessagingService {
         // Sound + Vibration (LAUT) — v6.41.98: TYPE_RINGTONE statt TYPE_NOTIFICATION,
         // weil RingTone länger + lauter spielt + Samsung's 'still silent'-Override eher umgeht.
         // v6.42.7: ALARM-URI als zusätzliche Eskalation — Patrick erlebte zu leisen Sound trotz Ringtone.
-        Uri sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-        if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        // 🆕 v6.62.979 (Patrick 27.05. 20:20): Sofortfahrt (new_ride) = Alarm (wie Wecker).
+        // Webbuchung/Anfrage = sanfteres Notification-Sound + weniger heftige Vibration,
+        // damit Patrick die zwei Push-Klassen sofort unterscheiden kann (Vollbild-Alarm vs.
+        // Heads-Up-Banner).
+        boolean isOrderPush = "new_ride".equals(type) && rideId != null;
+        Uri sound;
+        long[] vibratePattern;
+        if (isOrderPush) {
+            // Sofortfahrt: lauter Alarm-Sound + lange Vibration
+            sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            vibratePattern = new long[]{0, 800, 300, 800, 300, 800, 300, 800};
+        } else {
+            // Webbuchung/Anfrage: normales Notification-Sound + kurze Vibration
+            sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (sound == null) sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            vibratePattern = new long[]{0, 250, 150, 250};
+        }
 
         // v6.62.18: Auftrags-Push klebt — kann NICHT versehentlich weggewischt werden,
         // verschwindet nur über Annehmen/Ablehnen (RideActionReceiver räumt auf) oder Tap (App-Open).
         // Andere Push-Typen (storniert/Info) bleiben tap-to-dismiss.
-        boolean isOrderPush = "new_ride".equals(type) && rideId != null;
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body.split("\n")[0])
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_CALL) // hohe Priorität → Heads-Up
+            .setCategory(isOrderPush ? NotificationCompat.CATEGORY_CALL : NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(sound)
-            .setVibrate(new long[]{0, 800, 300, 800, 300, 800, 300, 800})
+            .setVibrate(vibratePattern)
             .setOngoing(isOrderPush)        // ← NEU: kann nicht weggewischt werden (nur Order-Pushes)
             .setAutoCancel(true)            // Tap auf Notification/Action räumt sie weg
-            .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true); // weckt Bildschirm bei lock-screen
+            .setContentIntent(pendingIntent);
+        // 🆕 v6.62.979: FullScreenIntent NUR bei Sofortfahrt (= weckt Bildschirm im Lockscreen).
+        // Webbuchung/Anfrage: nur Heads-Up Notification, keine Lockscreen-Aktivierung.
+        if (isOrderPush) {
+            builder.setFullScreenIntent(pendingIntent, true);
+        }
 
         // v6.41.99: Action-Buttons direkt in der Notification — Annehmen/Ablehnen ohne App zu öffnen
         if (acceptIntent != null) builder.addAction(android.R.drawable.ic_menu_add, "✅ Annehmen", acceptIntent);

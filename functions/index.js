@@ -22143,9 +22143,11 @@ exports.onRideCreated = onValueCreated(
         // der Auftraggeber-Anrufer ein ANDERES Ziel angegeben hatte (Gast soll vom
         // Bahnhof zum Wellnesszentrum — System setzt Hotel-Adresse als destination).
         //
-        // Check: wenn isAuftraggeberBooking=true UND destination-Coords im 100m-Radius
-        // der _auftraggeberAddress liegen, ist das mit hoher Wahrscheinlichkeit der
-        // Bug. Stoppe Auto-Assign, alarmiere Admin per Telegram, blockiere Customer-SMS.
+        // 🆕 v6.62.969 (Patrick 27.05. Karge-Anreise): Bug-Pattern verfeinert.
+        // Echter Bug = BEIDE Felder (Pickup UND Destination) liegen am Auftraggeber.
+        // Legitim = nur Destination am Auftraggeber (= Hotel-Anreise vom Bahnhof) ODER
+        // nur Pickup am Auftraggeber (= Hotel-Abreise zum Bahnhof).
+        // Daher: Block nur wenn PICKUP AUCH im 150m-Radius des Auftraggebers liegt.
         try {
             if (ride._isAuftraggeberBooking === true && ride._auftraggeberLat && ride.destinationLat) {
                 const dlat = parseFloat(ride.destinationLat);
@@ -22154,7 +22156,15 @@ exports.onRideCreated = onValueCreated(
                 const alon = parseFloat(ride._auftraggeberLon);
                 // Haversine (vereinfacht — Bbox-check ~ 100m bei diesem Breitengrad)
                 const meters = Math.sqrt(Math.pow((dlat - alat) * 111000, 2) + Math.pow((dlon - alon) * 71000, 2));
-                if (meters < 150) {
+                // 🆕 v6.62.969: Pickup-Auftraggeber-Distanz prüfen — nur wenn AUCH nahe → echter Bug
+                let pickupMetersToAuftraggeber = null;
+                if (ride.pickupLat && ride.pickupLon) {
+                    const plat = parseFloat(ride.pickupLat);
+                    const plon = parseFloat(ride.pickupLon);
+                    pickupMetersToAuftraggeber = Math.sqrt(Math.pow((plat - alat) * 111000, 2) + Math.pow((plon - alon) * 71000, 2));
+                }
+                const pickupAlsoNearAuftraggeber = pickupMetersToAuftraggeber !== null && pickupMetersToAuftraggeber < 150;
+                if (meters < 150 && pickupAlsoNearAuftraggeber) {
                     console.warn(`🚨 v6.62.840 AUFTRAGGEBER-DEST-BUG: ride ${rideId} hat destination IM Auftraggeber-Radius (${Math.round(meters)}m). Wahrscheinlich Bug.`);
                     await db.ref('rides/' + rideId).update({
                         suspectedAuftraggeberDestBug: true,
@@ -22173,15 +22183,25 @@ exports.onRideCreated = onValueCreated(
                         `<b>Auto-Assign gestoppt.</b> Bitte Ziel manuell prüfen + korrigieren.\n` +
                         `🆔 <code>${rideId}</code>`;
                     try { await sendToAllAdmins(msg, 'auftraggeber_dest_bug'); } catch (_) {}
-                    await addRideLog(rideId, '🚨', 'Auftraggeber-Dest-Bug erkannt: Ziel liegt im Auftraggeber-Radius', {
-                        quelle: 'onRideCreated v6.62.840 Safety-Net',
-                        abstand_meter: Math.round(meters),
+                    await addRideLog(rideId, '🚨', 'Auftraggeber-Dest-Bug erkannt: Pickup UND Ziel beide am Auftraggeber', {
+                        quelle: 'onRideCreated v6.62.969 Safety-Net (Pickup+Dest)',
+                        dest_meter: Math.round(meters),
+                        pickup_meter: Math.round(pickupMetersToAuftraggeber || 0),
                         auftraggeber: auftraggeberName,
                         ziel: ride.destination
                     });
                     // Verhindere weitere Verarbeitung (Auto-Assign, Customer-SMS) durch reload
                     const _refreshed = await db.ref('rides/' + rideId).once('value');
                     Object.assign(ride, _refreshed.val() || {});
+                } else if (meters < 150 && !pickupAlsoNearAuftraggeber) {
+                    // 🆕 v6.62.969: Nur Destination am Auftraggeber, Pickup anderswo → legitime Hotel-Anreise.
+                    // Kein Block, aber Lifecycle-Log zur Nachvollziehbarkeit.
+                    console.log(`✅ v6.62.969: Auftraggeber-Anreise erkannt (Dest=Auftraggeber, Pickup ${Math.round(pickupMetersToAuftraggeber || 0)}m entfernt) — legitim, kein Block.`);
+                    await addRideLog(rideId, '🏨', 'Auftraggeber-Anreise (Pickup→Hotel) — kein Bug', {
+                        quelle: 'onRideCreated v6.62.969',
+                        dest_meter: Math.round(meters),
+                        pickup_meter: Math.round(pickupMetersToAuftraggeber || 0)
+                    });
                 }
             }
         } catch (_destBugErr) {

@@ -1531,6 +1531,25 @@ async function autoAssignRide(rideId, rideData) {
             rideUpdate.drivingTimeToPickup = _effectiveDrivingMin;
             rideUpdate.estimatedArrivalAt = Date.now() + (_effectiveDrivingMin * 60000);
             rideUpdate.assignmentExpiresAt = Date.now() + 60000;
+
+            // 🆕 v6.62.974 (Patrick 27.05. 20:13): pickupTimestamp realistisch setzen.
+            // Vorher: Sofortbuchung = pickupTimestamp = createdAt (= jetzt). Fahrer ist
+            // aber noch X Min entfernt → Kunden-Track-Page zeigte sofort 'gelb/verspätet'.
+            // Jetzt: pickupTimestamp = jetzt + max(Anfahrt, 5 Min) Puffer.
+            // Original-Zeit als _originalPickupTimestamp gesichert für Statistik.
+            try {
+                const _pufferMin = Math.max(_effectiveDrivingMin || 0, 5);
+                const _newPickupTs = Date.now() + (_pufferMin * 60000);
+                if (rideData?.pickupTimestamp && !rideData._originalPickupTimestamp) {
+                    rideUpdate._originalPickupTimestamp = rideData.pickupTimestamp;
+                }
+                rideUpdate.pickupTimestamp = _newPickupTs;
+                rideUpdate.pickupTimeAdjustedAt = Date.now();
+                rideUpdate.pickupTimeAdjustedBy = 'cloud-auto-assign-v6.62.974';
+                rideUpdate.pickupTimePufferMin = _pufferMin;
+            } catch (_pufferErr) {
+                console.warn('v6.62.974 Pickup-Puffer Fehler:', _pufferErr.message);
+            }
         }
         await db.ref('rides/' + rideId).update(rideUpdate);
 

@@ -1732,16 +1732,18 @@ function showAnfrageSuccess() {
             _bannerEl.className = 'eta-banner-available';
             _bannerEl.style.display = 'block';
 
+            // 🆕 v6.62.975 (Patrick 27.05. 20:15): Konkrete Wartezeit-Minuten im Banner.
+            const _allCandsForEta = _hasSofortFrei ? _freeVehicles : _candidates;
+            const _minDistKm = Math.min(..._allCandsForEta.map(c => c.distKm));
+            const _etaMin = Math.max(1, Math.round(_minDistKm * 1.5 / 35 * 60));
             if (_hasSofortFrei) {
-                // 🟢 Mindestens ein Taxi ist frei → 'sofort verfuegbar'
                 _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
-                    <span class="eta-text">🚕 Taxi sofort verfügbar</span>
+                    <span class="eta-text">⚡ Taxi sofort verfügbar — nur ${_etaMin} Min Wartezeit</span>
                     <a href="${_bookHref}">🚀 Jetzt buchen →</a>
                 </div>`;
             } else {
-                // 🟡 Alle Fahrer sind besetzt → 'mit Wartezeit'
                 _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
-                    <span class="eta-text">🚕 Taxi verfügbar — mit Wartezeit</span>
+                    <span class="eta-text">🚕 Taxi unterwegs — ca. ${_etaMin} Min Wartezeit</span>
                     <a href="${_bookHref}">🚀 Jetzt buchen →</a>
                 </div>`;
             }

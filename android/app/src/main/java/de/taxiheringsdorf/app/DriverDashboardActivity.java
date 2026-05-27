@@ -742,8 +742,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
             // v6.62.318: Throttle 20s → 10s (Patrick: ETA aktualisiert nicht beim Fahren).
             // Plus: bei jedem Skip einen Debug-Counter inkrementieren — hilft Diagnose
             // wenn die ETA trotzdem noch steht.
+            // 🆕 v6.62.970: Throttle 10s → 7s während pre-pickup, damit Google Routes oft genug nachfragt.
+            long throttleMs = isPrePickup ? 7_000L : 10_000L;
             Long lastCall = lastEtaCalc.get(r.id);
-            if (lastCall != null && (now - lastCall) < 10_000L) {
+            if (lastCall != null && (now - lastCall) < throttleMs) {
                 logEtaDebug(r.id, "skip-throttle", vLat, vLon, (now - lastCall) + "ms-since-last");
                 continue;
             }
@@ -1201,6 +1203,14 @@ public class DriverDashboardActivity extends AppCompatActivity {
                         } else {
                             liveMin = Math.max(1, (int) Math.round(liveKm * 1.6 / 40.0 * 60.0));
                         }
+                        // 🆕 v6.62.970 (Patrick 27.05. 19:26 '3 Min für 0,8 km passt nicht'):
+                        // OSRM-Anker erfasst auch Stadt-Startabschnitt mit niedriger Durchschnitts-
+                        // geschwindigkeit. Auf den letzten Metern wird die proportionale Hochrechnung
+                        // dadurch zu pessimistisch ('3 Min für 0,8 km' = 16 km/h ist unrealistisch).
+                        // Cap: Mindest-Durchschnittsgeschwindigkeit 30 km/h
+                        // → 0,8 km → max 1,6 Min (gerundet 2)
+                        int liveMinCap = Math.max(1, (int) Math.round(liveKm / 30.0 * 60.0));
+                        if (liveMin > liveMinCap) liveMin = liveMinCap;
                         double liveKmRounded = Math.round(liveKm * 10.0) / 10.0;
                         if (isPrePickup) {
                             r.drivingDistanceToPickupKm = liveKmRounded;

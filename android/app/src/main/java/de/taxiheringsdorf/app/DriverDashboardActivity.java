@@ -3232,6 +3232,65 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 // Reset (falls View recycled aus storniert-State)
                 itemView.setOnClickListener(null);  // v6.62.523: Storno-Click-Listener entfernen
                 itemView.setBackgroundColor(Color.parseColor("#1E293B"));
+
+                // 🆕 v6.62.972 (Patrick 27.05. 19:47): Sofort-Rechnung per Long-Press
+                // 'Kunde sitzt schon im Auto, ich klick einmal' — überspringt bin-fertig/bin-hier-Workflow.
+                // Long-Press auf Karte → Dialog mit Preis (estimatedPrice editierbar) → Confirm:
+                //   status=completed, actualPrice=Preis, autoInvoiceRequested=true,
+                //   completedAt=now. Cloud-Auto-Invoice triggert wie gewohnt.
+                final String _rideIdFastInv = r.id;
+                final Double _estPrice = r.actualPrice != null ? r.actualPrice : r.estimatedPrice;
+                final String _stForLP = r.status != null ? r.status.toLowerCase() : "";
+                final boolean _canFastInvoice = (_stForLP.equals("assigned") || _stForLP.equals("accepted")
+                    || _stForLP.equals("sofort") || _stForLP.equals("vorbestellt")
+                    || _stForLP.equals("on_way") || _stForLP.equals("arrived")
+                    || _stForLP.equals("picked_up"));
+                if (_canFastInvoice && _rideIdFastInv != null) {
+                    itemView.setOnLongClickListener(_lv -> {
+                        final android.widget.EditText input = new android.widget.EditText(DriverDashboardActivity.this);
+                        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                        input.setHint("Preis in €");
+                        if (_estPrice != null && _estPrice > 0) input.setText(String.format(Locale.GERMAN, "%.2f", _estPrice));
+                        input.setSelectAllOnFocus(true);
+                        new AlertDialog.Builder(DriverDashboardActivity.this)
+                            .setTitle("💨 Sofort-Rechnung")
+                            .setMessage("Kunde sitzt schon im Auto — Fahrt direkt abschließen + Rechnung auslösen?")
+                            .setView(input)
+                            .setPositiveButton("Abschließen + Rechnung", (d, w) -> {
+                                double price = _estPrice != null ? _estPrice : 0;
+                                try { price = Double.parseDouble(input.getText().toString().replace(',', '.')); } catch (Exception _e) {}
+                                if (price <= 0) {
+                                    Toast.makeText(DriverDashboardActivity.this, "Preis ungültig", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                long now = System.currentTimeMillis();
+                                Map<String, Object> upd = new HashMap<>();
+                                upd.put("status", "completed");
+                                upd.put("actualPrice", price);
+                                upd.put("completedAt", now);
+                                upd.put("completedBy", "native-sofort-rechnung");
+                                upd.put("autoInvoiceRequested", true);
+                                upd.put("invoiceRequestedAt", now);
+                                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                    .getReference("rides/" + _rideIdFastInv)
+                                    .updateChildren(upd, (err, ref) -> {
+                                        if (err != null) {
+                                            Toast.makeText(DriverDashboardActivity.this,
+                                                "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                                        } else {
+                                            Toast.makeText(DriverDashboardActivity.this,
+                                                "✅ Fahrt abgeschlossen, Rechnung läuft", Toast.LENGTH_SHORT).show();
+                                        }
+                                    });
+                            })
+                            .setNegativeButton("Abbrechen", null)
+                            .show();
+                        return true;
+                    });
+                } else {
+                    itemView.setOnLongClickListener(null);
+                }
+
                 tvName.setTextColor(Color.parseColor("#F8FAFC"));
                 if (tvLiveEta != null) tvLiveEta.setVisibility(View.VISIBLE);
 

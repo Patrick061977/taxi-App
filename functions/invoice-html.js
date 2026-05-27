@@ -58,6 +58,36 @@ function paymentLabel(method) {
     return map[m] || 'Vielen Dank für Ihre Fahrt.';
 }
 
+// 🆕 v6.62.973 (Patrick 27.05. 19:50): EPC-QR-Code (Girocode) für SEPA-Überweisung.
+// QR enthält Empfängername, IBAN, BIC, Betrag, Verwendungszweck — Kunde scannt mit
+// Banking-App und überweist mit einem Klick. Skip bei Bar/Karte/Stripe (= schon bezahlt).
+function buildEpcQrSection(r, s, totalGross, invoiceNumber) {
+    if (!totalGross || totalGross <= 0) return '';
+    const pm = (r.paymentMethod || '').toLowerCase();
+    // Nur bei Überweisungs-Methoden — bei Bar/Karte/Stripe kein QR nötig
+    const showQr = ['rechnung','uberweisung','vorkasse','invoice_email','invoice_auftraggeber',''].includes(pm);
+    if (!showQr) return '';
+    const iban = (s.bankIban || 'DE16130910540001552490').replace(/\s+/g,'');
+    const bic = (s.bankBic || 'GENODEF1HST').replace(/\s+/g,'');
+    const recipient = (s.companyName || 'Taxiunternehmen Patrick Wydra').slice(0,70);
+    const amount = totalGross.toFixed(2);
+    const purpose = ('Rechnung ' + (invoiceNumber || '')).slice(0,140);
+    // EPC-QR-Code Spec v002 SCT (SEPA Credit Transfer)
+    const epcLines = ['BCD','002','1','SCT', bic, recipient, iban, 'EUR'+amount, '', '', purpose];
+    const epcData = encodeURIComponent(epcLines.join('\n'));
+    // qrserver.com — kostenloser Service, ECC=M, 240px
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=M&data=' + epcData;
+    return '<div class="epc-qr-wrap">'
+        + '<div class="epc-qr-text">'
+        +   '<div class="epc-qr-title">Überweisung per QR-Code</div>'
+        +   '<div class="epc-qr-sub">Mit Banking-App scannen — IBAN, Betrag &amp; Verwendungszweck sind eingetragen.</div>'
+        +   '<div class="epc-qr-iban">IBAN: ' + iban.replace(/(.{4})/g,'$1 ').trim() + '</div>'
+        +   '<div class="epc-qr-iban">BIC: ' + bic + '</div>'
+        + '</div>'
+        + '<img class="epc-qr-img" src="' + qrUrl + '" alt="EPC-QR Bezahl-Code" />'
+        + '</div>';
+}
+
 function isPaidStatus(ride, invoice) {
     if (!ride && !invoice) return false;
     const a = ride || {};
@@ -306,6 +336,12 @@ table.pos tr.zebra td { background: #f8f8f8; }
 /* USt-Hinweis + Zahlung */
 .vat-hint { font-size: 8pt; margin-top: 4mm; }
 .payment-terms { font-weight: bold; font-size: 9pt; margin-top: 6mm; }
+.epc-qr-wrap { display: flex; align-items: center; gap: 6mm; margin-top: 4mm; padding: 3mm; border: 1px solid #94a3b8; border-radius: 1.5mm; background: #f8fafc; }
+.epc-qr-text { flex: 1; font-size: 8.5pt; line-height: 1.4; }
+.epc-qr-title { font-weight: bold; font-size: 9pt; color: #1e293b; margin-bottom: 1mm; }
+.epc-qr-sub { color: #475569; margin-bottom: 1.5mm; }
+.epc-qr-iban { font-family: monospace; font-size: 8.5pt; color: #1e293b; }
+.epc-qr-img { width: 24mm; height: 24mm; flex-shrink: 0; }
 .closing { font-size: 9pt; margin-top: 2mm; }
 
 /* DIN-5008 Footer */
@@ -379,6 +415,7 @@ table.pos tr.zebra td { background: #f8f8f8; }
         ${vatHint ? `<div class="vat-hint">${esc(vatHint)}</div>` : ''}
 
         <div class="payment-terms">${esc(paymentTermsText)}</div>
+        ${buildEpcQrSection(r, s, totalGross, invoiceNumber)}
         <div class="closing">${esc(closingNote)}</div>
     </div>
 

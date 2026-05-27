@@ -3239,7 +3239,7 @@ public class DriverDashboardActivity extends AppCompatActivity {
                 //   status=completed, actualPrice=Preis, autoInvoiceRequested=true,
                 //   completedAt=now. Cloud-Auto-Invoice triggert wie gewohnt.
                 final String _rideIdFastInv = r.id;
-                final Double _estPrice = r.actualPrice != null ? r.actualPrice : r.estimatedPrice;
+                final Double _estPrice = r.actualPrice != null ? r.actualPrice : r.price;
                 final String _stForLP = r.status != null ? r.status.toLowerCase() : "";
                 final boolean _canFastInvoice = (_stForLP.equals("assigned") || _stForLP.equals("accepted")
                     || _stForLP.equals("sofort") || _stForLP.equals("vorbestellt")
@@ -3269,7 +3269,10 @@ public class DriverDashboardActivity extends AppCompatActivity {
                                 upd.put("actualPrice", price);
                                 upd.put("completedAt", now);
                                 upd.put("completedBy", "native-sofort-rechnung");
-                                upd.put("autoInvoiceRequested", true);
+                                // v6.62.973: 'invoiceRequested' ist das Feld das Cloud Function v6.62.312
+                                // erwartet, um Auto-Rechnung+PDF-Generation zu triggern.
+                                upd.put("invoiceRequested", true);
+                                upd.put("needsInvoice", true);
                                 upd.put("invoiceRequestedAt", now);
                                 FirebaseDatabase.getInstance(DB_INSTANCE_URL)
                                     .getReference("rides/" + _rideIdFastInv)

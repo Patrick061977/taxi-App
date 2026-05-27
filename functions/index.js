@@ -24543,6 +24543,53 @@ exports.onRideUpdated = onValueUpdated(
                         belegNr: _belegNr, error: _pdfErr.message
                     });
                 }
+
+                // 🆕 v6.62.980 (Patrick 27.05. 20:51): Vorkasse + Stripe-Auto-Link.
+                // Native-App-Long-Press 'Vorkasse + Stripe' setzt _vorkasseRequested=true +
+                // paymentMethod=stripe. Hier rufen wir den HTTPS-Endpoint intern auf, speichern
+                // die Checkout-URL und senden SMS an Kunde mit Bezahl-Link.
+                if (after._vorkasseRequested === true && after.paymentMethod === 'stripe') {
+                    try {
+                        const _stripeUrl = `https://europe-west1-taxi-heringsdorf.cloudfunctions.net/createStripeCheckout`;
+                        const _stripeResp = await fetch(_stripeUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                invoiceNumber: _belegNr,
+                                amount: _gross,
+                                customerName: after.customerName || '',
+                                customerEmail: after.customerEmail || _custData.email || '',
+                                description: `Fahrt ${after.pickup || ''} → ${after.destination || ''}`
+                            })
+                        });
+                        if (_stripeResp.ok) {
+                            const _stripeJson = await _stripeResp.json();
+                            const _checkoutUrl = _stripeJson.checkoutUrl;
+                            await addRideLog(rideId, '💳', `Vorkasse-Stripe-Checkout erstellt: ${_belegNr}`, {
+                                belegNr: _belegNr, checkoutUrl: _checkoutUrl
+                            });
+                            // SMS an Kunde mit Stripe-Bezahl-Link
+                            const _smsPhone = after.customerPhone || after.customerMobile;
+                            if (_smsPhone && isMobileNumber(_smsPhone) && _checkoutUrl) {
+                                const _smsTxt = `Funk Taxi: Rechnung ${_belegNr} ueber ${_gross.toFixed(2).replace('.',',')}€ — bitte per Stripe bezahlen: ${_checkoutUrl}\nFragen: 038378 22022`;
+                                await db.ref('smsQueue').push({
+                                    phone: _smsPhone,
+                                    text: _smsTxt,
+                                    rideId,
+                                    purpose: 'vorkasse_stripe_link',
+                                    createdAt: Date.now()
+                                });
+                                await addRideLog(rideId, '📲', 'Vorkasse-SMS mit Stripe-Link in Queue', { phone: _smsPhone });
+                            }
+                        } else {
+                            console.error(`❌ Stripe-Checkout für ${_belegNr} fehlgeschlagen: ${_stripeResp.status}`);
+                            await addRideLog(rideId, '⚠️', `Vorkasse-Stripe-Checkout fehlgeschlagen: HTTP ${_stripeResp.status}`, { belegNr: _belegNr });
+                        }
+                    } catch (_strErr) {
+                        console.error(`❌ Vorkasse-Stripe-Aufruf Fehler ${rideId}:`, _strErr.message);
+                        await addRideLog(rideId, '⚠️', `Vorkasse-Stripe-Aufruf Fehler: ${_strErr.message}`, { belegNr: _belegNr });
+                    }
+                }
             }
         } catch (_invErr) {
             console.warn(`⚠️ v6.62.312 Auto-Rechnung Fehler ${rideId}:`, _invErr.message);

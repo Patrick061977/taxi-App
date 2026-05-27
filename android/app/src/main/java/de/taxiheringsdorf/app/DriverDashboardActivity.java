@@ -3247,46 +3247,67 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     || _stForLP.equals("picked_up"));
                 if (_canFastInvoice && _rideIdFastInv != null) {
                     itemView.setOnLongClickListener(_lv -> {
-                        final android.widget.EditText input = new android.widget.EditText(DriverDashboardActivity.this);
-                        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-                        input.setHint("Preis in €");
-                        if (_estPrice != null && _estPrice > 0) input.setText(String.format(Locale.GERMAN, "%.2f", _estPrice));
-                        input.setSelectAllOnFocus(true);
+                        // 🆕 v6.62.980 (Patrick 27.05. 20:51): Long-Press bietet jetzt 2 Optionen —
+                        // Bar-Rechnung (wie bisher) oder Vorkasse via Stripe (Cloud generiert
+                        // Checkout-URL, SMS an Kunde mit Bezahl-Link).
                         new AlertDialog.Builder(DriverDashboardActivity.this)
-                            .setTitle("💨 Sofort-Rechnung")
-                            .setMessage("Kunde sitzt schon im Auto — Fahrt direkt abschließen + Rechnung auslösen?")
-                            .setView(input)
-                            .setPositiveButton("Abschließen + Rechnung", (d, w) -> {
-                                double price = _estPrice != null ? _estPrice : 0;
-                                try { price = Double.parseDouble(input.getText().toString().replace(',', '.')); } catch (Exception _e) {}
-                                if (price <= 0) {
-                                    Toast.makeText(DriverDashboardActivity.this, "Preis ungültig", Toast.LENGTH_SHORT).show();
-                                    return;
-                                }
-                                long now = System.currentTimeMillis();
-                                Map<String, Object> upd = new HashMap<>();
-                                upd.put("status", "completed");
-                                upd.put("actualPrice", price);
-                                upd.put("completedAt", now);
-                                upd.put("completedBy", "native-sofort-rechnung");
-                                // v6.62.973: 'invoiceRequested' ist das Feld das Cloud Function v6.62.312
-                                // erwartet, um Auto-Rechnung+PDF-Generation zu triggern.
-                                upd.put("invoiceRequested", true);
-                                upd.put("needsInvoice", true);
-                                upd.put("invoiceRequestedAt", now);
-                                FirebaseDatabase.getInstance(DB_INSTANCE_URL)
-                                    .getReference("rides/" + _rideIdFastInv)
-                                    .updateChildren(upd, (err, ref) -> {
-                                        if (err != null) {
-                                            Toast.makeText(DriverDashboardActivity.this,
-                                                "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
-                                        } else {
-                                            Toast.makeText(DriverDashboardActivity.this,
-                                                "✅ Fahrt abgeschlossen, Rechnung läuft", Toast.LENGTH_SHORT).show();
+                            .setTitle("💨 Sofort-Abschluss")
+                            .setItems(new CharSequence[]{
+                                "💵 Bar-Rechnung (bezahlt)",
+                                "💳 Vorkasse + Stripe-Link an Kunde"
+                            }, (dlg, which) -> {
+                                final boolean isVorkasse = (which == 1);
+                                final android.widget.EditText input = new android.widget.EditText(DriverDashboardActivity.this);
+                                input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                                input.setHint("Preis in €");
+                                if (_estPrice != null && _estPrice > 0) input.setText(String.format(Locale.GERMAN, "%.2f", _estPrice));
+                                input.setSelectAllOnFocus(true);
+                                new AlertDialog.Builder(DriverDashboardActivity.this)
+                                    .setTitle(isVorkasse ? "💳 Vorkasse + Stripe" : "💵 Bar-Rechnung")
+                                    .setMessage(isVorkasse
+                                        ? "Kunde bekommt SMS mit Stripe-Bezahl-Link. Erst nach Zahlung gilt die Rechnung als bezahlt."
+                                        : "Fahrt direkt abschließen + Rechnung auslösen?")
+                                    .setView(input)
+                                    .setPositiveButton(isVorkasse ? "Vorkasse-Link senden" : "Abschließen + Rechnung", (d, w) -> {
+                                        double price = _estPrice != null ? _estPrice : 0;
+                                        try { price = Double.parseDouble(input.getText().toString().replace(',', '.')); } catch (Exception _e) {}
+                                        if (price <= 0) {
+                                            Toast.makeText(DriverDashboardActivity.this, "Preis ungültig", Toast.LENGTH_SHORT).show();
+                                            return;
                                         }
-                                    });
+                                        long now = System.currentTimeMillis();
+                                        Map<String, Object> upd = new HashMap<>();
+                                        upd.put("status", "completed");
+                                        upd.put("actualPrice", price);
+                                        upd.put("completedAt", now);
+                                        upd.put("completedBy", isVorkasse ? "native-vorkasse-stripe" : "native-sofort-rechnung");
+                                        upd.put("invoiceRequested", true);
+                                        upd.put("needsInvoice", true);
+                                        upd.put("invoiceRequestedAt", now);
+                                        if (isVorkasse) {
+                                            upd.put("paymentMethod", "stripe");
+                                            upd.put("invoiceType", "vorkasse");
+                                            upd.put("_vorkasseRequested", true);
+                                        } else {
+                                            upd.put("paymentMethod", "bar");
+                                            upd.put("paymentStatus", "bezahlt");
+                                        }
+                                        FirebaseDatabase.getInstance(DB_INSTANCE_URL)
+                                            .getReference("rides/" + _rideIdFastInv)
+                                            .updateChildren(upd, (err, ref) -> {
+                                                if (err != null) {
+                                                    Toast.makeText(DriverDashboardActivity.this,
+                                                        "Fehler: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                                                } else {
+                                                    Toast.makeText(DriverDashboardActivity.this,
+                                                        isVorkasse ? "✅ Vorkasse + Stripe-Link wird versendet" : "✅ Fahrt abgeschlossen, Rechnung läuft",
+                                                        Toast.LENGTH_SHORT).show();
+                                                }
+                                            });
+                                    })
+                                    .setNegativeButton("Abbrechen", null)
+                                    .show();
                             })
-                            .setNegativeButton("Abbrechen", null)
                             .show();
                         return true;
                     });

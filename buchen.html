@@ -755,6 +755,15 @@
                     <button class="wann-btn active" onclick="setWann('sofort')">⚡ Sofort</button>
                     <button class="wann-btn" onclick="setWann('vorbestellen')">📅 Vorbestellen</button>
                 </div>
+                <!-- 🆕 v6.62.977 (Patrick 27.05. 20:25): Schnelltasten für späteren Sofort-Start.
+                     Patrick: 'wenn ich nicht online bin, brauche ich Vorlauf min 1h, sonst 15/30/45'.
+                     Klick: pickupTimestamp = jetzt + X Min, setWann('vorbestellen') intern. -->
+                <div id="sofort-presets" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                    <button type="button" onclick="setSofortPreset(0)" class="sofort-preset-btn" data-pre="0" style="flex:1;min-width:60px;padding:8px 6px;font-size:13px;background:#dcfce7;border:2px solid #16a34a;border-radius:8px;font-weight:600;color:#166534;cursor:pointer;">Jetzt</button>
+                    <button type="button" onclick="setSofortPreset(15)" class="sofort-preset-btn" data-pre="15" style="flex:1;min-width:60px;padding:8px 6px;font-size:13px;background:#f1f5f9;border:2px solid #cbd5e1;border-radius:8px;font-weight:600;color:#475569;cursor:pointer;">+15 Min</button>
+                    <button type="button" onclick="setSofortPreset(30)" class="sofort-preset-btn" data-pre="30" style="flex:1;min-width:60px;padding:8px 6px;font-size:13px;background:#f1f5f9;border:2px solid #cbd5e1;border-radius:8px;font-weight:600;color:#475569;cursor:pointer;">+30 Min</button>
+                    <button type="button" onclick="setSofortPreset(45)" class="sofort-preset-btn" data-pre="45" style="flex:1;min-width:60px;padding:8px 6px;font-size:13px;background:#f1f5f9;border:2px solid #cbd5e1;border-radius:8px;font-weight:600;color:#475569;cursor:pointer;">+45 Min</button>
+                </div>
                 <!-- 🆕 v6.41.66: Kompakter "Termin gewählt" Streifen — nach Slot-Wahl statt voller Felder -->
                 <!-- 🔧 v6.62.484: Patrick (08.05. 12:58): "kann man auf das Bild drücken?
                      irgendwie verleitet das auf dieses kleine Feld zu drücken". Komplett klickbar. -->
@@ -2653,6 +2662,49 @@
         // ═══════════════════════════════════════════════
         // Wann-Toggle (Sofort / Vorbestellen)
         // ═══════════════════════════════════════════════
+        // 🆕 v6.62.977 (Patrick 27.05. 20:25): Sofort-Schnelltasten — Klick auf
+        // 'Jetzt' / '+15 Min' / '+30 Min' / '+45 Min'. Setzt b-date+b-time auf
+        // (jetzt + X Min) und switched zu 'vorbestellen' Modus (= echte Pickup-Time
+        // wird in /rides geschrieben, nicht 'sofort'). UI-mäßig bleibt der grüne Theme.
+        function setSofortPreset(minutes) {
+            // Active-State auf Buttons
+            document.querySelectorAll('.sofort-preset-btn').forEach(b => {
+                const active = parseInt(b.dataset.pre, 10) === minutes;
+                b.style.background = active ? '#dcfce7' : '#f1f5f9';
+                b.style.borderColor = active ? '#16a34a' : '#cbd5e1';
+                b.style.color = active ? '#166534' : '#475569';
+            });
+            if (minutes === 0) {
+                // Sofort = normaler Sofort-Mode
+                setWann('sofort');
+                window._sofortPresetMin = 0;
+                return;
+            }
+            // X Min in der Zukunft → als Vorbestellung verbuchen
+            try {
+                const future = new Date(Date.now() + minutes * 60000);
+                const dateInput = document.getElementById('b-date');
+                const timeInput = document.getElementById('b-time');
+                if (dateInput) {
+                    const pad = (n) => String(n).padStart(2, '0');
+                    dateInput.value = future.getFullYear() + '-' + pad(future.getMonth() + 1) + '-' + pad(future.getDate());
+                    if (typeof updateBDateLabel === 'function') updateBDateLabel();
+                }
+                if (timeInput) {
+                    const pad = (n) => String(n).padStart(2, '0');
+                    timeInput.value = pad(future.getHours()) + ':' + pad(future.getMinutes());
+                    timeInput.dataset.userTouched = '1';
+                    if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
+                    if (typeof syncTimeToLegacyDropdowns === 'function') syncTimeToLegacyDropdowns();
+                }
+                window._sofortPresetMin = minutes;
+                window._sofortPresetSetAt = Date.now();
+                setWann('vorbestellen');
+                if (typeof onDateTimeChange === 'function') onDateTimeChange();
+                if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min gewählt');
+            } catch (_e) { console.warn('setSofortPreset Fehler', _e); }
+        }
+
         function setWann(mode) {
             wannModus = mode;
             logBuchen(mode === 'sofort' ? '⚡' : '📅', `Modus: ${mode.toUpperCase()}`);

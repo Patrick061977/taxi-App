@@ -23762,6 +23762,12 @@ exports.onRideUpdated = onValueUpdated(
                             if (_pdfUrl) _invoiceLine = `\nRechnung: ${_pdfUrl}`;
                         } catch(_e) {}
                     }
+                    // 🆕 v6.62.978 (Patrick 27.05. 20:26): Wenn noch keine Rechnung erstellt
+                    // wurde, klarer Anforder-Link statt schweigen — Kunde soll sehen DASS
+                    // er eine Rechnung bekommen kann.
+                    if (!_invoiceLine) {
+                        _invoiceLine = `\nRechnung benötigt? ${_trackLink}#rechnung`;
+                    }
                     const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf! Wie war's? 1 Klick: ${_trackLink}${_googleLine}${_invoiceLine}\nBei Fragen: 038378 22022.`;
                     // 🆕 v6.62.382: Patrick (06.05. 18:41): "Hasbargen — Vielen-Dank-SMS kam nicht".
                     // Bug: nur customerPhone gepruefte, nicht customerMobile als Fallback.

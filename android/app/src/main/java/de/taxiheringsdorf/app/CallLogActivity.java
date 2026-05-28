@@ -737,6 +737,26 @@ public class CallLogActivity extends AppCompatActivity {
             } catch (Throwable t) {
                 runOnUiThread(() -> Toast.makeText(this, "Anrufliste-Fehler: " + t.getMessage(), Toast.LENGTH_LONG).show());
             }
+            // 🆕 v6.62.993 (Patrick 28.05. 19:59): Warteschlangen-Verkettung erkennen.
+            //   Liste ist nach DATE DESC sortiert → result[i+1] ist chronologisch der
+            //   VORHERIGE Anruf. Wenn result[i].date innerhalb 3s nach Ende von result[i+1]
+            //   beginnt UND die Nummern unterschiedlich sind → result[i] war in der
+            //   Telefon-Warteschlange während result[i+1] lief.
+            final long QUEUE_CHAIN_THRESHOLD_MS = 3000L;
+            for (int i = 0; i < result.size() - 1; i++) {
+                CallEntry curr = result.get(i);
+                CallEntry prev = result.get(i + 1);
+                if (curr == null || prev == null) continue;
+                long prevEndMs = prev.date + Math.max(0, prev.durationSec) * 1000L;
+                long gapMs = curr.date - prevEndMs;
+                if (gapMs >= 0 && gapMs <= QUEUE_CHAIN_THRESHOLD_MS
+                        && curr.number != null && prev.number != null
+                        && !normalizePhone(curr.number).equals(normalizePhone(prev.number))) {
+                    curr.queueChain = true;
+                    curr.prevQueueChainPhone = prev.number;
+                    curr.prevQueueChainName = prev.name;
+                }
+            }
             runOnUiThread(() -> {
                 progress.setVisibility(View.GONE);
                 adapter.set(result);
@@ -2392,6 +2412,12 @@ public class CallLogActivity extends AppCompatActivity {
         long durationSec;
         int type;
         java.io.File acrFile; // 🆕 v6.62.676: gematchte ACR-Aufnahme (falls vorhanden)
+        // 🆕 v6.62.993 (Patrick 28.05. 19:59): Warteschlangen-Verkettungs-Indikator.
+        //   Anruf B wurde innerhalb 3s nach Anruf A angenommen → B war in der Warte-
+        //   schlange, gehört wahrscheinlich zum gleichen Vorgang.
+        boolean queueChain;
+        String prevQueueChainPhone;
+        String prevQueueChainName;
     }
 
     // 🆕 v6.62.676: Patrick (13.05. 12:59): "Anrufliste, wuerde ich ganz gerne die
@@ -2591,7 +2617,10 @@ public class CallLogActivity extends AppCompatActivity {
                     try { e.acrFile = findAcrRecording(e.number, e.date); } catch (Throwable _t) {}
                 }
                 String audioHint = (e.acrFile != null) ? "  🎵 ACR" : "";
-                tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint);
+                // 🆕 v6.62.993 (Patrick 28.05.): Warteschlangen-Verkettung — Anruf war direkt
+                //   nach einem anderen aus der Telefon-Warteschlange (gleicher Vorgang wahrscheinlich).
+                String queueHint = e.queueChain ? "  🔗 aus Warteschlange" : "";
+                tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint + queueHint);
 
                 itemView.setOnClickListener(_v -> showActionDialog(e));
                 // 🆕 v6.62.676: Long-Press → Audio-Player. Patrick: "Anrufe abhoeren, dann

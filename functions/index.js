@@ -25354,9 +25354,11 @@ exports.scheduledDepartureAlert = onSchedule(
                 // Fahrtdauer zum Kunden — wenn fehlt: Default 15 Min (konservativ vor Pickup)
                 const driveMin = (typeof ride.drivingTimeToPickup === 'number' && ride.drivingTimeToPickup > 0)
                     ? ride.drivingTimeToPickup : 15;
-                // v6.62.886 (Patrick 23.05. 08:03): 'Trigger ist zu knapp dran, fuenf Minuten
-                // bevor man es nicht mehr schafft.' → 5 Min Vorlauf statt 1 Min.
-                const losfahrtAt = pickupTs - driveMin * 60_000 - 10 * 60_000;
+                // 🆕 v6.62.988 (Patrick 28.05. 11:06): '15 Min + Anfahrt' Soll-Push-Zeit.
+                // Vorher 10 Min Puffer (v6.62.886) → jetzt 15 Min Puffer.
+                // Bei 20 Min Anfahrt = 35 Min vor Pickup; 8 Min Anfahrt = 23 Min vor Pickup.
+                // Live-GPS-Recompute folgt in v6.62.989 (braucht async-Refactor des forEach).
+                const losfahrtAt = pickupTs - driveMin * 60_000 - 15 * 60_000;
                 // Trigger-Fenster: zwischen losfahrtAt und losfahrtAt + 2min
                 // (2min damit wir 1-2 Ticks verpassen koennen ohne den Alert zu verlieren)
                 if (now < losfahrtAt) return;

@@ -791,7 +791,7 @@
                         <label for="b-time" style="display:flex;align-items:center;gap:10px;font-weight:600;color:#374151;margin-bottom:6px;cursor:pointer;">
                             <span style="font-size:20px;">🕐</span> Uhrzeit auswählen
                         </label>
-                        <input type="time" id="b-time" step="600" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="width:100%;padding:14px;font-size:16px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;">
+                        <input type="time" id="b-time" step="60" oninput="this.dataset.userTouched='1';updateBTimeLabel();" onchange="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" onblur="syncTimeToLegacyDropdowns();onDateTimeChange();updateBTimeLabel();" style="width:100%;padding:14px;font-size:16px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;">
                         <div id="b-time-label" style="display:none;"></div>
                     </div>
                     <select id="b-hour" onchange="onDateTimeChange()" style="display:none;"></select>
@@ -2732,6 +2732,21 @@
                     if (typeof syncTimeToLegacyDropdowns === 'function') syncTimeToLegacyDropdowns();
                 }
                 if (typeof onDateTimeChange === 'function') onDateTimeChange();
+                // 🆕 v6.62.989 (Patrick 28.05. 11:40): Compact-Badge ("📅 ... Tippen zum Aendern")
+                // auch nach Schnelltaste sichtbar machen, damit Kunde sieht WAS er gewählt hat.
+                try {
+                    const compact = document.getElementById('termin-compact');
+                    const compactText = document.getElementById('termin-compact-text');
+                    const felder = document.getElementById('vorbestellen-felder');
+                    if (compactText && dateInput && timeInput && dateInput.value && timeInput.value) {
+                        const d = new Date(dateInput.value + 'T00:00:00');
+                        const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                        const dayLabel = dayNames[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
+                        compactText.textContent = '📅 ' + dayLabel + ' um ' + timeInput.value + ' Uhr · Tippen zum Ändern';
+                    }
+                    if (compact) compact.style.display = 'flex';
+                    if (felder) felder.style.display = 'none';
+                } catch (_be) {}
                 if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min gewählt');
             } catch (_e) { console.warn('setSofortPreset Fehler', _e); }
         }

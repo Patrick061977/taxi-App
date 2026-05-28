@@ -278,8 +278,87 @@ public class DispoActivity extends AppCompatActivity {
         tvRoute.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         col.addView(tvRoute);
 
+        // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Konflikt-Diagnose direkt im Dispo-Card
+        //   anzeigen wenn Fahrt im wartepool oder ohne Fahrzeug — pro Fahrzeug rechnen:
+        //   im Schichtplan? frei? kollidiert?
+        if (r.vehicleId == null || "wartepool".equals(r.status)) {
+            String diag = computeRideDiagnosisText(r, vehicles);
+            if (diag != null && !diag.isEmpty()) {
+                TextView tvDiag = new TextView(this);
+                tvDiag.setText(diag);
+                tvDiag.setTextColor(Color.parseColor("#FCA5A5"));
+                tvDiag.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                tvDiag.setPadding(0, dp(4), 0, 0);
+                col.addView(tvDiag);
+            }
+        }
+
         card.addView(col);
+        // v6.62.1001: Tap auf Karte → Detail-Dialog mit voller Konflikt-Diagnose
+        final RideInfo rFinal = r;
+        final Map<String, VehicleInfo> vehMap = vehicles;
+        card.setOnClickListener(v -> showRideDiagnosisDialog(rFinal, vehMap));
         return card;
+    }
+
+    // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Konflikt-Diagnose-Text (kurz, für Card-Zeile)
+    private String computeRideDiagnosisText(RideInfo r, Map<String, VehicleInfo> vehicles) {
+        if (r == null || vehicles == null || vehicles.isEmpty()) return null;
+        int online = 0, offline = 0;
+        for (VehicleInfo v : vehicles.values()) {
+            if (v.online || v.shiftActive) online++;
+            else offline++;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (r.wartepoolReason != null) {
+            sb.append("⚠️ ").append(r.wartepoolReason);
+        } else if ("wartepool".equals(r.status)) {
+            sb.append("⚠️ Wartepool — kein Fahrzeug zugewiesen");
+        } else {
+            sb.append("⚠️ Kein Fahrzeug zugewiesen");
+        }
+        sb.append("  ·  ").append(online).append(" online, ").append(offline).append(" offline");
+        sb.append("  ·  Tap für Details");
+        return sb.toString();
+    }
+
+    // 🆕 v6.62.1001: Detail-Dialog — pro Fahrzeug Status (online/offline/in_use)
+    //   Plus Anfahrtszeit und Konflikt-Hinweise wenn drivingTimeToPickup gesetzt ist.
+    private void showRideDiagnosisDialog(RideInfo r, Map<String, VehicleInfo> vehicles) {
+        if (r == null) return;
+        StringBuilder body = new StringBuilder();
+        body.append("📋 ").append(r.customerName != null ? r.customerName : "?").append("\n");
+        body.append("⏰ ").append(hhmm.format(new Date(r.pickupTs))).append("\n");
+        body.append("📍 ").append(r.pickup != null ? r.pickup : "?").append("\n");
+        body.append("🎯 ").append(r.destination != null ? r.destination : "?").append("\n\n");
+        body.append("🚗 Fahrzeug-Status:\n");
+        for (VehicleInfo v : vehicles.values()) {
+            String mark;
+            if (v.shiftActive && v.online) mark = "🟢";
+            else if (v.shiftActive) mark = "🟡 Schicht aktiv, offline";
+            else mark = "⚫ keine Schicht";
+            body.append("  ").append(mark).append(" ").append(v.name);
+            if (v.plate != null) body.append(" ").append(v.plate);
+            body.append("\n");
+        }
+        if (r.wartepoolReason != null) {
+            body.append("\n⚠️ Wartepool-Grund: ").append(r.wartepoolReason).append("\n");
+        }
+        if (r.drivingTimeToPickup != null) {
+            body.append("\n🚗 Letzter Anfahrt-Vorschlag: ").append(r.drivingTimeToPickup).append(" Min");
+            if (r.drivingDistanceToPickupKm != null) body.append(" / ").append(r.drivingDistanceToPickupKm).append(" km");
+            body.append("\n");
+        }
+        body.append("\n💡 Lösungs-Vorschläge:\n");
+        body.append("  • Schicht-Editor öffnen und Fahrzeug aktivieren\n");
+        body.append("  • Fahrt-Bearbeiten und Pickup-Zeit verschieben\n");
+        body.append("  • '🤖 Auto-Zuweisen' in der Web-Dispo erneut anstoßen\n");
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⚠️ Konflikt-Diagnose")
+            .setMessage(body.toString())
+            .setPositiveButton("OK", null)
+            .show();
     }
 
     private View buildEmptyText(String text) {
@@ -336,6 +415,8 @@ public class DispoActivity extends AppCompatActivity {
         if (ddP instanceof Number) r.drivingDistanceToPickupKm = ((Number) ddP).doubleValue();
         Object dtD = s.child("drivingTimeToDestination").getValue();
         if (dtD instanceof Number) r.drivingTimeToDestination = ((Number) dtD).intValue();
+        // v6.62.1001: Wartepool-Reason fuer Diagnose-Anzeige
+        r.wartepoolReason = strOrNull(s.child("wartepoolReason").getValue());
         return r;
     }
 
@@ -383,8 +464,14 @@ public class DispoActivity extends AppCompatActivity {
         }
 
         boolean isUpcoming(long now, long until) {
-            return "vorbestellt".equals(status) && pickupTs > now && pickupTs <= until;
+            // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Wartepool-Fahrten auch in der Liste
+            //   zeigen damit Patrick den Konflikt-Grund sieht.
+            return ("vorbestellt".equals(status) || "wartepool".equals(status))
+                && pickupTs > now && pickupTs <= until;
         }
+
+        // 🆕 v6.62.1001: Wartepool-Reason-String fuer UI-Anzeige
+        String wartepoolReason;
 
         int statusRank() {
             switch (status == null ? "" : status) {

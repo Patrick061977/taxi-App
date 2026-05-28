@@ -5087,10 +5087,44 @@
                 if (customerPhone) {
                     const _via = _currentUser.phoneNumber ? 'Phone-Auth' : (_currentUser.email ? 'Google/Email' : 'Auth');
                     logBuchen('✅', 'Eingeloggt via ' + _via + ' — überspringe SMS (' + customerPhone + ')');
+                    // 🆕 v6.62.997: Phone-Cache fuer localStorage-Fallback (PWA-Session-Loss).
+                    try {
+                        localStorage.setItem('buchen-verifiedPhone', customerPhone);
+                        localStorage.setItem('buchen-verifiedAt', String(Date.now()));
+                    } catch(_) {}
                     createBooking();
                     return;
                 }
             }
+            // 🆕 v6.62.997 (Patrick 28.05. 20:52): Wenn auth.currentUser=null aber wir
+            //   haben eine kürzlich verifizierte Telefonnummer im localStorage — z.B.
+            //   weil PWA-Session weggekommen oder Browser-Cache aufgeräumt wurde —
+            //   skippen wir die SMS trotzdem. Vertrauen wir der lokalen Verifikation
+            //   bis 90 Tage zurück. Patrick: "Warum muessen angemeldete Kunden SMS Code
+            //   eingeben — wir haben das doch schon mal gemacht."
+            try {
+                const _cachedPhone = localStorage.getItem('buchen-verifiedPhone');
+                const _cachedAt = parseInt(localStorage.getItem('buchen-verifiedAt') || '0', 10);
+                const _ageDays = (Date.now() - _cachedAt) / (1000 * 60 * 60 * 24);
+                if (_cachedPhone && _cachedAt > 0 && _ageDays < 90) {
+                    // Formular-Telefon hat Vorrang falls Patrick eine neue Nummer eintippt
+                    if (!customerPhone) {
+                        const _bPhone = document.getElementById('b-phone');
+                        const _pVal = (_bPhone && _bPhone.value || '').replace(/[\s\-\/]/g, '');
+                        // Formular-Feld nur nutzen wenn Patrick wirklich eine eingetippt hat
+                        if (_pVal && _pVal.length >= 6) {
+                            const _bCountry = document.getElementById('b-phone-country');
+                            const _cc = (_bCountry && _bCountry.value) || '+49';
+                            customerPhone = _pVal.startsWith('+') ? _pVal : (_pVal.startsWith('0') ? _cc + _pVal.slice(1) : _cc + _pVal);
+                        } else {
+                            customerPhone = _cachedPhone;
+                        }
+                    }
+                    logBuchen('✅', 'Cached-Phone (lokal verifiziert vor ' + _ageDays.toFixed(0) + 'd) — überspringe SMS (' + customerPhone + ')');
+                    createBooking();
+                    return;
+                }
+            } catch(_) {}
             if (_isLoggedIn && customerPhone) {
                 logBuchen('✅', 'Bereits eingeloggt — überspringe SMS (' + customerPhone + ')');
                 createBooking();
@@ -5203,6 +5237,12 @@
                 const result = await confirmationResult.confirm(code);
                 customerPhone = result.user.phoneNumber || customerPhone;
                 logBuchen('✅', 'Phone-Auth erfolgreich: ' + customerPhone);
+                // 🆕 v6.62.997: Phone-Cache fuer naechste Buchung — auch wenn PWA-Session
+                //   weggekommt, vertraut buchen.html der lokalen Verifikation bis 90 Tage.
+                try {
+                    localStorage.setItem('buchen-verifiedPhone', customerPhone);
+                    localStorage.setItem('buchen-verifiedAt', String(Date.now()));
+                } catch(_) {}
             } catch(e) {
                 logBuchen('🔴', 'Phone-Auth FEHLER: ' + (e.code || '') + ' ' + (e.message || '').substring(0, 100));
                 if (e.code === 'auth/invalid-verification-code') {

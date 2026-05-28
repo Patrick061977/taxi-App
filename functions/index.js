@@ -24403,7 +24403,13 @@ exports.onRideUpdated = onValueUpdated(
             const _retroInvoiceFlip = _statusAfter === 'completed' && _invoiceWanted && !_invoiceWantedBefore;
             const _hasNoInvoiceYet = !after.invoiceNumber;
             const _hasPriceData = (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
-            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData) {
+            // 🚨 v6.62.995 (Patrick 28.05. 20:20 emergency-stop): Bei einem Bulk-Update
+            //   (pickupDate-Fix für 1097 historische Rides) feuerte dieser Trigger für
+            //   ALTE completed Rides und erstellte Rechnungen + Abschluss-SMS rückwirkend.
+            //   FIX: Nur Rides bearbeiten deren completedAt < 24h alt ist — sonst ist es
+            //   ein nachträgliches Update einer alten Fahrt, kein frischer Abschluss.
+            const _completedRecently = after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000;
+            if ((_justCompleted || _retroInvoiceFlip) && _invoiceWanted && _hasNoInvoiceYet && _hasPriceData && _completedRecently) {
                 console.log(`🧾 ${_retroInvoiceFlip ? 'v6.62.598 RETRO' : 'v6.62.312'} Auto-Rechnung trigger ${rideId}: completed + invoiceRequested + price`);
                 // 🆕 v6.62.731 (Patrick 15.05. 10:57 'a'): Auto-Rechnung nutzt nun den
                 //   gleichen invoiceCounter/{Jahr} wie das manuelle UI — Format '20-YY-NNN'
@@ -24661,7 +24667,11 @@ exports.onRideUpdated = onValueUpdated(
             const _statusNow = after.status || '';
             const _invNumNew = !before.invoiceNumber && after.invoiceNumber;
             const _alreadySent = after.completionSmsWithInvoiceSent === true;
-            if (_invNumNew && _statusNow === 'completed' && !_alreadySent) {
+            // 🚨 v6.62.995 (Patrick 28.05. 20:20 emergency-stop): Nur fuer Rides senden
+            //   die wirklich JUST completed wurden (< 24h alt). Historische Updates
+            //   (z.B. pickupDate-Bulk-Fix) dürfen keine SMS an alte Kunden auslösen.
+            const _completedRecently2 = after.completedAt && after.completedAt > Date.now() - 24 * 60 * 60 * 1000;
+            if (_invNumNew && _statusNow === 'completed' && !_alreadySent && _completedRecently2) {
                 const _smsPhone = after.customerPhone || after.customerMobile;
                 if (_smsPhone && isMobileNumber(_smsPhone)) {
                     // Kunde-Daten für Anrede

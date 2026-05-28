@@ -2040,8 +2040,9 @@
                 if (best.status === 'frei') {
                     etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
                 } else if (best.status === 'pause') {
-                    // 🆕 v6.62.985: Pause-Restzeit eingerechnet
-                    etaMsg = `⏸️ Taxi in Pause — wieder verfügbar in ca. ${best.etaMin} Min`;
+                    // 🆕 v6.62.985 → v6.62.986 (Patrick 28.05. 09:29): nur '15 Min Wartezeit',
+                    // kein 'Taxi in Pause'-Hinweis.
+                    etaMsg = `🚕 ca. ${best.etaMin} Min Wartezeit`;
                 } else if (best.status === 'beschäftigt') {
                     etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min frei (gerade unterwegs)`;
                 } else {

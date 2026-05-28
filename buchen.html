@@ -2745,8 +2745,10 @@
             if (mode === 'vorbestellen') {
                 felder.classList.add('active');
                 // 🆕 v6.62.911: X-Close-Button auf Wann-Card aktivieren (nur bei Vorbest)
+                // 🆕 v6.62.981 (Patrick 28.05. 06:47): NICHT mehr — Patrick:
+                //   "Die Zeit muss doch oben da bleiben". Close-Button bleibt versteckt.
                 const _closeBtn = document.getElementById('wann-card-close');
-                if (_closeBtn) _closeBtn.style.display = 'block';
+                if (_closeBtn) _closeBtn.style.display = 'none';
                 // 🆕 v6.62.902 (Patrick 24.05. 08:07 — Flow-Umkehr): 'bei buchen erscheint keine zeit'.
                 //   Alter Code von v6.62.877 wollte 'erst Adressen, dann Zeit' — Patrick hat seine
                 //   Meinung geaendert: 'der flow muss passen' → erst ZEIT, dann Adressen.

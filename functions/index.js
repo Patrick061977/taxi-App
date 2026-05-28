@@ -23709,11 +23709,24 @@ exports.onRideUpdated = onValueUpdated(
                     }
                 }
 
+                // 🆕 v6.62.992 (Patrick 28.05. 15:09): Wenn Auto-Rechnung gleich erstellt
+                //   wird (= non-Hotel-Sammelrechnung + Preis > 0), überspringen wir den
+                //   Abschluss-SMS-Block hier — die SMS wird mit dem Direct-PDF-Link aus
+                //   dem invoiceNumber-Setze-Trigger gesendet (siehe Z~24640+), damit
+                //   Patrick's Wunsch "Kunde soll Rechnung direkt unterladen können"
+                //   erfüllt ist und keine "Rechnung benötigt?"-Aufforderung mehr nötig.
+                const _willAutoInvoice = after._isAuftraggeberBooking !== true
+                    && !after.invoiceNumber
+                    && (parseFloat(after.price) || parseFloat(after.actualPrice) || 0) > 0;
+                if (_willAutoInvoice) {
+                    console.log(`📲 v6.62.992: Abschluss-SMS skip — wird mit PDF-Link nach Auto-Rechnung gesendet (${rideId})`);
+                    await addRideLog(rideId, '📲', 'Abschluss-SMS verschoben auf invoiceNumber-Trigger (kommt mit PDF-Link)', { rideId });
+                }
                 // 🆕 v6.62.126: Patrick: 'wenn der Fahrer abschliesst kriegt der Kunde
                 // automatisch eine Abschluss-Nachricht mit Track-Link wo er die Rechnung
                 // herunterladen kann'. Channel-respektierend: Email wenn email-Anfrage,
                 // sonst SMS.
-                try {
+                if (!_willAutoInvoice) try {
                     const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
                     const _custFullName = (after.guestName || after.customerName || '').trim();
                     const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
@@ -24371,9 +24384,17 @@ exports.onRideUpdated = onValueUpdated(
             const _statusBefore = before.status || '';
             const _statusAfter = after.status || '';
             const _justCompleted = _statusAfter === 'completed' && _statusBefore !== 'completed';
+            // 🆕 v6.62.992 (Patrick 28.05. 15:09): Auto-Rechnung für ALLE completed
+            //   Fahrten — nicht mehr abhängig von Fahrer-Tap "Rechnung Ja". Patrick:
+            //   "Eigentlich wollten wir es so machen, dass für jede Fahrt eine Rechnung
+            //   erstellt wird. Das kostet ja nicht die Welt." Ausschluss: Hotel-
+            //   Sammelrechnungen (_isAuftraggeberBooking=true) → Hotel bekommt monatliche
+            //   Sammelrechnung extra.
+            const _isCollectiveBilling = after._isAuftraggeberBooking === true;
             // v6.62.314: Auch needsInvoice-Feld erkennen (Web-Driver-Flow nutzt das, Native
             //   v6.62.312+ schreibt beide Felder fuer Backwards-Kompatibilitaet).
-            const _invoiceWanted = after.invoiceRequested === true || after.needsInvoice === true;
+            const _invoiceFlagSet = after.invoiceRequested === true || after.needsInvoice === true;
+            const _invoiceWanted = !_isCollectiveBilling || _invoiceFlagSet;
             const _invoiceWantedBefore = before.invoiceRequested === true || before.needsInvoice === true;
             // v6.62.598: Retro-Rechnung — Patrick kann nachtraeglich fuer vergangene
             //   completed-Fahrten den invoice-Flag flippen (Native-CRM-Historie).
@@ -24629,6 +24650,71 @@ exports.onRideUpdated = onValueUpdated(
             }
         } catch (_reTrigErr) {
             console.warn(`⚠️ Invoice-Request Re-Trigger Fehler ${rideId}:`, _reTrigErr.message);
+        }
+
+        // 🆕 v6.62.992 (Patrick 28.05. 15:09): Abschluss-SMS MIT Rechnungs-Link.
+        //   Trigger feuert wenn invoiceNumber NEU gesetzt wird auf completed-Ride.
+        //   Patrick: "der Kunde soll Rechnung nicht nachfordern, sondern einfach
+        //   unterladen können." Daher: SMS-Versand wird auf diesen Trigger verschoben
+        //   damit der Direct-PDF-Link bereits im SMS-Text steht.
+        try {
+            const _statusNow = after.status || '';
+            const _invNumNew = !before.invoiceNumber && after.invoiceNumber;
+            const _alreadySent = after.completionSmsWithInvoiceSent === true;
+            if (_invNumNew && _statusNow === 'completed' && !_alreadySent) {
+                const _smsPhone = after.customerPhone || after.customerMobile;
+                if (_smsPhone && isMobileNumber(_smsPhone)) {
+                    // Kunde-Daten für Anrede
+                    let _custData = {};
+                    if (after.customerId) {
+                        try {
+                            const _cs = await db.ref(`customers/${after.customerId}`).once('value');
+                            _custData = _cs.val() || {};
+                        } catch(_) {}
+                    }
+                    const _custFullName = (after.guestName || after.customerName || '').trim();
+                    const _custLastName = _custFullName ? _custFullName.split(/\s+/).pop() : '';
+                    let _anrede = 'Guten Tag';
+                    const _aRaw = (_custData.anrede || '').toString();
+                    if (/^herr$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrter Herr ${_custLastName}`;
+                    else if (/^frau$/i.test(_aRaw) && _custLastName) _anrede = `Sehr geehrte Frau ${_custLastName}`;
+
+                    // Google-Bewertungs-Link
+                    let _googleReviewUrl = null;
+                    try {
+                        const _grSnap = await db.ref('settings/googleReviewUrl').once('value');
+                        _googleReviewUrl = _grSnap.val() || null;
+                    } catch(_) {}
+                    const _googleLine = _googleReviewUrl ? `\nBei Google bewerten: ${_googleReviewUrl}` : '';
+
+                    const _trackLink = `https://umwelt-taxi-insel-usedom.de/Taxi-App/track.html?ride=${rideId}`;
+                    // PDF-Link aus /invoices/{nr}/pdfUrl ziehen (kann ein paar Sekunden
+                    // nach invoiceNumber gesetzt werden) — bis Auto-PDF da ist, fallen
+                    // wir auf track.html#rechnung zurück damit Kunde im Track-Frontend
+                    // den jsPDF-Trigger anstoßen kann.
+                    let _rechnungLink = `${_trackLink}#rechnung`;
+                    try {
+                        const _invSnap = await db.ref(`invoices/${after.invoiceNumber}/pdfUrl`).once('value');
+                        const _pdfUrl = _invSnap.val();
+                        if (_pdfUrl) _rechnungLink = _pdfUrl;
+                    } catch(_) {}
+
+                    const _smsText = `${_anrede}, vielen Dank fuer Ihre Fahrt mit Funk Taxi Heringsdorf!\nRechnung: ${_rechnungLink}\nFeedback: ${_trackLink}${_googleLine}\nBei Fragen: 038378 22022.`;
+                    await db.ref('smsQueue').push({
+                        phone: _smsPhone,
+                        text: _smsText,
+                        rideId,
+                        type: 'fahrt_abgeschlossen_mit_rechnung',
+                        status: 'pending',
+                        createdAt: Date.now()
+                    });
+                    await db.ref(`rides/${rideId}/completionSmsWithInvoiceSent`).set(true);
+                    await addRideLog(rideId, '📲', 'Abschluss-SMS mit Rechnungs-Link in Queue', { phone: _smsPhone, invoiceNumber: after.invoiceNumber, link: _rechnungLink });
+                    console.log(`✅ v6.62.992: Abschluss-SMS mit Rechnungs-Link für ${rideId}: ${_smsPhone}`);
+                }
+            }
+        } catch (_complSmsErr) {
+            console.warn(`⚠️ v6.62.992 Abschluss-SMS-Trigger Fehler ${rideId}:`, _complSmsErr.message);
         }
     }
 );

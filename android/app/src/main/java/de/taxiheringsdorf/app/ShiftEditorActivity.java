@@ -398,7 +398,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
     }
 
     /* ─── v6.62.955 Time-Edit-Dialog (Patrick 25.05. 21:28 "selbst veraendern") ─── */
+    /*    v6.62.996 (Patrick 28.05. 20:42 "alles selber aendern"): Datum-Picker eingebaut
+     *    damit Patrick nicht nur HEUTE sondern beliebige Tage editieren kann. Speichert
+     *    in vehicleShifts/{vid}/{YYYY-MM-DD} (gleicher Pfad wie Web-Editor → synchron). */
     private void showTimeEditDialog(VehicleShift vs) {
+        // Default: morgen (Patrick will fast immer den naechsten Tag planen)
+        final Calendar selDate = Calendar.getInstance();
+        selDate.add(Calendar.DAY_OF_YEAR, 1);
         // Aktuelle Werte parsen
         final int[] startHM = parseHM(vs.todayStartTime != null ? vs.todayStartTime : "06:00");
         final int[] endHM = parseHM(vs.todayEndTime != null ? vs.todayEndTime : "22:00");
@@ -413,6 +419,43 @@ public class ShiftEditorActivity extends AppCompatActivity {
 
         final int[] start = { startHM[0], startHM[1] };
         final int[] end = { endHM[0], endHM[1] };
+
+        // v6.62.996: Datum-Picker oben
+        android.widget.LinearLayout dateRow = new android.widget.LinearLayout(this);
+        dateRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        dateRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.TextView dateLbl = new android.widget.TextView(this);
+        dateLbl.setText("📅 Datum:");
+        dateLbl.setTextSize(15);
+        dateLbl.setTypeface(null, android.graphics.Typeface.BOLD);
+        dateLbl.setTextColor(0xFFF8FAFC);
+        android.widget.LinearLayout.LayoutParams dLp = new android.widget.LinearLayout.LayoutParams(0,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        dateLbl.setLayoutParams(dLp);
+        dateRow.addView(dateLbl);
+        final android.widget.Button btnDate = new android.widget.Button(this);
+        final SimpleDateFormat _dfDisplay = new SimpleDateFormat("EEE dd.MM.yyyy", Locale.GERMANY);
+        btnDate.setText(_dfDisplay.format(selDate.getTime()));
+        btnDate.setOnClickListener(v -> {
+            android.app.DatePickerDialog dp = new android.app.DatePickerDialog(this,
+                (view, year, month, day) -> {
+                    selDate.set(Calendar.YEAR, year);
+                    selDate.set(Calendar.MONTH, month);
+                    selDate.set(Calendar.DAY_OF_MONTH, day);
+                    btnDate.setText(_dfDisplay.format(selDate.getTime()));
+                },
+                selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
+            dp.show();
+        });
+        dateRow.addView(btnDate);
+        root.addView(dateRow);
+
+        // Abstand
+        android.view.View spacer = new android.view.View(this);
+        android.widget.LinearLayout.LayoutParams spLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (int)(8 * getResources().getDisplayMetrics().density));
+        spacer.setLayoutParams(spLp);
+        root.addView(spacer);
 
         // START-Zeile
         android.widget.LinearLayout startRow = makeTimeRow(this, "🟢 START:", start);
@@ -434,45 +477,69 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // 🆕 v6.62.957 (Patrick 26.05. 07:15 'Also heute'): Checkbox 'Auch fuer alle <Wochentag> setzen'
         // schreibt zusaetzlich /vehicleShifts/{vid}/defaultTimes/{dow} damit naechste Woche
         // gleicher Wochentag automatisch dieselbe Zeit hat.
-        int _dow = todayDow();
+        // v6.62.996: dow wird aus selDate berechnet (kann sich aendern wenn Patrick Datum
+        // picked), nicht mehr aus today.
         final String[] dayNames = {"Sonntage", "Montage", "Dienstage", "Mittwoche", "Donnerstage", "Freitage", "Samstage"};
         final android.widget.CheckBox cbAllSame = new android.widget.CheckBox(this);
-        cbAllSame.setText("📅 Auch fuer alle " + dayNames[_dow] + " als Standard setzen");
-        cbAllSame.setChecked(true);
+        cbAllSame.setText("📅 Auch fuer alle " + dayNames[selDate.get(Calendar.DAY_OF_WEEK) - 1] + " als Standard setzen");
+        cbAllSame.setChecked(false); // v6.62.996: Default OFF — Patrick will i.d.R. nur den einen Tag aendern
         cbAllSame.setTextSize(13);
         cbAllSame.setPadding(0, pad/2, 0, 0);
         root.addView(cbAllSame);
 
-        final int finalDow = _dow;
+        // v6.62.996: Inaktiv-Switch — Fahrzeug fuer diesen Tag komplett offline setzen
+        final android.widget.CheckBox cbInactive = new android.widget.CheckBox(this);
+        cbInactive.setText("🚫 Fahrzeug an diesem Tag NICHT fahren lassen (offline)");
+        cbInactive.setChecked(false);
+        cbInactive.setTextSize(13);
+        cbInactive.setPadding(0, pad/4, 0, 0);
+        root.addView(cbInactive);
         new androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("⏰ " + vs.name + " — Zeit setzen (HEUTE)")
+            .setTitle("⏰ " + vs.name + " — Schicht")
             .setView(root)
             .setPositiveButton("Speichern", (d, w) -> {
                 String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
                 String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
-                String dateKey = todayDateKey();
+                // v6.62.996: Datum-Key aus selDate (statt heute)
+                SimpleDateFormat _df = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY);
+                String dateKey = _df.format(selDate.getTime());
+                int dowSel = selDate.get(Calendar.DAY_OF_WEEK) - 1; // 0=So, 6=Sa
+                String _dayLabel = _dfDisplay.format(selDate.getTime());
+                boolean inactive = cbInactive.isChecked();
+
                 Map<String, Object> entry = new HashMap<>();
-                entry.put("active", true);
-                entry.put("startTime", startStr);
-                entry.put("endTime", endStr);
-                entry.put("setAt", System.currentTimeMillis());
-                entry.put("setBy", "native-shift-editor-timeedit");
-                // v6.62.957: defaultTimes parallel setzen wenn Checkbox aktiv
-                if (cbAllSame.isChecked()) {
+                if (inactive) {
+                    // v6.62.996: Tag-Override: Fahrzeug am Tag offline
+                    entry.put("active", false);
+                    entry.put("isException", true);
+                    entry.put("setAt", System.currentTimeMillis());
+                    entry.put("setBy", "native-shift-editor-v996-inactive");
+                } else {
+                    entry.put("active", true);
+                    entry.put("startTime", startStr);
+                    entry.put("endTime", endStr);
+                    entry.put("isException", true);
+                    entry.put("additiveException", false); // v6.62.996: Tag-Override, kein additiv
+                    entry.put("setAt", System.currentTimeMillis());
+                    entry.put("setBy", "native-shift-editor-v996");
+                }
+                // v6.62.957/996: defaultTimes parallel setzen wenn Checkbox aktiv
+                if (cbAllSame.isChecked() && !inactive) {
                     Map<String, Object> defT = new HashMap<>();
                     defT.put("startTime", startStr);
                     defT.put("endTime", endStr);
                     FirebaseDatabase.getInstance(DB_URL)
-                        .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + finalDow)
+                        .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dowSel)
                         .updateChildren(defT)
                         .addOnSuccessListener(_ok -> Toast.makeText(this,
-                            "📅 Default fuer alle " + dayNames[finalDow] + " auf " + startStr + "–" + endStr + " gesetzt", Toast.LENGTH_LONG).show());
+                            "📅 Default fuer alle " + dayNames[dowSel] + " auf " + startStr + "–" + endStr + " gesetzt", Toast.LENGTH_LONG).show());
                 }
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)
                     .addOnSuccessListener(unused -> Toast.makeText(this,
-                        vs.name + ": heute " + startStr + "–" + endStr, Toast.LENGTH_LONG).show())
+                        vs.name + ": " + _dayLabel + " — " + (inactive ? "OFFLINE" : startStr + "–" + endStr),
+                        Toast.LENGTH_LONG).show())
                     .addOnFailureListener(e -> Toast.makeText(this,
                         "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
             })

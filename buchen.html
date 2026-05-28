@@ -1877,7 +1877,10 @@
                 const rdata = rsnap.val() || {};
                 for (const [rid, r] of Object.entries(rdata)) {
                     if (!r) continue;
-                    if (!['on_way', 'picked_up', 'in_progress', 'accepted', 'prebooked', 'assigned'].includes(r.status)) continue;
+                    // 🆕 v6.62.982 (Patrick 28.05. 06:50): 'sofort' + 'arrived' fehlten —
+                    // dadurch wurde Tesla MY mit Ostseeblick-Sofortfahrt nicht als besetzt erkannt
+                    // → Banner zeigte 4 Min statt 15-20 Min.
+                    if (!['on_way', 'picked_up', 'in_progress', 'accepted', 'prebooked', 'assigned', 'sofort', 'arrived'].includes(r.status)) continue;
                     const isActive = ['on_way', 'picked_up', 'in_progress'].includes(r.status);
                     if (!isActive) {
                         const rideTime = r.pickupTimestamp || r.createdAt || 0;
@@ -1912,7 +1915,8 @@
                     totalMin = await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
                 } else {
                     const active = vRides[0];
-                    const hasActive = ['on_way', 'picked_up', 'in_progress'].includes(active.status);
+                    // 🆕 v6.62.982: 'sofort' und 'arrived' ebenfalls aktiv (Tesla MY-Bug 28.05.)
+                    const hasActive = ['on_way', 'picked_up', 'in_progress', 'sofort', 'arrived'].includes(active.status);
                     if (!hasActive) {
                         // Vorbestellung steht noch — passt Sofortfahrt davor?
                         const directEta = await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);

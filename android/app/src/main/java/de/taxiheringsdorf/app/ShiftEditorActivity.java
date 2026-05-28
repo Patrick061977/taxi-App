@@ -436,17 +436,9 @@ public class ShiftEditorActivity extends AppCompatActivity {
         final android.widget.Button btnDate = new android.widget.Button(this);
         final SimpleDateFormat _dfDisplay = new SimpleDateFormat("EEE dd.MM.yyyy", Locale.GERMANY);
         btnDate.setText(_dfDisplay.format(selDate.getTime()));
-        btnDate.setOnClickListener(v -> {
-            android.app.DatePickerDialog dp = new android.app.DatePickerDialog(this,
-                (view, year, month, day) -> {
-                    selDate.set(Calendar.YEAR, year);
-                    selDate.set(Calendar.MONTH, month);
-                    selDate.set(Calendar.DAY_OF_MONTH, day);
-                    btnDate.setText(_dfDisplay.format(selDate.getTime()));
-                },
-                selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
-            dp.show();
-        });
+        // v6.62.998 Bug-Fix (Patrick 28.05. 20:59): Click-Listener kommt unten gesetzt
+        //   damit er cbAllSame referenzieren kann (Wochentag-Label muss bei Datum-Wechsel
+        //   auch aktualisiert werden — sonst stand 'Freitage' obwohl Samstag gewaehlt).
         dateRow.addView(btnDate);
         root.addView(dateRow);
 
@@ -494,6 +486,24 @@ public class ShiftEditorActivity extends AppCompatActivity {
         cbInactive.setTextSize(13);
         cbInactive.setPadding(0, pad/4, 0, 0);
         root.addView(cbInactive);
+
+        // v6.62.998 (Patrick 28.05. 20:59 Bug): Click-Listener fuer btnDate erst HIER setzen
+        //   damit das Lambda cbAllSame referenzieren und dessen Wochentag-Label updaten
+        //   kann wenn Patrick das Datum wechselt.
+        btnDate.setOnClickListener(v -> {
+            android.app.DatePickerDialog dp = new android.app.DatePickerDialog(this,
+                (view, year, month, day) -> {
+                    selDate.set(Calendar.YEAR, year);
+                    selDate.set(Calendar.MONTH, month);
+                    selDate.set(Calendar.DAY_OF_MONTH, day);
+                    btnDate.setText(_dfDisplay.format(selDate.getTime()));
+                    // v6.62.998: Checkbox-Text auf neuen Wochentag aktualisieren
+                    int _newDow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
+                    cbAllSame.setText("📅 Auch fuer alle " + dayNames[_newDow] + " als Standard setzen");
+                },
+                selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
+            dp.show();
+        });
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⏰ " + vs.name + " — Schicht")
             .setView(root)

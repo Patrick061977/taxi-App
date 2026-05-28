@@ -1856,8 +1856,16 @@
                 if (gpsAgeMin > 10) continue;
                 const inShift = isVehicleInShift(vid, nowDateStr, nowTimeStr);
                 const isGpsOnline = vInfo.online !== false && gpsAgeMin < 5;
-                if (!inShift && !isGpsOnline) continue;
-                onlineVehicles.push({ vid, lat: vInfo.lat, lon: vInfo.lon, isFresh: gpsAgeMin < 5 });
+                // 🆕 v6.62.985 (Patrick 28.05. 09:24): Pause-Fahrzeug NICHT aussortieren.
+                // shift.status='active' bedeutet Fahrer hat manuell Schicht gestartet —
+                // gleichwertig zu inShift (Wochenplan). Bei Pause ist online=false → vorher
+                // raus gefiltert; Banner zeigte 'kein Fahrer online'.
+                const _shiftLiveActive = vInfo.shift && vInfo.shift.status === 'active';
+                const _isPause = vInfo.dispatchStatus === 'pause' && _shiftLiveActive;
+                if (!inShift && !isGpsOnline && !_shiftLiveActive) continue;
+                const _pauseUntil = (_isPause && vInfo.pauseUntil) ? vInfo.pauseUntil : 0;
+                const _pauseMinLeft = _pauseUntil > nowTs ? (_pauseUntil - nowTs) / 60000 : 0;
+                onlineVehicles.push({ vid, lat: vInfo.lat, lon: vInfo.lon, isFresh: gpsAgeMin < 5, inPause: _isPause, pauseMinLeft: _pauseMinLeft });
             }
             if (onlineVehicles.length === 0) return [];
             // Pre-Filter Haversine — nur Kandidaten <= 25km weiterrechnen, sonst dauert OSRM zu lang
@@ -1915,8 +1923,15 @@
                 let totalMin = 0;
                 let cLat = v.lat, cLon = v.lon;
                 let status = 'frei';
+                // 🆕 v6.62.985 (Patrick 28.05. 09:24): Pause-Restzeit als Mindest-Anteil.
+                // Fahrzeug ist in Pause bis pauseUntil — Banner muss zeigen 'Wartezeit
+                // pauseMinLeft + Anfahrt', nicht 'kein Fahrer online'.
+                if (v.inPause && v.pauseMinLeft > 0) {
+                    totalMin += Math.round(v.pauseMinLeft);
+                    status = 'pause';
+                }
                 if (vRides.length === 0) {
-                    totalMin = await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
+                    totalMin += await _buchenGetOSRMDurationMin(cLat, cLon, pLat, pLon);
                 } else {
                     const active = vRides[0];
                     // 🆕 v6.62.982: 'sofort' und 'arrived' ebenfalls aktiv (Tesla MY-Bug 28.05.)
@@ -2024,6 +2039,9 @@
                 let etaMsg;
                 if (best.status === 'frei') {
                     etaMsg = `🚕 ca. ${best.etaMin} Min bis zu dir`;
+                } else if (best.status === 'pause') {
+                    // 🆕 v6.62.985: Pause-Restzeit eingerechnet
+                    etaMsg = `⏸️ Taxi in Pause — wieder verfügbar in ca. ${best.etaMin} Min`;
                 } else if (best.status === 'beschäftigt') {
                     etaMsg = `🚕 nächstes Taxi in ca. ${best.etaMin} Min frei (gerade unterwegs)`;
                 } else {

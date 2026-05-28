@@ -1717,11 +1717,20 @@ function showAnfrageSuccess() {
                 const _gpsAge = _v.lastUpdate ? (_now - _v.lastUpdate) / 60000
                               : (_v.timestamp ? (_now - _v.timestamp) / 60000 : 999);
                 if (_gpsAge > 10) continue;
-                if (_v.online === false) continue;
+                // 🆕 v6.62.985 (Patrick 28.05. 09:24): Pause = nicht 'kein Fahrer online'.
+                // Fahrzeug mit aktiver Schicht aber dispatchStatus=pause als "in Pause"
+                // erkennen; pauseUntil als Mindest-Wartezeit einrechnen.
+                const _isPause = _v.dispatchStatus === 'pause' && _v.shift && _v.shift.status === 'active';
+                const _isShiftActive = _v.shift && _v.shift.status === 'active';
+                if (_v.online === false && !_isPause && !_isShiftActive) continue;
+                const _pauseUntil = (_isPause && _v.pauseUntil) ? _v.pauseUntil : 0;
+                const _pauseMinLeft = _pauseUntil > _now ? (_pauseUntil - _now) / 60000 : 0;
                 _candidates.push({ vid: _vid, lat: _v.lat, lon: _v.lon,
                     distKm: _haversineKm(DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON, _v.lat, _v.lon),
                     isFresh: _gpsAge < 5,
-                    busy: _busyVids.has(_vid) });
+                    busy: _busyVids.has(_vid),
+                    inPause: _isPause,
+                    pauseMinLeft: _pauseMinLeft });
             }
             if (_candidates.length === 0) {
                 _bannerEl.className = 'eta-banner-unavailable';
@@ -1744,15 +1753,25 @@ function showAnfrageSuccess() {
             const _top3 = _allCandsForEta.slice().sort((a,b)=>a.distKm-b.distKm).slice(0,3);
             let _etaMin;
             try {
-                const _etas = await Promise.all(_top3.map(c =>
-                    _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON)));
+                const _etas = await Promise.all(_top3.map(async c => {
+                    const _drive = await _osrmDuration(c.lat, c.lon, DEFAULT_PICKUP_LAT, DEFAULT_PICKUP_LON);
+                    // 🆕 v6.62.985: bei Pause = Restpause + Anfahrt
+                    return Math.max(1, Math.round(c.pauseMinLeft || 0) + _drive);
+                }));
                 _etaMin = Math.max(1, Math.min(..._etas));
             } catch (_e) {
                 _etaMin = Math.max(1, Math.round(Math.min(..._allCandsForEta.map(c=>c.distKm)) * 1.5 / 35 * 60));
             }
-            if (_hasSofortFrei) {
+            // 🆕 v6.62.985: Pause-Hinweis erkennen
+            const _anyPaused = _allCandsForEta.some(c => c.inPause);
+            if (_hasSofortFrei && !_anyPaused) {
                 _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
                     <span class="eta-text">⚡ Taxi sofort verfügbar — nur ${_etaMin} Min Wartezeit</span>
+                    <a href="${_bookHref}">🚀 Jetzt buchen →</a>
+                </div>`;
+            } else if (_anyPaused) {
+                _bannerEl.innerHTML = `<div class="inner" style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;">
+                    <span class="eta-text">⏸️ Taxi gleich verfügbar — ca. ${_etaMin} Min Wartezeit</span>
                     <a href="${_bookHref}">🚀 Jetzt buchen →</a>
                 </div>`;
             } else {

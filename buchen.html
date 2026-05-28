@@ -2690,9 +2690,11 @@
         // Wann-Toggle (Sofort / Vorbestellen)
         // ═══════════════════════════════════════════════
         // 🆕 v6.62.977 (Patrick 27.05. 20:25): Sofort-Schnelltasten — Klick auf
-        // 'Jetzt' / '+15 Min' / '+30 Min' / '+45 Min'. Setzt b-date+b-time auf
-        // (jetzt + X Min) und switched zu 'vorbestellen' Modus (= echte Pickup-Time
-        // wird in /rides geschrieben, nicht 'sofort'). UI-mäßig bleibt der grüne Theme.
+        // 'Jetzt' / '+15 Min' / '+30 Min' / '+45 Min'.
+        // 🆕 v6.62.990 (Patrick 28.05. 11:57): Schnelltasten bleiben in Sofort-Modus,
+        // NICHT zu Vorbestellen switchen (sonst greift 1h-Min-Vorlauf-Regel und zeigt
+        // 'zu kurzfristig'). pickupTimestamp wird beim Submit erst aus _sofortPresetMin
+        // berechnet (jetzt + X Min). UI bleibt Sofort-grün.
         function setSofortPreset(minutes) {
             // Active-State auf Buttons
             document.querySelectorAll('.sofort-preset-btn').forEach(b => {
@@ -2701,54 +2703,31 @@
                 b.style.borderColor = active ? '#16a34a' : '#cbd5e1';
                 b.style.color = active ? '#166534' : '#475569';
             });
+            window._sofortPresetMin = minutes;
+            window._sofortPresetSetAt = Date.now();
             if (minutes === 0) {
-                // Sofort = normaler Sofort-Mode
                 setWann('sofort');
-                window._sofortPresetMin = 0;
                 return;
             }
+            // BLEIBT Sofort-Mode — keine Vorbestellen-Vorlaufregel.
+            setWann('sofort');
+            // Hinweis-Label in Status-Bar erzeugen
+            try {
+                const future = new Date(Date.now() + minutes * 60000);
+                const pad = (n) => String(n).padStart(2, '0');
+                const _zeitStr = pad(future.getHours()) + ':' + pad(future.getMinutes());
+                const bar = document.getElementById('status-bar') || document.querySelector('.status-bar');
+                if (bar) {
+                    bar.textContent = `⏱️ Sofort-Buchung mit Wartezeit ${minutes} Min · Pickup um ${_zeitStr}`;
+                }
+                if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min (Pickup ' + _zeitStr + ')');
+            } catch (_e) { console.warn('setSofortPreset Label-Fehler', _e); }
+            return;
             // X Min in der Zukunft → als Vorbestellung verbuchen
             // 🆕 v6.62.984 (Patrick 28.05. 08:23): Reihenfolge fix —
             // initDateTimePickers() in setWann() überschreibt b-time mit jetzt+60min.
             // Daher MUSS setWann('vorbestellen') zuerst, DANN b-date/b-time setzen.
-            // Plus: _dateTimeInitDone-Flag zurücksetzen damit Default-Logik unsere Werte nimmt.
-            try {
-                window._sofortPresetMin = minutes;
-                window._sofortPresetSetAt = Date.now();
-                window._dateTimeInitDone = true; // ← verhindert dass init b-time mit jetzt+60min überschreibt
-                setWann('vorbestellen');
-                const future = new Date(Date.now() + minutes * 60000);
-                const pad = (n) => String(n).padStart(2, '0');
-                const dateInput = document.getElementById('b-date');
-                const timeInput = document.getElementById('b-time');
-                if (dateInput) {
-                    dateInput.value = future.getFullYear() + '-' + pad(future.getMonth() + 1) + '-' + pad(future.getDate());
-                    if (typeof updateBDateLabel === 'function') updateBDateLabel();
-                }
-                if (timeInput) {
-                    timeInput.value = pad(future.getHours()) + ':' + pad(future.getMinutes());
-                    timeInput.dataset.userTouched = '1';
-                    if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
-                    if (typeof syncTimeToLegacyDropdowns === 'function') syncTimeToLegacyDropdowns();
-                }
-                if (typeof onDateTimeChange === 'function') onDateTimeChange();
-                // 🆕 v6.62.989 (Patrick 28.05. 11:40): Compact-Badge ("📅 ... Tippen zum Aendern")
-                // auch nach Schnelltaste sichtbar machen, damit Kunde sieht WAS er gewählt hat.
-                try {
-                    const compact = document.getElementById('termin-compact');
-                    const compactText = document.getElementById('termin-compact-text');
-                    const felder = document.getElementById('vorbestellen-felder');
-                    if (compactText && dateInput && timeInput && dateInput.value && timeInput.value) {
-                        const d = new Date(dateInput.value + 'T00:00:00');
-                        const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-                        const dayLabel = dayNames[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
-                        compactText.textContent = '📅 ' + dayLabel + ' um ' + timeInput.value + ' Uhr · Tippen zum Ändern';
-                    }
-                    if (compact) compact.style.display = 'flex';
-                    if (felder) felder.style.display = 'none';
-                } catch (_be) {}
-                if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min gewählt');
-            } catch (_e) { console.warn('setSofortPreset Fehler', _e); }
+            // v6.62.990: Schnelltasten BLEIBEN in Sofort-Modus (siehe Branch oben).
         }
 
         function setWann(mode) {
@@ -5292,10 +5271,14 @@
                 ...(typeof window._lastSmartEtaMin === 'number' && !isNaN(window._lastSmartEtaMin) && {
                     bookingPromisedEtaMin: window._lastSmartEtaMin,
                     bookingPromisedEtaStatus: window._lastSmartEtaStatus || 'frei',
-                    // drivingTimeToPickup mit der versprochenen Zeit vorbelegen — Cloud Function
-                    // ueberschreibt das ggf. spaeter, aber wenn der zugewiesene Fahrer der ist
-                    // den Smart-ETA gefunden hat, bleibt der Wert konsistent zur Versprechen.
                     drivingTimeToPickup: window._lastSmartEtaMin
+                }),
+                // 🆕 v6.62.990 (Patrick 28.05. 11:57): Schnelltasten +15/+30/+45 mitschicken
+                // damit Cloud pickupTimestamp = jetzt + Preset rechnet statt Default-Sofort.
+                ...(typeof window._sofortPresetMin === 'number' && window._sofortPresetMin > 0 && wannModus === 'sofort' && {
+                    bookingPromisedEtaMin: Math.max(window._sofortPresetMin, window._lastSmartEtaMin || 0),
+                    sofortPresetMin: window._sofortPresetMin,
+                    pickupTimestamp: Date.now() + window._sofortPresetMin * 60000
                 })
             };
 

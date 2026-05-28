@@ -1892,7 +1892,11 @@
             } catch (_e) { /* still — werte als 'frei' */ }
             const ridesByVehicle = {};
             for (const r of allRides) {
-                const vId = r.vehicleId || r.assignedTo;
+                // 🆕 v6.62.983 (Patrick 28.05. 06:54): r.assignedVehicle hieß fehl —
+                // Rides werden in /rides als 'assignedVehicle' geschrieben, nicht 'vehicleId'!
+                // Bug-Auswirkung: ridesByVehicle blieb leer → Tesla MY galt als 'frei'
+                // obwohl er gerade Strandhotel-Ostseeblick-Fahrt 'accepted' hatte.
+                const vId = r.assignedVehicle || r.vehicleId || r.assignedTo;
                 if (!vId) continue;
                 if (!ridesByVehicle[vId]) ridesByVehicle[vId] = [];
                 ridesByVehicle[vId].push(r);

@@ -664,11 +664,15 @@ public class DriverDashboardActivity extends AppCompatActivity {
                     double dSec = (now - last[2]) / 1000.0;
                     if (dSec > 0 && dSec < 30) speedKmh = (dM / dSec) * 3.6;
                 }
-                if (distFromArrived > 50.0 && speedKmh > 8.0) {
+                // 🆕 v6.62.987 (Patrick 28.05. 10:19): "Einsteigen funktioniert nicht
+                // automatisch — beim Einsteigen sollte umspringen". Schwelle gelockert:
+                // 50m → 30m, 8 km/h → 5 km/h, 10s → 5s konstante Bewegung.
+                // So springt der Status früher um wenn Fahrer mit Kunde losfährt.
+                if (distFromArrived > 30.0 && speedKmh > 5.0) {
                     Long firstMoving = _autoPickedUpFirstMoving.get(r.id);
                     if (firstMoving == null) {
                         _autoPickedUpFirstMoving.put(r.id, now);
-                    } else if (now - firstMoving >= 10_000) {
+                    } else if (now - firstMoving >= 5_000) {
                         triggerAutoStatus(r, "picked_up", "GPS " + Math.round(distFromArrived) + "m weg, " + Math.round(speedKmh) + " km/h");
                         _autoPickedUpFirstMoving.remove(r.id);
                     }

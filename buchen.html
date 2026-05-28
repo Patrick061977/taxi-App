@@ -2689,25 +2689,29 @@
                 return;
             }
             // X Min in der Zukunft → als Vorbestellung verbuchen
+            // 🆕 v6.62.984 (Patrick 28.05. 08:23): Reihenfolge fix —
+            // initDateTimePickers() in setWann() überschreibt b-time mit jetzt+60min.
+            // Daher MUSS setWann('vorbestellen') zuerst, DANN b-date/b-time setzen.
+            // Plus: _dateTimeInitDone-Flag zurücksetzen damit Default-Logik unsere Werte nimmt.
             try {
+                window._sofortPresetMin = minutes;
+                window._sofortPresetSetAt = Date.now();
+                window._dateTimeInitDone = true; // ← verhindert dass init b-time mit jetzt+60min überschreibt
+                setWann('vorbestellen');
                 const future = new Date(Date.now() + minutes * 60000);
+                const pad = (n) => String(n).padStart(2, '0');
                 const dateInput = document.getElementById('b-date');
                 const timeInput = document.getElementById('b-time');
                 if (dateInput) {
-                    const pad = (n) => String(n).padStart(2, '0');
                     dateInput.value = future.getFullYear() + '-' + pad(future.getMonth() + 1) + '-' + pad(future.getDate());
                     if (typeof updateBDateLabel === 'function') updateBDateLabel();
                 }
                 if (timeInput) {
-                    const pad = (n) => String(n).padStart(2, '0');
                     timeInput.value = pad(future.getHours()) + ':' + pad(future.getMinutes());
                     timeInput.dataset.userTouched = '1';
                     if (typeof updateBTimeLabel === 'function') updateBTimeLabel();
                     if (typeof syncTimeToLegacyDropdowns === 'function') syncTimeToLegacyDropdowns();
                 }
-                window._sofortPresetMin = minutes;
-                window._sofortPresetSetAt = Date.now();
-                setWann('vorbestellen');
                 if (typeof onDateTimeChange === 'function') onDateTimeChange();
                 if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min gewählt');
             } catch (_e) { console.warn('setSofortPreset Fehler', _e); }

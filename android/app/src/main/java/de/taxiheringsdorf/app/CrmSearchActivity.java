@@ -160,6 +160,9 @@ public class CrmSearchActivity extends AppCompatActivity {
     // Patrick (06.05. 20:25): "Kunden aus dem Handy importieren beim CRM-Anlegen".
     private EditText pendingContactName;
     private EditText pendingContactPhone;
+    // 🆕 v6.62.994 (Patrick 28.05. 20:06): Zweites Feld fuer Mobilnummer wenn das
+    //   Hauptfeld eine Festnetznummer ist — sonst gehen keine Status-SMS raus.
+    private EditText etNewCustMobile;
     private final androidx.activity.result.ActivityResultLauncher<Intent> contactPickerLauncher =
         registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -1528,6 +1531,17 @@ public class CrmSearchActivity extends AppCompatActivity {
             etNewCustPhone.setInputType(InputType.TYPE_CLASS_PHONE);
             layout.addView(etNewCustPhone);
 
+            // 🆕 v6.62.994 (Patrick 28.05. 20:06): Zweites Feld fuer Mobil — wenn der
+            //   Kunde mit Festnetz anruft, geht ohne Mobilnummer keine Status-SMS raus.
+            //   Optional, aber prominent unter dem Telefon-Feld. _newCustMobile wird im
+            //   Save-Block bevorzugt fuer mobilePhone+customerMobile genutzt; das Haupt-
+            //   Telefon-Feld bleibt customerPhone (z.B. Hotel-Festnetz fuer Rückruf).
+            etNewCustMobile = new EditText(this);
+            etNewCustMobile.setHint("📱 Mobil (nur wenn Telefon Festnetz — fuer SMS)");
+            etNewCustMobile.setInputType(InputType.TYPE_CLASS_PHONE);
+            etNewCustMobile.setTextSize(14);
+            layout.addView(etNewCustMobile);
+
             // 🆕 v6.62.803: Picker statt EditText — Tap → MapPickerActivity → Reverse-Geocode
             tvBillAddr = new TextView(this);
             tvBillAddr.setText("📍 Rechnungsadresse wählen… (optional)");
@@ -1548,6 +1562,7 @@ public class CrmSearchActivity extends AppCompatActivity {
             tvBillAddr = null;
             etCustEmail = null;
             etNewCustPhone = null;
+            etNewCustMobile = null;
             TextView tvKundeFest = new TextView(this);
             tvKundeFest.setText("👤 " + (e.name != null ? e.name : "—"));
             tvKundeFest.setTextSize(15);
@@ -2610,6 +2625,9 @@ public class CrmSearchActivity extends AppCompatActivity {
                     // 🆕 v6.62.960: Phone aus EditText wenn vorhanden (One-Shot-Maske),
                     //   sonst Fallback auf e.phone/e.mobilePhone (Anrufliste-Pfad).
                     String _phoneRaw = (etNewCustPhone != null) ? etNewCustPhone.getText().toString().trim() : "";
+                    // 🆕 v6.62.994 (Patrick 28.05. 20:06): separates Mobil-Feld
+                    String _mobileRaw = (etNewCustMobile != null) ? etNewCustMobile.getText().toString().trim() : "";
+                    final String _newCustMobile = _mobileRaw;
                     final String _newCustPhone = !_phoneRaw.isEmpty() ? _phoneRaw
                         : ((e.phone != null) ? e.phone : (e.mobilePhone != null ? e.mobilePhone : ""));
                     // Closure: eigentlicher Save-Vorgang (gleicher Code wie vorher)
@@ -2636,7 +2654,20 @@ public class CrmSearchActivity extends AppCompatActivity {
                         custData.put("name", _customerNameFinal);
                         if (!_newCustPhone.isEmpty()) {
                             custData.put("phone", _newCustPhone);
-                            custData.put("mobilePhone", _newCustPhone);
+                            // 🆕 v6.62.994 (Patrick 28.05.): Mobile separat speichern wenn
+                            //   eingegeben — sonst Hauptfeld als mobilePhone (Backwards-Kompat).
+                            //   So bleibt Festnetz im phone-Feld fuer Anruf, Mobil im
+                            //   mobilePhone-Feld fuer SMS.
+                            if (!_newCustMobile.isEmpty()) {
+                                custData.put("mobilePhone", _newCustMobile);
+                            } else {
+                                custData.put("mobilePhone", _newCustPhone);
+                            }
+                        }
+                        // Standalone-Mobile (falls Festnetz-Feld leer war): trotzdem speichern
+                        if (_newCustPhone.isEmpty() && !_newCustMobile.isEmpty()) {
+                            custData.put("phone", _newCustMobile);
+                            custData.put("mobilePhone", _newCustMobile);
                         }
                         if (!_newCustBillAddr.isEmpty()) {
                             custData.put("address", _newCustBillAddr);
@@ -2677,6 +2708,13 @@ public class CrmSearchActivity extends AppCompatActivity {
                                 r.put("customerId", _newCustKey);
                                 if (!_newCustBillAddr.isEmpty()) r.put("customerAddress", _newCustBillAddr);
                                 if (!_newCustEmail.isEmpty()) r.put("customerEmail", _newCustEmail);
+                                // 🆕 v6.62.994 (Patrick 28.05.): customerPhone+customerMobile
+                                //   direkt in die Ride schreiben, sonst muss Cloud-Function
+                                //   sie ueber customerId nachladen (Race-Bug-Risiko bei
+                                //   schnellem Auto-Assign).
+                                if (!_newCustPhone.isEmpty()) r.put("customerPhone", _newCustPhone);
+                                if (!_newCustMobile.isEmpty()) r.put("customerMobile", _newCustMobile);
+                                else if (!_newCustPhone.isEmpty()) r.put("customerMobile", _newCustPhone);
                                 Toast.makeText(this, "✅ Neukunde angelegt: " + _customerNameFinal, Toast.LENGTH_SHORT).show();
                                 doActualSave.run();
                             })

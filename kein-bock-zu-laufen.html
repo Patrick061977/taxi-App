@@ -1698,11 +1698,12 @@ function showAnfrageSuccess() {
             const _rData = _rSnap.val() || {};
             const _now = Date.now();
 
-            // Welche Fahrzeuge sind GERADE busy (aktive Fahrt)?
+            // 🆕 v6.62.981: 'accepted'/'sofort'/'assigned'/'arrived' = ebenfalls besetzt.
             const _busyVids = new Set();
+            const _busyStatuses = ['accepted','sofort','assigned','arrived','on_way','picked_up','in_progress'];
             for (const _r of Object.values(_rData)) {
                 if (!_r) continue;
-                if (!['on_way', 'picked_up', 'in_progress'].includes(_r.status)) continue;
+                if (!_busyStatuses.includes(_r.status)) continue;
                 const _vid = _r.vehicleId || _r.assignedVehicle;
                 if (_vid) _busyVids.add(_vid);
             }

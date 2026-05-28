@@ -458,6 +458,56 @@ public class ShiftEditorActivity extends AppCompatActivity {
         endRow.setPadding(0, pad, 0, 0);
         root.addView(endRow);
 
+        // 🆕 v6.62.999 (Patrick 28.05. 21:06 "F heute"): Split-Shift-Support.
+        //   Spätschicht-Block kann hinzugefügt werden — Speichert dann als timeRanges-
+        //   Array (kompatibel mit Web-Editor index.html Z~41181).
+        final int[] start2 = { 18, 0 };
+        final int[] end2 = { 22, 0 };
+        final boolean[] hasLate = { false };
+        final android.widget.LinearLayout lateContainer = new android.widget.LinearLayout(this);
+        lateContainer.setOrientation(android.widget.LinearLayout.VERTICAL);
+        lateContainer.setVisibility(android.view.View.GONE);
+        android.view.View lateDivider = new android.view.View(this);
+        android.widget.LinearLayout.LayoutParams dvLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (int)(1 * getResources().getDisplayMetrics().density));
+        dvLp.setMargins(0, pad, 0, pad / 2);
+        lateDivider.setLayoutParams(dvLp);
+        lateDivider.setBackgroundColor(0xFF334155);
+        lateContainer.addView(lateDivider);
+        android.widget.TextView lateLbl = new android.widget.TextView(this);
+        lateLbl.setText("🌇 SPÄTSCHICHT");
+        lateLbl.setTextSize(13);
+        lateLbl.setTypeface(null, android.graphics.Typeface.BOLD);
+        lateLbl.setTextColor(0xFFFBBF24);
+        lateLbl.setPadding(0, 0, 0, pad / 2);
+        lateContainer.addView(lateLbl);
+        android.widget.LinearLayout late1 = makeTimeRow(this, "🟢 START:", start2);
+        lateContainer.addView(late1);
+        android.widget.LinearLayout late2 = makeTimeRow(this, "🔴 ENDE:", end2);
+        late2.setPadding(0, pad / 2, 0, 0);
+        lateContainer.addView(late2);
+        root.addView(lateContainer);
+
+        final android.widget.Button btnAddLate = new android.widget.Button(this);
+        btnAddLate.setText("➕ Spätschicht hinzufügen");
+        btnAddLate.setTextSize(13);
+        android.widget.LinearLayout.LayoutParams addLp = new android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        addLp.setMargins(0, pad / 2, 0, 0);
+        btnAddLate.setLayoutParams(addLp);
+        btnAddLate.setOnClickListener(v -> {
+            if (!hasLate[0]) {
+                hasLate[0] = true;
+                lateContainer.setVisibility(android.view.View.VISIBLE);
+                btnAddLate.setText("➖ Spätschicht entfernen");
+            } else {
+                hasLate[0] = false;
+                lateContainer.setVisibility(android.view.View.GONE);
+                btnAddLate.setText("➕ Spätschicht hinzufügen");
+            }
+        });
+        root.addView(btnAddLate);
+
         // Hint
         android.widget.TextView hint = new android.widget.TextView(this);
         hint.setText("Mit '+' / '−' Buttons aendern. 15-Min-Schritte. Lang-Tippen = ±60 Min.");
@@ -504,9 +554,12 @@ public class ShiftEditorActivity extends AppCompatActivity {
                 selDate.get(Calendar.YEAR), selDate.get(Calendar.MONTH), selDate.get(Calendar.DAY_OF_MONTH));
             dp.show();
         });
+        // v6.62.999: ScrollView damit Dialog scrollbar wird wenn Spätschicht aufgeklappt
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(root);
         new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⏰ " + vs.name + " — Schicht")
-            .setView(root)
+            .setView(scroll)
             .setPositiveButton("Speichern", (d, w) -> {
                 String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
                 String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
@@ -523,26 +576,66 @@ public class ShiftEditorActivity extends AppCompatActivity {
                     entry.put("active", false);
                     entry.put("isException", true);
                     entry.put("setAt", System.currentTimeMillis());
-                    entry.put("setBy", "native-shift-editor-v996-inactive");
+                    entry.put("setBy", "native-shift-editor-v999-inactive");
                 } else {
                     entry.put("active", true);
-                    entry.put("startTime", startStr);
-                    entry.put("endTime", endStr);
                     entry.put("isException", true);
-                    entry.put("additiveException", false); // v6.62.996: Tag-Override, kein additiv
+                    entry.put("additiveException", false);
                     entry.put("setAt", System.currentTimeMillis());
-                    entry.put("setBy", "native-shift-editor-v996");
+                    entry.put("setBy", "native-shift-editor-v999");
+                    // 🆕 v6.62.999: Split-Shift-Support — timeRanges-Array wenn Spätschicht aktiv
+                    if (hasLate[0]) {
+                        String start2Str = String.format(Locale.GERMANY, "%02d:%02d", start2[0], start2[1]);
+                        String end2Str = String.format(Locale.GERMANY, "%02d:%02d", end2[0], end2[1]);
+                        java.util.List<Map<String, Object>> ranges = new java.util.ArrayList<>();
+                        Map<String, Object> r1 = new HashMap<>();
+                        r1.put("startTime", startStr); r1.put("endTime", endStr);
+                        ranges.add(r1);
+                        Map<String, Object> r2 = new HashMap<>();
+                        r2.put("startTime", start2Str); r2.put("endTime", end2Str);
+                        ranges.add(r2);
+                        // sortieren nach startTime damit Web-Editor sie korrekt rendert
+                        ranges.sort((a, b) -> String.valueOf(a.get("startTime")).compareTo(String.valueOf(b.get("startTime"))));
+                        entry.put("timeRanges", ranges);
+                        // startTime/endTime als Span fuer Backwards-Kompat
+                        entry.put("startTime", ranges.get(0).get("startTime"));
+                        entry.put("endTime", ranges.get(ranges.size() - 1).get("endTime"));
+                    } else {
+                        entry.put("startTime", startStr);
+                        entry.put("endTime", endStr);
+                    }
                 }
-                // v6.62.957/996: defaultTimes parallel setzen wenn Checkbox aktiv
+                // v6.62.957/996/999: defaultTimes parallel setzen wenn Checkbox aktiv
                 if (cbAllSame.isChecked() && !inactive) {
                     Map<String, Object> defT = new HashMap<>();
-                    defT.put("startTime", startStr);
-                    defT.put("endTime", endStr);
+                    if (hasLate[0]) {
+                        // Split-Shift im Wochenplan
+                        String start2Str = String.format(Locale.GERMANY, "%02d:%02d", start2[0], start2[1]);
+                        String end2Str = String.format(Locale.GERMANY, "%02d:%02d", end2[0], end2[1]);
+                        java.util.List<Map<String, Object>> ranges = new java.util.ArrayList<>();
+                        Map<String, Object> r1 = new HashMap<>();
+                        r1.put("startTime", startStr); r1.put("endTime", endStr); ranges.add(r1);
+                        Map<String, Object> r2 = new HashMap<>();
+                        r2.put("startTime", start2Str); r2.put("endTime", end2Str); ranges.add(r2);
+                        ranges.sort((a, b) -> String.valueOf(a.get("startTime")).compareTo(String.valueOf(b.get("startTime"))));
+                        defT.put("timeRanges", ranges);
+                        defT.put("startTime", ranges.get(0).get("startTime"));
+                        defT.put("endTime", ranges.get(ranges.size() - 1).get("endTime"));
+                    } else {
+                        defT.put("startTime", startStr);
+                        defT.put("endTime", endStr);
+                    }
                     FirebaseDatabase.getInstance(DB_URL)
                         .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dowSel)
                         .updateChildren(defT)
                         .addOnSuccessListener(_ok -> Toast.makeText(this,
-                            "📅 Default fuer alle " + dayNames[dowSel] + " auf " + startStr + "–" + endStr + " gesetzt", Toast.LENGTH_LONG).show());
+                            "📅 Default fuer alle " + dayNames[dowSel] + " gesetzt", Toast.LENGTH_LONG).show());
+                    // 🆕 v6.62.999: defaults[dow]=true ebenfalls setzen, sonst greift der Web-
+                    //   Editor die defaultTimes nicht als 'Tag aktiv' (siehe index.html
+                    //   Z36454 _isDayActiveByDefault).
+                    FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dowSel)
+                        .setValue(true);
                 }
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)

@@ -187,6 +187,14 @@ public class CallRecorderService extends Service {
      * Patrick (29.05.): "Bei ACR geht aber auch Bluetooth" → gleicher Trick.
      */
     private void enableLoudCaptureRouting() {
+        // 🆕 v6.63.019 (Patrick 29.05. 20:24 "kann ich das auch wieder ausschalten"):
+        //   separater Toggle "auto_loud_routing_enabled". Default ON; wenn OFF, lässt
+        //   die App das Audio-Routing in Ruhe — Aufnahme läuft nur über das Phone-Mikro.
+        SharedPreferences sp = getSharedPreferences("call_recorder_prefs", MODE_PRIVATE);
+        if (!sp.getBoolean("auto_loud_routing_enabled", true)) {
+            Log.i(TAG, "Auto-Lautsprecher/BT-Routing per Toggle deaktiviert");
+            return;
+        }
         try {
             AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             if (am == null) return;

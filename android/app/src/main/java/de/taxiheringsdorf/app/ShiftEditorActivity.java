@@ -650,6 +650,90 @@ public class ShiftEditorActivity extends AppCompatActivity {
             .show();
     }
 
+    // 🆕 v6.63.003 (Patrick 29.05. 06:40): Wochenplan-Zeit-Editor pro Wochentag.
+    //   Long-Press auf Mo/Di/Mi/.../So-Button → dieser Dialog. Speichert in
+    //   vehicleShifts/{vid}/defaultTimes/{dow} + setzt defaults[dow]=true.
+    //   Synchron mit Web-Editor.
+    private void showWeekDayTimeEditDialog(VehicleShift vs, int dow) {
+        // Aktuelle Default-Zeiten laden
+        FirebaseDatabase.getInstance(DB_URL)
+            .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
+            .addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot s) {
+                    String startTxt = strOrNull(s.child("startTime").getValue());
+                    String endTxt = strOrNull(s.child("endTime").getValue());
+                    final int[] start = parseHM(startTxt != null ? startTxt : "06:00");
+                    final int[] end = parseHM(endTxt != null ? endTxt : "22:00");
+
+                    android.widget.LinearLayout root = new android.widget.LinearLayout(ShiftEditorActivity.this);
+                    root.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    int pad = (int)(16 * getResources().getDisplayMetrics().density);
+                    root.setPadding(pad, pad, pad, pad);
+
+                    final String[] dayNames = {"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
+                    android.widget.TextView hdr = new android.widget.TextView(ShiftEditorActivity.this);
+                    hdr.setText("Wochenplan-Schicht für jeden " + dayNames[dow] + ":");
+                    hdr.setTextColor(0xFFCBD5E1);
+                    hdr.setTextSize(13);
+                    hdr.setPadding(0, 0, 0, pad / 2);
+                    root.addView(hdr);
+
+                    android.widget.LinearLayout startRow = makeTimeRow(ShiftEditorActivity.this, "🟢 START:", start);
+                    root.addView(startRow);
+                    android.widget.LinearLayout endRow = makeTimeRow(ShiftEditorActivity.this, "🔴 ENDE:", end);
+                    endRow.setPadding(0, pad, 0, 0);
+                    root.addView(endRow);
+
+                    android.widget.TextView hint = new android.widget.TextView(ShiftEditorActivity.this);
+                    hint.setText("Gilt für ALLE " + dayNames[dow] + "e — überschreibt Tag-Ausnahmen nicht.");
+                    hint.setTextSize(11);
+                    hint.setTextColor(0xFF94A3B8);
+                    hint.setPadding(0, pad, 0, 0);
+                    root.addView(hint);
+
+                    new androidx.appcompat.app.AlertDialog.Builder(ShiftEditorActivity.this)
+                        .setTitle("📅 " + vs.name + " — " + dayNames[dow])
+                        .setView(root)
+                        .setPositiveButton("Speichern", (d, w) -> {
+                            String startStr = String.format(Locale.GERMANY, "%02d:%02d", start[0], start[1]);
+                            String endStr = String.format(Locale.GERMANY, "%02d:%02d", end[0], end[1]);
+                            Map<String, Object> upd = new HashMap<>();
+                            upd.put("startTime", startStr);
+                            upd.put("endTime", endStr);
+                            // timeRanges löschen damit Split-Shifts hier nicht hängen bleiben
+                            upd.put("timeRanges", null);
+                            FirebaseDatabase.getInstance(DB_URL)
+                                .getReference("vehicleShifts/" + vs.vehicleId + "/defaultTimes/" + dow)
+                                .updateChildren(upd)
+                                .addOnSuccessListener(_ok -> {
+                                    // Tag im Wochenplan aktivieren (defaults[dow] = true)
+                                    FirebaseDatabase.getInstance(DB_URL)
+                                        .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dow)
+                                        .setValue(true);
+                                    Toast.makeText(ShiftEditorActivity.this,
+                                        vs.name + " " + dayNames[dow] + ": " + startStr + "–" + endStr, Toast.LENGTH_LONG).show();
+                                })
+                                .addOnFailureListener(e -> Toast.makeText(ShiftEditorActivity.this,
+                                    "Fehler: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                        })
+                        .setNeutralButton("Tag DEAKTIVIEREN", (d, w) -> {
+                            FirebaseDatabase.getInstance(DB_URL)
+                                .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dow)
+                                .setValue(false)
+                                .addOnSuccessListener(_ok -> Toast.makeText(ShiftEditorActivity.this,
+                                    vs.name + " " + dayNames[dow] + ": AUS", Toast.LENGTH_SHORT).show());
+                        })
+                        .setNegativeButton("Abbrechen", null)
+                        .show();
+                }
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Toast.makeText(ShiftEditorActivity.this, "Lade-Fehler: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+    }
+
     // v6.62.956: kompakter Zeit-Stepper (Label + −15min + HH:MM + +15min)
     private static android.widget.LinearLayout makeTimeRow(Context ctx, String label, int[] hm) {
         android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
@@ -833,6 +917,13 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             .setValue(newActive)
                             .addOnSuccessListener(unused -> Toast.makeText(itemView.getContext(),
                                     vs.name + " " + DAY_LABELS[idx] + ": " + (newActive ? "AN" : "AUS"), Toast.LENGTH_SHORT).show());
+                });
+                // 🆕 v6.63.003 (Patrick 29.05. 06:40 "Nein"): Long-Press auf Wochentag-Button
+                //   öffnet Wochenplan-Zeit-Editor — damit Patrick die Wochenschicht-Zeiten
+                //   pro Tag direkt in Native editieren kann (vorher nur über Web möglich).
+                b.setOnLongClickListener(v -> {
+                    showWeekDayTimeEditDialog(vs, idx);
+                    return true;
                 });
                 weekRow.addView(b);
                 if (active) summary.append(DAY_LABELS[i]).append(' ');

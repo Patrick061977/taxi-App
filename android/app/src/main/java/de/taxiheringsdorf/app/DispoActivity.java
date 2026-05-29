@@ -74,6 +74,9 @@ public class DispoActivity extends AppCompatActivity {
         }
     };
 
+    // 🆕 v6.63.002 (Patrick 29.05. 06:25): vehicleShifts laden für echte Schichtplan-Diagnose
+    private DataSnapshot _cachedShiftsSnap;
+
     private void loadAndRender() {
         FirebaseDatabase db = FirebaseDatabase.getInstance(DB_INSTANCE_URL);
         db.getReference("vehicles").addListenerForSingleValueEvent(new ValueEventListener() {
@@ -83,15 +86,122 @@ public class DispoActivity extends AppCompatActivity {
                     VehicleInfo info = parseVehicle(v);
                     if (info != null) vehicles.put(info.id, info);
                 }
-                db.getReference("rides").addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override public void onDataChange(@NonNull DataSnapshot rSnap) {
-                        renderAll(vehicles, rSnap);
+                // v6.63.002: vehicleShifts mit-laden für Diagnose-Berechnung
+                db.getReference("vehicleShifts").addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override public void onDataChange(@NonNull DataSnapshot sSnap) {
+                        _cachedShiftsSnap = sSnap;
+                        db.getReference("rides").addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override public void onDataChange(@NonNull DataSnapshot rSnap) {
+                                renderAll(vehicles, rSnap);
+                            }
+                            @Override public void onCancelled(@NonNull DatabaseError e) {}
+                        });
                     }
-                    @Override public void onCancelled(@NonNull DatabaseError e) {}
+                    @Override public void onCancelled(@NonNull DatabaseError e) {
+                        // Fallback ohne Shifts
+                        db.getReference("rides").addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override public void onDataChange(@NonNull DataSnapshot rSnap) {
+                                renderAll(vehicles, rSnap);
+                            }
+                            @Override public void onCancelled(@NonNull DatabaseError e2) {}
+                        });
+                    }
                 });
             }
             @Override public void onCancelled(@NonNull DatabaseError e) {}
         });
+    }
+
+    // 🆕 v6.63.002: Pro Fahrzeug+Datum+Zeit prüfen ob es im Schichtplan ist.
+    //   Logik identisch zu index.html isVehicleAvailableAtSlot (v6.62.1000).
+    private boolean isVehicleInShift(String vid, String dateStr, String timeStr) {
+        if (_cachedShiftsSnap == null) return false;
+        DataSnapshot vSnap = _cachedShiftsSnap.child(vid);
+        if (!vSnap.exists()) return false;
+        // 1) Tag-Override prüfen
+        DataSnapshot dayEntry = vSnap.child(dateStr);
+        if (dayEntry.exists()) {
+            Object actObj = dayEntry.child("active").getValue();
+            boolean isActive = !Boolean.FALSE.equals(actObj);
+            if (!isActive) return false;
+            String startT = strOrNull(dayEntry.child("startTime").getValue());
+            String endT = strOrNull(dayEntry.child("endTime").getValue());
+            // timeRanges (Split-Shifts) zuerst prüfen
+            DataSnapshot rangesNode = dayEntry.child("timeRanges");
+            if (rangesNode.exists() && rangesNode.getChildrenCount() > 0) {
+                for (DataSnapshot rn : rangesNode.getChildren()) {
+                    String rs = strOrNull(rn.child("startTime").getValue());
+                    String re = strOrNull(rn.child("endTime").getValue());
+                    if (rs != null && re != null && timeStr.compareTo(rs) >= 0 && timeStr.compareTo(re) <= 0) return true;
+                }
+                return false;
+            }
+            if (startT != null && endT != null) {
+                return timeStr.compareTo(startT) >= 0 && timeStr.compareTo(endT) <= 0;
+            }
+            return isActive; // active ohne Zeiten = ganztägig
+        }
+        // 2) Wochenplan defaults[dow] + defaultTimes[dow]
+        try {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            String[] parts = dateStr.split("-");
+            cal.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]), 12, 0, 0);
+            int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1; // 0=So
+            Object defActive = vSnap.child("defaults").child(String.valueOf(dow)).getValue();
+            if (!Boolean.TRUE.equals(defActive)) return false;
+            DataSnapshot defT = vSnap.child("defaultTimes").child(String.valueOf(dow));
+            if (!defT.exists()) return true;
+            String dStart = strOrNull(defT.child("startTime").getValue());
+            String dEnd = strOrNull(defT.child("endTime").getValue());
+            if (dStart != null && dEnd != null) {
+                return timeStr.compareTo(dStart) >= 0 && timeStr.compareTo(dEnd) <= 0;
+            }
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    // 🆕 v6.63.002: Schichtzeit-String fuer Fahrzeug an Datum (z.B. "08:00-12:00" oder "OFFLINE")
+    private String getVehicleShiftLabel(String vid, String dateStr) {
+        if (_cachedShiftsSnap == null) return "?";
+        DataSnapshot vSnap = _cachedShiftsSnap.child(vid);
+        if (!vSnap.exists()) return "OFFLINE";
+        DataSnapshot dayEntry = vSnap.child(dateStr);
+        if (dayEntry.exists()) {
+            Object actObj = dayEntry.child("active").getValue();
+            if (Boolean.FALSE.equals(actObj)) return "OFFLINE (Ausnahme)";
+            String startT = strOrNull(dayEntry.child("startTime").getValue());
+            String endT = strOrNull(dayEntry.child("endTime").getValue());
+            DataSnapshot rangesNode = dayEntry.child("timeRanges");
+            if (rangesNode.exists() && rangesNode.getChildrenCount() > 0) {
+                List<String> ranges = new ArrayList<>();
+                for (DataSnapshot rn : rangesNode.getChildren()) {
+                    String rs = strOrNull(rn.child("startTime").getValue());
+                    String re = strOrNull(rn.child("endTime").getValue());
+                    if (rs != null && re != null) ranges.add(rs + "-" + re);
+                }
+                return String.join(", ", ranges) + " (Ausnahme)";
+            }
+            if (startT != null && endT != null) return startT + "-" + endT + " (Ausnahme)";
+            return "aktiv (Ausnahme, ohne Zeiten)";
+        }
+        // Wochenplan
+        try {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            String[] parts = dateStr.split("-");
+            cal.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]), 12, 0, 0);
+            int dow = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1;
+            Object defActive = vSnap.child("defaults").child(String.valueOf(dow)).getValue();
+            if (!Boolean.TRUE.equals(defActive)) return "OFFLINE (Wochenplan)";
+            DataSnapshot defT = vSnap.child("defaultTimes").child(String.valueOf(dow));
+            String dStart = strOrNull(defT.child("startTime").getValue());
+            String dEnd = strOrNull(defT.child("endTime").getValue());
+            if (dStart != null && dEnd != null) return dStart + "-" + dEnd + " (Wochenplan)";
+            return "aktiv (Wochenplan)";
+        } catch (Throwable t) {
+            return "?";
+        }
     }
 
     private void renderAll(Map<String, VehicleInfo> vehicles, DataSnapshot ridesSnap) {
@@ -301,64 +411,102 @@ public class DispoActivity extends AppCompatActivity {
         return card;
     }
 
-    // 🆕 v6.62.1001 (Patrick 28.05. 21:41): Konflikt-Diagnose-Text (kurz, für Card-Zeile)
+    // 🆕 v6.62.1001 / v6.63.002: Konflikt-Diagnose-Text (kurz, für Card-Zeile)
     private String computeRideDiagnosisText(RideInfo r, Map<String, VehicleInfo> vehicles) {
         if (r == null || vehicles == null || vehicles.isEmpty()) return null;
-        int online = 0, offline = 0;
+        // v6.63.002: Echte Schichtplan-Berechnung
+        Date dt = new Date(r.pickupTs);
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMAN).format(dt);
+        String timeStr = new SimpleDateFormat("HH:mm", Locale.GERMAN).format(dt);
+        int inShift = 0, notInShift = 0, busy = 0;
         for (VehicleInfo v : vehicles.values()) {
-            if (v.online || v.shiftActive) online++;
-            else offline++;
+            boolean inS = isVehicleInShift(v.id, dateStr, timeStr);
+            if (inS) inShift++;
+            else notInShift++;
         }
         StringBuilder sb = new StringBuilder();
         if (r.wartepoolReason != null) {
             sb.append("⚠️ ").append(r.wartepoolReason);
         } else if ("wartepool".equals(r.status)) {
-            sb.append("⚠️ Wartepool — kein Fahrzeug zugewiesen");
+            sb.append("⚠️ Wartepool");
         } else {
-            sb.append("⚠️ Kein Fahrzeug zugewiesen");
+            sb.append("⚠️ Kein Fahrzeug");
         }
-        sb.append("  ·  ").append(online).append(" online, ").append(offline).append(" offline");
+        sb.append("  ·  ").append(inShift).append(" im Plan, ").append(notInShift).append(" offline");
         sb.append("  ·  Tap für Details");
         return sb.toString();
     }
 
-    // 🆕 v6.62.1001: Detail-Dialog — pro Fahrzeug Status (online/offline/in_use)
-    //   Plus Anfahrtszeit und Konflikt-Hinweise wenn drivingTimeToPickup gesetzt ist.
+    // 🆕 v6.63.002 (Patrick 29.05. 06:26): Detail-Dialog mit echter Schichtplan-Berechnung
+    //   + 1-Klick-Lösungs-Buttons:
+    //   • 🕒 Schicht-Editor öffnen
+    //   • ⏰ Pickup um +15 Min verschieben
+    //   • 🤖 Auto-Zuweisen anstoßen
     private void showRideDiagnosisDialog(RideInfo r, Map<String, VehicleInfo> vehicles) {
         if (r == null) return;
+        Date dt = new Date(r.pickupTs);
+        final String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.GERMAN).format(dt);
+        String timeStr = new SimpleDateFormat("HH:mm", Locale.GERMAN).format(dt);
         StringBuilder body = new StringBuilder();
         body.append("📋 ").append(r.customerName != null ? r.customerName : "?").append("\n");
         body.append("⏰ ").append(hhmm.format(new Date(r.pickupTs))).append("\n");
         body.append("📍 ").append(r.pickup != null ? r.pickup : "?").append("\n");
         body.append("🎯 ").append(r.destination != null ? r.destination : "?").append("\n\n");
-        body.append("🚗 Fahrzeug-Status:\n");
+        body.append("🚗 Fahrzeug-Status für ").append(dateStr).append(" ").append(timeStr).append(":\n");
         for (VehicleInfo v : vehicles.values()) {
-            String mark;
-            if (v.shiftActive && v.online) mark = "🟢";
-            else if (v.shiftActive) mark = "🟡 Schicht aktiv, offline";
-            else mark = "⚫ keine Schicht";
+            boolean inS = isVehicleInShift(v.id, dateStr, timeStr);
+            String label = getVehicleShiftLabel(v.id, dateStr);
+            String mark = inS ? "🟢" : "⚫";
             body.append("  ").append(mark).append(" ").append(v.name);
             if (v.plate != null) body.append(" ").append(v.plate);
-            body.append("\n");
+            body.append(": ").append(label).append("\n");
         }
         if (r.wartepoolReason != null) {
             body.append("\n⚠️ Wartepool-Grund: ").append(r.wartepoolReason).append("\n");
         }
         if (r.drivingTimeToPickup != null) {
-            body.append("\n🚗 Letzter Anfahrt-Vorschlag: ").append(r.drivingTimeToPickup).append(" Min");
+            body.append("\n🚗 Letzte Anfahrt: ").append(r.drivingTimeToPickup).append(" Min");
             if (r.drivingDistanceToPickupKm != null) body.append(" / ").append(r.drivingDistanceToPickupKm).append(" km");
             body.append("\n");
         }
-        body.append("\n💡 Lösungs-Vorschläge:\n");
-        body.append("  • Schicht-Editor öffnen und Fahrzeug aktivieren\n");
-        body.append("  • Fahrt-Bearbeiten und Pickup-Zeit verschieben\n");
-        body.append("  • '🤖 Auto-Zuweisen' in der Web-Dispo erneut anstoßen\n");
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        final RideInfo rFinal = r;
+        androidx.appcompat.app.AlertDialog.Builder dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⚠️ Konflikt-Diagnose")
             .setMessage(body.toString())
-            .setPositiveButton("OK", null)
-            .show();
+            .setPositiveButton("Schicht-Editor", (d, w) -> {
+                // 1-Klick: ShiftEditorActivity öffnen
+                startActivity(new android.content.Intent(this, ShiftEditorActivity.class));
+            })
+            .setNeutralButton("+15 Min", (d, w) -> {
+                // 1-Klick: Pickup-Zeit um 15 Min verschieben
+                long newTs = rFinal.pickupTs + 15 * 60_000L;
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
+                    .child("pickupTimestamp").setValue(newTs)
+                    .addOnSuccessListener(_ok -> {
+                        Toast.makeText(this, rFinal.customerName + ": Pickup +15 Min", Toast.LENGTH_LONG).show();
+                        // Wartepool-Reset triggern damit autoAssign neu rechnet
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
+                            .child("autoAssignAttempts").setValue(0);
+                        FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
+                            .child("wartepoolReason").setValue(null);
+                    })
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            })
+            .setNegativeButton("Auto-Zuweisen", (d, w) -> {
+                // 1-Klick: Wartepool-Reset → scheduledAutoAssign greift im naechsten 10-Min-Lauf
+                Map<String, Object> resetUpd = new HashMap<>();
+                resetUpd.put("autoAssignAttempts", 0);
+                resetUpd.put("wartepoolReason", null);
+                if ("wartepool".equals(rFinal.status)) resetUpd.put("status", "vorbestellt");
+                resetUpd.put("resetForAssignAt", System.currentTimeMillis());
+                resetUpd.put("resetBy", "native-dispo-v6.63.002");
+                FirebaseDatabase.getInstance(DB_INSTANCE_URL).getReference("rides/" + rFinal.id)
+                    .updateChildren(resetUpd)
+                    .addOnSuccessListener(_ok -> Toast.makeText(this, "🤖 Reset — AutoAssign greift im naechsten Lauf", Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(ex -> Toast.makeText(this, "Fehler: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            });
+        dlg.show();
     }
 
     private View buildEmptyText(String text) {

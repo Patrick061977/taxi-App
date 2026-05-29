@@ -2721,6 +2721,23 @@
                     bar.textContent = `⏱️ Sofort-Buchung mit Wartezeit ${minutes} Min · Pickup um ${_zeitStr}`;
                 }
                 if (typeof logBuchen === 'function') logBuchen('⏱', 'Sofort-Preset +' + minutes + ' Min (Pickup ' + _zeitStr + ')');
+
+                // 🆕 v6.63.004 (Patrick 29.05. 07:17): Grünes Compact-Badge wie bei Vorbestellungen
+                //   damit Kunde sofort sieht WANN sein Taxi kommt. Wann-Card collapsed nicht
+                //   (anders als Vorbestellungen) — Schnelltasten-Buttons sollen sichtbar bleiben
+                //   damit Kunde nochmal wechseln kann. Stattdessen Compact zusätzlich anzeigen.
+                const compact = document.getElementById('termin-compact');
+                const compactText = document.getElementById('termin-compact-text');
+                if (compactText) {
+                    const dayNames = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                    const today = new Date();
+                    const isSameDay = future.getDate() === today.getDate() && future.getMonth() === today.getMonth();
+                    const datePart = isSameDay
+                        ? 'heute'
+                        : (dayNames[future.getDay()] + ' ' + pad(future.getDate()) + '.' + pad(future.getMonth()+1) + '.');
+                    compactText.textContent = `📅 ${datePart} um ${_zeitStr} Uhr · Sofortfahrt +${minutes} Min`;
+                }
+                if (compact) compact.style.display = 'flex';
             } catch (_e) { console.warn('setSofortPreset Label-Fehler', _e); }
             return;
             // X Min in der Zukunft → als Vorbestellung verbuchen

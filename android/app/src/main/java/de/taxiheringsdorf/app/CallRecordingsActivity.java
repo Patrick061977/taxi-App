@@ -53,6 +53,9 @@ public class CallRecordingsActivity extends AppCompatActivity {
     private static final String DB_URL = "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app";
     // ACR Phone speichert in: /sdcard/ACRCalls/ACRPhone/{YYYY}/{MM}/{DD}/+TelNr/+TelNr-direction-ts.m4a
     private static final File ACR_ROOT = new File(Environment.getExternalStorageDirectory(), "ACRCalls/ACRPhone");
+    // 🆕 v6.63.015 (Patrick 29.05. 19:13): In-App-Call-Recorder speichert in /sdcard/FunktaxiCalls/{YYYY}/{MM}/{DD}/
+    //   Gleiche Schema-Konvention damit dieselbe Scan-Logik beide Verzeichnisse abdeckt.
+    private static final File FUNKTAXI_ROOT = new File(Environment.getExternalStorageDirectory(), "FunktaxiCalls");
 
     private RecyclerView rv;
     private ProgressBar progress;
@@ -106,6 +109,20 @@ public class CallRecordingsActivity extends AppCompatActivity {
         bulkLp.setMargins(dp(16), 0, dp(16), dp(8));
         btnBulkHide.setLayoutParams(bulkLp);
         root.addView(btnBulkHide);
+
+        // 🆕 v6.63.015 (Patrick 29.05. 19:13): Auto-Recorder-Toggle.
+        //   In-App-Recorder per Default an; User kann ihn hier deaktivieren.
+        final android.content.SharedPreferences _recPrefs = getSharedPreferences("call_recorder_prefs", MODE_PRIVATE);
+        final android.widget.Switch swAutoRec = new android.widget.Switch(this);
+        swAutoRec.setText("🎙️ Auto-Aufnahme bei Anruf (In-App)");
+        swAutoRec.setTextColor(0xFFf8fafc);
+        swAutoRec.setChecked(_recPrefs.getBoolean("auto_record_enabled", true));
+        swAutoRec.setPadding(dp(16), dp(8), dp(16), dp(8));
+        swAutoRec.setOnCheckedChangeListener((cb, isChecked) -> {
+            _recPrefs.edit().putBoolean("auto_record_enabled", isChecked).apply();
+            Toast.makeText(this, isChecked ? "✅ Auto-Aufnahme AN" : "⛔ Auto-Aufnahme AUS", Toast.LENGTH_SHORT).show();
+        });
+        root.addView(swAutoRec);
 
         // Versteckte einblenden
         android.widget.Button btnShowHidden = new android.widget.Button(this);
@@ -248,18 +265,26 @@ public class CallRecordingsActivity extends AppCompatActivity {
 
     private void scanRecordings() {
         loadHiddenSet();
-        if (!ACR_ROOT.exists() || !ACR_ROOT.isDirectory()) {
-            header.setText("ACR-Ordner nicht gefunden:\n" + ACR_ROOT.getAbsolutePath());
+        // 🆕 v6.63.015: Beide Verzeichnisse scannen (ACR + In-App-Recorder).
+        java.util.List<File> roots = new java.util.ArrayList<>();
+        if (ACR_ROOT.exists() && ACR_ROOT.isDirectory()) roots.add(ACR_ROOT);
+        if (FUNKTAXI_ROOT.exists() && FUNKTAXI_ROOT.isDirectory()) roots.add(FUNKTAXI_ROOT);
+        if (roots.isEmpty()) {
+            header.setText("Keine Aufnahmen-Ordner gefunden:\n" + ACR_ROOT.getAbsolutePath() + "\n" + FUNKTAXI_ROOT.getAbsolutePath());
             progress.setVisibility(View.GONE);
             return;
         }
         new Thread(() -> {
             List<Recording> all = new ArrayList<>();
             Pattern fileRe = Pattern.compile("^(\\+?\\d+)-(\\d+)-(\\d+)\\.m4a$");
-            // 2-level walk: /YYYY/MM/DD/+TelNr/*.m4a — wir scannen alle Tage maximum letzte 90 Tage
-            File[] years = ACR_ROOT.listFiles();
-            if (years == null) { runOnUiThread(() -> { header.setText("Keine Aufnahmen"); progress.setVisibility(View.GONE); }); return; }
             long cutoff = System.currentTimeMillis() - 90L*24*3600*1000;
+            // walk: /ROOT/YYYY/MM/DD/+TelNr/*.m4a — beide Verzeichnisse
+            java.util.List<File> allYears = new java.util.ArrayList<>();
+            for (File root : roots) {
+                File[] ys = root.listFiles();
+                if (ys != null) for (File y : ys) allYears.add(y);
+            }
+            File[] years = allYears.toArray(new File[0]);
             for (File year : years) {
                 if (!year.isDirectory()) continue;
                 File[] months = year.listFiles();

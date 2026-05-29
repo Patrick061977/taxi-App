@@ -4806,11 +4806,28 @@
         //   Phone-Feld vorbefuellen falls aus CRM, SMS-Verifikation komplett skippen
         //   wenn eingeloggt + Phone vorhanden (auch wenn vom Formular).
         let _isLoggedIn = false;
+        // 🆕 v6.63.005 (Patrick 29.05. 08:05): CRM-Lookup-Promise damit submitBuchung
+        //   darauf warten kann bevor SMS-Verifikation startet — Race-Condition-Fix.
+        let _crmLookupPromise = null;
         auth.onAuthStateChanged(function(user) {
             if (user) {
                 _isLoggedIn = true;
                 if (user.phoneNumber) customerPhone = user.phoneNumber;
                 logBuchen('🔐', 'Bereits eingeloggt: ' + (user.phoneNumber || user.email || user.uid));
+                // v6.63.005: /users/{uid}/savedPhone als Cross-Device-Cache prüfen
+                if (user.uid && !customerPhone) {
+                    db.ref('users/' + user.uid + '/savedPhone').once('value').then(function(s) {
+                        const saved = s.val();
+                        if (saved && !customerPhone) {
+                            customerPhone = saved;
+                            logBuchen('💾', 'Phone aus /users/' + user.uid + '/savedPhone: ' + saved);
+                            try {
+                                localStorage.setItem('buchen-verifiedPhone', saved);
+                                localStorage.setItem('buchen-verifiedAt', String(Date.now()));
+                            } catch(_) {}
+                        }
+                    }).catch(function(_e) {});
+                }
                 // v6.62.836: Badge sichtbar mit Name (NICHT mehr ausgeblendet)
                 var badge = document.getElementById('user-badge');
                 var nameForBadge = user.displayName || (user.email ? user.email.split('@')[0] : (user.phoneNumber || 'Kunde'));
@@ -4819,7 +4836,7 @@
                     badge.style.display = 'inline-flex';
                 }
                 // Name + Phone aus CRM laden — sowohl ueber Phone-Match ALS AUCH ueber Email
-                db.ref('customers').once('value').then(function(snap) {
+                _crmLookupPromise = db.ref('customers').once('value').then(function(snap) {
                     var found = null;
                     var _userPhone = (user.phoneNumber || '').replace(/[^0-9]/g, '');
                     var _userEmail = (user.email || '').toLowerCase();
@@ -4840,6 +4857,19 @@
                                 phoneEl.value = String(phoneNum).replace(/^\+49\s*/, '0');
                             }
                             if (!customerPhone && phoneNum) customerPhone = phoneNum;
+                            // 🆕 v6.63.005 (Patrick 29.05. 08:05): CRM-Phone in localStorage
+                            //   cachen UND in /users/{uid}/savedPhone für Cross-Device.
+                            //   Damit muss Patrick beim Google-Login NIE wieder SMS verifizieren.
+                            try {
+                                if (phoneNum) {
+                                    const _normP = String(phoneNum).startsWith('+') ? phoneNum : ('+49' + String(phoneNum).replace(/^0/, ''));
+                                    localStorage.setItem('buchen-verifiedPhone', _normP);
+                                    localStorage.setItem('buchen-verifiedAt', String(Date.now()));
+                                    if (user.uid) {
+                                        db.ref('users/' + user.uid + '/savedPhone').set(_normP).catch(function(_e){});
+                                    }
+                                }
+                            } catch(_) {}
                             if (badge) badge.innerHTML = '👤 ' + (c.name || nameForBadge);
                             logBuchen('👤', 'CRM-Kunde erkannt (' + (phoneMatch ? 'Phone' : 'Email') + '): ' + (c.name || '?'));
                         }
@@ -5047,7 +5077,7 @@
             return { ok: false, reason: 'unvollständig — bitte Straße + Hausnummer oder bekannten Ort' };
         }
 
-        function startBooking() {
+        async function startBooking() {
             if (!pickupCoords || !destCoords) return showToast('Bitte Abholort und Zielort eingeben');
             const pickupAddr = document.getElementById('b-pickup')?.value || '';
             const destAddr = document.getElementById('b-destination')?.value || '';
@@ -5086,6 +5116,14 @@
             //   wenn Auth keine hat — der eingeloggte User wird grundsaetzlich
             //   nicht doppelt verifiziert.
             const _currentUser = (typeof auth !== 'undefined' && auth.currentUser) ? auth.currentUser : null;
+            // 🆕 v6.63.005 (Patrick 29.05. 08:05): Race-Condition-Fix — auf CRM-Lookup warten
+            //   bevor wir den SMS-Skip entscheiden. CRM-Lookup läuft async beim Login und
+            //   trägt die Phone-Nummer ein — wenn User schnell klickt war sie noch null.
+            if (_currentUser && _crmLookupPromise) {
+                try {
+                    await Promise.race([_crmLookupPromise, new Promise(r => setTimeout(r, 2500))]);
+                } catch(_) {}
+            }
             if (_currentUser) {
                 // Telefonnummer-Quelle: Auth zuerst, sonst Formularfeld
                 if (!customerPhone) {

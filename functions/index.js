@@ -246,6 +246,25 @@ async function loadTarifFromFirebase() {
     }
 }
 
+// 🆕 v6.63.007 (Patrick 29.05. 10:39): Module-Init-Trigger fuer Tarif-Reload.
+// loadTarifFromFirebase() wurde bisher NUR vom Telegram-Webhook gerufen (Z17561).
+// onRideCreated/onRideUpdated/scheduledLateCheck etc. nutzen calculatePrice OHNE
+// vorheriges Reload → TARIF-Konstanten waren Cloud-Function-Cold-Start-Defaults
+// (z.B. wartezeit_pro_stopp_min=5 statt DB-Wert 3). Patrick: Zahn-Mertens 13,30€
+// vs. korrekt 12,00€ — fast 1,30€ Differenz pro Stopp.
+// Fix: TARIF beim Modul-Laden initial reloaden, plus Listener auf settings/tarif
+// damit Aenderungen live wirken (kein Re-Deploy noetig).
+loadTarifFromFirebase().catch(_ => {});
+db.ref('settings/tarif').on('value', snap => {
+    const saved = snap.val();
+    if (!saved) return;
+    Object.keys(TARIF).forEach(k => {
+        if (saved[k] !== undefined) TARIF[k] = parseFloat(saved[k]);
+    });
+    tarifLoaded = true;
+    console.log('[Tarif] Live-Update aus settings/tarif:', JSON.stringify(TARIF));
+});
+
 // 🔧 v6.62.708: Bewegliche MV-Feiertage hinzu. Patrick (14.05. 10:00): "Heute ist
 // Christi Himmelfahrt, aber Tarif rechnet keinen Feiertagstarif". Vorher nur feste
 // 7 Tage — Karfreitag/Ostermontag/Himmelfahrt/Pfingstmontag/Reformationstag fehlten.

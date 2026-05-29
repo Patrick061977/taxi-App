@@ -354,6 +354,19 @@ public class ShiftEditorActivity extends AppCompatActivity {
                             if (vs.todayOverride && vs.todayActive == null) vs.todayActive = true;
                             vs.todayStartTime = strOrNull(todaySnap.child("startTime").getValue());
                             vs.todayEndTime = strOrNull(todaySnap.child("endTime").getValue());
+                            // 🆕 v6.63.010: defaultTimes-Map pro Wochentag parsen
+                            vs.defaultTimes = new String[7][2];
+                            DataSnapshot _dt = vSnap.child("defaultTimes");
+                            if (_dt.exists()) {
+                                for (DataSnapshot dtChild : _dt.getChildren()) {
+                                    try {
+                                        int dow = Integer.parseInt(dtChild.getKey());
+                                        if (dow < 0 || dow > 6) continue;
+                                        vs.defaultTimes[dow][0] = strOrNull(dtChild.child("startTime").getValue());
+                                        vs.defaultTimes[dow][1] = strOrNull(dtChild.child("endTime").getValue());
+                                    } catch (Throwable _ignore) { }
+                                }
+                            }
                         } catch (Throwable rowErr) {
                             Log.w(TAG, "Parse-Fehler fuer " + vs.vehicleId + ": " + rowErr.getMessage());
                         }
@@ -405,9 +418,15 @@ public class ShiftEditorActivity extends AppCompatActivity {
         // Default: morgen (Patrick will fast immer den naechsten Tag planen)
         final Calendar selDate = Calendar.getInstance();
         selDate.add(Calendar.DAY_OF_YEAR, 1);
-        // Aktuelle Werte parsen
-        final int[] startHM = parseHM(vs.todayStartTime != null ? vs.todayStartTime : "06:00");
-        final int[] endHM = parseHM(vs.todayEndTime != null ? vs.todayEndTime : "22:00");
+        // 🆕 v6.63.010 (Patrick 29.05. 16:44 "wo ist das Problem den Schichtplan
+        //   aufs Handy zu übernehmen"): Pre-Fill aus defaultTimes[dow_of_selDate]
+        //   falls vorhanden, statt vs.todayStartTime (= HEUTIGER Tag, falsch wenn
+        //   Datum vorher umgeschaltet wurde). Fallback bleibt todayStartTime.
+        final int _initDow = selDate.get(Calendar.DAY_OF_WEEK) - 1;
+        final String _dtStart = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][0] : null;
+        final String _dtEnd = (vs.defaultTimes != null && vs.defaultTimes[_initDow] != null) ? vs.defaultTimes[_initDow][1] : null;
+        final int[] startHM = parseHM(_dtStart != null ? _dtStart : (vs.todayStartTime != null ? vs.todayStartTime : "06:00"));
+        final int[] endHM = parseHM(_dtEnd != null ? _dtEnd : (vs.todayEndTime != null ? vs.todayEndTime : "22:00"));
 
         // 🆕 v6.62.956 (Patrick 25.05. 21:38 'kann End-Zeit nicht einstellen, mach kleiner'):
         //   Statt riesigen TimePickern (Clock-Mode) machen wir simple HH:MM-Inputs mit Stepper-Buttons.
@@ -637,6 +656,29 @@ public class ShiftEditorActivity extends AppCompatActivity {
                         .getReference("vehicleShifts/" + vs.vehicleId + "/defaults/" + dowSel)
                         .setValue(true);
                 }
+                // 🆕 v6.63.010 (Patrick 29.05. 16:44 'wo ist das Problem den Schichtplan
+                //   aufs Handy zu übernehmen'): No-Op-Save. Wenn die eingegebene Zeit
+                //   exakt der defaultTimes[dow] entspricht UND der User die "Auch für
+                //   alle <Wochentag>"-Checkbox nicht angekreuzt hat UND nicht inactive,
+                //   dann schreiben wir KEINE Tag-Exception → Wochenplan greift wie
+                //   gewuenscht. Plus: bestehende Tag-Exception fuer den Datums-Key
+                //   entfernen damit sie im Web-Editor nicht als 'Zusatzschicht' bleibt.
+                String _defStart = (vs.defaultTimes != null && vs.defaultTimes[dowSel] != null) ? vs.defaultTimes[dowSel][0] : null;
+                String _defEnd = (vs.defaultTimes != null && vs.defaultTimes[dowSel] != null) ? vs.defaultTimes[dowSel][1] : null;
+                boolean _matchesDefault = !inactive && !hasLate[0] && !cbAllSame.isChecked()
+                    && _defStart != null && _defEnd != null
+                    && _defStart.equals(startStr) && _defEnd.equals(endStr);
+                if (_matchesDefault) {
+                    FirebaseDatabase.getInstance(DB_URL)
+                        .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
+                        .removeValue()
+                        .addOnSuccessListener(unused -> Toast.makeText(this,
+                            "✅ " + vs.name + ": " + _dayLabel + " — Wochenplan greift (" + startStr + "–" + endStr + "), keine Tag-Exception nötig.",
+                            Toast.LENGTH_LONG).show())
+                        .addOnFailureListener(e -> Toast.makeText(this,
+                            "Fehler beim Aufräumen: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    return;
+                }
                 FirebaseDatabase.getInstance(DB_URL)
                     .getReference("vehicleShifts/" + vs.vehicleId + "/" + dateKey)
                     .setValue(entry)
@@ -820,6 +862,10 @@ public class ShiftEditorActivity extends AppCompatActivity {
         Boolean todayActive;
         String todayStartTime;
         String todayEndTime;
+        // 🆕 v6.63.010: defaultTimes pro Wochentag laden, damit der Native-Editor
+        //   den Wochenplan als Pre-Fill nutzen kann (statt todayStartTime bei
+        //   beliebigem Datums-Wechsel). Format: [startTime, endTime] pro dow 0..6.
+        String[][] defaultTimes = new String[7][2];
     }
 
     /* ─── Adapter ─── */

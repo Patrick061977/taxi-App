@@ -474,9 +474,13 @@ public class DispoActivity extends AppCompatActivity {
         androidx.appcompat.app.AlertDialog.Builder dlg = new androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("⚠️ Konflikt-Diagnose")
             .setMessage(body.toString())
-            .setPositiveButton("Schicht-Editor", (d, w) -> {
-                // 1-Klick: ShiftEditorActivity öffnen
-                startActivity(new android.content.Intent(this, ShiftEditorActivity.class));
+            // 🆕 v6.63.023 (Patrick 29.05. 20:59 "im wartepool kann ich nur die Zeit
+            //   verschieben aber nicht bearbeiten"): Bearbeiten-Button öffnet
+            //   AdminDashboardActivity mit Intent-Extra → direkt der Edit-Dialog.
+            .setPositiveButton("✏️ Bearbeiten", (d, w) -> {
+                android.content.Intent i = new android.content.Intent(this, AdminDashboardActivity.class);
+                i.putExtra("auto_edit_ride_id", rFinal.id);
+                startActivity(i);
             })
             .setNeutralButton("+15 Min", (d, w) -> {
                 // 1-Klick: Pickup-Zeit um 15 Min verschieben

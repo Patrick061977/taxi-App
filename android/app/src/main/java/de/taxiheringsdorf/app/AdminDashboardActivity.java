@@ -65,6 +65,9 @@ public class AdminDashboardActivity extends AppCompatActivity {
     private FirebaseDatabase db;
     private Query openRidesQuery;
     private ValueEventListener openRidesListener;
+    // 🆕 v6.63.023: Wenn von DispoActivity gestartet mit Extra auto_edit_ride_id, öffnen
+    //   wir nach dem ersten Listener-Load direkt das Edit-Dialog für diese Ride.
+    private String _pendingAutoEditRideId = null;
 
     // v6.62.745 (Patrick 15.05. 21:07): MapPicker fuer NewBookingDialog Pickup+Destination
     private EditText pendingPickerField;
@@ -143,6 +146,15 @@ public class AdminDashboardActivity extends AppCompatActivity {
 
         // Admin-Mode Flag setzen — CallLogActivity nutzt das um EINSTEIGER zu verstecken
         getSharedPreferences("admin", MODE_PRIVATE).edit().putBoolean("isAdminMode", true).apply();
+
+        // 🆕 v6.63.023: Auto-Edit-Trigger von DispoActivity übernehmen
+        if (getIntent() != null) {
+            String _eid = getIntent().getStringExtra("auto_edit_ride_id");
+            if (_eid != null && !_eid.isEmpty()) {
+                _pendingAutoEditRideId = _eid;
+                getIntent().removeExtra("auto_edit_ride_id");
+            }
+        }
 
         // v6.62.197: Update-Banner aktivieren — vorher kamen Updates auf Admin-Geraeten
         // nicht durch weil dieser Activity keinen UpdateChecker-Aufruf hatte. Patrick:
@@ -299,6 +311,18 @@ public class AdminDashboardActivity extends AppCompatActivity {
             if (isActive || isCompletedPast) _currentRides.add(r);
         }
         rebuildAdapterList();
+        // 🆕 v6.63.023: Wenn DispoActivity uns mit auto_edit_ride_id gestartet hat,
+        //   jetzt nach Listener-Load das Edit-Dialog für diese Ride öffnen.
+        if (_pendingAutoEditRideId != null) {
+            String _eid = _pendingAutoEditRideId;
+            _pendingAutoEditRideId = null;
+            for (Ride _r : _currentRides) {
+                if (_eid.equals(_r.id)) {
+                    showEditRideDialog(_r);
+                    break;
+                }
+            }
+        }
     }
 
     // 🆕 v6.62.673: Adapter-Liste neu bauen aus _currentRides + _currentOffeneAnfragen.

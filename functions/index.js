@@ -20216,6 +20216,74 @@ exports.scheduledAutoAssign = onSchedule(
             newSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); });
             warteschlSnap.forEach(c => { allRides.push({ ...c.val(), firebaseId: c.key }); }); // v6.62.22
 
+            // 🆕 v6.63.009 (Patrick 29.05. 16:40 'Wagscher 5-Tags-Alarm'): pickupTimestamp-Watchdog.
+            //   Symptom: ride hatte pickupDate='2026-05-28' + pickupTime='17:00' aber pickupTimestamp
+            //   stand auf 29.05. 14:49 (exakt createdAt+24h). Mehrere Cron-Wächter lasen den falschen
+            //   Timestamp und feuerten Alarm-Ketten (DispatcherTip Block-Alarm, Reachability, Akzeptanz,
+            //   Push-Reminder, OpenRideCheck).
+            //   Fix: vor der Assignment-Logik lokal korrigieren + persistieren wenn Diskrepanz >5 Min
+            //   zwischen pickupTimestamp und (pickupDate + pickupTime) besteht.
+            try {
+                for (const r of allRides) {
+                    if (!r.pickupDate || !r.pickupTime || !r.pickupTimestamp) continue;
+                    // pickupTime kann 'HH:MM' oder ISO sein — nur HH:MM erlauben damit der Watchdog
+                    // nicht selbst halluziniert.
+                    if (!/^\d{2}:\d{2}$/.test(r.pickupTime)) continue;
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.pickupDate)) continue;
+                    // Erwarteten Timestamp aus pickupDate+pickupTime in Berlin-Zeit berechnen.
+                    // Sommerzeit-sauber via Intl: wir parsen pickupDate als YYYY-MM-DD,
+                    // hängen pickupTime an und nutzen Date.parse mit explizitem Berlin-Offset
+                    // (vereinfacht: lokale Konstruktion → Date.parse, dann ist die Function-VM
+                    // selbst in UTC, also Offset 0; wir korrigieren via TZ-Strategie).
+                    // Approach: Date.UTC + Berlin-Offset (Sommer/Winter ableiten aus dem Monat).
+                    const [_y, _mo, _da] = r.pickupDate.split('-').map(n => parseInt(n, 10));
+                    const [_h, _mi] = r.pickupTime.split(':').map(n => parseInt(n, 10));
+                    // Berlin-Offset: vereinfacht über `Date.prototype.toLocaleString('en-US', { timeZone })`
+                    const _berlinProbe = new Date(Date.UTC(_y, _mo - 1, _da, _h, _mi, 0));
+                    const _utcMillis = _berlinProbe.getTime();
+                    // Offset Berlin = (Local Berlin time of _utcMillis) − UTC time. Wir nutzen
+                    // Intl.DateTimeFormat um die Berlin-Offsetin Min für _utcMillis zu kriegen.
+                    const _berlinStr = _berlinProbe.toLocaleString('en-US', { timeZone: 'Europe/Berlin', hour12: false });
+                    const _berlinAsUtc = new Date(_berlinStr + ' UTC');
+                    const _offsetMs = _utcMillis - _berlinAsUtc.getTime();
+                    const _expectedTs = _utcMillis + _offsetMs;
+                    const _drift = Math.abs(r.pickupTimestamp - _expectedTs);
+                    if (_drift > 5 * 60_000) {
+                        const _driftMin = Math.round(_drift / 60_000);
+                        const _wasTs = r.pickupTimestamp;
+                        // lokale Kopie patchen (für aktuelle Assignment-Logik)
+                        r.pickupTimestamp = _expectedTs;
+                        // Firebase updaten + Audit
+                        await db.ref('rides/' + r.firebaseId).update({
+                            pickupTimestamp: _expectedTs,
+                            pickupTimestampWasBroken: _wasTs,
+                            pickupTimestampFixedBy: 'v6.63.009-watchdog-scheduledAutoAssign',
+                            pickupTimestampFixedAt: now,
+                            updatedAt: now
+                        });
+                        await addRideLog(r.firebaseId, '🛠️',
+                            `pickupTimestamp-Drift ${_driftMin} Min korrigiert (war ${new Date(_wasTs).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})}, jetzt ${r.pickupDate} ${r.pickupTime})`,
+                            { quelle: 'v6.63.009-watchdog', driftMinutes: _driftMin });
+                        console.warn(`🛠️ v6.63.009 Watchdog: ride ${r.firebaseId} pickupTimestamp ${_driftMin} Min drift → korrigiert auf ${r.pickupDate} ${r.pickupTime}`);
+                        // Alarm an Admins, aber nur einmalig pro Ride (Flag prüfen)
+                        if (!r.pickupTimestampDriftAlarmed) {
+                            await sendToAllAdmins(
+                                `🛠️ <b>pickupTimestamp-Drift korrigiert</b>\n\n` +
+                                `Ride: ${r.customerName || '?'}\n` +
+                                `Soll: ${r.pickupDate} ${r.pickupTime}\n` +
+                                `War:  ${new Date(_wasTs).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})}\n` +
+                                `Drift: ${_driftMin} Min\n\n` +
+                                `Watchdog hat die Zeit korrigiert. False-Alarme sollten ab jetzt nicht mehr feuern.`,
+                                'pickupts-drift'
+                            );
+                            await db.ref('rides/' + r.firebaseId + '/pickupTimestampDriftAlarmed').set(true);
+                        }
+                    }
+                }
+            } catch (_wde) {
+                console.warn('⚠️ v6.63.009 Watchdog Fehler:', _wde.message);
+            }
+
             // 🔧 v6.40.18: SELBSTHEILUNG — falsch gesetzte 'assigned' bei Vorbestellungen >60min korrigieren.
             // Ursache: manuelle Admin-Zuweisung hat früher immer 'assigned' gesetzt (auch bei Vorbestellungen).
             // Das verhinderte dass autoResolveConflicts neue Prio-Werte übernehmen konnte.

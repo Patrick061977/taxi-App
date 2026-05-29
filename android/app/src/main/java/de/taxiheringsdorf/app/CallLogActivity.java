@@ -742,14 +742,22 @@ public class CallLogActivity extends AppCompatActivity {
             //   VORHERIGE Anruf. Wenn result[i].date innerhalb 3s nach Ende von result[i+1]
             //   beginnt UND die Nummern unterschiedlich sind → result[i] war in der
             //   Telefon-Warteschlange während result[i+1] lief.
-            final long QUEUE_CHAIN_THRESHOLD_MS = 3000L;
+            // 🆕 v6.63.008 (Patrick 29.05. 12:20 "funktioniert nicht"): Bug-Fix.
+            //   Schwellwert von 3000ms auf 10000ms erhoeht UND lower-bound entfernt.
+            //   Realer Anruf-Setup hat Provider-Latenz; bisheriger Code verwarf zudem
+            //   Faelle wo Anruf B WAEHREND Anruf A reinkam (negative gap = klassische
+            //   Telefon-Warteschlange — genau Patricks Use-Case).
+            final long QUEUE_CHAIN_THRESHOLD_MS = 10000L;
             for (int i = 0; i < result.size() - 1; i++) {
                 CallEntry curr = result.get(i);
                 CallEntry prev = result.get(i + 1);
                 if (curr == null || prev == null) continue;
                 long prevEndMs = prev.date + Math.max(0, prev.durationSec) * 1000L;
                 long gapMs = curr.date - prevEndMs;
-                if (gapMs >= 0 && gapMs <= QUEUE_CHAIN_THRESHOLD_MS
+                curr.queueGapMs = gapMs; // fuer Debug-Anzeige
+                // gap negativ = Anruf B kam waehrend Anruf A lief (Warteschlange)
+                // gap 0..threshold = direkt nach Anruf A
+                if (gapMs <= QUEUE_CHAIN_THRESHOLD_MS
                         && curr.number != null && prev.number != null
                         && !normalizePhone(curr.number).equals(normalizePhone(prev.number))) {
                     curr.queueChain = true;
@@ -2416,6 +2424,7 @@ public class CallLogActivity extends AppCompatActivity {
         //   Anruf B wurde innerhalb 3s nach Anruf A angenommen → B war in der Warte-
         //   schlange, gehört wahrscheinlich zum gleichen Vorgang.
         boolean queueChain;
+        long queueGapMs; // v6.63.008: Gap zum vorigen Anruf — negativ = während A lief
         String prevQueueChainPhone;
         String prevQueueChainName;
     }
@@ -2617,10 +2626,28 @@ public class CallLogActivity extends AppCompatActivity {
                     try { e.acrFile = findAcrRecording(e.number, e.date); } catch (Throwable _t) {}
                 }
                 String audioHint = (e.acrFile != null) ? "  🎵 ACR" : "";
-                // 🆕 v6.62.993 (Patrick 28.05.): Warteschlangen-Verkettung — Anruf war direkt
-                //   nach einem anderen aus der Telefon-Warteschlange (gleicher Vorgang wahrscheinlich).
-                String queueHint = e.queueChain ? "  🔗 aus Warteschlange" : "";
+                // 🆕 v6.62.993 (Patrick 28.05.): Warteschlangen-Verkettung
+                // 🆕 v6.63.008 (Patrick 29.05. 12:21 "Go visueller Tag"): Visueller Banner
+                //   statt nur Text-Hint.
+                String queueHint = "";
+                if (e.queueChain) {
+                    // Kontext: gap negativ = waehrend prev lief = "Warteschlange"
+                    String when = e.queueGapMs < 0 ? "während des vorigen Anrufs" : "direkt nach vorigem";
+                    queueHint = "  🔗 " + when;
+                    // Farb-Banner: gelber Hintergrund + Border links
+                    itemView.setBackgroundColor(0xFFFEF3C7);
+                    // Indikator links per Padding-Border-Hack
+                    int leftPad = (int)(8 * itemView.getResources().getDisplayMetrics().density);
+                    itemView.setPadding(
+                        leftPad, itemView.getPaddingTop(),
+                        itemView.getPaddingRight(), itemView.getPaddingBottom());
+                } else {
+                    itemView.setBackgroundColor(0x00000000);
+                    itemView.setPadding(0, itemView.getPaddingTop(), itemView.getPaddingRight(), itemView.getPaddingBottom());
+                }
                 tvTime.setText("vor " + age + (e.durationSec > 0 ? " · Dauer " + e.durationSec + "s" : "") + audioHint + queueHint);
+                // v6.63.008 Debug: Wenn Patrick Long-Press macht UND kein ACR-File da ist,
+                //   zeigen wir Gap-Info im Toast damit erkennbar warum kein 🔗-Tag.
 
                 itemView.setOnClickListener(_v -> showActionDialog(e));
                 // 🆕 v6.62.676: Long-Press → Audio-Player. Patrick: "Anrufe abhoeren, dann
